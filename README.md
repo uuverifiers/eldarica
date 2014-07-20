@@ -1,4 +1,5 @@
 eldarica
 ========
 
-The Eldarica model checker
+Eldarica, a model checker for Horn clauses,
+Numerical Transition Systems, and Scala programs.
