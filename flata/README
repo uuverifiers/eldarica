@@ -1,0 +1,5 @@
+Flata is the toolset for the manipulation and the analysis of counter
+automata, distributed under LGPL at http://nts.imag.fr/index.php/Flata
+
+NTS is the Java parser for the Numerical Transition Systems library,
+available from https://github.com/filipkonecny/nts

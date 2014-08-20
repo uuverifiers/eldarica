@@ -137,7 +137,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica [version 1.00]. (C) Copyright 2012 LARA. EPFL"
+    "Eldarica, 2014-08-20. (C) Copyright 2012-2014 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -221,7 +221,7 @@ object Main {
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
-      case "-h" :: rest => println(greeting + "\nUsage: lazabs [options] file\n\n" +
+      case "-h" :: rest => println(greeting + "\n\nUsage: lazabs [options] file\n\n" +
           "General options:\n" +
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
@@ -334,7 +334,7 @@ object Main {
       format match {
         case InputFormat.Bip =>
           // BIP mode
-          lazabs.bip.HornBip.apply(fileName)
+//          lazabs.bip.HornBip.apply(fileName)
           return
         case InputFormat.UppaalRelational =>
           // uses iterative relational encoding to solve the system 

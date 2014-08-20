@@ -25,11 +25,13 @@
     <property name="build.dir" value="${base.dir}/bin" />
 	
 	<!-- BIP libraries -->
+<!-- BIP support is disabled for the time being
 	<path id="bip.jars">
 		<fileset dir="${base.dir}/bip-lib">
 	        <include name="*.jar"/>
 	    </fileset>
 	</path>
+ -->
 	
     <!-- libraries -->
     <property name="java-cup.jar" value="${lib.dir}/java-cup-11a.jar" />
@@ -142,7 +144,7 @@
         	    <pathelement location="${nts.jar}" />
                 <pathelement location="${build.dir}" />
             </classpath>
-    	    <classpath refid="bip.jars" />
+<!--    	    <classpath refid="bip.jars" /> -->
         </scalac>
     </target>
 
