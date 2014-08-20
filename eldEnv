@@ -1,0 +1,37 @@
+# Figures out where Eldarica is installed and runs it with the proper classpath
+# (partially copied from the scala dist.)
+SOURCE=$0;
+Z3_LIB_PATH=/home/philipp/tmp/z3/lib
+SCRIPT=`basename "${SOURCE}"`;
+
+# Finds the root folder of the distribution, through the tempest (and the
+# symbolic links)
+while [ -h "${SOURCE}" ]; do
+    SCRIPT=`basename "${SOURCE}"`;
+    LOOKUP=`ls -ld "${SOURCE}"`;
+    TARGET=`expr "${LOOKUP}" : '.*-> \(.*\)$'`;
+    if expr "${TARGET:-.}/" : '/.*/$' > /dev/null; then
+        SOURCE=${TARGET:-.};
+    else
+        SOURCE=`dirname "${SOURCE}"`/${TARGET:-.};
+    fi;
+done;
+
+LAZABS_HOME=`dirname "${SOURCE}"`;
+
+export LD_LIBRARY_PATH=${Z3_LIB_PATH}:/usr/local/lib:/usr/local/lib/jni:/usr/lib/jni;
+
+export JAVA_OPTS="-Xmx2024m -Xss20000k";
+
+if [ -d ${LAZABS_HOME}/lib ]; then
+	# source distribution
+
+	export LAZABS_CP="${LAZABS_HOME}"/dist/lazabs.jar:"${LAZABS_HOME}"/lib/java-cup-11a-runtime.jar:"${LAZABS_HOME}"/lib/z3.jar:"${LAZABS_HOME}"/lib/princess.jar:"${LAZABS_HOME}"/lib/smt-parser.jar:"${LAZABS_HOME}"/flata/flata.jar:"${LAZABS_HOME}"/flata/acceleration.jar:"${LAZABS_HOME}"/flata/glpk-java-4.47.jar:"${LAZABS_HOME}"/lib/antlr-3.3-complete.jar:"${LAZABS_HOME}"/flata/nts.jar:"${LAZABS_HOME}"/bip-lib/*
+	export LAZABS_CMD="scala -cp $LAZABS_CP"
+
+else
+	# binary distribution
+
+	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/dist/lazabs.jar"
+fi
+

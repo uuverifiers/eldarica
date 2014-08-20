@@ -1,0 +1,119 @@
+/**
+ * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package lazabs.horn
+
+import lazabs.ast.ASTree._
+import global._
+import bottomup._
+import bottomup.HornPredAbs.{RelationSymbol}
+import abstractions.{AbsLattice}
+
+object Solve {
+  def apply(clauseSet: Seq[HornClause], 
+            absMap: Option[Map[String, AbsLattice]], 
+            global: Boolean, 
+            disjunctive : Boolean, 
+            interpolatorType : (Boolean, Boolean), 
+            drawRTree: Boolean, 
+            lbe: Boolean, log: Boolean) = {
+
+/*    if(clauseSet.size == 0) {
+      println("No Horn clause")
+      sys.exit(0)
+    }       */
+
+    val arities = clauseSet.map(cl => Horn.getRelVarArities(cl)).reduceLeft(_++_)
+    val timeStart = System.currentTimeMillis
+      if(global) {
+        val cegar = new HornCegar(clauseSet,log)
+        val arg = cegar.apply
+
+        Console.err.println(
+          "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")
+
+        if(log && cegar.status == Status.SAFE) {
+          for((i,sol) <- arg.reportSolution) {
+            val cl = HornClause(
+              RelVar(i,(0 until arities(i)).map(p => Parameter("_" + p,lazabs.types.IntegerType())).toList),
+              List(Interp(sol))
+            )
+            println(lazabs.viewer.HornPrinter.print(cl))
+          }
+        }
+        if(drawRTree) lazabs.viewer.DrawGraph(arg)
+      } else {
+
+        val result = HornWrapper(clauseSet, absMap, lbe, log, disjunctive, interpolatorType)
+
+        Console.err.println(
+          "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")
+
+        result match {
+          case Right(cex) => {
+            println("NOT SOLVABLE")
+//            cex.prettyPrint
+            Util.show(cex, "horn-cex")
+//            println(printTree(cex,""))
+          }
+          case Left(solution) => {
+            println("SOLVABLE")
+            (log,
+             lazabs.GlobalParameters.get.displaySolutionProlog,
+             lazabs.GlobalParameters.get.displaySolutionSMT) match {
+              case (true, _, false) | (_, true, _) => {
+                val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
+                for((pred,sol) <- sortedSol) {
+                  val cl = HornClause(RelVar(pred.name,
+                             (0 until pred.arity).map(p =>
+                                      Parameter("_" + p,lazabs.types.IntegerType())).toList),
+                      List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
+                                   Map[ap.terfor.ConstantTerm,String]().empty,false))))
+                  println(lazabs.viewer.HornPrinter.print(cl))
+                }
+              }
+              case (_, _, true) => {
+                val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
+                for((pred,sol) <- sortedSol) {
+                  val cl = HornClause(RelVar(pred.name,
+                             (0 until pred.arity).map(p =>
+                                      Parameter("_" + p,lazabs.types.IntegerType())).toList),
+                      List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
+                                   Map[ap.terfor.ConstantTerm,String]().empty,false))))
+                  println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
+                }
+              }
+              case _ => // nothing
+            }
+          }
+        }
+      }    
+  }
+}

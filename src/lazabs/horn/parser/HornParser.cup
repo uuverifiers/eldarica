@@ -1,0 +1,283 @@
+/**
+ * Copyright (c) 2011-2014 Hossein Hojjat. All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package lazabs.horn.parser;
+import lazabs.ast.ASTree.*;
+import lazabs.horn.global.*;
+import lazabs.types.*;
+import java_cup.runtime.*;
+import java.util.*;
+import java.math.BigInteger;
+
+
+parser code {:
+	HornLexer lexer;
+	public int relVarCount = 0;
+	public Parser(HornLexer l) {
+    	super(l);
+    	lexer = l;
+   	}
+    static int[] tokens = {
+      Symbols.COMMA, 
+      Symbols.OR, 
+      Symbols.NOT, 
+      Symbols.PLUS, 
+      Symbols.TIMES,
+      Symbols.MOD,
+      Symbols.MINUS, 
+      Symbols.UNDERLINE,
+      Symbols.DIV,
+      Symbols.LEQ,
+      Symbols.LT,
+      Symbols.GEQ,
+      Symbols.GT,
+      Symbols.EQ,
+      Symbols.NEQ,
+      Symbols.IF,
+      Symbols.DOT,
+      Symbols.LPAREN,
+      Symbols.RPAREN,
+      Symbols.ARMC_PARAMS_S,
+      Symbols.ARMC_PARAMS_E,
+      Symbols.FALSE
+    };
+    
+   	static String[] token_names = {
+   	  ",",
+   	  ";",
+   	  "\\" + "+",
+   	  "+",
+   	  "*",
+   	  "mod",
+   	  "-",
+   	  "_",
+   	  "/",
+   	  "=<",
+   	  "<",
+   	  ">=",
+   	  ">",
+   	  "=",
+   	  "!=",
+   	  ":=",
+   	  ".",
+   	  "(",
+   	  ")",
+   	  "[",
+   	  "]",
+   	  "false"
+	};
+		   	
+   	public static String print ( Symbol s ) {
+   		for (int i=0; i<tokens.length; i++)
+	    if (tokens[i]==s.sym) {  
+	    	String res = token_names[i] + " ";
+	       	if (s.value==null)
+		  		return res;
+	       	else if (s.value instanceof Integer)
+		  		return res + ((Integer) s.value).intValue();
+	       	else if (s.value instanceof Float)
+		  		return res + ((Float) s.value).floatValue();
+	       	else if (s.value instanceof String)
+		  		return res + (String) s.value;
+		}
+		return "?";
+    }
+  	public void syntax_error(Symbol cur_token) {
+  		System.err.println("Syntax error while reading input \"" + print(cur_token) + "\" at line " + lexer.getLine() + " column " + lexer.getColumn());		
+	}
+	
+    public void unrecovered_syntax_error(Symbol current) {
+    	throw new RuntimeException("Couldn't repair from parsing errors.");
+    }
+:};
+
+/* Preliminaries to set up and use the JFlex scanner.  */
+init with {: :};
+scan with {: return getScanner().next_token(); :};
+
+/* Terminals (tokens returned by the scanner). */
+terminal  COMMA, OR, NOT, PLUS, TIMES, MOD, MINUS, UMINUS, UNDERLINE, DIV;
+terminal  LEQ, DOUBLEARROW, LT, GEQ, GT, EQ, NEQ, IF, DOT;
+terminal  FALSE, LPAREN, RPAREN, ARMC_PARAMS_S, ARMC_PARAMS_E;
+
+
+terminal BigInteger   NUMBER;
+terminal String       ID;
+
+
+/* Non-terminals */
+non terminal  							Top;
+non terminal  List						HornClauses;
+non terminal  HornClause				HornClause;
+non terminal  List   					BodyLiterals;
+non terminal  HornLiteral				BodyLiteral;
+non terminal  HornLiteral				HeadLiteral;
+non terminal  RelVar					RelationVariable;
+non terminal  List  					Parameters;
+non terminal          			        Semi;
+non terminal  Expression		        BooleanExpr;
+non terminal  Expression		        IntegerExpr;
+non terminal  Expression		        BooleanExprAndAllowed;
+non terminal  Variable   		        Variable;
+non terminal                            Empty;
+
+/* Precedences */
+precedence right                        DOUBLEARROW;
+precedence left         				OR;
+precedence left         				COMMA;
+precedence left         				EQ;
+precedence left         				NEQ;
+precedence nonassoc     				GT, LEQ, LT, GEQ;
+precedence nonassoc                     IF;
+precedence left         				PLUS, MINUS;
+precedence left         				TIMES, DIV, MOD;
+precedence left         				NOT;
+precedence left                         UMINUS;
+precedence left	        				DOT;
+precedence left LPAREN;
+
+
+
+/* The grammar */
+start with Top;
+Top               ::= HornClauses:hcs
+                   {: RESULT = hcs; :}
+                   ;
+
+HornClauses       ::= HornClause:c
+                   {: List list = new LinkedList<HornClause>(); list.add(c); RESULT = list; :}
+                   |  HornClauses:hcs HornClause:c
+                   {: hcs.add(c); RESULT = hcs; :}
+                   ;
+
+HornClause        ::= HeadLiteral:h IF BodyLiterals:bls DOT
+                   {:                      
+                      RESULT = new HornClause(h,scala.collection.JavaConversions.asScalaBuffer(bls).toList()); 
+                   :}
+                   ;
+
+BodyLiterals      ::= BodyLiteral: b
+                   {: List list = new LinkedList<HornLiteral>(); list.add(b); RESULT = list; :}
+                   |  BodyLiterals:bls COMMA BodyLiteral:b
+                   {: bls.add(b); RESULT = bls; :}
+                   ;
+
+RelationVariable  ::= ID:id LPAREN Parameters:ps RPAREN
+                   {:
+                      parser.relVarCount += 1;
+                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(ps).toList()); 
+                   :}
+                   | ID:id ARMC_PARAMS_S Parameters:ps ARMC_PARAMS_E
+                   {:
+                      parser.relVarCount += 1;
+                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(ps).toList()); 
+                   :}
+                   |  ID:id
+                   {:
+                      parser.relVarCount += 1;
+                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(new ArrayList()).toList());
+                   :}
+                   ;
+
+HeadLiteral       ::= RelationVariable:rv
+                   {: RESULT = rv; :}
+                   |  FALSE
+                   {: RESULT = new Interp(new BoolConst(false)); :}
+                   |  FALSE ARMC_PARAMS_S ARMC_PARAMS_E
+                   {: RESULT = new Interp(new BoolConst(false)); :}
+                   ;
+
+BodyLiteral       ::= RelationVariable:rv
+                   {:  RESULT = rv; :}
+                   |  BooleanExpr:exp
+                   {:  RESULT = new Interp(exp); :}
+                   ;
+
+Parameters        ::= ID:id
+                   {: List list = new LinkedList<Parameter>();
+                      Parameter p = new Parameter("sc_" + id, new IntegerType());                       
+                      list.add(p);
+                      RESULT = list;
+                   :}
+                   |  Parameters:ps COMMA ID:id
+                   {: ps.add(new Parameter("sc_" + id, new IntegerType())); RESULT = ps; :}
+                   ;
+
+BooleanExpr       ::= IntegerExpr:e1 EQ:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new EqualityOp(), e2); :}
+                   |  IntegerExpr:e1 NEQ:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new InequalityOp(), e2); :}                   
+                   |  BooleanExpr:e1 OR:p BooleanExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new DisjunctionOp(), e2); :}
+                   |  NOT BooleanExpr:e
+                   {: RESULT = new UnaryExpression(new NotOp(), e); :}
+                   |  IntegerExpr:e1 LT:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new LessThanOp(), e2); :}
+                   |  IntegerExpr:e1 LEQ:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new LessThanEqualOp(), e2); :}
+                   |  IntegerExpr:e1 GT:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new GreaterThanOp(), e2);:}
+                   |  IntegerExpr:e1 GEQ:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new GreaterThanEqualOp(), e2); :}
+                   |  LPAREN BooleanExprAndAllowed:e RPAREN
+                   {: RESULT = e; :}
+                   ;
+                   
+IntegerExpr       ::= IntegerExpr:e1 PLUS:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new AdditionOp(), e2); :}
+                   |  IntegerExpr:e1 MINUS:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new SubtractionOp(), e2); :}
+                   |  IntegerExpr:e1 TIMES:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new MultiplicationOp(), e2); :}
+                   |  IntegerExpr:e1 DIV:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new DivisionOp(), e2); :}
+                   |  IntegerExpr:e1 MOD:p IntegerExpr:e2
+                   {: RESULT = new BinaryExpression(e1, new ModuloOp(), e2); :}
+                   |  MINUS IntegerExpr:e
+                   {: RESULT = new UnaryExpression(new MinusOp(), e); :} %prec UMINUS
+                   |  LPAREN IntegerExpr:e RPAREN
+                   {: RESULT = e; :}
+                   |  ID: id
+                   {:
+                      scala.Option<Integer> n = scala.Option.apply(null);                                   
+                      Variable v = lazabs.ast.ASTree.makeVariable("sc_" + id, n);
+                      v.stype(new IntegerType());
+                      RESULT = v; 
+                   :}
+                   |  NUMBER: n
+                   {:
+                     RESULT = new NumericalConst(new scala.math.BigInt(n)); 
+                   :}
+                   ;
+
+BooleanExprAndAllowed ::= BooleanExprAndAllowed:e1 COMMA:p BooleanExprAndAllowed:e2
+                   {: RESULT = new BinaryExpression(e1, new ConjunctionOp(), e2); :}
+                   |  BooleanExpr:e
+                   {: RESULT = e; :}
+                   ;

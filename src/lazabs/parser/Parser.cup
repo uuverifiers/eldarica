@@ -1,0 +1,547 @@
+/**
+ * Copyright (c) 2011-2014 Hossein Hojjat. All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package lazabs.parser;
+import lazabs.ast.ASTree.*;
+import lazabs.types.*;
+import scala.None;
+import java_cup.runtime.*;
+import java.util.*;
+import java.math.BigInteger;
+
+
+parser code {:
+	Lexer lexer;
+	public Parser(Lexer l) {
+    	super(l);
+    	lexer = l;
+   	}
+    static int[] tokens = {
+    	Symbols.AND, Symbols.OR, Symbols.NOT, Symbols.DOLLAR, Symbols.PLUS, Symbols.TIMES, Symbols.MINUS, Symbols.MINUSMINUS, Symbols.UNDERLINE,
+    	Symbols.DIV, Symbols.LANNOT, Symbols.RANNOT, Symbols.MOD, Symbols.LEQ, Symbols.DOUBLEARROW, Symbols.LT,
+    	Symbols.GEQ, Symbols.GT, Symbols.EQ, Symbols.NEQ, Symbols.EQEQ, Symbols.EQEQEQ, Symbols.COLEQ, Symbols.DOT, Symbols.COMMA,
+    	Symbols.COLON, Symbols.SEMICOLON, Symbols.LPAREN, Symbols.RPAREN, Symbols.LCURLYBRACKET, Symbols.RCURLYBRACKET,
+    	Symbols.LSQUAREBRACKET, Symbols.RSQUAREBRACKET, Symbols.IF, Symbols.ELSE,
+    	Symbols.WHILE, Symbols.DO, Symbols.TRUE, Symbols.FALSE, Symbols.INT, Symbols.BOOLEAN,
+    	Symbols.STRING, Symbols.UNIT, Symbols.ARRAY, Symbols.SET, Symbols.UNION, Symbols.SUBSETOF, Symbols.INTERSECT, 
+    	Symbols.NEW, Symbols.VAR, Symbols.VAL, Symbols.DEF, Symbols.CASE, Symbols.IMPORT, Symbols.CLASS, Symbols.OBJECT, Symbols.EXTENDS, 
+    	Symbols.ENSURING, Symbols.ACTOR, Symbols.REACT, Symbols.ACT, Symbols.LOOP, Symbols.ALL, Symbols.EX, Symbols.NEW  
+    };
+   	static String[] token_names = {
+   		"&", "||", "!", "$", "+", "*", "-", "--", "_",
+   		"/", "/*:", "*/", "%", "<=", "=>", "<", 
+   		">=", ">",	"=", "!=", "==", "===", ":=", ".", ",", 
+   		":", ";", "(", ")", "{", "}",
+   		"[", "]", "if", "else",
+   		"while", "do", "true", "false", "Int", "Boolean", 
+   		"String", "Unit", "Array", "Set", "union", "subsetOf", "intersect", 
+   		"new", "var", "val", "def", "case", "import", "class", "object", "extends", 
+   		"ensuring", "actor", "react", "act", "loop", "ALL", "EX", "new"
+	};	   	
+   	public static String print ( Symbol s ) {
+   		for (int i=0; i<tokens.length; i++)
+	    if (tokens[i]==s.sym) {  
+	    	String res = token_names[i] + " ";
+	       	if (s.value==null)
+		  		return res;
+	       	else if (s.value instanceof Integer)
+		  		return res + ((Integer) s.value).intValue();
+	       	else if (s.value instanceof Float)
+		  		return res + ((Float) s.value).floatValue();
+	       	else if (s.value instanceof String)
+		  		return res + (String) s.value;
+		}
+		return "?";
+    }
+  	public void syntax_error(Symbol cur_token) {
+  		System.err.println("Syntax error while reading input \"" + print(cur_token) + "\" at line " + lexer.getLine() + " column " + lexer.getColumn());		
+	}
+	
+    public void unrecovered_syntax_error(Symbol current) {
+    	System.err.println("Couldn't repair from parsing errors. I am deeply sorry for disappointing you.");
+    	System.exit(1);
+    }
+:};
+
+/* Preliminaries to set up and use the JFlex scanner.  */
+init with {: :};
+scan with {: return getScanner().next_token(); :};
+
+/* Terminals (tokens returned by the scanner). */
+terminal           CLASS, OBJECT, EXTENDS, ENSURING;
+terminal		   ACTOR, REACT, ACT, LOOP; 
+terminal           PLUS, TIMES, MINUS, MINUSMINUS;
+terminal           SUBSETOF, UNION, INTERSECT; 
+terminal		   DIV, MOD;
+terminal           AND, OR;
+terminal           GT, LEQ, LT, GEQ, EQ, EQEQ, EQEQEQ, COLEQ, NEQ, NOT, DOLLAR;
+terminal           CASE, DOUBLEARROW;
+terminal           DOT, SEMICOLON, COLON, LPAREN, RPAREN;
+terminal		   ARRAY, SET, STRING, INT, BOOLEAN, UNIT, NULL;
+terminal           NEW, UNTIL;
+terminal           UNDERLINE;
+terminal           WHILE, DO, IF, ELSE;
+terminal           VAR, VAL, DEF;
+terminal           TRUE, FALSE;
+terminal           LCURLYBRACKET, RCURLYBRACKET, LSQUAREBRACKET, RSQUAREBRACKET, COMMA;
+terminal		   LANNOT, RANNOT;
+terminal           IMPORT, ATSIGN;
+terminal           ALL, EX;
+terminal BigInteger  NUMBER;
+terminal String    ID;
+
+
+/* Non-terminals */
+non terminal  							Top;
+non terminal  							ScalaProgram;
+non terminal  ASTree  			        ScalaObject;
+non terminal  ASTree  			        Import;
+non terminal  ASTree  			        ImportDeclaration;
+non terminal  List     			        ImportDeclarations;
+non terminal  ASTree  			        ImportExpr;
+non terminal  List     			        ImportExprs;
+non terminal  ASTree  			        PathElem;
+non terminal          			        Semi;
+non terminal  Expression		        Expr;
+non terminal  Expression		        BinaryExpression;
+non terminal  Expression		        Binding;
+non terminal  Variable   		        Variable;
+non terminal  List     			        ExprsComma;
+non terminal  ASTree					BlockStat;
+non terminal  List						BlockStats;
+non terminal  ASTree					PredStat;
+non terminal  List						PredStats;
+non terminal  Expression                Block;
+non terminal  List     			        CaseClauses;
+non terminal  ASTree					CaseClause;
+non terminal  Expression				CaseEffect;
+non terminal  Pattern					Pattern;
+non terminal  List     			        ArgumentExprs;
+non terminal  Type			        	Type;
+non terminal  List     			        Declarations;
+non terminal  ASTree     			    Declaration;
+non terminal  ASTree     			    FunDeclaration;
+non terminal  ASTree     			    FunDeclarationWOPost;
+non terminal  ASTree     			    VarDeclaration;
+non terminal  List     			        Predicates;
+non terminal  ASTree     			    ActorStat;
+non terminal  List     			        ActorStats;
+non terminal  ASTree     			    ClassDeclaration;
+non terminal  ASTree                    React;
+non terminal  List     			        ParamClause;
+non terminal  List     			        ParamsComma;
+non terminal          			        Param;
+non terminal                            Empty;
+
+/* Precedences */
+precedence right 						ELSE;
+precedence right                        DOUBLEARROW;
+precedence left         				OR;
+precedence left         				AND;
+precedence left         				EQ, COLEQ;
+precedence left         				NEQ;
+precedence nonassoc     				GT, LEQ, LT, GEQ, EQEQ, EQEQEQ, ATSIGN, UNTIL;
+precedence left         				PLUS, MINUS, MINUSMINUS;
+precedence left         				SUBSETOF, UNION, INTERSECT;
+precedence left         				TIMES, DIV, MOD;
+precedence left         				NOT, DOLLAR;
+precedence left	        				DOT;
+precedence left LPAREN;
+
+
+
+/* The grammar */
+start with Top;
+Top               ::= ScalaProgram:scp
+                   {: RESULT = scp; :}
+                   ;
+
+
+ScalaProgram      ::= Import ScalaObject:so
+                   {: RESULT = so; :}
+                   |  Predicates:ps Import ScalaObject:so
+                   {: RESULT =  lazabs.ast.ASTree.makeScalaObject(ps,so); :}
+                   ;
+                   
+Import            ::= 
+                   |  ImportDeclarations
+                   ;
+                   
+ImportDeclaration ::= IMPORT ImportExprs
+                   ;
+                   
+ImportDeclarations::= ImportDeclaration
+                   |  ImportDeclarations ImportDeclaration 
+                   ;                   
+                   
+ImportExprs       ::= ImportExpr
+                   |  ImportExprs COMMA ImportExpr
+                   ;
+                   
+ImportExpr        ::= PathElem:pe
+                   |  ImportExpr DOT PathElem:pe
+                   ;
+                   
+PathElem          ::= ID:id
+                   |  UNDERLINE
+                   ;
+                   
+Predicates        ::= LANNOT PredStats:ps RANNOT
+                   {: RESULT = ps; :}
+                   ;
+                   
+PredStats         ::= PredStat:p
+				   {: List list = new LinkedList<Parameter>();
+				      if(p instanceof Predicate) {				         
+				        List<Predicate> predicates = lazabs.ast.ASTree.expandPreds((Predicate)p);
+				        for(Predicate pred: predicates)
+				          list.add(pred);
+				        } else 
+				      list.add(p);
+				      RESULT = list; 
+				   :}
+                   |  PredStats:ps PredStat:p
+                   {: if(p instanceof Predicate) {
+                        List<Predicate> predicates = lazabs.ast.ASTree.expandPreds((Predicate)p);
+				        for(Predicate pred: predicates)
+				          ps.add(pred);
+				        } else ps.add(p);
+				      RESULT = ps; 
+				   :}
+                   ;
+
+PredStat          ::= Expr:e
+				   {: RESULT = lazabs.ast.ASTree.makePredicate(e, new LinkedList<Predicate>()); :}
+                   |  VarDeclaration:vd
+                   {: RESULT = vd; :}
+                   |  Expr:e ATSIGN LCURLYBRACKET PredStats:ps RCURLYBRACKET
+				   {: RESULT = lazabs.ast.ASTree.makePredicate(e, ps); :}                   
+                   ;
+
+ScalaObject       ::= OBJECT ID:id LCURLYBRACKET Declarations:ds RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeScalaObject(id,ds); :}
+                   ;
+
+Declarations      ::= Declaration:d
+                   {: List list = new LinkedList<Declaration>(); list.add(d); RESULT = list; :}
+                   |  Declarations:ds Declaration:d
+                   {: ds.add(d); RESULT = ds; :}
+                   ;
+                   
+Declaration       ::= VAL Variable:v COLON Type:t EQ ACTOR LCURLYBRACKET ActorStats:es RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeSingletonActorDeclaration(v.name(), es); :}
+                   |  FunDeclaration:fd
+                   {: RESULT = fd; :}
+                   |  Predicates:ps
+                   {: RESULT = lazabs.ast.ASTree.makePredsDeclaration(ps); :}
+                   |  VarDeclaration:vd
+                   {: RESULT = vd; :}                   
+                   |  ClassDeclaration:cd
+                   {: RESULT = cd; :}
+                   ;
+                   
+VarDeclaration    ::= VAR Variable:v COLON Type:t EQ Expr:e
+                   {: RESULT = new VarDeclaration(v.name(), t, e); :}
+                   |  VAL Variable:v COLON Type:t EQ Expr:e
+                   {: RESULT = new VarDeclaration(v.name(), t, e); :}
+                   ;
+                   
+FunDeclaration    ::= FunDeclarationWOPost:f ENSURING LPAREN Variable:rs DOUBLEARROW Expr:pst RPAREN
+                   {: FunctionDefinition func = ((FunctionDefinition) f);
+                      scala.Option<scala.Tuple2<Variable,Expression>> rp = scala.Option.apply(new scala.Tuple2<Variable,Expression>(rs,pst));
+                      RESULT = new FunctionDefinition(func.funcName(), func.params(), func.t(), func.body(), rp); :}
+                   |  FunDeclarationWOPost:f
+                   {: RESULT = f; :}
+                   ;                                      
+
+FunDeclarationWOPost::= DEF ID:id ParamClause:ps COLON Type:t EQ Expr:e
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionDefinition("sc_" + id, ps, t, e); :}
+                   |  DEF ID:id ParamClause:ps EQ Expr:e
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionDefinition("sc_" + id, ps, new UnitType(), e); :}
+                   |  DEF ID:id ParamClause:ps Block:b
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionDefinition("sc_" + id, ps, new UnitType(), b); :}
+                   |  DEF ACT:a ParamClause:ps LCURLYBRACKET ActorStats:es RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionDefinition(new String("sc_act"), ps, new UnitType(), lazabs.ast.ASTree.makeBlock(es)); :}
+                   ;                   
+
+ClassDeclaration  ::= CLASS ID:id1 ParamClause:ps EXTENDS ID:id2 LCURLYBRACKET ActorStats:es RCURLYBRACKET
+                   {: scala.Option<String> parentName = scala.Option.apply("sc_" + id2);
+                      RESULT = lazabs.ast.ASTree.makeClassDeclaration("sc_" + id1, ps, parentName, es); :}
+                   ;
+
+                   
+ActorStats        ::= ActorStat:a
+				   {: List list = new LinkedList<Expression>(); list.add(a); RESULT = list; :}
+                   |  ActorStats:as ActorStat:a
+                   {: as.add(a); RESULT = as; :} 
+                   ;
+
+ActorStat         ::= Expr:e
+				   {: RESULT = e; :}
+                   |  Declaration:d
+                   {: RESULT = d; :}
+                   |  React:r
+                   {: RESULT = r; :}
+                   |  LOOP LCURLYBRACKET ActorStats:es RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeActorLoop(es); :}
+                   ;
+
+React             ::= REACT LCURLYBRACKET CaseClauses:cs RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeReactBlock(cs); :}
+                   ;
+                                                        
+ParamClause       ::= LPAREN ParamsComma:ps RPAREN
+                   {: RESULT = ps; :}
+                   |
+                   {: List list = new LinkedList<Parameter>(); RESULT = list; :}
+                   |  LPAREN RPAREN
+                   {: List list = new LinkedList<Parameter>(); RESULT = list; :}                   
+                   ;
+                   
+ParamsComma       ::= Param:p
+				   {: List list = new LinkedList<Parameter>(); list.add(p); RESULT = list; :}
+                   |  ParamsComma:ps COMMA Param:p
+                   {: ps.add(p); RESULT = ps; :}                   
+                   ;
+                   
+Param             ::= ID:id COLON Type:t
+                   {: RESULT = new Parameter("sc_" + id, t); :}
+                   ;                    
+                                      
+Type              ::= UNIT
+                   {: RESULT = new UnitType(); :}
+                   |  ARRAY LSQUAREBRACKET Type:t RSQUAREBRACKET
+                   {: RESULT = new ArrayType(t); :}
+                   |  SET LSQUAREBRACKET Type:t RSQUAREBRACKET
+                   {: RESULT = new SetType(t); :}                   
+                   |  INT
+                   {: RESULT = new IntegerType(); :}
+                   |  STRING
+                   {: RESULT = new StringType(); :}
+                   |  BOOLEAN
+                   {: RESULT = new BooleanType(); :}
+                   |  ID:id
+                   {: RESULT = new ClassType("sc_" + id); :}                   
+                   ;
+                   
+ExprsComma        ::= Expr:e
+				   {: List list = new LinkedList<Expression>(); list.add(e); RESULT = list; :}
+                   |  ExprsComma:es COMMA Expr:e
+                   {: es.add(e); RESULT = es; :}
+                   ;                   
+
+Expr              ::= ALL:q ID:bv COLON Type:t DOT Expr:e
+                   {: BinderVariable v = new BinderVariable("sc_" + bv);
+                      v.stype(t);
+                      RESULT = new Universal(v, e); :} %prec NOT
+                   |  EX:q ID:bv COLON Type:t DOT Expr:e
+                   {: BinderVariable v = new BinderVariable("sc_" + bv);
+                      v.stype(t);                   
+                      RESULT = new Existential(v, e); :} %prec NOT
+                   |  LPAREN Expr:e RPAREN
+                   {: RESULT = e; :}
+                   |  IF LPAREN Expr:e1 RPAREN Expr:e2 ELSE Expr:e3
+                   {: RESULT = new TernaryExpression(new IfThenElseOp(),e1, e2, e3); :}
+                   |  WHILE LPAREN Expr:e1 RPAREN Expr:e2
+                   {: RESULT = new WhileLoop(e1, e2); :}
+                   |  DO Expr:e2 WHILE LPAREN Expr:e1 RPAREN
+                   {: RESULT = new DoWhileLoop(e1, e2); :}
+                   |  MINUS Expr:e
+                   {: RESULT = new UnaryExpression(new MinusOp(), e); :}
+                   |  NOT Expr:e
+                   {: RESULT = new UnaryExpression(new NotOp(), e); :}
+                   |  ID:id ArgumentExprs:as
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionCall("sc_" + id,as); :}
+                   |  DOLLAR ID:id ArgumentExprs:as
+                   {: RESULT = lazabs.ast.ASTree.makeFunctionCall(id,as); :}                   
+                   |  ID:id ArgumentExprs:e1 ArgumentExprs:e2
+                   {: RESULT = lazabs.ast.ASTree.makeTwoDimArraySelect("sc_" + id,e1,e2); :}
+                   |  DOLLAR ID:id ArgumentExprs:e1 ArgumentExprs:e2
+                   {: RESULT = lazabs.ast.ASTree.makeTwoDimArraySelect(id,e1,e2); :}                   
+                   |  ARRAY ArgumentExprs:as
+                   {: RESULT = lazabs.ast.ASTree.makeArrayConst(as); :}
+                   |  SET ArgumentExprs:as
+                   {: RESULT = lazabs.ast.ASTree.makeSetConst(as); :}                   
+                   |  NEW ARRAY LSQUAREBRACKET Type:t RSQUAREBRACKET LPAREN Expr:e RPAREN
+                   {: if (e instanceof NumericalConst) {
+                        List list = new LinkedList<Expression>();
+                        for(int i=0; i < ((NumericalConst)e).num().intValue(); i++)
+                      	  list.add(new NumericalConst(new scala.math.BigInt(BigInteger.ZERO)));
+                        RESULT = lazabs.ast.ASTree.makeArrayConst(list);
+                      } else {
+                        scala.Option<Expression> l = scala.Option.apply(e);
+                        scala.Option<Variable> v = scala.Option.apply(null);
+                        ScArray ar = new ScArray(v, l);
+                        ar.stype(t);                        
+                        RESULT = ar;
+                      } 
+                    :}
+                   |  BinaryExpression:b
+                   {: RESULT = b; :}
+                   |  Variable:v
+                   {: RESULT = v; :}
+                   |  NEW ID:id ArgumentExprs:as
+                   {: RESULT = lazabs.ast.ASTree.makeCreateObject("sc_" + id,as); :}
+                   |  NEW ID:id
+                   {: RESULT = lazabs.ast.ASTree.makeCreateObject("sc_" + id,new LinkedList<Expression>()); :} 
+                   |  Block:b
+                   {: RESULT = b; :}
+                   |  NUMBER:n
+                   {: RESULT = new NumericalConst(new scala.math.BigInt(n)); :}
+                   |  NULL:n
+                   {: RESULT = new Null(); :}
+                   |  TRUE:t
+                   {: RESULT = new BoolConst(true); :}
+                   |  FALSE:t
+                   {: RESULT = new BoolConst(false); :}                   
+                   ;
+
+
+BinaryExpression  ::= IF LPAREN Expr:e1 RPAREN Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new IfThenOp(), e2); :}
+                   |  Expr:e1 OR:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new DisjunctionOp(), e2); :}                    
+                   |  Expr:e1 AND:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new ConjunctionOp(), e2); :}                   
+                   |  Expr:e1 EQEQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new EqualityOp(), e2); :}
+                   |  Expr:e1 EQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new AssignmentOp(), e2); :}                  
+                   |  Expr:e1 NEQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new InequalityOp(), e2); :}
+                   |  Expr:e1 EQEQEQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new IffOp(), e2); :}                   
+                   |  Expr:e1 LT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new LessThanOp(), e2); :}
+                   |  Expr:e1 LEQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new LessThanEqualOp(), e2); :}
+                   |  Expr:e1 GT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new GreaterThanOp(), e2); :}
+                   |  Expr:e1 GEQ:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new GreaterThanEqualOp(), e2); :}
+                   |  Expr:e1 PLUS:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new AdditionOp(), e2); :}
+                   |  Expr:e1 MINUS:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SubtractionOp(), e2); :}
+                   |  Expr:e1 MINUSMINUS:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetDifferenceOp(), e2); :}
+                   |  Expr:e1 TIMES:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new MultiplicationOp(), e2); :}
+                   |  Expr:e1 DIV:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new DivisionOp(), e2); :}
+                   |  Expr:e1 MOD:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new ModuloOp(), e2); :}
+                   |  Expr:e1 DOT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new AccessOp(), e2); :}
+                   |  Expr:e1 SUBSETOF:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetSubsetOp(), e2); :}
+                   |  Expr:e1 DOT SUBSETOF:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetSubsetOp(), e2); :}                   
+                   |  Expr:e1 UNION:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetUnionOp(), e2); :}
+                   |  Expr:e1 DOT UNION:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetUnionOp(), e2); :}
+                   |  Expr:e1 INTERSECT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetIntersectOp(), e2); :}
+                   |  Expr:e1 DOT INTERSECT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SetIntersectOp(), e2); :}
+                   |  Expr:e1 UNTIL:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new UntilOp(), e2); :}
+                   |  Binding:e1 DOUBLEARROW Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new AnonymousFunctionOp(), e2); :}                   
+                   |  Expr:e1 NOT:p Expr:e2
+                   {: RESULT = new BinaryExpression(e1, new SendMessageOp(), e2); :}
+                   ;
+                   
+                   
+Variable          ::= ID:id
+                   {: scala.Option<Integer> n = scala.Option.apply(null);                                   
+                      RESULT = lazabs.ast.ASTree.makeVariable("sc_" + id, n); :}
+                   |  DOLLAR ID:id
+                   {: scala.Option<Integer> n = scala.Option.apply(null);                                   
+                      RESULT = lazabs.ast.ASTree.makeVariable(id, n); :}
+                   ;                   
+                   
+Block             ::= LCURLYBRACKET BlockStats:es RCURLYBRACKET
+                   {: RESULT = lazabs.ast.ASTree.makeBlock(es); :}
+                   |  LCURLYBRACKET RCURLYBRACKET
+                   {: List list = new LinkedList<Expression>(); list.add(new Skip()); RESULT = lazabs.ast.ASTree.makeBlock(list); :}
+                   ;
+                   
+BlockStats        ::= BlockStat:b
+				   {: List list = new LinkedList<Expression>(); list.add(b); RESULT = list; :}
+                   |  BlockStats:bs BlockStat:b
+                   {: bs.add(b); RESULT = bs; :} 
+                   ;
+
+BlockStat         ::= Expr:e
+				   {: RESULT = e; :}
+                   |  Declaration:d
+                   {: RESULT = d; :}
+                   ;
+                   
+CaseClauses       ::= CaseClause:c
+				   {: List list = new LinkedList<CaseClause>(); list.add(c); RESULT = list; :}
+                   |  CaseClauses:cs CaseClause:c
+                   {: cs.add(c); RESULT = cs; :}
+                   ;
+
+CaseClause        ::= CASE Pattern:p DOUBLEARROW CaseEffect:e
+                   {: RESULT = new CaseClause(p, new BoolConst(true), e); :}
+                   |  CASE Pattern:p IF LPAREN Expr:e1 RPAREN DOUBLEARROW CaseEffect:e2
+                   {: RESULT = new CaseClause(p, e1, e2); :}
+                   ;
+                   
+CaseEffect        ::= BlockStats:es
+                   {: RESULT = lazabs.ast.ASTree.makeBlock(es); :}
+                   ;
+                   
+Pattern           ::= ID:id
+                   {:
+                      scala.Option<Integer> n = scala.Option.apply(null); 
+                      RESULT = new Pattern(lazabs.ast.ASTree.makeVariable("sc_" + id, n));
+                   :}                      
+                   |  ID:id COLON Type:t
+                   {: 
+                      scala.Option<Integer> n = scala.Option.apply(null);
+                      Variable v = lazabs.ast.ASTree.makeVariable("sc_" + id, n);
+                      v.stype(t);
+                      RESULT = new Pattern(v); :}
+                   ;
+                   
+Binding           ::= Variable:v
+                   {: RESULT = v; :}
+                   ;                   
+                                      
+ArgumentExprs     ::= LPAREN RPAREN
+                   {: List list = new LinkedList<Expression>(); RESULT = list; :}
+                   |  LPAREN ExprsComma:es RPAREN
+                   {: RESULT = es; :}
+                   ;        
+
