@@ -1,0 +1,6 @@
+#!/bin/sh
+
+export JAVA_OPTS="-Xmx2024m -Xss20000k";
+export LAZABS_HOME=../..
+
+scala -cp "${LAZABS_HOME}"/dist/lazabs.jar:"${LAZABS_HOME}"/lib/princess.jar lazabs.horn.concurrency.Main 2>&1 | grep -v 'time' | sed -e 's/Map(.*$//g'

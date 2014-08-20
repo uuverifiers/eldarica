@@ -1,0 +1,18 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="mccarthy91.nts.smt2 \
+       mccarthy92.nts.smt2 \
+       palindrome.nts.smt2 \
+       amotsa.smt2 \
+       substring.error.nts.smt2 \
+       test0.correct.pierre.nts.smt2 \
+       rate_limiter.c.nts.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done
+

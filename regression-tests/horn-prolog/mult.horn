@@ -1,0 +1,4 @@
+mult(x,y,z)   :-   (x = 0), (z = 0).
+mult(x,y,w)   :-   \+(x = 0), (t = x / 2), mult(t,y,z),   ((x mod 2) = 0), (w = 2 * z).
+mult(x,y,w)   :-   \+(x = 0), (t = x / 2), mult(t,y,z), \+((x mod 2) = 0), (w = 2 * z + y).
+false         :-   mult(x,y,z), (x = 2), (z < y + y).

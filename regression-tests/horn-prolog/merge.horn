@@ -1,0 +1,5 @@
+merge(X,Y,Z) :- X = 0, Z = Y.
+merge(X,Y,Z) :- Y = 0, Z = X.
+merge(X,Y,Z) :- Y1 = Y - 1, merge(X, Y1, Z1), Z = Z1 + 1.
+merge(X,Y,Z) :- X1 = X - 1, merge(X1, Y, Z1), Z = Z1 + 1.
+false :- merge(X,Y,Z), (X = Y), \+(Z = 2 * X).

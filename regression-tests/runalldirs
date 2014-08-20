@@ -1,0 +1,7 @@
+#!/bin/sh
+
+./rundir horn-prolog "" -assert -t:60
+./rundir horn-smt-lib "" -assert -t:60
+./rundir horn-abstract "" -assert -t:60 -abstractTO:4
+./rundir horn-arrays ""
+./rundir horn-concurrency ""

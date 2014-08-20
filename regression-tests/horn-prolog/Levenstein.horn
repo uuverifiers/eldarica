@@ -1,0 +1,16 @@
+
+Rf(S, T, D) :- S=0, T=D.
+Rf(S, T, D) :- T=0, S=D.
+
+P1(S, T, C) :- S > 0, T > 0, C = 0.
+P1(S, T, C) :- S > 0, T > 0, C = 1.
+
+P2(S, T, C, D1) :- P1(S, T, C) , S0=S-1, Rf(S0, T,  D0), D1=D0+1.
+P3(S, T, C, D1, D2) :- P2(S, T, C, D1) , T0=T-1, Rf(S, T0,  D0), D2=D0+1.
+P4(S, T, D1, D2, D3) :- P3(S, T, C, D1, D2) , S0=S-1, T0=T-1, Rf(S0, T0,  D0), D3=D0+C.
+
+Rf(S, T, D1) :- P4(S, T, D1, D2, D3), D1=<D2, D1=<D3.
+Rf(S, T, D2) :- P4(S, T, D1, D2, D3), D2=<D1, D2=<D3.
+Rf(S, T, D3) :- P4(S, T, D1, D2, D3), D3=<D1, D3=<D2.
+
+false :- Rf(S, T, D), D>S, D>T.

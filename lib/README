@@ -1,0 +1,18 @@
+ANTLR is available under BSD license from
+http://www.antlr.org
+
+JarJar is available under Apache License 2.0 from
+https://code.google.com/p/jarjar/
+
+Java-cup is available from
+http://www2.cs.tum.edu/projects/cup/
+
+JFlex is available under BSD license from
+http://www.jflex.de/
+
+Princess (including pri-parser.jar and smt-parser.jar) are available
+under GPL (in future LGPL) from
+http://www.philipp.ruemmer.org/princess.shtml
+
+Scala^Z3 is available from
+https://github.com/epfl-lara/ScalaZ3

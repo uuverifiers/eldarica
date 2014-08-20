@@ -1,0 +1,12 @@
+main_qf :- main_q2(A,B,C,D,E,F),(D =< (2 + ((E - F) / 2))).
+false :- main_q2(A,B,C,D,E,F),(D > (2 + ((E - F) / 2))).
+main_q1(A,B,C,D,E,F) :- main_q0(A,B,C,G,H,I),(F >= 0), (E >= 0), (E >= F).
+main_q0(A,B,C,D,E,F) :- A = D, B = E, C = F.
+palindrome_q4(A,B,C,D,E,F) :- palindrome_q3(A,C,B,G,H,I,J,K),D = 1, I = F, J = E, K = L.
+palindrome_q4(A,B,C,D,E,F) :- palindrome_q2(A,C,B,G,H,I,J,K),D = (1 + K), I = F, J = E, K = L.
+palindrome_q3(A,B,C,D,E,F,G,H) :- palindrome_q0(A,B,C,D,I,J,K,L),(K >= J), I = E, J = F, K = G, L = H.
+palindrome_q1(A,B,C,D,E,F,G,H) :- palindrome_q0(A,B,C,D,I,J,K,L),(K < J), I = E, J = F, K = G, L = H.
+palindrome_q2(A,B,C,D,E,F,G,H) :- palindrome_q1(A,B,C,D,I,J,K,L),M = (K + 1), N = (J - 1),palindrome_q4(O,M,N,P,Q,R),P = H,I = E, J = F, K = G.
+palindrome_q0(A,B,C,D,E,F,G,H) :- palindrome_q1(I,J,K,L,M,N,O,P),C = (O + 1), B = (N - 1),A = E, B = F, C = G, D = H.
+main_q2(A,B,C,D,E,F) :- main_q1(A,B,C,G,H,I),J = I, K = H,palindrome_q4(L,J,K,M,N,O),M = D,H = E, I = F.
+palindrome_q0(A,B,C,D,E,F,G,H) :- main_q1(I,J,K,L,M,N),C = N, B = M,A = E, B = F, C = G, D = H.

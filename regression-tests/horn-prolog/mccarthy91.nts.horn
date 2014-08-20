@@ -1,0 +1,12 @@
+main_sf(A,B,C,D) :- main_s3(A,B,E,F),E = 91, E = C, F = D.
+false :- main_s3(A,B,C,D),\+(C = 91), C = E, D = F.
+main_s2(A,B,C,D) :- main_s1(A,B,E,F),(D =< 100), E = C.
+main_s1(A,B,C,D) :- A = C, B = D.
+f_s2(A,B,C,D) :- f_s1(A,B,E,F),(F =< 100), C = (F + 11), F = D.
+f_sf(A,B,C,D) :- f_s1(A,B,E,F),(F > 100), C = (F - 10), F = D.
+f_s3(A,B,C,D) :- f_s2(A,B,E,F),G = E,f_sf(H,G,I,J),I = C,F = D.
+f_s1(A,B,C,D) :- f_s2(E,F,G,H),B = G,A = C, B = D.
+f_sf(A,B,C,D) :- f_s3(A,B,E,F),G = E,f_sf(H,G,I,J),I = C,F = D.
+f_s1(A,B,C,D) :- f_s3(E,F,G,H),B = G,A = C, B = D.
+main_s3(A,B,C,D) :- main_s2(A,B,E,F),G = F,f_sf(H,G,I,J),I = C,F = D.
+f_s1(A,B,C,D) :- main_s2(E,F,G,H),B = H,A = C, B = D.

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="merge.horn \
+       gcd.horn \
+       mult.horn \
+       Levenstein.horn \
+       disjunctive.horn \
+       mccarthy91.nts.horn \
+       mccarthy92.nts.horn \
+       palindrome.nts.horn \
+       listcounter.error.nts.horn"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -sol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done
+

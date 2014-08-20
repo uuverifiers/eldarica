@@ -1,0 +1,4 @@
+rf(M,N,R)   :-   (M = N), (R = M).
+rf(M,N,R)   :-   (M > N), (M1 = M - N), rf(M1,N,R).
+rf(M,N,R)   :-   (M < N), (N1 = N - M), rf(M,N1,R).
+false       :-    M >= 0, M = N, rf(M,N,R), R > M.

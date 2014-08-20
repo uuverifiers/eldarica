@@ -1,0 +1,35 @@
+main_h_22(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_33(A,B,C,D,E,F,M,N,O,P,Q,R),J = R, L = P, M = G, N = H, O = I, Q = K.
+main_h_33(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_31(A,B,C,D,E,F,M,N,O,P,Q,R),N = 1, L = (N + R), M = G, N = H, O = I, P = J, Q = K.
+false :- main_h_30(A,B,C,D,E,F,G,H,I,J,K,L),G = M, H = N, I = O, J = P, K = Q, L = R.
+main_h_31(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_29(A,B,C,D,E,F,M,N,O,P,Q,R),I = (O - 1), M = G, N = H, P = J, Q = K, R = L.
+main_h_23(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_32(A,B,C,D,E,F,M,N,O,P,Q,R),J = R, L = P, K = M, H = Q, M = G, O = I.
+main_h_32(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_31(A,B,C,D,E,F,M,N,O,P,Q,R),H = 1, G = (N - 1), L = (N + R), (N >= 2), O = I, P = J, Q = K.
+main_h_29(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_27(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_30(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_28(A,B,C,D,E,F,M,N,O,P,Q,R),I = (O - 1), M = G, N = H, P = J, Q = K, R = L.
+main_h_27(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_23(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_28(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_24(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_23(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_21(A,B,C,D,E,F,M,N,O,P,Q,R),L = 1, H = (R - 1), (R >= 2), M = G, O = I, P = J, Q = K.
+main_h_24(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_22(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_21(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_18(A,B,C,D,E,F,M,N,O,P,Q,R),I = (O - 1), M = G, N = H, P = J, Q = K, R = L.
+main_h_22(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_21(A,B,C,D,E,F,M,N,O,P,Q,R),R = 1, M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_20(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_17(A,B,C,D,E,F,M,N,O,P,Q,R),H = 1, G = (N - 1), L = (N + R), (N >= 2), O = I, P = J, Q = K.
+main_h_10(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_20(A,B,C,D,E,F,M,N,O,P,Q,R),J = M, K = R, L = Q, H = P, M = G, O = I.
+main_h_19(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_17(A,B,C,D,E,F,M,N,O,P,Q,R),N = 1, L = (N + R), M = G, N = H, O = I, P = J, Q = K.
+main_h_9(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_19(A,B,C,D,E,F,M,N,O,P,Q,R),J = R, L = P, M = G, N = H, O = I, Q = K.
+main_h_17(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_14(A,B,C,D,E,F,M,N,O,P,Q,R),I = (O + 1), M = G, N = H, P = J, Q = K, R = L.
+main_h_18(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_16(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_16(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_13(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_14(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_12(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_13(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_11(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_12(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_10(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_11(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_9(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_10(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_8(A,B,C,D,E,F,M,N,O,P,Q,R),L = 1, H = (R - 1), (R >= 2), M = G, O = I, P = J, Q = K.
+main_h_9(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_8(A,B,C,D,E,F,M,N,O,P,Q,R),R = 1, M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_8(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_7(A,B,C,D,E,F,M,N,O,P,Q,R),I = (O + 1), M = G, N = H, P = J, Q = K, R = L.
+main_h_7(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_6(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_6(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_5(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_5(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_4(A,B,C,D,E,F,M,N,O,P,Q,R),I = 0, M = G, N = H, P = J, Q = K, R = L.
+main_h_4(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_3(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_3(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_2(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_2(A,B,C,D,E,F,G,H,I,J,K,L) :- main_h_1(A,B,C,D,E,F,M,N,O,P,Q,R),M = G, N = H, O = I, P = J, Q = K, R = L.
+main_h_1(A,B,C,D,E,F,G,H,I,J,K,L) :- A = G, B = H, C = I, D = J, E = K, F = L.

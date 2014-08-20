@@ -1,0 +1,9 @@
+r2(X,Y)    :-  \+(X = 0).
+r1(X,Y)    :-  (X = 0).
+rf(X,Y,Z)  :-  r1(X,Y) , (Z = 0).
+r3(X,Y,X)  :-  r2(X,Y) , X1 = X - 2, rf(X1,Y,Z).
+r5(X,Y,Z)  :-  r3(X,Y,Z), (X < Y).
+r4(X,Y,Z)  :-  r3(X,Y,Z), (X >= Y).
+rf(X,Y,Z1) :-  r4(X,Y,Z), (Z1 = Z + Y).
+rf(X,Y,Z1) :-  r5(X,Y,Z), (Z1 = Z). 
+false      :-  (X >= 0), rf(X,X,Y), (Y < 0).  
