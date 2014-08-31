@@ -11,7 +11,7 @@ JFlex is available under BSD license from
 http://www.jflex.de/
 
 Princess (including pri-parser.jar and smt-parser.jar) are available
-under GPL (in future LGPL) from
+under LGPL from
 http://www.philipp.ruemmer.org/princess.shtml
 
 Scala^Z3 is available from
