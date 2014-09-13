@@ -1,0 +1,161 @@
+-- Copyright (c) 2009-2014 Philipp Ruemmer. All rights reserved.
+-- 
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+-- 
+-- * Redistributions of source code must retain the above copyright notice, this
+--   list of conditions and the following disclaimer.
+-- 
+-- * Redistributions in binary form must reproduce the above copyright notice,
+--   this list of conditions and the following disclaimer in the documentation
+--   and/or other materials provided with the distribution.
+-- 
+-- * Neither the name of the authors nor the names of their
+--   contributors may be used to endorse or promote products derived from
+--   this software without specific prior written permission.
+-- 
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+-- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+-- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+-- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+-- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+-- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+-- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+-- BNF Grammar of the Eldarica format for interpolation abstraction templates
+
+comment ";";
+
+--------------------------------------------------------------------------------
+-- Entry point
+
+Spec.                   SpecC           ::= [TemplatesC];
+
+--------------------------------------------------------------------------------
+-- Templates for a specific relation symbol
+
+Templates.              TemplatesC      ::= "(" "templates"
+                                                "(" SymbolRef [Symbol] ")"
+                                                [TemplateC] ")";
+
+separator TemplatesC "";
+
+--------------------------------------------------------------------------------
+-- One template
+
+TermTemplate.           TemplateC       ::= "(" TemplateType Term Integer ")";
+
+separator TemplateC "";
+
+PredicateType.          TemplateType    ::= "predicate";
+PredicatePosNegType.    TemplateType    ::= "predicate-2";
+TermType.               TemplateType    ::= "term";
+InequalityTermType.     TemplateType    ::= "inequality-term";
+InequalityTermPosNegType. TemplateType   ::= "inequality-term-2";
+
+--------------------------------------------------------------------------------
+-- The rest of the file is standard SMT-LIB 2
+
+--------------------------------------------------------------------------------
+-- Sorts and their declarations
+
+IdentSort.	Sort		::= Identifier;
+CompositeSort.	Sort		::= "(" Identifier [Sort] ")";
+
+separator nonempty Sort "";
+
+--------------------------------------------------------------------------------
+-- Terms
+
+ConstantTerm.	Term		::= SpecConstant;
+-- The following rule captures both nullary functions (constants)
+-- and variables
+NullaryTerm.	Term		::= SymbolRef;
+FunctionTerm.	Term		::= "(" SymbolRef [Term] ")";
+LetTerm.	Term		::= "(" "let" "(" [BindingC] ")" Term ")";
+QuantifierTerm.	Term		::= "(" Quantifier
+				    	"(" [SortedVariableC] ")" Term ")";
+
+AnnotationTerm.	Term		::= "(" "!" Term [Annotation] ")";
+
+separator nonempty Term "";
+
+Binding.	BindingC	::= "(" Symbol Term ")";
+
+separator nonempty BindingC "";
+
+AllQuantifier.	Quantifier	::= "forall";
+ExQuantifier.	Quantifier	::= "exists";
+
+--------------------------------------------------------------------------------
+-- Functions, constants, variables
+
+-- The category "SymbolRef" is used both for variables and nullary
+-- functions
+IdentifierRef.	SymbolRef	::= Identifier;
+CastIdentifierRef.SymbolRef	::= "(" "as" Identifier Sort ")";
+
+--------------------------------------------------------------------------------
+-- Variables
+
+SortedVariable.	SortedVariableC	::= "(" Symbol Sort ")";
+
+separator nonempty SortedVariableC "";
+
+--------------------------------------------------------------------------------
+-- Literals
+
+NumConstant.	SpecConstant	::= Numeral;
+RatConstant.	SpecConstant	::= Rational;
+HexConstant.	SpecConstant	::= Hexadecimal;
+BinConstant.	SpecConstant	::= Binary;
+StringConstant.	SpecConstant	::= String;
+
+token Numeral     ('0' | (["123456789"] ["0123456789"]*));
+token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
+token Hexadecimal ({"#h"} ["0123456789ABCDEF"]+);
+token Binary      ({"#b"} ["01"]+);
+
+--------------------------------------------------------------------------------
+-- Tokens for identifiers and benchmark/family/logic names
+
+SymbolIdent.	Identifier	::= Symbol;
+IndexIdent.	Identifier	::= "(" "_" Symbol [IndexC] ")";
+
+Index.		IndexC		::= Numeral;
+
+separator nonempty IndexC "";
+
+NormalSymbol.   Symbol          ::= NormalSymbolT;
+QuotedSymbol.   Symbol          ::= QuotedSymbolT;
+
+token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
+                     (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
+
+token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
+
+separator Symbol "";
+
+--------------------------------------------------------------------------------
+-- Annotations
+
+AttrAnnotation.	Annotation	::= AnnotAttribute AttrParam;
+
+separator nonempty Annotation "";
+
+SomeAttrParam.	AttrParam	::= SExpr;
+NoAttrParam.	AttrParam	::= ;
+
+token AnnotAttribute(':'
+                     (["+-/*=~?!._$%&^<>@:"] | letter)
+                     (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
+
+ConstantSExpr.	SExpr		::= SpecConstant;
+SymbolSExpr.	SExpr		::= Symbol;
+ParenSExpr.	SExpr		::= "(" [SExpr] ")";
+
+separator SExpr "";
