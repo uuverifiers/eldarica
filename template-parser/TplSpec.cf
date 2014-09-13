@@ -47,7 +47,7 @@ separator TemplatesC "";
 --------------------------------------------------------------------------------
 -- One template
 
-TermTemplate.           TemplateC       ::= "(" TemplateType Term Integer ")";
+TermTemplate.           TemplateC       ::= "(" TemplateType Term Numeral ")";
 
 separator TemplateC "";
 

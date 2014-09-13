@@ -41,6 +41,7 @@
     <property name="princess.jar" value="${lib.dir}/princess.jar" />
     <property name="smt-parser.jar" value="${lib.dir}/smt-parser.jar" />
     <property name="pri-parser.jar" value="${lib.dir}/pri-parser.jar" />
+    <property name="tplspec-parser.jar" value="${lib.dir}/tplspec-parser.jar" />
     <property name="flata.jar" value="${flata.dir}/flata.jar" />
     <property name="acceleration.jar" value="${flata.dir}/acceleration.jar" />
     <property name="antlr.jar" value="${lib.dir}/antlr-3.3-complete.jar" />
@@ -138,6 +139,7 @@
             	<pathelement location="${princess.jar}" />
             	<pathelement location="${smt-parser.jar}" />
             	<pathelement location="${pri-parser.jar}" />
+            	<pathelement location="${tplspec-parser.jar}" />
             	<pathelement location="${flata.jar}" />
             	<pathelement location="${acceleration.jar}" />
         	    <pathelement location="${antlr.jar}" />
@@ -211,6 +213,7 @@
 			<zipfileset src="${princess.jar}" />
 			<zipfileset src="${smt-parser.jar}" />
 			<zipfileset src="${pri-parser.jar}" />
+			<zipfileset src="${tplspec-parser.jar}" />
 			<zipfileset src="${antlr.jar}" />
 			<zipfileset src="${java-cup-runtime.jar}" />
 			<zipfileset src="${acceleration.jar}" />
