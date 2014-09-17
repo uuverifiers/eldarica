@@ -39,7 +39,8 @@ Spec.                   SpecC           ::= [TemplatesC];
 -- Templates for a specific relation symbol
 
 Templates.              TemplatesC      ::= "(" "templates"
-                                                "(" SymbolRef [Symbol] ")"
+                                                SymbolRef
+                                                "(" [SortedVariableC] ")"
                                                 [TemplateC] ")";
 
 separator TemplatesC "";

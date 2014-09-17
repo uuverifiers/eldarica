@@ -39,12 +39,14 @@ import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
 import Util._
 import HornPredAbs.{RelationSymbol}
-import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice}
+import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
+                                 AbsReader, LoopDetector}
 import scala.collection.mutable.HashMap
 
 
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 LinkedHashSet}
 
 
 object HornWrapper {
@@ -261,12 +263,9 @@ object HornWrapper {
                            }
                            case (_, false) => DagInterpolator.interpolatingPredicateGenCEXAndOr _
                            case (false , true) => {
-                               val abstractionMap =
-                                 new lazabs.horn.abstractions.StaticAbstractionBuilder(
-                                       simplified,
-                                       lazabs.GlobalParameters.get.templateBasedInterpolationType)
+                               val abstractionMap = constructAbstractionMap(simplified)
                                TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                                 abstractionMap.abstractions,
+                                 abstractionMap,
                                  lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
 //                             TemplateInterpolator.interpolatingPredicateGenCEXAbs _
                            }
@@ -288,6 +287,36 @@ object HornWrapper {
   object NullStream extends java.io.OutputStream {
     def write(b : Int) = {}
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def constructAbstractionMap(cs : Seq[Clause])
+                             : Map[Predicate, (Seq[Predicate], AbsLattice)] =
+    lazabs.GlobalParameters.get.templateBasedInterpolationFile match {
+
+      case "" => {
+        new lazabs.horn.abstractions.StaticAbstractionBuilder(
+          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType).abstractions
+      }
+
+      case templateFile => {
+        val loopDetector = new LoopDetector(cs)
+        val templates = new AbsReader (
+                          new java.io.BufferedReader (
+                            new java.io.FileReader(templateFile))).templates
+
+        (for ((predName, lattice) <- templates.iterator;
+              pred = loopDetector.loopHeads.find((_.name == predName));
+              if {
+                if (!pred.isDefined)
+                  Console.err.println("   Ignoring templates for " + predName + "\n" +
+                                      "   (no loop head, or eliminated during simplification)")
+                pred.isDefined
+              }) yield {
+           (pred.get, (loopDetector bodyPredicates pred.get, lattice))
+         }).toMap
+      }
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 

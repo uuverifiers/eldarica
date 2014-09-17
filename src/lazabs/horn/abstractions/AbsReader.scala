@@ -29,16 +29,82 @@
 
 package lazabs.horn.abstractions
 
+import ap.parser._
+import ap.parameters.ParserSettings
 import ap.parser.Parser2InputAbsy.CRRemover2
 import TplSpec._
 import TplSpec.Absyn._
+
+import scala.collection.mutable.ArrayBuffer
 
 class AbsReader(input : java.io.Reader) {
 
   private val printer = new PrettyPrinterNonStatic
 
-  val l = new Yylex(new CRRemover2 (input))
-  val p = new parser(l)
-  println(printer print p.pSpecC)
+  /** Implicit conversion so that we can get a Scala-like iterator from a
+   * a Java list */
+  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+
+  val templates = {
+    Console.err.println("Loading interpolation abstraction templates ...")
+
+    val l = new Yylex(new CRRemover2 (input))
+    val p = new parser(l)
+    val specC = p.pSpecC
+
+    val smtParser = SMTParser2InputAbsy(ParserSettings.DEFAULT)
+    val env = smtParser.env
+
+    (for (templatesC <-
+            specC.asInstanceOf[Spec].listtemplatesc_.iterator;
+          templates = templatesC.asInstanceOf[Templates];
+          if (!templates.listtemplatec_.isEmpty)) yield {
+       val predName = printer print templates.symbolref_
+
+       for (variableC <- templates.listsortedvariablec_.reverseIterator) {
+         val variable = variableC.asInstanceOf[SortedVariable]
+         val t = SMTParser2InputAbsy.BoundVariable(
+                   (printer print variable.sort_) == "Bool")
+         env.pushVar(printer print variable.symbol_, t)
+       }
+ 
+       val preds = new ArrayBuffer[(IFormula, Int)]
+       val terms = new ArrayBuffer[(ITerm, Int)]
+       val ineqs = new ArrayBuffer[(ITerm, Int)]
+       
+       for (templatec <- templates.listtemplatec_) {
+         val template = templatec.asInstanceOf[TermTemplate]
+         val expr = smtParser.parseExpression(printer print template.term_)
+         val cost = template.numeral_.toInt
+ 
+         (template.templatetype_, expr) match {
+           case (_ : PredicateType,            f : IFormula) =>
+             preds += ((~f, cost))
+           case (_ : PredicatePosNegType,      f : IFormula) => {
+             preds += ((f, cost))
+             preds += ((~f, cost))
+           }
+           case (_ : TermType,                 t : ITerm) =>
+             terms += ((t, cost))
+           case (_ : InequalityTermType,       t : ITerm) =>
+             ineqs += ((t, cost))
+           case (_ : InequalityTermPosNegType, t : ITerm) => {
+             ineqs += ((t, cost))
+             ineqs += ((-t, cost))
+           }
+         }
+       }
+ 
+       for (_ <- 0 until templates.listsortedvariablec_.size)
+         env.popVar
+ 
+       val lattices : List[AbsLattice] =
+         (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
+         (if (terms.isEmpty) List() else List(TermSubsetLattice(terms))) ++
+         (if (ineqs.isEmpty) List() else List(TermIneqLattice(ineqs)))
+
+       (predName -> (lattices reduceLeft (ProductLattice(_, _, true))))
+    }).toList
+  }
 
 }

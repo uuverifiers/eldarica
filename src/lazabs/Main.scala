@@ -83,6 +83,7 @@ class GlobalParameters {
   var templateBasedInterpolation = false
   var templateBasedInterpolationType : AbstractionType.Value = AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
+  var templateBasedInterpolationFile : String = ""
   var arrayRemoval = false
   var princess = false
   var staticAccelerate = false
@@ -194,6 +195,10 @@ object Main {
         templateBasedInterpolationTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
         arguments(rest)
+      case tFile :: rest if (tFile.startsWith("-templates:")) => {
+        templateBasedInterpolationFile = tFile drop 11
+        arguments(rest)
+      }
 
       case "-n" :: rest => spuriousness = false; arguments(rest)
       case "-i" :: rest => interpolation = true; arguments(rest)
@@ -235,13 +240,15 @@ object Main {
           " -sp\t\tPretty print the Horn clauses in SMT-LIB format\n" + 
           " -sol\t\tShow solution in Prolog format\n" + 
           " -ssol\t\tShow solution in SMT-LIB format\n" + 
-          " -abstract\tUse interpolation abstraction for better interpolants\n" +
-          " -abstract:t\tAbstraction type: term, oct, relEqs (default), relIneqs\n" +
-          " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable inlining of linear Horn clauses\n" +
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
+	  "\n" +
+          " -abstract\tUse interpolation abstraction for better interpolants\n" +
+          " -abstract:t\tAbstraction type: term, oct, relEqs (default), relIneqs\n" +
+          " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
+          " -templates:f\tRead abstraction templates from a file" +
           
           "\n" +
           " -hin\t\tExpect input in Prolog Horn format\n" +  

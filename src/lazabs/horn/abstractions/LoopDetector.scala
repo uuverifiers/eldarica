@@ -128,6 +128,10 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
         yield clause)
      }).toMap
 
+  val bodyPredicates =
+    (for (h <- loopHeads.iterator)
+     yield (h, (for (Clause(IAtom(p, _), _, _) <- loopBodies(h).iterator)
+                yield p).toList)).toMap
 
 
   /*
@@ -494,10 +498,6 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
   def octagonAbstractions =
     for ((loopHead, modifiedArgs) <-
            ModifiedLoopVarsDetector.simpleModifiedVars(loopDetector)) yield {
-      val bodyPredicates =
-        (for (Clause(IAtom(p, _), _, _) <- loopDetector.loopBodies(loopHead).iterator)
-         yield p).toList
-
       val unmodArgsCosts =
         for (k <- 0 until loopHead.arity;
              if (!(modifiedArgs contains k))) yield (v(k) -> 1)
@@ -532,7 +532,7 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
               (unmodArgsCosts.size + modArgsCosts.size + diffCosts.size + sumCosts.size) + " templates)")
 
       (loopHead,
-       (bodyPredicates,
+       (loopDetector bodyPredicates loopHead,
         TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts)))
     }
 
@@ -541,10 +541,6 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
   def termAbstractions =
     for ((loopHead, argOffsets) <-
            ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
-      val bodyPredicates =
-        (for (Clause(IAtom(p, _), _, _) <- loopDetector.loopBodies(loopHead).iterator)
-         yield p).toList
-
       val counterArgs =
         (for ((v, k) <- argOffsets.iterator.zipWithIndex;
               if (v == List(IdealInt.ONE))) yield k).toList
@@ -567,7 +563,7 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
               (unmodArgsCosts.size + modArgsCosts.size + counterArgsCosts.size) + " templates)")
 
       (loopHead,
-       (bodyPredicates,
+       (loopDetector bodyPredicates loopHead,
         TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts)))
     }
 
@@ -576,10 +572,6 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
   def relationAbstractions(ineqs : Boolean) =
     for ((loopHead, argOffsets) <-
            ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
-      val bodyPredicates =
-        (for (Clause(IAtom(p, _), _, _) <- loopDetector.loopBodies(loopHead).iterator)
-         yield p).toList
-
       val modifiedArgs =
         (for ((v, k) <- argOffsets.iterator.zipWithIndex;
               if (v != List(IdealInt.ZERO))) yield k).toList
@@ -631,11 +623,11 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
       val allCosts = unmodArgsCosts ++ modArgsCosts /* ++ diffCosts ++ sumCosts */ ++ offsetDiffCosts
 
       (loopHead,
-       (bodyPredicates,
-       if (ineqs)
-         TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c))
-       else
-         TermSubsetLattice(allCosts)
+       (loopDetector bodyPredicates loopHead,
+        if (ineqs)
+          TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c))
+        else
+          TermSubsetLattice(allCosts)
        ))
     }
 
