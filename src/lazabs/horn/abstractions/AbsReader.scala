@@ -45,8 +45,10 @@ class AbsReader(input : java.io.Reader) {
    * a Java list */
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
-  val templates = {
-    Console.err.println("Loading interpolation abstraction templates ...")
+  //////////////////////////////////////////////////////////////////////////////
+
+  val (initialPredicates, templates) = {
+    Console.err.println("Loading CEGAR hints ...")
 
     val l = new Yylex(new CRRemover2 (input))
     val p = new parser(l)
@@ -55,18 +57,47 @@ class AbsReader(input : java.io.Reader) {
     val smtParser = SMTParser2InputAbsy(ParserSettings.DEFAULT)
     val env = smtParser.env
 
-    (for (templatesC <-
-            specC.asInstanceOf[Spec].listtemplatesc_.iterator;
-          templates = templatesC.asInstanceOf[Templates];
-          if (!templates.listtemplatec_.isEmpty)) yield {
-       val predName = printer print templates.symbolref_
+    def translatePredRef(predrefC : PredRefC) : (String, Int) = {
+      val predref = predrefC.asInstanceOf[PredRef]
+      val predName = printer print predref.symbolref_
 
-       for (variableC <- templates.listsortedvariablec_.reverseIterator) {
-         val variable = variableC.asInstanceOf[SortedVariable]
-         val t = SMTParser2InputAbsy.BoundVariable(
-                   (printer print variable.sort_) == "Bool")
-         env.pushVar(printer print variable.symbol_, t)
-       }
+      for (variableC <- predref.listsortedvariablec_.reverseIterator) {
+        val variable = variableC.asInstanceOf[SortedVariable]
+        val t = SMTParser2InputAbsy.BoundVariable(
+                  (printer print variable.sort_) == "Bool")
+        env.pushVar(printer print variable.symbol_, t)
+      }
+
+      (predName, predref.listsortedvariablec_.size)
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    val initialPredicates =
+    (for (predspec <-
+            specC.asInstanceOf[Spec].listpredspec_.iterator;
+          if (predspec.isInstanceOf[InitialPredicates]);
+          initPreds = predspec.asInstanceOf[InitialPredicates]) yield {
+       val (predName, varNum) = translatePredRef(initPreds.predrefc_)
+
+       val preds = (for (term <- initPreds.listterm_.iterator) yield {
+         smtParser.parseExpression(printer print term).asInstanceOf[IFormula]
+       }).toList
+
+       for (_ <- 0 until varNum)
+         env.popVar
+
+       (predName -> preds)
+    }).toList
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    val templates =
+    (for (predspec <-
+            specC.asInstanceOf[Spec].listpredspec_.iterator;
+          if (predspec.isInstanceOf[Templates]);
+          templates = predspec.asInstanceOf[Templates]) yield {
+       val (predName, varNum) = translatePredRef(templates.predrefc_)
  
        val preds = new ArrayBuffer[(IFormula, Int)]
        val terms = new ArrayBuffer[(ITerm, Int)]
@@ -95,7 +126,7 @@ class AbsReader(input : java.io.Reader) {
          }
        }
  
-       for (_ <- 0 until templates.listsortedvariablec_.size)
+       for (_ <- 0 until varNum)
          env.popVar
  
        val lattices : List[AbsLattice] =
@@ -105,6 +136,10 @@ class AbsReader(input : java.io.Reader) {
 
        (predName -> (lattices reduceLeft (ProductLattice(_, _, true))))
     }).toList
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    (initialPredicates, templates)
   }
 
 }

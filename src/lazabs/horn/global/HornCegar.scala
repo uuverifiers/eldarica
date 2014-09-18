@@ -43,7 +43,7 @@ import lazabs.prover.PrincessWrapper._
 import lazabs.horn.bottomup.DisjInterpolator._
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util._
-import lazabs.horn.bottomup.HornWrapper
+import lazabs.horn.bottomup.HornTranslator
  
 
 object Status extends Enumeration {
@@ -52,6 +52,8 @@ object Status extends Enumeration {
 }
 
 case class HornCegar(val originalConstraints: Seq[HornClause], val log: Boolean) {
+  val translator = new HornTranslator
+
   import Status._
   lazy val constraints = HornLBE(originalConstraints.map(Horn.discriminateRelVarArguments(_)))
 
@@ -324,7 +326,7 @@ case class HornCegar(val originalConstraints: Seq[HornClause], val log: Boolean)
     dag
   }
 
-  implicit def horn2cc (h: HornClause): ConstraintClause = HornWrapper.global2bup (h)
+  implicit def horn2cc (h: HornClause): ConstraintClause = translator.global2bup (h)
 
   /**
    * refining a counter-example dag

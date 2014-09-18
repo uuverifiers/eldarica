@@ -68,8 +68,8 @@ until [ $success -eq 0 ]; do
         # command line arguments
         for var; do
 	    case "$var" in
-		-templates:*)
-		    echo -templates:`$pathCmd "${var#-templates:}"`
+		-hints:*)
+		    echo -hints:`$pathCmd "${var#-hints:}"`
 		    ;;
 		-*|+*)
 		    echo "$var"

@@ -38,10 +38,13 @@ import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator}
 import lazabs.horn.concurrency._
 import lazabs.horn.concurrency.ParametricEncoder._
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice}
-import lazabs.horn.bottomup.HornWrapper._
+import lazabs.horn.bottomup.HornTranslator
 
 
 object Relational {
+  val translator = new HornTranslator
+  import translator._
+
   var fileName = ""
   lazy val uppaal = if(fileName != "") parser.UppReader(fileName) else throw new Exception("Error in Uppaal file")
   

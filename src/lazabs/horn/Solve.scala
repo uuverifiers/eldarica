@@ -71,7 +71,7 @@ object Solve {
         if(drawRTree) lazabs.viewer.DrawGraph(arg)
       } else {
 
-        val result = HornWrapper(clauseSet, absMap, lbe, log, disjunctive, interpolatorType)
+        val result = (new HornWrapper(clauseSet, absMap, lbe, log, disjunctive, interpolatorType)).result
 
         Console.err.println(
           "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")

@@ -15,3 +15,4 @@ for name in $TESTS; do
     $LAZABS -abstract -ssol -pngNo "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
+$LAZABS -abstract -ssol -pngNo "$@" -hints:initial-preds.tpl reve.smt2 2>&1 | grep -v "^Elapsed Time"

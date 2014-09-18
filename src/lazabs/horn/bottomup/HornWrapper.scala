@@ -41,22 +41,252 @@ import Util._
 import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
                                  AbsReader, LoopDetector}
-import scala.collection.mutable.HashMap
-
-
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet}
+                                 LinkedHashMap}
 
 
 object HornWrapper {
+
+  object NullStream extends java.io.OutputStream {
+    def write(b : Int) = {}
+  }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class HornWrapper(constraints: Seq[HornClause], 
+                  absMap: Option[Map[String, AbsLattice]],
+                  lbe: Boolean,
+                  log : Boolean,
+                  disjunctive : Boolean,
+                  interpolatorType : (Boolean, Boolean)) {
+
+  import HornWrapper._
+
   def printClauses(cs : Seq[Clause]) = {
     for (c <- cs) {
       println(c);
     }
   }
+
+  private val translator = new HornTranslator
+  import translator._
   
-  val predicates = HashMap[String,Literal]().empty
+  //////////////////////////////////////////////////////////////////////////////
+
+  ap.util.Debug enableAllAssertions lazabs.Main.assertions
+
+  private val outStream = if (log) Console.err else NullStream
+
+  private val originalClauses = constraints
+  private val converted = originalClauses map (transform(_))
+
+//    if (lazabs.GlobalParameters.get.printHornSimplified)
+//      printMonolithic(converted)
+
+  private val simplified = Console.withErr(outStream) {
+    var simplified =
+      if (!lbe)
+        new HornPreprocessor(converted).result
+      else
+        converted
+
+    // problem: transforming back and forth doesn't produce  
+    if (lazabs.GlobalParameters.get.printHornSimplified) {
+      println("-------------------------------")
+      printClauses(simplified)
+      println("-------------------------------")
+      println("simplified clauses:")
+      //val aux = simplified map (horn2Eldarica(_))
+      val aux = horn2Eldarica(simplified)
+      println(lazabs.viewer.HornPrinter(aux))
+      simplified = aux map (transform(_))
+      println("-------------------------------")
+      printClauses(simplified)
+      println("-------------------------------")
+    }
+
+    simplified
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val hintsReader =
+    lazabs.GlobalParameters.get.cegarHintsFile match {
+      case "" =>
+        None
+      case hintsFile =>
+        Some(new AbsReader (
+               new java.io.BufferedReader (
+                 new java.io.FileReader(hintsFile))))
+  }
+
+  private lazy val loopDetector = new LoopDetector(simplified)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val predGenerator = Console.withErr(outStream) {
+    interpolatorType match {
+      case (true, true) => {
+        val Some(am) = absMap
+        assert(!am.isEmpty)
+        TemplateInterpolator.interpolatingPredicateGenCEXAbsUpp(am) _
+      }
+      case (_, false) => DagInterpolator.interpolatingPredicateGenCEXAndOr _
+      case (false , true) => {
+        val abstractionMap = constructAbstractionMap(simplified, hintsReader)
+        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+          abstractionMap,
+          lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+//      TemplateInterpolator.interpolatingPredicateGenCEXAbs _
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def constructAbstractionMap(cs : Seq[Clause], hintsReader : Option[AbsReader])
+                             : Map[Predicate, (Seq[Predicate], AbsLattice)] =
+    hintsReader match {
+      case Some(reader) if (!reader.templates.isEmpty) => {
+        (for ((predName, lattice) <- reader.templates.iterator;
+              pred = loopDetector.loopHeads.find((_.name == predName));
+              if {
+                if (!pred.isDefined)
+                  Console.err.println("   Ignoring templates for " + predName + "\n" +
+                                      "   (no loop head, or eliminated during simplification)")
+                pred.isDefined
+              }) yield {
+           (pred.get, (loopDetector bodyPredicates pred.get, lattice))
+         }).toMap
+      }
+
+      case _ => {
+        new lazabs.horn.abstractions.StaticAbstractionBuilder(
+          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType).abstractions
+      }
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val initialPredicates : Map[Predicate, Seq[IFormula]] = hintsReader match {
+    case Some(reader) if (!reader.initialPredicates.isEmpty) => {
+      (for ((predName, formulas) <- reader.initialPredicates.iterator;
+              pred = loopDetector.allPredicates.find((_.name == predName));
+              if {
+                if (!pred.isDefined)
+                  Console.err.println("   Ignoring initial predicates for " + predName + "\n" +
+                                      "   (might be unreachable or eliminated during simplification)")
+                pred.isDefined
+              }) yield {
+           (pred.get, formulas)
+         }).toMap
+    }
+    case _ =>
+      Map()
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
+
+    val counterexampleMethod =
+      if (disjunctive)
+        HornPredAbs.CounterexampleMethod.AllShortest
+      else
+        HornPredAbs.CounterexampleMethod.FirstBestShortest
+
+    (Console.withOut(outStream)(
+       new HornPredAbs(simplified,
+                       initialPredicates, predGenerator,
+                       counterexampleMethod))).result match {
+      case Left(res) => Left(res)
+      case Right(cex) => Right(for (p <- cex) yield p._1)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def printMonolithic(converted : Seq[Clause]) : Unit =
+      if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
+        Console.err.println("Clauses are linear; printing monolithic form")
+        
+        val preds =
+          (for (Clause(head, body, _) <- converted.iterator;
+                IAtom(p, _) <- (Iterator single head) ++ body.iterator)
+           yield p).toList.distinct
+
+        val predNum = preds.iterator.zipWithIndex.toMap
+        val maxArity = (preds map (_.arity)).max
+
+        val p = new Predicate("p", maxArity + 1)
+        val preArgs =  for (i <- 0 until (maxArity + 1))
+                       yield new ConstantTerm("pre" + i)
+        val postArgs = for (i <- 0 until (maxArity + 1))
+                       yield new ConstantTerm("post" + i)
+
+        val initClause = {
+          val constraint = 
+            or(for (Clause(IAtom(pred, args), List(), constraint) <-
+                      converted.iterator;
+                    if (pred != FALSE))
+               yield ((postArgs.head === predNum(pred)) &
+                      (args === postArgs.tail) &
+                      constraint))
+          Clause(IAtom(p, postArgs), List(), constraint)
+        }
+
+        if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
+                               case _ => false })
+          Console.err.println("WARNING: ignoring clauses without relation symbols")
+          
+        val transitionClause = {
+          val constraint = 
+            or(for (Clause(IAtom(predH, argsH),
+                           List(IAtom(predB, argsB)), constraint) <-
+                      converted.iterator;
+                    if (predH != FALSE))
+               yield ((postArgs.head === predNum(predH)) &
+                      (preArgs.head === predNum(predB)) &
+                      (argsH === postArgs.tail) &
+                      (argsB === preArgs.tail) &
+                      constraint))
+          Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
+        }
+
+        val assertionClause = {
+          val constraint = 
+            or(for (Clause(IAtom(FALSE, _),
+                           List(IAtom(predB, argsB)), constraint) <-
+                      converted.iterator)
+               yield ((preArgs.head === predNum(predB)) &
+                      (argsB === preArgs.tail) &
+                      constraint))
+          Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
+        }
+
+        val clauses =
+          List(initClause, transitionClause, assertionClause)
+
+        println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
+
+        System.exit(0)
+
+      } else {
+
+        Console.err.println("Clauses are not linear")
+        System.exit(0)
+
+      }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class HornTranslator {
+  
+  val predicates = MHashMap[String,Literal]().empty
   def getPrincessPredLiteral(r: HornLiteral): Literal = r match {
     case RelVar(varName,params) =>
       predicates.get(varName) match{
@@ -73,7 +303,6 @@ object HornWrapper {
   }
   
   def global2bup (h: HornClause): ConstraintClause = new IConstraintClause {
-    import scala.collection.mutable.LinkedHashMap
     import lazabs.ast.ASTree._
 
     val head = h.head match {
@@ -178,7 +407,7 @@ object HornWrapper {
     
     def transform(cl: HornClause): Clause = {
 
-      val symbolMap = scala.collection.mutable.LinkedHashMap[String, ConstantTerm]().empty      
+      val symbolMap = LinkedHashMap[String, ConstantTerm]().empty      
       lazabs.prover.PrincessWrapper.resetSymbolReservoir
 
       val headAtom = cl.head match {
@@ -213,182 +442,4 @@ object HornWrapper {
       })
     }
   
-  def apply(constraints: Seq[HornClause], 
-            absMap: Option[Map[String, AbsLattice]],
-            lbe: Boolean,
-            log : Boolean,
-            disjunctive : Boolean,
-            interpolatorType : (Boolean, Boolean)
-           )
-    : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
-  ap.util.Debug enableAllAssertions lazabs.Main.assertions
-
-    val outStream = if (log) Console.err else NullStream
-
-    val originalClauses = constraints
-    val converted = originalClauses map (transform(_))
-
-//    if (lazabs.GlobalParameters.get.printHornSimplified)
-//      printMonolithic(converted)
-
-    var simplified = Console.withErr(outStream) {
-      if (!lbe) 
-        new HornPreprocessor(converted).result
-      else
-        converted
-    }
-
-    // problem: transforming back and forth doesn't produce  
-    if (lazabs.GlobalParameters.get.printHornSimplified) {
-      println("-------------------------------")
-      printClauses(simplified)
-      println("-------------------------------")
-      println("simplified clauses:")
-      //val aux = simplified map (horn2Eldarica(_))
-      val aux = horn2Eldarica(simplified)
-      println(lazabs.viewer.HornPrinter(aux))
-      simplified = aux map (transform(_))
-      println("-------------------------------")
-      printClauses(simplified)
-      println("-------------------------------")
-    }
-    ////////////////////////////////////////////////////////////////////////////
-
-    val predGenerator =  Console.withErr(outStream) {
-                         interpolatorType match {
-                           case (true, true) => {
-                             val Some(am) = absMap
-                             assert(!am.isEmpty)
-                             TemplateInterpolator.interpolatingPredicateGenCEXAbsUpp(am) _
-                           }
-                           case (_, false) => DagInterpolator.interpolatingPredicateGenCEXAndOr _
-                           case (false , true) => {
-                               val abstractionMap = constructAbstractionMap(simplified)
-                               TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                                 abstractionMap,
-                                 lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-//                             TemplateInterpolator.interpolatingPredicateGenCEXAbs _
-                           }
-                         }}
-
-    val counterexampleMethod =
-      if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
-      else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
-
-    (Console.withOut(outStream)(
-       new HornPredAbs(simplified, Map(), predGenerator, counterexampleMethod))).result match {
-      case Left(res) => Left(res)
-      case Right(cex) => Right(for (p <- cex) yield p._1)
-    }
-  }
-
-  object NullStream extends java.io.OutputStream {
-    def write(b : Int) = {}
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def constructAbstractionMap(cs : Seq[Clause])
-                             : Map[Predicate, (Seq[Predicate], AbsLattice)] =
-    lazabs.GlobalParameters.get.templateBasedInterpolationFile match {
-
-      case "" => {
-        new lazabs.horn.abstractions.StaticAbstractionBuilder(
-          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType).abstractions
-      }
-
-      case templateFile => {
-        val loopDetector = new LoopDetector(cs)
-        val templates = new AbsReader (
-                          new java.io.BufferedReader (
-                            new java.io.FileReader(templateFile))).templates
-
-        (for ((predName, lattice) <- templates.iterator;
-              pred = loopDetector.loopHeads.find((_.name == predName));
-              if {
-                if (!pred.isDefined)
-                  Console.err.println("   Ignoring templates for " + predName + "\n" +
-                                      "   (no loop head, or eliminated during simplification)")
-                pred.isDefined
-              }) yield {
-           (pred.get, (loopDetector bodyPredicates pred.get, lattice))
-         }).toMap
-      }
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def printMonolithic(converted : Seq[Clause]) : Unit =
-      if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
-        Console.err.println("Clauses are linear; printing monolithic form")
-        
-        val preds =
-          (for (Clause(head, body, _) <- converted.iterator;
-                IAtom(p, _) <- (Iterator single head) ++ body.iterator)
-           yield p).toList.distinct
-
-        val predNum = preds.iterator.zipWithIndex.toMap
-        val maxArity = (preds map (_.arity)).max
-
-        val p = new Predicate("p", maxArity + 1)
-        val preArgs =  for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("pre" + i)
-        val postArgs = for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("post" + i)
-
-        val initClause = {
-          val constraint = 
-            or(for (Clause(IAtom(pred, args), List(), constraint) <-
-                      converted.iterator;
-                    if (pred != FALSE))
-               yield ((postArgs.head === predNum(pred)) &
-                      (args === postArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(), constraint)
-        }
-
-        if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
-                               case _ => false })
-          Console.err.println("WARNING: ignoring clauses without relation symbols")
-          
-        val transitionClause = {
-          val constraint = 
-            or(for (Clause(IAtom(predH, argsH),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator;
-                    if (predH != FALSE))
-               yield ((postArgs.head === predNum(predH)) &
-                      (preArgs.head === predNum(predB)) &
-                      (argsH === postArgs.tail) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val assertionClause = {
-          val constraint = 
-            or(for (Clause(IAtom(FALSE, _),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator)
-               yield ((preArgs.head === predNum(predB)) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val clauses =
-          List(initClause, transitionClause, assertionClause)
-
-        println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
-
-        System.exit(0)
-
-      } else {
-
-        Console.err.println("Clauses are not linear")
-        System.exit(0)
-
-      }
 }

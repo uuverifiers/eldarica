@@ -33,24 +33,26 @@ comment ";";
 --------------------------------------------------------------------------------
 -- Entry point
 
-Spec.                   SpecC           ::= [TemplatesC];
+Spec.                   SpecC           ::= [PredSpec];
 
 --------------------------------------------------------------------------------
 -- Templates for a specific relation symbol
 
-Templates.              TemplatesC      ::= "(" "templates"
-                                                SymbolRef
-                                                "(" [SortedVariableC] ")"
-                                                [TemplateC] ")";
+Templates.              PredSpec        ::= "(" "templates"
+                                                PredRefC [TemplateC] ")";
+InitialPredicates.      PredSpec        ::= "(" "initial-predicates"
+                                                PredRefC [Term] ")";
 
-separator TemplatesC "";
+separator PredSpec "";
+
+PredRef.                PredRefC        ::= SymbolRef "(" [SortedVariableC] ")";
 
 --------------------------------------------------------------------------------
 -- One template
 
 TermTemplate.           TemplateC       ::= "(" TemplateType Term Numeral ")";
 
-separator TemplateC "";
+separator nonempty TemplateC "";
 
 PredicateType.          TemplateType    ::= "predicate";
 PredicatePosNegType.    TemplateType    ::= "predicate-2";
