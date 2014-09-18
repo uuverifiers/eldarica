@@ -58,3 +58,13 @@ Warning: ignoring (check-sat)
 Warning: ignoring (get-model)
 SOLVABLE
 (define-fun inv ((A Int)) Bool (<= A 1001))
+Warning: ignoring (set-logic HORN)
+Warning: ignoring (check-sat)
+Warning: ignoring (get-model)
+Warning: ignoring (exit)
+Loading CEGAR hints ...
+SOLVABLE
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= A E) (= B F)) (= C G)) (= D H)))
+(define-fun INV2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= A E) (= B F)) (= C G)) (= D H)))
+(define-fun INV3 ((A Int) (B Int) (C Int) (D Int)) Bool false)
+(define-fun INV4 ((A Int) (B Int) (C Int) (D Int)) Bool false)

@@ -244,7 +244,7 @@ object Main {
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable inlining of linear Horn clauses\n" +
-          " -hints:f\tRead initial predicates and abstraction templates from a file" +
+          " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
           " -abstract\tUse interpolation abstraction for better interpolants\n" +
