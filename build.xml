@@ -7,6 +7,7 @@
 
     <!-- The settings can be overridden in local.properties. -->
     <property environment="env" />
+    <property file="local.properties"/>
     <property name="scala.home" value="${env.SCALA_HOME}" />
     <property name="java.home" value="${env.JAVA_HOME}" />
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
