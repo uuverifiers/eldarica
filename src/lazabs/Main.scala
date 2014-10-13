@@ -141,7 +141,7 @@ object Main {
     "Eldarica, 2014-08-20. (C) Copyright 2012-2014 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
-             stoppingCond : => Boolean) : Unit = try {
+             stoppingCond : => Boolean) : Unit = {
     val params = new GlobalParameters
     GlobalParameters.parameters.value = params
 
@@ -420,22 +420,6 @@ object Main {
     val rTree = if (!interpolation) MakeRTree(cfg, MakeCFG.getLoops, spuriousness, searchMethod, log)
       else MakeRTreeInterpol(cfg, MakeCFG.getLoops, searchMethod, babarew, dumpInterpolationQuery, dynamicAccelerate, underApproximate, template, log)
     if(drawRTree) DrawGraph(rTree, absInFile)
-  } catch {
-    case t : StackOverflowError => {
-      System.gc
-      // let's hope that everything is still in a valid state
-      println("ERROR: " + t)
-//      t.printStackTrace
-    }
-    case t : OutOfMemoryError => {
-      System.gc
-      // let's hope that everything is still in a valid state
-      println("ERROR: " + t)
-//      t.printStackTrace
-    }
-    case t : Throwable =>
-      println("ERROR: " + t.getMessage)
-//      t.printStackTrace
   }
   
 }

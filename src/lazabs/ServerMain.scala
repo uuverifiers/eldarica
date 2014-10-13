@@ -120,18 +120,33 @@ object ServerMain {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
   
-                    Main.doMain(arguments.toArray, {
-                      checkNum = checkNum + 1
-                      cancel || {
-                        val currentTime = System.currentTimeMillis
-                        while (inputReader.ready) {
-                          inputReader.read
-                          lastPing = currentTime
+                    try {
+                      Main.doMain(arguments.toArray, {
+                        checkNum = checkNum + 1
+                        cancel || {
+                          val currentTime = System.currentTimeMillis
+                          while (inputReader.ready) {
+                            inputReader.read
+                            lastPing = currentTime
+                          }
+                          cancel = currentTime - lastPing > 3000
+                          cancel
                         }
-                        cancel = currentTime - lastPing > 3000
-                        cancel
+                      })
+                    } catch {
+                      case t : StackOverflowError => {
+                        System.gc
+                        // let's hope that everything is still in a valid state
+                        println("ERROR: " + t)
                       }
-                    })
+                      case t : OutOfMemoryError => {
+                        System.gc
+                        // let's hope that everything is still in a valid state
+                        println("ERROR: " + t)
+                      }
+                      case t : Throwable =>
+                        println("ERROR: " + t)
+                    }
                   }
                 }
                 case str =>
@@ -181,7 +196,5 @@ object ServerMain {
         }
       }
     }
-
   }
-
 }
