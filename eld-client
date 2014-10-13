@@ -53,13 +53,16 @@ startDaemon() {
 if [ ! -f "$portfile" ]; then
     startDaemon
 fi
+port=`head -n1 "$portfile"`
+if ! nc -z localhost $port; then
+    echo "Cannot connect to server. Server could not be started or dead port file at $portfile"
+    exit 2
+fi
 
 mainProcess=$$
 
 success=1
 until [ $success -eq 0 ]; do
-
-    port=`head -n1 "$portfile"`
 
     (
         # send the ticket
