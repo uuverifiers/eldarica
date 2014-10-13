@@ -5,6 +5,8 @@ dotfilebase="/tmp/.lazabs"
 me=`whoami`
 portfile="$dotfilebase"_"$me"
 
+lockfile="$dotfilebase"_lock_"$me"
+
 if [ $(uname) = "Linux" ]; then
     pathCmd="readlink -f"
 elif [ $(uname) = "Darwin" ]; then
@@ -13,10 +15,19 @@ else
     pathCmd="realpath"
 fi
 
+cleanup() {
+    rm -f "$lockfile"
+    # leave $portfile in place as it might contain server output
+    exit 1
+}
+
+trap 'cleanup' ERR
+
+
 ################################################################################
 
 startDaemon() {
-    lockfile="$dotfilebase"_lock_"$me"
+    trap 'cleanup' ERR
 
     while [ -f "$lockfile" ] && \
           [ $(( `date +%s` - `date -r "$lockfile" +%s` )) -le 10 ]; do
@@ -25,7 +36,7 @@ startDaemon() {
         echo "waiting ..."
         sleep 1
     done
-        
+
     if [ ! -f "$portfile" ]; then
         touch "$lockfile"
 
@@ -94,7 +105,13 @@ until [ $success -eq 0 ]; do
                 sleep 1
             done
         } &
-    ) | nc localhost $port
+    ) | nc localhost $port |
+    (
+        # grep will raise an error here if server output starts with "ERROR"
+        read server_reply;
+        echo "$server_reply";
+        echo "$server_reply" | grep -q -v "^ERROR:"
+    )
 
     success=$?
 

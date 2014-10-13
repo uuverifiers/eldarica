@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 if [ $(uname) = "Linux" ]; then
     pathCmd="readlink -f"
