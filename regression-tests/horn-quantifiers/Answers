@@ -1,0 +1,8 @@
+
+simple-init.smt2
+Warning: ignoring (set-info :status unknown)
+Warning: ignoring (set-logic HORN)
+Warning: ignoring (check-sat)
+Theories: SimpleArray(1)
+SOLVABLE
+(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (not (= D 0)) (or (= A 0) (= B E))))

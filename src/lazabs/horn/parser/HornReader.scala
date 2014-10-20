@@ -34,6 +34,14 @@ import java.io.{FileInputStream,InputStream,FileNotFoundException}
 import lazabs.horn.global._
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 import ap.parser._
+import ap.theories.{Theory, TheoryRegistry, TheoryCollector}
+import ap.SimpleAPI
+import SimpleAPI.ProverStatus
+import ap.proof.theoryPlugins.Plugin
+import ap.proof.goal.Goal
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Atom
+import ap.terfor.TerForConvenience
 
 object HornReader {
   def apply(fileName: String): Seq[HornClause] = {
@@ -188,56 +196,48 @@ object HornReader {
     val (f, _, signature) = SMTParser2InputAbsy(settings)(reader)
     val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
     
+    val triggerFunctions =
+      (for (t <- signature.theories.iterator;
+            f <- t.triggerRelevantFunctions.iterator)
+       yield f).toSet
+
+    val unintPredicates =
+      for (p <- signature.order.orderedPredicates.toSeq.sortBy(_.name);
+           if (!(TheoryRegistry lookupSymbol p).isDefined))
+      yield p
+
+    if (!signature.theories.isEmpty)
+      Console.err.println("Theories: " + (signature.theories mkString ", "))
+
     val eldClauses = for (cc <- clauses) yield {
-      
-      val allConsts = new ArrayBuffer[ConstantTerm]
       var parameterConsts = List[ITerm]()
       var symMap = Map[ConstantTerm, String]()
       var clause = cc
 
       def newConstantTerm(name : String) = {
         val const = new ConstantTerm (name)
-        allConsts += const
         symMap = symMap + (const -> name)
         const
       }
 
       if (ContainsSymbol(clause, (x:IExpression) => x match {
-        case _ : IFunApp => true
+        case IFunApp(f, _) => !(TheoryRegistry lookupSymbol f).isDefined
         case _ => false
       }))
         throw new Exception ("Uninterpreted functions are not supported")
       
       // preprocessing: e.g., encode functions as predicates
-      val (List(INamedPart(_, processedClause_aux)), _, _) =
+      val (List(INamedPart(_, processedClause_aux)), _, sig2) =
         Preprocessing(clause,
                       List(),
                       signature,
-                      PreprocessingSettings.DEFAULT)
+                      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+                        PreprocessingSettings.DEFAULT,
+                        triggerFunctions))
       clause = processedClause_aux
       
       // transformation to prenex normal form
-      clause = Transform2Prenex(Transform2NNF(clause))
-      
-    /*
-      def pnf_if_needed = {
-        var aux = clause
-        while (aux.isInstanceOf[IQuantified]) {
-          val IQuantified(Quantifier.ALL, d) = aux
-          aux = d
-        }
-        // transform to PNF only when needed
-        val qlist = quantifiers(aux)
-        if (!qlist.isEmpty) {
-          if (qlist.forall(_ == Quantifier.ALL)) {
-            clause = pnf(clause)
-          } else {
-            //throw new Exception ("Existential quantifiers not supported")
-          }
-        }
-      }
-      pnf_if_needed
-      */
+      clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
       while (clause.isInstanceOf[IQuantified]) {
         val IQuantified(Quantifier.ALL, d) = clause
@@ -268,10 +268,17 @@ object HornReader {
       }
       
       // transform to CNF and try to generate one clause per conjunct
-      var clause_cnf = cnf_if_needed(groundClause)
       
-      for (conjunct <- clause_cnf) yield {
-        
+      for (conjunctRaw <- cnf_if_needed(groundClause);
+           conjunctRaw2 <- elimQuansTheories(conjunctRaw,
+                                             unintPredicates,
+                                             signature.theories);
+           conjunct <- cnf_if_needed(conjunctRaw2)) yield {
+
+        for (c <- SymbolCollector constantsSorted conjunct;
+             if (!(symMap contains c)))
+          symMap = symMap + (c -> c.name)
+
         var head : RelVar = null
         var body = List[HornLiteral]()
 
@@ -319,6 +326,8 @@ object HornReader {
 
     eldClauses.flatten
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def elimEqv(aF : ap.parser.IFormula) : ap.parser.IFormula = {
     aF match {
@@ -501,5 +510,110 @@ object HornReader {
       f_pnf = IQuantified(q,f_pnf)
     }
     f_pnf
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def elimQuansTheories(
+                f : IFormula,
+                unintPredicates : Seq[IExpression.Predicate],
+                allTheories : Seq[Theory]) : Seq[IFormula] = {
+
+    if (QuantifierCountVisitor(f) == 0 && allTheories.isEmpty)
+      return List(f)
+
+    SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
+      import p._
+
+      addTheories(allTheories)
+
+      // first eliminate quantifiers by instantiation
+      val qfClauses = new ArrayBuffer[Conjunction]
+
+      scope {
+        setupTheoryPlugin(new Plugin {
+          import Plugin.GoalState
+          def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+            goalState(goal) match {
+              case GoalState.Final => {
+                qfClauses += goal.facts
+                Some((Conjunction.FALSE, Conjunction.TRUE))
+              }
+              case _ =>
+                None
+            }
+        })
+
+        addRelations(unintPredicates)
+        addConstantsRaw(SymbolCollector constantsSorted f)
+        ?? (f)
+        ???
+      }
+
+      // then eliminate theory symbols
+      val resClauses = new ArrayBuffer[IFormula]
+
+      for (c <- qfClauses) scope {
+        setMostGeneralConstraints(true)
+
+        addConstantsRaw(c.order sort c.order.orderedConstants)
+
+        val (unintBodyLits, theoryBodyLits) =
+          c.predConj.positiveLits partition (unintPredicates contains _.pred)
+        val (unintHeadLits, theoryHeadLits) =
+          c.predConj.negativeLits partition (unintPredicates contains _.pred)
+
+        addAssertion(
+          c.updatePredConj(
+            c.predConj.updateLits(theoryBodyLits,
+                                  theoryHeadLits)(c.order))(c.order))
+
+        assert(unintHeadLits.size <= 1)
+
+        def existentialiseAtom(a : Atom) : IAtom = {
+          val existConsts = createExistentialConstants(a.size)
+
+          implicit val _ = order
+          import TerForConvenience._
+
+          for ((lc, IConstant(c)) <- a.iterator zip existConsts.iterator)
+            addAssertion(lc === c)
+          IAtom(a.pred, existConsts)
+        }
+
+        val newUnintHeadLits = unintHeadLits map (existentialiseAtom _)
+        val newUnintBodyLits = unintBodyLits map (existentialiseAtom _)
+
+        import IExpression._
+
+        val r = ???
+        assert(r == ProverStatus.Unsat)
+
+        // turn the resulting formula into CNF
+        for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
+                                   IBinJunctor.And))
+          resClauses += g ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits)
+      }
+
+      resClauses
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object CNFSimplifier extends Simplifier {
+    import IExpression._
+
+    override protected def furtherSimplifications(expr : IExpression) =
+      expr match {
+        case IBinFormula(IBinJunctor.Or, f,
+                         IBinFormula(IBinJunctor.And, g1, g2)) =>
+          (f | g1) & (f | g2)
+        case IBinFormula(IBinJunctor.Or,
+                         IBinFormula(IBinJunctor.And, g1, g2),
+                         f) =>
+          (g1 | f) & (g2 | f)
+        case expr => expr
+      }
   }
 }
