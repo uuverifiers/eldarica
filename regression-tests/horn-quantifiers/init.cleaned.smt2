@@ -9,7 +9,10 @@
 ;        a[i] = c;
 ;  }
 ;
-;  static_assert(a[0] == c);
+;  for(i=0; i<size; i++)
+;  {
+;        static_assert(a[i] == c);
+;  }
 ;}
 
 
@@ -18,6 +21,7 @@
 (set-info :status unknown)
 (set-logic HORN)
 (declare-fun inv1 (Int Int Int Int Int) Bool)
+(declare-fun inv2 (Int Int Int Int Int) Bool)
 
 (assert
   (forall ((I Int) (A (Array Int Int)) (Q Int) (C Int) (N Int) )
@@ -37,12 +41,31 @@
 )
 
 (assert
-  (forall ((I Int) (C Int) (N Int) (A (Array Int Int)) (Q Int))
-    (=> (and (not (< I N)) (> N 0)
+  (forall ((I1 Int) (I Int) (C Int) (N Int) (A (Array Int Int)) )
+    (=> (and (= I1 0) (not (< I N))
              (forall ((Q Int)) (inv1 I C N Q (select A Q))))
-        (= (select A 0) C)
+        (forall ((Q Int)) (inv2 I1 C N Q (select A Q)))
     )
   )
 )
+
+(assert
+  (forall ((I1 Int) (I Int) (C Int) (N Int) (A (Array Int Int)) )
+    (=> (and (= I1 (+ 1 I)) (< I N)
+             (forall ((Q Int)) (inv2 I C N Q (select A Q))))
+        (forall ((Q Int)) (inv2 I1 C N Q (select A Q)))
+    )
+  )
+)
+
+(assert
+  (forall ((A (Array Int Int)) (I Int) (C Int) (N Int) )
+    (=> (and (< I N)
+             (forall ((Q Int)) (inv2 I C N Q (select A Q))))
+        (= (select A I) C)
+    )
+  )
+)
+
 
 (check-sat)

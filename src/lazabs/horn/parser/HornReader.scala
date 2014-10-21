@@ -270,10 +270,9 @@ object HornReader {
       // transform to CNF and try to generate one clause per conjunct
       
       for (conjunctRaw <- cnf_if_needed(groundClause);
-           conjunctRaw2 <- elimQuansTheories(conjunctRaw,
-                                             unintPredicates,
-                                             signature.theories);
-           conjunct <- cnf_if_needed(conjunctRaw2)) yield {
+           conjunct <- elimQuansTheories(conjunctRaw,
+                                         unintPredicates,
+                                         signature.theories)) yield {
 
         for (c <- SymbolCollector constantsSorted conjunct;
              if (!(symMap contains c)))
@@ -519,7 +518,9 @@ object HornReader {
                 unintPredicates : Seq[IExpression.Predicate],
                 allTheories : Seq[Theory]) : Seq[IFormula] = {
 
-    if (QuantifierCountVisitor(f) == 0 && allTheories.isEmpty)
+    val quanNum = QuantifierCountVisitor(f)
+
+    if (quanNum == 0 && allTheories.isEmpty)
       return List(f)
 
     SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
@@ -527,27 +528,35 @@ object HornReader {
 
       addTheories(allTheories)
 
-      // first eliminate quantifiers by instantiation
       val qfClauses = new ArrayBuffer[Conjunction]
 
       scope {
-        setupTheoryPlugin(new Plugin {
-          import Plugin.GoalState
-          def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-            goalState(goal) match {
-              case GoalState.Final => {
-                qfClauses += goal.facts
-                Some((Conjunction.FALSE, Conjunction.TRUE))
-              }
-              case _ =>
-                None
-            }
-        })
 
         addRelations(unintPredicates)
         addConstantsRaw(SymbolCollector constantsSorted f)
-        ?? (f)
-        ???
+
+//        if (quanNum == 0) {
+//          qfClauses += asConjunction(~f)
+//        } else {
+          // first eliminate quantifiers by instantiation
+
+          setupTheoryPlugin(new Plugin {
+            import Plugin.GoalState
+            def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+              goalState(goal) match {
+                case GoalState.Final => {
+                  qfClauses += goal.facts
+                  Some((Conjunction.FALSE, Conjunction.TRUE))
+                }
+                case _ =>
+                  None
+              }
+          })
+
+          ?? (f)
+          ???
+//        }
+
       }
 
       // then eliminate theory symbols
@@ -586,13 +595,21 @@ object HornReader {
 
         import IExpression._
 
-        val r = ???
-        assert(r == ProverStatus.Unsat)
-
-        // turn the resulting formula into CNF
-        for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
-                                   IBinJunctor.And))
-          resClauses += g ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits)
+        ??? match {
+          case ProverStatus.Unsat => {
+            // turn the resulting formula into CNF, and split positive equations
+            // (which usually gives better performance)
+            for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
+                                       IBinJunctor.And).iterator;
+                 h <- splitPosEquations(g).iterator)
+              resClauses +=
+                Transform2NNF(h ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+          }
+          case ProverStatus.Sat =>
+            // assume the constraint is just true
+            resClauses +=
+              Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+        }
       }
 
       resClauses
@@ -615,5 +632,16 @@ object HornReader {
           (g1 | f) & (g2 | f)
         case expr => expr
       }
+  }
+
+  private def splitPosEquations(f : IFormula) : Seq[IFormula] = {
+    import IExpression._
+
+    val split =
+      or(for (g <- LineariseVisitor(f, IBinJunctor.Or)) yield g match {
+           case EqZ(t) => geqZero(t) & geqZero(-t)
+           case g => g
+         })
+    LineariseVisitor(CNFSimplifier(split), IBinJunctor.And)
   }
 }
