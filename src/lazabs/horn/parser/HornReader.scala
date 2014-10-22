@@ -376,7 +376,7 @@ class SMTHornReader protected[parser] (
               Transform2NNF(h ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
         }
         case ProverStatus.Sat =>
-          // assume the constraint is just true
+          // then the resulting constraint is false
           resClauses +=
             Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
       }
