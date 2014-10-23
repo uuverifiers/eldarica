@@ -32,7 +32,6 @@ package lazabs.horn.parser
 
 import java.io.{FileInputStream,InputStream,FileNotFoundException}
 import lazabs.horn.global._
-import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector}
 import ap.{SimpleAPI, Signature}
@@ -46,6 +45,9 @@ import lazabs.prover.PrincessWrapper
 import lazabs.ast.ASTree.Parameter
 import lazabs.types.IntegerType
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
+
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
+                                 HashSet => MHashSet, LinkedHashSet}
 
 object HornReader {
   def apply(fileName: String): Seq[HornClause] = {
@@ -85,10 +87,11 @@ class SMTHornReader protected[parser] (
           f <- t.triggerRelevantFunctions.iterator)
      yield f).toSet
 
-  private val unintPredicates =
-    for (p <- signature.order.orderedPredicates.toSeq.sortBy(_.name);
-         if (!(TheoryRegistry lookupSymbol p).isDefined))
-    yield p
+  private val unintPredicates = new LinkedHashSet[Predicate]
+
+  for (p <- signature.order.orderedPredicates.toSeq.sortBy(_.name))
+    if (!(TheoryRegistry lookupSymbol p).isDefined)
+      unintPredicates += p
 
   if (!signature.theories.isEmpty)
     Console.err.println("Theories: " + (signature.theories mkString ", "))
@@ -287,48 +290,104 @@ class SMTHornReader protected[parser] (
   //////////////////////////////////////////////////////////////////////////////
 
   private def elimQuansTheories(
-                f : IFormula,
-                unintPredicates : Seq[IExpression.Predicate],
+                clause : IFormula,
+                unintPredicates : LinkedHashSet[Predicate],
                 allTheories : Seq[Theory]) : Seq[IFormula] = {
 
-    val quanNum = QuantifierCountVisitor(f)
+    val quanNum = QuantifierCountVisitor(clause)
 
     if (quanNum == 0 && allTheories.isEmpty)
-      return List(f)
+      return List(clause)
 
     import p._
 
     addTheories(allTheories)
 
-    val qfClauses = new ArrayBuffer[Conjunction]
+    def elimQuantifiers(f : IFormula)
+                      : (Seq[Conjunction], Set[Predicate]) = scope {
 
-    scope {
+      val qfClauses = new ArrayBuffer[Conjunction]
+      val occurringUnintPreds = new MHashSet[Predicate]
 
       addRelations(unintPredicates)
       addConstantsRaw(SymbolCollector constantsSorted f)
 
-//      if (quanNum == 0) {
-//        qfClauses += asConjunction(~f)
-//      } else {
-        // first eliminate quantifiers by instantiation
+      // first eliminate quantifiers by instantiation
 
-        setupTheoryPlugin(new Plugin {
-          import Plugin.GoalState
-          def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-            goalState(goal) match {
-              case GoalState.Final => {
-                qfClauses += goal.facts
-                Some((Conjunction.FALSE, Conjunction.TRUE))
-              }
-              case _ =>
-                None
+      setupTheoryPlugin(new Plugin {
+        import Plugin.GoalState
+        def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+          goalState(goal) match {
+            case GoalState.Final => {
+              for (a <- goal.facts.predConj.positiveLits)
+                if (unintPredicates contains a.pred)
+                  occurringUnintPreds += a.pred
+              qfClauses += goal.facts
+              Some((Conjunction.FALSE, Conjunction.TRUE))
             }
-        })
+            case _ =>
+              None
+          }
+      })
 
-        ?? (f)
-        ???
-//      }
+      ?? (f)
+      ???
 
+      (qfClauses, occurringUnintPreds.toSet)
+    }
+
+    val qfClauses = {
+      val (qfClauses, occurringUnintPreds) = elimQuantifiers(clause)
+
+      // check whether all quantified subformulae were actually
+      // instantiated; otherwise add a ground instance
+      var foundUninst = false
+
+      val newClause =
+        or(for (literal <- LineariseVisitor(clause, IBinJunctor.Or).iterator)
+           yield literal match {
+             case IQuantified(Quantifier.EX, _)
+               if (ContainsSymbol(literal, (x:IExpression) => x match {
+                     case IAtom(p, _) => (unintPredicates contains p) &&
+                                         !(occurringUnintPreds contains p)
+                     case _ => false
+                   })) => {
+
+               foundUninst = true
+
+               var quanNum = 0
+               var formula = literal
+               while (formula.isInstanceOf[IQuantified]) {
+                 val IQuantified(Quantifier.EX, h) = formula
+                 quanNum = quanNum + 1
+                 formula = h
+               }
+
+               val newMatrix =
+                 or(for (h <- LineariseVisitor(formula, IBinJunctor.And).iterator)
+                    yield h match {
+                      case s@IAtom(p, _) => {
+                        (TheoryRegistry lookupSymbol p) match {
+                          case Some(t) if (t.functionalPredicates contains p) =>
+                            // nothing
+                          case _ =>
+                            throw new Exception(
+                              "Unexpected quantified clause literal: " + literal)
+                        }
+                        ~s
+                      }
+                      case s => s
+                    })
+
+               quan(for (_ <- 0 until quanNum) yield Quantifier.ALL, newMatrix)
+             }
+             case g => g
+           })
+
+      if (foundUninst)
+        elimQuantifiers(newClause)._1
+      else
+        qfClauses
     }
 
     // then eliminate theory symbols

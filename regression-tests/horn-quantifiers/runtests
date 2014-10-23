@@ -2,7 +2,7 @@
 
 LAZABS=../../eld
 
-TESTS="simple-init.smt2"
+TESTS="simple-init.smt2 heaps.smt2"
 
 for name in $TESTS; do
     echo
