@@ -77,6 +77,7 @@ class GlobalParameters {
   var horn = false
   var global = false
   var disjunctive = false
+  var splitClauses = false
   var displaySolutionProlog = false
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
@@ -201,6 +202,8 @@ object Main {
         arguments(rest)
       }
 
+      case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
+
       case "-n" :: rest => spuriousness = false; arguments(rest)
       case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
@@ -250,6 +253,7 @@ object Main {
           " -abstract\tUse interpolation abstraction for better interpolants\n" +
           " -abstract:t\tAbstraction type: term, oct, relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
+          " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
           "\n" +
           " -hin\t\tExpect input in Prolog Horn format\n" +  

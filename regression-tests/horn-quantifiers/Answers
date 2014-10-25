@@ -5,7 +5,7 @@ Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Theories: SimpleArray(1)
 SOLVABLE
-(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (= A 0) (= B E)) (or (and (>= A 1) (<= D (- 1))) (and (>= A 1) (>= D 1)))))
+(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (not (= D 0)) (or (= A 0) (= B E))))
 
 heaps.smt2
 Warning: ignoring (set-logic HORN)
@@ -14,7 +14,16 @@ Warning: ignoring (get-model)
 Warning: ignoring (exit)
 Theories: SimpleArray(1)
 SOLVABLE
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (or (or (and (and (= B F) (= C G)) (= D H)) (and (and (= C G) (= D H)) (>= (- E A) 1))) (and (and (= C G) (= D H)) (>= (- A E) 1))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (= C G) (= D H)) (or (not (= A E)) (= B F))))
+
+double-heap.smt2
+Warning: ignoring (set-logic HORN)
+Warning: ignoring (check-sat)
+Warning: ignoring (get-model)
+Warning: ignoring (exit)
+Theories: SimpleArray(1)
+SOLVABLE
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (and (= C H) (= D I)) (= E J)) (or (not (= A F)) (= B G))))
 
 init.cleaned.smt2
 Warning: ignoring (set-info :status unknown)
@@ -22,5 +31,5 @@ Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Theories: SimpleArray(1)
 SOLVABLE
-(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (= A 0) (= B E)) (or (or (and (= A 1) (>= D 1)) (and (and (<= A D) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
+(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (or (or (and (= A 1) (>= D 1)) (and (= B E) (>= A 1))) (and (and (<= A D) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
 (define-fun inv2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= B E) (or (>= (- A D) 1) (<= C D))))

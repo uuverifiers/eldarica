@@ -2,7 +2,7 @@
 
 LAZABS=../../eld
 
-TESTS="simple-init.smt2 heaps.smt2"
+TESTS="simple-init.smt2 heaps.smt2 double-heap.smt2"
 
 for name in $TESTS; do
     echo
@@ -15,6 +15,6 @@ TESTS="init.cleaned.smt2"
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -abstract -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -abstract -splitClauses -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 

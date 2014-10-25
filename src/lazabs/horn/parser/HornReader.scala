@@ -303,60 +303,18 @@ class SMTHornReader protected[parser] (
 
     addTheories(allTheories)
 
-    def elimQuantifiers(f : IFormula)
-                      : (Seq[Conjunction], Set[Predicate]) = scope {
-
-      val qfClauses = new ArrayBuffer[Conjunction]
-      val occurringUnintPreds = new MHashSet[Predicate]
-
-      addRelations(unintPredicates)
-      addConstantsRaw(SymbolCollector constantsSorted f)
-
-      // first eliminate quantifiers by instantiation
-
-      setupTheoryPlugin(new Plugin {
-        import Plugin.GoalState
-        def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-          goalState(goal) match {
-            case GoalState.Final => {
-              for (a <- goal.facts.predConj.positiveLits)
-                if (unintPredicates contains a.pred)
-                  occurringUnintPreds += a.pred
-              qfClauses += goal.facts
-              Some((Conjunction.FALSE, Conjunction.TRUE))
-            }
-            case _ =>
-              None
-          }
-      })
-
-      ?? (f)
-      ???
-
-      (qfClauses, occurringUnintPreds.toSet)
-    }
-
-    val qfClauses = {
-      val (qfClauses, occurringUnintPreds) = elimQuantifiers(clause)
-
-      // check whether all quantified subformulae were actually
-      // instantiated; otherwise add a ground instance
-      var foundUninst = false
-
-      val newClause =
-        or(for (literal <- LineariseVisitor(clause, IBinJunctor.Or).iterator)
-           yield literal match {
-             case IQuantified(Quantifier.EX, _)
-               if (ContainsSymbol(literal, (x:IExpression) => x match {
-                     case IAtom(p, _) => (unintPredicates contains p) &&
-                                         !(occurringUnintPreds contains p)
-                     case _ => false
-                   })) => {
-
-               foundUninst = true
-
+    def additionalAxioms(instantiatedPreds : Set[Predicate]) : Conjunction = {
+      val formula =
+        or(for (literal@IQuantified(Quantifier.EX, _) <-
+                  LineariseVisitor(clause, IBinJunctor.Or).iterator;
+                if (ContainsSymbol(literal, (x:IExpression) => x match {
+                      case IAtom(p, _) => (unintPredicates contains p) &&
+                                          !(instantiatedPreds contains p)
+                      case _ => false
+                    })))
+           yield {
                var quanNum = 0
-               var formula = literal
+               var formula : IFormula = literal
                while (formula.isInstanceOf[IQuantified]) {
                  val IQuantified(Quantifier.EX, h) = formula
                  quanNum = quanNum + 1
@@ -380,14 +338,46 @@ class SMTHornReader protected[parser] (
                     })
 
                quan(for (_ <- 0 until quanNum) yield Quantifier.ALL, newMatrix)
-             }
-             case g => g
-           })
+             })
+      asConjunction(formula)
+    }
 
-      if (foundUninst)
-        elimQuantifiers(newClause)._1
-      else
-        qfClauses
+    val qfClauses = scope {
+      val qfClauses = new ArrayBuffer[Conjunction]
+
+      addRelations(unintPredicates)
+      addConstantsRaw(SymbolCollector constantsSorted clause)
+
+      // first eliminate quantifiers by instantiation
+
+      setupTheoryPlugin(new Plugin {
+        import Plugin.GoalState
+        def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+          goalState(goal) match {
+            case GoalState.Final => {
+              val occurringPreds =
+                (for (a <- goal.facts.predConj.positiveLits.iterator)
+                 yield a.pred).toSet
+
+              // check whether all quantified literals have been instantiated
+              val axioms = additionalAxioms(occurringPreds)
+
+              if (axioms.isFalse) {
+                qfClauses += goal.facts
+                Some((Conjunction.FALSE, Conjunction.TRUE))
+              } else {
+                Some((axioms.negate, Conjunction.TRUE))
+              }
+            }
+            case _ =>
+              None
+          }
+      })
+
+      ?? (clause)
+      ???
+
+      qfClauses
     }
 
     // then eliminate theory symbols
@@ -426,13 +416,19 @@ class SMTHornReader protected[parser] (
 
       ??? match {
         case ProverStatus.Unsat => {
-          // turn the resulting formula into CNF, and split positive equations
-          // (which usually gives better performance)
-          for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
-                                     IBinJunctor.And).iterator;
-               h <- splitPosEquations(g).iterator)
+
+          if (lazabs.GlobalParameters.get.splitClauses) {
+            // turn the resulting formula into CNF, and split positive equations
+            // (which often gives better performance)
+            for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
+                                       IBinJunctor.And).iterator;
+                 h <- splitPosEquations(g).iterator)
+              resClauses +=
+                Transform2NNF(h ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+          } else {
             resClauses +=
-              Transform2NNF(h ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+              Transform2NNF(getConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+          }
         }
         case ProverStatus.Sat =>
           // then the resulting constraint is false
