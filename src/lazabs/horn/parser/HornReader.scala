@@ -197,11 +197,18 @@ class SMTHornReader protected[parser] (
       HornClause(if (head == null) Interp(lazabs.ast.ASTree.BoolConst(false))
                  else head,
                  if (body.isEmpty) List(Interp(lazabs.ast.ASTree.BoolConst(true))) 
-                 else body )
+                 else body)
     }
   }
 
-  val result : Seq[HornClause] = eldClauses.flatten
+  val result : Seq[HornClause] = eldClauses.flatten match {
+    case Seq() => {
+      // make sure to generate at least one clause
+      List(HornClause(Interp(lazabs.ast.ASTree.BoolConst(false)),
+                      List(Interp(lazabs.ast.ASTree.BoolConst(false)))))
+    }
+    case s => s
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

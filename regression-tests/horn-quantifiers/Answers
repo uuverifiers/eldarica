@@ -25,6 +25,14 @@ Theories: SimpleArray(1)
 SOLVABLE
 (define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (and (= C H) (= D I)) (= E J)) (or (not (= A F)) (= B G))))
 
+array_noloop_crash.smt2
+Warning: ignoring (set-logic HORN)
+Warning: ignoring (check-sat)
+Warning: ignoring (get-model)
+Warning: ignoring (exit)
+Theories: SimpleArray(1)
+SOLVABLE
+
 init.cleaned.smt2
 Warning: ignoring (set-info :status unknown)
 Warning: ignoring (set-logic HORN)
