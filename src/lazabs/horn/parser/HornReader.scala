@@ -65,13 +65,14 @@ object HornReader {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 class SMTHornReader protected[parser] (
          fileName: String,
          // we need a prover for some of the
          // clause preprocessing, in general
          p : SimpleAPI) {
 
-  //import ap.parser._
   import IExpression._
 
   private val reader = new java.io.BufferedReader (
@@ -421,56 +422,17 @@ class SMTHornReader protected[parser] (
       val newUnintHeadLits = unintHeadLits map (existentialiseAtom _)
       val newUnintBodyLits = unintBodyLits map (existentialiseAtom _)
 
-      ??? match {
-        case ProverStatus.Unsat => {
-
-          if (lazabs.GlobalParameters.get.splitClauses) {
-            // turn the resulting formula into CNF, and split positive equations
-            // (which often gives better performance)
-            for (g <- LineariseVisitor(CNFSimplifier(getConstraint),
-                                       IBinJunctor.And).iterator;
-                 h <- splitPosEquations(g).iterator)
-              resClauses +=
-                Transform2NNF(h ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
-          } else {
-            resClauses +=
-              Transform2NNF(getConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
-          }
-        }
+      resClauses += (??? match {
+        case ProverStatus.Unsat =>
+          Transform2NNF(getConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
         case ProverStatus.Sat =>
           // then the resulting constraint is false
-          resClauses +=
-            Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
-      }
+          Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+      })
     }
 
     reset
 
     resClauses
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private object CNFSimplifier extends Simplifier {
-    override protected def furtherSimplifications(expr : IExpression) =
-      expr match {
-        case IBinFormula(IBinJunctor.Or, f,
-                         IBinFormula(IBinJunctor.And, g1, g2)) =>
-          (f | g1) & (f | g2)
-        case IBinFormula(IBinJunctor.Or,
-                         IBinFormula(IBinJunctor.And, g1, g2),
-                         f) =>
-          (g1 | f) & (g2 | f)
-        case expr => expr
-      }
-  }
-
-  private def splitPosEquations(f : IFormula) : Seq[IFormula] = {
-    val split =
-      or(for (g <- LineariseVisitor(f, IBinJunctor.Or)) yield g match {
-           case EqZ(t) => geqZero(t) & geqZero(-t)
-           case g => g
-         })
-    LineariseVisitor(CNFSimplifier(split), IBinJunctor.And)
   }
 }

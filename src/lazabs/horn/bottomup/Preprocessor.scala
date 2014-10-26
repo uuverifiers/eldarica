@@ -110,14 +110,35 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
 
     val clauses3 = elimLinearDefs(clauses2)
 
+    val clauses4 =
+      for (c <- clauses3; d <- splitClauseBody(c)) yield d
+
+    val clauses5 =
+      if (lazabs.GlobalParameters.get.splitClauses)
+        // turn the resulting formula into CNF, and split positive equations
+        // (which often gives better performance)
+        (for (Clause(head, body, constraint) <- clauses4.iterator;
+              constraint2 <- splitConstraint(~constraint))
+         yield Clause(head, body, Transform2NNF(!constraint2))).toList
+      else
+        clauses4
+
+/*
+    val clauses5 =
+      for (Clause(head, body, constraint) <- clauses4;
+           cnf = lazabs.horn.parser.HornReader.CNFSimplifier(!constraint);
+           constraint2 <- LineariseVisitor(cnf, IBinJunctor.And))
+      yield Clause(head, body, Transform2NNF(!constraint2))
+*/
+
     // apply acceleration of Horn clauses
-    val clauses4 = if (!lazabs.GlobalParameters.get.staticAccelerate) {
-      clauses3
+    val clauses6 = if (!lazabs.GlobalParameters.get.staticAccelerate) {
+      clauses5
     } else {
-      HornAccelerate.accelerate(clauses3)
+      HornAccelerate.accelerate(clauses5)
     }
     
-    clauses4
+    clauses6
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -240,4 +261,73 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
       clause
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  var tempPredCounter = 0
+
+  def splitClauseBody(clause : Clause) : List[Clause] = {
+    val Clause(head, body, constraint) = clause
+
+    if (body.size > 2) {
+      val body1 = body take 2
+      val remainingBody = body drop 2
+
+      val body1Syms =
+        (for (a <- body1;
+              c <- SymbolCollector constantsSorted a) yield c).distinct
+      val body1SymsSet = body1Syms.toSet
+
+      val (constraintList1, constraintList2) =
+        LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And) partition {
+          f => (SymbolCollector constants f) subsetOf body1SymsSet
+        }
+
+      val constraint1 = and(constraintList1)
+      val constraint2 = and(constraintList2)
+
+      val otherSyms =
+        SymbolCollector constants (constraint2 & and(remainingBody) & head)
+
+      val commonSyms = body1Syms filter otherSyms
+      val tempPred = new Predicate ("temp" + tempPredCounter, commonSyms.size)
+      tempPredCounter = tempPredCounter + 1
+
+      val head1 = IAtom(tempPred, commonSyms)
+
+      Clause(head1, body1, constraint1) ::
+        splitClauseBody(Clause(head, head1 :: remainingBody, constraint2))
+    } else {
+      List(clause)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  object CNFSimplifier extends Simplifier {
+    override protected def furtherSimplifications(expr : IExpression) =
+      expr match {
+        case IBinFormula(IBinJunctor.Or, f,
+                         IBinFormula(IBinJunctor.And, g1, g2)) =>
+          (f | g1) & (f | g2)
+        case IBinFormula(IBinJunctor.Or,
+                         IBinFormula(IBinJunctor.And, g1, g2),
+                         f) =>
+          (g1 | f) & (g2 | f)
+        case expr => expr
+      }
+  }
+
+  def splitPosEquations(f : IFormula) : Seq[IFormula] = {
+    val split =
+      or(for (g <- LineariseVisitor(f, IBinJunctor.Or)) yield g match {
+           case EqZ(t) => geqZero(t) & geqZero(-t)
+           case g => g
+         })
+    LineariseVisitor(CNFSimplifier(split), IBinJunctor.And)
+  }
+
+  def splitConstraint(f : IFormula) : Iterator[IFormula] =
+    for (g <- LineariseVisitor(CNFSimplifier(f), IBinJunctor.And).iterator;
+         h <- splitPosEquations(g).iterator)
+    yield h
 }

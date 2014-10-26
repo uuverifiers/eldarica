@@ -33,6 +33,15 @@ Warning: ignoring (exit)
 Theories: SimpleArray(1)
 SOLVABLE
 
+bubble-quans.smt2
+Warning: ignoring (set-info :status sat)
+Warning: ignoring (set-logic HORN)
+Warning: ignoring (check-sat)
+Theories: SimpleArray(1)
+SOLVABLE
+(define-fun sp0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (>= E 0))
+(define-fun sp1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (>= E 0))
+
 init.cleaned.smt2
 Warning: ignoring (set-info :status unknown)
 Warning: ignoring (set-logic HORN)

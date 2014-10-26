@@ -202,7 +202,9 @@ class HornWrapper(constraints: Seq[HornClause],
        new HornPredAbs(simplified,
                        initialPredicates, predGenerator,
                        counterexampleMethod))).result match {
-      case Left(res) => Left(res)
+      case Left(res) =>
+        // only keep relation symbols that were also part of the orginal problem
+        Left(res filterKeys predPool.values.toSet)
       case Right(cex) => Right(for (p <- cex) yield p._1)
     }
   }

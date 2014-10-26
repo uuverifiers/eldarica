@@ -3,7 +3,7 @@
 LAZABS=../../eld
 
 TESTS="simple-init.smt2 heaps.smt2 double-heap.smt2 \
-       array_noloop_crash.smt2"
+       array_noloop_crash.smt2 bubble-quans.smt2"
 
 for name in $TESTS; do
     echo
