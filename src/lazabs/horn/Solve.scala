@@ -79,7 +79,10 @@ object Solve {
         result match {
           case Right(cex) => {
             println("NOT SOLVABLE")
-//            cex.prettyPrint
+            if (lazabs.GlobalParameters.get.plainCEX) {
+              println
+              cex.prettyPrint
+            }
             Util.show(cex, "horn-cex")
 //            println(printTree(cex,""))
           }

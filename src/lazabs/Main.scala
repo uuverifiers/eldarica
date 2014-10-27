@@ -98,6 +98,7 @@ class GlobalParameters {
   var dotSpec = false
   var dotFile : String = null
   var pngNo = true;
+  var plainCEX = false;
   var assertions = false
   var timeoutChecker : () => Unit = () => ()
 }
@@ -229,6 +230,7 @@ object Main {
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
+      case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: lazabs [options] file\n\n" +
           "General options:\n" +
@@ -236,6 +238,7 @@ object Main {
           " -assert\tEnable assertions in Eldarica\n" +
           " -log\t\tDisplay progress and found invariants\n" + 
           " -t:time\tSet timeout (in seconds)\n" +
+          " -cex\t\tShow textual counterexamples\n" + 
           " -dotCEX\tShow counterexample using dot\n" + 
           "\n" +
           "Horn engine:\n" +

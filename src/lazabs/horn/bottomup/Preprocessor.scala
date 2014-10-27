@@ -111,7 +111,13 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
     val clauses3 = elimLinearDefs(clauses2)
 
     val clauses4 =
-      for (c <- clauses3; d <- splitClauseBody(c)) yield d
+      if (lazabs.GlobalParameters.get.cegarHintsFile == "")
+        for (c <- clauses3; d <- splitClauseBody(c)) yield d
+      else
+        // if hints were given, the behaviour of Eldarica becomes
+        // very confusing if additional predicates are introduced.
+        // for the time being, do not split clauses in this case
+        clauses3
 
     val clauses5 =
       if (lazabs.GlobalParameters.get.splitClauses)

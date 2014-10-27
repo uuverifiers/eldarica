@@ -101,8 +101,11 @@ object Util {
 
     def prettyPrint : Unit =
       for ((DagNode(d, children, _), i) <- subdagIterator.zipWithIndex)
-        println("" + i + ": " + d + " -> " +
-                (for (ind <- children) yield (i + ind)).mkString(", "))
+        println("" + i + ": " + d +
+                (if (children.isEmpty)
+                   ""
+                 else
+                   (" -> " + (for (ind <- children) yield (i + ind)).mkString(", "))))
 
     def dotPrint(reverse : Boolean) : Unit = {
       println("digraph dag {")
