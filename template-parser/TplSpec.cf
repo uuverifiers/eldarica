@@ -51,6 +51,7 @@ PredRef.                PredRefC        ::= SymbolRef "(" [SortedVariableC] ")";
 -- One template
 
 TermTemplate.           TemplateC       ::= "(" TemplateType Term Numeral ")";
+IterationThreshold.     TemplateC       ::= "(" "iterationThreshold" Numeral ")";
 
 separator nonempty TemplateC "";
 

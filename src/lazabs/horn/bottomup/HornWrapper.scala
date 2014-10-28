@@ -148,10 +148,10 @@ class HornWrapper(constraints: Seq[HornClause],
   //////////////////////////////////////////////////////////////////////////////
 
   private def constructAbstractionMap(cs : Seq[Clause], hintsReader : Option[AbsReader])
-                             : Map[Predicate, (Seq[Predicate], AbsLattice)] =
+                             : TemplateInterpolator.AbstractionMap =
     hintsReader match {
       case Some(reader) if (!reader.templates.isEmpty) => {
-        (for ((predName, lattice) <- reader.templates.iterator;
+        (for ((predName, (hintLattice, threshold)) <- reader.templates.iterator;
               pred = loopDetector.loopHeads.find((_.name == predName));
               if {
                 if (!pred.isDefined)
@@ -159,13 +159,19 @@ class HornWrapper(constraints: Seq[HornClause],
                                       "   (no loop head, or eliminated during simplification)")
                 pred.isDefined
               }) yield {
-           (pred.get, (loopDetector bodyPredicates pred.get, lattice))
+           (pred.get,
+            new TemplateInterpolator.AbstractionRecord {
+              val loopBody = (loopDetector bodyPredicates pred.get).toSet
+              val lattice = hintLattice
+              val loopIterationAbstractionThreshold = threshold getOrElse 3
+            })
          }).toMap
       }
 
       case _ => {
-        new lazabs.horn.abstractions.StaticAbstractionBuilder(
-          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType).abstractions
+        (new lazabs.horn.abstractions.StaticAbstractionBuilder(
+          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType)
+             .abstractions) mapValues (TemplateInterpolator.AbstractionRecord(_))
       }
     }
 

@@ -102,29 +102,34 @@ class AbsReader(input : java.io.Reader) {
        val preds = new ArrayBuffer[(IFormula, Int)]
        val terms = new ArrayBuffer[(ITerm, Int)]
        val ineqs = new ArrayBuffer[(ITerm, Int)]
-       
-       for (templatec <- templates.listtemplatec_) {
-         val template = templatec.asInstanceOf[TermTemplate]
-         val expr = smtParser.parseExpression(printer print template.term_)
-         val cost = template.numeral_.toInt
+       var iterationThreshold : Option[Int] = None
+
+       for (templatec <- templates.listtemplatec_)
+         templatec match {
+           case template : TermTemplate => {
+             val expr = smtParser.parseExpression(printer print template.term_)
+             val cost = template.numeral_.toInt
  
-         (template.templatetype_, expr) match {
-           case (_ : PredicateType,            f : IFormula) =>
-             preds += ((~f, cost))
-           case (_ : PredicatePosNegType,      f : IFormula) => {
-             preds += ((f, cost))
-             preds += ((~f, cost))
+             (template.templatetype_, expr) match {
+               case (_ : PredicateType,            f : IFormula) =>
+                 preds += ((~f, cost))
+               case (_ : PredicatePosNegType,      f : IFormula) => {
+                 preds += ((f, cost))
+                 preds += ((~f, cost))
+               }
+               case (_ : TermType,                 t : ITerm) =>
+                 terms += ((t, cost))
+               case (_ : InequalityTermType,       t : ITerm) =>
+                 ineqs += ((t, cost))
+               case (_ : InequalityTermPosNegType, t : ITerm) => {
+                 ineqs += ((t, cost))
+                 ineqs += ((-t, cost))
+               }
+             }
            }
-           case (_ : TermType,                 t : ITerm) =>
-             terms += ((t, cost))
-           case (_ : InequalityTermType,       t : ITerm) =>
-             ineqs += ((t, cost))
-           case (_ : InequalityTermPosNegType, t : ITerm) => {
-             ineqs += ((t, cost))
-             ineqs += ((-t, cost))
-           }
+           case threshold : IterationThreshold =>
+             iterationThreshold = Some(threshold.numeral_.toInt)
          }
-       }
  
        for (_ <- 0 until varNum)
          env.popVar
@@ -134,7 +139,9 @@ class AbsReader(input : java.io.Reader) {
          (if (terms.isEmpty) List() else List(TermSubsetLattice(terms))) ++
          (if (ineqs.isEmpty) List() else List(TermIneqLattice(ineqs)))
 
-       (predName -> (lattices reduceLeft (ProductLattice(_, _, true))))
+       (predName ->
+        ((lattices reduceLeft (ProductLattice(_, _, true)),
+         iterationThreshold)))
     }).toList
 
     ////////////////////////////////////////////////////////////////////////////

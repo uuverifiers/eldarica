@@ -1,0 +1,41 @@
+; Works with option -splitClauses
+
+(templates INV1
+  ((ind1 Int) ; 0
+   (sel1 Int) ; 1
+   (n1 Int)   ; 2
+   (x1 Int)   ; 3
+   (i1 Int)   ; 4
+   (a1 Int)   ; 5
+   (b1 Int)   ; 6
+   (t1 Int)   ; 7
+   (ind2 Int) ; 8
+   (sel2 Int) ; 9
+   (n2 Int)   ; 10
+   (a2 Int)   ; 11
+   (i2 Int)   ; 12
+   (r2 Int))  ; 13
+
+  (term (- sel2 a1) 1)
+  (term (- sel2 b1) 1)
+  (term (- sel2 t1) 1)
+  (term (- i1 i2) 1)
+  (term (- n1 n2) 1)
+
+  (term ind1 10)
+  (term sel1 10)
+  (term n1 10)
+  (term x1 10)
+  (term i1 10)
+  (term a1 10)
+  (term b1 10)
+  (term t1 10)
+  (term ind2 10)
+  (term sel2 10)
+  (term n2 10)
+  (term a2 10)
+  (term i2 10)
+  (term r2 10)
+
+  (iterationThreshold 1)
+)

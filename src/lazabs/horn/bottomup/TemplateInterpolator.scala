@@ -62,6 +62,26 @@ object TemplateInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  object AbstractionRecord {
+    def apply(pair : (Iterable[Predicate], AbsLattice)) = new AbstractionRecord {
+      val loopBody = pair._1.toSet
+      val lattice = pair._2
+      val loopIterationAbstractionThreshold = 3
+    }
+  }
+
+  abstract class AbstractionRecord {
+    val loopBody : Set[Predicate]
+    val lattice : AbsLattice
+    // how often does a predicate have to occur in a counterexample before
+    // interpolation abstraction is applied
+    val loopIterationAbstractionThreshold : Int
+  }
+
+  type AbstractionMap = Map[Predicate, AbstractionRecord]
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def interpolatingPredicateGenCEXAbsUpp(absMap : Map[String, AbsLattice])
                                         (clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
@@ -100,9 +120,7 @@ object TemplateInterpolator {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def interpolatingPredicateGenCEXAbsGen(
-           absMap : Map[Predicate, (Seq[Predicate], AbsLattice)],
-           timeout : Long) =
+  def interpolatingPredicateGenCEXAbsGen(absMap : AbstractionMap, timeout : Long) =
     abstractInterpolatingPredicateGen(x => createAbstractConstraintTreesGen(x, absMap, timeout),
                                       true) _
 
@@ -758,7 +776,7 @@ object TemplateInterpolator {
 
   private def createAbstractConstraintTreesGen(
                 clauseTree : Tree[Either[NormClause, RelationSymbol]],
-                absMap : Map[Predicate, (Seq[Predicate], AbsLattice)],
+                absMap : AbstractionMap,
                 timeout : Long
               )
               : Option[(Tree[Seq[ConstantTerm]],
@@ -784,7 +802,7 @@ object TemplateInterpolator {
           //println("new ids id " + rel::ids)
 
           absMap.get(rel.pred) match {
-            case Some((_, x)) => List((path, x)) ++ subres
+            case Some(r) => List((path, r.lattice)) ++ subres
             case None => subres
           }
         } else {
@@ -806,7 +824,7 @@ object TemplateInterpolator {
           val subres = for ((c, i) <- children.zipWithIndex; 
                             res <- firstN(stepsLeft - 1, i :: path, c)) yield res
           (absMap get rel.pred) match {
-            case Some((_, lat)) => List((path, lat)) ++ subres
+            case Some(r) => List((path, r.lattice)) ++ subres
             case _ => subres
           }
         }
@@ -824,8 +842,8 @@ object TemplateInterpolator {
         val flatSubpaths = for (s <- subpaths; p <- s) yield p
         val subOccurrences = (for (s <- subsets; rs <- s) yield rs).toSet
         (absMap get rel.pred) match {
-          case Some((_, lat)) if (!(subOccurrences contains rel)) =>
-            (List((path, lat)) ++ flatSubpaths, subOccurrences + rel)
+          case Some(r) if (!(subOccurrences contains rel)) =>
+            (List((path, r.lattice)) ++ flatSubpaths, subOccurrences + rel)
           case _ =>
             (flatSubpaths, subOccurrences)
         }
@@ -843,7 +861,7 @@ object TemplateInterpolator {
         val maxSubPath : List[(List[Int], AbsLattice)] =
           if (subres.isEmpty) List() else (subres maxBy { x => x.size })
         (absMap get rel.pred) match {
-          case Some((_, lat)) => List((path, lat)) ++ maxSubPath
+          case Some(r) => List((path, r.lattice)) ++ maxSubPath
           case None => maxSubPath
         }
       }
@@ -858,7 +876,7 @@ object TemplateInterpolator {
         val subres = for ((c, i) <- children.zipWithIndex; 
                           res <- getLeafPaths(i :: path, c)) yield res
         (absMap get rel.pred) match {
-          case Some((_, lat)) if (subres.size < 3) => List((path, lat)) ++ subres
+          case Some(r) if (subres.size < 3) => List((path, r.lattice)) ++ subres
           case _ => subres
         }
       }
@@ -867,7 +885,6 @@ object TemplateInterpolator {
     }
 
     val loopHeadSeq = absMap.keys.toList
-    val loopHeadK = 3
 
     def getKthLoopHeadOccurrences(
              path : List[Int],
@@ -880,7 +897,7 @@ object TemplateInterpolator {
         val subAbstractions = subres1.flatten
         val newLoopHeadCounts =
           (for ((loopHead, i) <- loopHeadSeq.iterator.zipWithIndex) yield {
-             if (!(absMap(loopHead)._1 contains rel.pred)) {
+             if (!(absMap(loopHead).loopBody contains rel.pred)) {
                0
              } else {
                val submax = (0 /: (for (l <- subres2.iterator) yield l(i))) (_ max _)
@@ -893,8 +910,9 @@ object TemplateInterpolator {
 
         val newAbstractions =
            (for ((loopHead, cnt) <- loopHeadSeq.iterator zip newLoopHeadCounts.iterator;
-                 if (loopHead == rel.pred && cnt >= loopHeadK))
-            yield (path, absMap(loopHead)._2)).toList ::: subAbstractions
+                 if (loopHead == rel.pred &&
+                     cnt >= absMap(loopHead).loopIterationAbstractionThreshold))
+            yield (path, absMap(loopHead).lattice)).toList ::: subAbstractions
 
         (newAbstractions, newLoopHeadCounts)
       }
