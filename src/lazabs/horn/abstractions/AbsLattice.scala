@@ -43,6 +43,7 @@ import ap.util.Timeout
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
                                  HashMap => MHashMap, BitSet => MBitSet}
 import scala.collection.immutable.BitSet
+import scala.util.Random
 
 // Defines an interface to lattices
 trait AbsLattice
@@ -69,13 +70,15 @@ trait AbsLattice
 
   /** Compute the direct children/predecessors of an object,
     * in pseudo-random order. */
-  def predRandom(x: LatticeObject): Iterator[LatticeObject]
+  def predRandom(x: LatticeObject)
+                (implicit randGen : Random): Iterator[LatticeObject]
 
   /** A measure for the size of an object */
   def predNum(x: LatticeObject): Int
  
   /** Compute an element in between lower and upper */
-  def middle(lower : LatticeObject, upper : LatticeObject) : LatticeObject
+  def middle(lower : LatticeObject, upper : LatticeObject)
+            (implicit randGen : Random) : LatticeObject
 
   /** Compute the cost of an object. Cost is monotonic, bigger objects have
       larger cost. */
@@ -222,7 +225,8 @@ trait AbsLattice
    */
   def search(isFeasible: LatticeObject => Boolean,
              timeout : Long = Int.MaxValue) : Seq[LatticeObject] = {
- 
+    implicit val randGen = new Random (654321)
+
     val timeIsOut = new Timeouter(timeout)
     val cheapIsFeasible = new FeasibilityCache(isFeasible)
 
@@ -290,6 +294,8 @@ trait AbsLattice
    */
   def lSearch(isFeasible: LatticeObject => Boolean,
               timeout : Long = Int.MaxValue) : Seq[LatticeObject] = {
+    implicit val randGen = new Random (765432)
+
     val timeIsOut = new Timeouter(timeout)
     val cheapIsFeasible = new FeasibilityCache(isFeasible)
 
@@ -569,9 +575,8 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
                        a.predCheapestFirst(x._1),
                        b.predCheapestFirst(x._2))
 
-  private val randGen = new scala.util.Random(123456)
-
-  def predRandom(x: LatticeObject) = new Iterator[LatticeObject] {
+  def predRandom(x: LatticeObject)
+                (implicit randGen : Random) = new Iterator[LatticeObject] {
     val aIt = a.predRandom(x._1)
     val bIt = b.predRandom(x._2)
 
@@ -590,8 +595,8 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
 
   def predNum(x: LatticeObject): Int = a.predNum(x._1) + b.predNum(x._2)
 
-  def middle(lower : LatticeObject, 
-             upper : LatticeObject) : LatticeObject = {
+  def middle(lower : LatticeObject, upper : LatticeObject)
+            (implicit randGen : Random) : LatticeObject = {
     val fmid = a.middle(lower._1, upper._1)
     val smid = b.middle(lower._2, upper._2)
     (fmid, smid)
@@ -699,9 +704,8 @@ abstract class BitSetLattice(width : Int) extends AbsLattice {
     if (step.size == 1) step else bottom
   }
 
-  private val randGen = new scala.util.Random(12345)
-
-  def middle(lower : LatticeObject, upper : LatticeObject) : LatticeObject = {
+  def middle(lower : LatticeObject, upper : LatticeObject)
+            (implicit randGen : Random) : LatticeObject = {
     val nelem = for (x <- upper;
                      if ( (lower contains x) || randGen.nextInt(100) < 80)) yield x
     assert(latticeOrder.lteq(bottom, nelem))
@@ -732,7 +736,8 @@ abstract class BitSetLattice(width : Int) extends AbsLattice {
   def predCheapestFirst(obj: LatticeObject) : Iterator[LatticeObject ] =
     for (t <- objseqCostlyFirst.iterator; if (obj contains t)) yield (obj - t)
 
-  def predRandom(x: LatticeObject) = new Iterator[LatticeObject] {
+  def predRandom(x: LatticeObject)
+                (implicit randGen : Random) = new Iterator[LatticeObject] {
     private val remaining = new MBitSet
     remaining ++= x
 
@@ -1033,7 +1038,8 @@ abstract class ExtendingLattice[BaseLattice <: AbsLattice](val baseLattice : Bas
   def predCheapestFirst(start: LatticeObject): Iterator[LatticeObject] =
     throw new UnsupportedOperationException
 
-  def predRandom(x: LatticeObject) : Iterator[LatticeObject] =
+  def predRandom(x: LatticeObject)
+                (implicit randGen : Random) : Iterator[LatticeObject] =
     throw new UnsupportedOperationException
 
 /*  def incomparableBelow(topEl : LatticeObject,
@@ -1046,7 +1052,8 @@ abstract class ExtendingLattice[BaseLattice <: AbsLattice](val baseLattice : Bas
   } */
 
   def predNum(x: LatticeObject): Int = baseLattice.predNum(x)
-  def middle(lower : LatticeObject, upper : LatticeObject) =
+  def middle(lower : LatticeObject, upper : LatticeObject)
+            (implicit randGen : Random) =
     extendObject(baseLattice.middle(lower, upper))
   def cost(obj : LatticeObject) : Int = baseLattice.cost(obj)
 

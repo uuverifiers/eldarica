@@ -135,13 +135,13 @@ object TemplateInterpolator {
     DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
       case Left(partialTree) => {
         // let's try some abstraction ...
-        val abstractPredMaps =
+        val abstractPreds =
           constraintGen(partialTree) match {
             case Some((vocabularyTree, constraintTrees)) => {
                 for ((constrTree, order) <- constraintTrees) yield {
                   DagInterpolator.callInterpolator(partialTree, constrTree,
                                                    vocabularyTree, order) match {
-                    case Left(preds) => preds.toMap
+                    case Left(preds) => preds
                     case Right(_) => throw new UnsupportedOperationException
                   }
                 }
@@ -150,22 +150,25 @@ object TemplateInterpolator {
               List()
           }
 
-        val allPredMaps =
-          if (alwaysAddOrdinaryInterpolants || abstractPredMaps.isEmpty) {
+        val allPreds =
+          if (alwaysAddOrdinaryInterpolants || abstractPreds.isEmpty) {
             // also compute normal interpolants
             val Left(basicPreds) = DagInterpolator.partialPredicateGen(partialTree, false)
-            val basicPredMap = basicPreds.toMap
-            basicPredMap :: abstractPredMaps.toList
+            basicPreds :: abstractPreds.toList
           } else {
-            abstractPredMaps
+            abstractPreds
           }
 
-        val allRelSyms =
-          (for (m <- allPredMaps.iterator; p <- m.keysIterator) yield p).toSet
+        val allPredMaps = allPreds map (_.toMap)
+
+        val allRelSyms = new LinkedHashSet[Predicate]
+        for (m <- allPreds)
+          for ((p, _) <- m)
+            allRelSyms += p
 
         Left(for (p <- allRelSyms.toSeq) yield (
-               p, (for (m <- allPredMaps.iterator;
-                        c <- m.getOrElse(p, Seq()).iterator) yield c).toSet.toSeq))
+               p, (for (m <- allPredMaps;
+                        c <- m.getOrElse(p, Seq())) yield c).distinct))
       }
       case Right(cex) =>
         Right(cex)

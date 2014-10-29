@@ -634,6 +634,7 @@ object DagInterpolator {
     var didRefinement = true
     while (didRefinement && ??? == ProverStatus.Sat) {
       // search for leaves where the tree could be refined
+      lazabs.GlobalParameters.get.timeoutChecker()
 
       didRefinement = false
 
