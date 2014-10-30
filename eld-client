@@ -107,7 +107,10 @@ until [ $success -eq 0 ]; do
         rm "$portfile"
         startDaemon
     else if grep -q '^ERROR:' $outputlogfile; then
+	rm $outputlogfile
 	return 1
     fi; fi
 
 done
+
+rm $outputlogfile
