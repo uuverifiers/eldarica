@@ -77,17 +77,34 @@ object Solve {
           "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")
 
         result match {
+
           case Right(cex) => {
-            println("NOT SOLVABLE")
+            if (lazabs.GlobalParameters.get.didIncompleteTransformation)
+              println("unknown")
+            else
+              lazabs.GlobalParameters.get.format match {
+                case lazabs.GlobalParameters.InputFormat.SMTHorn =>
+                  println("unsat")
+                case _ =>
+                  println("NOT SOLVABLE")
+              }
+
             if (lazabs.GlobalParameters.get.plainCEX) {
               println
               cex.prettyPrint
             }
+
             Util.show(cex, "horn-cex")
 //            println(printTree(cex,""))
           }
+
           case Left(solution) => {
-            println("SOLVABLE")
+            lazabs.GlobalParameters.get.format match {
+              case lazabs.GlobalParameters.InputFormat.SMTHorn =>
+                println("sat")
+              case _ =>
+                println("SOLVABLE")
+            }
             (log,
              lazabs.GlobalParameters.get.displaySolutionProlog,
              lazabs.GlobalParameters.get.displaySolutionSMT) match {

@@ -50,11 +50,18 @@ startDaemon() {
 
 ################################################################################
 
+stdintoexitstatus() {
+  read exitstatus
+  return $exitstatus
+}
+
 if [ ! -f "$portfile" ]; then
     startDaemon
 fi
 
 mainProcess=$$
+
+outputlogfile=`mktemp`
 
 success=1
 until [ $success -eq 0 ]; do
@@ -91,13 +98,16 @@ until [ $success -eq 0 ]; do
                 sleep 1
             done
         } &
-    ) | nc localhost $port
+    ) | (((( nc localhost $port; echo $? >&3 ) | \
+      tee $outputlogfile >&4) 3>&1) | stdintoexitstatus) 4>&1
 
     success=$?
 
     if [ $success -ne 0 ]; then
         rm "$portfile"
         startDaemon
-    fi
+    else if grep -q '^ERROR:' $outputlogfile; then
+	return 1
+    fi; fi
 
 done

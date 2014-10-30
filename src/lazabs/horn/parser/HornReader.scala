@@ -307,6 +307,8 @@ class SMTHornReader protected[parser] (
     if (quanNum == 0 && allTheories.isEmpty)
       return List(clause)
 
+    lazabs.GlobalParameters.get.didIncompleteTransformation = true
+
     import p._
 
     addTheories(allTheories)

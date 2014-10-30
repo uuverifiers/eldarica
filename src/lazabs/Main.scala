@@ -81,6 +81,7 @@ class GlobalParameters {
   var displaySolutionProlog = false
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
+  var didIncompleteTransformation = false
   var templateBasedInterpolation = false
   var templateBasedInterpolationType : AbstractionType.Value = AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
@@ -103,11 +104,14 @@ class GlobalParameters {
   var timeoutChecker : () => Unit = () => ()
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 object Main {
   def assertions = GlobalParameters.get.assertions
 
   class MainException(msg : String) extends Exception(msg)
+  object TimeoutException extends MainException("timeout")
+  object StoppedException extends MainException("stopped")
 
   def openInputFile {
     val params = GlobalParameters.parameters.value
@@ -143,7 +147,7 @@ object Main {
     "Eldarica, 2014-08-20. (C) Copyright 2012-2014 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
-             stoppingCond : => Boolean) : Unit = try {
+             stoppingCond : => Boolean) : Unit = {
     val params = new GlobalParameters
     GlobalParameters.parameters.value = params
 
@@ -302,13 +306,13 @@ object Main {
     timeoutChecker = timeout match {
       case Some(to) => () => {
         if (System.currentTimeMillis - startTime > to.toLong)
-          throw new Exception("timeout")
+          throw TimeoutException
         if (stoppingCond)
-          throw new Exception("stopped")
+          throw StoppedException
       }
       case None => () => {
         if (stoppingCond)
-          throw new Exception("stopped")
+          throw StoppedException
       }
     }
     
@@ -427,22 +431,6 @@ object Main {
     val rTree = if (!interpolation) MakeRTree(cfg, MakeCFG.getLoops, spuriousness, searchMethod, log)
       else MakeRTreeInterpol(cfg, MakeCFG.getLoops, searchMethod, babarew, dumpInterpolationQuery, dynamicAccelerate, underApproximate, template, log)
     if(drawRTree) DrawGraph(rTree, absInFile)
-  } catch {
-    case t : StackOverflowError => {
-      System.gc
-      // let's hope that everything is still in a valid state
-      println("ERROR: " + t)
-//      t.printStackTrace
-    }
-    case t : OutOfMemoryError => {
-      System.gc
-      // let's hope that everything is still in a valid state
-      println("ERROR: " + t)
-//      t.printStackTrace
-    }
-    case t : Throwable =>
-      println("ERROR: " + t.getMessage)
-//      t.printStackTrace
   }
   
 }

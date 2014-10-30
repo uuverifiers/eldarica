@@ -3,7 +3,7 @@ cousot.correct.nts.smt2
 Warning: ignoring (set-info :origin "NTS benchmark converted to SMT-LIB2 using Eldarica (http://lara.epfl.ch/w/eldarica)")
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
-SOLVABLE
+sat
 (define-fun __assert_fail_sinit ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int)) Bool false)
 (define-fun main_s18 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int) (U Int) (V Int) (W Int) (X Int) (Y Int) (Z Int) (A1 Int) (B1 Int) (C1 Int) (D1 Int) (E1 Int) (F1 Int) (G1 Int) (H1 Int) (I1 Int) (J1 Int) (K1 Int) (L1 Int)) Bool (and (= K1 L1) (>= K1 0)))
 (define-fun main_s5 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int) (U Int) (V Int) (W Int) (X Int) (Y Int) (Z Int) (A1 Int) (B1 Int) (C1 Int) (D1 Int) (E1 Int) (F1 Int) (G1 Int) (H1 Int) (I1 Int) (J1 Int) (K1 Int) (L1 Int)) Bool (or (and (= K1 L1) (>= K1 1)) (and (= K1 0) (= L1 0))))
@@ -13,7 +13,7 @@ palindrome.nts.smt2
 Warning: ignoring (set-info :origin "NTS benchmark converted to SMT-LIB2 using Eldarica (http://lara.epfl.ch/w/eldarica)")
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
-SOLVABLE
+sat
 (define-fun palindrome_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (>= (+ B (- (- G F) C)) 0))
 (define-fun palindrome_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (>= (+ B (- (* (- 2) H) C)) (- 1)))
 (define-fun palindrome_q4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (>= (- (+ C (* (- 2) D)) B) (- 3)) (<= D 1)))
@@ -22,7 +22,7 @@ listcounter.correct.nts.smt2
 Warning: ignoring (set-info :origin "NTS benchmark converted to SMT-LIB2 using Eldarica (http://lara.epfl.ch/w/eldarica)")
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
-SOLVABLE
+sat
 (define-fun main_h_10 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (or (or (and (= G H) (and (>= (+ F G) 4) (>= G 3))) (and (= G 2) (= H 2))) (and (= G 1) (= H 1))))
 (define-fun main_h_22 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (= G 0))
 (define-fun main_h_23 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= F G) (>= F 1)))
@@ -33,14 +33,14 @@ inf1.error.nts.smt2
 Warning: ignoring (set-info :origin "NTS benchmark converted to SMT-LIB2 using Eldarica (http://lara.epfl.ch/w/eldarica)")
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
-NOT SOLVABLE
+unsat
 
 eq.smt2
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Warning: ignoring (get-model)
 Warning: ignoring (exit)
-SOLVABLE
+sat
 (define-fun REC__g ((A Int) (B Int) (C Int)) Bool true)
 (define-fun REC_g_ ((A Int) (B Int)) Bool true)
 (define-fun REC_g_g ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (not (= A C)) (= (+ B (- D E)) 0)))
@@ -49,21 +49,21 @@ monniaux-loop1.smt2
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Warning: ignoring (get-model)
-SOLVABLE
+sat
 (define-fun inv ((A Int) (B Int)) Bool (and (>= (* 2 A) B) (<= A 1001)))
 
 monniaux-loop2.smt2
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Warning: ignoring (get-model)
-SOLVABLE
+sat
 (define-fun inv ((A Int)) Bool (<= A 1001))
 Warning: ignoring (set-logic HORN)
 Warning: ignoring (check-sat)
 Warning: ignoring (get-model)
 Warning: ignoring (exit)
 Loading CEGAR hints ...
-SOLVABLE
+sat
 (define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= A E) (= B F)) (= C G)) (= D H)))
 (define-fun INV2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= A E) (= B F)) (= C G)) (= D H)))
 (define-fun INV3 ((A Int) (B Int) (C Int) (D Int)) Bool false)
