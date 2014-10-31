@@ -38,9 +38,16 @@ startDaemon() {
 
         $LAZABS_CMD lazabs.ServerMain >"$tempportfile" &
 
+        lazabsId=$!
+
         sleep 1
         while [ `wc -l "$tempportfile" | gawk '{ printf $1 }'` -lt 2 ]; do
-            sleep 1
+	    if ps -p $lazabsId >/dev/null; then
+		sleep 1
+	    else
+		echo "Could not start server"
+		exit 1
+	    fi
         done
 
         mv "$tempportfile" "$portfile"
@@ -108,7 +115,7 @@ until [ $success -eq 0 ]; do
         startDaemon
     else if grep -q '^ERROR:' $outputlogfile; then
 	rm $outputlogfile
-	return 1
+	exit 1
     fi; fi
 
 done
