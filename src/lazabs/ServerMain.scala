@@ -146,8 +146,6 @@ object ServerMain {
                         println("ERROR: " + t)
                         //      t.printStackTrace
                       }
-                      case Main.TimeoutException | Main.StoppedException =>
-                        println("unknown")
                       case t : Throwable =>
                         println("ERROR: " + t.getMessage)
                         //      t.printStackTrace

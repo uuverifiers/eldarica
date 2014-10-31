@@ -52,6 +52,12 @@ object Solve {
 
     val arities = clauseSet.map(cl => Horn.getRelVarArities(cl)).reduceLeft(_++_)
     val timeStart = System.currentTimeMillis
+
+    def printTime =
+      Console.err.println(
+        "Elapsed Time: " + (System.currentTimeMillis - timeStart) +
+        " milli-seconds")
+
       if(global) {
         val cegar = new HornCegar(clauseSet,log)
         val arg = cegar.apply
@@ -71,10 +77,19 @@ object Solve {
         if(drawRTree) lazabs.viewer.DrawGraph(arg)
       } else {
 
-        val result = (new HornWrapper(clauseSet, absMap, lbe, log, disjunctive, interpolatorType)).result
+        val result = try {
+          (new HornWrapper(clauseSet, absMap, lbe, log,
+                           disjunctive, interpolatorType)).result
+        } catch {
+          case t@(lazabs.Main.TimeoutException |
+                  lazabs.Main.StoppedException) => {
+            println("unknown")
+            printTime
+            throw t
+          }
+        }
 
-        Console.err.println(
-          "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")
+        printTime
 
         result match {
 
