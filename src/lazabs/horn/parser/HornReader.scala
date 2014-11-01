@@ -119,9 +119,11 @@ class SMTHornReader protected[parser] (
       Preprocessing(clause,
                     List(),
                     signature,
+                    Param.TRIGGER_STRATEGY.set(
                     Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
                       PreprocessingSettings.DEFAULT,
-                      triggerFunctions))
+                      triggerFunctions),
+                      Param.TriggerStrategyOptions.AllMinimal))
     clause = processedClause_aux
     
     // transformation to prenex normal form
