@@ -81,17 +81,59 @@ class HornWrapper(constraints: Seq[HornClause],
   private val outStream = if (log) Console.err else NullStream
 
   private val originalClauses = constraints
-  private val converted = originalClauses map (transform(_))
+  private val unsimplified = originalClauses map (transform(_))
 
 //    if (lazabs.GlobalParameters.get.printHornSimplified)
-//      printMonolithic(converted)
+//      printMonolithic(unsimplified)
 
-  private val simplified = Console.withErr(outStream) {
-    var simplified =
-      if (!lbe)
-        new HornPreprocessor(converted).result
-      else
-        converted
+  private val name2Pred =
+    (for (Clause(head, body, _) <- unsimplified.iterator;
+          IAtom(p, _) <- (head :: body).iterator)
+     yield (p.name -> p)).toMap
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val hintsReader =
+    lazabs.GlobalParameters.get.cegarHintsFile match {
+      case "" =>
+        None
+      case hintsFile =>
+        Some(new AbsReader (
+               new java.io.BufferedReader (
+                 new java.io.FileReader(hintsFile))))
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val unsimpInitialPredicates : Map[Predicate, Seq[IFormula]] =
+    hintsReader match {
+      case Some(reader) if (!reader.initialPredicates.isEmpty) => {
+        (for ((predName, formulas) <- reader.initialPredicates.iterator;
+                pred = name2Pred get predName;
+                if {
+                  if (!pred.isDefined)
+                    Console.err.println("   Ignoring initial predicates for " + predName + "\n")
+                  pred.isDefined
+                }) yield {
+             (pred.get, formulas)
+           }).toMap
+      }
+      case _ =>
+        Map()
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val (simplified, initialPredicates) = Console.withErr(outStream) {
+    var (simplified, initialPredicates) =
+      if (!lbe) {
+        val preprocessor =
+          new HornPreprocessor(unsimplified, unsimpInitialPredicates)
+        (preprocessor.result, preprocessor.initialPredicates)
+      } else {
+        (unsimplified, unsimpInitialPredicates)
+      }
 
     // problem: transforming back and forth doesn't produce  
     if (lazabs.GlobalParameters.get.printHornSimplified) {
@@ -108,24 +150,12 @@ class HornWrapper(constraints: Seq[HornClause],
       println("-------------------------------")
     }
 
-    simplified
+    (simplified, initialPredicates)
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  private val hintsReader =
-    lazabs.GlobalParameters.get.cegarHintsFile match {
-      case "" =>
-        None
-      case hintsFile =>
-        Some(new AbsReader (
-               new java.io.BufferedReader (
-                 new java.io.FileReader(hintsFile))))
-  }
 
   private lazy val loopDetector = new LoopDetector(simplified)
-
-  //////////////////////////////////////////////////////////////////////////////
 
   private val predGenerator = Console.withErr(outStream) {
     interpolatorType match {
@@ -174,25 +204,6 @@ class HornWrapper(constraints: Seq[HornClause],
              .abstractions) mapValues (TemplateInterpolator.AbstractionRecord(_))
       }
     }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private val initialPredicates : Map[Predicate, Seq[IFormula]] = hintsReader match {
-    case Some(reader) if (!reader.initialPredicates.isEmpty) => {
-      (for ((predName, formulas) <- reader.initialPredicates.iterator;
-              pred = loopDetector.allPredicates.find((_.name == predName));
-              if {
-                if (!pred.isDefined)
-                  Console.err.println("   Ignoring initial predicates for " + predName + "\n" +
-                                      "   (might be unreachable or eliminated during simplification)")
-                pred.isDefined
-              }) yield {
-           (pred.get, formulas)
-         }).toMap
-    }
-    case _ =>
-      Map()
-  }
 
   //////////////////////////////////////////////////////////////////////////////
 

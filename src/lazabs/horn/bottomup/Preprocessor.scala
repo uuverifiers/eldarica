@@ -35,19 +35,25 @@ import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
 import lazabs.prover.PrincessWrapper
+import ap.SimpleAPI
+import SimpleAPI.ProverStatus
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 LinkedHashSet}
 
 
-class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
+class HornPreprocessor(
+           oriClauses : Seq[HornClauses.Clause],
+           oriInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]]) {
   import IExpression._
 
   Console.err.println("Initially: " + oriClauses.size + " clauses")
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val result = {
+  val (result, initialPredicates) = {
     val clauses1 = oriClauses
+    val initialPreds1 = oriInitialPredicates
 
     // inline simple definitions found in the clause constraints
     val clauses2 = for (clause@Clause(head, oriBody, constraint) <- clauses1) yield {
@@ -108,16 +114,19 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
         clause
     }
 
-    val clauses3 = elimLinearDefs(clauses2)
+    val (clauses3, initialPreds3) = elimLinearDefs(clauses2, initialPreds1)
 
-    val clauses4 =
-      if (lazabs.GlobalParameters.get.cegarHintsFile == "")
-        for (c <- clauses3; d <- splitClauseBody(c)) yield d
-      else
-        // if hints were given, the behaviour of Eldarica becomes
-        // very confusing if additional predicates are introduced.
-        // for the time being, do not split clauses in this case
-        clauses3
+    val (clauses4, initialPreds4) = {
+      var initialPreds = initialPreds3
+      val clauses4 =
+        for (c <- clauses3;
+             d <- {
+               val (newClauses, newPreds) = splitClauseBody(c, initialPreds)
+               initialPreds = newPreds
+               newClauses
+             }) yield d
+      (clauses4, initialPreds)
+    }
 
     val clauses5 =
       if (lazabs.GlobalParameters.get.splitClauses)
@@ -144,14 +153,18 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
       HornAccelerate.accelerate(clauses5)
     }
     
-    clauses6
+    (clauses6, initialPreds4)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def elimLinearDefs(allClauses : Seq[HornClauses.Clause]) : Seq[HornClauses.Clause] = {
+  def elimLinearDefs(allClauses : Seq[HornClauses.Clause],
+                     allInitialPreds : Map[Predicate, Seq[IFormula]])
+                    : (Seq[HornClauses.Clause], Map[Predicate, Seq[IFormula]]) = {
     var changed = true
     var clauses = allClauses
+    var initialPreds = allInitialPreds
+
     while (changed) {
       changed = false
 
@@ -161,7 +174,7 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
       val finalDefs = extractAcyclicDefs(uniqueDefs)
 
       val newClauses =
-        for (clause@Clause(head@IAtom(p, _), _, _) <- clauses;
+        for (clause@Clause(IAtom(p, _), _, _) <- clauses;
              if (!(finalDefs contains p)))
         yield applyDefs(clause, finalDefs)
 
@@ -169,31 +182,33 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
         clauses = newClauses
         changed = true
       }
+
+      initialPreds = initialPreds -- finalDefs.keys
     }
 
     Console.err.println("After eliminating linear definitions: " + clauses.size + " clauses")
 
-    clauses
+    (clauses, initialPreds)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   def extractUniqueDefs(clauses : Iterable[Clause]) = {
-      val uniqueDefs = new MHashMap[Predicate, Clause]
-      val badHeads = new MHashSet[Predicate]
-      badHeads += FALSE
+     val uniqueDefs = new MHashMap[Predicate, Clause]
+     val badHeads = new MHashSet[Predicate]
+     badHeads += FALSE
 
-      for (clause@Clause(head, body, constraint) <- clauses)
-        if (!(badHeads contains head.pred)) {
-          if ((uniqueDefs contains head.pred) ||
-              body.size > 1 ||
-              (body.size == 1 && head.pred == body.head.pred)) {
-            badHeads += head.pred
-            uniqueDefs -= head.pred
-          } else {
-            uniqueDefs.put(head.pred, clause)
-          }
-        }
+     for (clause@Clause(head, body, constraint) <- clauses)
+       if (!(badHeads contains head.pred)) {
+         if ((uniqueDefs contains head.pred) ||
+             body.size > 1 ||
+             (body.size == 1 && head.pred == body.head.pred)) {
+           badHeads += head.pred
+           uniqueDefs -= head.pred
+         } else {
+           uniqueDefs.put(head.pred, clause)
+         }
+       }
 
     uniqueDefs.toMap
   }
@@ -205,38 +220,38 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
    * shorten definition paths
    */
   def extractAcyclicDefs(uniqueDefs : Map[Predicate, Clause]) = {
-      var remDefs = new MHashMap[Predicate, Clause] ++ uniqueDefs
-      val finalDefs = new MHashMap[Predicate, Clause]
+    var remDefs = new MHashMap[Predicate, Clause] ++ uniqueDefs
+    val finalDefs = new MHashMap[Predicate, Clause]
 
-      while (!remDefs.isEmpty) {
-        val bodyPreds =
-          (for (Clause(_, body, _) <- remDefs.valuesIterator;
-                IAtom(p, _) <- body.iterator)
-           yield p).toSet
-        val (remainingDefs, defsToInline) =
-          remDefs partition { case (p, _) => bodyPreds contains p }
+    while (!remDefs.isEmpty) {
+      val bodyPreds =
+        (for (Clause(_, body, _) <- remDefs.valuesIterator;
+              IAtom(p, _) <- body.iterator)
+         yield p).toSet
+      val (remainingDefs, defsToInline) =
+        remDefs partition { case (p, _) => bodyPreds contains p }
 
-        if (defsToInline.isEmpty) {
-          // we have to drop some definitions to eliminate cycles
-          val pred =
-            (for (Clause(IAtom(p, _), _, _) <- oriClauses.iterator;
-                  if ((remDefs contains p) && (bodyPreds contains p)))
-             yield p).next
+      if (defsToInline.isEmpty) {
+        // we have to drop some definitions to eliminate cycles
+        val pred =
+          (for (Clause(IAtom(p, _), _, _) <- oriClauses.iterator;
+                if ((remDefs contains p) && (bodyPreds contains p)))
+           yield p).next
 
-          remDefs retain {
-            case (_, Clause(_, Seq(), _)) => true
-            case (_, Clause(_, Seq(IAtom(p, _)), _)) => p != pred
-          }
-        } else {
-          remDefs = remainingDefs
-
-          finalDefs transform {
-            case (_, clause) => applyDefs(clause, defsToInline)
-          }
-
-          finalDefs ++= defsToInline
+        remDefs retain {
+          case (_, Clause(_, Seq(), _)) => true
+          case (_, Clause(_, Seq(IAtom(p, _)), _)) => p != pred
         }
+      } else {
+        remDefs = remainingDefs
+
+        finalDefs transform {
+          case (_, clause) => applyDefs(clause, defsToInline)
+        }
+
+        finalDefs ++= defsToInline
       }
+    }
 
     finalDefs.toMap
   }
@@ -271,7 +286,9 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
 
   var tempPredCounter = 0
 
-  def splitClauseBody(clause : Clause) : List[Clause] = {
+  def splitClauseBody(clause : Clause,
+                      initialPreds : Map[Predicate, Seq[IFormula]])
+                     : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
     val Clause(head, body, constraint) = clause
 
     if (body.size > 2) {
@@ -300,12 +317,128 @@ class HornPreprocessor(oriClauses : Seq[HornClauses.Clause]) {
 
       val head1 = IAtom(tempPred, commonSyms)
 
-      Clause(head1, body1, constraint1) ::
-        splitClauseBody(Clause(head, head1 :: remainingBody, constraint2))
+      val newClause =
+        Clause(head1, body1, constraint1)
+      val (nextClause :: otherClauses, newInitialPreds) =
+        splitClauseBody(Clause(head, head1 :: remainingBody, constraint2),
+                        initialPreds)
+
+      val Clause(nextHead, Seq(_, nextBodyLit), nextConstraint) = nextClause
+
+      val newInitialPreds2 =
+      (newInitialPreds get nextHead.pred) match {
+        case Some(preds) if (!preds.isEmpty) => SimpleAPI.withProver { p =>
+          import p._
+
+          setMostGeneralConstraints(true)
+          addConstantsRaw(nextClause.constants.toSeq.sortBy(_.name))
+          makeExistentialRaw(SymbolCollector constants head1)
+
+          !! (nextConstraint)
+
+          val headInitialPreds = new LinkedHashSet[IFormula]
+          val backSubst = (for ((t, n) <- commonSyms.iterator.zipWithIndex)
+                           yield (t -> v(n))).toMap
+
+          for (pred <- preds) scope {
+            println(pred)
+            ?? (VariableSubstVisitor(pred, (nextHead.args.toList, 0)))
+            ??? match {
+              case ProverStatus.Valid => getConstraint match {
+                case IBoolLit(true) => // predicate true is not useful, do nothing
+                case f => {
+                  val p = ConstantSubstVisitor(f, backSubst)
+                  println("--> " + p)
+                  headInitialPreds += p
+                }
+              }
+              case ProverStatus.Invalid =>
+                // corresponds to constraint false, do nothing
+            }
+          }
+
+          newInitialPreds + (tempPred -> headInitialPreds.toSeq)
+        }
+        case _ => newInitialPreds
+      }
+
+      (newClause :: nextClause :: otherClauses, newInitialPreds2)
     } else {
-      List(clause)
+      (List(clause), initialPreds)
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Alternative implementation, creating wider but less deep trees
+
+  def splitClauseBody2(clause : Clause) : List[Clause] =
+    if (clause.body.size <= 2)
+      List(clause)
+    else
+      splitClauseBody2(clause.head, clause.body,
+                       LineariseVisitor(Transform2NNF(clause.constraint),
+                                        IBinJunctor.And))
+
+  def splitClauseBody2(head : IAtom,
+                       body : List[IAtom],
+                       constraint : Seq[IFormula]) : List[Clause] =
+    if (body.size <= 2) {
+      List(Clause(head, body, and(constraint)))
+    } else {
+      val halfSize = (body.size + 1) / 2
+      val bodyHalf1 = body take halfSize
+      val bodyHalf2 = body drop halfSize
+
+      def findRelevantConstraints(terms : Seq[ITerm]) : Seq[IFormula] = {
+        val syms = new MHashSet[ConstantTerm]
+        for (t <- terms)
+          syms ++= SymbolCollector constants t
+
+/*        val selConstraints = new LinkedHashSet[IFormula]
+        var selConstraintsSize = -1
+        while (selConstraints.size > selConstraintsSize) {
+          selConstraintsSize = selConstraints.size
+          for (f <- constraint)
+            if (!(selConstraints contains f) &&
+                ContainsSymbol(f, (x:IExpression) => x match {
+                  case IConstant(c) => syms contains c
+                  case _ => false
+                })) {
+              selConstraints += f
+              syms ++= SymbolCollector constants f
+            }
+        } */
+
+        constraint filter { f => (SymbolCollector constants f) subsetOf syms }
+
+//        selConstraints.toSeq
+      }
+
+      val args1 = (for (IAtom(_, a) <- bodyHalf1; t <- a) yield t).distinct
+      val half1Constraints = findRelevantConstraints(args1)
+
+      val half1Pred = new Predicate ("temp" + tempPredCounter, args1.size)
+      tempPredCounter = tempPredCounter + 1
+
+      val head1 = IAtom(half1Pred, args1)
+      val clauses1 = splitClauseBody2(head1, bodyHalf1, half1Constraints)
+
+      val (head2, clauses2) = bodyHalf2 match {
+        case Seq(head2) => (head2, List[Clause]())
+        case bodyHalf2  => {
+          val args2 = (for (IAtom(_, a) <- bodyHalf2; t <- a) yield t).distinct
+          val half2Constraints = findRelevantConstraints(args2)
+
+          val half2Pred = new Predicate ("temp" + tempPredCounter, args2.size)
+          tempPredCounter = tempPredCounter + 1
+
+          val head2 = IAtom(half2Pred, args2)
+          (head2, splitClauseBody2(head2, bodyHalf2, half2Constraints))
+        }
+      }
+
+      clauses1 ++ clauses2 ++ List(Clause(head, List(head1, head2), and(constraint)))
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
