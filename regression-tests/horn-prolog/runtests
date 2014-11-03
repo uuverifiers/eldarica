@@ -18,3 +18,4 @@ for name in $TESTS; do
     $LAZABS -pngNo -sol "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
+$LAZABS -pngNo -sol -log "$@" zero-iterations.horn -hints:zero-iterations.preds 2>&1 | grep -iv "time"

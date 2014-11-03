@@ -43,3 +43,21 @@ palindrome_q4(A,B,C,D,E,F) :- ((((C + (-2 * D)) - B) >= -3); (D =< 1)).
 
 listcounter.error.nts.horn
 NOT SOLVABLE
+Loading CEGAR hints ...
+Initially: 7 clauses
+After eliminating linear definitions: 7 clauses
+Constant and interval propagation 
+Unique satisfiable clauses: 8
+Starting CEGAR
+.......
+CEGAR iterations: 0
+Final number of abstract states: 4
+Final number of matched abstract states: 4
+Final number of abstract edges: 7
+Number of generated predicates: 4
+Number of implication checks: 14
+
+SOLVABLE
+a(A) :- (A >= 0).
+b(A) :- (A >= 0).
+c(A) :- (A >= 0).

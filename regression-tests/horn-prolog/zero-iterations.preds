@@ -1,0 +1,15 @@
+(initial-predicates
+ a ((x Int))
+ (>= x 0)
+)
+
+(initial-predicates
+ b ((x Int))
+ (>= x 0)
+)
+
+(initial-predicates
+ c ((x Int))
+ (>= x 0)
+)
+

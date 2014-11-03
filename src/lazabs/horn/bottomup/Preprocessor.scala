@@ -37,6 +37,7 @@ import IExpression._
 import lazabs.prover.PrincessWrapper
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
+import ap.util.Seqs
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet}
@@ -340,22 +341,75 @@ class HornPreprocessor(
           val backSubst = (for ((t, n) <- commonSyms.iterator.zipWithIndex)
                            yield (t -> v(n))).toMap
 
-          for (pred <- preds) scope {
-            println(pred)
-            ?? (VariableSubstVisitor(pred, (nextHead.args.toList, 0)))
-            ??? match {
-              case ProverStatus.Valid => getConstraint match {
-                case IBoolLit(true) => // predicate true is not useful, do nothing
-                case f => {
-                  val p = ConstantSubstVisitor(f, backSubst)
-                  println("--> " + p)
-                  headInitialPreds += p
-                }
-              }
-              case ProverStatus.Invalid =>
-                // corresponds to constraint false, do nothing
+          //////////////////////////////////////////////////////////////////////
+
+          def getInitialPred : IFormula = ??? match {
+            case ProverStatus.Valid => getConstraint match {
+              case f@IBoolLit(true) => f
+              case f => ConstantSubstVisitor(f, backSubst)
             }
+            case ProverStatus.Invalid =>
+              IBoolLit(false)
           }
+
+          //////////////////////////////////////////////////////////////////////
+
+          def testByPreds(remainingPreds : List[(IFormula, Set[ConstantTerm])],
+                          uneligiblePreds : List[(IFormula, Set[ConstantTerm])],
+                          relevantSyms : Set[ConstantTerm],
+                          lastRelevantSymsSize : Int) : Unit =
+            remainingPreds match {
+              case (byPred, byPredSyms) :: otherByPreds =>
+                if (Seqs.disjointSeq(relevantSyms, byPredSyms)) {
+                  testByPreds(otherByPreds,
+                              (byPred, byPredSyms) :: uneligiblePreds,
+                              relevantSyms,
+                              lastRelevantSymsSize)
+                } else {
+                  testByPreds(otherByPreds,
+                              uneligiblePreds,
+                              relevantSyms,
+                              lastRelevantSymsSize)
+                  scope {
+                    !! (byPred)
+                    getInitialPred match {
+                      case IBoolLit(true) =>
+                        // useless predicate, and no need to search further
+                      case f => {
+                        headInitialPreds += f
+                        testByPreds(otherByPreds,
+                                    uneligiblePreds,
+                                    relevantSyms ++ byPredSyms,
+                                    lastRelevantSymsSize)
+                      }
+                    }
+                  }
+                }
+              case List() =>
+                if (!uneligiblePreds.isEmpty &&
+                    relevantSyms.size > lastRelevantSymsSize)
+                  testByPreds(uneligiblePreds, List(),
+                              relevantSyms, relevantSyms.size)
+            }
+
+          val allByPreds =
+            for (f <- newInitialPreds.getOrElse(nextBodyLit.pred, List()).toList)
+            yield {
+              val instF = VariableSubstVisitor(f, (nextBodyLit.args.toList, 0))
+              (instF, (SymbolCollector constants instF).toSet)
+            }
+
+          //////////////////////////////////////////////////////////////////////
+
+          for (pred <- preds) scope {
+            val instPred = VariableSubstVisitor(pred, (nextHead.args.toList, 0))
+            ?? (instPred)
+
+            val syms = (SymbolCollector constants (nextConstraint & instPred)).toSet
+            testByPreds(allByPreds, List(), syms, syms.size)
+          }
+
+          headInitialPreds -= IBoolLit(false)
 
           newInitialPreds + (tempPred -> headInitialPreds.toSeq)
         }
