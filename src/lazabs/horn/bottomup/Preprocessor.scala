@@ -40,7 +40,7 @@ import SimpleAPI.ProverStatus
 import ap.util.Seqs
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet}
+                                 LinkedHashSet, ArrayBuffer}
 
 
 class HornPreprocessor(
@@ -130,14 +130,29 @@ class HornPreprocessor(
     }
 
     val clauses5 =
-      if (lazabs.GlobalParameters.get.splitClauses)
-        // turn the resulting formula into CNF, and split positive equations
+      if (lazabs.GlobalParameters.get.splitClauses) SimpleAPI.withProver { p =>
+        // turn the resulting formula into DNF, and split positive equations
         // (which often gives better performance)
-        (for (Clause(head, body, constraint) <- clauses4.iterator;
-              constraint2 <- splitConstraint(~constraint))
-         yield Clause(head, body, Transform2NNF(!constraint2))).toList
-      else
+
+        import p._
+
+        val newClauses = new ArrayBuffer[Clause]
+
+        for (clause@Clause(head, body, constraint) <- clauses4) scope {
+          addConstantsRaw(SymbolCollector constantsSorted constraint)
+          for (d <- ap.PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint)))
+            for (f <- splitPosEquations(Transform2NNF(!asIFormula(d))))
+              newClauses += Clause(head, body, Transform2NNF(!f))
+        }
+
+        newClauses
+
+//        (for (Clause(head, body, constraint) <- clauses4.iterator;
+//              constraint2 <- splitConstraint(~constraint))
+//         yield Clause(head, body, Transform2NNF(!constraint2))).toList
+      } else {
         clauses4
+      }
 
 /*
     val clauses5 =

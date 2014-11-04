@@ -428,7 +428,7 @@ class SMTHornReader protected[parser] (
 
       resClauses += (??? match {
         case ProverStatus.Unsat =>
-          Transform2NNF(getConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+          Transform2NNF(getMinimisedConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
         case ProverStatus.Sat =>
           // then the resulting constraint is false
           Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
