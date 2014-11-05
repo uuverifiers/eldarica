@@ -1216,6 +1216,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     if (foundInconsistency)
       return
 
+/*
     {
       val tableSize = body.size
       val statesTable =
@@ -1259,8 +1260,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         }
       }
     }
+*/
 
-/*
     Sorting.stableSort(availableStates,
                        (x : (Array[(AbstractState, Conjunction)], Int)) => x._1.size)
 
@@ -1294,7 +1295,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       }
     
     findPreStates(0, currentAssumptions)
-*/
+
   }
 
   //////////////////////////////////////////////////////////////////////////////
