@@ -47,15 +47,15 @@ Loading CEGAR hints ...
 Initially: 7 clauses
 After eliminating linear definitions: 7 clauses
 Constant and interval propagation 
-Unique satisfiable clauses: 8
+Unique satisfiable clauses: 7
 Starting CEGAR
-.......
+......
 CEGAR iterations: 0
-Final number of abstract states: 4
-Final number of matched abstract states: 4
-Final number of abstract edges: 7
-Number of generated predicates: 4
-Number of implication checks: 14
+Final number of abstract states: 3
+Final number of matched abstract states: 3
+Final number of abstract edges: 6
+Number of generated predicates: 3
+Number of implication checks: 12
 
 SOLVABLE
 a(A) :- (A >= 0).

@@ -1709,7 +1709,7 @@ inv_gate4_train1_train1: inv_gate4_train1_train1_12_0 >= inv_gate4_train1_train1
 ...............
 Found counterexample #13, refining ... (11and/0or) ... 257 -> 157 ... adding predicates:
 inv_gate0_train1_train1: inv_gate0_train1_train1_9_0 + 5*inv_gate0_train1_train1_1_0 - inv_gate0_train1_train1_0_0 >= 0
-...................................................................
+.........................................................................
 Found counterexample #14, refining ... (12and/0or) ... 272 -> 165 ... adding predicates:
 inv_gate0_train1_train1: inv_gate0_train1_train1_12_0 + 5*inv_gate0_train1_train1_1_0 - inv_gate0_train1_train1_0_0 >= 0
 
@@ -1746,53 +1746,147 @@ inv_gate0_train1_train2: inv_gate0_train1_train2_11_0 - inv_gate0_train1_train2_
 inv_gate4_train1_train1: inv_gate4_train1_train1_4_0 - inv_gate4_train1_train1_3_0 = -1, inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_3_0 = 1
 inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 1
 inv_gate2_train4_train4: inv_gate2_train4_train4_5_0 = inv_gate2_train4_train4_4_0
-................................................................................................................................................................................
-Found counterexample #22, refining ... (35and/0or)  685 -> 386 ... adding predicates:
-inv_gate4_train2_train0: inv_gate4_train2_train0_12_0 >= inv_gate4_train2_train0_0_0
-........................................................................................
-Found counterexample #23, refining ... (29and/0or)  515 -> 316 ... adding predicates:
-inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 = 1
-inv_gate4_train1_train0: inv_gate4_train1_train0_5_0 - inv_gate4_train1_train0_3_0 = 1
-inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 3
-inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 2
-inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 2
-inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 1
-............................................................................................................................................................................................
-Found counterexample #24, refining ... (32and/0or) . 797 -> 424 ... adding predicates:
-inv_gate4_train4_train1: inv_gate4_train4_train1_4_0 - inv_gate4_train4_train1_3_0 = -2
-inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 2
-
-Found counterexample #25, refining ... (30and/0or) . 680 -> 401 ... adding predicates:
-inv_gate3_train4_train4: inv_gate3_train4_train4_5_0 = inv_gate3_train4_train4_3_0
-inv_gate5_train4_train4: inv_gate5_train4_train4_5_0 = inv_gate5_train4_train4_4_0
-inv_gate3_train4_train2: inv_gate3_train4_train2_11_0 - inv_gate3_train4_train2_5_0 = -1
-.............................................................................................................................................................................................................
-Found counterexample #26, refining ... (33and/0or)  627 -> 347 ... adding predicates:
+.........................................................................................................................................................................................
+Found counterexample #22, refining ... (35and/0or)  685 -> 381 ... adding predicates:
 inv_gate4_train1_train0: inv_gate4_train1_train0_12_0 >= inv_gate4_train1_train0_9_0
 inv_gate0_train4_train0: inv_gate0_train4_train0_12_0 >= inv_gate0_train4_train0_0_0
 inv_gate4_train1_train2: inv_gate4_train1_train2_9_0 >= inv_gate4_train1_train2_0_0
-...............................................................................................................................................................................
-Found counterexample #27, refining ... (49and/0or)  1035 -> 551 ... adding predicates:
+..................................................................................................................
+Found counterexample #23, refining ... (29and/0or)  515 -> 295 ... adding predicates:
 inv_gate4_train1_train0: inv_gate4_train1_train0_12_0 >= inv_gate4_train1_train0_0_0
-
-Found counterexample #28, refining ... (45and/0or) . 1152 -> 639 ... adding predicates:
-inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 = 2
+..........................................................................................................................................
+Found counterexample #24, refining ... (32and/0or) . 733 -> 418 ... adding predicates:
+inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 = 1, inv_gate4_train1_train3_4_0 - inv_gate4_train1_train3_3_0 = -1
 inv_gate0_train4_train3: inv_gate0_train4_train3_5_0 - inv_gate0_train4_train3_4_0 = 1
-inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 5
-inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 4
-inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 3, inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 4
-inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 3
-...............................................................
-Found counterexample #29, refining ... (29and/0or)  465 -> 282 ... adding predicates:
-inv_gate4_train1_train3: inv_gate4_train1_train3_4_0 - inv_gate4_train1_train3_3_0 = 1
+inv_gate4_train1_train1: inv_gate4_train1_train1_4_0 - inv_gate4_train1_train1_3_0 = -2
+inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 2
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 2
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 1
+...........................
+Found counterexample #25, refining ... (28and/0or)  447 -> 270 ... adding predicates:
+inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 = inv_gate4_train1_train3_4_0
 inv_gate0_train4_train3: inv_gate0_train4_train3_5_0 - inv_gate0_train4_train3_4_0 = -1
 inv_gate3_train4_train2: inv_gate3_train4_train2_5_0 - inv_gate3_train4_train2_4_0 = -1
 inv_gate5_train4_train2: inv_gate5_train4_train2_5_0 = inv_gate5_train4_train2_4_0
 inv_gate0_train2_train0: inv_gate0_train2_train0_5_0 - inv_gate0_train2_train0_4_0 = 1
 inv_gate0_train1_train2: inv_gate0_train1_train2_5_0 - inv_gate0_train1_train2_4_0 = 1
 inv_gate2_train4_train2: inv_gate2_train4_train2_5_0 = inv_gate2_train4_train2_4_0
+inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 2
+........................................................................................................................................................................................................
+Found counterexample #26, refining ... (25and/0or)  401 -> 261 ... adding predicates:
+inv_gate4_train1_train0: inv_gate4_train1_train0_5_0 - inv_gate4_train1_train0_3_0 = 1
+..............................................................................................................
+Found counterexample #27, refining ... (37and/0or) .. 1075 -> 633 ... adding predicates:
+inv_gate3_train4_train2: inv_gate3_train4_train2_11_0 + inv_gate3_train4_train2_4_0 - inv_gate3_train4_train2_3_0 - inv_gate3_train4_train2_5_0 = -1
+inv_gate5_train4_train2: inv_gate5_train4_train2_11_0 - inv_gate5_train4_train2_5_0 = -2
+inv_gate0_train2_train0: inv_gate0_train2_train0_8_0 - inv_gate0_train2_train0_5_0 = -2
+inv_gate0_train1_train2: inv_gate0_train1_train2_11_0 - inv_gate0_train1_train2_5_0 = -2
+inv_gate4_train1_train2: inv_gate4_train1_train2_11_0 - inv_gate4_train1_train2_5_0 = -2
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 3
+inv_gate4_train1_train1: inv_gate4_train1_train1_4_0 - inv_gate4_train1_train1_3_0 = -3
+inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 3
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 2
+.....................................................................................................................................................................................................................................................................
+Found counterexample #28, refining ... (38and/0or)  809 -> 419 ... adding predicates:
+inv_gate4_train2_train0: inv_gate4_train2_train0_12_0 >= inv_gate4_train2_train0_0_0
 
-Found counterexample #30, refining ... (34and/0or)  620 -> 372 ... adding predicates:
+Found counterexample #29, refining ... (42and/0or)  923 -> 458 ... adding predicates:
+inv_gate4_train4_train0: inv_gate4_train4_train0_12_0 >= inv_gate4_train4_train0_0_0
+
+Found counterexample #30, refining ... (44and/0or)  979 -> 478 ... adding predicates:
+inv_gate4_train1_train2: !(inv_gate4_train1_train2_7_0 = inv_gate4_train1_train2_2_0)
+
+Found counterexample #31, refining ... (43and/0or)  862 -> 448 ... adding predicates:
+inv_gate3_train4_train2: inv_gate3_train4_train2_5_0 = inv_gate3_train4_train2_4_0
+inv_gate5_train4_train2: inv_gate5_train4_train2_5_0 - inv_gate5_train4_train2_4_0 = 1
+inv_gate0_train2_train0: inv_gate0_train2_train0_5_0 - inv_gate0_train2_train0_4_0 = 2
+inv_gate4_train1_train2: inv_gate4_train1_train2_5_0 - inv_gate4_train1_train2_4_0 = 2
+inv_gate0_train4_train2: inv_gate0_train4_train2_5_0 - inv_gate0_train4_train2_4_0 = 1
+inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 3
+.................................................................................................................................................
+Found counterexample #32, refining ... (34and/0or) . 912 -> 465 ... adding predicates:
+inv_gate4_train1_train3: inv_gate4_train1_train3_4_0 - inv_gate4_train1_train3_3_0 = -4
+inv_gate0_train4_train3: inv_gate0_train4_train3_5_0 - inv_gate0_train4_train3_4_0 = 4
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 4
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 3
+
+Found counterexample #33, refining ... (30and/0or) . 683 -> 388 ... adding predicates:
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 = inv_gate4_train4_train1_4_0
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = -1
+inv_gate3_train4_train4: inv_gate3_train4_train4_5_0 = inv_gate3_train4_train4_3_0
+inv_gate5_train4_train4: inv_gate5_train4_train4_5_0 = inv_gate5_train4_train4_4_0
+inv_gate3_train4_train2: inv_gate3_train4_train2_4_0 - inv_gate3_train4_train2_3_0 = 1
+..........................................................................................................................................................................................................................................................................................
+Found counterexample #34, refining ... (39and/0or) . 958 -> 515 ... adding predicates:
+inv_gate0_train4_train0: inv_gate0_train4_train0_5_0 - inv_gate0_train4_train0_4_0 = 2
+
+Found counterexample #35, refining ... (42and/0or) .. 1264 -> 700 ... adding predicates:
+inv_gate4_train4_train0: inv_gate4_train4_train0_12_0 >= inv_gate4_train4_train0_6_0
+inv_gate4_train4_train1: inv_gate4_train4_train1_6_0 >= inv_gate4_train4_train1_0_0, inv_gate4_train4_train1_0_0 >= inv_gate4_train4_train1_6_0
+....................................................................................................................................................................
+Found counterexample #36, refining ... (26and/0or)  419 -> 282 ... adding predicates:
+inv_gate4_train1_train0: inv_gate4_train1_train0_4_0 = inv_gate4_train1_train0_3_0
+................................
+Found counterexample #37, refining ... (37and/0or) .. 1058 -> 623 ... adding predicates:
+inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 >= 1, inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 >= 2
+inv_gate0_train4_train3: inv_gate0_train4_train3_5_0 >= inv_gate0_train4_train3_4_0, inv_gate0_train4_train3_5_0 - inv_gate0_train4_train3_4_0 >= 1
+inv_gate3_train4_train2: inv_gate3_train4_train2_11_0 + inv_gate3_train4_train2_4_0 - inv_gate3_train4_train2_3_0 - inv_gate3_train4_train2_5_0 >= 0, inv_gate3_train4_train2_5_0 >= inv_gate3_train4_train2_4_0
+inv_gate4_train4_train1: inv_gate4_train4_train1_4_0 - inv_gate4_train4_train1_5_0 >= -1
+inv_gate0_train4_train4: inv_gate0_train4_train4_4_0 >= inv_gate0_train4_train4_5_0
+inv_gate5_train4_train2: inv_gate5_train4_train2_11_0 - inv_gate5_train4_train2_5_0 >= -1
+inv_gate0_train2_train0: inv_gate0_train2_train0_8_0 - inv_gate0_train2_train0_5_0 >= -1
+inv_gate4_train1_train0: inv_gate4_train1_train0_3_0 - inv_gate4_train1_train0_5_0 >= -1
+................................................................................................................................................................................................................................................................................................................
+Found counterexample #38, refining ... (42and/0or)  805 -> 462 ... adding predicates:
+inv_gate0_train2_train0: inv_gate0_train2_train0_12_0 >= inv_gate0_train2_train0_9_0
+inv_gate4_train2_train0: inv_gate4_train2_train0_12_0 + inv_gate4_train2_train0_6_0 - inv_gate4_train2_train0_0_0 - inv_gate4_train2_train0_9_0 >= 0
+inv_gate0_train1_train2: inv_gate0_train1_train2_0_0 >= inv_gate0_train1_train2_12_0
+inv_gate4_train1_train2: inv_gate4_train1_train2_12_0 >= inv_gate4_train1_train2_6_0
+inv_gate0_train4_train2: inv_gate0_train4_train2_12_0 >= inv_gate0_train4_train2_0_0
+inv_gate4_train4_train2: inv_gate4_train4_train2_6_0 >= inv_gate4_train4_train2_0_0
+................................................................................................................................................................................................................................................................................................
+Found counterexample #39, refining ... (63and/0or)  1341 -> 735 ... adding predicates:
+inv_gate4_train1_train0: inv_gate4_train1_train0_5_0 - inv_gate4_train1_train0_4_0 = 2
+inv_gate4_train1_train3: inv_gate4_train1_train3_5_0 - inv_gate4_train1_train3_4_0 = 2
+inv_gate4_train2_train0: inv_gate4_train2_train0_8_0 - inv_gate4_train2_train0_3_0 = -1
+inv_gate0_train4_train0: inv_gate0_train4_train0_5_0 - inv_gate0_train4_train0_3_0 = 1
+inv_gate4_train4_train0: inv_gate4_train4_train0_5_0 - inv_gate4_train4_train0_3_0 = 1
+inv_gate4_train1_train2: inv_gate4_train1_train2_5_0 - inv_gate4_train1_train2_3_0 = 1
+inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 5
+inv_gate0_train4_train1: inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 = 4
+........................................................................................................................................................................................
+Found counterexample #40, refining ... (41and/0or) . 1073 -> 575 ... adding predicates:
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 5
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 = 4
+
+Found counterexample #41, refining ... (40and/0or) . 859 -> 515 ... adding predicates:
+inv_gate3_train4_train2: inv_gate3_train4_train2_11_0 - inv_gate3_train4_train2_3_0 = -1
+inv_gate5_train4_train2: inv_gate5_train4_train2_11_0 - inv_gate5_train4_train2_4_0 = -1
+inv_gate0_train2_train0: inv_gate0_train2_train0_8_0 = inv_gate0_train2_train0_4_0
+inv_gate0_train2_train3: inv_gate0_train2_train3_8_0 = inv_gate0_train2_train3_4_0
+..................................................................................................................................................................................................................................................................................................................
+Found counterexample #42, refining ... (77and/0or) . 1861 -> 1040 ... adding predicates:
+inv_gate4_train4_train4: inv_gate4_train4_train4_5_0 - inv_gate4_train4_train4_4_0 = 2
+inv_gate0_train4_train4: inv_gate0_train4_train4_5_0 = inv_gate0_train4_train4_4_0
+inv_gate4_train4_train1: inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 = 1
+inv_gate0_train1_train2: inv_gate0_train1_train2_5_0 - inv_gate0_train1_train2_4_0 = 2
+
+Found counterexample #43, refining ... (69and/0or)  1405 -> 797 ... adding predicates:
+inv_gate4_train4_train1: !(inv_gate4_train4_train1_10_0 = inv_gate4_train4_train1_2_0)
+
+Found counterexample #44, refining ... (70and/0or) .. 2035 -> 1174 ... adding predicates:
+inv_gate4_train1_train1: inv_gate4_train1_train1_4_0 - inv_gate4_train1_train1_5_0 >= -3, inv_gate4_train1_train1_3_0 - inv_gate4_train1_train1_4_0 >= 3
+inv_gate0_train4_train1: inv_gate0_train4_train1_4_0 - inv_gate0_train4_train1_5_0 >= -2, inv_gate0_train4_train1_5_0 - inv_gate0_train4_train1_4_0 >= 3
+inv_gate4_train4_train1: inv_gate4_train4_train1_4_0 - inv_gate4_train4_train1_5_0 >= -2, inv_gate4_train4_train1_4_0 - inv_gate4_train4_train1_3_0 >= -1, inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 >= 2, inv_gate4_train4_train1_5_0 - inv_gate4_train4_train1_4_0 >= 3
+inv_gate0_train4_train4: inv_gate0_train4_train4_4_0 - inv_gate0_train4_train4_5_0 >= -1, inv_gate0_train4_train4_5_0 >= inv_gate0_train4_train4_4_0, inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 >= 1, inv_gate0_train4_train4_5_0 - inv_gate0_train4_train4_4_0 >= 2
+inv_gate4_train4_train4: inv_gate4_train4_train4_5_0 - inv_gate4_train4_train4_4_0 >= 1
+inv_gate3_train4_train2: inv_gate3_train4_train2_4_0 - inv_gate3_train4_train2_5_0 >= -1
+inv_gate5_train4_train2: inv_gate5_train4_train2_4_0 - inv_gate5_train4_train2_5_0 >= -2
+inv_gate0_train2_train0: inv_gate0_train2_train0_4_0 - inv_gate0_train2_train0_5_0 >= -3
+inv_gate0_train1_train2: inv_gate0_train1_train2_4_0 - inv_gate0_train1_train2_5_0 >= -3
+inv_gate2_train4_train4: inv_gate2_train4_train4_4_0 >= inv_gate2_train4_train4_5_0
+.....................................................................................................................................................................................................................................................................................................................................................................................................
+Found counterexample #45, refining ... (34and/0or)  592 -> 363 ... adding predicates:
 inv_gate3_train4_train2: inv_gate3_train4_train2_11_0 - inv_gate3_train4_train2_3_0 = -3
 inv_gate5_train4_train2: inv_gate5_train4_train2_11_0 - inv_gate5_train4_train2_4_0 = -3
 inv_gate0_train2_train0: inv_gate0_train2_train0_8_0 - inv_gate0_train2_train0_4_0 = -2
@@ -1801,30 +1895,38 @@ inv_gate3_train2_train2: inv_gate3_train2_train2_11_0 + inv_gate3_train2_train2_
 inv_gate5_train2_train2: inv_gate5_train2_train2_11_0 - inv_gate5_train2_train2_8_0 = -1
 inv_gate0_train2_train2: inv_gate0_train2_train2_11_0 - inv_gate0_train2_train2_3_0 = -1
 inv_gate0_train1_train2: inv_gate0_train1_train2_11_0 = inv_gate0_train1_train2_3_0
-....................................................................................................................................................................................................................
-Found counterexample #31, refining ... (43and/0or) . 1094 -> 578 ... adding predicates:
-inv_gate4_train4_train1: inv_gate4_train4_train1_10_0 = inv_gate4_train4_train1_2_0
-..........................................................
-Found counterexample #32, refining ... (28and/0or)  522 -> 286 ... adding predicates:
-inv_gate4_train4_train1: !(inv_gate4_train4_train1_10_0 = inv_gate4_train4_train1_2_0)
 
-Found counterexample #33, refining ... (32and/0or)  588 -> 325 ... adding predicates:
-inv_gate3_train4_train2: inv_gate3_train4_train2_5_0 = inv_gate3_train4_train2_4_0
-inv_gate5_train4_train2: inv_gate5_train4_train2_5_0 - inv_gate5_train4_train2_4_0 = 1
-inv_gate0_train2_train0: inv_gate0_train2_train0_5_0 - inv_gate0_train2_train0_4_0 = 2
-inv_gate4_train1_train2: inv_gate4_train1_train2_5_0 - inv_gate4_train1_train2_4_0 = 2
-inv_gate0_train4_train2: inv_gate0_train4_train2_5_0 - inv_gate0_train4_train2_4_0 = 1
-inv_gate4_train1_train1: inv_gate4_train1_train1_5_0 - inv_gate4_train1_train1_4_0 = 2
-............................................................................................................................................................................................................
-Found counterexample #34, refining ... (32and/0or) .. 797 -> 507 ... adding predicates:
+Found counterexample #46, refining ... (45and/0or) . 1077 -> 607 ... adding predicates:
+inv_gate4_train1_train2: inv_gate4_train1_train2_11_0 = inv_gate4_train1_train2_4_0
+inv_gate0_train4_train2: inv_gate0_train4_train2_11_0 = inv_gate0_train4_train2_4_0
+inv_gate4_train4_train1: inv_gate4_train4_train1_4_0 - inv_gate4_train4_train1_3_0 = -1
+
+Found counterexample #47, refining ... (35and/0or)  610 -> 372 ... adding predicates:
+inv_gate4_train1_train3: inv_gate4_train1_train3_4_0 - inv_gate4_train1_train3_3_0 = 2
+inv_gate0_train4_train3: inv_gate0_train4_train3_5_0 - inv_gate0_train4_train3_4_0 = -2
+inv_gate3_train4_train2: inv_gate3_train4_train2_5_0 - inv_gate3_train4_train2_4_0 = -2
+inv_gate5_train4_train2: inv_gate5_train4_train2_5_0 - inv_gate5_train4_train2_4_0 = -1
+inv_gate0_train2_train0: inv_gate0_train2_train0_5_0 = inv_gate0_train2_train0_4_0
+inv_gate0_train2_train3: inv_gate0_train2_train3_5_0 = inv_gate0_train2_train3_4_0
+inv_gate3_train2_train2: inv_gate3_train2_train2_8_0 + inv_gate3_train2_train2_4_0 - inv_gate3_train2_train2_3_0 - inv_gate3_train2_train2_5_0 = 0
+inv_gate5_train2_train2: inv_gate5_train2_train2_8_0 - inv_gate5_train2_train2_5_0 = -1
+
+Found counterexample #48, refining ... (38and/0or)  657 -> 422 ... adding predicates:
+inv_gate3_train2_train2: inv_gate3_train2_train2_8_0 - inv_gate3_train2_train2_3_0 = -2
+inv_gate5_train2_train2: inv_gate5_train2_train2_8_0 - inv_gate5_train2_train2_4_0 = -2
+inv_gate0_train2_train0: inv_gate0_train2_train0_8_0 - inv_gate0_train2_train0_4_0 = -1
+inv_gate0_train1_train2: inv_gate0_train1_train2_11_0 - inv_gate0_train1_train2_4_0 = -1
+inv_gate2_train4_train2: inv_gate2_train4_train2_11_0 - inv_gate2_train4_train2_4_0 = -1
+......................................................................................................................................................................
+Found counterexample #49, refining ... (34and/0or) .. 854 -> 522 ... adding predicates:
 inv_gate4_train1_train3: inv_gate4_train1_train3_7_0 = inv_gate4_train1_train3_2_0
-.......................................................
-CEGAR iterations: 34
-Final number of abstract states: 33
-Final number of matched abstract states: 83
-Final number of abstract edges: 248
-Number of generated predicates: 92
-Number of implication checks: 7810
+..........................................................................................................................................................................................................................................
+CEGAR iterations: 49
+Final number of abstract states: 39
+Final number of matched abstract states: 125
+Final number of abstract edges: 386
+Number of generated predicates: 176
+Number of implication checks: 22478
 
 SOLVABLE: 
 
@@ -1987,24 +2089,27 @@ Found counterexample #10, refining ... (15and/0or)  120 -> 84 ... adding predica
 inv_gate4_train1_train3: inv_gate4_train1_train3_4_0 >= inv_gate4_train1_train3_0_0
 inv_gate5_train2_train1: inv_gate5_train2_train1_6_0 >= inv_gate5_train2_train1_0_0
 inv_gate4_train0_train1: inv_gate4_train0_train1_6_0 >= inv_gate4_train0_train1_0_0
-...........
-Found counterexample #11, refining ... (11and/0or)  86 -> 59 ... adding predicates:
+..............................
+Found counterexample #11, refining ... (12and/0or)  97 -> 71 ... adding predicates:
 inv_gate5_train2_train2: inv_gate5_train2_train2_6_0 >= inv_gate5_train2_train2_2_0
-................................
+......................
 Found counterexample #12, refining ... (10and/0or) ... 137 -> 92 ... adding predicates:
 inv_gate4_train2_train2: inv_gate4_train2_train2_4_0 - inv_gate4_train2_train2_0_0 >= -5
-........................................
-Found counterexample #13, refining ... (11and/0or) .. 136 -> 91 ... adding predicates:
+................................................
+Found counterexample #13, refining ... (11and/0or) ... 145 -> 99 ... adding predicates:
 inv_gate4_train2_train2: inv_gate4_train2_train2_6_0 - inv_gate4_train2_train2_0_0 >= -5
-.....................
-Found counterexample #14, refining ... (11and/0or) ...... ... failed, counterexample is genuine
+........
+Found counterexample #14, refining ... (16and/0or)  129 -> 91 ... adding predicates:
+inv_gate5_train2_train4: inv_gate5_train2_train4_4_0 >= inv_gate5_train2_train4_2_0, inv_gate5_train2_train4_4_0 - inv_gate5_train2_train4_0_0 >= -5
+.................
+Found counterexample #15, refining ... (11and/0or) ...... ... failed, counterexample is genuine
 
-CEGAR iterations: 14
-Final number of abstract states: 31
-Final number of matched abstract states: 47
-Final number of abstract edges: 129
-Number of generated predicates: 21
-Number of implication checks: 680
+CEGAR iterations: 15
+Final number of abstract states: 33
+Final number of matched abstract states: 45
+Final number of abstract edges: 131
+Number of generated predicates: 23
+Number of implication checks: 736
 
 NOT SOLVABLE
 
@@ -2274,19 +2379,19 @@ inv_p_p: inv_p_p_8_0 = 4
 .....................................
 Found counterexample #11, refining ... (11and/0or)  134 -> 93 ... adding predicates:
 inv_p_p: inv_p_p_4_0 >= inv_p_p_0_0
-...........................................................................................................................................................................................................................................................
+..............................................................................................................................................................................................................................................................
 Found counterexample #12, refining ... (15and/0or)  169 -> 151 ... adding predicates:
 inv_p_p: !(inv_p_p_3_0 = 0), !(inv_p_p_2_0 = 0)
-................................................................................................................................................................................................................................................................................................................
-Found counterexample #13, refining ... (19and/0or)  229 -> 188 ... adding predicates:
+....................................................................................................................................................................................................................................................................................................................
+Found counterexample #13, refining ... (18and/0or)  212 -> 171 ... adding predicates:
 inv_p_p: inv_p_p_7_0 >= inv_p_p_0_0
-....................................................................................................................................................................................................................................................................
+..................................................................................................................................................................................................................................................................
 Found counterexample #14, refining ... (17and/0or)  210 -> 176 ... adding predicates:
 inv_p_p: inv_p_p_0_0 >= inv_p_p_4_0, inv_p_p_0_0 >= inv_p_p_7_0, inv_p_p_4_0 >= inv_p_p_7_0, inv_p_p_0_0 - inv_p_p_7_0 >= 2, inv_p_p_0_0 - inv_p_p_4_0 >= 2
-.................................................................................................................................................................................................................................................................................................................................................................................
+...............................................................................................................................................................................................................................................................................................................................................................................
 Found counterexample #15, refining ... (22and/0or)  247 -> 226 ... adding predicates:
 inv_p_p: inv_p_p_7_0 >= inv_p_p_4_0, inv_p_p_7_0 - inv_p_p_0_0 >= -1, inv_p_p_4_0 - inv_p_p_0_0 >= -1
-....................................................................................................................................................................................................................................................................................................................................
+.....................................................................................................................................................................................................................................................................................................................................
 Found counterexample #16, refining ... (18and/0or)  203 -> 184 ... adding predicates:
 inv_p_p: !(inv_p_p_6_0 = 0)
 ....................................................................................................................................................
@@ -2301,7 +2406,7 @@ Final number of abstract states: 43
 Final number of matched abstract states: 65
 Final number of abstract edges: 314
 Number of generated predicates: 28
-Number of implication checks: 51577
+Number of implication checks: 51617
 
 SOLVABLE: 
 
@@ -2450,11 +2555,11 @@ inv_p1_p1: inv_p1_p1_0_0 >= inv_p1_p1_7_0, inv_p1_p1_0_0 - inv_p1_p1_4_0 >= 2
 inv_p1_p3: inv_p1_p3_0_0 - inv_p1_p3_4_0 >= 2
 inv_p1_p2: inv_p1_p2_7_0 >= inv_p1_p2_4_0
 inv_p0_p1: inv_p0_p1_0_0 >= inv_p0_p1_7_0
-......................................................................................................................
+.....................................................................................................................
 Found counterexample #13, refining ... (12and/0or)  127 -> 104 ... adding predicates:
 inv_p0_p2: !(inv_p0_p2_2_0 = 0)
 inv_p0_p1: !(inv_p0_p1_6_0 = 0)
-............................................................................................................
+..........................................................................................................
 Found counterexample #14, refining ... (13and/0or)  138 -> 118 ... adding predicates:
 inv_p3_p4: inv_p3_p4_6_0 = inv_p3_p4_3_0
 inv_p3_p3: inv_p3_p3_6_0 = inv_p3_p3_3_0
@@ -2463,14 +2568,14 @@ inv_p2_p3: inv_p2_p3_6_0 = inv_p2_p3_2_0
 Found counterexample #15, refining ... (14and/0or)  168 -> 122 ... adding predicates:
 inv_p1_p2: inv_p1_p2_7_0 - inv_p1_p2_0_0 >= -1
 inv_p1_p1: inv_p1_p1_0_0 >= inv_p1_p1_4_0
-.........................
+.................
 Found counterexample #16, refining ... (14and/0or)  166 -> 116 ... adding predicates:
 inv_p1_p3: inv_p1_p3_2_0 = 0
 inv_p0_p3: !(inv_p0_p3_2_0 = 0)
-.....................................................................
+.................................................
 Found counterexample #17, refining ... (12and/0or)  127 -> 100 ... adding predicates:
 inv_p0_p4: !(inv_p0_p4_2_0 = 0)
-.......................................................
+..................................................................
 Found counterexample #18, refining ... (12and/0or)  151 -> 119 ... adding predicates:
 inv_p0_p0: inv_p0_p0_0_0 >= inv_p0_p0_7_0, inv_p0_p0_4_0 >= inv_p0_p0_0_0
 inv_p0_p3: inv_p0_p3_0_0 - inv_p0_p3_4_0 >= 2
@@ -2479,15 +2584,17 @@ inv_p0_p1: inv_p0_p1_0_0 >= inv_p0_p1_4_0
 ...................................................................................
 Found counterexample #19, refining ... (13and/0or)  154 -> 107 ... adding predicates:
 inv_p0_p0: !(inv_p0_p0_2_0 = 0)
-...........................................
+.............................................
 Found counterexample #20, refining ... (12and/0or)  127 -> 107 ... adding predicates:
 inv_p2_p4: inv_p2_p4_6_0 = inv_p2_p4_2_0
 ..............................................
 Found counterexample #21, refining ... (12and/0or)  144 -> 108 ... adding predicates:
 inv_p2_p2: !(inv_p2_p2_3_0 = inv_p2_p2_2_0)
 inv_p2_p3: !(inv_p2_p3_3_0 = inv_p2_p3_2_0)
-................................................................................
-Found counterexample #22, refining ... (16and/0or)  191 -> 146 ... adding predicates:
+.......................................................................
+Found counterexample #22, refining ... (15and/0or)  161 -> 134 ... adding predicates:
+inv_p1_p4: inv_p1_p4_6_0 = inv_p1_p4_3_0
+inv_p1_p3: inv_p1_p3_6_0 = inv_p1_p3_3_0
 inv_p1_p2: inv_p1_p2_3_0 = inv_p1_p2_2_0
 inv_p2_p2: inv_p2_p2_3_0 = inv_p2_p2_2_0
 ........................................................................................................................
@@ -2501,7 +2608,6 @@ inv_p3_p4: 0 >= inv_p3_p4_1_0
 inv_p2_p4: 0 >= inv_p2_p4_1_0
 
 Found counterexample #25, refining ... (18and/0or)  192 -> 165 ... adding predicates:
-inv_p1_p3: inv_p1_p3_6_0 = inv_p1_p3_3_0
 inv_p2_p2: inv_p2_p2_6_0 = inv_p2_p2_2_0
 
 Found counterexample #26, refining ... (19and/0or)  208 -> 172 ... adding predicates:
@@ -2514,7 +2620,7 @@ inv_p1_p1: !(inv_p1_p1_3_0 = 0)
 ........................................................................................................................................
 Found counterexample #27, refining ... (17and/0or)  198 -> 146 ... adding predicates:
 inv_p1_p3: inv_p1_p3_6_0 = inv_p1_p3_2_0
-.......
+....
 Found counterexample #28, refining ... (16and/0or)  171 -> 138 ... adding predicates:
 inv_p2_p4: !(inv_p2_p4_2_0 = 0)
 inv_p2_p3: !(inv_p2_p3_2_0 = 0)
@@ -2536,8 +2642,8 @@ CEGAR iterations: 31
 Final number of abstract states: 17
 Final number of matched abstract states: 23
 Final number of abstract edges: 91
-Number of generated predicates: 70
-Number of implication checks: 7701
+Number of generated predicates: 71
+Number of implication checks: 7641
 
 SOLVABLE: 
 
@@ -2688,11 +2794,11 @@ inv_p1_p3: inv_p1_p3_0_0 - inv_p1_p3_4_0 - inv_p1_p3_6_0 >= 1, inv_p1_p3_3_0 - i
 inv_p1_p2: inv_p1_p2_9_0 >= inv_p1_p2_6_0, inv_p1_p2_3_0 - inv_p1_p2_4_0 >= 1
 inv_p1_p1: inv_p1_p1_0_0 >= inv_p1_p1_9_0, inv_p1_p1_0_0 - inv_p1_p1_4_0 - inv_p1_p1_6_0 >= 1
 inv_p0_p1: inv_p0_p1_0_0 >= inv_p0_p1_9_0
-......................................................................................................................
+.....................................................................................................................
 Found counterexample #13, refining ... (12and/0or)  171 -> 148 ... adding predicates:
 inv_p0_p2: !(inv_p0_p2_2_0 = 0)
 inv_p0_p1: !(inv_p0_p1_8_0 = 0)
-............................................................................................................
+..........................................................................................................
 Found counterexample #14, refining ... (13and/0or)  186 -> 166 ... adding predicates:
 inv_p3_p4: inv_p3_p4_8_0 = inv_p3_p4_5_0
 inv_p3_p3: inv_p3_p3_8_0 = inv_p3_p3_5_0
@@ -2701,14 +2807,14 @@ inv_p2_p3: inv_p2_p3_8_0 = inv_p2_p3_2_0
 Found counterexample #15, refining ... (14and/0or)  224 -> 174 ... adding predicates:
 inv_p1_p2: inv_p1_p2_9_0 + inv_p1_p2_3_0 - inv_p1_p2_0_0 >= 0
 inv_p1_p1: inv_p1_p1_0_0 >= inv_p1_p1_6_0
-.........................
+.................
 Found counterexample #16, refining ... (14and/0or)  222 -> 168 ... adding predicates:
 inv_p1_p3: inv_p1_p3_2_0 = 0
 inv_p0_p3: !(inv_p0_p3_2_0 = 0)
-.....................................................................
+.................................................
 Found counterexample #17, refining ... (12and/0or)  171 -> 144 ... adding predicates:
 inv_p0_p4: !(inv_p0_p4_2_0 = 0)
-.......................................................
+..................................................................
 Found counterexample #18, refining ... (12and/0or)  201 -> 167 ... adding predicates:
 inv_p0_p3: inv_p0_p3_0_0 - inv_p0_p3_4_0 - inv_p0_p3_6_0 >= 1, -1 >= inv_p0_p3_4_0
 inv_p0_p2: inv_p0_p2_9_0 >= inv_p0_p2_6_0, -1 >= inv_p0_p2_4_0
@@ -2717,15 +2823,17 @@ inv_p0_p0: inv_p0_p0_0_0 >= inv_p0_p0_9_0, inv_p0_p0_6_0 >= inv_p0_p0_0_0, -1 >=
 ...................................................................................
 Found counterexample #19, refining ... (13and/0or)  206 -> 155 ... adding predicates:
 inv_p0_p0: !(inv_p0_p0_2_0 = 0)
-...........................................
+.............................................
 Found counterexample #20, refining ... (12and/0or)  171 -> 151 ... adding predicates:
 inv_p2_p4: inv_p2_p4_8_0 = inv_p2_p4_2_0
 ..............................................
 Found counterexample #21, refining ... (12and/0or)  192 -> 152 ... adding predicates:
 inv_p2_p2: !(inv_p2_p2_5_0 = inv_p2_p2_2_0)
 inv_p2_p3: !(inv_p2_p3_5_0 = inv_p2_p3_2_0)
-................................................................................
-Found counterexample #22, refining ... (16and/0or)  255 -> 206 ... adding predicates:
+.......................................................................
+Found counterexample #22, refining ... (15and/0or)  217 -> 190 ... adding predicates:
+inv_p1_p4: inv_p1_p4_8_0 = inv_p1_p4_5_0
+inv_p1_p3: inv_p1_p3_8_0 = inv_p1_p3_5_0
 inv_p1_p2: inv_p1_p2_5_0 = inv_p1_p2_2_0
 inv_p2_p2: inv_p2_p2_5_0 = inv_p2_p2_2_0
 ........................................................................................................................
@@ -2741,7 +2849,6 @@ inv_p3_p4: 0 >= inv_p3_p4_1_0
 inv_p2_p4: 0 >= inv_p2_p4_1_0
 
 Found counterexample #25, refining ... (18and/0or)  260 -> 233 ... adding predicates:
-inv_p1_p3: inv_p1_p3_8_0 = inv_p1_p3_5_0
 inv_p2_p2: inv_p2_p2_8_0 = inv_p2_p2_2_0
 
 Found counterexample #26, refining ... (19and/0or)  280 -> 244 ... adding predicates:
@@ -2754,7 +2861,7 @@ inv_p1_p1: !(inv_p1_p1_5_0 = 0)
 ........................................................................................................................................
 Found counterexample #27, refining ... (17and/0or)  266 -> 210 ... adding predicates:
 inv_p1_p3: inv_p1_p3_8_0 = inv_p1_p3_2_0
-.......
+....
 Found counterexample #28, refining ... (16and/0or)  231 -> 198 ... adding predicates:
 inv_p2_p4: !(inv_p2_p4_2_0 = 0)
 inv_p2_p3: !(inv_p2_p3_2_0 = 0)
@@ -2775,8 +2882,8 @@ CEGAR iterations: 31
 Final number of abstract states: 17
 Final number of matched abstract states: 23
 Final number of abstract edges: 91
-Number of generated predicates: 78
-Number of implication checks: 7753
+Number of generated predicates: 79
+Number of implication checks: 7673
 
 SOLVABLE: 
 
@@ -5130,112 +5237,115 @@ inv_p2: inv_p2_2_0 = 3
 ........................
 Found counterexample #25, refining ... (18and/0or)  124 -> 78 ... adding predicates:
 inv_p1: inv_p1_2_0 = 3
-................................
-Found counterexample #26, refining ... (18and/0or)  127 -> 81 ... adding predicates:
+...........................................................
+Found counterexample #26, refining ... (20and/0or)  141 -> 80 ... adding predicates:
 inv_p1: inv_p1_2_0 = 2
-.............................................
-Found counterexample #27, refining ... (20and/0or)  136 -> 79 ... adding predicates:
+
+Found counterexample #27, refining ... (21and/0or)  143 -> 88 ... adding predicates:
+inv_p4: inv_p4_2_0 = 3
+........
+Found counterexample #28, refining ... (20and/0or)  136 -> 79 ... adding predicates:
 inv_p2: inv_p2_2_0 = 1
 
-Found counterexample #28, refining ... (17and/0or)  117 -> 66 ... adding predicates:
+Found counterexample #29, refining ... (17and/0or)  117 -> 66 ... adding predicates:
 inv_p4: inv_p4_1_0 = 0
 inv_p1: inv_p1_1_0 = 0
 inv_p0: inv_p0_1_0 = 1
-.........
-Found counterexample #29, refining ... (19and/0or)  133 -> 78 ... adding predicates:
-inv_p4: inv_p4_2_0 = 3
-.
+.................
 Found counterexample #30, refining ... (19and/0or)  133 -> 80 ... adding predicates:
 inv_p0: inv_p0_2_0 = 2
-................................................................................
+...............................................................................
 Found counterexample #31, refining ... (21and/0or)  154 -> 88 ... adding predicates:
 inv_p0: inv_p0_2_0 = 2
-..................................................................................................................
+.....................................................................................................
 Found counterexample #32, refining ... (21and/0or)  151 -> 102 ... adding predicates:
 inv_p1: inv_p1_2_0 = 3
-.......
+................
 Found counterexample #33, refining ... (20and/0or)  141 -> 85 ... adding predicates:
 inv_p1: inv_p1_2_0 = 3
-...........................................................
-Found counterexample #34, refining ... (25and/0or)  180 -> 98 ... adding predicates:
-inv_p2: inv_p2_2_0 = 3
-
-Found counterexample #35, refining ... (23and/0or)  163 -> 102 ... adding predicates:
+..........................
+Found counterexample #34, refining ... (20and/0or)  139 -> 97 ... adding predicates:
 inv_p2: inv_p2_2_0 = 4
-.........................................
-Found counterexample #36, refining ... (19and/0or)  131 -> 83 ... adding predicates:
+.................
+Found counterexample #35, refining ... (20and/0or)  139 -> 103 ... adding predicates:
+inv_p1: inv_p1_2_0 = 4
+..................................................................
+Found counterexample #36, refining ... (18and/0or)  122 -> 78 ... adding predicates:
 inv_p4: inv_p4_3_0 >= inv_p4_0_0
 inv_p3: inv_p3_3_0 >= inv_p3_0_0
 inv_p2: inv_p2_3_0 >= inv_p2_0_0
 inv_p4: inv_p4_0_0 - inv_p4_3_0 >= 2
 inv_p3: inv_p3_0_0 - inv_p3_3_0 >= 2
-..................................................
-Found counterexample #37, refining ... (19and/0or)  132 -> 87 ... adding predicates:
+..............................................................
+Found counterexample #37, refining ... (23and/0or)  166 -> 103 ... adding predicates:
+inv_p2: inv_p2_2_0 = 3
+
+Found counterexample #38, refining ... (18and/0or)  127 -> 81 ... adding predicates:
 inv_p0: inv_p0_2_0 = 2
 inv_p3: inv_p3_2_0 = 2
 ....................................................................
-Found counterexample #38, refining ... (21and/0or)  147 -> 96 ... adding predicates:
+Found counterexample #39, refining ... (21and/0or)  147 -> 96 ... adding predicates:
 inv_p0: inv_p0_2_0 = 3
 
-Found counterexample #39, refining ... (18and/0or)  122 -> 77 ... adding predicates:
+Found counterexample #40, refining ... (18and/0or)  122 -> 77 ... adding predicates:
 inv_p4: inv_p4_3_0 >= inv_p4_0_0
 inv_p3: inv_p3_3_0 >= inv_p3_0_0
 inv_p2: inv_p2_3_0 >= inv_p2_0_0
-........................
-Found counterexample #40, refining ... (19and/0or)  132 -> 91 ... adding predicates:
-inv_p4: inv_p4_2_0 = 2
-inv_p3: inv_p3_2_0 = 2
-.....................
-Found counterexample #41, refining ... (20and/0or)  142 -> 104 ... adding predicates:
+.......
+Found counterexample #41, refining ... (22and/0or)  162 -> 112 ... adding predicates:
 inv_p1: inv_p1_2_0 = 2
-......................................................
+................................................................................................
 Found counterexample #42, refining ... (19and/0or)  132 -> 91 ... adding predicates:
+inv_p1: inv_p1_2_0 = 2
+..................
+Found counterexample #43, refining ... (20and/0or)  141 -> 96 ... adding predicates:
 inv_p4: inv_p4_2_0 = 3
-inv_p3: inv_p3_2_0 = 3
-.....
-Found counterexample #43, refining ... (19and/0or) . 155 -> 114 ... adding predicates:
-inv_p0: inv_p0_2_0 = 1
-..........
-Found counterexample #44, refining ... (19and/0or) . 155 -> 114 ... adding predicates:
+............................................................................................
+Found counterexample #44, refining ... (20and/0or) . 164 -> 119 ... adding predicates:
 inv_p0: inv_p0_2_0 = 1
 
-Found counterexample #45, refining ... (21and/0or) .. ... failed, counterexample is genuine
+Found counterexample #45, refining ... (29and/0or)  204 -> 151 ... adding predicates:
+inv_p2: inv_p2_2_0 = 2
+...............................
+Found counterexample #46, refining ... (20and/0or) . 164 -> 114 ... adding predicates:
+inv_p0: inv_p0_2_0 = 1
+..............
+Found counterexample #47, refining ... (20and/0or) . ... failed, counterexample is genuine
 
-CEGAR iterations: 45
-Final number of abstract states: 27
-Final number of matched abstract states: 52
-Final number of abstract edges: 157
+CEGAR iterations: 47
+Final number of abstract states: 32
+Final number of matched abstract states: 54
+Final number of abstract edges: 186
 Number of generated predicates: 73
-Number of implication checks: 4655
+Number of implication checks: 5482
 
 NOT SOLVABLE
 
 Raw counterexample:
-0: FALSE -> 11, 7, 5, 1
-1: inv_p1(0, 1, 2, 0, 1) -> 8, 2
-2: inv_p1(0, 0, 2, 0, 1) -> 15, 3
-3: inv_p1(0, 0, 0, 0, 1) -> 4
-4: inv_p0(0, 0, 0, 0, 0)
-5: inv_p0(0, 1, 2, 0, 0) -> 12, 6
-6: inv_p0(0, 0, 2, 0, 0)
-7: inv_p4(0, 1, 2, -2, 4) -> 8
-8: inv_p3(0, 0, 2, -2, 3) -> 9
-9: inv_p2(0, 0, 2, -2, 2) -> 10
-10: inv_p2(-2, 0, 2, -2, 2) -> 14
-11: inv_p4(0, 1, 2, -2, 4) -> 12
-12: inv_p3(0, 0, 2, -2, 3) -> 18, 13
-13: inv_p1(0, 0, 1, 0, 1) -> 21, 15
-14: inv_p1(-2, 0, 0, -2, 1) -> 16
-15: inv_p1(0, 0, 0, 0, 1) -> 17
-16: inv_p0(-2, 0, 0, -2, 0)
-17: inv_p0(0, 0, 0, 0, 0)
-18: inv_p3(0, 0, 1, -2, 3) -> 19
-19: inv_p2(0, 0, 1, -2, 2) -> 20
-20: inv_p2(-2, 0, 1, -2, 2) -> 22
-21: inv_p1(0, 0, 0, 0, 1) -> 23
-22: inv_p1(-2, 0, 0, -2, 1) -> 24
-23: inv_p0(0, 0, 0, 0, 0)
-24: inv_p0(-2, 0, 0, -2, 0)
+0: FALSE -> 9, 4, 3, 1
+1: inv_p0(0, 1, 3, 0, 0) -> 5, 2
+2: inv_p0(0, 0, 3, 0, 0)
+3: inv_p4(0, 1, 3, -2, 4) -> 5
+4: inv_p0(0, 1, 3, 0, 0) -> 8, 5
+5: inv_p3(0, 0, 3, -2, 3) -> 6
+6: inv_p2(0, 0, 3, -2, 2) -> 7
+7: inv_p2(-2, 0, 3, -2, 2) -> 12
+8: inv_p0(0, 0, 3, 0, 0)
+9: inv_p4(0, 1, 3, -2, 4) -> 16, 10
+10: inv_p1(0, 1, 1, 0, 1) -> 17, 11
+11: inv_p1(0, 0, 1, 0, 1) -> 20, 13
+12: inv_p1(-2, 0, 0, -2, 1) -> 14
+13: inv_p1(0, 0, 0, 0, 1) -> 15
+14: inv_p0(-2, 0, 0, -2, 0)
+15: inv_p0(0, 0, 0, 0, 0)
+16: inv_p4(0, 1, 1, -2, 4) -> 17
+17: inv_p3(0, 0, 1, -2, 3) -> 18
+18: inv_p2(0, 0, 1, -2, 2) -> 19
+19: inv_p2(-2, 0, 1, -2, 2) -> 21
+20: inv_p1(0, 0, 0, 0, 1) -> 22
+21: inv_p1(-2, 0, 0, -2, 1) -> 23
+22: inv_p0(0, 0, 0, 0, 0)
+23: inv_p0(-2, 0, 0, -2, 0)
 
 Involved processes:
 Process index: 3
@@ -5456,12 +5566,12 @@ inv_p3_p3: inv_p3_p3_2_0 = 2
 
 Found counterexample #52, refining ... (22and/0or)  187 -> 120 ... adding predicates:
 inv_p2_p2: inv_p2_p2_2_0 = 3
-......................................................
+....................................................................
 Found counterexample #53, refining ... (18and/0or)  141 -> 94 ... adding predicates:
 inv_p2: inv_p2_2_0 = 2
 inv_p4_p4: inv_p4_p4_2_0 = 1
 inv_p3_p4: inv_p3_p4_2_0 = 1
-..................................................
+...................................................
 Found counterexample #54, refining ... (22and/0or)  169 -> 115 ... adding predicates:
 inv_p2_p4: inv_p2_p4_2_0 = 1
 ...................
@@ -5472,100 +5582,72 @@ inv_p3_p2: inv_p3_p2_2_0 = 2
 Found counterexample #56, refining ... (27and/0or)  225 -> 147 ... adding predicates:
 inv_p1_p1: inv_p1_p1_2_0 = 3
 
-Found counterexample #57, refining ... (18and/0or)  137 -> 88 ... adding predicates:
-inv_p1_p2: inv_p1_p2_5_0 >= inv_p1_p2_0_0
-.......
+Found counterexample #57, refining ... (21and/0or)  170 -> 113 ... adding predicates:
+inv_p0: inv_p0_2_0 = 2
+..........
 Found counterexample #58, refining ... (19and/0or)  151 -> 98 ... adding predicates:
 inv_p2_p1: inv_p2_p1_3_0 >= inv_p2_p1_0_0
-........................................................................................................
-Found counterexample #59, refining ... (17and/0or) . 160 -> 111 ... adding predicates:
-inv_p0: inv_p0_2_0 = 2
-inv_p0_p3: inv_p0_p3_2_0 = 3
-inv_p0_p4: inv_p0_p4_2_0 = 3
-..............................
-Found counterexample #60, refining ... (23and/0or)  183 -> 117 ... adding predicates:
-inv_p1: inv_p1_2_0 = 2
-inv_p4_p0: inv_p4_p0_2_0 = 3
-inv_p3_p0: inv_p3_p0_2_0 = 3
-................
-Found counterexample #61, refining ... (18and/0or)  140 -> 93 ... adding predicates:
-inv_p3: inv_p3_2_0 = 2
-.........................
-Found counterexample #62, refining ... (25and/0or)  206 -> 131 ... adding predicates:
-inv_p0_p2: inv_p0_p2_2_0 = 3
 ....
-Found counterexample #63, refining ... (22and/0or)  175 -> 114 ... adding predicates:
+Found counterexample #59, refining ... (20and/0or)  156 -> 103 ... adding predicates:
 inv_p0: inv_p0_2_0 = 1
+......
+Found counterexample #60, refining ... (23and/0or)  184 -> 113 ... adding predicates:
+inv_p0_p3: inv_p0_p3_2_0 = 3
+.........................
+Found counterexample #61, refining ... (15and/0or)  106 -> 87 ... adding predicates:
+inv_p2_p3: inv_p2_p3_2_0 = 1
+.....
+Found counterexample #62, refining ... (20and/0or)  159 -> 103 ... adding predicates:
+inv_p2_p4: inv_p2_p4_1_0 = 1
+....
+Found counterexample #63, refining ... (21and/0or)  164 -> 101 ... adding predicates:
+inv_p4: inv_p4_2_0 = 0
+.
+Found counterexample #64, refining ... (18and/0or)  138 -> 92 ... adding predicates:
+inv_p4_p2: inv_p4_p2_1_0 = 1
+inv_p3_p2: inv_p3_p2_1_0 = 0
+inv_p2_p2: inv_p2_p2_1_0 = 0
+.......
+Found counterexample #65, refining ... (18and/0or)  139 -> 83 ... adding predicates:
+inv_p1_p2: inv_p1_p2_5_0 >= inv_p1_p2_0_0
+...................................................................................................
+Found counterexample #66, refining ... (20and/0or)  152 -> 91 ... adding predicates:
+inv_p1: inv_p1_2_0 = 2
 
-Found counterexample #64, refining ... (18and/0or) . 159 -> 111 ... adding predicates:
-inv_p4: inv_p4_1_0 = 1
-inv_p3: inv_p3_1_0 = 0
-inv_p2: inv_p2_1_0 = 0
-..............................................................................................................
-Found counterexample #65, refining ... (19and/0or)  150 -> 111 ... adding predicates:
-inv_p0: inv_p0_2_0 = 1
-inv_p2_p4: inv_p2_p4_2_0 = 2
-inv_p2_p3: inv_p2_p3_2_0 = 2
-...........................................................
-Found counterexample #66, refining ... (24and/0or)  204 -> 122 ... adding predicates:
-inv_p0: inv_p0_2_0 = 3
+Found counterexample #67, refining ... (18and/0or) . ... failed, counterexample is genuine
 
-Found counterexample #67, refining ... (19and/0or)  149 -> 77 ... adding predicates:
-inv_p2: inv_p2_3_0 >= inv_p2_0_0
-......................................................................................................................................
-Found counterexample #68, refining ... (30and/0or)  249 -> 170 ... adding predicates:
-inv_p3_p4: inv_p3_p4_2_0 = 2
-
-Found counterexample #69, refining ... (29and/0or)  242 -> 149 ... adding predicates:
-inv_p2_p1: inv_p2_p1_3_0 >= inv_p2_p1_5_0, inv_p2_p1_3_0 - inv_p2_p1_0_0 >= -1
-inv_p1_p1: inv_p1_p1_0_0 >= inv_p1_p1_5_0
-inv_p0_p1: inv_p0_p1_0_0 >= inv_p0_p1_5_0
-
-Found counterexample #70, refining ... (18and/0or) .. 200 -> 133 ... adding predicates:
-inv_p4: inv_p4_1_0 = 2
-inv_p3: inv_p3_1_0 = 1
-inv_p2: inv_p2_1_0 = 1
-inv_p1: inv_p1_1_0 = 1
-........................................................................
-Found counterexample #71, refining ... (22and/0or) ..... ... failed, counterexample is genuine
-
-CEGAR iterations: 71
-Final number of abstract states: 36
-Final number of matched abstract states: 49
-Final number of abstract edges: 146
-Number of generated predicates: 127
-Number of implication checks: 9400
+CEGAR iterations: 67
+Final number of abstract states: 43
+Final number of matched abstract states: 63
+Final number of abstract edges: 172
+Number of generated predicates: 111
+Number of implication checks: 7287
 
 NOT SOLVABLE
 
 Raw counterexample:
-0: FALSE -> 7, 5, 1
-1: inv_p4(0, 1, 4, -2, 4) -> 2
-2: inv_p3(0, 0, 4, -2, 3) -> 3
-3: inv_p2(0, 0, 4, -2, 2) -> 4
-4: inv_p2(-2, 0, 4, -2, 2) -> 10
-5: inv_p0(0, 1, 4, 0, 0) -> 6, 8
-6: inv_p0(0, 1, 3, 0, 0) -> 15, 18
-7: inv_p4_p0(0, 1, 4, -2, 4, -2, 0) -> 14, 8
-8: inv_p1(0, 1, 3, 0, 1) -> 15, 9
-9: inv_p1(0, 0, 3, 0, 1) -> 17, 11
+0: FALSE -> 7, 3, 1
+1: inv_p0(0, 1, 3, 0, 0) -> 4, 2
+2: inv_p0(0, 0, 3, 0, 0)
+3: inv_p4(0, 1, 3, -2, 4) -> 4
+4: inv_p3(0, 0, 3, -2, 3) -> 5
+5: inv_p2(0, 0, 3, -2, 2) -> 6
+6: inv_p2(-2, 0, 3, -2, 2) -> 10
+7: inv_p0_p4(0, 1, 3, -2, 0, -2, 4) -> 14, 8
+8: inv_p1(0, 1, 2, 0, 1) -> 15, 9
+9: inv_p1(0, 0, 2, 0, 1) -> 18, 11
 10: inv_p1(-2, 0, 0, -2, 1) -> 12
 11: inv_p1(0, 0, 0, 0, 1) -> 13
 12: inv_p0(-2, 0, 0, -2, 0)
 13: inv_p0(0, 0, 0, 0, 0)
-14: inv_p4_p0(0, 1, 3, -2, 4, -2, 0) -> 15
-15: inv_p3_p0(0, 0, 3, -2, 3, -2, 0) -> 20, 16
-16: inv_p1(0, 0, 1, 0, 1) -> 23, 17
-17: inv_p1(0, 0, 0, 0, 1) -> 19
-18: inv_p0(0, 0, 3, 0, 0)
-19: inv_p0(0, 0, 0, 0, 0)
-20: inv_p3_p0(0, 0, 1, -2, 3, -2, 0) -> 21
-21: inv_p2_p0(0, 0, 1, -2, 2, -2, 0) -> 22
-22: inv_p2_p0(-2, 0, 1, -2, 2, -2, 0) -> 24
-23: inv_p1_p0(0, 0, 0, 0, 1, 0, 0) -> 25
-24: inv_p1_p0(-2, 0, 0, -2, 1, -2, 0) -> 26
-25: inv_p0_p0(0, 0, 0, 0, 0, 0, 0)
-26: inv_p0_p0(-2, 0, 0, -2, 0, -2, 0)
+14: inv_p0_p4(0, 1, 2, -2, 0, -2, 4) -> 15
+15: inv_p0_p3(0, 0, 2, -2, 0, -2, 3) -> 16
+16: inv_p0_p2(0, 0, 2, -2, 0, -2, 2) -> 17
+17: inv_p0_p2(-2, 0, 2, -2, 0, -2, 2) -> 19
+18: inv_p0_p1(0, 0, 0, 0, 0, 0, 1) -> 20
+19: inv_p0_p1(-2, 0, 0, -2, 0, -2, 1) -> 21
+20: inv_p0_p0(0, 0, 0, 0, 0, 0, 0)
+21: inv_p0_p0(-2, 0, 0, -2, 0, -2, 0)
 
 Involved processes:
 Process index: 3

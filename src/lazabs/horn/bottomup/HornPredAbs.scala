@@ -49,7 +49,7 @@ import DisjInterpolator._
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashSet, LinkedHashMap,
-                                 ArrayBuffer, Queue, PriorityQueue}
+                                 ArrayBuffer, Queue, PriorityQueue, ArrayBuilder}
 import scala.util.{Random, Sorting}
 
 object HornPredAbs {
@@ -1216,6 +1216,51 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     if (foundInconsistency)
       return
 
+    {
+      val tableSize = body.size
+      val statesTable =
+        Array.ofDim[Array[(List[AbstractState], Conjunction)]](tableSize)
+      statesTable(fixedIndex) = Array((List(state), Conjunction.TRUE))
+
+      for ((x, i) <- availableStates)
+        statesTable(i) = for ((s, simp) <- x) yield (List(s), simp)
+
+      var stride = 1
+      while (2 * stride < tableSize) {
+        var index = 0
+        while (index + stride < tableSize) {
+          val states1 = statesTable(index)
+          val states2 = statesTable(index + stride)
+          statesTable(index) =
+            (for ((s1, simp1) <- states1.iterator;
+                  (s2, simp2) <- states2.iterator;
+                  simp =
+                    if (simp1.isTrue)
+                      simp2
+                    else if (simp2.isTrue)
+                      simp1
+                    else
+                      preReducer(conj(List(simp1, simp2)));
+                  if (!simp.isFalse))
+             yield (s1 ++ s2, simp)).toArray
+          index = index + 2 * stride
+        }
+        stride = stride * 2
+      }
+
+      for ((chosenStates1, simp1) <- statesTable(0);
+           (chosenStates2, simp2) <- statesTable(stride)) {
+        val allAssumptions =
+          sf.reduce(conj(List(currentAssumptions, simp1, simp2)))
+        if (!allAssumptions.isFalse) {
+          val allChosenStates = chosenStates1 ++ chosenStates2
+          if (combinationsDone add (allChosenStates, clause))
+            nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
+        }
+      }
+    }
+
+/*
     Sorting.stableSort(availableStates,
                        (x : (Array[(AbstractState, Conjunction)], Int)) => x._1.size)
 
@@ -1249,69 +1294,68 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       }
     
     findPreStates(0, currentAssumptions)
+*/
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
 /*
-  def findNewMatchesGlobal(state : AbstractState) : Unit = {
+  def matchClauseGlobal(state : AbstractState,
+                        initialAssumptions : Conjunction,
+                        clause : NormClause,
+                        fixedIndex : Int, fixedOcc : Int,
+                        combinationsDone : MHashSet[(Seq[AbstractState], NormClause)])
+                       : Unit = inferenceAPIProver.scope {
     val p = inferenceAPIProver
     import p._
     import TerForConvenience._
 
     val rs = state.rs
 
-    val combinationsDone = new MHashSet[(Seq[AbstractState], NormClause)]
-      for ((clause@NormClause(constraint, body, head), occ, index) <-
-             relationSymbolOccurrences(rs)) scope {
+    val NormClause(constraint, body, head) = clause
 
-        addConstants(clause.order sort clause.order.orderedConstants)
-        addAssertion(constraint)
-        for (f <- state instances occ)
-          addAssertion(f)
+    addConstants(clause.order sort clause.order.orderedConstants)
+    addAssertion(initialAssumptions)
 
-        if (??? == ProverStatus.Sat) {
-          // add assertions for the possible matches
-          val selectors =
-            (for (((brs, occ), i) <- body.iterator.zipWithIndex)
-             yield if (i == index) {
-               List()
-             } else {
-               val flags = createBooleanVariables(activeAbstractStates(brs).size)
+    // add assertions for the possible matches
+    val selectors =
+      (for (((brs, occ), i) <- body.iterator.zipWithIndex)
+       yield if (i == fixedIndex) {
+         List()
+       } else {
+         val flags = createBooleanVariables(activeAbstractStates(brs).size)
 
-               implicit val _ = order
-               addAssertion(
-                 disj(for ((s, IAtom(p, _)) <-
-                             activeAbstractStates(brs).iterator zip flags.iterator)
-                        yield conj((s instances occ) ++ List(p(List())))))
-               flags
-             }).toIndexedSeq
+         implicit val _ = order
+         addAssertion(
+           disj(for ((s, IAtom(p, _)) <-
+                       activeAbstractStates(brs).iterator zip flags.iterator)
+                  yield conj((s instances occ) ++ List(p(List())))))
+         flags
+       }).toIndexedSeq
 
-           implicit val _ = order
+     implicit val _ = order
 
-           while (??? == ProverStatus.Sat) {
-             val (chosenStates, assumptionSeq, sels) =
-               (for (((brs, occ), i) <- body.iterator.zipWithIndex) yield
-                  if (i == index) {
-                    (state, state instances occ, IExpression.i(true))
-                  } else {
-                    val selNum = selectors(i) indexWhere (evalPartial(_) == Some(true))
-                    val selState = activeAbstractStates(brs).iterator.drop(selNum).next
-                    (selState, selState instances occ, selectors(i)(selNum))
-                  }).toList.unzip3
+     while (??? == ProverStatus.Sat) {
+       val (chosenStates, assumptionSeq, sels) =
+         (for (((brs, occ), i) <- body.iterator.zipWithIndex) yield
+            if (i == fixedIndex) {
+              (state, state instances occ, IExpression.i(true))
+            } else {
+              val selNum = selectors(i) indexWhere (evalPartial(_) == Some(true))
+              val selState = activeAbstractStates(brs).iterator.drop(selNum).next
+              (selState, selState instances occ, selectors(i)(selNum))
+            }).toList.unzip3
 
-             if (combinationsDone add (chosenStates, clause))
-               nextToProcess.enqueue(chosenStates, clause,
-                 conj((for (l <- assumptionSeq.iterator; f <- l.iterator) yield f) ++ (
-                        Iterator single constraint))
-               )
+       if (combinationsDone add (chosenStates, clause))
+         nextToProcess.enqueue(chosenStates, clause,
+           conj((for (l <- assumptionSeq.iterator; f <- l.iterator) yield f) ++ (
+                  Iterator single constraint))
+         )
 
-             val blockingClause = !conj(for (IAtom(p, _) <- sels.iterator) yield p(List()))
+       val blockingClause = !conj(for (IAtom(p, _) <- sels.iterator) yield p(List()))
 
-             addAssertion(blockingClause)
-           }
-        }
-      }
+       addAssertion(blockingClause)
+     }
   }
 */
 

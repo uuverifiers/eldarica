@@ -50,6 +50,10 @@ class HornPreprocessor(
 
   Console.err.println("Initially: " + oriClauses.size + " clauses")
 
+  private val maxClauseBodySize = 6
+
+  private var tempPredCounter = 0
+
   //////////////////////////////////////////////////////////////////////////////
 
   val (result, initialPredicates) = {
@@ -117,6 +121,7 @@ class HornPreprocessor(
 
     val (clauses3, initialPreds3) = elimLinearDefs(clauses2, initialPreds1)
 
+/*
     val (clauses4, initialPreds4) = {
       var initialPreds = initialPreds3
       val clauses4 =
@@ -128,6 +133,12 @@ class HornPreprocessor(
              }) yield d
       (clauses4, initialPreds)
     }
+*/
+
+    val (clauses4, initialPreds4) =
+      (for (c <- clauses3;
+            d <- splitClauseBody2(c, initialPreds3)) yield d,
+       initialPreds3)
 
     val clauses5 =
       if (lazabs.GlobalParameters.get.splitClauses) SimpleAPI.withProver { p =>
@@ -300,8 +311,6 @@ class HornPreprocessor(
 
   //////////////////////////////////////////////////////////////////////////////
 
-  var tempPredCounter = 0
-
   def splitClauseBody(clause : Clause,
                       initialPreds : Map[Predicate, Seq[IFormula]])
                      : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
@@ -440,8 +449,14 @@ class HornPreprocessor(
   //////////////////////////////////////////////////////////////////////////////
   // Alternative implementation, creating wider but less deep trees
 
-  def splitClauseBody2(clause : Clause) : List[Clause] =
-    if (clause.body.size <= 2)
+  def splitClauseBody2(clause : Clause,
+                       initialPredicates : Map[IExpression.Predicate, Seq[IFormula]])
+                      : List[Clause] =
+    if (clause.body.size <= maxClauseBodySize ||
+        ((initialPredicates get clause.head.pred) match {
+          case Some(s) => !s.isEmpty
+          case None => false
+        }))
       List(clause)
     else
       splitClauseBody2(clause.head, clause.body,
@@ -451,7 +466,7 @@ class HornPreprocessor(
   def splitClauseBody2(head : IAtom,
                        body : List[IAtom],
                        constraint : Seq[IFormula]) : List[Clause] =
-    if (body.size <= 2) {
+    if (body.size <= maxClauseBodySize) {
       List(Clause(head, body, and(constraint)))
     } else {
       val halfSize = (body.size + 1) / 2
