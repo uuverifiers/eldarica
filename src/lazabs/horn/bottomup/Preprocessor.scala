@@ -336,7 +336,13 @@ class HornPreprocessor(
       val otherSyms =
         SymbolCollector constants (constraint2 & and(remainingBody) & head)
 
-      val commonSyms = body1Syms filter otherSyms
+      val commonSyms = (body1Syms filter otherSyms) match {
+        case Seq() =>
+          // make sure that there is at least one argument, otherwise
+          // later assumptions in the model checker will be violated
+          List(body1Syms.head)
+        case syms => syms
+      }
       val tempPred = new Predicate ("temp" + tempPredCounter, commonSyms.size)
       tempPredCounter = tempPredCounter + 1
 
