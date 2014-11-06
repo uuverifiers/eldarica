@@ -387,7 +387,9 @@ class SMTHornReader protected[parser] (
       })
 
       ?? (clause)
-      ???
+      checkSat(false)
+      while (getStatus(100) == ProverStatus.Running)
+        lazabs.GlobalParameters.get.timeoutChecker()
 
       qfClauses
     }
@@ -396,6 +398,8 @@ class SMTHornReader protected[parser] (
     val resClauses = new ArrayBuffer[IFormula]
 
     for (c <- qfClauses) scope {
+      lazabs.GlobalParameters.get.timeoutChecker()
+
       setMostGeneralConstraints(true)
 
       addConstantsRaw(c.order sort c.order.orderedConstants)

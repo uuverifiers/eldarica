@@ -365,7 +365,7 @@ object Main {
           // nothing
       }
 
-      val (clauseSet, absMap) = format match {
+      val (clauseSet, absMap) = try { format match {
         case InputFormat.Prolog =>
           (lazabs.horn.parser.HornReader.apply(fileName), None)
         case InputFormat.SMTHorn =>
@@ -376,6 +376,12 @@ object Main {
           lazabs.upp.RelyGuarantee(fileName, templateBasedInterpolation)
         case InputFormat.Nts =>
           (NtsHorn(NtsWrapper(fileName)), None)
+      }
+      } catch {
+        case t@(TimeoutException | StoppedException) => {
+          println("unknown")
+          throw t
+        }
       }
 
       if(prettyPrint) {
