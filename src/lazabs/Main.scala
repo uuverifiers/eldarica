@@ -316,6 +316,8 @@ object Main {
       }
     }
     
+    ap.util.Debug enableAllAssertions lazabs.Main.assertions
+
     if(princess) Prover.setProver(lazabs.prover.TheoremProver.PRINCESS)
 
     if (format == InputFormat.AutoDetect) {
