@@ -430,6 +430,10 @@ class SMTHornReader protected[parser] (
       val newUnintHeadLits = unintHeadLits map (existentialiseAtom _)
       val newUnintBodyLits = unintBodyLits map (existentialiseAtom _)
 
+      checkSat(false)
+      while (getStatus(100) == ProverStatus.Running)
+        lazabs.GlobalParameters.get.timeoutChecker()
+
       resClauses += (??? match {
         case ProverStatus.Unsat =>
           Transform2NNF(getMinimisedConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
