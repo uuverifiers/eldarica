@@ -64,7 +64,13 @@ class AbsReader(input : java.io.Reader) {
       for (variableC <- predref.listsortedvariablec_.reverseIterator) {
         val variable = variableC.asInstanceOf[SortedVariable]
         val t = SMTParser2InputAbsy.BoundVariable(
-                  (printer print variable.sort_) == "Bool")
+          (printer print variable.sort_) match {
+            case "Bool" => SMTParser2InputAbsy.SMTBool
+            case "Int" => SMTParser2InputAbsy.SMTInteger
+            case t =>
+              // currently no other types are supported at this point
+              throw new Exception ("Unsupported type in hints: " + t)
+          })
         env.pushVar(printer print variable.symbol_, t)
       }
 
