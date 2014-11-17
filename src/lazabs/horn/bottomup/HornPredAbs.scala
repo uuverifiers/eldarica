@@ -1097,10 +1097,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           }
 
           nextToProcess.incTime
-          activeAbstractStates(rs) += state
-          maxAbstractStates(rs) += state
     
           findNewMatches(state)
+
+          activeAbstractStates(rs) += state
+          maxAbstractStates(rs) += state
         }
       }
     }
@@ -1115,62 +1116,77 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
     val combinationsDone = new MHashSet[(Seq[AbstractState], NormClause)]
     
-      for ((clause, occ, index) <- relationSymbolOccurrences(rs)) {
+    for ((clause, occ, index) <- relationSymbolOccurrences(rs)) {
+
+      val byStates : Array[Seq[AbstractState]] =
+        (for (((bodyRs, _), ind) <- clause.body.iterator.zipWithIndex)
+         yield ind match {
+           case `index` =>
+             List(state)
+           case ind if (ind < index && bodyRs == rs) =>
+             activeAbstractStates(bodyRs).toSeq ++ List(state)
+           case _ =>
+             activeAbstractStates(bodyRs).toSeq
+         }).toArray
+
+      if (byStates exists (_.isEmpty)) {
+
+        // nothing to do
+
+      } else {
+
         implicit val _ = clause.order
 
         val initialAssumptions =
           sf.reduce(conj(List(clause.constraint) ++ (state instances occ)))
-    
+  
         if (!initialAssumptions.isFalse) {
-          if (clause.body.size > 1 &&
-              (clause.body exists {
-                 case (rs, _) => activeAbstractStates(rs).isEmpty
-               })) {
-            // nothing to do
-          } else if (clause.body.size > 2 &&
-                     (for ((rs, _) <- clause.body.iterator) yield (
-                        if (activeAbstractStates(rs).size > 1) 1 else 0)).sum >= 2) {
+
+          if ((byStates count (_.size > 1)) >= 2)
             matchClausePrereduce(state, initialAssumptions, clause,
-                                 index, occ, combinationsDone)
-          } else {
+                                 index, occ, combinationsDone, byStates)
+          else
             matchClauseSimple(state, initialAssumptions, clause,
-                              index, occ, combinationsDone)
-          }
+                              index, occ, combinationsDone, byStates)
         }
       }
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def matchClauseSimple(state : AbstractState,
+  def matchClauseSimple(fixedState : AbstractState,
                         initialAssumptions : Conjunction,
                         clause : NormClause,
                         fixedIndex : Int, occ : Int,
-                        combinationsDone : MHashSet[(Seq[AbstractState], NormClause)]) : Unit = {
+                        combinationsDone : MHashSet[(Seq[AbstractState], NormClause)],
+                        byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
 
     val NormClause(constraint, body, head) = clause
 
-          def findPreStates(i : Int,
-                            chosenStates : List[AbstractState],
-                            assumptions : Conjunction) : Unit =
-            if (i < 0) {
-              if (combinationsDone add (chosenStates, clause))
-                nextToProcess.enqueue(chosenStates, clause, assumptions)
-            } else if (i == fixedIndex) {
-              findPreStates(i - 1, state :: chosenStates, assumptions)
-            } else {
-              val (rs, occ) = body(i)
-              for (state <- activeAbstractStates(rs)) {
-                val newAssumptions =
-                  sf.reduce(conj(List(assumptions) ++ (state instances occ)))
-                if (!newAssumptions.isFalse)
-                  findPreStates(i - 1, state :: chosenStates, newAssumptions)
-              }
-            }
-      
-          findPreStates(body.size - 1, List(), initialAssumptions)
+    def findPreStates(i : Int,
+                      chosenStates : List[AbstractState],
+                      assumptions : Conjunction) : Unit =
+      if (i < 0) {
+        if (combinationsDone add (chosenStates, clause))
+          nextToProcess.enqueue(chosenStates, clause, assumptions)
+        else
+          throw new Exception("recurring combination")
+      } else if (i == fixedIndex) {
+        findPreStates(i - 1, fixedState :: chosenStates, assumptions)
+      } else {
+        val (_, occ) = body(i)
+        for (state <- byStates(i)) {
+          val newAssumptions =
+            sf.reduce(conj(List(assumptions) ++ (state instances occ)))
+          if (!newAssumptions.isFalse)
+            findPreStates(i - 1, state :: chosenStates, newAssumptions)
+        }
+      }
+
+    findPreStates(body.size - 1, List(), initialAssumptions)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1179,7 +1195,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                            initialAssumptions : Conjunction,
                            clause : NormClause,
                            fixedIndex : Int, occ : Int,
-                           combinationsDone : MHashSet[(Seq[AbstractState], NormClause)]) : Unit = {
+                           combinationsDone : MHashSet[(Seq[AbstractState], NormClause)],
+                           byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
 
@@ -1188,7 +1205,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val relevantRS =
       (for (p@(t, i) <- body.iterator.zipWithIndex;
             if (i != fixedIndex)) yield p).toSeq.sortBy {
-        case ((rs, _), _) => activeAbstractStates(rs).size
+        case (_, i) => byStates(i).size
       }
 
     var currentAssumptions = initialAssumptions
@@ -1198,7 +1215,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val availableStates =
       (for (((rs, occ), i) <- relevantRS.iterator; if (!foundInconsistency)) yield {
          val states =
-           (for (s <- activeAbstractStates(rs).iterator;
+           (for (s <- byStates(i).iterator;
                  simp = preReducer(s predConjunction occ);
                  if (!simp.isFalse)) yield (s, simp)).toArray
          if (states.isEmpty) {
@@ -1257,6 +1274,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           val allChosenStates = chosenStates1 ++ chosenStates2
           if (combinationsDone add (allChosenStates, clause))
             nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
+              else
+                throw new Exception("recurring combination")
         }
       }
     }
