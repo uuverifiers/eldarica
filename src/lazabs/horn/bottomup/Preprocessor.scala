@@ -152,8 +152,11 @@ class HornPreprocessor(
         for (clause@Clause(head, body, constraint) <- clauses4) scope {
           addConstantsRaw(SymbolCollector constantsSorted constraint)
           for (d <- ap.PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint)))
-            for (f <- splitPosEquations(Transform2NNF(!asIFormula(d))))
+            for (f <- splitPosEquations(Transform2NNF(!asIFormula(d)))) {
+              if (newClauses.size % 100 == 0)
+                lazabs.GlobalParameters.get.timeoutChecker()
               newClauses += Clause(head, body, Transform2NNF(!f))
+            }
         }
 
         newClauses

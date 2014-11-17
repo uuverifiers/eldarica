@@ -1140,10 +1140,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   
         if (!initialAssumptions.isFalse) {
 
-          if ((byStates count (_.size > 1)) >= 2)
+          if ((byStates count (_.size > 1)) >= 2) {
+//println(for (s <- byStates.toList) yield s.size)
             matchClausePrereduce(state, initialAssumptions, clause,
                                  index, occ, byStates)
-          else
+          } else
             matchClauseSimple(state, initialAssumptions, clause,
                               index, occ, byStates)
         }
