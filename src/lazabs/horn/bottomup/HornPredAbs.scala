@@ -1114,8 +1114,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
     import TerForConvenience._
 
-    val combinationsDone = new MHashSet[(Seq[AbstractState], NormClause)]
-    
     for ((clause, occ, index) <- relationSymbolOccurrences(rs)) {
 
       val byStates : Array[Seq[AbstractState]] =
@@ -1144,10 +1142,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
           if ((byStates count (_.size > 1)) >= 2)
             matchClausePrereduce(state, initialAssumptions, clause,
-                                 index, occ, combinationsDone, byStates)
+                                 index, occ, byStates)
           else
             matchClauseSimple(state, initialAssumptions, clause,
-                              index, occ, combinationsDone, byStates)
+                              index, occ, byStates)
         }
       }
     }
@@ -1159,7 +1157,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                         initialAssumptions : Conjunction,
                         clause : NormClause,
                         fixedIndex : Int, occ : Int,
-                        combinationsDone : MHashSet[(Seq[AbstractState], NormClause)],
                         byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
@@ -1170,10 +1167,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                       chosenStates : List[AbstractState],
                       assumptions : Conjunction) : Unit =
       if (i < 0) {
-        if (combinationsDone add (chosenStates, clause))
-          nextToProcess.enqueue(chosenStates, clause, assumptions)
-        else
-          throw new Exception("recurring combination")
+        nextToProcess.enqueue(chosenStates, clause, assumptions)
       } else if (i == fixedIndex) {
         findPreStates(i - 1, fixedState :: chosenStates, assumptions)
       } else {
@@ -1195,7 +1189,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                            initialAssumptions : Conjunction,
                            clause : NormClause,
                            fixedIndex : Int, occ : Int,
-                           combinationsDone : MHashSet[(Seq[AbstractState], NormClause)],
                            byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
@@ -1272,10 +1265,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           sf.reduce(conj(List(currentAssumptions, simp1, simp2)))
         if (!allAssumptions.isFalse) {
           val allChosenStates = chosenStates1 ++ chosenStates2
-          if (combinationsDone add (allChosenStates, clause))
-            nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
-              else
-                throw new Exception("recurring combination")
+          nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
         }
       }
     }
@@ -1293,8 +1283,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                       assumptions : Conjunction) : Unit =
       if (i == N) {
         val cs = chosenStates.toList
-        if (combinationsDone add (cs, clause))
-          nextToProcess.enqueue(cs, clause, assumptions)
+        nextToProcess.enqueue(cs, clause, assumptions)
       } else {
         val (candidates, bodyNum) = availableStates(i)
         if (candidates.size == 1) {
