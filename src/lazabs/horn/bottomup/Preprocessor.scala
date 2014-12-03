@@ -48,7 +48,8 @@ class HornPreprocessor(
            oriInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]]) {
   import IExpression._
 
-  Console.err.println("Initially: " + oriClauses.size + " clauses")
+  Console.err.println
+  Console.err.println("Initially:                " + oriClauses.size + " clauses")
 
   private val maxClauseBodySize = 3
 
@@ -121,6 +122,8 @@ class HornPreprocessor(
 
     val (clauses3, initialPreds3) = elimLinearDefs(clauses2, initialPreds1)
 
+    Console.err.println("After inlining:           " + clauses3.size + " clauses")
+
 /*
     val (clauses4, initialPreds4) = {
       var initialPreds = initialPreds3
@@ -144,6 +147,8 @@ class HornPreprocessor(
 
     val (clauses4, initialPreds4) = splitClauseBodies3(clauses3, initialPreds3)
 
+    Console.err.println("After shortening clauses: " + clauses4.size + " clauses")
+
     val clauses5 =
       if (lazabs.GlobalParameters.get.splitClauses) SimpleAPI.withProver { p =>
         // turn the resulting formula into DNF, and split positive equations
@@ -162,6 +167,8 @@ class HornPreprocessor(
               newClauses += Clause(head, body, Transform2NNF(!f))
             }
         }
+
+        Console.err.println("After splitting clauses:  " + newClauses.size + " clauses")
 
         newClauses
 
@@ -184,8 +191,12 @@ class HornPreprocessor(
     val clauses6 = if (!lazabs.GlobalParameters.get.staticAccelerate) {
       clauses5
     } else {
-      HornAccelerate.accelerate(clauses5)
+      val newClauses = HornAccelerate.accelerate(clauses5)
+      Console.err.println("After acceleration:       " + newClauses.size + " clauses")
+      newClauses
     }
+
+    Console.err.println
     
     (clauses6, initialPreds4)
   }
@@ -219,8 +230,6 @@ class HornPreprocessor(
 
       initialPreds = initialPreds -- finalDefs.keys
     }
-
-    Console.err.println("After eliminating linear definitions: " + clauses.size + " clauses")
 
     (clauses, initialPreds)
   }
@@ -548,11 +557,49 @@ class HornPreprocessor(
       for (IAtom(p, _) <- head :: body)
         allPredicates += p
 
-    val predOrder = allPredicates.iterator.zipWithIndex.toMap
-
-    val combinedPreds = new MHashMap[List[Predicate], Predicate]
+    val combiningPreds = new ArrayBuffer[(List[(Predicate, Int)], Predicate)]
     val newClauses = new ArrayBuffer[Clause]
     var newInitialPreds = initialPreds
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    def createNewPredicateCounting(predCounts : List[(Predicate, Int)])
+                                  : Predicate = {
+      assert((predCounts map (_._1)).toSet.size == predCounts.size)
+
+      val allPreds =
+        (for ((p, num) <- predCounts; _ <- 0 until num) yield p).toList
+
+      val newPred = new Predicate ((allPreds map (_.name)) mkString "_",
+                                   (allPreds map (_.arity)).sum)
+      combiningPreds += ((predCounts, newPred))
+      allPredicates += newPred
+
+      val definingBody = for ((p, num) <- allPreds.zipWithIndex) yield
+        IAtom(p, for (k <- 0 until p.arity)
+                 yield i(new ConstantTerm (p.name + "_" + num + "_" + k)))
+      val definingHead = IAtom(newPred, for (IAtom(_, args) <- definingBody;
+                                             a <- args) yield a)
+      newClauses += Clause(definingHead, definingBody, i(true))
+
+      // create initial predicates for the new symbol as well  
+      var offset = 0
+      var nextOffset = 0
+      val initPreds =
+        for (p <- allPreds;
+             initPred <- {
+               offset = nextOffset
+               nextOffset = nextOffset + p.arity
+               newInitialPreds.getOrElse(p, List())
+             })
+        yield VariableShiftVisitor(initPred, 0, offset)
+
+      newInitialPreds = newInitialPreds + (newPred -> initPreds)
+
+      newPred
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
 
     for (clause <- clauses)
       newClauses += (
@@ -560,53 +607,78 @@ class HornPreprocessor(
           clause
         } else {
           val Clause(head, body, constraint) = clause
-          var condensedBody : Seq[IAtom] =
-            body sortBy { case IAtom(p, _) => predOrder(p) }
-  
-          while (condensedBody.size > maxClauseBodySize)
-            condensedBody =
-              (for (bodySeq <- condensedBody grouped maxClauseBodySize)
-               yield bodySeq match {
-                 case Seq(lit) => lit
-                 case bodySeq => {
-                   val allArgs =
-                     (for (IAtom(_, args) <- bodySeq; a <- args) yield a).toList
-                   val allPreds =
-                     (for (IAtom(p, _) <- bodySeq) yield p).toList
-  
-                   val newPred = combinedPreds.getOrElseUpdate(allPreds, {
-                     val newPred =
-                       new Predicate ((allPreds map (_.name)) mkString "_",
-                                      allArgs.size)
-                     val definingBody = for ((p, num) <- allPreds.zipWithIndex) yield
-                       IAtom(p, for (k <- 0 until p.arity)
-                                yield i(new ConstantTerm (p.name + "_" + num + "_" + k)))
-                     val definingHead =
-                       IAtom(newPred, for (IAtom(_, args) <- definingBody;
-                                           a <- args) yield a)
-                     newClauses += Clause(definingHead, definingBody, i(true))
-                     newPred
-                   })
-  
-                   var offset = 0
-                   var nextOffset = 0
-                   val initPreds =
-                     for (p <- allPreds;
-                          initPred <- {
-                            offset = nextOffset
-                            nextOffset = nextOffset + p.arity
-                            newInitialPreds.getOrElse(p, List())
-                          }) yield {
-                       VariableShiftVisitor(initPred, 0, offset)
-                     }
 
-                   newInitialPreds = newInitialPreds + (newPred -> initPreds)
+          var bodySize = body.size
+          val bodyLits = new MHashMap[Predicate, List[IAtom]]
+          for ((p, atoms) <- body groupBy (_.pred))
+            bodyLits.put(p, atoms.toList)
 
-                   IAtom(newPred, allArgs)
-                 }
-               }).toList
-  
-          Clause(head, condensedBody.toList, constraint)
+          def combinePredicates(predCounts : List[(Predicate, Int)],
+                                newPred : Predicate) = {
+            val allArgs = (for ((pred, num) <- predCounts;
+                                _ <- 0 until num;
+                                oldAtom = {
+                                  val atom :: rest = bodyLits(pred)
+                                  bodyLits.put(pred, rest)
+                                  atom
+                                };
+                                a <- oldAtom.args)
+                           yield a).toList
+            bodyLits.put(newPred,
+              bodyLits.getOrElse(newPred, List()) ::: List(IAtom(newPred, allArgs)))
+          }
+
+          while (bodySize > maxClauseBodySize) {
+            (combiningPreds find {
+               case (counts, pred) => counts forall {
+                 case (p, num) => bodyLits.getOrElse(p, List()).size >= num
+               }
+             }) match {
+
+              case Some((predCounts, newPred)) =>
+                combinePredicates(predCounts, newPred)
+
+              case None => {
+                val selectedPredicates =
+                  (allPredicates find {
+                     p => bodyLits.getOrElse(p, List()).size >= maxClauseBodySize
+                   }) match {
+                    case Some(pred) =>
+                      List((pred, maxClauseBodySize))
+                    case None => {
+                      var remaining = maxClauseBodySize
+                      val counts = new ArrayBuffer[(Predicate, Int)]
+
+                      val it = allPredicates.iterator
+                      while (remaining > 0) {
+                        val nextPred = it.next
+                        val num = bodyLits.getOrElse(nextPred, List()).size
+                        if (num > 0) {
+                          val chosen = num min remaining
+                          remaining = remaining - chosen
+                          counts += ((nextPred, chosen))
+                        }
+                      }
+
+                      counts.toList
+                    }
+                  }
+
+                val newPred = createNewPredicateCounting(selectedPredicates)
+                combinePredicates(selectedPredicates, newPred)
+              }
+
+            }
+
+            bodySize = bodySize - maxClauseBodySize + 1
+          }
+
+          val newBody =
+            (for (p <- allPredicates.iterator;
+                  a <- bodyLits.getOrElse(p, List()).iterator)
+             yield a).toList
+
+          Clause(head, newBody, constraint)
         })
 
     (newClauses.toList, newInitialPreds)
