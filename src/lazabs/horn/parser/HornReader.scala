@@ -79,8 +79,16 @@ class SMTHornReader protected[parser] (
                  new java.io.FileReader(new java.io.File (fileName)))
   private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
                    ParserSettings.DEFAULT, true)
-  private val (f, _, signature) = SMTParser2InputAbsy(settings)(reader)
+
+  private val (f, _, signature) =
+    (new SMTParser2InputAbsy(new Environment, settings, null) {
+      protected override def
+        incrementalityMessage(thing : String, warnOnly : Boolean) : String =
+          if (warnOnly) ("ignoring " + thing) else (thing + " is not supported")
+    })(reader)
+
   reader.close
+
   private val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
   
   private val triggerFunctions =

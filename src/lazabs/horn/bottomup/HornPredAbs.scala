@@ -778,7 +778,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
          ((rs, occ), i) <- body.iterator.zipWithIndex) {
       relationSymbolOccurrences(rs) += ((c, occ, i))
     }
-    relationSymbolOccurrences mapValues (_.readOnly)
+    relationSymbolOccurrences mapValues (_.toVector)
   }
 
   val predicates =
@@ -1414,9 +1414,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                        order : TermOrder) : AbstractState = {
     val reducer = sf reducer assumptions
     val predConsequences =
-      for (pred <- predicates(rs);
-           if (predIsConsequence(pred, rsOcc, reducer, prover, order))) yield pred
-    AbstractState(rs, predConsequences.readOnly)
+      (for (pred <- predicates(rs).iterator;
+            if (predIsConsequence(pred, rsOcc, reducer, prover, order)))
+       yield pred).toVector
+    AbstractState(rs, predConsequences)
   }
   
   def predIsConsequence(pred : RelationSymbolPred, rsOcc : Int,
