@@ -822,6 +822,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       prover = prover.assert(Conjunction.conj(t.axioms, order), order)
     prover
   }
+
+  def isValid(prover : ModelSearchProver.IncProver) : Boolean =
+    prover.isObviouslyValid ||
+    (!prover.isObviouslyUnprovable &&
+     ((prover checkValidity false) match {
+        case Left(m) if (m.isFalse) => true
+        case Left(_) => false
+      }))
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -1385,21 +1393,19 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
               from : Seq[AbstractState], assumptions : Conjunction) = {
     val prover = emptyProver.assert(assumptions, clause.order)
     implicationChecks = implicationChecks + 1
-    (prover checkValidity false) match {
-      case Left(m) if (m.isFalse) =>
-        // assumptions are inconsistent, nothing to do
-        None
-      case Left(_) => {
-        // assumptions are consistent
-        clause.head._1.pred match {
-          case HornClauses.FALSE =>
-            throw new Counterexample(from, clause)
-          case _ => {
-            val state = genAbstractState(assumptions,
-                                         clause.head._1, clause.head._2,
-                                         prover, clause.order)
-            Some(AbstractEdge(from, state, clause, assumptions))
-          }
+    if (isValid(prover)) {
+      // assumptions are inconsistent, nothing to do
+      None
+    } else {
+      // assumptions are consistent
+      clause.head._1.pred match {
+        case HornClauses.FALSE =>
+          throw new Counterexample(from, clause)
+        case _ => {
+          val state = genAbstractState(assumptions,
+                                       clause.head._1, clause.head._2,
+                                       prover, clause.order)
+          Some(AbstractEdge(from, state, clause, assumptions))
         }
       }
     }
@@ -1427,14 +1433,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     implicationChecks = implicationChecks + 1
     val reducedInstance = reducer.tentativeReduce(pred posInstances rsOcc)
 
-    !reducedInstance.isFalse && (reducedInstance.isTrue ||
-     (prover.conclude(reducedInstance, order).checkValidity(false) match {
-       case Left(m) if (m.isFalse) =>
-         // predicate is a consequence of assumptions
-         true
-       case Left(_) =>
-         false
-     }))
+    !reducedInstance.isFalse &&
+    (reducedInstance.isTrue || isValid(prover.conclude(reducedInstance, order)))
   }
   
   //////////////////////////////////////////////////////////////////////////////
