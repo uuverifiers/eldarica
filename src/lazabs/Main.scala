@@ -434,7 +434,7 @@ object Main {
       return
     }
 
-    if(timeout.isDefined) Z3Wrapper.setTimeout(timeout)
+//    if(timeout.isDefined) Z3Wrapper.setTimeout(timeout)
 
     val rTree = if (!interpolation) MakeRTree(cfg, MakeCFG.getLoops, spuriousness, searchMethod, log)
       else MakeRTreeInterpol(cfg, MakeCFG.getLoops, searchMethod, babarew, dumpInterpolationQuery, dynamicAccelerate, underApproximate, template, log)

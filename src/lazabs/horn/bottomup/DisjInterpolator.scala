@@ -747,7 +747,7 @@ object DisjInterpolator {
 
     var dag : CCDag = for (c <- clauseDag) yield c match {
       case AndNode(c) => AndNode(Left(c))
-      case OrNode(_) => OrNode()
+      case OrNode(_) => OrNode(())
     }
 
     var localPreds = new ArrayBuffer[Predicate]
@@ -875,7 +875,7 @@ object DisjInterpolator {
         belowOrDag =
           DagNode(AndNode(Right(topClause)),
                   1 :: (for (i <- sharedSubnodes) yield (i + orNodeChildren.size + 1)),
-          DagNode(OrNode(), (1 to orNodeChildren.size).toList, belowOrDag))
+          DagNode(OrNode(()), (1 to orNodeChildren.size).toList, belowOrDag))
 
 //        belowOrDag.prettyPrint
 
@@ -893,7 +893,7 @@ object DisjInterpolator {
         dag = replaceSubdag(dag, 0).elimUnconnectedNodes
 
 /*(for (d <- dag) yield d match {
-  case OrNode(_) => OrNode()
+  case OrNode(_) => OrNode(())
   case AndNode(c) => AndNode(c.hashCode)
 }).prettyPrint */
       }

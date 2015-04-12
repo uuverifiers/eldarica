@@ -62,7 +62,7 @@ object TypeCheck{
       Environ(gTpe + (name -> t), gArrSize)
     case SingletonActorDeclaration(name, a) :: ds =>
       val Environ(gTpe, gArrSize) = globalEnviron(Sobject(so.preds, so.name, ds))
-      Environ(gTpe ++ actorQueues + (name -> ActorType()), gArrSize)
+      Environ(gTpe ++ actorQueues + (name -> ActorType), gArrSize)
     case ClassDeclaration(className, paramList, Some("sc_Actor"), declList) :: ds =>
       val classFields = (paramList.map(param => (param.name,param.typ)) ::: (for (VarDeclaration(name, t, value) <- declList)
         yield (name,t))).map(x => ((className + "_" + x._1.drop(3)) -> ArrayType(x._2 match {
@@ -95,7 +95,7 @@ object TypeCheck{
     case PredsDeclaration(preds) :: rest =>  //LBE is just for large block encoding
       PredsDeclaration(typeCheck(preds,Environ(env.tpe + ("sc_LBE" -> UnitType()), env.arrSize))) :: typeCheck(rest, env)     
     case SingletonActorDeclaration(name, declList)  :: rest =>
-      val newEnv = Environ(env.tpe + (name -> ActorType()), env.arrSize)
+      val newEnv = Environ(env.tpe + (name -> ActorType), env.arrSize)
       SingletonActorDeclaration(name, typeCheck(declList,newEnv)) :: typeCheck(rest, newEnv)
     case FunctionDefinition(funcName, ps, t, e, Some((binding,post))) :: rest =>
       val funcEnv = Environ(env.tpe ++ (ps.map(p => (p.name, p.typ))), env.arrSize)

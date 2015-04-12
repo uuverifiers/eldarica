@@ -1549,7 +1549,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
               cexNodes.put(s, cex.size - 1)
             } else {
               cexNodes.put(s, cex.size)
-              cex = DagNode(OrNode(), (1 to definedEdges2.size).toList, cex)
+              cex = DagNode(OrNode(()), (1 to definedEdges2.size).toList, cex)
               orNum = orNum + 1
             }
         }

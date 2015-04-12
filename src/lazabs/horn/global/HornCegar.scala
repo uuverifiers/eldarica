@@ -315,7 +315,7 @@ case class HornCegar(val originalConstraints: Seq[HornClause], val log: Boolean)
               case Some(children) =>
                 val childrenLevels: List[Int] = (for (rvn@RelVarNode(_,_,_) <- children) yield rvn).map(nodes.getOrElse(_,0) - i).toList
                 dag = DagNode(
-                  OrNode[HornClause,Unit](),
+                  OrNode[HornClause,Unit](()),
                   childrenLevels,
                   dag
                 )

@@ -29,9 +29,11 @@
 
 package lazabs.art
 
+import scala.reflect._
+import scala.beans.BeanProperty
+
 import lazabs.ast.ASTree._
 import lazabs.cfg._
-import scala.reflect._
 import lazabs.types._
 import lazabs.utils.Manip._
 import lazabs.prover.Prover._

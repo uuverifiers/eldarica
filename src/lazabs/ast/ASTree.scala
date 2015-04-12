@@ -205,8 +205,7 @@ object ASTree {
     val elems1 = elems_java1.toArray.toList.asInstanceOf[List[Expression]]   // convert java list to scala list
     val elems2 = elems_java2.toArray.toList.asInstanceOf[List[Expression]]   // convert java list to scala list
     if(elems1.size != 1 || elems2.size != 1) {
-      println("Error in selecting an element from a two dimensional array")
-      exit(0)
+      throw new Exception("Error in selecting an element from a two dimensional array")
     }
     ArraySelect(ArraySelect(ScArray(Some(Variable(aName,None).stype(ArrayType(ArrayType(IntegerType())))), None), elems1.head), elems2.head)
   }
@@ -571,14 +570,13 @@ object ASTree {
   // helper method
   def expandPreds(p: Predicate): java.util.List[Predicate] = p match {
     case Predicate(Block(pred), children) =>
-      scala.collection.JavaConversions.asJavaList(pred.map(p => {
+      scala.collection.JavaConversions.seqAsJavaList(pred.map(p => {
         if(!p.isInstanceOf[Expression]) {
-          println("Nested predicates are required to be expressions: " + p)
-          exit(0)
+          throw new Exception("Nested predicates are required to be expressions: " + p)
         }
         Predicate(p.asInstanceOf[Expression], children)
       }))
-    case _ => scala.collection.JavaConversions.asJavaList(List(p))
+    case _ => scala.collection.JavaConversions.seqAsJavaList(List(p))
   }
   
 }

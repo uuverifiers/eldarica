@@ -126,15 +126,15 @@ object MakeRTreeInterpol {
    */
   def dumpQuery(labels: List[Label]) {
     //println("The repetitive map: " + repetitivePath.map(x => lazabs.viewer.ScalaPrinter(x._2)))
-    val z3 = lazabs.prover.Z3Wrapper.createContext
-    labels.foreach {l => l match {
-      case Transfer(trans) => val formula = lazabs.prover.Z3Wrapper.mkZ3Expr(trans, z3)
+//    val z3 = lazabs.prover.Z3Wrapper.createContext
+//    labels.foreach {l => l match {
+//      case Transfer(trans) => val formula = lazabs.prover.Z3Wrapper.mkZ3Expr(trans, z3)
       //println(z3.)
-      case TransitiveClosure(ls,_) => println("oh I have transitive closure")
-      case _ => println("Error in dumping")
-    }
+//      case TransitiveClosure(ls,_) => println("oh I have transitive closure")
+//      case _ => println("Error in dumping")
+//    }
       //val formula = lazabs.prover.Z3Wrapper.mkZ3Expr(e, z3)
-    }
+//    }
   }
   
   /**

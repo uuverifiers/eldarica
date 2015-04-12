@@ -31,6 +31,7 @@ package lazabs.horn.abstractions
 
 import scala.collection.mutable.{LinkedHashSet, HashMap => MHashMap,
                                  ArrayBuffer, HashSet => MHashSet}
+import scala.io.StdIn
 
 import ap.parser._
 import ap.util.CmdlParser
@@ -152,7 +153,7 @@ class PetriMain {
     val finalValues   = new MHashMap[String, Int]
     var finalConfig : IFormula = null
 
-    var str = readLine
+    var str = StdIn.readLine
     while (str != null) {
       str match {
         case Transition(name, preStr, postStr) => {
@@ -197,7 +198,7 @@ class PetriMain {
         case StateFormula(iFor) => {
           var forStr = iFor
           while ((forStr count (_ == '(')) > (forStr count (_ == ')')))
-            forStr = forStr + " " + readLine
+            forStr = forStr + " " + StdIn.readLine
 
           forStr = forStr.trim
           if (forStr.isEmpty)
@@ -224,7 +225,7 @@ class PetriMain {
           println("Ignoring line: " + x)
       }
   
-      str = readLine
+      str = StdIn.readLine
     }
 
     if (finalConfig == null)

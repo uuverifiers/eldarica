@@ -40,7 +40,7 @@ object TheoremProver extends Enumeration {
 
 object Prover {
   import lazabs.prover.TheoremProver._
-  private var prover: TheoremProver = Z3
+  private var prover: TheoremProver = PRINCESS
   var theoremProverConsultation = 0
   var interpolationConsultation = 0
   def getTheoremProverConsultation = theoremProverConsultation  
@@ -169,7 +169,8 @@ object Prover {
       case None =>
         val result = prover match {
           case Z3 =>
-            Z3Wrapper.isSatisfiable(e)
+//            Z3Wrapper.isSatisfiable(e)
+            throw new Exception("Z3 support is currently disabled")
           case PRINCESS =>
             /*
              val res1 = PrincessWrapper.isSatisfiable(e)

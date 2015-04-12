@@ -13,7 +13,9 @@
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
-    <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors.jar"/>
+    <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors-2.11.0.jar"/>
+    <property name="scala-xml.jar" value="${scala.home}/lib/scala-xml_2.11-1.0.3.jar"/>
+    <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.3.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scalac.default.params" value="-deprecation -unchecked" />
 
@@ -38,7 +40,7 @@
     <property name="java-cup.jar" value="${lib.dir}/java-cup-11a.jar" />
     <property name="java-cup-runtime.jar" value="${lib.dir}/java-cup-11a-runtime.jar" />
     <property name="jflex.jar" value="${lib.dir}/JFlex.jar" />
-    <property name="z3.jar" value="${lib.dir}/z3.jar" />
+<!--    <property name="z3.jar" value="${lib.dir}/z3.jar" />  -->
     <property name="princess.jar" value="${lib.dir}/princess.jar" />
     <property name="smt-parser.jar" value="${lib.dir}/smt-parser.jar" />
     <property name="pri-parser.jar" value="${lib.dir}/pri-parser.jar" />
@@ -134,9 +136,11 @@
             	<pathelement location="${scala-library.jar}" />
             	<pathelement location="${scala-reflect.jar}" />
             	<pathelement location="${scala-actors.jar}" />
+            	<pathelement location="${scala-xml.jar}" />
+            	<pathelement location="${scala-parser-combinators.jar}" />
                 <pathelement location="${java-cup-runtime.jar}" />
                	<pathelement location="${jflex.jar}" />
-                <pathelement location="${z3.jar}" />
+<!--                <pathelement location="${z3.jar}" /> -->
             	<pathelement location="${princess.jar}" />
             	<pathelement location="${smt-parser.jar}" />
             	<pathelement location="${pri-parser.jar}" />
@@ -209,6 +213,8 @@
 			<zipfileset src="${scala-library.jar}" />
 			<zipfileset src="${scala-reflect.jar}" />
 			<zipfileset src="${scala-actors.jar}" />
+			<zipfileset src="${scala-xml.jar}" />
+			<zipfileset src="${scala-parser-combinators.jar}" />
 			<zipfileset src="${nts.jar}" />
 			<zipfileset src="${flata.jar}" />
 			<zipfileset src="${princess.jar}" />
