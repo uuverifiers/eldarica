@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,12 +40,14 @@ import java.net._
 
 object ServerMain {
 
-  private val InactivityTimeout = 60 * 60 * 1000 // shutdown after 15min inactivity
+  private val InactivityTimeout = 60 * 60 * 1000 // shutdown after 60min inactivity
   private val TicketLength = 40
   private val MaxThreadNum = 2
   private val MaxWaitNum   = 32
+  private val WatchdogInit = 30
 
   private case class ThreadToken(stopTime : Long)
+  private case object ShutdownWatchdog
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -116,13 +118,31 @@ object ServerMain {
                 case "PROVE_AND_EXIT" => {
                   done = true
                   Console.withOut(clientSocket.getOutputStream) {
-                    var checkNum = 0
                     var lastPing = System.currentTimeMillis
                     var cancel = false
-  
+                    var watchdogCounter = WatchdogInit
+
+                    // watchdog that makes sure that the system
+                    // is shut down eventually, in case the normal
+                    // timeout fails
+                    val watchdog = actor {
+                      var cont = true
+                      while (cont) receiveWithin(1000) {
+                        case ShutdownWatchdog =>
+                          cont = false
+                        case TIMEOUT => {
+                          watchdogCounter = watchdogCounter - 1
+                          if (watchdogCounter <= 0) {
+                            println("ERROR: hanging system, shutting down")
+                            java.lang.System exit 1
+                          }
+                        }
+                      }
+                    }
+
                     try {
                       Main.doMain(arguments.toArray, {
-                        checkNum = checkNum + 1
+                        watchdogCounter = WatchdogInit
                         cancel || {
                           val currentTime = System.currentTimeMillis
                           while (inputReader.ready) {
@@ -149,7 +169,9 @@ object ServerMain {
                       case t : Throwable =>
                         println("ERROR: " + t.getMessage)
                         //      t.printStackTrace
-                      }
+                    }
+
+                    watchdog ! ShutdownWatchdog
                   }
                 }
                 case str =>
