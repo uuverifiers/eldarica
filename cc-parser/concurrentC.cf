@@ -106,14 +106,14 @@ separator nonempty Struct_declarator ",";
 -- separator nonempty Enumerator ",";
 
 
-BeginPointer.   Declarator ::= Pointer Direct_declarator ;
+-- BeginPointer.   Declarator ::= Pointer Direct_declarator ;
 NoPointer.      Declarator ::= Direct_declarator ;
 
 Name.        Direct_declarator ::= Ident ;
 ParenDecl.   Direct_declarator ::= "(" Declarator ")" ;
-InnitArray.  Direct_declarator ::= Direct_declarator "[" Constant_expression "]" ;
-Incomplete.  Direct_declarator ::= Direct_declarator "[" "]" ;
-NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
+-- InitArray.   Direct_declarator ::= Direct_declarator "[" Constant_expression "]" ;
+-- Incomplete.  Direct_declarator ::= Direct_declarator "[" "]" ;
+-- NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
 -- OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [Ident] ")" ;
 -- OldFuncDec.  Direct_declarator ::= Direct_declarator "(" ")" ;
 
@@ -138,12 +138,12 @@ separator nonempty Ident ",";
 
 
 InitExpr.    Initializer ::= Exp2 ;
-InitListOne. Initializer ::= "{" Initializers "}" ;
-InitListTwo. Initializer ::= "{" Initializers "," "}" ;
+-- InitListOne. Initializer ::= "{" Initializers "}" ;
+-- InitListTwo. Initializer ::= "{" Initializers "," "}" ;
 
 
-AnInit.   Initializers ::= Initializer ;
-MoreInit. Initializers ::= Initializers "," Initializer ;
+-- AnInit.   Initializers ::= Initializer ;
+-- MoreInit. Initializers ::= Initializers "," Initializer ;
 
 
 PlainType.    Type_name ::= [Spec_qual] ;

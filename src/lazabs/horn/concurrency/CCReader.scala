@@ -30,10 +30,11 @@
 package lazabs.horn.concurrency
 
 
+import ap.parser._
 import concurrentC._
 import concurrentC.Absyn._
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
 object CCReader {
   class ParseException(msg : String) extends Exception(msg)
@@ -73,6 +74,16 @@ class CCReader {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  import IExpression._
+
+  private val globalVars = new ArrayBuffer[ConstantTerm]
+
+  private def globalVarIndex(name : String) : Option[Int] =
+    (globalVars indexWhere (_.name == name)) match {
+      case -1 => None
+      case i  => Some(i)
+    }
+
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
 
   /** Implicit conversion so that we can get a Scala-like iterator from a
@@ -80,8 +91,10 @@ class CCReader {
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
   private def translateProgram(prog : Program) : Unit = {
+    // first collect all declarations
     for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_) decl match {
       case decl : Global =>
+        println(collectVarDecls(decl.dec_, true))
 
       case decl : Chan   =>
         for (name <- decl.chan_def_.asInstanceOf[AChan].listident_) {
@@ -92,7 +105,50 @@ class CCReader {
         }
 
       case thread : Athread =>
+        // nothing
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def collectVarDecls(dec : Dec,
+                              global : Boolean) : Seq[ITerm] = dec match {
+    case decl : Declarators => {
+      // just assume that the type is int for the time being
+
+      val res = new ArrayBuffer[ITerm]
+
+      for (initDecl <- decl.listinit_declarator_) initDecl match {
+        case initDecl : OnlyDecl => {
+          val c = new ConstantTerm(getName(initDecl.declarator_))
+          if (global)
+            globalVars += c
+          res += c
+        }
+        case initDecl : InitDecl => {
+          val c = new ConstantTerm(getName(initDecl.declarator_))
+          if (global)
+            globalVars += c
+          initDecl.initializer_ match {
+            case init : InitExpr =>
+              res += 0
+          }
+        }
+      }
+
+      res
+    }
+    case _ : NoDeclarator =>
+      List()
+  }
+
+  private def getName(decl : Declarator) : String = decl match {
+    case decl : NoPointer => getName(decl.direct_declarator_)
+  }
+
+  private def getName(decl : Direct_declarator) : String = decl match {
+    case decl : Name => decl.ident_
+    case decl : ParenDecl => getName(decl.declarator_)
   }
 
 }
