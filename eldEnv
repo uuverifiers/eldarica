@@ -26,7 +26,7 @@ export JAVA_OPTS="-Xmx2024m -Xss20000k";
 if [ -d ${LAZABS_HOME}/lib ]; then
 	# source distribution
 
-	export LAZABS_CP="${LAZABS_HOME}"/dist/lazabs.jar:"${LAZABS_HOME}"/lib/java-cup-11a-runtime.jar:"${LAZABS_HOME}"/lib/z3.jar:"${LAZABS_HOME}"/lib/princess.jar:"${LAZABS_HOME}"/lib/smt-parser.jar:"${LAZABS_HOME}"/lib/tplspec-parser.jar:"${LAZABS_HOME}"/flata/flata.jar:"${LAZABS_HOME}"/flata/acceleration.jar:"${LAZABS_HOME}"/flata/glpk-java-4.47.jar:"${LAZABS_HOME}"/lib/antlr-3.3-complete.jar:"${LAZABS_HOME}"/flata/nts.jar:"${LAZABS_HOME}"/bip-lib/*
+	export LAZABS_CP="${LAZABS_HOME}"/dist/lazabs.jar:"${LAZABS_HOME}"/lib/java-cup-11a-runtime.jar:"${LAZABS_HOME}"/lib/z3.jar:"${LAZABS_HOME}"/lib/princess.jar:"${LAZABS_HOME}"/lib/smt-parser.jar:"${LAZABS_HOME}"/lib/tplspec-parser.jar:"${LAZABS_HOME}"/lib/cc-parser.jar:"${LAZABS_HOME}"/flata/flata.jar:"${LAZABS_HOME}"/flata/acceleration.jar:"${LAZABS_HOME}"/flata/glpk-java-4.47.jar:"${LAZABS_HOME}"/lib/antlr-3.3-complete.jar:"${LAZABS_HOME}"/flata/nts.jar:"${LAZABS_HOME}"/bip-lib/*
 	export LAZABS_CMD="scala -cp $LAZABS_CP"
 
 else
