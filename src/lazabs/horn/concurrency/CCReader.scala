@@ -33,6 +33,8 @@ package lazabs.horn.concurrency
 import concurrentC._
 import concurrentC.Absyn._
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object CCReader {
   class ParseException(msg : String) extends Exception(msg)
   class TranslationException(msg : String) extends Exception(msg)
@@ -44,7 +46,9 @@ class CCReader {
 
   def apply(input : java.io.Reader) : ParametricEncoder.System = {
     def entry(parser : concurrentC.parser) = parser.pProgram
-    println(parseWithEntry(input, entry _))
+    val prog = parseWithEntry(input, entry _)
+    println(printer print prog)
+    translateProgram(prog)
     null
   }
 
@@ -65,6 +69,30 @@ class CCReader {
     }
   }
 
+  private val printer = new PrettyPrinterNonStatic
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
+
+  /** Implicit conversion so that we can get a Scala-like iterator from a
+    * a Java list */
+  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+
+  private def translateProgram(prog : Program) : Unit = {
+    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_) decl match {
+      case decl : Global =>
+
+      case decl : Chan   =>
+        for (name <- decl.chan_def_.asInstanceOf[AChan].listident_) {
+          if (channels contains name)
+            throw new TranslationException(
+              "Channel " + name + " is already declared")
+          channels.put(name, new ParametricEncoder.CommChannel(name))
+        }
+
+      case thread : Athread =>
+    }
+  }
 
 }
