@@ -30,15 +30,34 @@
 package lazabs.horn.concurrency
 
 
+import ap.basetypes.IdealInt
 import ap.parser._
 import concurrentC._
 import concurrentC.Absyn._
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
+import lazabs.horn.bottomup.HornClauses
+
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
+                                 Stack}
 
 object CCReader {
   class ParseException(msg : String) extends Exception(msg)
   class TranslationException(msg : String) extends Exception(msg)
+
+  import IExpression._
+
+  private abstract sealed class CCExpr {
+    def toTerm : ITerm
+    def toFormula : IFormula
+  }
+  private case class CCIntTerm(t : ITerm) extends CCExpr {
+    def toTerm : ITerm = t
+    def toFormula : IFormula = !eqZero(t)
+  }
+  private case class CCFormula(f : IFormula) extends CCExpr {
+    def toTerm : ITerm = ite(f, 1, 0)
+    def toFormula : IFormula = f
+  }
 }
 
 class CCReader {
@@ -75,10 +94,10 @@ class CCReader {
   //////////////////////////////////////////////////////////////////////////////
 
   import IExpression._
+  import HornClauses.Clause
 
   private val globalVars = new ArrayBuffer[ConstantTerm]
-
-  private val globalVarsInit = new ArrayBuffer[ITerm]
+  private val globalVarsInit = new ArrayBuffer[CCExpr]
 
   private def globalVarIndex(name : String) : Option[Int] =
     (globalVars indexWhere (_.name == name)) match {
@@ -93,6 +112,17 @@ class CCReader {
       case i  => i
     }
 
+  private val localVars = new ArrayBuffer[ConstantTerm]
+  private val localFrameStack = new Stack[Int]
+
+  private def pushLocalFrame =
+    localFrameStack push localVars.size
+  private def popLocalFrame =
+    localVars reduceToSize localFrameStack.pop
+
+  private def allFormalVars : Seq[ITerm] =
+    globalVars.toList ++ localVars.toList
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
@@ -106,26 +136,42 @@ class CCReader {
   private def translateProgram(prog : Program) : Unit = {
     // first collect all declarations
 
-    val globalVarSymex = new Symex(new ArrayBuffer)
+    val globalVarSymex = Symex.apply
 
-    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_) decl match {
-      case decl : Global =>
-        collectVarDecls(decl.dec_, true, globalVarSymex)
+    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
+      decl match {
+        case decl : Global =>
+          collectVarDecls(decl.dec_, true, globalVarSymex)
 
-      case decl : Chan =>
-        for (name <- decl.chan_def_.asInstanceOf[AChan].listident_) {
-          if (channels contains name)
-            throw new TranslationException(
-              "Channel " + name + " is already declared")
-          channels.put(name, new ParametricEncoder.CommChannel(name))
-        }
+        case decl : Chan =>
+          for (name <- decl.chan_def_.asInstanceOf[AChan].listident_) {
+            if (channels contains name)
+              throw new TranslationException(
+                "Channel " + name + " is already declared")
+            channels.put(name, new ParametricEncoder.CommChannel(name))
+          }
 
-      case _ =>
-        // nothing
-    }
+        case _ =>
+          // nothing
+      }
 
     globalVarsInit ++= globalVarSymex.getValues
     println(globalVarsInit.toList)
+
+    // then translate the threads
+    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
+      decl match {
+        case decl : Athread =>
+          decl.thread_def_ match {
+            case thread : SingleThread => {
+              val translator = new ThreadTranslator(thread.ident_)
+              translator translate thread.compound_stm_
+            }
+          }
+
+        case _ =>
+          // nothing
+      }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -139,17 +185,15 @@ class CCReader {
       for (initDecl <- decl.listinit_declarator_) initDecl match {
         case initDecl : OnlyDecl => {
           val c = new ConstantTerm(getName(initDecl.declarator_))
-          if (global)
-            globalVars += c
-          values addValue c
+          (if (global) globalVars else localVars) += c
+          values addValue CCIntTerm(c)
         }
         case initDecl : InitDecl => {
           val c = new ConstantTerm(getName(initDecl.declarator_))
           val initValue = initDecl.initializer_ match {
             case init : InitExpr => values eval init.exp_
           }
-          if (global)
-            globalVars += c
+          (if (global) globalVars else localVars) += c
           values addValue initValue
         }
       }
@@ -169,18 +213,30 @@ class CCReader {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private class Symex(values : ArrayBuffer[ITerm]) {
-    def addValue(t : ITerm) =
+  private object Symex {
+    def apply = {
+      val values = new ArrayBuffer[CCExpr]
+      for (t <- allFormalVars)
+        values += CCIntTerm(t)
+      new Symex(values)
+    }
+  }
+
+  private class Symex private (values : Buffer[CCExpr]) {
+    def addValue(t : CCExpr) =
       values += t
 
     def getValue(name : String) =
       values(lookupVar(name))
-    def setValue(name : String, t : ITerm) =
+    def setValue(name : String, t : CCExpr) =
       values(lookupVar(name)) = t
 
-    def getValues : Seq[ITerm] = values
+    def getValues : Seq[CCExpr] =
+      values.toList
+    def getValuesAsTerms : Seq[ITerm] =
+      for (expr <- values.toList) yield expr.toTerm
 
-    def eval(exp : Exp) : ITerm = exp match {
+    def eval(exp : Exp) : CCExpr = exp match {
       case exp : Ecomma => {
         eval(exp.exp_1)
         eval(exp.exp_2)
@@ -201,11 +257,11 @@ class CCReader {
 //      case exp : Eleft.       Exp11 ::= Exp11 "<<" Exp12;
 //      case exp : Eright.      Exp11 ::= Exp11 ">>" Exp12;
       case exp : Eplus =>
-        eval(exp.exp_1) + eval(exp.exp_2)
+        CCIntTerm(eval(exp.exp_1).toTerm + eval(exp.exp_2).toTerm)
       case exp : Eminus =>
-        eval(exp.exp_1) - eval(exp.exp_2)
+        CCIntTerm(eval(exp.exp_1).toTerm - eval(exp.exp_2).toTerm)
       case exp : Etimes =>
-        eval(exp.exp_1) * eval(exp.exp_2)
+        CCIntTerm(eval(exp.exp_1).toTerm * eval(exp.exp_2).toTerm)
 //      case exp : Ediv.        Exp13 ::= Exp13 "/" Exp14;
 //      case exp : Emod.        Exp13 ::= Exp13 "%" Exp14;
 //      case exp : Etypeconv.   Exp14 ::= "(" Type_name ")" Exp14;
@@ -228,7 +284,7 @@ class CCReader {
 //      case exp : Estring.     Exp17 ::= String;
     }
 
-    def eval(constant : Constant) : ITerm = constant match {
+    def eval(constant : Constant) : CCExpr = constant match {
 //      case constant : Efloat.        Constant ::= Double;
 //      case constant : Echar.         Constant ::= Char;
 //      case constant : Eunsigned.     Constant ::= Unsigned;
@@ -238,7 +294,8 @@ class CCReader {
 //      case constant : Ehexaunsign.   Constant ::= HexUnsigned;
 //      case constant : Ehexalong.     Constant ::= HexLong;
 //      case constant : Ehexaunslong.  Constant ::= HexUnsLong;
-//      case constant : Eoctal.        Constant ::= Octal;
+      case constant : Eoctal =>
+        CCIntTerm(IdealInt(constant.octal_, 8))
 //      case constant : Eoctalunsign.  Constant ::= OctalUnsigned;
 //      case constant : Eoctallong.    Constant ::= OctalLong;
 //      case constant : Eoctalunslong. Constant ::= OctalUnsLong;
@@ -246,8 +303,108 @@ class CCReader {
 //      case constant : Ecfloat.       Constant ::= CFloat;
 //      case constant : Eclongdouble.  Constant ::= CLongDouble;
       case constant : Eint =>
-        i(constant.integer_)
+        CCIntTerm(i(constant.integer_))
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private class ThreadTranslator(prefix : String) {
+
+    val clauses = new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
+
+    private def outputClause(c : Clause) : Unit = {
+      println(c)
+      clauses += ((c, ParametricEncoder.NoSync))
+    }
+
+    private var locationCounter = 0
+    def newPred : Predicate = {
+      val res = new Predicate(prefix + locationCounter, allFormalVars.size)
+      locationCounter = locationCounter + 1
+      res
+    }
+
+    def translate(compound : Compound_stm) : Unit =
+      translate(compound, newPred, newPred)
+
+    def translate(stm : Stm,
+                  entry : Predicate,
+                  exit : Predicate) : Unit = stm match {
+//      case stm : LabelS.   Stm ::= Labeled_stm ;
+      case stm : CompS =>
+        translate(stm.compound_stm_, entry, exit)
+      case stm : ExprS => {
+        println(printer print stm)
+      }
+//      case stm : SelS.     Stm ::= Selection_stm ;
+      case stm : IterS => {
+        println(printer print stm)
+      }
+//      case stm : JumpS.    Stm ::= Jump_stm ;
+    }
+
+    def translate(dec : Dec, entry : Predicate) : Predicate = {
+      val entryAtom = IAtom(entry, allFormalVars)
+      val decSymex = Symex.apply
+      collectVarDecls(dec, false, decSymex)
+      val exit = newPred
+      outputClause(Clause(IAtom(exit, decSymex.getValuesAsTerms),
+                          List(entryAtom), true))
+      exit
+    }
+
+    def translate(compound : Compound_stm,
+                  entry : Predicate,
+                  exit : Predicate) : Unit = compound match {
+      case compound : ScompOne => {
+        val vars = allFormalVars
+        outputClause(Clause(IAtom(exit, vars), List(IAtom(entry, vars)), true))
+      }
+      case compound : ScompTwo => {
+        val stmsIt = compound.liststm_.iterator
+        var prevPred = entry
+        while (stmsIt.hasNext) {
+          val stm = stmsIt.next
+          val nextPred = if (stmsIt.hasNext) newPred else exit
+          translate(stm, prevPred, nextPred)
+          prevPred = nextPred
+        }
+      }
+
+      case compound : ScompThree => {
+        pushLocalFrame
+
+        var prevPred = entry
+        for (dec <- compound.listdec_)
+          prevPred = translate(dec, prevPred)
+
+        val lastAtom = IAtom(prevPred, allFormalVars)
+
+        popLocalFrame
+
+        outputClause(Clause(IAtom(exit, allFormalVars), List(lastAtom), true))
+      }
+
+      case compound : ScompFour => {
+        pushLocalFrame
+
+        var prevPred = entry
+        for (dec <- compound.listdec_)
+          prevPred = translate(dec, prevPred)
+
+        val stmsIt = compound.liststm_.iterator
+        while (stmsIt.hasNext) {
+          val stm = stmsIt.next
+          val nextPred = if (stmsIt.hasNext) newPred else exit
+          translate(stm, prevPred, nextPred)
+          prevPred = nextPred
+        }
+
+        popLocalFrame
+      }
+    }
+
   }
 
 }
