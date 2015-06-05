@@ -176,9 +176,25 @@ class VerificationLoop(system : ParametricEncoder.System,
     println
     println("Solving ...")
 
+/*
+    val abstractionMap =
+      (new lazabs.horn.abstractions.StaticAbstractionBuilder(
+        encoder.allClauses,
+        lazabs.GlobalParameters.get.templateBasedInterpolationType)
+           .abstractions) mapValues (
+              lazabs.horn.bottomup.TemplateInterpolator.AbstractionRecord(_))
+    val interpolator =
+      lazabs.horn.bottomup.TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+        abstractionMap,
+        lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+ */
+
+    val interpolator =
+      DagInterpolator.interpolatingPredicateGenCEXAndOr _
+
+
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
-      new HornPredAbs(encoder.allClauses, Map(),
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _))
+      new HornPredAbs(encoder.allClauses, Map(), interpolator))
 
     predAbs.result match {
       case Right(cex) => {

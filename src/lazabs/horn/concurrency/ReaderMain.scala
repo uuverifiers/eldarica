@@ -32,12 +32,18 @@ package lazabs.horn.concurrency
 object ReaderMain {
 
   def main(args: Array[String]) : Unit = {
-    ap.util.Debug enableAllAssertions true
-    lazabs.GlobalParameters.get.assertions = true
+    ap.util.Debug enableAllAssertions false
+    lazabs.GlobalParameters.get.assertions = false
 
-    for (name <- args)
-      (new CCReader)(new java.io.BufferedReader (
-                       new java.io.FileReader(new java.io.File (name))))
+    for (name <- args) {
+      val (system, assertions) =
+        (new CCReader)(new java.io.BufferedReader (
+                         new java.io.FileReader(new java.io.File (name))))
+      println(system)
+      println(assertions)
+      println
+      new VerificationLoop(system, assertions)
+    }
   }
 
 }
