@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -103,9 +103,8 @@ object ParametricEncoder {
 
     val localPreds = for ((process, _) <- processes) yield {
       val preds = new LinkedHashSet[Predicate]
-      for ((Clause(head, body, _), _) <- process)
-        for (IAtom(p, _) <- (Iterator single head) ++ body.iterator)
-          preds += p
+      for ((c, _) <- process)
+        preds ++= c.predicates
       preds.toSeq
     }
   
@@ -259,6 +258,101 @@ object ParametricEncoder {
          yield (Clause(head, newBody, constraint))).toList
 
       (newSystem, newAssertions)
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Produce a smaller equi-safe system my merging transitions that only
+     * concern local variables.
+     */
+    def mergeLocalTransitions(assertions : Seq[Clause])
+                             : (System, Seq[Clause]) = {
+
+      val predsToKeep, predsWithTimeInvs = new MHashSet[Predicate]
+      for (c <- timeInvariants) {
+        predsToKeep ++= c.predicates
+        predsWithTimeInvs ++= c.predicates
+      }
+      for (c <- assertions)
+        predsToKeep ++= c.predicates
+
+      def isLocalClause(p : (Clause, Synchronisation)) =
+        p._2 == NoSync && {
+          val Clause(IAtom(_, headArgs), body, constraint) = p._1
+          val globalHeadArgs =
+            (for (IConstant(c) <- headArgs take globalVarNum) yield c).toSet
+
+          (globalHeadArgs.size == globalVarNum) &&
+          Seqs.disjoint(globalHeadArgs,
+                        SymbolCollector constants constraint) && {
+            body match {
+              case List() => true
+              case List(IAtom(_, bodyArgs)) =>
+                (headArgs take globalVarNum) == (bodyArgs take globalVarNum)
+            }
+          }
+        }
+
+      val newProcesses =
+        (for (((clauses, repl), preds) <-
+               processes.iterator zip localPreds.iterator) yield {
+          val clauseBuffer = clauses.toBuffer
+          val predsBuffer = (preds.iterator filterNot predsToKeep).toBuffer
+
+          var changed = true
+          while (changed) {
+            changed = false
+
+            for (pred <- predsBuffer.toList) {
+              val incoming =
+                for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
+                yield p
+              val outgoing =
+                for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <- clauseBuffer)
+                yield p
+
+              if (// avoid blow-up
+                  (incoming.size == 1 || outgoing.size == 1) &&
+                  (incoming forall {
+                     case (c, _) => !(c.bodyPredicates contains pred)
+                   }) &&
+                  (outgoing forall {
+                     case (c, _) => c.head.pred != pred &&
+                                    !(predsWithTimeInvs contains c.head.pred)
+                   })) {
+
+                val newClauses =
+                  if (incoming forall (isLocalClause(_)))
+                    for ((c1, _) <- incoming; (c2, s) <- outgoing)
+                    yield (c2 mergeWith c1, s)
+                  else if (!outgoing.isEmpty &&
+                           (outgoing forall (isLocalClause(_))))
+                    for ((c1, s) <- incoming; (c2, _) <- outgoing)
+                    yield (c2 mergeWith c1, s)
+                  else
+                    null
+
+                if (newClauses != null) {
+                  predsBuffer -= pred
+                  clauseBuffer --= incoming
+                  clauseBuffer --= outgoing
+                  clauseBuffer ++= newClauses
+                  changed = true
+                }
+              }
+            }
+          }
+
+          (clauseBuffer.toList, repl)
+        }).toList
+
+      (System(newProcesses,
+              globalVarNum,
+              backgroundAxioms,
+              timeSpec,
+              timeInvariants),
+       assertions)
     }
 
   }

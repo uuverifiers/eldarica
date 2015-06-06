@@ -29,7 +29,29 @@
 
 package lazabs.horn.concurrency
 
+import lazabs.horn.bottomup.HornClauses
+
 object ReaderMain {
+
+  def printClauses(system : ParametricEncoder.System,
+                   assertions : Seq[HornClauses.Clause]) = {
+    println("System transitions:")
+    for ((p, r) <- system.processes) {
+      r match {
+        case ParametricEncoder.Singleton =>
+          println("  Singleton thread:")
+        case ParametricEncoder.Infinite =>
+          println("  Replicated thread:")
+      }
+      for ((c, _) <- p)
+        println("    " + c.toPrologString)
+    }
+
+    println
+    println("Assertions:")
+    for (c <- assertions)
+      println("  " + c.toPrologString)
+  }
 
   def main(args: Array[String]) : Unit = {
     ap.util.Debug enableAllAssertions false
@@ -39,10 +61,12 @@ object ReaderMain {
       val (system, assertions) =
         (new CCReader)(new java.io.BufferedReader (
                          new java.io.FileReader(new java.io.File (name))))
-      println(system)
-      println(assertions)
+
+      val (smallSystem, smallAssertions) = system mergeLocalTransitions assertions
+      printClauses(smallSystem, smallAssertions)
+
       println
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(smallSystem, smallAssertions)
     }
   }
 

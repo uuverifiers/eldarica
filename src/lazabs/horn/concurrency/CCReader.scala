@@ -68,7 +68,7 @@ class CCReader {
                                        Seq[HornClauses.Clause]) = {
     def entry(parser : concurrentC.parser) = parser.pProgram
     val prog = parseWithEntry(input, entry _)
-    println(printer print prog)
+//    println(printer print prog)
     translateProgram(prog)
     (ParametricEncoder.System(processes.toList,
                               globalVars.size,

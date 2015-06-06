@@ -1,0 +1,16 @@
+
+
+int x = 0;
+int y = 0;
+
+
+thread A {
+  while (1) {
+    x++, y++;
+    assert(x == y);
+  }
+}
+
+thread B {
+  //  assert(x == y || x == y + 1);
+}

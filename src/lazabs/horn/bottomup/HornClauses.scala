@@ -59,15 +59,17 @@ object HornClauses {
       (constants -- (for (IConstant(c) <- head.args.iterator) yield c)
        ).toSeq.sortWith(_.name < _.name)
 
+    lazy val bodyPredicates =
+      (for (IAtom(p, _) <- body.iterator) yield p).toSet
+    lazy val predicates =
+      (for (IAtom(p, _) <- (Iterator single head) ++ body.iterator) yield p).toSet
+
     def inline(args : Seq[ITerm]) : (Seq[IAtom], IFormula) =
       if (headCanDirectlyBeInlined) {
         val replacement =
           new MHashMap[ConstantTerm, ITerm]
-        val newLocalConsts = for (c <- localConstants) yield {
-          val newC = new ConstantTerm(c.name)
-          replacement.put(c, i(newC))
-          newC
-        }
+        for (c <- localConstants)
+          replacement.put(c, i(new ConstantTerm(c.name)))
 
         val it1 = head.args.iterator
         val it2 = args.iterator
@@ -80,6 +82,42 @@ object HornClauses {
         val (Clause(IAtom(_, defHeadArgs), newBody, newConstraint), _) = refresh
         (newBody, newConstraint & (args === defHeadArgs))
       }
+
+    /**
+     * Given clauses p(...) :- q(...) (this) and q(...) :- body,
+     * generate a clause p(...) :- body by inlining.
+     */
+    def mergeWith(that : Clause) : Clause = {
+      assert(body.size == 1)
+      val Clause(IAtom(thatHeadPred, thatHeadArgs),
+                 thatBody, thatConstraint) = that
+      val List(IAtom(thisBodyPred, thisBodyArgs)) = body
+      assert(thisBodyPred == thatHeadPred)
+
+      if ((thisBodyArgs forall (_.isInstanceOf[IConstant])) &&
+          (thisBodyArgs.toSet.size == thisBodyArgs.size)) {
+        // can directly inline
+
+        val replacement =
+          new MHashMap[ConstantTerm, ITerm]
+        val definedConsts =
+          (for (IConstant(c) <- thisBodyArgs.iterator) yield c).toSet
+        for (c <- constants)
+          if (!(definedConsts contains c))
+            replacement.put(c, i(new ConstantTerm(c.name)))
+
+        for ((IConstant(c), t) <- thisBodyArgs.iterator zip thatHeadArgs.iterator)
+          replacement.put(c, t)
+
+        Clause(ConstantSubstVisitor(head, replacement).asInstanceOf[IAtom],
+               thatBody,
+               ConstantSubstVisitor(constraint, replacement) &&& thatConstraint)
+      } else {
+        val (Clause(newHead, List(IAtom(_, newBodyArgs)), newConstraint), _) = refresh
+        Clause(newHead, thatBody,
+               newConstraint &&& thatConstraint &&& (newBodyArgs === thatHeadArgs))
+      }
+    }
 
     def refresh : (Clause, Seq[ConstantTerm]) = {
       val consts =
@@ -138,6 +176,24 @@ object HornClauses {
           for (a <- aux.body) yield normalizeAtom(a),
           f
           )
+    }
+
+    def toPrologString : String = ap.DialogUtil.asString {
+      if (head.pred == FALSE)
+        print("false")
+      else
+        PrincessLineariser printExpression head
+      var sep = " :- "
+      for (a <- body) {
+        print(sep)
+        PrincessLineariser printExpression a
+        sep = ", "
+      }
+      if (constraint != i(true)) {
+        print(sep)
+        PrincessLineariser printExpression constraint
+      }
+      print(".")
     }
   }
 

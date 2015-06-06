@@ -1,0 +1,22 @@
+
+
+int N = 3;
+
+
+thread A {
+  int i = 0, x = 1, y = x;
+
+  while (i < N) {
+    x *= 2;
+    y = x;
+    ++i;
+  }
+
+  assert(x > 1);
+}
+
+thread B {
+  while (1) {
+    N++;
+  }
+}

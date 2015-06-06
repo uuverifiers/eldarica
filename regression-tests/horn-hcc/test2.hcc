@@ -1,0 +1,30 @@
+
+
+
+int x = 0, y = 0;
+
+chan c, d;
+
+
+
+thread A {
+  int i = 0;
+
+  while (i < 3) {
+    x = x + 1;
+    ++i;
+  }
+
+  assert(y == 0 || 2*i == x);
+}
+
+thread B {
+  int i = 0;
+  while (i < 3) {
+    x = x + 1;
+    ++i;
+  }
+
+  y = 1;
+}
+
