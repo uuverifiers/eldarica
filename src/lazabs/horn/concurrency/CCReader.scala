@@ -242,6 +242,7 @@ class CCReader {
 
   private class Symex private (values : Buffer[CCExpr]) {
     var assertionExprs = List[CCExpr]()
+    var assumptionExprs = List[CCExpr]()
 
     def addValue(t : CCExpr) =
       values += t
@@ -353,14 +354,19 @@ class CCReader {
 //      case exp : Ebytestype.  Exp15 ::= "sizeof" "(" Type_name ")";
 //      case exp : Earray.      Exp16 ::= Exp16 "[" Exp "]" ;
 //      case exp : Efunk.       Exp16 ::= Exp16 "(" ")";
-      case exp : Efunkpar =>
-        if ((printer print exp.exp_) == "assert" && !exp.listexp_.isEmpty) {
+      case exp : Efunkpar => (printer print exp.exp_) match {
+        case "assert" if !exp.listexp_.isEmpty => {
           assertionExprs = eval(exp.listexp_.head) :: assertionExprs
           CCFormula(true)
-        } else {
-          throw new TranslationException(
-                      "Cannot handle function " + (printer print exp.exp_))
         }
+        case "assume" if !exp.listexp_.isEmpty => {
+          assumptionExprs = eval(exp.listexp_.head) :: assumptionExprs
+          CCFormula(true)
+        }
+        case name =>
+          throw new TranslationException(
+                      "Cannot handle function " + name)
+      }
 //      case exp : Eselect.     Exp16 ::= Exp16 "." Ident;
 //      case exp : Epoint.      Exp16 ::= Exp16 "->" Ident;
       case exp : Epostinc => {
@@ -441,13 +447,15 @@ class CCReader {
           case _ : SexprOne => // nothing
           case stm : SexprTwo => exprSymex eval stm.exp_
         }
-        output(Clause(exprSymex asAtom exit, List(entryAtom), true))
+        output(Clause(exprSymex asAtom exit, List(entryAtom),
+                      and(exprSymex.assumptionExprs map (_.toFormula))))
 
         import HornClauses._
         for (a <- exprSymex.assertionExprs)
           assertions += (a.toFormula :- entryAtom)
       }
-//      case stm : SelS.     Stm ::= Selection_stm ;
+      case stm : SelS =>
+        translate(stm.selection_stm_, entry, exit)
       case stm : IterS =>
         translate(stm.iter_stm_, entry, exit)
 //      case stm : JumpS.    Stm ::= Jump_stm ;
@@ -529,6 +537,34 @@ class CCReader {
 //      case stm : SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
 //      case stm : SiterThree. Iter_stm ::= "for" "(" Expression_stm Expression_stm ")" Stm ;
 //      case stm : SiterFour.  Iter_stm ::= "for" "(" Expression_stm Expression_stm Exp ")" Stm;
+    }
+
+    def translate(stm : Selection_stm,
+                  entry : Predicate,
+                  exit : Predicate) : Unit = stm match {
+      case _ : SselOne | _ : SselTwo => {
+        val first, second = newPred
+        val vars = allFormalVars
+        val entryAtom = IAtom(entry, vars)
+        val condSymex = Symex.apply
+        val cond = stm match {
+          case stm : SselOne => (condSymex eval stm.exp_).toFormula
+          case stm : SselTwo => (condSymex eval stm.exp_).toFormula
+        }
+        output(Clause(condSymex asAtom first, List(entryAtom), cond))
+        output(Clause(condSymex asAtom second, List(entryAtom), ~cond))
+        stm match {
+          case stm : SselOne => {
+            translate(stm.stm_, first, exit)
+            output(Clause(IAtom(exit, vars), List(IAtom(second, vars)), true))
+          }
+          case stm : SselTwo => {
+            translate(stm.stm_1, first, exit)
+            translate(stm.stm_2, second, exit)
+          }
+        }
+      }
+//      case stm : SselThree.  Selection_stm ::= "switch" "(" Exp ")" Stm ;
     }
 
   }

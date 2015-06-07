@@ -49,7 +49,7 @@ object GlobalParameters {
   object InputFormat extends Enumeration {
     val Nts, Scala,
         Prolog, SMTHorn, UppaalOG, UppaalRG, UppaalRelational, Bip,
-        AutoDetect = Value
+        ConcurrentC, AutoDetect = Value
   }
 
   val parameters =
@@ -75,6 +75,7 @@ class GlobalParameters {
   var interpolation = false
   var ntsPrint = false
   var horn = false
+  var concurrentC = false
   var global = false
   var disjunctive = false
   var splitClauses = false
@@ -336,7 +337,10 @@ object Main {
           format = InputFormat.Bip
         else if (fileName endsWith ".xml")
           format = InputFormat.UppaalOG
-        else
+        else if (fileName endsWith ".hcc") {
+          format = InputFormat.ConcurrentC
+          concurrentC = true
+        } else
           throw new Exception ("could not figure out the input format")
     }
 
@@ -413,6 +417,54 @@ object Main {
                           (uppflag, templateBasedInterpolation), drawRTree, lbe, log)
       }
         
+      return
+
+    } else if (concurrentC) {
+
+      val (system, assertions) =
+        (new lazabs.horn.concurrency.CCReader)(new java.io.BufferedReader (
+                         new java.io.FileReader(new java.io.File (fileName))))
+
+      val (smallSystem, smallAssertions) =
+        system mergeLocalTransitions assertions
+
+      if (prettyPrint) {
+        lazabs.horn.concurrency.ReaderMain.printClauses(
+          smallSystem, smallAssertions)
+        return
+      }
+
+      val result = try {
+        if (log) {
+          new lazabs.horn.concurrency.VerificationLoop(
+            smallSystem, smallAssertions).result
+        } else Console.withOut(lazabs.horn.bottomup.HornWrapper.NullStream) {
+          new lazabs.horn.concurrency.VerificationLoop(
+            smallSystem, smallAssertions).result
+        }
+      } catch {
+        case TimeoutException => {
+          println("timeout")
+          throw TimeoutException
+        }
+        case StoppedException => {
+          println("stopped")
+          throw StoppedException
+        }
+      }
+
+      result match {
+        case Left(_) =>
+          println("SAFE")
+        case Right(cex) => {
+          println("UNSAFE")
+          if (plainCEX) {
+            println
+            lazabs.horn.concurrency.VerificationLoop.prettyPrint(cex)
+          }
+        }
+      }
+
       return
     }
 

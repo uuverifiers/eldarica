@@ -279,13 +279,19 @@ object ParametricEncoder {
 
       def isLocalClause(p : (Clause, Synchronisation)) =
         p._2 == NoSync && {
-          val Clause(IAtom(_, headArgs), body, constraint) = p._1
+          val Clause(head@IAtom(_, headArgs), body, constraint) = p._1
           val globalHeadArgs =
             (for (IConstant(c) <- headArgs take globalVarNum) yield c).toSet
 
-          (globalHeadArgs.size == globalVarNum) &&
-          Seqs.disjoint(globalHeadArgs,
-                        SymbolCollector constants constraint) && {
+          (globalHeadArgs.size == globalVarNum) && {
+            val occurringConstants = new MHashSet[ConstantTerm]
+            val coll = new SymbolCollector(null, occurringConstants, null)
+            coll.visitWithoutResult(constraint, 0)
+            for (IAtom(_, args) <- (Iterator single head) ++ body.iterator)
+              for (t <- args drop globalVarNum)
+                coll.visitWithoutResult(t, 0)
+            Seqs.disjoint(globalHeadArgs, occurringConstants)
+          } && {
             body match {
               case List() => true
               case List(IAtom(_, bodyArgs)) =>
