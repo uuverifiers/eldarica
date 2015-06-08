@@ -1,0 +1,16 @@
+
+
+int x = 0;
+int y = 0;
+
+
+thread A {
+  int i;
+
+  for (i = 0; i < 100; ++i) {
+    ++x;
+    ++y;
+  }
+
+  assert(y == 100);
+}

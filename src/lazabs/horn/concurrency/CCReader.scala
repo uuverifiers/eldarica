@@ -427,6 +427,15 @@ class CCReader {
       res
     }
 
+    def symexFor(stm : Expression_stm) : (Symex, Option[CCExpr]) = {
+      val exprSymex = Symex.apply
+      val res = stm match {
+        case _ : SexprOne => None
+        case stm : SexprTwo => Some(exprSymex eval stm.exp_)
+      }
+      (exprSymex, res)
+    }
+
     def translate(compound : Compound_stm) : Unit = {
       val entry = newPred
       output(Clause(IAtom(entry, globalVarsInit.toList map (_.toTerm)),
@@ -442,11 +451,7 @@ class CCReader {
         translate(stm.compound_stm_, entry, exit)
       case stm : ExprS => {
         val entryAtom = IAtom(entry, allFormalVars)
-        val exprSymex = Symex.apply
-        stm.expression_stm_ match {
-          case _ : SexprOne => // nothing
-          case stm : SexprTwo => exprSymex eval stm.exp_
-        }
+        val exprSymex = symexFor(stm.expression_stm_)._1
         output(Clause(exprSymex asAtom exit, List(entryAtom),
                       and(exprSymex.assumptionExprs map (_.toFormula))))
 
@@ -535,8 +540,44 @@ class CCReader {
       }
 
 //      case stm : SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
-//      case stm : SiterThree. Iter_stm ::= "for" "(" Expression_stm Expression_stm ")" Stm ;
-//      case stm : SiterFour.  Iter_stm ::= "for" "(" Expression_stm Expression_stm Exp ")" Stm;
+
+      case _ : SiterThree | _ : SiterFour => {
+        val first, second, third = newPred
+
+        val (initStm, condStm, body) = stm match {
+          case stm : SiterThree =>
+            (stm.expression_stm_1, stm.expression_stm_2, stm.stm_)
+          case stm : SiterFour  =>
+            (stm.expression_stm_1, stm.expression_stm_2, stm.stm_)
+        }
+
+        val entryAtom = IAtom(entry, allFormalVars)
+        output(Clause(symexFor(initStm)._1 asAtom first, List(entryAtom), true))
+
+        val firstAtom = IAtom(first, allFormalVars)
+        val (condSymex, condExpr) = symexFor(condStm)
+        val cond : IFormula = condExpr match {
+          case Some(expr) => expr.toFormula
+          case None       => true
+        }
+        output(Clause(condSymex asAtom second, List(firstAtom), cond))
+        output(Clause(condSymex asAtom exit, List(firstAtom), ~cond))
+
+        translate(body, second, third)
+        
+        stm match {
+          case stm : SiterThree => {
+            output(Clause(IAtom(first, allFormalVars),
+                          List(IAtom(third, allFormalVars)), true))
+          }
+          case stm : SiterFour  => {
+            val incSymex = Symex.apply
+            incSymex eval stm.exp_
+            output(Clause(incSymex asAtom first,
+                          List(IAtom(third, allFormalVars)), true))
+          }
+        }
+      }
     }
 
     def translate(stm : Selection_stm,

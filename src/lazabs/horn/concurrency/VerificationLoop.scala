@@ -150,7 +150,8 @@ object VerificationLoop {
 ////////////////////////////////////////////////////////////////////////////////
 
 class VerificationLoop(system : ParametricEncoder.System,
-                       assertions : Seq[HornClauses.Clause]) {
+                       assertions : Seq[HornClauses.Clause],
+                       templateBasedInterpolation : Boolean = false) {
 
   import VerificationLoop._
   import ParametricEncoder._
@@ -176,22 +177,20 @@ class VerificationLoop(system : ParametricEncoder.System,
     println
     println("Solving ...")
 
-/*
-    val abstractionMap =
-      (new lazabs.horn.abstractions.StaticAbstractionBuilder(
-        encoder.allClauses,
-        lazabs.GlobalParameters.get.templateBasedInterpolationType)
-           .abstractions) mapValues (
-              lazabs.horn.bottomup.TemplateInterpolator.AbstractionRecord(_))
-    val interpolator =
+    val interpolator = if (templateBasedInterpolation)
+                             Console.withErr(Console.out) {
+      val abstractionMap =
+        (new lazabs.horn.abstractions.StaticAbstractionBuilder(
+          encoder.allClauses,
+          lazabs.GlobalParameters.get.templateBasedInterpolationType)
+             .abstractions) mapValues (
+               lazabs.horn.bottomup.TemplateInterpolator.AbstractionRecord(_))
       lazabs.horn.bottomup.TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
         abstractionMap,
         lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
- */
-
-    val interpolator =
+    } else {
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
-
+    }
 
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
       new HornPredAbs(encoder.allClauses, Map(), interpolator))

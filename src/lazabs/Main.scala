@@ -437,10 +437,12 @@ object Main {
       val result = try {
         if (log) {
           new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem, smallAssertions).result
+            smallSystem, smallAssertions,
+            templateBasedInterpolation).result
         } else Console.withOut(lazabs.horn.bottomup.HornWrapper.NullStream) {
           new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem, smallAssertions).result
+            smallSystem, smallAssertions,
+            templateBasedInterpolation).result
         }
       } catch {
         case TimeoutException => {

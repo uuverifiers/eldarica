@@ -1,0 +1,19 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="test1.hcc test2.hcc test2b.hcc test3.hcc test4.hcc test5.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex "$@" $name
+done
+
+TESTS="test6.hcc test7.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -abstract "$@" $name
+done
