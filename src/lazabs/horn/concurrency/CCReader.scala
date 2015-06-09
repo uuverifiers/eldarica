@@ -133,6 +133,8 @@ class CCReader {
 
   private def allFormalVars : Seq[ITerm] =
     globalVars.toList ++ localVars.toList
+  private def allVarInits : Seq[ITerm] =
+    (globalVarsInit.toList map (_.toTerm)) ++ (localVars.toList map (i(_)))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -184,6 +186,14 @@ class CCReader {
               val translator = new ThreadTranslator(thread.ident_)
               translator translate thread.compound_stm_
               processes += ((translator.toProcess, ParametricEncoder.Singleton))
+            }
+            case thread : ParaThread => {
+              pushLocalFrame
+              localVars += new ConstantTerm(thread.ident_1)
+              val translator = new ThreadTranslator(thread.ident_2)
+              translator translate thread.compound_stm_
+              processes += ((translator.toProcess, ParametricEncoder.Infinite))
+              popLocalFrame
             }
           }
 
@@ -240,6 +250,9 @@ class CCReader {
     }
   }
 
+  private def atom(pred : Predicate, args : Seq[ITerm]) =
+    IAtom(pred, args take pred.arity)
+
   private class Symex private (values : Buffer[CCExpr]) {
     var assertionExprs = List[CCExpr]()
     var assumptionExprs = List[CCExpr]()
@@ -257,8 +270,7 @@ class CCReader {
     def getValuesAsTerms : Seq[ITerm] =
       for (expr <- values.toList) yield expr.toTerm
 
-    def asAtom(pred : Predicate) =
-      IAtom(pred, getValuesAsTerms take pred.arity)
+    def asAtom(pred : Predicate) = atom(pred, getValuesAsTerms)
 
     def asLValue(exp : Exp) : String = exp match {
       case exp : Evar => exp.ident_
@@ -438,8 +450,7 @@ class CCReader {
 
     def translate(compound : Compound_stm) : Unit = {
       val entry = newPred
-      output(Clause(IAtom(entry, globalVarsInit.toList map (_.toTerm)),
-                    List(), true))
+      output(Clause(atom(entry, allVarInits), List(), true))
       translate(compound, entry, newPred)
     }
 
@@ -450,7 +461,7 @@ class CCReader {
       case stm : CompS =>
         translate(stm.compound_stm_, entry, exit)
       case stm : ExprS => {
-        val entryAtom = IAtom(entry, allFormalVars)
+        val entryAtom = atom(entry, allFormalVars)
         val exprSymex = symexFor(stm.expression_stm_)._1
         output(Clause(exprSymex asAtom exit, List(entryAtom),
                       and(exprSymex.assumptionExprs map (_.toFormula))))
@@ -467,7 +478,7 @@ class CCReader {
     }
 
     def translate(dec : Dec, entry : Predicate) : Predicate = {
-      val entryAtom = IAtom(entry, allFormalVars)
+      val entryAtom = atom(entry, allFormalVars)
       val decSymex = Symex.apply
       collectVarDecls(dec, false, decSymex)
       val exit = newPred
@@ -480,7 +491,7 @@ class CCReader {
                   exit : Predicate) : Unit = compound match {
       case compound : ScompOne => {
         val vars = allFormalVars
-        output(Clause(IAtom(exit, vars), List(IAtom(entry, vars)), true))
+        output(Clause(atom(exit, vars), List(atom(entry, vars)), true))
       }
       case compound : ScompTwo => {
         val stmsIt = compound.liststm_.iterator
@@ -500,11 +511,11 @@ class CCReader {
         for (dec <- compound.listdec_)
           prevPred = translate(dec, prevPred)
 
-        val lastAtom = IAtom(prevPred, allFormalVars)
+        val lastAtom = atom(prevPred, allFormalVars)
 
         popLocalFrame
 
-        output(Clause(IAtom(exit, allFormalVars), List(lastAtom), true))
+        output(Clause(atom(exit, allFormalVars), List(lastAtom), true))
       }
 
       case compound : ScompFour => {
@@ -531,7 +542,7 @@ class CCReader {
                   exit : Predicate) : Unit = stm match {
       case stm : SiterOne => {
         val first = newPred
-        val entryAtom = IAtom(entry, allFormalVars)
+        val entryAtom = atom(entry, allFormalVars)
         val condSymex = Symex.apply
         val cond = (condSymex eval stm.exp_).toFormula
         output(Clause(condSymex asAtom first, List(entryAtom), cond))
@@ -551,10 +562,10 @@ class CCReader {
             (stm.expression_stm_1, stm.expression_stm_2, stm.stm_)
         }
 
-        val entryAtom = IAtom(entry, allFormalVars)
+        val entryAtom = atom(entry, allFormalVars)
         output(Clause(symexFor(initStm)._1 asAtom first, List(entryAtom), true))
 
-        val firstAtom = IAtom(first, allFormalVars)
+        val firstAtom = atom(first, allFormalVars)
         val (condSymex, condExpr) = symexFor(condStm)
         val cond : IFormula = condExpr match {
           case Some(expr) => expr.toFormula
@@ -567,14 +578,14 @@ class CCReader {
         
         stm match {
           case stm : SiterThree => {
-            output(Clause(IAtom(first, allFormalVars),
-                          List(IAtom(third, allFormalVars)), true))
+            output(Clause(atom(first, allFormalVars),
+                          List(atom(third, allFormalVars)), true))
           }
           case stm : SiterFour  => {
             val incSymex = Symex.apply
             incSymex eval stm.exp_
             output(Clause(incSymex asAtom first,
-                          List(IAtom(third, allFormalVars)), true))
+                          List(atom(third, allFormalVars)), true))
           }
         }
       }
@@ -586,7 +597,7 @@ class CCReader {
       case _ : SselOne | _ : SselTwo => {
         val first, second = newPred
         val vars = allFormalVars
-        val entryAtom = IAtom(entry, vars)
+        val entryAtom = atom(entry, vars)
         val condSymex = Symex.apply
         val cond = stm match {
           case stm : SselOne => (condSymex eval stm.exp_).toFormula
@@ -597,7 +608,7 @@ class CCReader {
         stm match {
           case stm : SselOne => {
             translate(stm.stm_, first, exit)
-            output(Clause(IAtom(exit, vars), List(IAtom(second, vars)), true))
+            output(Clause(atom(exit, vars), List(atom(second, vars)), true))
           }
           case stm : SselTwo => {
             translate(stm.stm_1, first, exit)

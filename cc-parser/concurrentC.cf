@@ -26,6 +26,7 @@ NewFunc.     Function_def ::= [Declaration_specifier] Declarator Compound_stm ;
 NewFuncInt.  Function_def ::= Declarator Compound_stm ;
 
 SingleThread. Thread_def ::= "thread" Ident Compound_stm ;
+ParaThread.   Thread_def ::= "thread" "[" Ident "]" Ident Compound_stm ;
 
 
 NoDeclarator.  Dec ::= [Declaration_specifier] ";";

@@ -1,0 +1,6 @@
+int gid;
+
+thread[id] Proc {
+  gid = id;
+  assert (gid == id);
+}

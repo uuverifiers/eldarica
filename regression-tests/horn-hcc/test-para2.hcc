@@ -1,0 +1,18 @@
+int N;
+int offset;
+
+int writeLoc = -1;
+
+thread[tid] Proc {
+  assume(0 <= tid && tid < N);
+  assume(N < offset);
+
+  {
+    int t;
+
+    assert(writeLoc != tid && writeLoc != tid + offset);
+
+    if (t)
+      writeLoc = tid;
+  }
+}

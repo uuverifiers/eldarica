@@ -2,7 +2,8 @@
 
 LAZABS=../../eld
 
-TESTS="test1.hcc test2.hcc test2b.hcc test3.hcc test4.hcc test5.hcc"
+TESTS="test1.hcc test2.hcc test2b.hcc test3.hcc test4.hcc test5.hcc \
+       test-para1.hcc test-para2.hcc"
 
 for name in $TESTS; do
     echo
