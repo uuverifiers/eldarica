@@ -306,7 +306,6 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
       scope {
         
         addConstantsRaw(clause.constants)
-        val offset = createExistentialConstant
 
         !! (constraint)
 
@@ -341,13 +340,12 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
               lazabs.GlobalParameters.get.timeoutChecker()
 
               val (bodyArgNum, bodyArg, offset) = offsetCandidates(headArgNum).head
+              offsetCandidates(headArgNum) = offsetCandidates(headArgNum).tail
               scope {
                 ?? (headArg === bodyArg + offset)
                 checkWithTO match {
-                  case ProverStatus.Valid => {
+                  case ProverStatus.Valid =>
                     res = (bodyArgNum, offset) :: res
-                    offsetCandidates(headArgNum) = offsetCandidates(headArgNum).tail
-                  }
                   case _ =>
                     // use the new model to rule out other offset candidates
                     for (i <- headArgNum until headArgs.size)
