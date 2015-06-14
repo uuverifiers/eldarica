@@ -89,6 +89,9 @@ Final:
 test-para2.hcc
 SAFE
 
+lazy-eval1.hcc
+SAFE
+
 test6.hcc
 SAFE
 

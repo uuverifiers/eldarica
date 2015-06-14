@@ -55,7 +55,11 @@ object CCReader {
     def toFormula : IFormula = !eqZero(t)
   }
   private case class CCFormula(f : IFormula) extends CCExpr {
-    def toTerm : ITerm = ite(f, 1, 0)
+    def toTerm : ITerm = f match {
+      case IBoolLit(true) =>  1
+      case IBoolLit(false) => 0
+      case f =>               ite(f, 1, 0)
+    }
     def toFormula : IFormula = f
   }
 }
@@ -147,6 +151,30 @@ class CCReader {
 
   private val assertions = new ArrayBuffer[Clause]
 
+  private val clauses = new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
+
+  private def output(c : Clause) : Unit = {
+//println(c)
+    clauses += ((c, ParametricEncoder.NoSync))
+}
+
+  private var prefix : String = ""
+  private var locationCounter = 0
+
+  private def setPrefix(pref : String) = {
+    prefix = pref
+    locationCounter = 0
+  }
+
+  private def newPred : Predicate = newPred(0)
+
+  private def newPred(extraArgs : Int) : Predicate = {
+    val res = new Predicate(prefix + locationCounter,
+                            allFormalVars.size + extraArgs)
+    locationCounter = locationCounter + 1
+    res
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /** Implicit conversion so that we can get a Scala-like iterator from a
@@ -156,7 +184,7 @@ class CCReader {
   private def translateProgram(prog : Program) : Unit = {
     // first collect all declarations
 
-    val globalVarSymex = Symex.apply
+    val globalVarSymex = Symex(null)
 
     for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
       decl match {
@@ -183,16 +211,20 @@ class CCReader {
         case decl : Athread =>
           decl.thread_def_ match {
             case thread : SingleThread => {
-              val translator = new ThreadTranslator(thread.ident_)
+              setPrefix(thread.ident_)
+              val translator = new ThreadTranslator
               translator translate thread.compound_stm_
-              processes += ((translator.toProcess, ParametricEncoder.Singleton))
+              processes += ((clauses.toList, ParametricEncoder.Singleton))
+              clauses.clear
             }
             case thread : ParaThread => {
+              setPrefix(thread.ident_2)
               pushLocalFrame
               localVars += new ConstantTerm(thread.ident_1)
-              val translator = new ThreadTranslator(thread.ident_2)
+              val translator = new ThreadTranslator
               translator translate thread.compound_stm_
-              processes += ((translator.toProcess, ParametricEncoder.Infinite))
+              processes += ((clauses.toList, ParametricEncoder.Infinite))
+              clauses.clear
               popLocalFrame
             }
           }
@@ -242,27 +274,89 @@ class CCReader {
   //////////////////////////////////////////////////////////////////////////////
 
   private object Symex {
-    def apply = {
+    def apply(initPred : Predicate) = {
       val values = new ArrayBuffer[CCExpr]
       for (t <- allFormalVars)
         values += CCIntTerm(t)
-      new Symex(values)
+      new Symex(initPred, values)
     }
   }
 
   private def atom(pred : Predicate, args : Seq[ITerm]) =
     IAtom(pred, args take pred.arity)
 
-  private class Symex private (values : Buffer[CCExpr]) {
-    var assertionExprs = List[CCExpr]()
-    var assumptionExprs = List[CCExpr]()
+  private class Symex private (oriInitPred : Predicate,
+                               values : Buffer[CCExpr]) {
+    var guard : IFormula = true
+    private var initAtom =
+      if (oriInitPred == null)
+        null
+      else
+        atom(oriInitPred, allFormalVars)
+    private def initPred = initAtom.pred
+
+    private val savedStates = new Stack[(IAtom, Seq[CCExpr], IFormula)]
+    def saveState =
+      savedStates push ((initAtom, values.toList, guard))
+    def restoreState = {
+      val (oldAtom, oldValues, oldGuard) = savedStates.pop
+      initAtom = oldAtom
+      values.clear
+      oldValues copyToBuffer values
+      localVars reduceToSize (values.size - globalVars.size)
+      guard = oldGuard
+    }
+    def atomValuesUnchanged = {
+      val (oldAtom, oldValues, _) = savedStates.top
+      initAtom == oldAtom &&
+      ((values.iterator zip oldValues.iterator) forall {
+         case (x, y) => x == y
+       })
+    }
+
+    private def pushVal(v : CCExpr) = {
+//println("push " + v)
+      addValue(v)
+      // reserve a local variable, in case we need one later
+      localVars += new ConstantTerm("__eval" + localVars.size)
+    }
+    private def popVal = {
+      val res = values.last
+//println("pop " + res)
+      values trimEnd 1
+      localVars trimEnd 1
+      res
+    }
+    private def topVal = values.last
+
+    private def outputClause : Unit = outputClause(newPred)
+
+    def outputClause(pred : Predicate) : Unit = {
+      output(Clause(asAtom(pred), List(initAtom), guard))
+      initAtom = atom(pred, allFormalVars)
+      guard = true
+//println(values.toList)
+//println(allFormalVars)
+      for ((t, i) <- allFormalVars.iterator.zipWithIndex)
+        values(i) = CCIntTerm(t)
+    }
+
+    def outputITEClauses(cond : IFormula,
+                         thenPred : Predicate, elsePred : Predicate) = {
+      saveState
+      guard = guard &&& cond
+      outputClause(thenPred)
+      restoreState
+      guard = guard &&& ~cond
+      outputClause(elsePred)
+    }
 
     def addValue(t : CCExpr) =
       values += t
 
-    def getValue(name : String) =
+    private def getValue(name : String) =
       values(lookupVar(name))
-    def setValue(name : String, t : CCExpr) =
+    private def setValue(name : String, t : CCExpr) =
       values(lookupVar(name)) = t
 
     def getValues : Seq[CCExpr] =
@@ -272,7 +366,7 @@ class CCReader {
 
     def asAtom(pred : Predicate) = atom(pred, getValuesAsTerms)
 
-    def asLValue(exp : Exp) : String = exp match {
+    private def asLValue(exp : Exp) : String = exp match {
       case exp : Evar => exp.ident_
       case exp =>
         throw new TranslationException(
@@ -280,16 +374,31 @@ class CCReader {
                     (printer print exp))
     }
 
-    def eval(exp : Exp) : CCExpr = exp match {
+    def eval(exp : Exp) : CCExpr = {
+      val initSize = values.size
+      evalHelp(exp)
+//println("popping result ...")
+      val res = popVal
+      assert(initSize == values.size)
+      res
+    }
+
+    private def evalHelp(exp : Exp) : Unit = exp match {
       case exp : Ecomma => {
-        eval(exp.exp_1)
-        eval(exp.exp_2)
+        evalHelp(exp.exp_1)
+        popVal
+        evalHelp(exp.exp_2)
+      }
+      case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign]) => {
+        evalHelp(exp.exp_2)
+        setValue(asLValue(exp.exp_1), topVal)
       }
       case exp : Eassign => {
-        val lhs = eval(exp.exp_1).toTerm
-        val rhs = eval(exp.exp_2).toTerm
+        evalHelp(exp.exp_1)
+        evalHelp(exp.exp_2)
+        val rhs = popVal.toTerm
+        val lhs = popVal.toTerm
         val newVal = CCIntTerm(exp.assignment_op_ match {
-          case _ : Assign    => rhs
           case _ : AssignMul => lhs * rhs
 //          case _ : AssignDiv.    Assignment_op ::= "/=" ;
 //          case _ : AssignMod.    Assignment_op ::= "%=" ;
@@ -301,65 +410,114 @@ class CCReader {
 //          case _ : AssignXor.    Assignment_op ::= "^=" ;
 //          case _ : AssignOr.     Assignment_op ::= "|=" ;
         })
+        pushVal(newVal)
         setValue(asLValue(exp.exp_1), newVal)
-        newVal
       }
-      case exp : Econdition =>
-        (eval(exp.exp_1), eval(exp.exp_2), eval(exp.exp_3)) match {
-          case (cond, CCFormula(s), CCFormula(t)) =>
-            CCFormula(ite(cond.toFormula, s, t))
-          case (cond, left, right) =>
-            CCIntTerm(ite(cond.toFormula, left.toTerm, right.toTerm))
+      case exp : Econdition => {
+        val cond = eval(exp.exp_1).toFormula
+
+        saveState
+        guard = guard &&& cond
+        evalHelp(exp.exp_2)
+        outputClause
+        val intermediatePred = initPred
+
+        restoreState
+        guard = guard &&& ~cond
+        evalHelp(exp.exp_3)
+        outputClause(intermediatePred)
+      }
+      case exp : Elor => {
+        val cond = eval(exp.exp_1).toFormula
+
+        saveState
+        val newGuard = guard &&& ~cond
+        guard = newGuard
+        evalHelp(exp.exp_2)
+
+        // check whether the second expression had side-effects
+        if ((guard eq newGuard) && atomValuesUnchanged) {
+          val cond2 = popVal.toFormula
+          restoreState
+          pushVal(CCFormula(cond ||| cond2))
+        } else {
+          outputClause
+          val intermediatePred = initPred
+
+          restoreState
+          guard = guard &&& cond
+          pushVal(CCFormula(true))
+          outputClause(intermediatePred)
         }
-      case exp : Elor =>
-        CCFormula(eval(exp.exp_1).toFormula | eval(exp.exp_2).toFormula)
-      case exp : Eland =>
-        CCFormula(eval(exp.exp_1).toFormula & eval(exp.exp_2).toFormula)
+      }
+      case exp : Eland => {
+        val cond = eval(exp.exp_1).toFormula
+
+        saveState
+        val newGuard = guard &&& cond
+        guard = newGuard
+        evalHelp(exp.exp_2)
+
+        // check whether the second expression had side-effects
+        if ((guard eq newGuard) && atomValuesUnchanged) {
+          val cond2 = popVal.toFormula
+          restoreState
+          pushVal(CCFormula(cond &&& cond2))
+        } else {
+          outputClause
+          val intermediatePred = initPred
+
+          restoreState
+          guard = guard &&& ~cond
+          pushVal(CCFormula(false))
+          outputClause(intermediatePred)
+        }
+      }
 //      case exp : Ebitor.      Exp6  ::= Exp6 "|" Exp7;
 //      case exp : Ebitexor.    Exp7  ::= Exp7 "^" Exp8;
 //      case exp : Ebitand.     Exp8  ::= Exp8 "&" Exp9;
       case exp : Eeq =>
-        CCFormula(eval(exp.exp_1).toTerm === eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ === _)
       case exp : Eneq =>
-        CCFormula(eval(exp.exp_1).toTerm =/= eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ =/= _)
       case exp : Elthen =>
-        CCFormula(eval(exp.exp_1).toTerm < eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ < _)
       case exp : Egrthen =>
-        CCFormula(eval(exp.exp_1).toTerm > eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ > _)
       case exp : Ele =>
-        CCFormula(eval(exp.exp_1).toTerm <= eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ <= _)
       case exp : Ege =>
-        CCFormula(eval(exp.exp_1).toTerm >= eval(exp.exp_2).toTerm)
+        strictBinPred(exp.exp_1, exp.exp_2, _ >= _)
 //      case exp : Eleft.       Exp11 ::= Exp11 "<<" Exp12;
 //      case exp : Eright.      Exp11 ::= Exp11 ">>" Exp12;
       case exp : Eplus =>
-        CCIntTerm(eval(exp.exp_1).toTerm + eval(exp.exp_2).toTerm)
+        strictBinFun(exp.exp_1, exp.exp_2, _ + _)
       case exp : Eminus =>
-        CCIntTerm(eval(exp.exp_1).toTerm - eval(exp.exp_2).toTerm)
+        strictBinFun(exp.exp_1, exp.exp_2, _ - _)
       case exp : Etimes =>
-        CCIntTerm(eval(exp.exp_1).toTerm * eval(exp.exp_2).toTerm)
+        strictBinFun(exp.exp_1, exp.exp_2, _ * _)
 //      case exp : Ediv.        Exp13 ::= Exp13 "/" Exp14;
 //      case exp : Emod.        Exp13 ::= Exp13 "%" Exp14;
 //      case exp : Etypeconv.   Exp14 ::= "(" Type_name ")" Exp14;
       case exp : Epreinc => {
-        val newVal = CCIntTerm(eval(exp.exp_).toTerm + 1)
-        setValue(asLValue(exp.exp_), newVal)
-        newVal
+        evalHelp(exp.exp_)
+        pushVal(CCIntTerm(popVal.toTerm + 1))
+        setValue(asLValue(exp.exp_), topVal)
       }
       case exp : Epredec => {
-        val newVal = CCIntTerm(eval(exp.exp_).toTerm - 1)
-        setValue(asLValue(exp.exp_), newVal)
-        newVal
+        evalHelp(exp.exp_)
+        pushVal(CCIntTerm(popVal.toTerm - 1))
+        setValue(asLValue(exp.exp_), topVal)
       }
       case exp : Epreop => {
-        val oldVal = eval(exp.exp_)
+        evalHelp(exp.exp_)
         exp.unary_operator_ match {
 //          case _ : Address.     Unary_operator ::= "&" ;
 //          case _ : Indirection. Unary_operator ::= "*" ;
-          case _ : Plus       => oldVal
-          case _ : Negative   => CCIntTerm(-oldVal.toTerm)
+          case _ : Plus       => // nothing
+          case _ : Negative   => pushVal(CCIntTerm(-popVal.toTerm))
 //          case _ : Complement.  Unary_operator ::= "~" ;
-          case _ : Logicalneg => CCFormula(~oldVal.toFormula)
+          case _ : Logicalneg => pushVal(CCFormula(~popVal.toFormula))
         }
       }
 //      case exp : Ebytesexpr.  Exp15 ::= "sizeof" Exp15;
@@ -368,12 +526,13 @@ class CCReader {
 //      case exp : Efunk.       Exp16 ::= Exp16 "(" ")";
       case exp : Efunkpar => (printer print exp.exp_) match {
         case "assert" if !exp.listexp_.isEmpty => {
-          assertionExprs = eval(exp.listexp_.head) :: assertionExprs
-          CCFormula(true)
+          import HornClauses._
+          assertions += (eval(exp.listexp_.head).toFormula :- initAtom)
+          pushVal(CCFormula(true))
         }
         case "assume" if !exp.listexp_.isEmpty => {
-          assumptionExprs = eval(exp.listexp_.head) :: assumptionExprs
-          CCFormula(true)
+          guard = guard &&& eval(exp.listexp_.head).toFormula
+          pushVal(CCFormula(true))
         }
         case name =>
           throw new TranslationException(
@@ -382,23 +541,42 @@ class CCReader {
 //      case exp : Eselect.     Exp16 ::= Exp16 "." Ident;
 //      case exp : Epoint.      Exp16 ::= Exp16 "->" Ident;
       case exp : Epostinc => {
-        val oldVal = eval(exp.exp_)
-        setValue(asLValue(exp.exp_), CCIntTerm(oldVal.toTerm + 1))
-        oldVal
+        evalHelp(exp.exp_)
+        setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm + 1))
       }
       case exp : Epostdec => {
-        val oldVal = eval(exp.exp_)
-        setValue(asLValue(exp.exp_), CCIntTerm(oldVal.toTerm - 1))
-        oldVal
+        evalHelp(exp.exp_)
+        setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm - 1))
       }
       case exp : Evar =>
-        getValue(exp.ident_)
+        pushVal(getValue(exp.ident_))
       case exp : Econst =>
-        eval(exp.constant_)
+        evalHelp(exp.constant_)
 //      case exp : Estring.     Exp17 ::= String;
     }
 
-    def eval(constant : Constant) : CCExpr = constant match {
+    private def strictBinOp(left : Exp, right : Exp,
+                            op : (CCExpr, CCExpr) => CCExpr) : Unit = {
+      evalHelp(left)
+      evalHelp(right)
+      val rhs = popVal
+      val lhs = popVal
+      pushVal(op(lhs, rhs))
+    }
+
+    private def strictBinFun(left : Exp, right : Exp,
+                             op : (ITerm, ITerm) => ITerm) : Unit =
+      strictBinOp(left, right,
+                  (lhs : CCExpr, rhs : CCExpr) =>
+                    CCIntTerm(op(lhs.toTerm, rhs.toTerm)))
+
+    private def strictBinPred(left : Exp, right : Exp,
+                              op : (ITerm, ITerm) => IFormula) : Unit =
+      strictBinOp(left, right,
+                  (lhs : CCExpr, rhs : CCExpr) =>
+                    CCFormula(op(lhs.toTerm, rhs.toTerm)))
+
+    private def evalHelp(constant : Constant) : Unit = constant match {
 //      case constant : Efloat.        Constant ::= Double;
 //      case constant : Echar.         Constant ::= Char;
 //      case constant : Eunsigned.     Constant ::= Unsigned;
@@ -409,7 +587,7 @@ class CCReader {
 //      case constant : Ehexalong.     Constant ::= HexLong;
 //      case constant : Ehexaunslong.  Constant ::= HexUnsLong;
       case constant : Eoctal =>
-        CCIntTerm(IdealInt(constant.octal_, 8))
+        pushVal(CCIntTerm(IdealInt(constant.octal_, 8)))
 //      case constant : Eoctalunsign.  Constant ::= OctalUnsigned;
 //      case constant : Eoctallong.    Constant ::= OctalLong;
 //      case constant : Eoctalunslong. Constant ::= OctalUnsLong;
@@ -417,30 +595,17 @@ class CCReader {
 //      case constant : Ecfloat.       Constant ::= CFloat;
 //      case constant : Eclongdouble.  Constant ::= CLongDouble;
       case constant : Eint =>
-        CCIntTerm(i(constant.integer_))
+        pushVal(CCIntTerm(i(constant.integer_)))
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private class ThreadTranslator(prefix : String) {
+  private class ThreadTranslator {
 
-    private val clauses = new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
-
-    def toProcess = clauses.toList
-
-    private def output(c : Clause) : Unit =
-      clauses += ((c, ParametricEncoder.NoSync))
-
-    private var locationCounter = 0
-    def newPred : Predicate = {
-      val res = new Predicate(prefix + locationCounter, allFormalVars.size)
-      locationCounter = locationCounter + 1
-      res
-    }
-
-    def symexFor(stm : Expression_stm) : (Symex, Option[CCExpr]) = {
-      val exprSymex = Symex.apply
+    def symexFor(initPred : Predicate,
+                 stm : Expression_stm) : (Symex, Option[CCExpr]) = {
+      val exprSymex = Symex(initPred)
       val res = stm match {
         case _ : SexprOne => None
         case stm : SexprTwo => Some(exprSymex eval stm.exp_)
@@ -460,16 +625,8 @@ class CCReader {
 //      case stm : LabelS.   Stm ::= Labeled_stm ;
       case stm : CompS =>
         translate(stm.compound_stm_, entry, exit)
-      case stm : ExprS => {
-        val entryAtom = atom(entry, allFormalVars)
-        val exprSymex = symexFor(stm.expression_stm_)._1
-        output(Clause(exprSymex asAtom exit, List(entryAtom),
-                      and(exprSymex.assumptionExprs map (_.toFormula))))
-
-        import HornClauses._
-        for (a <- exprSymex.assertionExprs)
-          assertions += (a.toFormula :- entryAtom)
-      }
+      case stm : ExprS =>
+        symexFor(entry, stm.expression_stm_)._1 outputClause exit
       case stm : SelS =>
         translate(stm.selection_stm_, entry, exit)
       case stm : IterS =>
@@ -478,11 +635,10 @@ class CCReader {
     }
 
     def translate(dec : Dec, entry : Predicate) : Predicate = {
-      val entryAtom = atom(entry, allFormalVars)
-      val decSymex = Symex.apply
+      val decSymex = Symex(entry)
       collectVarDecls(dec, false, decSymex)
       val exit = newPred
-      output(Clause(decSymex asAtom exit, List(entryAtom), true))
+      decSymex outputClause exit
       exit
     }
 
@@ -542,11 +698,9 @@ class CCReader {
                   exit : Predicate) : Unit = stm match {
       case stm : SiterOne => {
         val first = newPred
-        val entryAtom = atom(entry, allFormalVars)
-        val condSymex = Symex.apply
+        val condSymex = Symex(entry)
         val cond = (condSymex eval stm.exp_).toFormula
-        output(Clause(condSymex asAtom first, List(entryAtom), cond))
-        output(Clause(condSymex asAtom exit, List(entryAtom), ~cond))
+        condSymex.outputITEClauses(cond, first, exit)
         translate(stm.stm_, first, entry)
       }
 
@@ -562,30 +716,26 @@ class CCReader {
             (stm.expression_stm_1, stm.expression_stm_2, stm.stm_)
         }
 
-        val entryAtom = atom(entry, allFormalVars)
-        output(Clause(symexFor(initStm)._1 asAtom first, List(entryAtom), true))
+        symexFor(entry, initStm)._1 outputClause first
 
-        val firstAtom = atom(first, allFormalVars)
-        val (condSymex, condExpr) = symexFor(condStm)
+        val (condSymex, condExpr) = symexFor(first, condStm)
         val cond : IFormula = condExpr match {
           case Some(expr) => expr.toFormula
           case None       => true
         }
-        output(Clause(condSymex asAtom second, List(firstAtom), cond))
-        output(Clause(condSymex asAtom exit, List(firstAtom), ~cond))
+
+        condSymex.outputITEClauses(cond, second, exit)
 
         translate(body, second, third)
         
         stm match {
-          case stm : SiterThree => {
+          case stm : SiterThree =>
             output(Clause(atom(first, allFormalVars),
                           List(atom(third, allFormalVars)), true))
-          }
           case stm : SiterFour  => {
-            val incSymex = Symex.apply
+            val incSymex = Symex(third)
             incSymex eval stm.exp_
-            output(Clause(incSymex asAtom first,
-                          List(atom(third, allFormalVars)), true))
+            incSymex outputClause first
           }
         }
       }
@@ -597,14 +747,12 @@ class CCReader {
       case _ : SselOne | _ : SselTwo => {
         val first, second = newPred
         val vars = allFormalVars
-        val entryAtom = atom(entry, vars)
-        val condSymex = Symex.apply
+        val condSymex = Symex(entry)
         val cond = stm match {
           case stm : SselOne => (condSymex eval stm.exp_).toFormula
           case stm : SselTwo => (condSymex eval stm.exp_).toFormula
         }
-        output(Clause(condSymex asAtom first, List(entryAtom), cond))
-        output(Clause(condSymex asAtom second, List(entryAtom), ~cond))
+        condSymex.outputITEClauses(cond, first, second)
         stm match {
           case stm : SselOne => {
             translate(stm.stm_, first, exit)
