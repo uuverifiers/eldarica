@@ -11,17 +11,17 @@ thread A {
   int i = 0;
 
   while (i < 3) {
-    atomic(x = x + 1);
+    x = x + 1;
     ++i;
   }
 
-  assert(y == 0 || i == x);
+  assert(y == 0 || 2*i == x);
 }
 
 thread B {
   int i = 0;
   while (i < 3) {
-    atomic(x = x + 1);
+    x = x + 1;
     ++i;
   }
 

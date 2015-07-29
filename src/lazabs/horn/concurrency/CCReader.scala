@@ -140,6 +140,17 @@ class CCReader {
   private def allVarInits : Seq[ITerm] =
     (globalVarsInit.toList map (_.toTerm)) ++ (localVars.toList map (i(_)))
 
+  private def freeFromGlobal(t : IExpression) : Boolean =
+    !ContainsSymbol(t, (s:IExpression) => s match {
+                      case IConstant(c) => globalVars contains c
+                      case _ => false
+                    })
+
+  private def freeFromGlobal(t : CCExpr) : Boolean = t match {
+    case CCIntTerm(s) => freeFromGlobal(s)
+    case CCFormula(f) => freeFromGlobal(f)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
@@ -157,6 +168,65 @@ class CCReader {
 //println(c)
     clauses += ((c, ParametricEncoder.NoSync))
 }
+
+  private def mergeClauses(from : Int) : Unit = if (from < clauses.size - 1) {
+    val concernedClauses = clauses.slice(from, clauses.size)
+    val (entryClauses, transitionClauses) =
+      if (concernedClauses.head._1.body.isEmpty) {
+        concernedClauses partition (_._1.body.isEmpty)
+      } else {
+        val entryPred = concernedClauses.head._1.body.head.pred
+        concernedClauses partition (_._1.body.head.pred == entryPred)
+      }
+
+    val lastClauses = transitionClauses groupBy (_._1.body.head.pred)
+
+    clauses reduceToSize from
+
+    def chainClauses(currentClause : Clause,
+                     currentSync : ParametricEncoder.Synchronisation) : Unit =
+      (lastClauses get currentClause.head.pred) match {
+        case Some(cls) => {
+          for ((c, sync) <- cls)
+            if (currentSync == ParametricEncoder.NoSync)
+              chainClauses(c mergeWith currentClause, sync)
+            else if (sync == ParametricEncoder.NoSync)
+              chainClauses(c mergeWith currentClause, currentSync)
+            else
+              throw new TranslationException(
+                "Cannot execute " + currentSync + " and " + sync +
+                " in one step")
+
+          // add further assertion clauses, since some intermediate
+          // states disappear
+          for (c <- assertions.toList)
+            if (c.bodyPredicates contains currentClause.head.pred) {
+              if (currentSync != ParametricEncoder.NoSync)
+                throw new TranslationException(
+                  "Cannot execute " + currentSync + " and an assertion" +
+                  " in one step")
+              assertions += (c mergeWith currentClause)
+            }
+        }
+        case None =>
+          clauses += ((currentClause, currentSync))
+      }
+
+    for ((c, sync) <- entryClauses)
+      chainClauses(c, sync)
+  }
+
+  private var atomicMode = false
+
+  private def atomically[A](comp : => A) : A = {
+    val currentClauseNum = clauses.size
+    val oldAtomicMode = atomicMode
+    atomicMode = true
+    val res = comp
+    mergeClauses(currentClauseNum)
+    atomicMode = oldAtomicMode
+    res
+  }
 
   private var prefix : String = ""
   private var locationCounter = 0
@@ -232,6 +302,20 @@ class CCReader {
         case _ =>
           // nothing
       }
+
+    // remove assertions that are no longer connected to predicates
+    // actually occurring in the system
+
+    val allPreds =
+      (for ((cls, _) <- processes.iterator;
+            (c, _) <- cls.iterator;
+            p <- c.predicates.iterator)
+       yield p).toSet
+
+    val remainingAssertions =
+      assertions filter { c => c.bodyPredicates subsetOf allPreds }
+    assertions.clear
+    assertions ++= remainingAssertions
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -287,7 +371,14 @@ class CCReader {
 
   private class Symex private (oriInitPred : Predicate,
                                values : Buffer[CCExpr]) {
-    var guard : IFormula = true
+    private var guard : IFormula = true
+
+    private def addGuard(f : IFormula) : Unit = {
+      guard = guard &&& f
+      touchedGlobalState =
+        touchedGlobalState || !freeFromGlobal(f)
+    }
+
     private var initAtom =
       if (oriInitPred == null)
         null
@@ -295,24 +386,31 @@ class CCReader {
         atom(oriInitPred, allFormalVars)
     private def initPred = initAtom.pred
 
-    private val savedStates = new Stack[(IAtom, Seq[CCExpr], IFormula)]
+    private val savedStates = new Stack[(IAtom, Seq[CCExpr], IFormula, Boolean)]
     def saveState =
-      savedStates push ((initAtom, values.toList, guard))
+      savedStates push ((initAtom, values.toList, guard, touchedGlobalState))
     def restoreState = {
-      val (oldAtom, oldValues, oldGuard) = savedStates.pop
+      val (oldAtom, oldValues, oldGuard, oldTouched) = savedStates.pop
       initAtom = oldAtom
       values.clear
       oldValues copyToBuffer values
       localVars reduceToSize (values.size - globalVars.size)
       guard = oldGuard
+      touchedGlobalState = oldTouched
     }
-    def atomValuesUnchanged = {
-      val (oldAtom, oldValues, _) = savedStates.top
+
+    private def atomValuesUnchanged = {
+      val (oldAtom, oldValues, _, _) = savedStates.top
       initAtom == oldAtom &&
       ((values.iterator zip oldValues.iterator) forall {
          case (x, y) => x == y
        })
     }
+
+    private var touchedGlobalState : Boolean = false
+
+    private def maybeOutputClause : Unit =
+      if (!atomicMode && touchedGlobalState) outputClause
 
     private def pushVal(v : CCExpr) = {
 //println("push " + v)
@@ -335,8 +433,7 @@ class CCReader {
       output(Clause(asAtom(pred), List(initAtom), guard))
       initAtom = atom(pred, allFormalVars)
       guard = true
-//println(values.toList)
-//println(allFormalVars)
+      touchedGlobalState = false
       for ((t, i) <- allFormalVars.iterator.zipWithIndex)
         values(i) = CCIntTerm(t)
     }
@@ -344,20 +441,26 @@ class CCReader {
     def outputITEClauses(cond : IFormula,
                          thenPred : Predicate, elsePred : Predicate) = {
       saveState
-      guard = guard &&& cond
+      addGuard(cond)
       outputClause(thenPred)
       restoreState
-      guard = guard &&& ~cond
+      addGuard(~cond)
       outputClause(elsePred)
     }
 
-    def addValue(t : CCExpr) =
+    def addValue(t : CCExpr) = {
       values += t
+      touchedGlobalState = touchedGlobalState || !freeFromGlobal(t)
+    }
 
     private def getValue(name : String) =
       values(lookupVar(name))
-    private def setValue(name : String, t : CCExpr) =
-      values(lookupVar(name)) = t
+    private def setValue(name : String, t : CCExpr) = {
+      val ind = lookupVar(name)
+      values(ind) = t
+      touchedGlobalState =
+        touchedGlobalState || ind < globalVars.size || !freeFromGlobal(t)
+    }
 
     def getValues : Seq[CCExpr] =
       values.toList
@@ -377,7 +480,6 @@ class CCReader {
     def eval(exp : Exp) : CCExpr = {
       val initSize = values.size
       evalHelp(exp)
-//println("popping result ...")
       val res = popVal
       assert(initSize == values.size)
       res
@@ -387,15 +489,19 @@ class CCReader {
       case exp : Ecomma => {
         evalHelp(exp.exp_1)
         popVal
+        maybeOutputClause
         evalHelp(exp.exp_2)
       }
       case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign]) => {
         evalHelp(exp.exp_2)
+        maybeOutputClause
         setValue(asLValue(exp.exp_1), topVal)
       }
       case exp : Eassign => {
         evalHelp(exp.exp_1)
+        maybeOutputClause
         evalHelp(exp.exp_2)
+        maybeOutputClause
         val rhs = popVal.toTerm
         val lhs = popVal.toTerm
         val newVal = CCIntTerm(exp.assignment_op_ match {
@@ -417,13 +523,13 @@ class CCReader {
         val cond = eval(exp.exp_1).toFormula
 
         saveState
-        guard = guard &&& cond
+        addGuard(cond)
         evalHelp(exp.exp_2)
         outputClause
         val intermediatePred = initPred
 
         restoreState
-        guard = guard &&& ~cond
+        addGuard(~cond)
         evalHelp(exp.exp_3)
         outputClause(intermediatePred)
       }
@@ -431,9 +537,10 @@ class CCReader {
         val cond = eval(exp.exp_1).toFormula
 
         saveState
-        val newGuard = guard &&& ~cond
-        guard = newGuard
+        addGuard(~cond)
+        val newGuard = guard
         evalHelp(exp.exp_2)
+        maybeOutputClause
 
         // check whether the second expression had side-effects
         if ((guard eq newGuard) && atomValuesUnchanged) {
@@ -445,7 +552,7 @@ class CCReader {
           val intermediatePred = initPred
 
           restoreState
-          guard = guard &&& cond
+          addGuard(cond)
           pushVal(CCFormula(true))
           outputClause(intermediatePred)
         }
@@ -454,9 +561,10 @@ class CCReader {
         val cond = eval(exp.exp_1).toFormula
 
         saveState
-        val newGuard = guard &&& cond
-        guard = newGuard
+        addGuard(cond)
+        val newGuard = guard
         evalHelp(exp.exp_2)
+        maybeOutputClause
 
         // check whether the second expression had side-effects
         if ((guard eq newGuard) && atomValuesUnchanged) {
@@ -468,7 +576,7 @@ class CCReader {
           val intermediatePred = initPred
 
           restoreState
-          guard = guard &&& ~cond
+          addGuard(~cond)
           pushVal(CCFormula(false))
           outputClause(intermediatePred)
         }
@@ -501,11 +609,13 @@ class CCReader {
 //      case exp : Etypeconv.   Exp14 ::= "(" Type_name ")" Exp14;
       case exp : Epreinc => {
         evalHelp(exp.exp_)
+        maybeOutputClause
         pushVal(CCIntTerm(popVal.toTerm + 1))
         setValue(asLValue(exp.exp_), topVal)
       }
       case exp : Epredec => {
         evalHelp(exp.exp_)
+        maybeOutputClause
         pushVal(CCIntTerm(popVal.toTerm - 1))
         setValue(asLValue(exp.exp_), topVal)
       }
@@ -527,13 +637,16 @@ class CCReader {
       case exp : Efunkpar => (printer print exp.exp_) match {
         case "assert" if !exp.listexp_.isEmpty => {
           import HornClauses._
-          assertions += (eval(exp.listexp_.head).toFormula :- initAtom)
+          val property = atomically(eval(exp.listexp_.head)).toFormula
+          assertions += (property :- (initAtom, guard))
           pushVal(CCFormula(true))
         }
         case "assume" if !exp.listexp_.isEmpty => {
-          guard = guard &&& eval(exp.listexp_.head).toFormula
+          addGuard(atomically(eval(exp.listexp_.head)).toFormula)
           pushVal(CCFormula(true))
         }
+        case "atomic" if !exp.listexp_.isEmpty =>
+          atomically(evalHelp(exp.listexp_.head))
         case name =>
           throw new TranslationException(
                       "Cannot handle function " + name)
@@ -542,10 +655,12 @@ class CCReader {
 //      case exp : Epoint.      Exp16 ::= Exp16 "->" Ident;
       case exp : Epostinc => {
         evalHelp(exp.exp_)
+        maybeOutputClause
         setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm + 1))
       }
       case exp : Epostdec => {
         evalHelp(exp.exp_)
+        maybeOutputClause
         setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm - 1))
       }
       case exp : Evar =>
@@ -558,6 +673,7 @@ class CCReader {
     private def strictBinOp(left : Exp, right : Exp,
                             op : (CCExpr, CCExpr) => CCExpr) : Unit = {
       evalHelp(left)
+      maybeOutputClause
       evalHelp(right)
       val rhs = popVal
       val lhs = popVal
