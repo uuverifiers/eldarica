@@ -195,11 +195,11 @@ SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
 SiterThree. Iter_stm ::= "for" "(" Expression_stm Expression_stm ")" Stm ;
 SiterFour.  Iter_stm ::= "for" "(" Expression_stm Expression_stm Exp ")" Stm;
 
--- SjumpOne.   Jump_stm ::= "goto" Ident ";" ;
+SjumpOne.   Jump_stm ::= "goto" Ident ";" ;
 SjumpTwo.   Jump_stm ::= "continue" ";" ;
 SjumpThree. Jump_stm ::= "break" ";" ;
--- SjumpFour.  Jump_stm ::= "return" ";" ;
--- SjumpFive.  Jump_stm ::= "return" Exp ";" ;
+SjumpFour.  Jump_stm ::= "return" ";" ;
+SjumpFive.  Jump_stm ::= "return" Exp ";" ;
 
 
 separator nonempty Stm "";

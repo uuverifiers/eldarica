@@ -173,6 +173,9 @@ SAFE
 lazy-eval1.hcc
 SAFE
 
+jumps.hcc
+SAFE
+
 test6.hcc
 SAFE
 

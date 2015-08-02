@@ -430,6 +430,10 @@ object Main {
 
       if (prettyPrint) {
         lazabs.horn.concurrency.ReaderMain.printClauses(
+          system, assertions)
+        println
+        println("After simplification:")
+        lazabs.horn.concurrency.ReaderMain.printClauses(
           smallSystem, smallAssertions)
         return
       }

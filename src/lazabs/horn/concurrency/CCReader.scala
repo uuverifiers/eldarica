@@ -747,7 +747,8 @@ class CCReader {
         translate(stm.selection_stm_, entry, exit)
       case stm : IterS =>
         translate(stm.iter_stm_, entry, exit)
-//      case stm : JumpS.    Stm ::= Jump_stm ;
+      case stm : JumpS =>
+        translate(stm.jump_stm_, entry, exit)
     }
 
     def translate(dec : Dec, entry : Predicate) : Predicate = {
@@ -809,20 +810,43 @@ class CCReader {
       }
     }
 
+    var innermostLoopCont : Predicate = null
+    var innermostLoopExit : Predicate = null
+
+    def withinLoop[A](loopCont : Predicate, loopExit : Predicate)
+                     (comp : => A) : A = {
+      val oldCont = innermostLoopCont
+      val oldExit = innermostLoopExit
+      innermostLoopCont = loopCont
+      innermostLoopExit = loopExit
+      try {
+        comp
+      } finally {
+        innermostLoopCont = oldCont
+        innermostLoopExit = oldExit
+      }
+    }
+
     def translate(stm : Iter_stm,
                   entry : Predicate,
                   exit : Predicate) : Unit = stm match {
       case stm : SiterOne => {
+        // while loop
+
         val first = newPred
         val condSymex = Symex(entry)
         val cond = (condSymex eval stm.exp_).toFormula
         condSymex.outputITEClauses(cond, first, exit)
-        translate(stm.stm_, first, entry)
+        withinLoop(entry, exit) {
+          translate(stm.stm_, first, entry)
+        }
       }
 
 //      case stm : SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
 
       case _ : SiterThree | _ : SiterFour => {
+        // for loop
+
         val first, second, third = newPred
 
         val (initStm, condStm, body) = stm match {
@@ -842,7 +866,9 @@ class CCReader {
 
         condSymex.outputITEClauses(cond, second, exit)
 
-        translate(body, second, third)
+        withinLoop(third, exit) {
+          translate(body, second, third)
+        }
         
         stm match {
           case stm : SiterThree =>
@@ -883,6 +909,25 @@ class CCReader {
 //      case stm : SselThree.  Selection_stm ::= "switch" "(" Exp ")" Stm ;
     }
 
+    def translate(jump : Jump_stm,
+                  entry : Predicate,
+                  exit : Predicate) : Unit = jump match {
+//      case jump : SjumpOne.   Jump_stm ::= "goto" Ident ";" ;
+      case jump : SjumpTwo => { // continue
+        if (innermostLoopCont == null)
+          throw new TranslationException(
+            "\"continue\" can only be used within loops")
+        Symex(entry) outputClause innermostLoopCont
+      }
+      case jump : SjumpThree => { // break
+        if (innermostLoopExit == null)
+          throw new TranslationException(
+            "\"break\" can only be used within loops")
+        Symex(entry) outputClause innermostLoopExit
+      }
+//      case jump : SjumpFour.  Jump_stm ::= "return" ";" ;
+//      case jump : SjumpFive.  Jump_stm ::= "return" Exp ";" ;
+    }
   }
 
 }

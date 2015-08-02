@@ -1,0 +1,28 @@
+
+thread A {
+
+  int x = 0;
+
+  while (1) {
+    if (++x == 10)
+      break;
+    assert(x <= 9);
+  }
+
+  assert(x == 10);
+
+}
+
+thread B {
+
+  int y = 0, i;
+
+  for (i = 0; i < 10; ++i) {
+    if (i > 2 && i <= 7)
+      continue;
+    ++y;
+  }
+
+  assert(y == 5);
+
+}
