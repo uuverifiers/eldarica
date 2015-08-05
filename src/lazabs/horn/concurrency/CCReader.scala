@@ -907,16 +907,30 @@ class CCReader {
         output(Clause(atom(exit, vars), List(atom(entry, vars)), true))
       }
       case compound : ScompTwo => {
+        pushLocalFrame
+
         val stmsIt = compound.liststm_.iterator
         var prevPred = entry
-        while (stmsIt.hasNext) {
-          val stm = stmsIt.next
-          val nextPred = if (stmsIt.hasNext) newPred else exit
-          translate(stm, prevPred, nextPred)
-          prevPred = nextPred
-        }
+        while (stmsIt.hasNext)
+          stmsIt.next match {
+            case stm : DecS => {
+              prevPred = translate(stm.dec_, prevPred)
+              if (!stmsIt.hasNext)
+                output(Clause(atom(exit, allFormalVars),
+                              List(atom(prevPred, allFormalVars)),
+                              true))
+            }
+            case stm => {
+              val nextPred = if (stmsIt.hasNext) newPred else exit
+              translate(stm, prevPred, nextPred)
+              prevPred = nextPred
+            }
+          }
+
+        popLocalFrame
       }
 
+/*
       case compound : ScompThree => {
         pushLocalFrame
 
@@ -948,6 +962,7 @@ class CCReader {
 
         popLocalFrame
       }
+*/
     }
 
     var innermostLoopCont : Predicate = null
