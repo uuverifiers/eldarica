@@ -176,6 +176,9 @@ SAFE
 jumps.hcc
 SAFE
 
+functions.hcc
+SAFE
+
 test6.hcc
 SAFE
 
