@@ -171,6 +171,7 @@ ExprS.    Stm ::= Expression_stm ;
 SelS.     Stm ::= Selection_stm ;
 IterS.    Stm ::= Iter_stm ;
 JumpS.    Stm ::= Jump_stm ;
+DecS.     Stm ::= Dec ; -- beyond ANSI-C
 
 SlabelOne.   Labeled_stm ::= Ident ":" Stm ;
 -- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
@@ -178,8 +179,8 @@ SlabelThree. Labeled_stm ::= "default" ":" Stm;
 
 ScompOne.   Compound_stm ::= "{" "}" ;
 ScompTwo.   Compound_stm ::= "{" [Stm] "}" ;
-ScompThree. Compound_stm ::= "{" [Dec] "}" ;
-ScompFour.  Compound_stm ::= "{" [Dec] [Stm] "}" ;
+-- ScompThree. Compound_stm ::= "{" [Dec] "}" ;
+-- ScompFour.  Compound_stm ::= "{" [Dec] [Stm] "}" ;
 
 SexprOne.   Expression_stm ::= ";" ;
 SexprTwo.   Expression_stm ::= Exp ";" ;
