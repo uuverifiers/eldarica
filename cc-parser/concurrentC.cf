@@ -114,9 +114,9 @@ Name.        Direct_declarator ::= Ident ;
 ParenDecl.   Direct_declarator ::= "(" Declarator ")" ;
 -- InitArray.   Direct_declarator ::= Direct_declarator "[" Constant_expression "]" ;
 -- Incomplete.  Direct_declarator ::= Direct_declarator "[" "]" ;
--- NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
--- OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [Ident] ")" ;
--- OldFuncDec.  Direct_declarator ::= Direct_declarator "(" ")" ;
+NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
+OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [Ident] ")" ;
+OldFuncDec.  Direct_declarator ::= Direct_declarator "(" ")" ;
 
 Point.          Pointer ::= "*" ;
 PointQual.      Pointer ::= "*" [Type_qualifier] ;
@@ -124,16 +124,14 @@ PointPoint.     Pointer ::= "*" Pointer ;
 PointQualPoint. Pointer ::= "*" [Type_qualifier] Pointer ;
 
 
-AllSpec.  Parameter_type ::= Parameter_declarations ;
--- More.     Parameter_type ::= Parameter_declarations "," "..." ;
-
-ParamDec.     Parameter_declarations ::= Parameter_declaration ;                   
-MoreParamDec. Parameter_declarations ::= Parameter_declarations "," Parameter_declaration ;
+AllSpec.  Parameter_type ::= [Parameter_declaration] ;
+-- More.     Parameter_type ::= [Parameter_declaration] "," "..." ;
 
 OnlyType.      Parameter_declaration ::= [Declaration_specifier] ;
 TypeAndParam.  Parameter_declaration ::= [Declaration_specifier] Declarator ;
 Abstract.      Parameter_declaration ::= [Declaration_specifier] Abstract_declarator ;
 
+separator nonempty Parameter_declaration ",";
 
 separator nonempty Ident ",";
 

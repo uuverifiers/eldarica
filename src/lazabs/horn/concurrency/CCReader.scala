@@ -155,6 +155,9 @@ class CCReader {
 
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
 
+  private val functionDefs  = new MHashMap[String, Function_def]
+  private val functionDecls = new MHashMap[String, Direct_declarator]
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val processes =
@@ -252,7 +255,9 @@ class CCReader {
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
   private def translateProgram(prog : Program) : Unit = {
-    // first collect all declarations
+    // First collect all declarations. This is a bit more
+    // generous than actual C semantics, where declarations
+    // have to be in the right order
 
     val globalVarSymex = Symex(null)
 
@@ -269,6 +274,18 @@ class CCReader {
             channels.put(name, new ParametricEncoder.CommChannel(name))
           }
 
+        case decl : Afunc => {
+          val name = decl.function_def_ match {
+            case f : NewFunc => getName(f.declarator_)
+            case f : NewFuncInt => getName(f.declarator_)
+          }
+
+          if (functionDefs contains name)
+            throw new TranslationException(
+              "Function " + name + " is already declared")
+          functionDefs.put(name, decl.function_def_)
+        }
+
         case _ =>
           // nothing
       }
@@ -282,7 +299,7 @@ class CCReader {
           decl.thread_def_ match {
             case thread : SingleThread => {
               setPrefix(thread.ident_)
-              val translator = new ThreadTranslator
+              val translator = FunctionTranslator.apply
               translator translate thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Singleton))
               clauses.clear
@@ -291,7 +308,7 @@ class CCReader {
               setPrefix(thread.ident_2)
               pushLocalFrame
               localVars += new ConstantTerm(thread.ident_1)
-              val translator = new ThreadTranslator
+              val translator = FunctionTranslator.apply
               translator translate thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
               clauses.clear
@@ -328,9 +345,19 @@ class CCReader {
 
       for (initDecl <- decl.listinit_declarator_) initDecl match {
         case initDecl : OnlyDecl => {
-          val c = new ConstantTerm(getName(initDecl.declarator_))
-          (if (global) globalVars else localVars) += c
-          values addValue CCIntTerm(c)
+          val name = getName(initDecl.declarator_)
+          val directDecl =
+            initDecl.declarator_.asInstanceOf[NoPointer].direct_declarator_
+
+          directDecl match {
+            case _ : NewFuncDec | _ : OldFuncDef | _ : OldFuncDec =>
+              functionDecls.put(name, directDecl)
+            case _ => {
+              val c = new ConstantTerm(name)
+              (if (global) globalVars else localVars) += c
+              values addValue CCIntTerm(c)
+            }
+          }
         }
         case initDecl : InitDecl => {
           val c = new ConstantTerm(getName(initDecl.declarator_))
@@ -351,8 +378,11 @@ class CCReader {
   }
 
   private def getName(decl : Direct_declarator) : String = decl match {
-    case decl : Name => decl.ident_
+    case decl : Name      => decl.ident_
     case decl : ParenDecl => getName(decl.declarator_)
+    case dec : NewFuncDec => getName(dec.direct_declarator_)
+    case dec : OldFuncDef => getName(dec.direct_declarator_)
+    case dec : OldFuncDec => getName(dec.direct_declarator_)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -418,6 +448,13 @@ class CCReader {
       // reserve a local variable, in case we need one later
       localVars += new ConstantTerm("__eval" + localVars.size)
     }
+
+    private def pushFormalVal = {
+      val c = new ConstantTerm("__eval" + localVars.size)
+      localVars += c
+      addValue(CCIntTerm(c))
+    }
+
     private def popVal = {
       val res = values.last
 //println("pop " + res)
@@ -431,6 +468,13 @@ class CCReader {
 
     def outputClause(pred : Predicate) : Unit = {
       output(Clause(asAtom(pred), List(initAtom), guard))
+      resetFields(pred)
+    }
+
+    def outputClause(headAtom : IAtom) : Unit =
+      output(Clause(headAtom, List(initAtom), guard))
+
+    def resetFields(pred : Predicate) : Unit = {
       initAtom = atom(pred, allFormalVars)
       guard = true
       touchedGlobalState = false
@@ -633,7 +677,14 @@ class CCReader {
 //      case exp : Ebytesexpr.  Exp15 ::= "sizeof" Exp15;
 //      case exp : Ebytestype.  Exp15 ::= "sizeof" "(" Type_name ")";
 //      case exp : Earray.      Exp16 ::= Exp16 "[" Exp "]" ;
-//      case exp : Efunk.       Exp16 ::= Exp16 "(" ")";
+
+      case exp : Efunk => {
+        // inline the called function
+        val name = printer print exp.exp_
+        outputClause
+        callFunctionInlining(name, initPred)
+      }
+
       case exp : Efunkpar => (printer print exp.exp_) match {
         case "assert" if !exp.listexp_.isEmpty => {
           import HornClauses._
@@ -647,10 +698,25 @@ class CCReader {
         }
         case "atomic" if !exp.listexp_.isEmpty =>
           atomically(evalHelp(exp.listexp_.head))
-        case name =>
-          throw new TranslationException(
-                      "Cannot handle function " + name)
+        case name => {
+          // then we inline the called function
+
+          // evaluate the arguments
+          for (e <- exp.listexp_)
+            evalHelp(e)
+          outputClause
+
+          val functionEntry = initPred
+
+          // get rid of the local variables, which are later
+          // replaced with the formal arguments
+          for (e <- exp.listexp_)
+            popVal
+
+          callFunctionInlining(name, functionEntry)
+        }
       }
+
 //      case exp : Eselect.     Exp16 ::= Exp16 "." Ident;
 //      case exp : Epoint.      Exp16 ::= Exp16 "->" Ident;
       case exp : Epostinc => {
@@ -668,6 +734,28 @@ class CCReader {
       case exp : Econst =>
         evalHelp(exp.constant_)
 //      case exp : Estring.     Exp17 ::= String;
+    }
+
+    private def callFunctionInlining(name : String,
+                                     functionEntry : Predicate) = {
+      val functionExit = newPred(1)
+
+      (functionDefs get name) match {
+        case Some(fundef) => {
+          inlineFunction(fundef, functionEntry, functionExit)
+
+          // reserve an argument for the function result
+          pushFormalVal
+          resetFields(functionExit)
+        }
+        case None => (functionDecls get name) match {
+          case Some(fundecl) =>
+            pushFormalVal
+          case None =>
+            throw new TranslationException(
+              "Function " + name + " is not declared")
+        }
+      }
     }
 
     private def strictBinOp(left : Exp, right : Exp,
@@ -717,7 +805,47 @@ class CCReader {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private class ThreadTranslator {
+  private def inlineFunction(functionDef : Function_def,
+                             entry : Predicate,
+                             exit : Predicate) : Unit = {
+    pushLocalFrame
+
+    val (declarator, stm) = functionDef match {
+      case f : NewFunc    => (f.declarator_, f.compound_stm_)
+      case f : NewFuncInt => (f.declarator_, f.compound_stm_)
+    }
+
+    declarator.asInstanceOf[NoPointer].direct_declarator_ match {
+      case dec : NewFuncDec =>
+        for (argDec <- dec.parameter_type_.asInstanceOf[AllSpec]
+                          .listparameter_declaration_)
+          argDec match {
+//            case argDec : OnlyType =>
+            case argDec : TypeAndParam =>
+              localVars += new ConstantTerm(getName(argDec.declarator_))
+//            case argDec : Abstract =>
+          }
+      case dec : OldFuncDef =>
+        for (ident <- dec.listident_)
+          localVars += new ConstantTerm(ident)
+      case dec : OldFuncDec =>
+        // no arguments
+    }
+
+    val translator = FunctionTranslator(exit)
+    translator.translateWithReturn(stm, entry)
+
+    popLocalFrame
+  }
+
+  private object FunctionTranslator {
+    def apply =
+      new FunctionTranslator(None)
+    def apply(returnPred : Predicate) =
+      new FunctionTranslator(Some(returnPred))
+  }
+
+  private class FunctionTranslator private (returnPred : Option[Predicate]) {
 
     def symexFor(initPred : Predicate,
                  stm : Expression_stm) : (Symex, Option[CCExpr]) = {
@@ -733,6 +861,18 @@ class CCReader {
       val entry = newPred
       output(Clause(atom(entry, allVarInits), List(), true))
       translate(compound, entry, newPred)
+    }
+
+    def translateWithReturn(stm : Compound_stm,
+                            entry : Predicate) : Unit = {
+      val finalPred = newPred
+      translate(stm, entry, finalPred)
+      // add a default return edge
+      val rp = returnPred.get
+      output(Clause(atom(rp, (allFormalVars take (rp.arity - 1)) ++
+                             List(IConstant(new ConstantTerm("__result")))),
+                    List(atom(finalPred, allFormalVars)),
+                    true))
     }
 
     def translate(stm : Stm,
@@ -926,7 +1066,15 @@ class CCReader {
         Symex(entry) outputClause innermostLoopExit
       }
 //      case jump : SjumpFour.  Jump_stm ::= "return" ";" ;
-//      case jump : SjumpFive.  Jump_stm ::= "return" Exp ";" ;
+      case jump : SjumpFive => { // return exp
+        val symex = Symex(entry)
+        val retValue = symex eval jump.exp_
+        for (rp <- returnPred) {
+          val args = (symex.getValuesAsTerms take (rp.arity - 1)) ++
+                     List(retValue.toTerm)
+          symex outputClause atom(rp, args)
+        }
+      }
     }
   }
 
