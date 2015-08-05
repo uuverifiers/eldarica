@@ -179,6 +179,9 @@ SAFE
 functions.hcc
 SAFE
 
+extended-decl.hcc
+SAFE
+
 test6.hcc
 SAFE
 

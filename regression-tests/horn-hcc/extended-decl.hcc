@@ -1,0 +1,11 @@
+
+thread A {
+
+  int x;
+  assume(x >= 0);
+  int y;
+  assume(y < -10);
+
+  assert(y < x);
+
+}

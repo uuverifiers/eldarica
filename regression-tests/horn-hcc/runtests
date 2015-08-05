@@ -3,7 +3,8 @@
 LAZABS=../../eld
 
 TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc test5.hcc \
-       test-para1.hcc test-para2.hcc lazy-eval1.hcc jumps.hcc functions.hcc"
+       test-para1.hcc test-para2.hcc lazy-eval1.hcc \
+       jumps.hcc functions.hcc extended-decl.hcc"
 
 for name in $TESTS; do
     echo
