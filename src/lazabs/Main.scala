@@ -337,7 +337,10 @@ object Main {
           format = InputFormat.Bip
         else if (fileName endsWith ".xml")
           format = InputFormat.UppaalOG
-        else if (fileName endsWith ".hcc") {
+        else if ((fileName endsWith ".hcc") ||
+                 (fileName endsWith ".c") ||
+                 (fileName endsWith ".cc") ||
+                 (fileName endsWith ".cpp")) {
           format = InputFormat.ConcurrentC
           concurrentC = true
         } else

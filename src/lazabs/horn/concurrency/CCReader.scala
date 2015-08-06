@@ -698,7 +698,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       }
 
       case exp : Efunkpar => (printer print exp.exp_) match {
-        case "assert" if !exp.listexp_.isEmpty => {
+        case "assert" | "static_assert" if !exp.listexp_.isEmpty => {
           import HornClauses._
           val property = atomically(eval(exp.listexp_.head)).toFormula
           assertionClauses += (property :- (initAtom, guard))
