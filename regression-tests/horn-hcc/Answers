@@ -192,6 +192,7 @@ Warning: entry function "main" not found
 SAFE
 
 functions.hcc
+Warning: no definition of function "nondet" available
 Warning: entry function "main" not found
 SAFE
 
@@ -211,5 +212,9 @@ Warning: entry function "main" not found
 SAFE
 
 loop1.hcc
+Warning: entry function "main" not found
+SAFE
+
+loop2.hcc
 Warning: entry function "main" not found
 SAFE

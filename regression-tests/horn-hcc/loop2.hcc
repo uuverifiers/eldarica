@@ -1,0 +1,14 @@
+
+thread A {
+
+    int x = 1;
+    int y = 0;
+
+    do {
+	x = x + y;
+	y = y + 1;
+    } while (y < 3);
+
+    assert(x >= y);
+
+}

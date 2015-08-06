@@ -769,8 +769,10 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           resetFields(functionExit)
         }
         case None => (functionDecls get name) match {
-          case Some(fundecl) =>
+          case Some(fundecl) => {
+            warn("no definition of function \"" + name + "\" available")
             pushFormalVal
+          }
           case None =>
             throw new TranslationException(
               "Function " + name + " is not declared")
@@ -850,7 +852,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         for (argDec <- dec.parameter_type_.asInstanceOf[AllSpec]
                           .listparameter_declaration_)
           argDec match {
-//            case argDec : OnlyType =>
+            case argDec : OnlyType =>
+              // ignore, a void argument implies that there are no arguments
             case argDec : TypeAndParam =>
               localVars += new ConstantTerm(getName(argDec.declarator_))
 //            case argDec : Abstract =>
@@ -1026,7 +1029,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         }
       }
 
-//      case stm : SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
+      case stm : SiterTwo => {
+        // do ... while loop
+
+        val first = newPred
+        withinLoop(first, exit) {
+          translate(stm.stm_, entry, first)
+        }
+
+        val condSymex = Symex(first)
+        val cond = (condSymex eval stm.exp_).toFormula
+        condSymex.outputITEClauses(cond, entry, exit)
+      }
 
       case _ : SiterThree | _ : SiterFour => {
         // for loop

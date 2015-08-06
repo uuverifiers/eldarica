@@ -12,7 +12,7 @@ for name in $TESTS; do
     $LAZABS -cex "$@" $name
 done
 
-TESTS="test6.hcc test7.hcc loop1.hcc"
+TESTS="test6.hcc test7.hcc loop1.hcc loop2.hcc"
 
 for name in $TESTS; do
     echo

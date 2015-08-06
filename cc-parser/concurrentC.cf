@@ -63,14 +63,14 @@ Tint.         Type_specifier ::= "int";
 
 
 -- MyType.         Storage_class_specifier ::= "typedef";
--- GlobalPrograms. Storage_class_specifier ::= "extern" ;
--- LocalProgram.   Storage_class_specifier ::= "static" ;
+GlobalPrograms. Storage_class_specifier ::= "extern" ;
+LocalProgram.   Storage_class_specifier ::= "static" ;
 LocalBlock.     Storage_class_specifier ::= "auto" ;
--- LocalReg.       Storage_class_specifier ::= "register" ;
+LocalReg.       Storage_class_specifier ::= "register" ;
 
 
 Const  . Type_qualifier ::= "const" ;
--- NoOptim.  Type_qualifier ::= "volatile";
+NoOptim.  Type_qualifier ::= "volatile";
 
 separator nonempty Type_qualifier "";
 
