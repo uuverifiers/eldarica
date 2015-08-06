@@ -187,6 +187,10 @@ jumps.hcc
 Warning: entry function "main" not found
 SAFE
 
+jumps2.hcc
+Warning: entry function "main" not found
+SAFE
+
 functions.hcc
 Warning: entry function "main" not found
 SAFE

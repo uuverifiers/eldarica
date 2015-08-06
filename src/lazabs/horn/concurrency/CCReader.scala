@@ -256,7 +256,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           collectVarDecls(decl.dec_, true, globalVarSymex)
 
         case decl : Chan =>
-          for (name <- decl.chan_def_.asInstanceOf[AChan].listident_) {
+          for (name <- decl.chan_def_.asInstanceOf[AChan].listcident_) {
             if (channels contains name)
               throw new TranslationException(
                 "Channel " + name + " is already declared")
@@ -287,16 +287,16 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         case decl : Athread =>
           decl.thread_def_ match {
             case thread : SingleThread => {
-              setPrefix(thread.ident_)
+              setPrefix(thread.cident_)
               val translator = FunctionTranslator.apply
               translator translate thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Singleton))
               clauses.clear
             }
             case thread : ParaThread => {
-              setPrefix(thread.ident_2)
+              setPrefix(thread.cident_2)
               pushLocalFrame
-              localVars += new ConstantTerm(thread.ident_1)
+              localVars += new ConstantTerm(thread.cident_1)
               val translator = FunctionTranslator.apply
               translator translate thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
@@ -390,7 +390,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
   }
 
   private def getName(decl : Direct_declarator) : String = decl match {
-    case decl : Name      => decl.ident_
+    case decl : Name      => decl.cident_
     case decl : ParenDecl => getName(decl.declarator_)
     case dec : NewFuncDec => getName(dec.direct_declarator_)
     case dec : OldFuncDef => getName(dec.direct_declarator_)
@@ -526,7 +526,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     def asAtom(pred : Predicate) = atom(pred, getValuesAsTerms)
 
     private def asLValue(exp : Exp) : String = exp match {
-      case exp : Evar => exp.ident_
+      case exp : Evar => exp.cident_
       case exp =>
         throw new TranslationException(
                     "Can only handle assignments to variables, not " +
@@ -660,8 +660,16 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         strictBinFun(exp.exp_1, exp.exp_2, _ - _)
       case exp : Etimes =>
         strictBinFun(exp.exp_1, exp.exp_2, _ * _)
-//      case exp : Ediv.        Exp13 ::= Exp13 "/" Exp14;
-//      case exp : Emod.        Exp13 ::= Exp13 "%" Exp14;
+      case exp : Ediv =>
+        strictBinFun(exp.exp_1, exp.exp_2, {
+          (x : ITerm, y : ITerm) =>
+            ap.theories.BitShiftMultiplication.tDiv(x, y)
+        })
+      case exp : Emod =>
+        strictBinFun(exp.exp_1, exp.exp_2, {
+          (x : ITerm, y : ITerm) =>
+            ap.theories.BitShiftMultiplication.tMod(x, y)
+        })
 //      case exp : Etypeconv.   Exp14 ::= "(" Type_name ")" Exp14;
       case exp : Epreinc => {
         evalHelp(exp.exp_)
@@ -742,7 +750,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm - 1))
       }
       case exp : Evar =>
-        pushVal(getValue(exp.ident_))
+        pushVal(getValue(exp.cident_))
       case exp : Econst =>
         evalHelp(exp.constant_)
 //      case exp : Estring.     Exp17 ::= String;
@@ -848,7 +856,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //            case argDec : Abstract =>
           }
       case dec : OldFuncDef =>
-        for (ident <- dec.listident_)
+        for (ident <- dec.listcident_)
           localVars += new ConstantTerm(ident)
       case dec : OldFuncDec =>
         // no arguments
@@ -1101,14 +1109,31 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             "\"break\" can only be used within loops")
         Symex(entry) outputClause innermostLoopExit
       }
-//      case jump : SjumpFour.  Jump_stm ::= "return" ";" ;
+      case jump : SjumpFour => // return
+        returnPred match {
+          case Some(rp) => {
+            val args = (allFormalVars take (rp.arity - 1)) ++
+                       List(IConstant(new ConstantTerm("__result")))
+            output(Clause(atom(rp, args),
+                          List(atom(entry, allFormalVars)),
+                          true))
+          }
+          case None =>
+            throw new TranslationException(
+              "\"return\" can only be used within functions")
+        }
       case jump : SjumpFive => { // return exp
         val symex = Symex(entry)
         val retValue = symex eval jump.exp_
-        for (rp <- returnPred) {
-          val args = (symex.getValuesAsTerms take (rp.arity - 1)) ++
-                     List(retValue.toTerm)
-          symex outputClause atom(rp, args)
+        returnPred match {
+          case Some(rp) => {
+            val args = (symex.getValuesAsTerms take (rp.arity - 1)) ++
+                       List(retValue.toTerm)
+            symex outputClause atom(rp, args)
+          }
+          case None =>
+            throw new TranslationException(
+              "\"return\" can only be used within functions")
         }
       }
     }

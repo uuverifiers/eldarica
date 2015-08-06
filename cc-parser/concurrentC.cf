@@ -25,8 +25,8 @@ NewFunc.     Function_def ::= [Declaration_specifier] Declarator Compound_stm ;
 -- OldFuncInt.  Function_def ::= Declarator [Dec] Compound_stm ;
 NewFuncInt.  Function_def ::= Declarator Compound_stm ;
 
-SingleThread. Thread_def ::= "thread" Ident Compound_stm ;
-ParaThread.   Thread_def ::= "thread" "[" Ident "]" Ident Compound_stm ;
+SingleThread. Thread_def ::= "thread" CIdent Compound_stm ;
+ParaThread.   Thread_def ::= "thread" "[" CIdent "]" CIdent Compound_stm ;
 
 
 NoDeclarator.  Dec ::= [Declaration_specifier] ";";
@@ -34,7 +34,7 @@ Declarators.   Dec ::= [Declaration_specifier] [Init_declarator] ";" ;
 
 separator nonempty Dec "";
 
-AChan. Chan_def ::= "chan" [Ident] ";" ;
+AChan. Chan_def ::= "chan" [CIdent] ";" ;
 
 Type.     Declaration_specifier ::= Type_specifier ;
 Storage.  Declaration_specifier ::= Storage_class_specifier ;
@@ -74,9 +74,9 @@ Const  . Type_qualifier ::= "const" ;
 
 separator nonempty Type_qualifier "";
 
--- Tag.      Struct_or_union_spec ::= Struct_or_union Ident "{" [Struct_dec] "}" ;
+-- Tag.      Struct_or_union_spec ::= Struct_or_union CIdent "{" [Struct_dec] "}" ;
 -- Unique.   Struct_or_union_spec ::= Struct_or_union "{" [Struct_dec] "}";
--- TagType.  Struct_or_union_spec ::= Struct_or_union Ident ;
+-- TagType.  Struct_or_union_spec ::= Struct_or_union CIdent ;
 
 -- Struct.   Struct_or_union ::= "struct";
 -- Union.    Struct_or_union ::= "union";
@@ -98,11 +98,11 @@ separator nonempty Struct_declarator ",";
 
 
 -- EnumDec.   Enum_specifier ::= "enum" "{" [Enumerator] "}" ;
--- EnumName.  Enum_specifier ::= "enum" Ident "{" [Enumerator] "}" ;
--- EnumVar.   Enum_specifier ::= "enum" Ident ;
+-- EnumName.  Enum_specifier ::= "enum" CIdent "{" [Enumerator] "}" ;
+-- EnumVar.   Enum_specifier ::= "enum" CIdent ;
 
--- Plain.     Enumerator ::= Ident ;
--- EnumInit.  Enumerator ::= Ident "=" Constant_expression ;
+-- Plain.     Enumerator ::= CIdent ;
+-- EnumInit.  Enumerator ::= CIdent "=" Constant_expression ;
 
 -- separator nonempty Enumerator ",";
 
@@ -110,12 +110,12 @@ separator nonempty Struct_declarator ",";
 -- BeginPointer.   Declarator ::= Pointer Direct_declarator ;
 NoPointer.      Declarator ::= Direct_declarator ;
 
-Name.        Direct_declarator ::= Ident ;
+Name.        Direct_declarator ::= CIdent ;
 ParenDecl.   Direct_declarator ::= "(" Declarator ")" ;
 -- InitArray.   Direct_declarator ::= Direct_declarator "[" Constant_expression "]" ;
 -- Incomplete.  Direct_declarator ::= Direct_declarator "[" "]" ;
 NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
-OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [Ident] ")" ;
+OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [CIdent] ")" ;
 OldFuncDec.  Direct_declarator ::= Direct_declarator "(" ")" ;
 
 Point.          Pointer ::= "*" ;
@@ -133,7 +133,7 @@ Abstract.      Parameter_declaration ::= [Declaration_specifier] Abstract_declar
 
 separator nonempty Parameter_declaration ",";
 
-separator nonempty Ident ",";
+separator nonempty CIdent ",";
 
 
 InitExpr.    Initializer ::= Exp2 ;
@@ -173,7 +173,7 @@ IterS.    Stm ::= Iter_stm ;
 JumpS.    Stm ::= Jump_stm ;
 DecS.     Stm ::= Dec ; -- beyond ANSI-C
 
-SlabelOne.   Labeled_stm ::= Ident ":" Stm ;
+SlabelOne.   Labeled_stm ::= CIdent ":" Stm ;
 -- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
 SlabelThree. Labeled_stm ::= "default" ":" Stm;
 
@@ -194,7 +194,7 @@ SiterTwo.   Iter_stm ::= "do" Stm "while" "(" Exp ")" ";" ;
 SiterThree. Iter_stm ::= "for" "(" Expression_stm Expression_stm ")" Stm ;
 SiterFour.  Iter_stm ::= "for" "(" Expression_stm Expression_stm Exp ")" Stm;
 
-SjumpOne.   Jump_stm ::= "goto" Ident ";" ;
+SjumpOne.   Jump_stm ::= "goto" CIdent ";" ;
 SjumpTwo.   Jump_stm ::= "continue" ";" ;
 SjumpThree. Jump_stm ::= "break" ";" ;
 SjumpFour.  Jump_stm ::= "return" ";" ;
@@ -203,6 +203,8 @@ SjumpFive.  Jump_stm ::= "return" Exp ";" ;
 
 separator nonempty Stm "";
 
+
+token CIdent (letter | '_') (letter | digit | '_')*;
 
 token Unsigned ["123456789"] digit * ('u'|'U');
 
@@ -267,11 +269,11 @@ Ebytestype.  Exp15 ::= "sizeof" "(" Type_name ")";
 Earray.      Exp16 ::= Exp16 "[" Exp "]" ;
 Efunk.       Exp16 ::= Exp16 "(" ")";
 Efunkpar.    Exp16 ::= Exp16 "(" [Exp2] ")";
-Eselect.     Exp16 ::= Exp16 "." Ident;
-Epoint.      Exp16 ::= Exp16 "->" Ident;
+Eselect.     Exp16 ::= Exp16 "." CIdent;
+Epoint.      Exp16 ::= Exp16 "->" CIdent;
 Epostinc.    Exp16 ::= Exp16 "++";
 Epostdec.    Exp16 ::= Exp16 "--";
-Evar.        Exp17 ::= Ident;
+Evar.        Exp17 ::= CIdent;
 Econst.      Exp17 ::= Constant;
 Estring.     Exp17 ::= String;
 
