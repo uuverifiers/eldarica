@@ -44,6 +44,9 @@ object CCReader {
   class ParseException(msg : String) extends Exception(msg)
   class TranslationException(msg : String) extends Exception(msg)
 
+  def warn(msg : String) : Unit =
+    Console.err.println("Warning: " + msg)
+
   import IExpression._
 
   private abstract sealed class CCExpr {
@@ -64,23 +67,9 @@ object CCReader {
   }
 }
 
-class CCReader {
+class CCReader(input : java.io.Reader, entryFunction : String) {
 
   import CCReader._
-
-  def apply(input : java.io.Reader) : (ParametricEncoder.System,
-                                       Seq[HornClauses.Clause]) = {
-    def entry(parser : concurrentC.parser) = parser.pProgram
-    val prog = parseWithEntry(input, entry _)
-//    println(printer print prog)
-    translateProgram(prog)
-    (ParametricEncoder.System(processes.toList,
-                              globalVars.size,
-                              None,
-                              ParametricEncoder.NoTime,
-                              List()),
-     assertions.toList)
-  }
 
   /**
    * Parse starting at an arbitrarily specified entry point
@@ -163,7 +152,7 @@ class CCReader {
   private val processes =
     new ArrayBuffer[(ParametricEncoder.Process, ParametricEncoder.Replication)]
 
-  private val assertions = new ArrayBuffer[Clause]
+  private val assertionClauses = new ArrayBuffer[Clause]
 
   private val clauses = new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
 
@@ -202,13 +191,13 @@ class CCReader {
 
           // add further assertion clauses, since some intermediate
           // states disappear
-          for (c <- assertions.toList)
+          for (c <- assertionClauses.toList)
             if (c.bodyPredicates contains currentClause.head.pred) {
               if (currentSync != ParametricEncoder.NoSync)
                 throw new TranslationException(
                   "Cannot execute " + currentSync + " and an assertion" +
                   " in one step")
-              assertions += (c mergeWith currentClause)
+              assertionClauses += (c mergeWith currentClause)
             }
         }
         case None =>
@@ -320,6 +309,29 @@ class CCReader {
           // nothing
       }
 
+    // is there a global entry point in the program?
+    (functionDefs get entryFunction) match {
+      case Some(funDef) => {
+        setPrefix(entryFunction)
+
+        pushLocalFrame
+        val exitPred = newPred(1)
+        val stm = pushArguments(funDef)
+        val entryPred = newPred
+        output(Clause(atom(entryPred, allVarInits), List(), true))
+
+        val translator = FunctionTranslator(exitPred)
+        translator.translateWithReturn(stm, entryPred)
+
+        processes += ((clauses.toList, ParametricEncoder.Singleton))
+        clauses.clear
+        
+        popLocalFrame
+      }
+      case None =>
+        warn("entry function \"" + entryFunction + "\" not found")
+    }
+
     // remove assertions that are no longer connected to predicates
     // actually occurring in the system
 
@@ -330,9 +342,9 @@ class CCReader {
        yield p).toSet
 
     val remainingAssertions =
-      assertions filter { c => c.bodyPredicates subsetOf allPreds }
-    assertions.clear
-    assertions ++= remainingAssertions
+      assertionClauses filter { c => c.bodyPredicates subsetOf allPreds }
+    assertionClauses.clear
+    assertionClauses ++= remainingAssertions
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -689,7 +701,7 @@ class CCReader {
         case "assert" if !exp.listexp_.isEmpty => {
           import HornClauses._
           val property = atomically(eval(exp.listexp_.head)).toFormula
-          assertions += (property :- (initAtom, guard))
+          assertionClauses += (property :- (initAtom, guard))
           pushVal(CCFormula(true))
         }
         case "assume" if !exp.listexp_.isEmpty => {
@@ -809,7 +821,17 @@ class CCReader {
                              entry : Predicate,
                              exit : Predicate) : Unit = {
     pushLocalFrame
+    val stm = pushArguments(functionDef)
 
+    assert(entry.arity == allFormalVars.size)
+
+    val translator = FunctionTranslator(exit)
+    translator.translateWithReturn(stm, entry)
+
+    popLocalFrame
+  }
+
+  private def pushArguments(functionDef : Function_def) : Compound_stm = {
     val (declarator, stm) = functionDef match {
       case f : NewFunc    => (f.declarator_, f.compound_stm_)
       case f : NewFuncInt => (f.declarator_, f.compound_stm_)
@@ -832,11 +854,10 @@ class CCReader {
         // no arguments
     }
 
-    val translator = FunctionTranslator(exit)
-    translator.translateWithReturn(stm, entry)
-
-    popLocalFrame
+    stm
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private object FunctionTranslator {
     def apply =
@@ -1091,6 +1112,22 @@ class CCReader {
         }
       }
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val (system, assertions) : (ParametricEncoder.System,
+                              Seq[HornClauses.Clause]) = {
+    def entry(parser : concurrentC.parser) = parser.pProgram
+    val prog = parseWithEntry(input, entry _)
+//    println(printer print prog)
+    translateProgram(prog)
+    (ParametricEncoder.System(processes.toList,
+                              globalVars.size,
+                              None,
+                              ParametricEncoder.NoTime,
+                              List()),
+     assertionClauses.toList)
   }
 
 }

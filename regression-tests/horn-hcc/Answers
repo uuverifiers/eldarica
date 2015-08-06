@@ -1,11 +1,14 @@
 
 test1.hcc
+Warning: entry function "main" not found
 SAFE
 
 test2.hcc
+Warning: entry function "main" not found
 SAFE
 
 test2b.hcc
+Warning: entry function "main" not found
 UNSAFE
 
 --------------------------
@@ -57,6 +60,7 @@ Final:
 --------------------------
 
 test2c.hcc
+Warning: entry function "main" not found
 UNSAFE
 
 --------------------------------
@@ -138,15 +142,19 @@ Final:
 --------------------------------
 
 test3.hcc
+Warning: entry function "main" not found
 SAFE
 
 test4.hcc
+Warning: entry function "main" not found
 SAFE
 
 test5.hcc
+Warning: entry function "main" not found
 SAFE
 
 test-para1.hcc
+Warning: entry function "main" not found
 UNSAFE
 
 ----------------------------------------------------
@@ -168,25 +176,36 @@ Final:
 ----------------------------------------------------
 
 test-para2.hcc
+Warning: entry function "main" not found
 SAFE
 
 lazy-eval1.hcc
+Warning: entry function "main" not found
 SAFE
 
 jumps.hcc
+Warning: entry function "main" not found
 SAFE
 
 functions.hcc
+Warning: entry function "main" not found
+SAFE
+
+functions2.hcc
 SAFE
 
 extended-decl.hcc
+Warning: entry function "main" not found
 SAFE
 
 test6.hcc
+Warning: entry function "main" not found
 SAFE
 
 test7.hcc
+Warning: entry function "main" not found
 SAFE
 
 loop1.hcc
+Warning: entry function "main" not found
 SAFE

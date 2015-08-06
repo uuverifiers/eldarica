@@ -58,9 +58,12 @@ object ReaderMain {
     lazabs.GlobalParameters.get.assertions = false
 
     for (name <- args) {
-      val (system, assertions) =
-        (new CCReader)(new java.io.BufferedReader (
-                         new java.io.FileReader(new java.io.File (name))))
+      val reader = 
+        new CCReader(new java.io.BufferedReader (
+                       new java.io.FileReader(new java.io.File (name))),
+                     "main")
+
+      import reader.{system, assertions}
 
       val (smallSystem, smallAssertions) = system mergeLocalTransitions assertions
       printClauses(smallSystem, smallAssertions)

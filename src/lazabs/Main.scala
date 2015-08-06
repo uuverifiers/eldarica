@@ -61,7 +61,7 @@ object GlobalParameters {
 class GlobalParameters {
   var in: InputStream = null
   var fileName = ""
-  var funcName = "sc_main"
+  var funcName = "main"
   var solFileName = ""
   var timeout:Option[Int] = None
   var spuriousness = true
@@ -228,7 +228,7 @@ object Main {
       case tTimeout :: rest if (tTimeout.startsWith("-t:")) =>
         val time = (java.lang.Float.parseFloat(tTimeout.drop(3)) * 1000).toInt
         timeout = Some(time); arguments(rest)
-      case mFuncName :: rest if (mFuncName.startsWith("-m:")) => funcName = "sc_" + mFuncName.drop(3); arguments(rest)
+      case mFuncName :: rest if (mFuncName.startsWith("-m:")) => funcName = mFuncName drop 3; arguments(rest)
       case sSolFileName :: rest if (sSolFileName.startsWith("-s:")) => solFileName = sSolFileName.drop(3); arguments(rest)
       case "-log" :: rest => log = true; arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
@@ -245,6 +245,7 @@ object Main {
           " -t:time\tSet timeout (in seconds)\n" +
           " -cex\t\tShow textual counterexamples\n" + 
           " -dotCEX\tShow counterexample using dot\n" + 
+          " -m:func\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +
           " -horn\t\tEnable this engine\n" + 
@@ -276,7 +277,6 @@ object Main {
           " -c\t\tDraw control flow graph\n" +
           " -r\t\tDraw reachability\n" +
           " -f\t\tWrite abstraction information in file\n" +
-          " -m:func\tConsider the function func instead of main\n" +
           " -p\t\tPretty Print\n" +
           " -ints\t\tInput a file in NTS format\n" +
           " -pnts\t\tPrint the CFG in NTS format\n" +
@@ -421,9 +421,14 @@ object Main {
 
     } else if (concurrentC) {
 
-      val (system, assertions) =
-        (new lazabs.horn.concurrency.CCReader)(new java.io.BufferedReader (
-                         new java.io.FileReader(new java.io.File (fileName))))
+      val reader = 
+        new lazabs.horn.concurrency.CCReader(
+                      new java.io.BufferedReader (
+                        new java.io.FileReader(new java.io.File (fileName))),
+                      funcName)
+
+      val system = reader.system
+      val assertions = reader.assertions
 
       val (smallSystem, smallAssertions) =
         system mergeLocalTransitions assertions
@@ -482,7 +487,7 @@ object Main {
         checkInputFile
         val ast = getASTree
         if(prettyPrint) {println(ScalaPrinter(ast)); return}
-        (MakeCFG(ast,funcName,arrayRemoval,staticAccelerate),None)
+        (MakeCFG(ast,"sc_" + funcName,arrayRemoval,staticAccelerate),None)
     }
 
     if(drawCFG) {DrawGraph(cfg.transitions.toList,cfg.predicates,absInFile,m); return}
