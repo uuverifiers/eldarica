@@ -49,14 +49,14 @@ separator nonempty Init_declarator ",";
 
 
 Tvoid.        Type_specifier ::= "void";
--- Tchar.        Type_specifier ::= "char";
--- Tshort.       Type_specifier ::= "short";
+Tchar.        Type_specifier ::= "char";
+Tshort.       Type_specifier ::= "short";
 Tint.         Type_specifier ::= "int";
--- Tlong.        Type_specifier ::= "long";
+Tlong.        Type_specifier ::= "long";
 -- Tfloat.       Type_specifier ::= "float";
 -- Tdouble.      Type_specifier ::= "double";
--- Tsigned.      Type_specifier ::= "signed";
--- Tunsigned.    Type_specifier ::= "unsigned";
+Tsigned.      Type_specifier ::= "signed";
+Tunsigned.    Type_specifier ::= "unsigned";
 -- Tstruct.      Type_specifier ::= Struct_or_union_spec;
 -- Tenum.        Type_specifier ::= Enum_specifier;
 -- Tname.        Type_specifier ::= "Typedef_name";
@@ -85,7 +85,7 @@ separator nonempty Type_qualifier "";
 
 -- separator nonempty Struct_dec "";
 
-TypeSpec.  Spec_qual ::= Type_specifier ;
+TypeSpec.  Spec_qual ::= Type_specifier;
 QualSpec.  Spec_qual ::= Type_qualifier;
 
 separator nonempty Spec_qual "";
