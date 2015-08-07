@@ -1,0 +1,18 @@
+
+int main() {
+
+  int x;
+  int y = x;
+
+  while (1) {
+    x++;
+    y += 2;
+    if (x >= 0)
+      goto END;
+    assert(!(x > 0));
+  }
+
+  END: assert(y > 0);
+
+}
+

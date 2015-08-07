@@ -191,6 +191,9 @@ jumps2.hcc
 Warning: entry function "main" not found
 SAFE
 
+jumps3.hcc
+SAFE
+
 functions.hcc
 Warning: no definition of function "nondet" available
 Warning: entry function "main" not found

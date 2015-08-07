@@ -289,7 +289,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             case thread : SingleThread => {
               setPrefix(thread.cident_)
               val translator = FunctionTranslator.apply
-              translator translate thread.compound_stm_
+              translator translateNoReturn thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Singleton))
               clauses.clear
             }
@@ -298,7 +298,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
               pushLocalFrame
               localVars += new ConstantTerm(thread.cident_1)
               val translator = FunctionTranslator.apply
-              translator translate thread.compound_stm_
+              translator translateNoReturn thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
               clauses.clear
               popLocalFrame
@@ -879,8 +879,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 
   private class FunctionTranslator private (returnPred : Option[Predicate]) {
 
-    def symexFor(initPred : Predicate,
-                 stm : Expression_stm) : (Symex, Option[CCExpr]) = {
+    private def symexFor(initPred : Predicate,
+                         stm : Expression_stm) : (Symex, Option[CCExpr]) = {
       val exprSymex = Symex(initPred)
       val res = stm match {
         case _ : SexprOne => None
@@ -889,10 +889,11 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       (exprSymex, res)
     }
 
-    def translate(compound : Compound_stm) : Unit = {
+    def translateNoReturn(compound : Compound_stm) : Unit = {
       val entry = newPred
       output(Clause(atom(entry, allVarInits), List(), true))
       translate(compound, entry, newPred)
+      connectJumps
     }
 
     def translateWithReturn(stm : Compound_stm,
@@ -905,12 +906,41 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                              List(IConstant(new ConstantTerm("__result")))),
                     List(atom(finalPred, allFormalVars)),
                     true))
+      connectJumps
     }
 
-    def translate(stm : Stm,
-                  entry : Predicate,
-                  exit : Predicate) : Unit = stm match {
-//      case stm : LabelS.   Stm ::= Labeled_stm ;
+    private def connectJumps : Unit =
+      for ((label, jumpPred, jumpVars) <- jumpLocs)
+        (labelledLocs get label) match {
+          case Some((targetPred, targetVars)) => {
+            val commonVars =
+              (jumpVars zip targetVars).takeWhile({
+                case (x, y) => x == y
+              }).map(_._1)
+            val jumpArgs = commonVars ++ (
+              for (i <- 0 until (jumpPred.arity - commonVars.size))
+              yield IConstant(new ConstantTerm("preArg_" + i)))
+            val targetArgs = commonVars ++ (
+              for (i <- 0 until (targetPred.arity - commonVars.size))
+              yield IConstant(new ConstantTerm("postArg_" + i)))
+            output(Clause(atom(targetPred, targetArgs),
+                          List(atom(jumpPred, jumpArgs)),
+                          true))
+          }
+          case None =>
+            throw new TranslationException("cannot goto label " + label)
+        }
+
+    private val jumpLocs =
+      new ArrayBuffer[(String, Predicate, Seq[ITerm])]
+    private val labelledLocs =
+      new MHashMap[String, (Predicate, Seq[ITerm])]
+
+    private def translate(stm : Stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = stm match {
+      case stm : LabelS =>
+        translate(stm.labeled_stm_, entry, exit)
       case stm : CompS =>
         translate(stm.compound_stm_, entry, exit)
       case stm : ExprS =>
@@ -923,7 +953,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         translate(stm.jump_stm_, entry, exit)
     }
 
-    def translate(dec : Dec, entry : Predicate) : Predicate = {
+    private def translate(dec : Dec, entry : Predicate) : Predicate = {
       val decSymex = Symex(entry)
       collectVarDecls(dec, false, decSymex)
       val exit = newPred
@@ -931,9 +961,22 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       exit
     }
 
-    def translate(compound : Compound_stm,
-                  entry : Predicate,
-                  exit : Predicate) : Unit = compound match {
+    private def translate(stm : Labeled_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = stm match {
+      case stm : SlabelOne => { // Labeled_stm ::= CIdent ":" Stm ;
+        if (labelledLocs contains stm.cident_)
+          throw new TranslationException("multiple labels " + stm.cident_)
+        labelledLocs.put(stm.cident_, (entry, allFormalVars))
+        translate(stm.stm_, entry, exit)
+      }
+      //-- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
+      //SlabelThree. Labeled_stm ::= "default" ":" Stm;
+    }
+
+    private def translate(compound : Compound_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = compound match {
       case compound : ScompOne => {
         val vars = allFormalVars
         output(Clause(atom(exit, vars), List(atom(entry, vars)), true))
@@ -1000,7 +1043,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     var innermostLoopCont : Predicate = null
     var innermostLoopExit : Predicate = null
 
-    def withinLoop[A](loopCont : Predicate, loopExit : Predicate)
+    private def withinLoop[A](
+                     loopCont : Predicate, loopExit : Predicate)
                      (comp : => A) : A = {
       val oldCont = innermostLoopCont
       val oldExit = innermostLoopExit
@@ -1014,9 +1058,9 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       }
     }
 
-    def translate(stm : Iter_stm,
-                  entry : Predicate,
-                  exit : Predicate) : Unit = stm match {
+    private def translate(stm : Iter_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = stm match {
       case stm : SiterOne => {
         // while loop
 
@@ -1081,9 +1125,9 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       }
     }
 
-    def translate(stm : Selection_stm,
-                  entry : Predicate,
-                  exit : Predicate) : Unit = stm match {
+    private def translate(stm : Selection_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = stm match {
       case _ : SselOne | _ : SselTwo => {
         val first, second = newPred
         val vars = allFormalVars
@@ -1107,10 +1151,11 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //      case stm : SselThree.  Selection_stm ::= "switch" "(" Exp ")" Stm ;
     }
 
-    def translate(jump : Jump_stm,
-                  entry : Predicate,
-                  exit : Predicate) : Unit = jump match {
-//      case jump : SjumpOne.   Jump_stm ::= "goto" Ident ";" ;
+    private def translate(jump : Jump_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = jump match {
+      case jump : SjumpOne => // goto
+        jumpLocs += ((jump.cident_, entry, allFormalVars))
       case jump : SjumpTwo => { // continue
         if (innermostLoopCont == null)
           throw new TranslationException(
