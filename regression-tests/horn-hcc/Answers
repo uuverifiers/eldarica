@@ -224,3 +224,7 @@ SAFE
 loop2.hcc
 Warning: entry function "main" not found
 SAFE
+
+locking.hcc
+Warning: entry function "main" not found
+SAFE

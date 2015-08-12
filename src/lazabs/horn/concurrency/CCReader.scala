@@ -210,16 +210,6 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 
   private var atomicMode = false
 
-  private def atomically[A](comp : => A) : A = {
-    val currentClauseNum = clauses.size
-    val oldAtomicMode = atomicMode
-    atomicMode = true
-    val res = comp
-    mergeClauses(currentClauseNum)
-    atomicMode = oldAtomicMode
-    res
-  }
-
   private var prefix : String = ""
   private var locationCounter = 0
 
@@ -546,6 +536,32 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       res
     }
 
+    def atomicEval(exp : Exp) : CCExpr = atomicEval(List(exp))
+
+    def atomicEval(exps : Seq[Exp]) : CCExpr = {
+      val currentClauseNum = clauses.size
+      val oldAtomicMode = atomicMode
+      atomicMode = true
+
+      val initSize = values.size
+      pushVal(CCFormula(true))
+      for (exp <- exps) {
+        popVal
+        evalHelp(exp)
+      }
+
+      if (currentClauseNum != clauses.size) {
+        outputClause
+        mergeClauses(currentClauseNum)
+      }
+
+      atomicMode = oldAtomicMode
+
+      val res = popVal
+      assert(initSize == values.size)
+      res
+    }
+
     private def evalHelp(exp : Exp) : Unit = exp match {
       case exp : Ecomma => {
         evalHelp(exp.exp_1)
@@ -711,18 +727,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       }
 
       case exp : Efunkpar => (printer print exp.exp_) match {
-        case "assert" | "static_assert" if !exp.listexp_.isEmpty => {
+        case "assert" | "static_assert" if (exp.listexp_.size == 1) => {
           import HornClauses._
-          val property = atomically(eval(exp.listexp_.head)).toFormula
+          val property = atomicEval(exp.listexp_.head).toFormula
           assertionClauses += (property :- (initAtom, guard))
           pushVal(CCFormula(true))
         }
-        case "assume" if !exp.listexp_.isEmpty => {
-          addGuard(atomically(eval(exp.listexp_.head)).toFormula)
+        case "assume" if (exp.listexp_.size == 1) => {
+          addGuard(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true))
         }
         case "atomic" if !exp.listexp_.isEmpty =>
-          atomically(evalHelp(exp.listexp_.head))
+          pushVal(atomicEval(exp.listexp_))
         case name => {
           // then we inline the called function
 
