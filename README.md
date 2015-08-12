@@ -12,6 +12,10 @@ CEGAR, enabling it to solve a wide range of verification problems.
 Eldarica has been developed by Hossein Hojjat and Philipp Ruemmer,
 with further contributions by Filip Konecny and Pavle Subotic.
 
+There is a simple web interface to experiment with the C interface
+of Eldarica (side branch "concurrency"):
+http://logicrunch.it.uu.se:4096/~wv/eldarica
+
 Documentation
 -------------
 
