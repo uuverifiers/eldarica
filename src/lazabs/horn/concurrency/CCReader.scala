@@ -248,6 +248,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     // generous than actual C semantics, where declarations
     // have to be in the right order
 
+    atomicMode = true
     val globalVarSymex = Symex(null)
 
     for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
@@ -282,6 +283,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     globalVarsInit ++= globalVarSymex.getValues
 
     // then translate the threads
+    atomicMode = false
+
     for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
       decl match {
         case decl : Athread =>
@@ -479,6 +482,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     private def outputClause : Unit = outputClause(newPred)
 
     def outputClause(pred : Predicate) : Unit = {
+      if (initAtom == null)
+        throw new TranslationException("too complicated initialiser")
       output(Clause(asAtom(pred), List(initAtom), guard))
       resetFields(pred)
     }

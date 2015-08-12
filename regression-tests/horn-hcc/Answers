@@ -206,6 +206,9 @@ extended-decl.hcc
 Warning: entry function "main" not found
 SAFE
 
+inits.hcc
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

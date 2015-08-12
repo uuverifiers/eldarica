@@ -433,12 +433,15 @@ object Main {
       val system = reader.system
       val assertions = reader.assertions
 
+      if (prettyPrint)
+        lazabs.horn.concurrency.ReaderMain.printClauses(
+          system, assertions)
+
       val (smallSystem, smallAssertions) =
         system mergeLocalTransitions assertions
 
+
       if (prettyPrint) {
-        lazabs.horn.concurrency.ReaderMain.printClauses(
-          system, assertions)
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(
