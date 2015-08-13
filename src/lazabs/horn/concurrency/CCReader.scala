@@ -1227,8 +1227,13 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     val prog = parseWithEntry(input, entry _)
 //    println(printer print prog)
     translateProgram(prog)
+
+    val singleThreaded =
+      processes.size == 1 &&
+      processes.head._2 == ParametricEncoder.Singleton
+
     (ParametricEncoder.System(processes.toList,
-                              globalVars.size,
+                              if (singleThreaded) 0 else globalVars.size,
                               None,
                               ParametricEncoder.NoTime,
                               List()),
