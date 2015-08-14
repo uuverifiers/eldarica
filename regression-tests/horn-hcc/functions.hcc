@@ -29,7 +29,7 @@ thread C {
   int x, y;
 
   x = nondet();
-  y = inc(y);
+  y = inc(x);
 
   assert(y > x);
 

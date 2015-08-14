@@ -105,15 +105,15 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     }
 
   private def lookupVar(name : String) : Int =
-    (globalVars indexWhere (_.name == name)) match {
+    (localVars lastIndexWhere (_.name == name)) match {
       case -1 =>
-        (localVars indexWhere (_.name == name)) match {
+        (globalVars lastIndexWhere (_.name == name)) match {
           case -1 =>
             throw new TranslationException(
                         "Symbol " + name + " is not declared")
-          case i => i + globalVars.size
+          case i => i
         }
-      case i  => i
+      case i  => i + globalVars.size
     }
 
   private val localVars = new ArrayBuffer[ConstantTerm]

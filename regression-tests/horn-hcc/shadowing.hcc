@@ -1,0 +1,10 @@
+
+void f(int x) {
+  ++x;
+}
+
+void main(void) {
+  int x = 0;
+  f(x);
+  assert(x == 0);
+}

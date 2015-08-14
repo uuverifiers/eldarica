@@ -209,6 +209,9 @@ SAFE
 inits.hcc
 SAFE
 
+shadowing.hcc
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE
