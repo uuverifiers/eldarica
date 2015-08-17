@@ -582,11 +582,16 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         val rhs = popVal.toTerm
         val lhs = popVal.toTerm
         val newVal = CCIntTerm(exp.assignment_op_ match {
-          case _ : AssignMul => lhs * rhs
-//          case _ : AssignDiv.    Assignment_op ::= "/=" ;
-//          case _ : AssignMod.    Assignment_op ::= "%=" ;
-          case _ : AssignAdd => lhs + rhs
-          case _ : AssignSub => lhs - rhs
+          case _ : AssignMul =>
+            lhs * rhs
+          case _ : AssignDiv =>
+            ap.theories.BitShiftMultiplication.tDiv(lhs, rhs)
+          case _ : AssignMod =>
+            ap.theories.BitShiftMultiplication.tMod(lhs, rhs)
+          case _ : AssignAdd =>
+            lhs + rhs
+          case _ : AssignSub =>
+            lhs - rhs
 //          case _ : AssignLeft.   Assignment_op ::= "<<=" ;
 //          case _ : AssignRight.  Assignment_op ::= ">>=" ;
 //          case _ : AssignAnd.    Assignment_op ::= "&=" ;
