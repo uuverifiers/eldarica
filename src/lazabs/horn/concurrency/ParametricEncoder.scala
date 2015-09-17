@@ -107,6 +107,9 @@ object ParametricEncoder {
         preds ++= c.predicates
       preds.toSeq
     }
+
+    val allLocalPreds =
+      (for (preds <- localPreds.iterator; p <- preds.iterator) yield p).toSet
   
     val localPredsSet = for (preds <- localPreds) yield preds.toSet
   
@@ -350,12 +353,19 @@ object ParametricEncoder {
           (clauseBuffer.toList, repl)
         }).toList
 
-      (System(newProcesses,
-              globalVarNum,
-              backgroundAxioms,
-              timeSpec,
-              timeInvariants),
-       assertions)
+      val newSystem = System(newProcesses,
+                             globalVarNum,
+                             backgroundAxioms,
+                             timeSpec,
+                             timeInvariants)
+
+      val allPreds = newSystem.allLocalPreds + HornClauses.FALSE
+
+      val newAssertions =
+        assertions filter {
+          clause => clause.predicates subsetOf allPreds }
+
+      (newSystem, newAssertions)
     }
 
   }

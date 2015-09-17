@@ -212,6 +212,9 @@ SAFE
 shadowing.hcc
 SAFE
 
+disconnected-assertions.hcc
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE
