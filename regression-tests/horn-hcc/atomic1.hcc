@@ -1,0 +1,22 @@
+
+int x = 0;
+int finished = 0;
+
+thread A {
+  atomic {
+    int t = x;
+    x = t + 1;
+  }
+
+  finished = 1;
+}
+
+thread B {
+  atomic {
+    int t = x;
+    x = t + 1;
+  }
+
+  if (finished)
+    assert(x == 2);
+}

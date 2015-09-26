@@ -215,6 +215,13 @@ SAFE
 disconnected-assertions.hcc
 SAFE
 
+atomic1.hcc
+Warning: entry function "main" not found
+SAFE
+
+atomic2.hcc
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

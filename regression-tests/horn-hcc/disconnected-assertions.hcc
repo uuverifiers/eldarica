@@ -1,0 +1,18 @@
+
+int N;
+
+
+void main(void) {
+  int i = 0, x = 1, y = x;
+
+  while (i < N) {
+    x = x * 2;
+    y = x;
+    ++i;
+  }
+
+  B: goto B;
+
+  assert(0);
+}
+

@@ -172,6 +172,7 @@ SelS.     Stm ::= Selection_stm ;
 IterS.    Stm ::= Iter_stm ;
 JumpS.    Stm ::= Jump_stm ;
 DecS.     Stm ::= Dec ; -- beyond ANSI-C
+AtomicS.  Stm ::= Atomic_stm ;
 
 SlabelOne.   Labeled_stm ::= CIdent ":" Stm ;
 -- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
@@ -199,6 +200,8 @@ SjumpTwo.   Jump_stm ::= "continue" ";" ;
 SjumpThree. Jump_stm ::= "break" ";" ;
 SjumpFour.  Jump_stm ::= "return" ";" ;
 SjumpFive.  Jump_stm ::= "return" Exp ";" ;
+
+SatomicOne. Atomic_stm ::= "atomic" Stm;
 
 
 separator nonempty Stm "";

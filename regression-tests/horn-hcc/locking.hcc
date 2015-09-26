@@ -10,7 +10,7 @@ thread A {
   int i, t;
 
   for (i = 0; i < N; ++i) {
-    atomic(assume(!lock), lock=1);
+    atomic { assume(!lock);  lock=1; }
     t = x;
     x = t + 1;
     lock = 0;
@@ -23,7 +23,7 @@ thread B {
   int i, t;
 
   for (i = 0; i < N; ++i) {
-    atomic(assume(!lock), lock=2);
+    atomic { assume(!lock); lock=2; }
     t = x;
     x = t + 1;
     lock = 0;

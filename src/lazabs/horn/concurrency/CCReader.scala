@@ -38,7 +38,7 @@ import concurrentC.Absyn._
 import lazabs.horn.bottomup.HornClauses
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
-                                 Stack}
+                                 Stack, LinkedHashSet}
 
 object CCReader {
   class ParseException(msg : String) extends Exception(msg)
@@ -209,6 +209,14 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
   }
 
   private var atomicMode = false
+
+  private def inAtomicMode[A](comp : => A) : A = {
+      val oldAtomicMode = atomicMode
+      atomicMode = true
+      val res = comp
+      atomicMode = oldAtomicMode
+      res
+  }
 
   private var prefix : String = ""
   private var locationCounter = 0
@@ -540,22 +548,20 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 
     def atomicEval(exps : Seq[Exp]) : CCExpr = {
       val currentClauseNum = clauses.size
-      val oldAtomicMode = atomicMode
-      atomicMode = true
-
       val initSize = values.size
-      pushVal(CCFormula(true))
-      for (exp <- exps) {
-        popVal
-        evalHelp(exp)
+
+      inAtomicMode {
+        pushVal(CCFormula(true))
+        for (exp <- exps) {
+          popVal
+          evalHelp(exp)
+        }
       }
 
       if (currentClauseNum != clauses.size) {
         outputClause
         mergeClauses(currentClauseNum)
       }
-
-      atomicMode = oldAtomicMode
 
       val res = popVal
       assert(initSize == values.size)
@@ -742,8 +748,6 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           addGuard(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true))
         }
-        case "atomic" if !exp.listexp_.isEmpty =>
-          pushVal(atomicEval(exp.listexp_))
         case name => {
           // then we inline the called function
 
@@ -919,7 +923,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       val entry = newPred
       output(Clause(atom(entry, allVarInits), List(), true))
       translate(compound, entry, newPred)
-      connectJumps
+      postProcessClauses
     }
 
     def translateWithReturn(stm : Compound_stm,
@@ -932,11 +936,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                              List(IConstant(new ConstantTerm("__result")))),
                     List(atom(finalPred, allFormalVars)),
                     true))
-      connectJumps
+      postProcessClauses
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    private def postProcessClauses : Unit = {
+      connectJumps
+      mergeAtomicBlocks
+    }    
+
     private def connectJumps : Unit =
-      for ((label, jumpPred, jumpVars) <- jumpLocs)
+      for ((label, jumpPred, jumpVars, position) <- jumpLocs)
         (labelledLocs get label) match {
           case Some((targetPred, targetVars)) => {
             val commonVars =
@@ -949,18 +960,60 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             val targetArgs = commonVars ++ (
               for (i <- 0 until (targetPred.arity - commonVars.size))
               yield IConstant(new ConstantTerm("postArg_" + i)))
-            output(Clause(atom(targetPred, targetArgs),
-                          List(atom(jumpPred, jumpArgs)),
-                          true))
+            clauses(position) = (Clause(atom(targetPred, targetArgs),
+                                        List(atom(jumpPred, jumpArgs)),
+                                        true),
+                                 ParametricEncoder.NoSync)
+            usedJumpTargets.put(targetPred, label)
           }
           case None =>
             throw new TranslationException("cannot goto label " + label)
         }
 
+    private def mergeAtomicBlocks : Unit = if (!atomicBlocks.isEmpty) {
+      val sortedBlocks =
+        atomicBlocks sortWith { case ((s1, e1), (s2, e2)) =>
+                                  s1 < s2 || (s1 == s2 && e1 > e2) }
+
+      val offset = sortedBlocks.head._1
+      var concernedClauses = clauses.slice(offset, clauses.size).toList
+      clauses reduceToSize offset
+
+      var curPos = offset
+      for ((bstart, bend) <- sortedBlocks)
+        if (bstart >= curPos) {
+          while (curPos < bend) {
+            clauses += concernedClauses.head
+            concernedClauses = concernedClauses.tail
+            curPos = curPos + 1
+          }
+          mergeClauses(clauses.size - (bend - bstart))
+        }
+
+      clauses ++= concernedClauses
+
+      val bodyPreds =
+        (for ((c, _) <- clauses.iterator; p <- c.bodyPredicates.iterator)
+         yield p).toSet
+
+      for ((Clause(IAtom(pred, _), _, _), _) <- clauses.iterator)
+        if (!(bodyPreds contains pred) && (usedJumpTargets contains pred))
+          throw new TranslationException("cannot goto label " +
+                                         usedJumpTargets(pred) +
+                                         ", which was eliminated due to " +
+                                         "atomic blocks")
+    }
+
     private val jumpLocs =
-      new ArrayBuffer[(String, Predicate, Seq[ITerm])]
+      new ArrayBuffer[(String, Predicate, Seq[ITerm], Int)]
     private val labelledLocs =
       new MHashMap[String, (Predicate, Seq[ITerm])]
+    private val usedJumpTargets =
+      new MHashMap[Predicate, String]
+    private val atomicBlocks =
+      new ArrayBuffer[(Int, Int)]
+
+    ////////////////////////////////////////////////////////////////////////////
 
     private def translate(stm : Stm,
                           entry : Predicate,
@@ -977,6 +1030,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         translate(stm.iter_stm_, entry, exit)
       case stm : JumpS =>
         translate(stm.jump_stm_, entry, exit)
+      case stm : AtomicS =>
+        translate(stm.atomic_stm_, entry, exit)
     }
 
     private def translate(dec : Dec, entry : Predicate) : Predicate = {
@@ -1180,8 +1235,11 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     private def translate(jump : Jump_stm,
                           entry : Predicate,
                           exit : Predicate) : Unit = jump match {
-      case jump : SjumpOne => // goto
-        jumpLocs += ((jump.cident_, entry, allFormalVars))
+      case jump : SjumpOne => { // goto
+        jumpLocs += ((jump.cident_, entry, allFormalVars, clauses.size))
+        // reserve space for the later jump clause
+        output(null)
+      }
       case jump : SjumpTwo => { // continue
         if (innermostLoopCont == null)
           throw new TranslationException(
@@ -1220,6 +1278,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             throw new TranslationException(
               "\"return\" can only be used within functions")
         }
+      }
+    }
+
+    private def translate(aStm : Atomic_stm,
+                          entry : Predicate,
+                          exit : Predicate) : Unit = aStm match {
+      case stm : SatomicOne => {
+        val currentClauseNum = clauses.size
+        inAtomicMode {
+          translate(stm.stm_, entry, exit)
+        }
+        atomicBlocks += ((currentClauseNum, clauses.size))
       }
     }
   }
