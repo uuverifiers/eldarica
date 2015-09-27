@@ -176,14 +176,22 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     clauses reduceToSize from
 
     def chainClauses(currentClause : Clause,
-                     currentSync : ParametricEncoder.Synchronisation) : Unit =
-      (lastClauses get currentClause.head.pred) match {
+                     currentSync : ParametricEncoder.Synchronisation,
+                     seenPreds : Set[Predicate]) : Unit = {
+      val headPred = currentClause.head.pred
+      if (seenPreds contains headPred)
+        throw new TranslationException(
+          "cycles in atomic blocks are not supported yet")
+
+      (lastClauses get headPred) match {
         case Some(cls) => {
           for ((c, sync) <- cls)
             if (currentSync == ParametricEncoder.NoSync)
-              chainClauses(c mergeWith currentClause, sync)
+              chainClauses(c mergeWith currentClause, sync,
+                           seenPreds + headPred)
             else if (sync == ParametricEncoder.NoSync)
-              chainClauses(c mergeWith currentClause, currentSync)
+              chainClauses(c mergeWith currentClause, currentSync,
+                           seenPreds + headPred)
             else
               throw new TranslationException(
                 "Cannot execute " + currentSync + " and " + sync +
@@ -192,7 +200,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           // add further assertion clauses, since some intermediate
           // states disappear
           for (c <- assertionClauses.toList)
-            if (c.bodyPredicates contains currentClause.head.pred) {
+            if (c.bodyPredicates contains headPred) {
               if (currentSync != ParametricEncoder.NoSync)
                 throw new TranslationException(
                   "Cannot execute " + currentSync + " and an assertion" +
@@ -203,9 +211,10 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         case None =>
           clauses += ((currentClause, currentSync))
       }
+    }
 
     for ((c, sync) <- entryClauses)
-      chainClauses(c, sync)
+      chainClauses(c, sync, c.bodyPredicates)
   }
 
   private var atomicMode = false

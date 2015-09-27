@@ -1,0 +1,11 @@
+
+
+void main() {
+  int x = 0;
+  atomic {
+    x++;
+    while (1) {
+      x++;
+    }
+  }
+}
