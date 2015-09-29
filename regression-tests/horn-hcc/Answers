@@ -246,17 +246,17 @@ lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks a
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
 	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:279)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1185)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1178)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1187)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1180)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1178)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1141)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1121)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1180)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1143)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1123)
 	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:410)
-	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1516)
+	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1518)
 	at lazabs.horn.concurrency.CCReader$.apply(CCReader.scala:56)
 	at lazabs.Main$.doMain(Main.scala:428)
 	at lazabs.Main$.main(Main.scala:142)
@@ -297,17 +297,17 @@ lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks a
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
 	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:279)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1185)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1178)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1187)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1180)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1178)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1141)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1121)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1180)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1143)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1123)
 	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:410)
-	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1516)
+	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1518)
 	at lazabs.horn.concurrency.CCReader$.apply(CCReader.scala:56)
 	at lazabs.Main$.doMain(Main.scala:428)
 	at lazabs.Main$.main(Main.scala:142)
@@ -333,6 +333,11 @@ lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks a
 
 clocks1.hcc
 Warning: enabling time
+SAFE
+
+clocks2.hcc
+Warning: enabling time
+Warning: entry function "main" not found
 SAFE
 
 test6.hcc

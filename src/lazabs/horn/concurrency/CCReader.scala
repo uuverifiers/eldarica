@@ -1012,6 +1012,8 @@ class CCReader private (prog : Program,
                     case (CCInt, CCClock) =>
                       CCFormula(op(GTU * lhs.toTerm,
                                    GT - rhs.toTerm), CCInt)
+                    case (CCClock, CCClock) =>
+                      CCFormula(op(-lhs.toTerm, -rhs.toTerm), CCInt)
                     case _ =>
                       CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
                   })
