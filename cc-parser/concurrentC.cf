@@ -60,6 +60,7 @@ Tunsigned.    Type_specifier ::= "unsigned";
 -- Tstruct.      Type_specifier ::= Struct_or_union_spec;
 -- Tenum.        Type_specifier ::= Enum_specifier;
 -- Tname.        Type_specifier ::= "Typedef_name";
+Tclock.       Type_specifier ::= "clock";
 
 
 -- MyType.         Storage_class_specifier ::= "typedef";
@@ -115,7 +116,7 @@ ParenDecl.   Direct_declarator ::= "(" Declarator ")" ;
 -- InitArray.   Direct_declarator ::= Direct_declarator "[" Constant_expression "]" ;
 -- Incomplete.  Direct_declarator ::= Direct_declarator "[" "]" ;
 NewFuncDec.  Direct_declarator ::= Direct_declarator "(" Parameter_type ")" ;
-OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [CIdent] ")" ;
+-- OldFuncDef.  Direct_declarator ::= Direct_declarator "(" [CIdent] ")" ;
 OldFuncDec.  Direct_declarator ::= Direct_declarator "(" ")" ;
 
 Point.          Pointer ::= "*" ;

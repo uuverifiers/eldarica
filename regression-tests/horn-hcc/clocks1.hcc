@@ -1,0 +1,15 @@
+
+int finished = 0;
+
+void main() {
+  clock x = 0;
+  assert(x >= 0);
+  assume(x >= 3);
+  finished = 1;
+}
+
+thread A {
+  clock y = 0;
+  assume(finished);
+  assert(y > 2);
+}

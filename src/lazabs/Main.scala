@@ -424,14 +424,11 @@ object Main {
 
     } else if (concurrentC) {
 
-      val reader = 
-        new lazabs.horn.concurrency.CCReader(
-                      new java.io.BufferedReader (
-                        new java.io.FileReader(new java.io.File (fileName))),
-                      funcName)
-
-      val system = reader.system
-      val assertions = reader.assertions
+      val (system, assertions) = 
+        lazabs.horn.concurrency.CCReader(
+                    new java.io.BufferedReader (
+                      new java.io.FileReader(new java.io.File (fileName))),
+                    funcName)
 
       if (prettyPrint)
         lazabs.horn.concurrency.ReaderMain.printClauses(

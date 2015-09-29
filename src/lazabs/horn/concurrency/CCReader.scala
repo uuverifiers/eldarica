@@ -41,35 +41,28 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
                                  Stack, LinkedHashSet}
 
 object CCReader {
-  class ParseException(msg : String) extends Exception(msg)
-  class TranslationException(msg : String) extends Exception(msg)
 
-  def warn(msg : String) : Unit =
-    Console.err.println("Warning: " + msg)
+  def apply(input : java.io.Reader, entryFunction : String)
+           : (ParametricEncoder.System,
+              Seq[HornClauses.Clause]) = {
+    def entry(parser : concurrentC.parser) = parser.pProgram
+    val prog = parseWithEntry(input, entry _)
+//    println(printer print prog)
 
-  import IExpression._
+    var useTime = false
+    var reader : CCReader = null
+    while (reader == null)
+      try {
+        reader = new CCReader(prog, entryFunction, useTime)
+      } catch {
+        case NeedsTimeException => {
+          warn("enabling time")
+          useTime = true
+        }
+      }
 
-  private abstract sealed class CCExpr {
-    def toTerm : ITerm
-    def toFormula : IFormula
+    (reader.system, reader.assertions)
   }
-  private case class CCIntTerm(t : ITerm) extends CCExpr {
-    def toTerm : ITerm = t
-    def toFormula : IFormula = !eqZero(t)
-  }
-  private case class CCFormula(f : IFormula) extends CCExpr {
-    def toTerm : ITerm = f match {
-      case IBoolLit(true) =>  1
-      case IBoolLit(false) => 0
-      case f =>               ite(f, 1, 0)
-    }
-    def toFormula : IFormula = f
-  }
-}
-
-class CCReader(input : java.io.Reader, entryFunction : String) {
-
-  import CCReader._
 
   /**
    * Parse starting at an arbitrarily specified entry point
@@ -87,6 +80,61 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
              "     " + e.getMessage())
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class ParseException(msg : String) extends Exception(msg)
+  class TranslationException(msg : String) extends Exception(msg)
+  object NeedsTimeException extends Exception
+
+  def warn(msg : String) : Unit =
+    Console.err.println("Warning: " + msg)
+
+  import IExpression._
+
+  private abstract sealed class CCType
+  private case object CCVoid extends CCType {
+    override def toString : String = "void"
+  }
+  private case object CCInt extends CCType {
+    override def toString : String = "int"
+  }
+  private case object CCClock extends CCType {
+    override def toString : String = "clock"
+  }
+
+  private abstract sealed class CCExpr(val typ : CCType) {
+    def toTerm : ITerm
+    def toFormula : IFormula
+    def castTo(x : CCType) : CCExpr
+    def mapTerm(m : ITerm => ITerm) : CCExpr =
+      CCTerm(m(this.toTerm), this.typ)
+  }
+  private case class CCTerm(t : ITerm, _typ : CCType)
+               extends CCExpr(_typ) {
+    def toTerm : ITerm = t
+    def toFormula : IFormula = !eqZero(t)
+    def castTo(x : CCType) : CCExpr = CCTerm(t, x)
+  }
+  private case class CCFormula(f : IFormula, _typ : CCType)
+                     extends CCExpr(_typ) {
+    def toTerm : ITerm = f match {
+      case IBoolLit(true) =>  1
+      case IBoolLit(false) => 0
+      case f =>               ite(f, 1, 0)
+    }
+    def toFormula : IFormula = f
+    def castTo(x : CCType) : CCExpr = CCFormula(f, x)
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class CCReader private (prog : Program,
+                        entryFunction : String,
+                        useTime : Boolean) {
+
+  import CCReader._
 
   private val printer = new PrettyPrinterNonStatic
 
@@ -117,15 +165,29 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     }
 
   private val localVars = new ArrayBuffer[ConstantTerm]
+  private val localVarTypes = new ArrayBuffer[CCType]
   private val localFrameStack = new Stack[Int]
+
+  private def addLocalVar(c : ConstantTerm, t : CCType) = {
+    localVars += c
+    localVarTypes += t
+  }
 
   private def pushLocalFrame =
     localFrameStack push localVars.size
-  private def popLocalFrame =
-    localVars reduceToSize localFrameStack.pop
+  private def popLocalFrame = {
+    val newSize = localFrameStack.pop
+    localVars reduceToSize newSize
+    localVarTypes reduceToSize newSize
+  }
 
   private def allFormalVars : Seq[ITerm] =
     globalVars.toList ++ localVars.toList
+  private def allFormalExprs : Seq[CCExpr] =
+    ((for ((v, e) <- globalVars.iterator zip globalVarsInit.iterator)
+      yield CCTerm(v, e.typ)) ++
+     (for ((v, t) <- localVars.iterator zip localVarTypes.iterator)
+      yield CCTerm(v, t))).toList
   private def allVarInits : Seq[ITerm] =
     (globalVarsInit.toList map (_.toTerm)) ++ (localVars.toList map (i(_)))
 
@@ -136,8 +198,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                     })
 
   private def freeFromGlobal(t : CCExpr) : Boolean = t match {
-    case CCIntTerm(s) => freeFromGlobal(s)
-    case CCFormula(f) => freeFromGlobal(f)
+    case CCTerm(s, _) =>    freeFromGlobal(s)
+    case CCFormula(f, _) => freeFromGlobal(f)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -145,7 +207,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
 
   private val functionDefs  = new MHashMap[String, Function_def]
-  private val functionDecls = new MHashMap[String, Direct_declarator]
+  private val functionDecls = new MHashMap[String, (Direct_declarator, CCType)]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -154,7 +216,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 
   private val assertionClauses = new ArrayBuffer[Clause]
 
-  private val clauses = new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
+  private val clauses =
+    new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
 
   private def output(c : Clause) : Unit = {
 //println(c)
@@ -250,7 +313,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     * a Java list */
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
-  private def translateProgram(prog : Program) : Unit = {
+  // Reserve two variables for time
+  val GT = new ConstantTerm("_GT")
+  val GTU = new ConstantTerm("_GTU")
+
+  if (useTime) {
+    globalVars += GT
+    globalVarsInit += CCTerm(GT, CCClock)
+    globalVars += GTU
+    globalVarsInit += CCTerm(GTU, CCInt)
+  }
+
+  private def translateProgram : Unit = {
     // First collect all declarations. This is a bit more
     // generous than actual C semantics, where declarations
     // have to be in the right order
@@ -287,7 +361,11 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           // nothing
       }
 
-    globalVarsInit ++= globalVarSymex.getValues
+    if (useTime)
+      // prevent time variables from being initialised twice
+      globalVarsInit ++= (globalVarSymex.getValues drop 2)
+    else
+      globalVarsInit ++= globalVarSymex.getValues
 
     // then translate the threads
     atomicMode = false
@@ -306,7 +384,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             case thread : ParaThread => {
               setPrefix(thread.cident_2)
               pushLocalFrame
-              localVars += new ConstantTerm(thread.cident_1)
+              addLocalVar(new ConstantTerm(thread.cident_1), CCInt)
               val translator = FunctionTranslator.apply
               translator translateNoReturn thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
@@ -327,11 +405,9 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         pushLocalFrame
         val exitPred = newPred(1)
         val stm = pushArguments(funDef)
-        val entryPred = newPred
-        output(Clause(atom(entryPred, allVarInits), List(), true))
 
         val translator = FunctionTranslator(exitPred)
-        translator.translateWithReturn(stm, entryPred)
+        translator.translateWithReturn(stm)
 
         processes += ((clauses.toList, ParametricEncoder.Singleton))
         clauses.clear
@@ -363,21 +439,24 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                               global : Boolean,
                               values : Symex) : Unit = dec match {
     case decl : Declarators => {
-      // just assume that the type is int for the time being
+      val typ = getType(decl.listdeclaration_specifier_)
 
       for (initDecl <- decl.listinit_declarator_) initDecl match {
-        case initDecl : OnlyDecl => {
-          val name = getName(initDecl.declarator_)
+        case onlyDecl : OnlyDecl => {
+          val name = getName(onlyDecl.declarator_)
           val directDecl =
-            initDecl.declarator_.asInstanceOf[NoPointer].direct_declarator_
+            onlyDecl.declarator_.asInstanceOf[NoPointer].direct_declarator_
 
           directDecl match {
-            case _ : NewFuncDec | _ : OldFuncDef | _ : OldFuncDec =>
-              functionDecls.put(name, directDecl)
+            case _ : NewFuncDec /* | _ : OldFuncDef */ | _ : OldFuncDec =>
+              functionDecls.put(name, (directDecl, typ))
             case _ => {
               val c = new ConstantTerm(name)
-              (if (global) globalVars else localVars) += c
-              values addValue CCIntTerm(c)
+              if (global)
+                globalVars += c
+              else
+                addLocalVar(c, typ)
+              values addValue CCTerm(c, typ)
             }
           }
         }
@@ -386,8 +465,18 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           val initValue = initDecl.initializer_ match {
             case init : InitExpr => values eval init.exp_
           }
-          (if (global) globalVars else localVars) += c
-          values addValue initValue
+
+          if (global)
+            globalVars += c
+          else
+            addLocalVar(c, typ)
+
+          typ match {
+            case CCClock =>
+              values addValue translateTimeValue(initValue)
+            case typ =>
+              values addValue (initValue castTo typ)
+          }
         }
       }
     }
@@ -403,8 +492,55 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     case decl : Name      => decl.cident_
     case decl : ParenDecl => getName(decl.declarator_)
     case dec : NewFuncDec => getName(dec.direct_declarator_)
-    case dec : OldFuncDef => getName(dec.direct_declarator_)
+//    case dec : OldFuncDef => getName(dec.direct_declarator_)
     case dec : OldFuncDec => getName(dec.direct_declarator_)
+  }
+
+  private def getType(specs : Seq[Declaration_specifier]) : CCType = {
+    // by default assume that the type is int
+    var typ : CCType = CCInt
+
+    for (specifier <- specs)
+      specifier match {
+        case specifier : Type =>
+          specifier.type_specifier_ match {
+            case _ : Tvoid =>
+              typ = CCVoid
+            case _ : Tint =>
+              typ = CCInt
+            case _ : Tclock => {
+              if (!useTime)
+                throw NeedsTimeException
+              typ = CCClock
+            }
+            case x => {
+              warn("type " + (printer print x) +
+                   " not supported, assuming int")
+              typ = CCInt
+            }
+          }
+        case _ => // ignore
+      }
+
+    typ
+  }
+
+  private def getType(functionDef : Function_def) : CCType =
+    functionDef match {
+      case f : NewFunc    => getType(f.listdeclaration_specifier_)
+      case _ : NewFuncInt => CCInt
+    }
+
+  private def translateTimeValue(expr : CCExpr) : CCExpr = {
+    if (!useTime)
+      throw NeedsTimeException
+    expr.toTerm match {
+      case IIntLit(v) if (expr.typ == CCInt) =>
+        CCTerm(GT + GTU*(-v), CCClock)
+      case _ =>
+        throw new TranslationException(
+          "clocks can only be set to or compared with integers")
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -412,8 +548,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
   private object Symex {
     def apply(initPred : Predicate) = {
       val values = new ArrayBuffer[CCExpr]
-      for (t <- allFormalVars)
-        values += CCIntTerm(t)
+      values ++= allFormalExprs
       new Symex(initPred, values)
     }
   }
@@ -447,6 +582,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       values.clear
       oldValues copyToBuffer values
       localVars reduceToSize (values.size - globalVars.size)
+      localVarTypes reduceToSize (values.size - globalVars.size)
       guard = oldGuard
       touchedGlobalState = oldTouched
     }
@@ -468,13 +604,13 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //println("push " + v)
       addValue(v)
       // reserve a local variable, in case we need one later
-      localVars += new ConstantTerm("__eval" + localVars.size)
+      addLocalVar(new ConstantTerm("__eval" + localVars.size), v.typ)
     }
 
-    private def pushFormalVal = {
+    private def pushFormalVal(t : CCType) = {
       val c = new ConstantTerm("__eval" + localVars.size)
-      localVars += c
-      addValue(CCIntTerm(c))
+      addLocalVar(c, t)
+      addValue(CCTerm(c, t))
     }
 
     private def popVal = {
@@ -482,16 +618,21 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //println("pop " + res)
       values trimEnd 1
       localVars trimEnd 1
+      localVarTypes trimEnd 1
       res
     }
     private def topVal = values.last
 
     private def outputClause : Unit = outputClause(newPred)
 
-    def outputClause(pred : Predicate) : Unit = {
+    def genClause(pred : Predicate) : Clause = {
       if (initAtom == null)
         throw new TranslationException("too complicated initialiser")
-      output(Clause(asAtom(pred), List(initAtom), guard))
+      Clause(asAtom(pred), List(initAtom), guard)
+    }
+
+    def outputClause(pred : Predicate) : Unit = {
+      output(genClause(pred))
       resetFields(pred)
     }
 
@@ -502,8 +643,8 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       initAtom = atom(pred, allFormalVars)
       guard = true
       touchedGlobalState = false
-      for ((t, i) <- allFormalVars.iterator.zipWithIndex)
-        values(i) = CCIntTerm(t)
+      for ((e, i) <- allFormalExprs.iterator.zipWithIndex)
+        values(i) = e
     }
 
     def outputITEClauses(cond : IFormula,
@@ -545,6 +686,14 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                     (printer print exp))
     }
 
+    private def isClockVariable(exp : Exp) : Boolean = exp match {
+      case exp : Evar => getValue(exp.cident_).typ == CCClock
+      case exp =>
+        throw new TranslationException(
+                    "Can only handle assignments to variables, not " +
+                    (printer print exp))
+    }
+
     def eval(exp : Exp) : CCExpr = {
       val initSize = values.size
       evalHelp(exp)
@@ -560,7 +709,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       val initSize = values.size
 
       inAtomicMode {
-        pushVal(CCFormula(true))
+        pushVal(CCFormula(true, CCVoid))
         for (exp <- exps) {
           popVal
           evalHelp(exp)
@@ -584,6 +733,12 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         maybeOutputClause
         evalHelp(exp.exp_2)
       }
+      case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign] &&
+                             isClockVariable(exp.exp_1)) => {
+        evalHelp(exp.exp_2)
+        maybeOutputClause
+        setValue(asLValue(exp.exp_1), translateTimeValue(topVal))
+      }
       case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign]) => {
         evalHelp(exp.exp_2)
         maybeOutputClause
@@ -594,9 +749,13 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         maybeOutputClause
         evalHelp(exp.exp_2)
         maybeOutputClause
-        val rhs = popVal.toTerm
-        val lhs = popVal.toTerm
-        val newVal = CCIntTerm(exp.assignment_op_ match {
+        val rhsE = popVal
+        val rhs = rhsE.toTerm
+        val lhsE = popVal
+        val lhs = lhsE.toTerm
+	if (lhsE.typ == CCClock)
+          throw new TranslationException("unsupported assignment to clock")
+        val newVal = CCTerm(exp.assignment_op_ match {
           case _ : AssignMul =>
             lhs * rhs
           case _ : AssignDiv =>
@@ -612,7 +771,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //          case _ : AssignAnd.    Assignment_op ::= "&=" ;
 //          case _ : AssignXor.    Assignment_op ::= "^=" ;
 //          case _ : AssignOr.     Assignment_op ::= "|=" ;
-        })
+        }, lhsE.typ)
         pushVal(newVal)
         setValue(asLValue(exp.exp_1), newVal)
       }
@@ -643,14 +802,14 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         if ((guard eq newGuard) && atomValuesUnchanged) {
           val cond2 = popVal.toFormula
           restoreState
-          pushVal(CCFormula(cond ||| cond2))
+          pushVal(CCFormula(cond ||| cond2, CCInt))
         } else {
           outputClause
           val intermediatePred = initPred
 
           restoreState
           addGuard(cond)
-          pushVal(CCFormula(true))
+          pushVal(CCFormula(true, CCInt))
           outputClause(intermediatePred)
         }
       }
@@ -667,14 +826,14 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         if ((guard eq newGuard) && atomValuesUnchanged) {
           val cond2 = popVal.toFormula
           restoreState
-          pushVal(CCFormula(cond &&& cond2))
+          pushVal(CCFormula(cond &&& cond2, CCInt))
         } else {
           outputClause
           val intermediatePred = initPred
 
           restoreState
           addGuard(~cond)
-          pushVal(CCFormula(false))
+          pushVal(CCFormula(false, CCInt))
           outputClause(intermediatePred)
         }
       }
@@ -715,13 +874,13 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       case exp : Epreinc => {
         evalHelp(exp.exp_)
         maybeOutputClause
-        pushVal(CCIntTerm(popVal.toTerm + 1))
+        pushVal(popVal mapTerm (_ + 1))
         setValue(asLValue(exp.exp_), topVal)
       }
       case exp : Epredec => {
         evalHelp(exp.exp_)
         maybeOutputClause
-        pushVal(CCIntTerm(popVal.toTerm - 1))
+        pushVal(popVal mapTerm (_ - 1))
         setValue(asLValue(exp.exp_), topVal)
       }
       case exp : Epreop => {
@@ -730,9 +889,9 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //          case _ : Address.     Unary_operator ::= "&" ;
 //          case _ : Indirection. Unary_operator ::= "*" ;
           case _ : Plus       => // nothing
-          case _ : Negative   => pushVal(CCIntTerm(-popVal.toTerm))
+          case _ : Negative   => pushVal(popVal mapTerm (-(_)))
 //          case _ : Complement.  Unary_operator ::= "~" ;
-          case _ : Logicalneg => pushVal(CCFormula(~popVal.toFormula))
+          case _ : Logicalneg => pushVal(CCFormula(~popVal.toFormula, CCInt))
         }
       }
 //      case exp : Ebytesexpr.  Exp15 ::= "sizeof" Exp15;
@@ -751,11 +910,11 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           import HornClauses._
           val property = atomicEval(exp.listexp_.head).toFormula
           assertionClauses += (property :- (initAtom, guard))
-          pushVal(CCFormula(true))
+          pushVal(CCFormula(true, CCInt))
         }
         case "assume" if (exp.listexp_.size == 1) => {
           addGuard(atomicEval(exp.listexp_.head).toFormula)
-          pushVal(CCFormula(true))
+          pushVal(CCFormula(true, CCInt))
         }
         case name => {
           // then we inline the called function
@@ -781,12 +940,12 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       case exp : Epostinc => {
         evalHelp(exp.exp_)
         maybeOutputClause
-        setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm + 1))
+        setValue(asLValue(exp.exp_), topVal mapTerm (_ + 1))
       }
       case exp : Epostdec => {
         evalHelp(exp.exp_)
         maybeOutputClause
-        setValue(asLValue(exp.exp_), CCIntTerm(topVal.toTerm - 1))
+        setValue(asLValue(exp.exp_), topVal mapTerm (_ - 1))
       }
       case exp : Evar =>
         pushVal(getValue(exp.cident_))
@@ -804,13 +963,13 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
           inlineFunction(fundef, functionEntry, functionExit)
 
           // reserve an argument for the function result
-          pushFormalVal
+          pushFormalVal(getType(fundef))
           resetFields(functionExit)
         }
         case None => (functionDecls get name) match {
-          case Some(fundecl) => {
+          case Some((fundecl, typ)) => {
             warn("no definition of function \"" + name + "\" available")
-            pushFormalVal
+            pushFormalVal(typ)
           }
           case None =>
             throw new TranslationException(
@@ -833,13 +992,29 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
                              op : (ITerm, ITerm) => ITerm) : Unit =
       strictBinOp(left, right,
                   (lhs : CCExpr, rhs : CCExpr) =>
-                    CCIntTerm(op(lhs.toTerm, rhs.toTerm)))
+                    CCTerm(op(lhs.toTerm, rhs.toTerm),
+                           convertTypes(lhs.typ, rhs.typ)))
+
+    private def convertTypes(a : CCType, b : CCType) : CCType =
+      (a, b) match {
+        case (CCInt, CCInt) => CCInt
+        case _ =>
+          throw new TranslationException("incompatible types")
+      }
 
     private def strictBinPred(left : Exp, right : Exp,
                               op : (ITerm, ITerm) => IFormula) : Unit =
       strictBinOp(left, right,
-                  (lhs : CCExpr, rhs : CCExpr) =>
-                    CCFormula(op(lhs.toTerm, rhs.toTerm)))
+                  (lhs : CCExpr, rhs : CCExpr) => (lhs.typ, rhs.typ) match {
+                    case (CCClock, CCInt) =>
+                      CCFormula(op(GT - lhs.toTerm,
+                                   GTU * rhs.toTerm), CCInt)
+                    case (CCInt, CCClock) =>
+                      CCFormula(op(GTU * lhs.toTerm,
+                                   GT - rhs.toTerm), CCInt)
+                    case _ =>
+                      CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
+                  })
 
     private def evalHelp(constant : Constant) : Unit = constant match {
 //      case constant : Efloat.        Constant ::= Double;
@@ -852,7 +1027,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //      case constant : Ehexalong.     Constant ::= HexLong;
 //      case constant : Ehexaunslong.  Constant ::= HexUnsLong;
       case constant : Eoctal =>
-        pushVal(CCIntTerm(IdealInt(constant.octal_, 8)))
+        pushVal(CCTerm(IdealInt(constant.octal_, 8), CCInt))
 //      case constant : Eoctalunsign.  Constant ::= OctalUnsigned;
 //      case constant : Eoctallong.    Constant ::= OctalLong;
 //      case constant : Eoctalunslong. Constant ::= OctalUnsLong;
@@ -860,7 +1035,7 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 //      case constant : Ecfloat.       Constant ::= CFloat;
 //      case constant : Eclongdouble.  Constant ::= CLongDouble;
       case constant : Eint =>
-        pushVal(CCIntTerm(i(constant.integer_)))
+        pushVal(CCTerm(i(constant.integer_), CCInt))
     }
   }
 
@@ -894,14 +1069,15 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
             case argDec : OnlyType =>
               // ignore, a void argument implies that there are no arguments
             case argDec : TypeAndParam =>
-              localVars += new ConstantTerm(getName(argDec.declarator_))
+              addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
+                          getType(argDec.listdeclaration_specifier_))
 //            case argDec : Abstract =>
           }
-      case dec : OldFuncDef =>
-        for (ident <- dec.listcident_)
-          localVars += new ConstantTerm(ident)
+//      case dec : OldFuncDef =>
+//        for (ident <- dec.listcident_)
+//          localVars += new ConstantTerm(ident)
       case dec : OldFuncDec =>
-        // no arguments
+        // arguments are not specified ...
     }
 
     stm
@@ -929,16 +1105,26 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
     }
 
     def translateNoReturn(compound : Compound_stm) : Unit = {
-      val entry = newPred
-      output(Clause(atom(entry, allVarInits), List(), true))
-      translate(compound, entry, newPred)
+      translateWithEntryClause(compound, newPred)
       postProcessClauses
     }
 
-    def translateWithReturn(stm : Compound_stm,
+    def translateWithReturn(compound : Compound_stm) : Unit = {
+      val finalPred = newPred
+      translateWithEntryClause(compound, finalPred)
+      // add a default return edge
+      val rp = returnPred.get
+      output(Clause(atom(rp, (allFormalVars take (rp.arity - 1)) ++
+                             List(IConstant(new ConstantTerm("__result")))),
+                    List(atom(finalPred, allFormalVars)),
+                    true))
+      postProcessClauses
+    }
+
+    def translateWithReturn(compound : Compound_stm,
                             entry : Predicate) : Unit = {
       val finalPred = newPred
-      translate(stm, entry, finalPred)
+      translate(compound, entry, finalPred)
       // add a default return edge
       val rp = returnPred.get
       output(Clause(atom(rp, (allFormalVars take (rp.arity - 1)) ++
@@ -1064,6 +1250,54 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
       //SlabelThree. Labeled_stm ::= "default" ":" Stm;
     }
 
+    private def translateWithEntryClause(
+                          compound : Compound_stm,
+                          exit : Predicate) : Unit = compound match {
+      case compound : ScompOne =>
+        output(Clause(atom(exit, allVarInits), List(), true))
+      case compound : ScompTwo => {
+        pushLocalFrame
+
+        val stmsIt = ap.util.PeekIterator(compound.liststm_.iterator)
+
+        // merge simple side-effect-free declarations with
+        // the entry clause
+        var entryPred = newPred
+        var entryClause = Clause(atom(entryPred, allVarInits), List(), true)
+
+        while (stmsIt.hasNext && isSEFDeclaration(stmsIt.peekNext)) {
+          val decSymex = Symex(entryPred)
+          collectVarDecls(stmsIt.next.asInstanceOf[DecS].dec_,
+                          false, decSymex)
+          entryPred = newPred
+          entryClause = (decSymex genClause entryPred) mergeWith entryClause
+        }
+
+        output(entryClause)
+        translateStmSeq(stmsIt, entryPred, exit)
+
+        popLocalFrame
+      }
+    }
+
+    private def isSEFDeclaration(stm : Stm) : Boolean = stm match {
+      case stm : DecS => {
+        stm.dec_ match {
+          case _ : NoDeclarator => true
+          case dec : Declarators =>
+            dec.listinit_declarator_ forall {
+              case _ : OnlyDecl => true
+              case decl : InitDecl =>
+                decl.initializer_.asInstanceOf[InitExpr].exp_ match {
+                  case _ : Econst => true
+                  case _ => false
+                }
+            }
+        }
+      }
+      case _ => false
+    }
+
     private def translate(compound : Compound_stm,
                           entry : Predicate,
                           exit : Predicate) : Unit = compound match {
@@ -1075,59 +1309,31 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
         pushLocalFrame
 
         val stmsIt = compound.liststm_.iterator
-        var prevPred = entry
-        while (stmsIt.hasNext)
-          stmsIt.next match {
-            case stm : DecS => {
-              prevPred = translate(stm.dec_, prevPred)
-              if (!stmsIt.hasNext)
-                output(Clause(atom(exit, allFormalVars),
-                              List(atom(prevPred, allFormalVars)),
-                              true))
-            }
-            case stm => {
-              val nextPred = if (stmsIt.hasNext) newPred else exit
-              translate(stm, prevPred, nextPred)
-              prevPred = nextPred
-            }
+        translateStmSeq(stmsIt, entry, exit)
+
+        popLocalFrame
+      }
+    }
+
+    private def translateStmSeq(stmsIt : Iterator[Stm],
+                                entry : Predicate,
+                                exit : Predicate) : Unit = {
+      var prevPred = entry
+      while (stmsIt.hasNext)
+        stmsIt.next match {
+          case stm : DecS => {
+            prevPred = translate(stm.dec_, prevPred)
+            if (!stmsIt.hasNext)
+              output(Clause(atom(exit, allFormalVars),
+                            List(atom(prevPred, allFormalVars)),
+                            true))
           }
-
-        popLocalFrame
-      }
-
-/*
-      case compound : ScompThree => {
-        pushLocalFrame
-
-        var prevPred = entry
-        for (dec <- compound.listdec_)
-          prevPred = translate(dec, prevPred)
-
-        val lastAtom = atom(prevPred, allFormalVars)
-
-        popLocalFrame
-
-        output(Clause(atom(exit, allFormalVars), List(lastAtom), true))
-      }
-
-      case compound : ScompFour => {
-        pushLocalFrame
-
-        var prevPred = entry
-        for (dec <- compound.listdec_)
-          prevPred = translate(dec, prevPred)
-
-        val stmsIt = compound.liststm_.iterator
-        while (stmsIt.hasNext) {
-          val stm = stmsIt.next
-          val nextPred = if (stmsIt.hasNext) newPred else exit
-          translate(stm, prevPred, nextPred)
-          prevPred = nextPred
+          case stm => {
+            val nextPred = if (stmsIt.hasNext) newPred else exit
+            translate(stm, prevPred, nextPred)
+            prevPred = nextPred
+          }
         }
-
-        popLocalFrame
-      }
-*/
     }
 
     var innermostLoopCont : Predicate = null
@@ -1307,19 +1513,23 @@ class CCReader(input : java.io.Reader, entryFunction : String) {
 
   val (system, assertions) : (ParametricEncoder.System,
                               Seq[HornClauses.Clause]) = {
-    def entry(parser : concurrentC.parser) = parser.pProgram
-    val prog = parseWithEntry(input, entry _)
-//    println(printer print prog)
-    translateProgram(prog)
+    translateProgram
 
     val singleThreaded =
       processes.size == 1 &&
       processes.head._2 == ParametricEncoder.Singleton
 
     (ParametricEncoder.System(processes.toList,
-                              if (singleThreaded) 0 else globalVars.size,
+                              if (singleThreaded) {
+                                if (useTime) 2 else 0
+                              } else {
+                                globalVars.size
+                              },
                               None,
-                              ParametricEncoder.NoTime,
+                              if (useTime)
+                                ParametricEncoder.ContinuousTime(0, 1)
+                              else
+                                ParametricEncoder.NoTime,
                               List()),
      assertionClauses.toList)
   }
