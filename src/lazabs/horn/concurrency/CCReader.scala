@@ -281,7 +281,7 @@ class CCReader private (prog : Program,
     }
 
     for ((c, sync) <- entryClauses)
-      chainClauses(c, sync, c.bodyPredicates)
+      chainClauses(c, sync, Set())
   }
 
   private var atomicMode = false
@@ -1143,37 +1143,9 @@ class CCReader private (prog : Program,
     ////////////////////////////////////////////////////////////////////////////
 
     private def postProcessClauses : Unit = {
-//      addTimeInvGuards
       connectJumps
       mergeAtomicBlocks
     }
-
-/*
-    private def addTimeInvGuards : Unit =
-      for (j <- 0 until clauses.size) {
-        val (clause, sync) = clauses(j)
-        val headPred = clause.head.pred
-        if (!(clause.bodyPredicates contains headPred))
-          for (inv <- timeInvariants)
-            if (inv.body.head.pred == headPred) {
-              // add the time invariant as a guard to this transition
-
-              val replacement =
-                new MHashMap[ConstantTerm, ITerm]
-              for ((IConstant(c), t) <-
-                     inv.body.head.args.iterator zip clause.head.args.iterator)
-                replacement.put(c, t)
-
-              val substConstraint =
-                ConstantSubstVisitor(inv.constraint, replacement)
-
-              import HornClauses._
-              clauses(j) = (Clause(clause.head, clause.body,
-                                   clause.constraint &&& ~substConstraint),
-                            sync)
-            }
-      }
-*/
 
     private def connectJumps : Unit =
       for ((label, jumpPred, jumpVars, position) <- jumpLocs)
@@ -1536,13 +1508,20 @@ class CCReader private (prog : Program,
       case stm : SatomicOne => {
         val currentClauseNum = clauses.size
         inAtomicMode {
-          translate(stm.stm_, entry, exit)
+          // add a further state inside the block, to correctly
+          // distinguish between loops within the block, and a loop
+          // around the block
+          val first = newPred
+          val entrySymex = Symex(entry)
+          entrySymex outputClause first
+          translate(stm.stm_, first, exit)
         }
         atomicBlocks += ((currentClauseNum, clauses.size))
       }
       case stm : SatomicTwo => {
         val currentClauseNum = clauses.size
         inAtomicMode {
+          val first = newPred
           val condSymex = Symex(entry)
           condSymex.saveState
           val cond = (condSymex eval stm.exp_).toFormula
@@ -1551,7 +1530,8 @@ class CCReader private (prog : Program,
               "expressions with side-effects are not supported in \"within\"")
           import HornClauses._
           timeInvariants += (cond :- atom(entry, allFormalVars))
-          translate(stm.stm_, entry, exit)
+          condSymex outputClause first
+          translate(stm.stm_, first, exit)
         }
         atomicBlocks += ((currentClauseNum, clauses.size))
       }

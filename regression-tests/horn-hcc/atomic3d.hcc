@@ -1,0 +1,10 @@
+
+
+void main() {
+  int x = 0;
+
+  l : atomic {
+    x++;
+    goto l;
+  }
+}

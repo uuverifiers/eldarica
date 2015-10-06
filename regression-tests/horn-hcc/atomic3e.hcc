@@ -1,0 +1,18 @@
+
+int x = 0;
+
+void main() {
+  clock C = 0;
+
+  l : within(C <= 3) {
+    x++;
+    C = 0;
+    goto l;
+  }
+}
+
+thread A {
+  clock D = 0;
+  assume(D > 10);
+  assert(x > 1);
+}
