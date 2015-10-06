@@ -8,7 +8,8 @@ TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc test5.hcc \
        functions.hcc functions2.hcc extended-decl.hcc inits.hcc \
        shadowing.hcc disconnected-assertions.hcc \
        atomic1.hcc atomic2.hcc atomic3.hcc atomic3b.hcc atomic4.hcc \
-       clocks1.hcc clocks2.hcc clocks3.hcc clocks4.hcc"
+       clocks1.hcc clocks2.hcc clocks3.hcc clocks4.hcc clocks5.hcc \
+       fischer.hcc"
 
 for name in $TESTS; do
     echo

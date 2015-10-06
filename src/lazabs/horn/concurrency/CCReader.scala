@@ -246,12 +246,12 @@ class CCReader private (prog : Program,
         throw new TranslationException(
           "cycles in atomic blocks are not supported yet")
 
-      if (timeInvariants exists (_.predicates contains headPred))
-        throw new TranslationException(
-          "time invariants in atomic blocks are not supported")
-
       (lastClauses get headPred) match {
         case Some(cls) => {
+          if (timeInvariants exists (_.predicates contains headPred))
+            throw new TranslationException(
+              "time invariants in atomic blocks are not supported")
+
           for ((c, sync) <- cls)
             if (currentSync == ParametricEncoder.NoSync)
               chainClauses(c mergeWith currentClause, sync,
