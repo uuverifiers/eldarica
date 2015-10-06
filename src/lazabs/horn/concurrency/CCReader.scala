@@ -214,7 +214,7 @@ class CCReader private (prog : Program,
   private val processes =
     new ArrayBuffer[(ParametricEncoder.Process, ParametricEncoder.Replication)]
 
-  private val assertionClauses = new ArrayBuffer[Clause]
+  private val assertionClauses, timeInvariants = new ArrayBuffer[Clause]
 
   private val clauses =
     new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
@@ -245,6 +245,10 @@ class CCReader private (prog : Program,
       if (seenPreds contains headPred)
         throw new TranslationException(
           "cycles in atomic blocks are not supported yet")
+
+      if (timeInvariants exists (_.predicates contains headPred))
+        throw new TranslationException(
+          "time invariants in atomic blocks are not supported")
 
       (lastClauses get headPred) match {
         case Some(cls) => {
@@ -587,7 +591,7 @@ class CCReader private (prog : Program,
       touchedGlobalState = oldTouched
     }
 
-    private def atomValuesUnchanged = {
+    def atomValuesUnchanged = {
       val (oldAtom, oldValues, _, _) = savedStates.top
       initAtom == oldAtom &&
       ((values.iterator zip oldValues.iterator) forall {
@@ -1139,9 +1143,37 @@ class CCReader private (prog : Program,
     ////////////////////////////////////////////////////////////////////////////
 
     private def postProcessClauses : Unit = {
+//      addTimeInvGuards
       connectJumps
       mergeAtomicBlocks
-    }    
+    }
+
+/*
+    private def addTimeInvGuards : Unit =
+      for (j <- 0 until clauses.size) {
+        val (clause, sync) = clauses(j)
+        val headPred = clause.head.pred
+        if (!(clause.bodyPredicates contains headPred))
+          for (inv <- timeInvariants)
+            if (inv.body.head.pred == headPred) {
+              // add the time invariant as a guard to this transition
+
+              val replacement =
+                new MHashMap[ConstantTerm, ITerm]
+              for ((IConstant(c), t) <-
+                     inv.body.head.args.iterator zip clause.head.args.iterator)
+                replacement.put(c, t)
+
+              val substConstraint =
+                ConstantSubstVisitor(inv.constraint, replacement)
+
+              import HornClauses._
+              clauses(j) = (Clause(clause.head, clause.body,
+                                   clause.constraint &&& ~substConstraint),
+                            sync)
+            }
+      }
+*/
 
     private def connectJumps : Unit =
       for ((label, jumpPred, jumpVars, position) <- jumpLocs)
@@ -1508,6 +1540,21 @@ class CCReader private (prog : Program,
         }
         atomicBlocks += ((currentClauseNum, clauses.size))
       }
+      case stm : SatomicTwo => {
+        val currentClauseNum = clauses.size
+        inAtomicMode {
+          val condSymex = Symex(entry)
+          condSymex.saveState
+          val cond = (condSymex eval stm.exp_).toFormula
+          if (!condSymex.atomValuesUnchanged)
+            throw new TranslationException(
+              "expressions with side-effects are not supported in \"within\"")
+          import HornClauses._
+          timeInvariants += (cond :- atom(entry, allFormalVars))
+          translate(stm.stm_, entry, exit)
+        }
+        atomicBlocks += ((currentClauseNum, clauses.size))
+      }
     }
   }
 
@@ -1532,7 +1579,7 @@ class CCReader private (prog : Program,
                                 ParametricEncoder.ContinuousTime(0, 1)
                               else
                                 ParametricEncoder.NoTime,
-                              List()),
+                              timeInvariants),
      assertionClauses.toList)
   }
 

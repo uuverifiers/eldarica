@@ -225,38 +225,38 @@ SAFE
 atomic3.hcc
 lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
 	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:246)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:253)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:251)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:257)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:255)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:251)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:253)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:251)
+	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:255)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:257)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:255)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:251)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:280)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:279)
+	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:255)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:284)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:283)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:279)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1187)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1180)
+	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:283)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1219)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1212)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1180)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1143)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1123)
-	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:410)
-	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1518)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1212)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1148)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1127)
+	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:414)
+	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1565)
 	at lazabs.horn.concurrency.CCReader$.apply(CCReader.scala:56)
 	at lazabs.Main$.doMain(Main.scala:428)
 	at lazabs.Main$.main(Main.scala:142)
@@ -283,31 +283,31 @@ lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks a
 atomic3b.hcc
 lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
 	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:246)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:253)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$2.apply(CCReader.scala:251)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:257)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$chainClauses$1$3.apply(CCReader.scala:255)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:251)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:280)
-	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:279)
+	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$chainClauses$1(CCReader.scala:255)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:284)
+	at lazabs.horn.concurrency.CCReader$$anonfun$lazabs$horn$concurrency$CCReader$$mergeClauses$2.apply(CCReader.scala:283)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:279)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1187)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1180)
+	at lazabs.horn.concurrency.CCReader.lazabs$horn$concurrency$CCReader$$mergeClauses(CCReader.scala:283)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1219)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator$$anonfun$mergeAtomicBlocks$2.apply(CCReader.scala:1212)
 	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:778)
 	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
 	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
 	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:777)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1180)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1143)
-	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1123)
-	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:410)
-	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1518)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.mergeAtomicBlocks(CCReader.scala:1212)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.postProcessClauses(CCReader.scala:1148)
+	at lazabs.horn.concurrency.CCReader$FunctionTranslator.translateWithReturn(CCReader.scala:1127)
+	at lazabs.horn.concurrency.CCReader.translateProgram(CCReader.scala:414)
+	at lazabs.horn.concurrency.CCReader.<init>(CCReader.scala:1565)
 	at lazabs.horn.concurrency.CCReader$.apply(CCReader.scala:56)
 	at lazabs.Main$.doMain(Main.scala:428)
 	at lazabs.Main$.main(Main.scala:142)
@@ -331,11 +331,38 @@ lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks a
 	at scala.tools.nsc.MainGenericRunner$.main(MainGenericRunner.scala:103)
 	at scala.tools.nsc.MainGenericRunner.main(MainGenericRunner.scala)
 
+atomic4.hcc
+Warning: entry function "main" not found
+UNSAFE
+
+--------------------
+Init:
+  A1(1)     B1(1)   
+--------------------
+    |     
+    |     
+    V     
+  A2(1)   
+--------------------
+Final:
+  A2(1)     B1(1)   
+--------------------
+
 clocks1.hcc
 Warning: enabling time
 SAFE
 
 clocks2.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE
+
+clocks3.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE
+
+clocks4.hcc
 Warning: enabling time
 Warning: entry function "main" not found
 SAFE

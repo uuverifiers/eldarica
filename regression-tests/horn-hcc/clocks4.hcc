@@ -1,0 +1,16 @@
+
+
+int finished = 0;
+
+thread A {
+  clock x = 0;
+  assume (x > 5);
+  finished = 1;
+}
+
+thread B {
+  clock y = 0;
+  within (y <= 5)
+    assert(!finished);
+}
+

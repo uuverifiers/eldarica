@@ -280,6 +280,10 @@ object ParametricEncoder {
       for (c <- assertions)
         predsToKeep ++= c.predicates
 
+      // also keep initial states
+      for (clauses <- localInitClauses.iterator; c <- clauses.iterator)
+        predsToKeep ++= c.predicates
+
       def isLocalClause(p : (Clause, Synchronisation)) =
         p._2 == NoSync && p._1.body.size == 1 && {
           val Clause(head@IAtom(_, headArgs),
@@ -319,13 +323,16 @@ object ParametricEncoder {
                 yield p
 
               if (// avoid blow-up
-                  (incoming.size == 1 || outgoing.size == 1) &&
+                  (incoming.size <= 1 || outgoing.size <= 1) &&
                   (incoming forall {
-                     case (c, _) => !(c.bodyPredicates contains pred)
+                     case (c, _) => !(c.bodyPredicates contains pred) &&
+                                    (!outgoing.isEmpty ||
+                                     Seqs.disjoint(predsWithTimeInvs, c.predicates))
                    }) &&
                   (outgoing forall {
                      case (c, _) => c.head.pred != pred &&
-                                    !(predsWithTimeInvs contains c.head.pred)
+                                    Seqs.disjoint(predsWithTimeInvs, c.predicates)
+//                                    !(predsWithTimeInvs contains c.head.pred)
                    })) {
 
                 val newClauses =

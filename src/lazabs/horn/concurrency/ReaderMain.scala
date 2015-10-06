@@ -47,10 +47,19 @@ object ReaderMain {
         println("    " + c.toPrologString)
     }
 
-    println
-    println("Assertions:")
-    for (c <- assertions)
-      println("  " + c.toPrologString)
+    if (!system.timeInvariants.isEmpty) {
+      println
+      println("Time invariants:")
+      for (c <- system.timeInvariants)
+        println("  " + c.toPrologString)
+    }
+
+    if (!assertions.isEmpty) {
+      println
+      println("Assertions:")
+      for (c <- assertions)
+        println("  " + c.toPrologString)
+    }
   }
 
   def main(args: Array[String]) : Unit = {
@@ -58,12 +67,10 @@ object ReaderMain {
     lazabs.GlobalParameters.get.assertions = false
 
     for (name <- args) {
-      val reader = 
-        new CCReader(new java.io.BufferedReader (
-                       new java.io.FileReader(new java.io.File (name))),
-                     "main")
-
-      import reader.{system, assertions}
+      val (system, assertions) = 
+        CCReader(new java.io.BufferedReader (
+                   new java.io.FileReader(new java.io.File (name))),
+                 "main")
 
       val (smallSystem, smallAssertions) = system mergeLocalTransitions assertions
       printClauses(smallSystem, smallAssertions)

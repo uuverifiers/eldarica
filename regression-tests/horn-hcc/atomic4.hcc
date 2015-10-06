@@ -1,0 +1,11 @@
+
+int x;
+
+thread A {
+  atomic { assume(x > 0); }
+  assert(0);
+}
+
+thread B {
+  atomic { assume(x < 0); }
+}

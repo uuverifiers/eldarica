@@ -203,6 +203,7 @@ SjumpFour.  Jump_stm ::= "return" ";" ;
 SjumpFive.  Jump_stm ::= "return" Exp ";" ;
 
 SatomicOne. Atomic_stm ::= "atomic" Stm;
+SatomicTwo. Atomic_stm ::= "within" "(" Exp ")" Stm;
 
 
 separator nonempty Stm "";
