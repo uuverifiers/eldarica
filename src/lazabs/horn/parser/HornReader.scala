@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2015 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -91,11 +91,6 @@ class SMTHornReader protected[parser] (
 
   private val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
   
-  private val triggerFunctions =
-    (for (t <- signature.theories.iterator;
-          f <- t.triggerRelevantFunctions.iterator)
-     yield f).toSet
-
   private val unintPredicates = new LinkedHashSet[Predicate]
 
   for (p <- signature.order.orderedPredicates.toSeq.sortBy(_.name))
@@ -128,9 +123,7 @@ class SMTHornReader protected[parser] (
                     List(),
                     signature,
                     Param.TRIGGER_STRATEGY.set(
-                    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
                       PreprocessingSettings.DEFAULT,
-                      triggerFunctions),
                       Param.TriggerStrategyOptions.AllMaximal))
     clause = processedClause_aux
     

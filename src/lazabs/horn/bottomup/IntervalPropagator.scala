@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,7 +62,7 @@ class IntervalPropagator(clauses : Seq[HornPredAbs.NormClause]) {
                     constr : Conjunction,
                     order : TermOrder) : (Option[IdealInt], Option[IdealInt]) = {
     (for (lc <- constr.arithConj.positiveEqs.toMap get c;
-         if (lc.constants.size == 1))
+          if (lc.constants.size == 1))
      yield (Some(-lc.constant), Some(-lc.constant))) getOrElse {
       val inEqs = constr.arithConj.inEqs
       (inEqs.findLowerBound(LinearCombination(c, order)),
@@ -87,9 +87,9 @@ class IntervalPropagator(clauses : Seq[HornPredAbs.NormClause]) {
 
   def extractIntervals(rs : RelationSymbol,
                        occ : Int,
-                       order : TermOrder) : Iterator[Formula] =
+                       order : TermOrder) : Iterator[Formula] = {
+    val clausesH = clausesWithHead.getOrElse(rs, List())
     for ((const, constNum) <- (rs arguments occ).iterator.zipWithIndex;
-         clausesH = clausesWithHead.getOrElse(rs, List());
          f <- if (clausesH.isEmpty) {
                 Iterator.empty
               } else {
@@ -101,6 +101,7 @@ class IntervalPropagator(clauses : Seq[HornPredAbs.NormClause]) {
                 toFormulas(const, bounds, order)
               })
     yield f
+  }
 
   val versions            = Array.fill(clauses.size)(0)
   val checkedInputVersion = Array.fill(clauses.size)(-1)

@@ -995,9 +995,8 @@ class PrincessAPI_v1 extends AbstractPrincessAPI {
   }
 
   protected lazy val preprocSettings =
-    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(basicPreprocSettings,
-       Set(select, store,
-           singleton, union, intersection, difference, size, complementation))
+    Param.TRIGGER_GENERATION.set(basicPreprocSettings,
+                                 Param.TriggerGenerationOptions.All)
 
   protected lazy val satCheckSettings =
     Param.FUNCTIONAL_PREDICATES.set(basicSatCheckSettings, backgroundPred.predicates)
@@ -1126,9 +1125,8 @@ class PrincessAPI_v2 extends AbstractPrincessAPI {
   }
 
   protected lazy val preprocSettings =
-    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(basicPreprocSettings,
-       Set(select, store,
-           singleton, union, intersection, difference, size, complementation))
+    Param.TRIGGER_GENERATION.set(basicPreprocSettings,
+                                 Param.TriggerGenerationOptions.All)
 	   
   protected lazy val satCheckSettings = {
     var s = basicSatCheckSettings

@@ -14,8 +14,8 @@
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
     <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors-2.11.0.jar"/>
-    <property name="scala-xml.jar" value="${scala.home}/lib/scala-xml_2.11-1.0.3.jar"/>
-    <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.3.jar"/>
+    <property name="scala-xml.jar" value="${scala.home}/lib/scala-xml_2.11-1.0.4.jar"/>
+    <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.4.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scalac.default.params" value="-deprecation -unchecked" />
 
