@@ -19,6 +19,12 @@ http://logicrunch.it.uu.se:4096/~wv/eldarica
 Documentation
 -------------
 
+You can either download a binary release of Eldarica, or compile the Scala
+code yourself. For the latter, you need a recent Scala compiler, and set
+the environment variable <code>SCALA_HOME</code> to point to the directory of the Scala
+distribution. After that you can simply call <code>ant</code> to start
+the build.
+
 After compilation (or downloading a binary release), calling Eldarica
 is normally as easy as saying
 

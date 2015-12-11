@@ -64,10 +64,6 @@ object HornPredAbs {
       (for (t <- theories.iterator;
             p <- t.functionalPredicates.iterator) yield p).toSet
 
-    val functions =
-      (for (t <- theories.iterator;
-            p <- t.functions.iterator) yield p).toSet
-
     var orderVar : TermOrder = TermOrder.EMPTY
     val functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
@@ -123,13 +119,9 @@ object HornPredAbs {
       HornPredAbs.toInternal(f, signature, functionEnc,
                              normalPreprocSettings)
 
-    val triggersPreprocSettings =
-      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-              clausifyPreprocSettings, functions)
-
     def toInternalClausify(f : IFormula) : Conjunction =
       HornPredAbs.toInternal(f, signature, functionEnc,
-                             triggersPreprocSettings)
+                             clausifyPreprocSettings)
   }
 
   val normalPreprocSettings = PreprocessingSettings.DEFAULT

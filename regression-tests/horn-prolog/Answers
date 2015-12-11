@@ -26,20 +26,20 @@ rf(A,B,C) :- ((((A + (C - B)) >= 4), (A >= 0)); ((A >= 0), (C >= 0))).
 mccarthy91.nts.horn
 SOLVABLE
 f_s1(A,B,C,D) :- ((B >= D), (D =< 111)).
-f_s3(A,B,C,D) :- ((C =< 101), (D =< 100)).
-f_sf(A,B,C,D) :- ((C = 91); ((((B - C) >= 10), (B >= 102)), (C =< 101))).
+f_s3(A,B,C,D) :- (((C =< 101), (C >= 91)), (D =< 100)).
+f_sf(A,B,C,D) :- ((C = 91); ((((B - C) >= 10), (C =< 101)), (C >= 92))).
 
 mccarthy92.nts.horn
 SOLVABLE
 f_s1(A,B,C,D) :- ((B = D), (((((((((14 - B) mod 2) = 0), (((12 - B) mod 2) = 0)), (((2 - B) mod 2) = 0)), (((-1 * B) mod 2) = 0)), (((-12 + B) mod 2) = 0)), (((-2 + B) mod 2) = 0)), ((B mod 2) = 0))).
-f_s3(A,B,C,D) :- (((C >= 92), (D =< 100)), ((((((2 - C) mod 2) = 0), (((-2 + C) mod 2) = 0)), ((C =< 99); ((((4 - C) mod 2) = 0), ((C = 102); (C = 100))))), ((C =< 99); ((((2 - C) mod 2) = 0), ((C = 102); (C = 100)))))).
-f_sf(A,B,C,D) :- ((C = 92); ((((B - C) = 10), (B >= 102)), ((((((14 - B) mod 2) = 0), (((12 - B) mod 2) = 0)), (((-12 + B) mod 2) = 0)), ((B mod 2) = 0)))).
+f_s3(A,B,C,D) :- (((C >= 91), (D =< 100)), ((((((2 - C) mod 2) = 0), (((-2 + C) mod 2) = 0)), ((C =< 99); ((((4 - C) mod 2) = 0), ((C = 102); (C = 100))))), ((C =< 99); ((((2 - C) mod 2) = 0), ((C = 102); (C = 100)))))).
+f_sf(A,B,C,D) :- ((C = 92); ((((B - C) = 10), (B >= 101)), ((((((14 - B) mod 2) = 0), (((12 - B) mod 2) = 0)), (((-12 + B) mod 2) = 0)), ((B mod 2) = 0)))).
 
 palindrome.nts.horn
 SOLVABLE
 palindrome_q0(A,B,C,D,E,F,G,H) :- ((B + ((G - F) - C)) >= 0).
-palindrome_q2(A,B,C,D,E,F,G,H) :- ((B + ((-2 * H) - C)) >= -1).
-palindrome_q4(A,B,C,D,E,F) :- ((((C + (-2 * D)) - B) >= -3); (D =< 1)).
+palindrome_q2(A,B,C,D,E,F,G,H) :- (((B + ((-2 * H) - C)) >= -1), (H >= 1)).
+palindrome_q4(A,B,C,D,E,F) :- ((D = 1); ((((C + (-2 * D)) - B) >= -3), (D >= 2))).
 
 listcounter.error.nts.horn
 NOT SOLVABLE
@@ -49,8 +49,8 @@ Initially:                7 clauses
 After inlining:           7 clauses
 After shortening clauses: 7 clauses
 
-Constant and interval propagation 
-Unique satisfiable clauses: 7
+Constant and interval propagation +++++++++++++++
+Unique satisfiable clauses: 6
 Starting CEGAR
 ......
 CEGAR iterations: 0
@@ -61,6 +61,6 @@ Number of generated predicates: 3
 Number of implication checks: 12
 
 SOLVABLE
-a(A) :- (A >= 0).
+a(A) :- (A >= 1).
 b(A) :- (A >= 0).
-c(A) :- (A >= 0).
+c(A) :- (A >= 2).
