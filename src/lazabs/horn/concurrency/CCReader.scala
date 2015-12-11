@@ -78,6 +78,8 @@ object CCReader {
              "At line " + String.valueOf(l.line_num()) +
              ", near \"" + l.buff() + "\" :" +
              "     " + e.getMessage())
+    } finally {
+      input.close
     }
   }
 
