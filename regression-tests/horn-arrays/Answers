@@ -1,6 +1,6 @@
 Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -1 * 4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),(((k + -1 * 3) = 0) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
 Theories: SimpleArray(1)
-Constant and interval propagation ...
+Constant and interval propagation ++++++++
 Unique satisfiable clauses: 8
 Starting CEGAR
 ...
@@ -43,22 +43,22 @@ Number of implication checks: 679
 SOLVABLE: 
 Solving List(Clause(p0(x, a),List(),true), Clause(p1(0, a),List(p0(x, a)),true), Clause(p2(x, store(a, x, x)),List(p1(x, a)),(((3 + -1 * x) + -1) >= 0)), Clause(p1((x + 1), a),List(p2(x, a)),true), Clause(p3(x, a),List(p1(x, a)),((x + -1 * 3) >= 0)), Clause(FALSE,List(p3(x, a)),!(select(a, 0) = 0))) ...
 Theories: SimpleArray(1)
-Constant and interval propagation ...
+Constant and interval propagation ++++++++++
 Unique satisfiable clauses: 6
 Starting CEGAR
 ....
 Found counterexample #1, refining ... (4and/0or)  8 -> 6 ... adding predicates:
 p1: p1_0_0 = 0
 ....
-Found counterexample #2, refining ... (6and/0or)  14 -> 13 ... adding predicates:
+Found counterexample #2, refining ... (6and/0or)  16 -> 15 ... adding predicates:
 p1: p1_0_0 = 1
 p2: p2_0_0 = 0
 .....
-Found counterexample #3, refining ... (8and/0or)  20 -> 19 ... adding predicates:
+Found counterexample #3, refining ... (8and/0or)  24 -> 23 ... adding predicates:
 p1: p1_0_0 = 2
 p2: p2_0_0 = 1
 .....
-Found counterexample #4, refining ... (10and/0or)  26 -> 25 ... adding predicates:
+Found counterexample #4, refining ... (10and/0or)  32 -> 31 ... adding predicates:
 p3: select(p3_1_0, 0) = 0
 p1: p1_0_0 = 1 & select(p1_1_0, 0) = 0, p1_0_0 = 2 & select(p1_1_0, 0) = 0, select(p1_1_0, 0) = 0
 p2: p2_0_0 = 0 & select(p2_1_0, 0) = 0, p2_0_0 = 1 & select(p2_1_0, 0) = 0, select(p2_1_0, 0) = 0
