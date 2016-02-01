@@ -912,6 +912,11 @@ class CCReader private (prog : Program,
       }
 
       case exp : Efunkpar => (printer print exp.exp_) match {
+        case "__VERIFIER_error" if (exp.listexp_.isEmpty) => {
+          import HornClauses._
+          assertionClauses += (false :- (initAtom, guard))
+          pushVal(CCFormula(true, CCInt))
+        }
         case "assert" | "static_assert" | "__VERIFIER_assert"
                           if (exp.listexp_.size == 1) => {
           import HornClauses._
