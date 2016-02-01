@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -96,6 +96,7 @@ class GlobalParameters {
   var dumpInterpolationQuery = false
   var babarew = false
   var log = false
+  var logCEX = false
   var printHornSimplified = false
   var dotSpec = false
   var dotFile : String = null
@@ -231,6 +232,7 @@ object Main {
       case mFuncName :: rest if (mFuncName.startsWith("-m:")) => funcName = mFuncName drop 3; arguments(rest)
       case sSolFileName :: rest if (sSolFileName.startsWith("-s:")) => solFileName = sSolFileName.drop(3); arguments(rest)
       case "-log" :: rest => log = true; arguments(rest)
+      case "-log:2" :: rest => log = true; logCEX = true; arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)

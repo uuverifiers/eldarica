@@ -94,14 +94,23 @@ object CCReader {
 
   import IExpression._
 
-  private abstract sealed class CCType
+  private abstract sealed class CCType {
+    def rangePred(t : ITerm) : IFormula
+  }
   private case object CCVoid extends CCType {
+    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "void"
   }
   private case object CCInt extends CCType {
+    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "int"
   }
+  private case object CCUInt extends CCType {
+    def rangePred(t : ITerm) : IFormula = (t >= 0)
+    override def toString : String = "unsigned int"
+  }
   private case object CCClock extends CCType {
+    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "clock"
   }
 
@@ -463,6 +472,7 @@ class CCReader private (prog : Program,
               else
                 addLocalVar(c, typ)
               values addValue CCTerm(c, typ)
+              values addGuard (typ rangePred c)
             }
           }
         }
@@ -513,7 +523,13 @@ class CCReader private (prog : Program,
             case _ : Tvoid =>
               typ = CCVoid
             case _ : Tint =>
+              // ignore
+            case _ : Tchar =>
+              // ignore
+            case _ : Tsigned =>
               typ = CCInt
+            case _ : Tunsigned =>
+              typ = CCUInt
             case _ : Tclock => {
               if (!useTime)
                 throw NeedsTimeException
@@ -566,7 +582,7 @@ class CCReader private (prog : Program,
                                values : Buffer[CCExpr]) {
     private var guard : IFormula = true
 
-    private def addGuard(f : IFormula) : Unit = {
+    def addGuard(f : IFormula) : Unit = {
       guard = guard &&& f
       touchedGlobalState =
         touchedGlobalState || !freeFromGlobal(f)
@@ -617,6 +633,7 @@ class CCReader private (prog : Program,
       val c = new ConstantTerm("__eval" + localVars.size)
       addLocalVar(c, t)
       addValue(CCTerm(c, t))
+      addGuard(t rangePred c)
     }
 
     private def popVal = {
@@ -1010,7 +1027,10 @@ class CCReader private (prog : Program,
 
     private def convertTypes(a : CCType, b : CCType) : CCType =
       (a, b) match {
-        case (CCInt, CCInt) => CCInt
+        case (CCInt, CCInt) |
+             (CCInt, CCUInt) |
+             (CCUInt, CCInt)  => CCInt
+        case (CCUInt, CCUInt) => CCUInt
         case _ =>
           throw new TranslationException("incompatible types")
       }
@@ -1037,7 +1057,8 @@ class CCReader private (prog : Program,
 //      case constant : Eunsigned.     Constant ::= Unsigned;
 //      case constant : Elong.         Constant ::= Long;
 //      case constant : Eunsignlong.   Constant ::= UnsignedLong;
-//      case constant : Ehexadec.      Constant ::= Hexadecimal;
+      case constant : Ehexadec =>
+        pushVal(CCTerm(IdealInt(constant.hexadecimal_ substring 2, 16), CCInt))
 //      case constant : Ehexaunsign.   Constant ::= HexUnsigned;
 //      case constant : Ehexalong.     Constant ::= HexLong;
 //      case constant : Ehexaunslong.  Constant ::= HexUnsLong;

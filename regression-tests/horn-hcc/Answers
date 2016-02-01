@@ -287,6 +287,10 @@ Warning: enabling time
 Warning: entry function "main" not found
 SAFE
 
+diamond_true-unreach-call1.c
+Warning: no definition of function "__VERIFIER_nondet_uint" available
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

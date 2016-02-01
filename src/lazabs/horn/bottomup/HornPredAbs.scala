@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -921,7 +921,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
             iterationNum = iterationNum + 1
             print("Found counterexample #" + iterationNum + ", refining ... ")
-//            clauseDag.prettyPrint
+            if (lazabs.GlobalParameters.get.logCEX) {
+              println
+              clauseDag.prettyPrint
+            }
 //            print("Refining ...")
         
             {
