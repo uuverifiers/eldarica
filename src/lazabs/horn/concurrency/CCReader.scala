@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -912,13 +912,15 @@ class CCReader private (prog : Program,
       }
 
       case exp : Efunkpar => (printer print exp.exp_) match {
-        case "assert" | "static_assert" if (exp.listexp_.size == 1) => {
+        case "assert" | "static_assert" | "__VERIFIER_assert"
+                          if (exp.listexp_.size == 1) => {
           import HornClauses._
           val property = atomicEval(exp.listexp_.head).toFormula
           assertionClauses += (property :- (initAtom, guard))
           pushVal(CCFormula(true, CCInt))
         }
-        case "assume" if (exp.listexp_.size == 1) => {
+        case "assume" | "__VERIFIER_assume"
+                          if (exp.listexp_.size == 1) => {
           addGuard(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
