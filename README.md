@@ -13,7 +13,7 @@ Eldarica has been developed by Hossein Hojjat and Philipp Ruemmer,
 with further contributions by Filip Konecny and Pavle Subotic.
 
 There is a simple web interface to experiment with the C interface
-of Eldarica (side branch "concurrency"):
+of Eldarica:
 http://logicrunch.it.uu.se:4096/~wv/eldarica
 
 Documentation
@@ -45,6 +45,8 @@ Papers
 * The canonical reference to Eldarica:
   "A Verification Toolkit for Numerical Transition Systems - Tool Paper."
   http://link.springer.com/chapter/10.1007%2F978-3-642-32759-9_21
+* "Guiding Craig Interpolation with Domain-specific Abstractions"
+  http://link.springer.com/article/10.1007%2Fs00236-015-0236-z
 * "Accelerating Interpolants"
   http://link.springer.com/chapter/10.1007%2F978-3-642-33386-6_16
 * "Disjunctive Interpolants for Horn-Clause Verification"
