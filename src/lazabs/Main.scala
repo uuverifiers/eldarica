@@ -146,7 +146,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica, 2014-11-08. (C) Copyright 2012-2014 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica, 2016-02-02. (C) Copyright 2012-2016 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
