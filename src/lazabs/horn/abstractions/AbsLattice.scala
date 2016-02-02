@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2016 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -662,7 +662,7 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
 
 ////////////////////////////////////////////////////////////////////////////////
 
-abstract class BitSetLattice(width : Int) extends AbsLattice {
+abstract class BitSetLattice(width : Int, name : String) extends AbsLattice {
 
   val arity : Int
 
@@ -675,6 +675,7 @@ abstract class BitSetLattice(width : Int) extends AbsLattice {
   type LatticeObject = BitSet
 
   def pp(o : LatticeObject) =
+    (name match { case "" => ""; case n => n + ": " }) +
     "<" + (for (i <- o) yield pp(i)).mkString(", ") + ">"
 
   val latticeOrder = new PartialOrdering[LatticeObject] {
@@ -775,19 +776,20 @@ abstract class BitSetLattice(width : Int) extends AbsLattice {
 ////////////////////////////////////////////////////////////////////////////////
 
 object TermSubsetLattice {
-  def apply(termsCosts : Seq[(ITerm, Int)]) = {
+  def apply(termsCosts : Seq[(ITerm, Int)], name : String = "") = {
     val objseq = termsCosts.unzip._1.toIndexedSeq
     val cmap = termsCosts.toMap
-    new TermSubsetLattice(objseq, cmap)
+    new TermSubsetLattice(objseq, cmap, name)
   }
   def apply(objseq: Seq[ITerm], cmap: Map[ITerm, Int]) = {
-    new TermSubsetLattice(objseq, cmap)
+    new TermSubsetLattice(objseq, cmap, "")
   }
 }
 
 class TermSubsetLattice private (objseq: Seq[ITerm],
-                                 costMap : Map[ITerm, Int])
-      extends BitSetLattice(objseq.size) {
+                                 costMap : Map[ITerm, Int],
+                                 _name : String)
+      extends BitSetLattice(objseq.size, _name) {
 
   assert(costMap.keySet == objseq.toSet)
 
@@ -854,16 +856,17 @@ class TermSubsetLattice private (objseq: Seq[ITerm],
 ////////////////////////////////////////////////////////////////////////////////
 
 object TermIneqLattice {
-  def apply(lowerBounds : Seq[(ITerm, Int)]) =
+  def apply(lowerBounds : Seq[(ITerm, Int)], name : String = "") =
     new TermIneqLattice(lowerBounds.unzip._1.toIndexedSeq,
-                        lowerBounds.toMap)
+                        lowerBounds.toMap,
+                        name)
 }
 
 // Base case class
 class TermIneqLattice private (lowerBounds: Seq[ITerm],
-                               lowerCostMap : Map[ITerm, Int])
-      extends BitSetLattice(lowerBounds.size)
-{
+                               lowerCostMap : Map[ITerm, Int],
+                               _name : String)
+      extends BitSetLattice(lowerBounds.size, _name) {
 
   assert(lowerCostMap.keySet == lowerBounds.toSet)
 
@@ -905,16 +908,17 @@ class TermIneqLattice private (lowerBounds: Seq[ITerm],
 ////////////////////////////////////////////////////////////////////////////////
 
 object PredicateLattice {
-  def apply(predicateCosts : Seq[(IFormula, Int)]) =
+  def apply(predicateCosts : Seq[(IFormula, Int)], name : String = "") =
     new PredicateLattice(predicateCosts.unzip._1.toIndexedSeq,
-                         predicateCosts.toMap)
+                         predicateCosts.toMap,
+                         name)
 }
 
 // Base case class
 class PredicateLattice private (predicates: Seq[IFormula],
-                                costMap : Map[IFormula, Int])
-      extends BitSetLattice(predicates.size)
-{
+                                costMap : Map[IFormula, Int],
+                                _name : String)
+      extends BitSetLattice(predicates.size, _name) {
 
   assert(costMap.keySet == predicates.toSet)
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -531,7 +531,8 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
 
       (loopHead,
        (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts)))
+        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts,
+                          loopHead.name)))
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -562,7 +563,8 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
 
       (loopHead,
        (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts)))
+        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts,
+                          loopHead.name)))
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -623,9 +625,10 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
       (loopHead,
        (loopDetector bodyPredicates loopHead,
         if (ineqs)
-          TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c))
+          TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c),
+                          loopHead.name)
         else
-          TermSubsetLattice(allCosts)
+          TermSubsetLattice(allCosts, loopHead.name)
        ))
     }
 

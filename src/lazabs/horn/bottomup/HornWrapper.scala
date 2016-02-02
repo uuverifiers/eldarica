@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -39,8 +39,7 @@ import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
 import Util._
 import HornPredAbs.{RelationSymbol}
-import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
-                                 AbsReader, LoopDetector}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
