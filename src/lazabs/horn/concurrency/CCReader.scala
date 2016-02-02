@@ -156,6 +156,7 @@ class CCReader private (prog : Program,
 
   private val globalVars = new ArrayBuffer[ConstantTerm]
   private val globalVarsInit = new ArrayBuffer[CCExpr]
+  private var globalPreconditions : IFormula = true
 
   private def globalVarIndex(name : String) : Option[Int] =
     (globalVars indexWhere (_.name == name)) match {
@@ -382,6 +383,8 @@ class CCReader private (prog : Program,
     else
       globalVarsInit ++= globalVarSymex.getValues
 
+    globalPreconditions = globalPreconditions &&& globalVarSymex.getGuard
+
     // then translate the threads
     atomicMode = false
 
@@ -587,6 +590,8 @@ class CCReader private (prog : Program,
       touchedGlobalState =
         touchedGlobalState || !freeFromGlobal(f)
     }
+
+    def getGuard = guard
 
     private var initAtom =
       if (oriInitPred == null)
@@ -1290,7 +1295,7 @@ class CCReader private (prog : Program,
                           compound : Compound_stm,
                           exit : Predicate) : Unit = compound match {
       case compound : ScompOne =>
-        output(Clause(atom(exit, allVarInits), List(), true))
+        output(Clause(atom(exit, allVarInits), List(), globalPreconditions))
       case compound : ScompTwo => {
         pushLocalFrame
 
@@ -1299,7 +1304,8 @@ class CCReader private (prog : Program,
         // merge simple side-effect-free declarations with
         // the entry clause
         var entryPred = newPred
-        var entryClause = Clause(atom(entryPred, allVarInits), List(), true)
+        var entryClause =
+          Clause(atom(entryPred, allVarInits), List(), globalPreconditions)
 
         while (stmsIt.hasNext && isSEFDeclaration(stmsIt.peekNext)) {
           val decSymex = Symex(entryPred)
