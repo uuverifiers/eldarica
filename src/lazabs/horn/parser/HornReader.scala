@@ -85,6 +85,8 @@ class SMTHornReader protected[parser] (
       protected override def
         incrementalityMessage(thing : String, warnOnly : Boolean) : String =
           if (warnOnly) ("ignoring " + thing) else (thing + " is not supported")
+      protected override def
+        neverInline(expr : IExpression) : Boolean = false
     })(reader)
 
   reader.close

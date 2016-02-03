@@ -57,3 +57,7 @@ sat
 a_1.source.smt2
 sat
 (define-fun INV ((A Int) (B Int) (C Int)) Bool (and (>= B 2) (>= C 0)))
+
+uninterpreted_fun.smt2
+Warning: ignoring get-model
+sat
