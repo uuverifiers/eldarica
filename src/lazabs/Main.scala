@@ -156,8 +156,8 @@ object Main {
     import params._
     import GlobalParameters.InputFormat
 
-    def arguments(args: List[String]): Unit = args match {
-      case Nil =>
+    def arguments(args: List[String]): Boolean = args match {
+      case Nil => true
       case "-c" :: rest => drawCFG = true; arguments(rest)
       case "-r" :: rest => drawRTree = true; arguments(rest)
       case "-f" :: rest => absInFile = true; arguments(rest)
@@ -296,10 +296,13 @@ object Main {
           " -dfs\t\tUse Depth-first search\n" +
           " -prq\t\tUse Priority queue search\n" +
           " -rnd\t\tUse random search\n")
+          false
       case fn :: rest => fileName = fn;  openInputFile; arguments(rest)
     }
-    
-    arguments(args.toList)
+
+    // Exit early if we showed the help
+    if (!arguments(args.toList))
+      return
 
     if (in == null)
       throw new MainException("no input file given")
