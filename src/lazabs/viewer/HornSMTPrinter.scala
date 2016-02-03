@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -129,10 +129,16 @@ object HornSMTPrinter {
       "(define-fun " + name + " (" + boundVars + ") Bool " + body + ")"
     } else {
       h.head match{
-        case Interp(BoolConst(false)) => "(assert (not (exists (" + boundVars + ")" + body + ")))" 
+        case Interp(BoolConst(false)) =>
+          if (!boundVars.isEmpty) {
+            "(assert (not (exists (" + boundVars + ") " + body + ")))"
+          } else {
+            "(assert (not " + body + "))"
+          }
         case _ => 
-          if (boundVars.length() != 0) {
-            "(assert (forall (" + boundVars + ")" + "(=> " + body + " " + head + ")))"
+          if (!boundVars.isEmpty) {
+            "(assert (forall (" + boundVars + ")" +
+            "(=> " + body + " " + head + ")))"
           } else {
             "(assert" + "(=> " + body + " " + head + "))"
           }
