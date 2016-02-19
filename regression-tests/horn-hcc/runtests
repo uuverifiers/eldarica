@@ -10,7 +10,8 @@ TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc test5.hcc \
        atomic1.hcc atomic2.hcc atomic3.hcc atomic3b.hcc atomic3c.hcc \
        atomic3d.hcc atomic3e.hcc atomic3f.hcc atomic4.hcc \
        clocks1.hcc clocks2.hcc clocks3.hcc clocks4.hcc clocks5.hcc \
-       fischer.hcc diamond_true-unreach-call1.c unsigned1.hcc"
+       fischer.hcc diamond_true-unreach-call1.c unsigned1.hcc \
+       literals.c"
 
 for name in $TESTS; do
     echo

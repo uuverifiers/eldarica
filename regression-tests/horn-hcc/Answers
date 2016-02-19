@@ -294,6 +294,9 @@ SAFE
 unsigned1.hcc
 SAFE
 
+literals.c
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

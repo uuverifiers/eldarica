@@ -97,17 +97,37 @@ object CCReader {
   private abstract sealed class CCType {
     def rangePred(t : ITerm) : IFormula
   }
+  private abstract class CCArithType extends CCType {
+    val UNSIGNED_RANGE : IdealInt
+    val isUnsigned : Boolean
+  }
   private case object CCVoid extends CCType {
     def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "void"
   }
-  private case object CCInt extends CCType {
+  private case object CCInt extends CCArithType {
     def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "int"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFF", 16) // 32bit
+    val isUnsigned : Boolean = false
   }
-  private case object CCUInt extends CCType {
+  private case object CCUInt extends CCArithType {
     def rangePred(t : ITerm) : IFormula = (t >= 0)
     override def toString : String = "unsigned int"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFF", 16) // 32bit
+    val isUnsigned : Boolean = true
+  }
+  private case object CCLong extends CCArithType {
+    def rangePred(t : ITerm) : IFormula = true
+    override def toString : String = "long"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
+    val isUnsigned : Boolean = false
+  }
+  private case object CCULong extends CCArithType {
+    def rangePred(t : ITerm) : IFormula = (t >= 0)
+    override def toString : String = "unsigned long"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
+    val isUnsigned : Boolean = true
   }
   private case object CCClock extends CCType {
     def rangePred(t : ITerm) : IFormula = true
@@ -515,14 +535,24 @@ class CCReader private (prog : Program,
     case dec : OldFuncDec => getName(dec.direct_declarator_)
   }
 
-  private def getType(specs : Seq[Declaration_specifier]) : CCType = {
+  private def getType(specs : Seq[Declaration_specifier]) : CCType =
+    getType(for (specifier <- specs.iterator;
+                 if (specifier.isInstanceOf[Type]))
+            yield specifier.asInstanceOf[Type].type_specifier_)
+
+  private def getType(name : Type_name) : CCType = name match {
+    case name : PlainType =>
+      getType(for (qual <- name.listspec_qual_.iterator;
+                   if (qual.isInstanceOf[TypeSpec]))
+              yield qual.asInstanceOf[TypeSpec].type_specifier_)
+  }
+
+  private def getType(specs : Iterator[Type_specifier]) : CCType = {
     // by default assume that the type is int
     var typ : CCType = CCInt
 
     for (specifier <- specs)
       specifier match {
-        case specifier : Type =>
-          specifier.type_specifier_ match {
             case _ : Tvoid =>
               typ = CCVoid
             case _ : Tint =>
@@ -533,6 +563,10 @@ class CCReader private (prog : Program,
               typ = CCInt
             case _ : Tunsigned =>
               typ = CCUInt
+            case _ : Tlong if (typ == CCInt) =>
+              typ = CCLong
+            case _ : Tlong if (typ == CCUInt) =>
+              typ = CCULong
             case _ : Tclock => {
               if (!useTime)
                 throw NeedsTimeException
@@ -544,8 +578,6 @@ class CCReader private (prog : Program,
               typ = CCInt
             }
           }
-        case _ => // ignore
-      }
 
     typ
   }
@@ -560,7 +592,7 @@ class CCReader private (prog : Program,
     if (!useTime)
       throw NeedsTimeException
     expr.toTerm match {
-      case IIntLit(v) if (expr.typ == CCInt) =>
+      case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
         CCTerm(GT + GTU*(-v), CCClock)
       case _ =>
         throw new TranslationException(
@@ -898,7 +930,10 @@ class CCReader private (prog : Program,
           (x : ITerm, y : ITerm) =>
             ap.theories.BitShiftMultiplication.tMod(x, y)
         })
-//      case exp : Etypeconv.   Exp14 ::= "(" Type_name ")" Exp14;
+      case exp : Etypeconv => {
+        evalHelp(exp.exp_)
+        pushVal(convertType(popVal, getType(exp.type_name_)))
+      }
       case exp : Epreinc => {
         evalHelp(exp.exp_)
         maybeOutputClause
@@ -1023,31 +1058,25 @@ class CCReader private (prog : Program,
       pushVal(op(lhs, rhs))
     }
 
-    private def strictBinFun(left : Exp, right : Exp,
-                             op : (ITerm, ITerm) => ITerm) : Unit =
-      strictBinOp(left, right,
-                  (lhs : CCExpr, rhs : CCExpr) =>
-                    CCTerm(op(lhs.toTerm, rhs.toTerm),
-                           convertTypes(lhs.typ, rhs.typ)))
+    ////////////////////////////////////////////////////////////////////////////
 
-    private def convertTypes(a : CCType, b : CCType) : CCType =
-      (a, b) match {
-        case (CCInt, CCInt) |
-             (CCInt, CCUInt) |
-             (CCUInt, CCInt)  => CCInt
-        case (CCUInt, CCUInt) => CCUInt
-        case _ =>
-          throw new TranslationException("incompatible types")
-      }
+    private def strictBinFun(left : Exp, right : Exp,
+                             op : (ITerm, ITerm) => ITerm) : Unit = {
+      strictBinOp(left, right,
+                  (lhs : CCExpr, rhs : CCExpr) => {
+                     val (promLhs, promRhs) = unifyTypes(lhs, rhs)
+                     CCTerm(op(promLhs.toTerm, promRhs.toTerm), promLhs.typ)
+                   })
+    }
 
     private def strictBinPred(left : Exp, right : Exp,
                               op : (ITerm, ITerm) => IFormula) : Unit =
       strictBinOp(left, right,
                   (lhs : CCExpr, rhs : CCExpr) => (lhs.typ, rhs.typ) match {
-                    case (CCClock, CCInt) =>
+                    case (CCClock, _ : CCArithType) =>
                       CCFormula(op(GT - lhs.toTerm,
                                    GTU * rhs.toTerm), CCInt)
-                    case (CCInt, CCClock) =>
+                    case (_ : CCArithType, CCClock) =>
                       CCFormula(op(GTU * lhs.toTerm,
                                    GT - rhs.toTerm), CCInt)
                     case (CCClock, CCClock) =>
@@ -1056,17 +1085,85 @@ class CCReader private (prog : Program,
                       CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
                   })
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    private def convertType(t : CCExpr, newType : CCType) : CCExpr =
+      (t.typ, newType) match {
+        case (oldType, newType)
+          if (oldType == newType) =>
+            t
+        case (oldType : CCArithType, newType : CCArithType) =>
+          t castTo newType
+
+/*
+        case (oldType : CCArithType, newType : CCArithType)
+          if (oldType.isUnsigned == newType.isUnsigned) =>
+            t castTo newType
+        case (oldType : CCArithType, newType : CCArithType)
+          if (oldType.isUnsigned) => { // unsigned to signed
+            val tt = t.toTerm
+            CCTerm(ite(tt >= (oldType.UNSIGNED_RANGE / 2),
+                       tt - oldType.UNSIGNED_RANGE,
+                       tt), newType)
+          }
+        case (oldType : CCArithType, newType : CCArithType)
+          if (!oldType.isUnsigned) => { // signed to unsigned
+            val tt = t.toTerm
+            CCTerm(ite(!geqZero(tt),
+                       tt + oldType.UNSIGNED_RANGE,
+                       tt), newType)
+          }
+*/
+        case _ =>
+          throw new TranslationException(
+            "do not know how to convert " + t + " to " + newType)
+      }
+
+    private def unifyTypes(a : CCExpr, b : CCExpr) : (CCExpr, CCExpr) =
+      (a.typ, b.typ) match {
+
+        case (at, bt) if (at == bt) =>
+          (a, b)
+
+        case (at : CCArithType, bt : CCArithType) =>
+          if ((at.UNSIGNED_RANGE > bt.UNSIGNED_RANGE) ||
+              (at.UNSIGNED_RANGE == bt.UNSIGNED_RANGE && at.isUnsigned))
+            (a, convertType(b, at))
+          else
+            (convertType(a, bt), b)
+
+        case _ =>
+          throw new TranslationException("incompatible types")
+      }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     private def evalHelp(constant : Constant) : Unit = constant match {
 //      case constant : Efloat.        Constant ::= Double;
-//      case constant : Echar.         Constant ::= Char;
-//      case constant : Eunsigned.     Constant ::= Unsigned;
-//      case constant : Elong.         Constant ::= Long;
-//      case constant : Eunsignlong.   Constant ::= UnsignedLong;
+      case constant : Echar =>
+        pushVal(CCTerm(IdealInt(constant.char_.toInt), CCInt))
+      case constant : Eunsigned =>
+        pushVal(CCTerm(IdealInt(
+          constant.unsigned_.substring(0,
+            constant.unsigned_.size - 1)), CCUInt))
+      case constant : Elong =>
+        pushVal(CCTerm(IdealInt(
+          constant.long_.substring(0, constant.long_.size - 1)), CCLong))
+      case constant : Eunsignlong =>
+        pushVal(CCTerm(IdealInt(
+          constant.unsignedlong_.substring(0,
+            constant.unsignedlong_.size - 2)), CCULong))
       case constant : Ehexadec =>
         pushVal(CCTerm(IdealInt(constant.hexadecimal_ substring 2, 16), CCInt))
-//      case constant : Ehexaunsign.   Constant ::= HexUnsigned;
-//      case constant : Ehexalong.     Constant ::= HexLong;
-//      case constant : Ehexaunslong.  Constant ::= HexUnsLong;
+      case constant : Ehexaunsign =>
+        pushVal(CCTerm(IdealInt(constant.hexunsigned_.substring(2,
+                                  constant.hexunsigned_.size - 1), 16), CCUInt))
+      case constant : Ehexalong =>
+        pushVal(CCTerm(IdealInt(constant.hexlong_.substring(2,
+                                  constant.hexlong_.size - 1), 16), CCLong))
+      case constant : Ehexaunslong =>
+        pushVal(CCTerm(IdealInt(constant.hexunslong_.substring(2,
+                                  constant.hexunslong_.size - 2), 16), CCULong))
       case constant : Eoctal =>
         pushVal(CCTerm(IdealInt(constant.octal_, 8), CCInt))
 //      case constant : Eoctalunsign.  Constant ::= OctalUnsigned;
