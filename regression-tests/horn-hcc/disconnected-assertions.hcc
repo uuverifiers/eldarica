@@ -1,5 +1,5 @@
 
-int N;
+int N = _;
 
 
 void main(void) {

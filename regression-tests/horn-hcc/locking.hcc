@@ -1,7 +1,7 @@
 // Use the option -abstract for thread-modular verification
 // (otherwise verification might diverge)
 
-int N;
+int N = _;
 int lock = 0;
 
 int x = 0;

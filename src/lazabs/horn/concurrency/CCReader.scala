@@ -480,6 +480,7 @@ class CCReader private (prog : Program,
       val typ = getType(decl.listdeclaration_specifier_)
 
       for (initDecl <- decl.listinit_declarator_) initDecl match {
+
         case onlyDecl : OnlyDecl => {
           val name = getName(onlyDecl.declarator_)
           val directDecl =
@@ -490,19 +491,34 @@ class CCReader private (prog : Program,
               functionDecls.put(name, (directDecl, typ))
             case _ => {
               val c = new ConstantTerm(name)
-              if (global)
+              if (global) {
                 globalVars += c
-              else
+                typ match {
+                  case typ : CCArithType =>
+                    // global variables are initialised with 0
+                    values addValue CCTerm(0, typ)
+                  case typ => {
+                    values addValue CCTerm(c, typ)
+                    values addGuard (typ rangePred c)
+                  }
+                }
+              } else {
                 addLocalVar(c, typ)
-              values addValue CCTerm(c, typ)
-              values addGuard (typ rangePred c)
+                values addValue CCTerm(c, typ)
+                values addGuard (typ rangePred c)
+              }
             }
           }
         }
+
         case initDecl : InitDecl => {
           val c = new ConstantTerm(getName(initDecl.declarator_))
-          val initValue = initDecl.initializer_ match {
-            case init : InitExpr => values eval init.exp_
+          val (initValue, initGuard) = initDecl.initializer_ match {
+            case init : InitExpr =>
+              if (init.exp_.isInstanceOf[Enondet])
+                (CCTerm(c, typ), typ rangePred c)
+              else
+                (values eval init.exp_, i(true))
           }
 
           if (global)
@@ -516,7 +532,10 @@ class CCReader private (prog : Program,
             case typ =>
               values addValue (initValue castTo typ)
           }
+
+          values addGuard initGuard
         }
+
       }
     }
     case _ : NoDeclarator =>

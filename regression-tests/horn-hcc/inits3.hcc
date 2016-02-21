@@ -1,0 +1,9 @@
+
+
+int g = _;
+unsigned int h = _;
+
+void main() {
+  assert(h >= 0);
+  assert(g == 0);
+}

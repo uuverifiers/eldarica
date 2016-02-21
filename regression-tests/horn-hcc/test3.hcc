@@ -1,6 +1,6 @@
 
 
-int N;
+int N = _;
 
 
 thread A {

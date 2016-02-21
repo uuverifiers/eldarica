@@ -1,5 +1,5 @@
 
-int x;
+int x = _;
 
 thread A {
   atomic { assume(x > 0); }

@@ -209,6 +209,25 @@ SAFE
 inits.hcc
 SAFE
 
+inits2.hcc
+SAFE
+
+inits3.hcc
+UNSAFE
+
+-------------
+Init:
+ main2(1, 0) 
+-------------
+      |      
+      |      
+      V      
+ main3(1, 0) 
+-------------
+Final:
+ main3(1, 0) 
+-------------
+
 shadowing.hcc
 SAFE
 

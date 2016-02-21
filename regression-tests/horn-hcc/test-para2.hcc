@@ -1,5 +1,5 @@
-int N;
-int offset;
+int N = _;
+int offset = _;
 
 int writeLoc = -1;
 
