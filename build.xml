@@ -251,4 +251,6 @@
     </target>	
 	
     <target name="new" description="clean and rebuilds" />
+
+    <target name="test" depends="compile" description="compile and test" />
 </project>
