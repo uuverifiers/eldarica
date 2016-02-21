@@ -252,5 +252,9 @@
 	
     <target name="new" description="clean and rebuilds" />
 
-    <target name="test" depends="compile" description="compile and test" />
+    <target name="test" depends="standalone" description="compile and test">
+       <exec executable="${basedir}/regression-tests/runalldirs"
+             dir="${basedir}/regression-tests/"
+             failonerror="true" />
+    </target>
 </project>

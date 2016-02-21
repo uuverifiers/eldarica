@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 DIR="$1"
 shift
 
@@ -13,12 +15,17 @@ echo -n "$DIR ($@) ... "
 export TIMEFORMAT="%U"
 TIME=`time ( cd $DIR; ./runtests "$@" >Output"$ANSWER_SUFFIX" 2>&1; ) 2>&1`
 
+res=0
+
 if cmp -s "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"; then
     echo -ne "\tSucceeded"
 else
     echo -ne "\tFAILED"
     cp "$DIR"/Output"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"-"`date`"
+    res=1
 fi
 
 echo -n " ($TIME"
 echo "s)"
+
+exit $res
