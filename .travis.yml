@@ -3,5 +3,6 @@ scala:
   - 2.11.7
 
 before_install:
+  - env
   - scalac -version
   - which scalac
