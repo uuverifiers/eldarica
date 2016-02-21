@@ -2,6 +2,14 @@ language: scala
 scala:
   - 2.11.7
 
+os:
+    - linux
+
+addons:
+    apt:
+      packages:
+        - scala
+
 before_install:
   - env
   - scalac -version
