@@ -3,4 +3,5 @@ scala:
   - 2.11.7
 
 before_install:
+  - scalac -version
   - which scalac
