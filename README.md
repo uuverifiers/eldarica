@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/uuverifiers/eldarica.svg?branch=master)](https://travis-ci.org/uuverifiers/eldarica)
-
 Eldarica
 ========
 
@@ -63,3 +61,5 @@ Related Links
   https://svn.sosy-lab.org/software/sv-benchmarks/trunk/clauses/LIA/Eldarica/
 * Numerical transition system benchmarks:
   http://richmodels.epfl.ch/ntscomp/ntslib
+
+[![Build Status](https://travis-ci.org/uuverifiers/eldarica.svg?branch=master)](https://travis-ci.org/uuverifiers/eldarica)
