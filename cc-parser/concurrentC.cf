@@ -281,6 +281,7 @@ Epostdec.    Exp16 ::= Exp16 "--";
 Evar.        Exp17 ::= CIdent;
 Econst.      Exp17 ::= Constant;
 Estring.     Exp17 ::= String;
+Enondet.     Exp17 ::= "_";
 
 Efloat.        Constant ::= Double;
 Echar.         Constant ::= Char;
