@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/uuverifiers/eldarica.svg?branch=master)](https://travis-ci.org/uuverifiers/eldarica)
+
 Eldarica
 ========
 
