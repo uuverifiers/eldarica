@@ -1,16 +1,15 @@
-language: scala
+language: java
 scala:
   - 2.11.7
 
 os:
     - linux
 
-addons:
-    apt:
-      packages:
-        - scala
-
 before_install:
+  - wget http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz
+  - tar xvzf scala-2.11.7.tgz
+  - export SCALA_HOME=`pwd`/scala-2.11.7
+  - export PATH=$SCALA_HOME/bin:$PATH
   - env
   - scalac -version
   - which scalac
