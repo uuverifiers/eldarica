@@ -316,6 +316,9 @@ SAFE
 literals.c
 SAFE
 
+predicates.hcc
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

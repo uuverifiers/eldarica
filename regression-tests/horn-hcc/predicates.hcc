@@ -1,0 +1,11 @@
+
+
+void main() {
+  int /*@ predicates { x == 0, x == 1 } @*/ x = 0;
+  int i;
+
+  for (i = 0; i < 100; ++i)
+    x = 1 - x;
+
+  assert(x == 0 || x == 1);
+}

@@ -203,6 +203,7 @@ class CCReader private (prog : Program,
   private def addLocalVar(c : ConstantTerm, t : CCType) = {
     localVars += c
     localVarTypes += t
+    variablePredicates += List()
   }
 
   private def pushLocalFrame =
@@ -211,6 +212,7 @@ class CCReader private (prog : Program,
     val newSize = localFrameStack.pop
     localVars reduceToSize newSize
     localVarTypes reduceToSize newSize
+    variablePredicates reduceToSize (globalVars.size + newSize)
   }
 
   private def allFormalVars : Seq[ITerm] =
@@ -233,6 +235,8 @@ class CCReader private (prog : Program,
     case CCTerm(s, _) =>    freeFromGlobal(s)
     case CCFormula(f, _) => freeFromGlobal(f)
   }
+
+  private val variablePredicates = new ArrayBuffer[Seq[IFormula]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -358,6 +362,8 @@ class CCReader private (prog : Program,
     globalVarsInit += CCTerm(GT, CCClock)
     globalVars += GTU
     globalVarsInit += CCTerm(GTU, CCInt)
+    variablePredicates += List()
+    variablePredicates += List()
   }
 
   private def translateProgram : Unit = {
@@ -479,63 +485,76 @@ class CCReader private (prog : Program,
     case decl : Declarators => {
       val typ = getType(decl.listdeclaration_specifier_)
 
-      for (initDecl <- decl.listinit_declarator_) initDecl match {
-
-        case onlyDecl : OnlyDecl => {
-          val name = getName(onlyDecl.declarator_)
-          val directDecl =
-            onlyDecl.declarator_.asInstanceOf[NoPointer].direct_declarator_
-
-          directDecl match {
-            case _ : NewFuncDec /* | _ : OldFuncDef */ | _ : OldFuncDec =>
-              functionDecls.put(name, (directDecl, typ))
-            case _ => {
-              val c = new ConstantTerm(name)
-              if (global) {
-                globalVars += c
-                typ match {
-                  case typ : CCArithType =>
-                    // global variables are initialised with 0
-                    values addValue CCTerm(0, typ)
-                  case typ => {
-                    values addValue CCTerm(c, typ)
-                    values addGuard (typ rangePred c)
+      for (initDecl <- decl.listinit_declarator_) {
+        initDecl match {
+          case _ : OnlyDecl | _ : HintDecl => {
+            val declarator = initDecl match {
+              case initDecl : OnlyDecl => initDecl.declarator_
+              case initDecl : HintDecl => initDecl.declarator_
+            }
+            val name = getName(declarator)
+            val directDecl =
+              declarator.asInstanceOf[NoPointer].direct_declarator_
+  
+            directDecl match {
+              case _ : NewFuncDec /* | _ : OldFuncDef */ | _ : OldFuncDec =>
+                functionDecls.put(name, (directDecl, typ))
+              case _ => {
+                val c = new ConstantTerm(name)
+                if (global) {
+                  globalVars += c
+                  typ match {
+                    case typ : CCArithType =>
+                      // global variables are initialised with 0
+                      values addValue CCTerm(0, typ)
+                    case typ => {
+                      values addValue CCTerm(c, typ)
+                      values addGuard (typ rangePred c)
+                    }
                   }
+                } else {
+                  addLocalVar(c, typ)
+                  values addValue CCTerm(c, typ)
+                  values addGuard (typ rangePred c)
                 }
-              } else {
-                addLocalVar(c, typ)
-                values addValue CCTerm(c, typ)
-                values addGuard (typ rangePred c)
               }
             }
           }
+  
+          case _ : InitDecl | _ : HintInitDecl => {
+            val (declarator, initializer) = initDecl match {
+              case initDecl : InitDecl =>
+                (initDecl.declarator_, initDecl.initializer_)
+              case initDecl : HintInitDecl =>
+                (initDecl.declarator_, initDecl.initializer_)
+            }
+            val c = new ConstantTerm(getName(declarator))
+            val (initValue, initGuard) = initializer match {
+              case init : InitExpr =>
+                if (init.exp_.isInstanceOf[Enondet])
+                  (CCTerm(c, typ), typ rangePred c)
+                else
+                  (values eval init.exp_, i(true))
+            }
+  
+            if (global)
+              globalVars += c
+            else
+              addLocalVar(c, typ)
+  
+            typ match {
+              case CCClock =>
+                values addValue translateTimeValue(initValue)
+              case typ =>
+                values addValue (initValue castTo typ)
+            }
+  
+            values addGuard initGuard
+          }
         }
 
-        case initDecl : InitDecl => {
-          val c = new ConstantTerm(getName(initDecl.declarator_))
-          val (initValue, initGuard) = initDecl.initializer_ match {
-            case init : InitExpr =>
-              if (init.exp_.isInstanceOf[Enondet])
-                (CCTerm(c, typ), typ rangePred c)
-              else
-                (values eval init.exp_, i(true))
-          }
-
-          if (global)
-            globalVars += c
-          else
-            addLocalVar(c, typ)
-
-          typ match {
-            case CCClock =>
-              values addValue translateTimeValue(initValue)
-            case typ =>
-              values addValue (initValue castTo typ)
-          }
-
-          values addGuard initGuard
-        }
-
+        // parse hints
+        variablePredicates += List()
       }
     }
     case _ : NoDeclarator =>
@@ -1445,7 +1464,13 @@ class CCReader private (prog : Program,
           case dec : Declarators =>
             dec.listinit_declarator_ forall {
               case _ : OnlyDecl => true
+              case _ : HintDecl => true
               case decl : InitDecl =>
+                decl.initializer_.asInstanceOf[InitExpr].exp_ match {
+                  case _ : Econst => true
+                  case _ => false
+                }
+              case decl : HintInitDecl =>
                 decl.initializer_.asInstanceOf[InitExpr].exp_ match {
                   case _ : Econst => true
                   case _ => false

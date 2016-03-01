@@ -42,10 +42,20 @@ SpecProp. Declaration_specifier ::= Type_qualifier;
 
 separator nonempty Declaration_specifier "";
 
-OnlyDecl.  Init_declarator ::= Declarator ;
-InitDecl.  Init_declarator ::= Declarator "=" Initializer;
+OnlyDecl.     Init_declarator ::= Declarator ;
+InitDecl.     Init_declarator ::= Declarator "=" Initializer;
+HintDecl.     Init_declarator ::= [Abs_hint] Declarator;
+HintInitDecl. Init_declarator ::= [Abs_hint] Declarator "=" Initializer;
 
 separator nonempty Init_declarator ",";
+
+Comment_abs_hint. Abs_hint ::= "/*@" [Abs_hint_clause] "@*/";
+
+separator nonempty Abs_hint "";
+
+Predicate_hint. Abs_hint_clause ::= "predicates" "{" Exp "}";
+
+separator Abs_hint_clause "";
 
 
 Tvoid.        Type_specifier ::= "void";
