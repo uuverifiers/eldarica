@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -150,7 +150,6 @@ object VerificationLoop {
 ////////////////////////////////////////////////////////////////////////////////
 
 class VerificationLoop(system : ParametricEncoder.System,
-                       assertions : Seq[HornClauses.Clause],
                        templateBasedInterpolation : Boolean = false) {
 
   import VerificationLoop._
@@ -172,7 +171,7 @@ class VerificationLoop(system : ParametricEncoder.System,
     println("Using invariants " + (invariants mkString ", "))
 
     val encoder =
-      new ParametricEncoder (system, assertions, invariants)
+      new ParametricEncoder (system, invariants)
 
     println
     println("Solving ...")

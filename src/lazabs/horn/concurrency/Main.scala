@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -96,16 +96,16 @@ object Main extends App {
        BarrierSync(bcChan))
     )
 
-    val system =
-      System(List((pProc, Infinite),
-                  (qProc, Singleton)),
-             0, None, NoTime, List())
-
     val assertions =
 //      List((c <= d) :- (p(1)(id, c), q(1)(d)))
       List((c === c2) :- (p(1)(id, c), p(1)(id2, c2)))
 
-    new VerificationLoop(system, assertions)
+    val system =
+      System(List((pProc, Infinite),
+                  (qProc, Singleton)),
+             0, None, NoTime, List(), assertions)
+
+    new VerificationLoop(system)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -182,16 +182,16 @@ object Main extends App {
      BarrierSync(barrier))
   )
 
+  val assertions =
+    List(((th >= 100) & (th <= 1000)) :- l(5)(sync, th))
+
   val system =
     System(List((Rod1, Singleton),
                 (Controller, Singleton),
                 (Rod2, Singleton)),
-           1, None, NoTime, List())
+           1, None, NoTime, List(), assertions)
 
-  val assertions =
-    List(((th >= 100) & (th <= 1000)) :- l(5)(sync, th))
-
-  new VerificationLoop(system, assertions)
+  new VerificationLoop(system)
   }
   */
 
@@ -276,19 +276,19 @@ object Main extends App {
     (C - th <= 450) :- l(8)(C, sync, th)
   )
 
-  val system =
-    System(List((Rod1, Singleton),
-                (Rod2, Singleton),
-                (Controller, Singleton)),
-           2, None, DiscreteTime(0), timeInvs)
-
   val assertions =
 //    List(((C - th >= 0) & (C - th <= 900)) :- l(7)(C, sync, th))
     List(false :- (
            l(1)(C, sync, t1), l(4)(C, sync, t2), l(7)(C, sync, th),
            C - th === 900, C - t1 < 3600, C - t2 < 3600))
 
-  new VerificationLoop(system, assertions)
+  val system =
+    System(List((Rod1, Singleton),
+                (Rod2, Singleton),
+                (Controller, Singleton)),
+           2, None, DiscreteTime(0), timeInvs, assertions)
+
+  new VerificationLoop(system)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -359,19 +359,19 @@ object Main extends App {
      NoSync)
   )
 
-  val system =
-    System(List((aProcess, Singleton),
-                (bProcess, Singleton),
-                (cProcess, Singleton)),
-           3, None, NoTime, List())
-
   val assertions =
     List((l >= l2) :- (p(0)(a_flag, b_flag, c_flag, l),
                        q(0)(a_flag, b_flag, c_flag, l2)),
          (l2 >= l3) :- (q(0)(a_flag, b_flag, c_flag, l2),
                         r(0)(a_flag, b_flag, c_flag, l3)))
 
-  new VerificationLoop(system, assertions)
+  val system =
+    System(List((aProcess, Singleton),
+                (bProcess, Singleton),
+                (cProcess, Singleton)),
+           3, None, NoTime, List(), assertions)
+
+  new VerificationLoop(system)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -413,14 +413,14 @@ object Main extends App {
 
   )
 
-  val system =
-    System(List((counterProcess, Infinite)), 1, None, NoTime, List())
-
   val assertions =
     List((cnt === cnt2) :- (p(2)(lock, id, cnt, t),
                             p(2)(lock, id2, cnt2, t2)))
 
-  new VerificationLoop(system, assertions)
+  val system =
+    System(List((counterProcess, Infinite)), 1, None, NoTime, List(), assertions)
+
+  new VerificationLoop(system)
 
   }
 
@@ -519,18 +519,19 @@ object Main extends App {
     (C - x <= U*5) :- train(0)(C, U, e, ticket, id, my_ticket, x)
   )
 
+  val assertions =
+    List(false :- (train(0)(C, U, e, ticket, id, my_ticket, x),
+                   train(0)(C, U, e, ticket, id2, my_ticket2, x2)))
+
   val system =
     System(
       List((gateProcess, Singleton), (trainProcess, Infinite)),
       4, None,
       ContinuousTime(0, 1),
-      timeInvs)
+      timeInvs,
+      assertions)
 
-  val assertions =
-    List(false :- (train(0)(C, U, e, ticket, id, my_ticket, x),
-                   train(0)(C, U, e, ticket, id2, my_ticket2, x2)))
-
-  new VerificationLoop(system, assertions)
+  new VerificationLoop(system)
 
 /*  val enc =
     new ParametricEncoder(system, assertions, List(List(1, 2)))
@@ -669,23 +670,24 @@ false :- p(A,D,E,B,C,F),(D > 1).
     (c - x <= 15)   :- train(4)(c, id, x)
   )
 
+  val assertions =
+    List(false :- (train(1)(c, id1, x1),
+                   train(1)(c, id2, x2)))
+
   val system =
     System(
       List((gateProcess, Singleton), (trainProcess, Infinite)),
       1, 
       None,
       DiscreteTime(0),
-      timeInvs)
-
-  val assertions =
-    List(false :- (train(1)(c, id1, x1),
-                   train(1)(c, id2, x2)))
+      timeInvs,
+      assertions)
 
     // can we get deadlocks?
 //    List(false :- (train(1)(c, id1, x1),
 //                   gate(1)(c, n, y)))
 
-  new VerificationLoop(system, assertions)
+  new VerificationLoop(system)
 
   }
 
@@ -724,8 +726,8 @@ false :- p(A,D,E,B,C,F),(D > 1).
                                   Infinite)),
                             3, None,
                             DiscreteTime(0),
-                            List(timeInv)),
-                          List(assertion))
+                            List(timeInv),
+                            List(assertion)))
 
 /*  val enc =
     new ParametricEncoder(System(
@@ -783,8 +785,8 @@ false :- p(A,D,E,B,C,F),(D > 1).
                                 Infinite)),
                           3, None,
                           DiscreteTime(0),
-                          List(timeInv)),
-                        List(assertion))
+                          List(timeInv),
+                          List(assertion)))
 
 /*
   val enc =
@@ -846,8 +848,8 @@ false :- p(A,D,E,B,C,F),(D > 1).
                           5, Some({ case Seq(_, _, _, delay1, delay2) =>
                                       delay1 > 0 & delay2 >= delay1 }),
                           DiscreteTime(0),
-                          List(timeInv)),
-                        List(assertion))
+                          List(timeInv),
+                          List(assertion)))
 
 /*
   val enc =
@@ -915,8 +917,8 @@ false :- p(A,D,E,B,C,F),(D > 1).
     new VerificationLoop(System(for (p <- processes) yield (p, Singleton),
                                  3, None,
                                  DiscreteTime(0),
-                                 timeInvs.flatten),
-                          assertions)
+                                 timeInvs.flatten,
+                                 assertions))
 
 /*
     val enc =
@@ -960,10 +962,10 @@ false :- p(A,D,E,B,C,F),(D > 1).
                         Infinite)),
                         4, None,
                         DiscreteTime(0),
-                        List()),
+                        List(),
                         List(false :- (p0(C, n, snt, rec, id), n > 2),
                              false :- (p1(C, n, snt, rec, id), n > 2),
-                             false :- (p2(C, n, snt, rec, id), n > 2)),
+                             false :- (p2(C, n, snt, rec, id), n > 2))),
                         List(List(1)))
 
   solve(enc)

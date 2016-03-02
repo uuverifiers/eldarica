@@ -124,9 +124,9 @@ object MainBenchmarks extends App {
                                 ), 
                             4, None,
                             ContinuousTime(0, 1),
-                            List(timeInv))
+                            List(timeInv), List(assertion))
     if (fischerFlag)
-      new VerificationLoop(system, List(assertion)) 
+      new VerificationLoop(system) 
   }
 
   println
@@ -248,10 +248,10 @@ object MainBenchmarks extends App {
            (senderProcess, Infinite), 
            (busProcess, Singleton)
           ),
-      4, None, ContinuousTime(0, 1), timeInvs)
+      4, None, ContinuousTime(0, 1), timeInvs, assertions)
 
     if (csmaFlag)
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(system)
 
   }
 
@@ -370,10 +370,10 @@ object MainBenchmarks extends App {
     val system =
     System(
       List((nodeProcess, Infinite)),
-      4, None, DiscreteTime(0), timeInvs)
+      4, None, DiscreteTime(0), timeInvs, assertions)
 
     if (ttaFlag)
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(system)
   }
 
   println
@@ -462,9 +462,9 @@ object MainBenchmarks extends App {
                                 ), 
                             4, None,
                             ContinuousTime(0, 1),
-                            timeInv)
+                            timeInv, List(assertion))
     if(lynch2Flag)
-      new VerificationLoop(system, List(assertion)) 
+      new VerificationLoop(system) 
   }
 
   println
@@ -559,9 +559,9 @@ object MainBenchmarks extends App {
                                 ), 
                             5, None,
                             ContinuousTime(0, 1),
-                            timeInv)
+                            timeInv, List(assertion))
     if(lynchFlag)
-      new VerificationLoop(system, List(assertion)) 
+      new VerificationLoop(system) 
   }
 
 
@@ -660,18 +660,18 @@ object MainBenchmarks extends App {
       (C - x <= U*5) :- train(0)(C, U, e, ticket, id, my_ticket, x)
     )
 
+    val assertions =
+      List(false :- (train(0)(C, U, e, ticket, id, my_ticket, x),
+                   train(0)(C, U, e, ticket, id2, my_ticket2, x2)))
     val system =
       System(
         List((gateProcess, Singleton), (trainProcess, Infinite)),
         4, None,
         ContinuousTime(0, 1),
-        timeInvs)
+        timeInvs, assertions)
 
-    val assertions =
-      List(false :- (train(0)(C, U, e, ticket, id, my_ticket, x),
-                   train(0)(C, U, e, ticket, id2, my_ticket2, x2)))
     if(trainFlag)
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(system)
   }
 
   println 
@@ -755,19 +755,19 @@ object MainBenchmarks extends App {
     (C - th <= 450) :- l(8)(C, sync, th)
   )
 
-  val system =
-    System(List((Rod1, Singleton),
-                (Rod2, Singleton),
-                (Controller, Singleton)),
-           2, None, DiscreteTime(0), timeInvs)
-
   val assertions =
     List(false :- (
            l(1)(C, sync, t1), l(4)(C, sync, t2), l(7)(C, sync, th),
            C - th === 900, C - t1 < 800, C - t2 < 800))
 
+  val system =
+    System(List((Rod1, Singleton),
+                (Rod2, Singleton),
+                (Controller, Singleton)),
+           2, None, DiscreteTime(0), timeInvs, assertions)
+
   if(bipFlag)
-    new VerificationLoop(system, assertions)
+    new VerificationLoop(system)
   }
 
   println 
@@ -928,9 +928,6 @@ object MainBenchmarks extends App {
           node(4)(C, U, lock, N, chan, sender, origin, id, slot, c)
     )
 
-    val system = System(List((nodeProcess, Infinite)),
-                        7, None, DiscreteTime(0), timeInvs)
-
     val assertions = List(
            false :- (node(4)(C, U, lock, N, chan, sender, origin, id, slot, c),
                      node(4)(C, U, lock, N, chan, sender, origin, id2, slotn, cn),
@@ -938,8 +935,11 @@ object MainBenchmarks extends App {
 //             false :- node(4)(C, U, lock, N, chan, sender, origin, id, slot, c)
     )
 
+    val system = System(List((nodeProcess, Infinite)),
+                        7, None, DiscreteTime(0), timeInvs, assertions)
+
     if (tta2Flag)
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(system)
   }
 
 
@@ -1128,9 +1128,6 @@ object MainBenchmarks extends App {
           node(5)(C, U, lock, N, chan, sender, origin, id, slot, c)
     )
 
-    val system = System(List((nodeProcess, Infinite)),
-                        7, None, DiscreteTime(0), timeInvs)
-
     val assertions = List(
            false :- (node(4)(C, U, lock, N, chan, sender, origin, id, slot, c),
                      node(4)(C, U, lock, N, chan, sender, origin, id2, slotn, cn),
@@ -1139,8 +1136,11 @@ object MainBenchmarks extends App {
                        node(4)(C, U, lock, N, chan, sender, origin, id2, slotn, cn)) */
     )
 
+    val system = System(List((nodeProcess, Infinite)),
+                        7, None, DiscreteTime(0), timeInvs, assertions)
+
     if (tta3Flag)
-      new VerificationLoop(system, assertions)
+      new VerificationLoop(system)
   }
 
 }

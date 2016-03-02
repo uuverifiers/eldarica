@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,6 +52,13 @@ object ParametricEncoder {
   type Process = Seq[(HornClauses.Clause, Synchronisation)]
   type ProcessSet = Seq[(Process, Replication)]
 
+  def processPreds(processes : ProcessSet) : Set[IExpression.Predicate] =
+    (for ((proc, _) <- processes.iterator;
+          (c, _) <- proc.iterator;
+          p <- c.predicates.iterator)
+     yield p).toSet
+
+
   //////////////////////////////////////////////////////////////////////////////
 
   abstract sealed class Synchronisation
@@ -92,11 +99,32 @@ object ParametricEncoder {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   *
+   */
+  trait VerificationHints {
+    val initialPredicates : Map[IExpression.Predicate, Seq[IFormula]]
+    def filterPredicates(remainingPreds : Set[IExpression.Predicate]) = {
+      val remInitPreds = initialPredicates filterKeys remainingPreds
+      new VerificationHints {
+        val initialPredicates = remInitPreds
+      }
+    }
+  }
+
+  object EmptyVerificationHints extends VerificationHints {
+    val initialPredicates = Map[IExpression.Predicate, Seq[IFormula]]()
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   case class System(processes : ParametricEncoder.ProcessSet,
                     globalVarNum : Int,
                     backgroundAxioms : Option[Seq[ITerm] => IFormula],
                     timeSpec : ParametricEncoder.TimeSpec,
-                    timeInvariants : Seq[HornClauses.Clause]) {
+                    timeInvariants : Seq[HornClauses.Clause],
+                    assertions : Seq[HornClauses.Clause],
+                    hints : VerificationHints = EmptyVerificationHints) {
 
     import HornClauses.Clause
     import IExpression._
@@ -110,7 +138,9 @@ object ParametricEncoder {
 
     val allLocalPreds =
       (for (preds <- localPreds.iterator; p <- preds.iterator) yield p).toSet
-  
+
+    assert(hints.initialPredicates.keys forall allLocalPreds)
+
     val localPredsSet = for (preds <- localPreds) yield preds.toSet
   
     val processIndex =
@@ -169,9 +199,7 @@ object ParametricEncoder {
      * by replacing infinite processes with a finite number of
      * singleton processes
      */
-    def finitise(instanceNumbers : Seq[Option[Range]],
-                 assertions : Seq[Clause])
-                : (System, Seq[Clause]) = {
+    def finitise(instanceNumbers : Seq[Option[Range]]) : System = {
 
       assert(instanceNumbers.size == processes.size &&
              ((instanceNumbers.iterator zip processes.iterator) forall {
@@ -245,10 +273,6 @@ object ParametricEncoder {
               if (mapping contains p))
          yield updateClause(clause, mapping, j)).toList
 
-      val newSystem =
-        System(newProcesses, globalVarNum, backgroundAxioms,
-               timeSpec, newTimeInvs)
-
       val newAssertions =
         (for (Clause(head, body, constraint) <- assertions.iterator;
               allAtomsVec =
@@ -260,7 +284,11 @@ object ParametricEncoder {
                   body.size))
          yield (Clause(head, newBody, constraint))).toList
 
-      (newSystem, newAssertions)
+      val newSystem =
+        System(newProcesses, globalVarNum, backgroundAxioms,
+               timeSpec, newTimeInvs, newAssertions, EmptyVerificationHints)
+
+      newSystem
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -269,8 +297,7 @@ object ParametricEncoder {
      * Produce a smaller equi-safe system my merging transitions that only
      * concern local variables.
      */
-    def mergeLocalTransitions(assertions : Seq[Clause])
-                             : (System, Seq[Clause]) = {
+    def mergeLocalTransitions : System = {
 
       val predsToKeep, predsWithTimeInvs = new MHashSet[Predicate]
       for (c <- timeInvariants) {
@@ -360,19 +387,21 @@ object ParametricEncoder {
           (clauseBuffer.toList, repl)
         }).toList
 
-      val newSystem = System(newProcesses,
-                             globalVarNum,
-                             backgroundAxioms,
-                             timeSpec,
-                             timeInvariants)
-
-      val allPreds = newSystem.allLocalPreds + HornClauses.FALSE
+      val allPreds = processPreds(newProcesses) + HornClauses.FALSE
 
       val newAssertions =
         assertions filter {
           clause => clause.predicates subsetOf allPreds }
 
-      (newSystem, newAssertions)
+      val newSystem = System(newProcesses,
+                             globalVarNum,
+                             backgroundAxioms,
+                             timeSpec,
+                             timeInvariants,
+                             newAssertions,
+                             hints filterPredicates allPreds)
+
+      newSystem
     }
 
   }
@@ -394,7 +423,6 @@ object ParametricEncoder {
  * local variable represents a unique process id.
  */
 class ParametricEncoder(system : ParametricEncoder.System,
-                        assertions : Seq[HornClauses.Clause],
                         invariants : Seq[Seq[Int]]) {
 
   import ParametricEncoder._

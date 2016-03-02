@@ -196,14 +196,15 @@ object Relational {
       }
     }.flatten
     
+    val paraAssertions = assertions map transform
+
     val paraSystem = ParametricEncoder.System(
            system,
            uppaal.intVars.size + 1,             // global variables + clock 
            None,
            ParametricEncoder.DiscreteTime(0),
-           timeInvs.map(transform))
-
-    val paraAssertions = assertions map transform
+           timeInvs.map(transform),
+           paraAssertions)
 
     if (log) {
       println("# Global variables: " + (uppaal.intVars.size + 1))
@@ -212,7 +213,7 @@ object Relational {
       println("Time invariants: " + paraSystem.timeInvariants)
     }
 
-    new VerificationLoop(paraSystem, paraAssertions)
+    new VerificationLoop(paraSystem)
   }
 }
 

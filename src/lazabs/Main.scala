@@ -429,36 +429,33 @@ object Main {
 
     } else if (concurrentC) {
 
-      val (system, assertions) = 
+      val system = 
         lazabs.horn.concurrency.CCReader(
                     new java.io.BufferedReader (
                       new java.io.FileReader(new java.io.File (fileName))),
                     funcName)
 
       if (prettyPrint)
-        lazabs.horn.concurrency.ReaderMain.printClauses(
-          system, assertions)
+        lazabs.horn.concurrency.ReaderMain.printClauses(system)
 
-      val (smallSystem, smallAssertions) =
-        system mergeLocalTransitions assertions
+      val smallSystem = system.mergeLocalTransitions
 
 
       if (prettyPrint) {
         println
         println("After simplification:")
-        lazabs.horn.concurrency.ReaderMain.printClauses(
-          smallSystem, smallAssertions)
+        lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
         return
       }
 
       val result = try {
         if (log) {
           new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem, smallAssertions,
+            smallSystem,
             templateBasedInterpolation).result
         } else Console.withOut(lazabs.horn.bottomup.HornWrapper.NullStream) {
           new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem, smallAssertions,
+            smallSystem,
             templateBasedInterpolation).result
         }
       } catch {

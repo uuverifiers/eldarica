@@ -43,8 +43,7 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
 object CCReader {
 
   def apply(input : java.io.Reader, entryFunction : String)
-           : (ParametricEncoder.System,
-              Seq[HornClauses.Clause]) = {
+           : ParametricEncoder.System = {
     def entry(parser : concurrentC.parser) = parser.pProgram
     val prog = parseWithEntry(input, entry _)
 //    println(printer print prog)
@@ -61,7 +60,7 @@ object CCReader {
         }
       }
 
-    (reader.system, reader.assertions)
+    reader.system
   }
 
   /**
@@ -344,8 +343,11 @@ class CCReader private (prog : Program,
     val res = new Predicate(prefix + locationCounter,
                             allFormalVars.size + extraArgs)
     locationCounter = locationCounter + 1
+    initialPreds.put(res, for (s <- variablePredicates; p <- s) yield p)
     res
   }
+
+  private val initialPreds = new MHashMap[Predicate, Seq[IFormula]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -553,8 +555,36 @@ class CCReader private (prog : Program,
           }
         }
 
-        // parse hints
-        variablePredicates += List()
+        // parse possible model checking hints
+        val hints : Seq[Abs_hint] = initDecl match {
+          case decl : HintDecl => decl.listabs_hint_
+          case decl : HintInitDecl => decl.listabs_hint_
+          case _ => List()
+        }
+
+        val hintSymex = Symex(null)
+        hintSymex.saveState
+
+        val hintExprs =
+          for (hint <- hints;
+               cHint = hint.asInstanceOf[Comment_abs_hint];
+               hint_clause <- cHint.listabs_hint_clause_;
+               if (hint_clause.isInstanceOf[Predicate_hint]);
+               e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
+          yield e
+
+        if (!hintSymex.atomValuesUnchanged)
+          throw new TranslationException(
+            "Hints are not side effect-free: " +
+            (for (h <- hints.iterator) yield (printer print h)).mkString(""))
+
+        val subst =
+          (for ((c, n) <- (globalVars.iterator ++ localVars.iterator).zipWithIndex)
+           yield (c -> v(n))).toMap
+        val hintFors =
+          for (e <- hintExprs) yield ConstantSubstVisitor(e.toFormula, subst)
+
+        variablePredicates += hintFors
       }
     }
     case _ : NoDeclarator =>
@@ -798,6 +828,21 @@ class CCReader private (prog : Program,
       val res = popVal
       assert(initSize == values.size)
       res
+    }
+
+    def evalList(exp : Exp) : Seq[CCExpr] = {
+      val res = new ArrayBuffer[CCExpr]
+
+      var e = exp
+      while (e.isInstanceOf[Ecomma]) {
+        val ec = e.asInstanceOf[Ecomma]
+        res += eval(ec.exp_1)
+        e = ec.exp_2
+      }
+
+      res += eval(e)
+
+      res.toList
     }
 
     def atomicEval(exp : Exp) : CCExpr = atomicEval(List(exp))
@@ -1717,27 +1762,35 @@ class CCReader private (prog : Program,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val (system, assertions) : (ParametricEncoder.System,
-                              Seq[HornClauses.Clause]) = {
+  val system : ParametricEncoder.System = {
     translateProgram
 
     val singleThreaded =
       processes.size == 1 &&
       processes.head._2 == ParametricEncoder.Singleton
 
-    (ParametricEncoder.System(processes.toList,
-                              if (singleThreaded) {
-                                if (useTime) 2 else 0
-                              } else {
-                                globalVars.size
-                              },
-                              None,
-                              if (useTime)
-                                ParametricEncoder.ContinuousTime(0, 1)
-                              else
-                                ParametricEncoder.NoTime,
-                              timeInvariants),
-     assertionClauses.toList)
+    val initPreds =
+      (for (p <- ParametricEncoder.processPreds(processes).iterator;
+            preds = initialPreds(p);
+            if (!preds.isEmpty))
+       yield (p -> preds.toList)).toMap
+
+    ParametricEncoder.System(processes.toList,
+                             if (singleThreaded) {
+                               if (useTime) 2 else 0
+                             } else {
+                               globalVars.size
+                             },
+                             None,
+                             if (useTime)
+                               ParametricEncoder.ContinuousTime(0, 1)
+                             else
+                               ParametricEncoder.NoTime,
+                             timeInvariants,
+                             assertionClauses.toList,
+                             new ParametricEncoder.VerificationHints {
+                               val initialPredicates = initPreds
+                             })
   }
 
 }

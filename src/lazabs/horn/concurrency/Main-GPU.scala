@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,9 +110,6 @@ object MainGPU extends App {
 
   )
 
-  val system =
-    System(List((kernel, Infinite)), 2, None, NoTime, List())
-
   val assertions =
     List(
 
@@ -143,7 +140,10 @@ object MainGPU extends App {
 
     )
 
-  new VerificationLoop(system, assertions)
+  val system =
+    System(List((kernel, Infinite)), 2, None, NoTime, List(), assertions)
+
+  new VerificationLoop(system)
   }
 
 
