@@ -319,6 +319,10 @@ SAFE
 predicates.hcc
 SAFE
 
+predicates2.hcc
+Warning: entry function "main" not found
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

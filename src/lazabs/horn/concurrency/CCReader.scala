@@ -174,6 +174,7 @@ class CCReader private (prog : Program,
   import HornClauses.Clause
 
   private val globalVars = new ArrayBuffer[ConstantTerm]
+  private val globalVarTypes = new ArrayBuffer[CCType]
   private val globalVarsInit = new ArrayBuffer[CCExpr]
   private var globalPreconditions : IFormula = true
 
@@ -217,8 +218,8 @@ class CCReader private (prog : Program,
   private def allFormalVars : Seq[ITerm] =
     globalVars.toList ++ localVars.toList
   private def allFormalExprs : Seq[CCExpr] =
-    ((for ((v, e) <- globalVars.iterator zip globalVarsInit.iterator)
-      yield CCTerm(v, e.typ)) ++
+    ((for ((v, t) <- globalVars.iterator zip globalVarTypes.iterator)
+      yield CCTerm(v, t)) ++
      (for ((v, t) <- localVars.iterator zip localVarTypes.iterator)
       yield CCTerm(v, t))).toList
   private def allVarInits : Seq[ITerm] =
@@ -361,8 +362,10 @@ class CCReader private (prog : Program,
 
   if (useTime) {
     globalVars += GT
+    globalVarTypes += CCClock
     globalVarsInit += CCTerm(GT, CCClock)
     globalVars += GTU
+    globalVarTypes += CCInt
     globalVarsInit += CCTerm(GTU, CCInt)
     variablePredicates += List()
     variablePredicates += List()
@@ -505,6 +508,7 @@ class CCReader private (prog : Program,
                 val c = new ConstantTerm(name)
                 if (global) {
                   globalVars += c
+                  globalVarTypes += typ
                   typ match {
                     case typ : CCArithType =>
                       // global variables are initialised with 0
@@ -539,9 +543,10 @@ class CCReader private (prog : Program,
                   (values eval init.exp_, i(true))
             }
   
-            if (global)
+            if (global) {
               globalVars += c
-            else
+              globalVarTypes += typ
+            } else
               addLocalVar(c, typ)
   
             typ match {
@@ -562,29 +567,33 @@ class CCReader private (prog : Program,
           case _ => List()
         }
 
-        val hintSymex = Symex(null)
-        hintSymex.saveState
+        if (hints.isEmpty) {
+          variablePredicates += List()
+        } else {
+          val hintSymex = Symex(null)
+          hintSymex.saveState
 
-        val hintExprs =
-          for (hint <- hints;
-               cHint = hint.asInstanceOf[Comment_abs_hint];
-               hint_clause <- cHint.listabs_hint_clause_;
-               if (hint_clause.isInstanceOf[Predicate_hint]);
-               e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
-          yield e
+          val hintExprs =
+            for (hint <- hints;
+                 cHint = hint.asInstanceOf[Comment_abs_hint];
+                 hint_clause <- cHint.listabs_hint_clause_;
+                 if (hint_clause.isInstanceOf[Predicate_hint]);
+                 e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
+            yield e
 
-        if (!hintSymex.atomValuesUnchanged)
-          throw new TranslationException(
-            "Hints are not side effect-free: " +
-            (for (h <- hints.iterator) yield (printer print h)).mkString(""))
+          if (!hintSymex.atomValuesUnchanged)
+            throw new TranslationException(
+              "Hints are not side effect-free: " +
+              (for (h <- hints.iterator) yield (printer print h)).mkString(""))
 
-        val subst =
-          (for ((c, n) <- (globalVars.iterator ++ localVars.iterator).zipWithIndex)
-           yield (c -> v(n))).toMap
-        val hintFors =
-          for (e <- hintExprs) yield ConstantSubstVisitor(e.toFormula, subst)
+          val subst =
+            (for ((c, n) <- (globalVars.iterator ++ localVars.iterator).zipWithIndex)
+             yield (c -> v(n))).toMap
+          val hintFors =
+            for (e <- hintExprs) yield ConstantSubstVisitor(e.toFormula, subst)
 
-        variablePredicates += hintFors
+          variablePredicates += hintFors
+        }
       }
     }
     case _ : NoDeclarator =>

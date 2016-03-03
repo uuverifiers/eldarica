@@ -34,7 +34,7 @@ import ap.util.{Seqs, Combinatorics}
 import lazabs.horn.bottomup.HornClauses
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
-                                 ArrayBuffer}
+                                 ArrayBuffer, HashMap => MHashMap}
 
 object ParametricEncoder {
 
@@ -115,6 +115,10 @@ object ParametricEncoder {
   object EmptyVerificationHints extends VerificationHints {
     val initialPredicates = Map[IExpression.Predicate, Seq[IFormula]]()
   }
+
+  class InitPredVerificationHints(
+           val initialPredicates : Map[IExpression.Predicate, Seq[IFormula]])
+        extends VerificationHints
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -208,10 +212,14 @@ object ParametricEncoder {
                 case _                        => false
               }))
 
+      val newInitialPredicates =
+        new MHashMap[IExpression.Predicate, Seq[IFormula]]
+
       val predMappings =
         (for (((n, (process, _)), i) <-
                 (instanceNumbers.iterator zip processes.iterator).zipWithIndex;
               j <- (n getOrElse (0 until 1)).iterator) yield {
+
            val mapping =
              (for (p <- localPreds(i).iterator) yield n match {
                 case None =>
@@ -219,6 +227,13 @@ object ParametricEncoder {
                 case _ =>
                   p -> new Predicate(p.name + "_" + j, p.arity)
               }).toMap
+
+           for ((a, b) <- mapping)
+             (hints.initialPredicates get a) match {
+               case Some(preds) => newInitialPredicates.put(b, preds)
+               case None => // nothing
+             }
+
            (mapping + (HornClauses.FALSE -> HornClauses.FALSE),
             i, for (_ <- n) yield j)
          }).toList
@@ -286,8 +301,8 @@ object ParametricEncoder {
 
       val newSystem =
         System(newProcesses, globalVarNum, backgroundAxioms,
-               timeSpec, newTimeInvs, newAssertions, EmptyVerificationHints)
-
+               timeSpec, newTimeInvs, newAssertions,
+               new InitPredVerificationHints(newInitialPredicates.toMap))
       newSystem
     }
 
@@ -1009,5 +1024,24 @@ class ParametricEncoder(system : ParametricEncoder.System,
                    (barrierTransitions map (_._1)) ++
                    timeElapseTransitions ++
                    (assertionTransitions map (_._1))
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def compileInitPredicates(s : Seq[Predicate]) : Seq[IFormula] = {
+    val res = new ArrayBuffer[IFormula]
+    var shift = 0
+    for (lp <- s) {
+      for (pred <- hints.initialPredicates.getOrElse(lp, List()))
+        res += VariableShiftVisitor(pred, globalVarNum, shift)
+      shift = shift + lp.arity - globalVarNum
+    }
+    res.toList
+  }
+
+  val globalInitialPredicates =
+    (for ((s, p) <- globalPredsSeq.iterator;
+          preds = compileInitPredicates(s);
+          if (!preds.isEmpty))
+     yield (p -> preds)).toMap
 
 }

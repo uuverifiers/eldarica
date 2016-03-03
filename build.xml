@@ -26,6 +26,8 @@
     <property name="lib.dir" value="${basedir}/lib" />
     <property name="flata.dir" value="${basedir}/flata" />
     <property name="build.dir" value="${base.dir}/bin" />
+    <property name="bindist.dir" value="${base.dir}/binary-dist" />
+    <property name="regtests.dir" value="${base.dir}/regression-tests" />
 	
 	<!-- BIP libraries -->
 <!-- BIP support is disabled for the time being
@@ -235,7 +237,10 @@
         <delete dir="${dist.dir}" includeemptydirs="yes" quiet="yes" failonerror="no" />
         <delete>
             <fileset dir="${basedir}" includes="**/*.class" />
+            <fileset dir="${regtests.dir}" includes="**/Output*" />
+            <fileset dir="${regtests.dir}" includes="**/*.dot" />
         </delete>
+        <delete dir="${bindist.dir}" includeemptydirs="yes" quiet="yes" failonerror="no" />
     </target>
 	
     <target name="clean-cupparser" description="removes the files generated for the Cup parser">
@@ -252,9 +257,37 @@
 	
     <target name="new" description="clean and rebuilds" />
 
+    <!-- Run test cases -->
     <target name="test" depends="standalone" description="compile and test">
-       <exec executable="${basedir}/regression-tests/runalldirs"
-             dir="${basedir}/regression-tests/"
+       <exec executable="${regtests.dir}/runalldirs"
+             dir="${regtests.dir}"
              failonerror="true" />
+    </target>
+
+    <!-- Assemble all files for a binary distribution -->
+    <target name="binary-distribution" depends="standalone"
+            description="create binary Eldarica distribution">
+      <mkdir dir="${bindist.dir}"/>
+      <mkdir dir="${bindist.dir}/dist"/>
+
+      <copy file="${base.dir}/AUTHORS" todir="${bindist.dir}"/>
+      <copy file="${base.dir}/eld" todir="${bindist.dir}"/>
+      <copy file="${base.dir}/eld-client" todir="${bindist.dir}"/>
+      <copy file="${base.dir}/eldEnv" todir="${bindist.dir}"/>
+      <copy file="${base.dir}/LICENSE" todir="${bindist.dir}"/>
+      <copy file="${base.dir}/README.md" todir="${bindist.dir}"/>
+
+      <copy file="${dist.jar}" todir="${bindist.dir}/dist"/>
+
+      <copy todir="${bindist.dir}/regression-tests">
+        <fileset dir="${regtests.dir}"/> </copy>
+
+      <exec executable="sh" dir="${bindist.dir}" failonerror="true">
+        <arg line='-c "chmod +x eld eld-client regression-tests/run* regression-tests/*/run*"'/>
+      </exec>
+
+      <delete>
+          <fileset dir="${bindist.dir}/regression-tests" includes="**/*~" />
+      </delete>
     </target>
 </project>

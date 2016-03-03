@@ -192,7 +192,9 @@ class VerificationLoop(system : ParametricEncoder.System,
     }
 
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
-      new HornPredAbs(encoder.allClauses, Map(), interpolator))
+      new HornPredAbs(encoder.allClauses,
+                      encoder.globalInitialPredicates,
+                      interpolator))
 
     predAbs.result match {
       case Right(cex) => {

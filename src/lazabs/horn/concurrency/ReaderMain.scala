@@ -29,6 +29,8 @@
 
 package lazabs.horn.concurrency
 
+import ap.parser.PrincessLineariser
+
 import lazabs.horn.bottomup.HornClauses
 
 object ReaderMain {
@@ -53,12 +55,28 @@ object ReaderMain {
         println("  " + c.toPrologString)
     }
 
-    import system.assertions
-    if (!assertions.isEmpty) {
+    if (!system.assertions.isEmpty) {
       println
       println("Assertions:")
-      for (c <- assertions)
+      for (c <- system.assertions)
         println("  " + c.toPrologString)
+    }
+
+    if (!system.hints.initialPredicates.isEmpty) {
+      println
+      println("Initial predicates:")
+      for ((p, preds) <-
+             system.hints.initialPredicates.toArray.sortBy(_._1.name)) {
+        print("  " + p + ": ")
+        var sep = ""
+        for (x <- preds) {
+          print(sep)
+          sep = ", "
+//          PrincessLineariser printExpression x
+          print(x)
+        }
+        println
+      }
     }
   }
 
