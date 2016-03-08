@@ -205,6 +205,11 @@ class CCReader private (prog : Program,
     localVarTypes += t
     variablePredicates += List()
   }
+  private def popLocalVars(n : Int) = {
+    localVars trimEnd n
+    localVarTypes trimEnd n
+    variablePredicates trimEnd n
+  }
 
   private def pushLocalFrame =
     localFrameStack push localVars.size
@@ -717,8 +722,7 @@ class CCReader private (prog : Program,
       initAtom = oldAtom
       values.clear
       oldValues copyToBuffer values
-      localVars reduceToSize (values.size - globalVars.size)
-      localVarTypes reduceToSize (values.size - globalVars.size)
+      popLocalVars(localVars.size - values.size + globalVars.size)
       guard = oldGuard
       touchedGlobalState = oldTouched
     }
@@ -754,8 +758,7 @@ class CCReader private (prog : Program,
       val res = values.last
 //println("pop " + res)
       values trimEnd 1
-      localVars trimEnd 1
-      localVarTypes trimEnd 1
+      popLocalVars(1)
       res
     }
     private def topVal = values.last
@@ -845,8 +848,8 @@ class CCReader private (prog : Program,
       var e = exp
       while (e.isInstanceOf[Ecomma]) {
         val ec = e.asInstanceOf[Ecomma]
-        res += eval(ec.exp_1)
-        e = ec.exp_2
+        res += eval(ec.exp_2)
+        e = ec.exp_1
       }
 
       res += eval(e)
