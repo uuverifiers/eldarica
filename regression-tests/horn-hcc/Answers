@@ -323,6 +323,10 @@ predicates2.hcc
 Warning: entry function "main" not found
 SAFE
 
+down_true-unreach-call.i.c
+Warning: no definition of function "__VERIFIER_nondet_int" available
+SAFE
+
 test6.hcc
 Warning: entry function "main" not found
 SAFE

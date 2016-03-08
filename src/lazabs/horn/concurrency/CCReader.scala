@@ -209,6 +209,8 @@ class CCReader private (prog : Program,
     localVars trimEnd n
     localVarTypes trimEnd n
     variablePredicates trimEnd n
+    assert(variablePredicates.size == localVars.size + globalVars.size &&
+           localVarTypes.size == localVars.size)
   }
 
   private def pushLocalFrame =
@@ -496,6 +498,8 @@ class CCReader private (prog : Program,
       val typ = getType(decl.listdeclaration_specifier_)
 
       for (initDecl <- decl.listinit_declarator_) {
+        var isVariable = false
+
         initDecl match {
           case _ : OnlyDecl | _ : HintDecl => {
             val declarator = initDecl match {
@@ -510,10 +514,12 @@ class CCReader private (prog : Program,
               case _ : NewFuncDec /* | _ : OldFuncDef */ | _ : OldFuncDec =>
                 functionDecls.put(name, (directDecl, typ))
               case _ => {
+                isVariable = true
                 val c = new ConstantTerm(name)
                 if (global) {
                   globalVars += c
                   globalVarTypes += typ
+                  variablePredicates += List()
                   typ match {
                     case typ : CCArithType =>
                       // global variables are initialised with 0
@@ -539,6 +545,8 @@ class CCReader private (prog : Program,
               case initDecl : HintInitDecl =>
                 (initDecl.declarator_, initDecl.initializer_)
             }
+
+            isVariable = true
             val c = new ConstantTerm(getName(declarator))
             val (initValue, initGuard) = initializer match {
               case init : InitExpr =>
@@ -551,8 +559,10 @@ class CCReader private (prog : Program,
             if (global) {
               globalVars += c
               globalVarTypes += typ
-            } else
+              variablePredicates += List()
+            } else {
               addLocalVar(c, typ)
+            }
   
             typ match {
               case CCClock =>
@@ -565,39 +575,42 @@ class CCReader private (prog : Program,
           }
         }
 
-        // parse possible model checking hints
-        val hints : Seq[Abs_hint] = initDecl match {
-          case decl : HintDecl => decl.listabs_hint_
-          case decl : HintInitDecl => decl.listabs_hint_
-          case _ => List()
-        }
+        if (isVariable) {
+          // parse possible model checking hints
+          val hints : Seq[Abs_hint] = initDecl match {
+            case decl : HintDecl => decl.listabs_hint_
+            case decl : HintInitDecl => decl.listabs_hint_
+            case _ => List()
+          }
 
-        if (hints.isEmpty) {
-          variablePredicates += List()
-        } else {
-          val hintSymex = Symex(null)
-          hintSymex.saveState
+          if (!hints.isEmpty) {
+            val hintSymex = Symex(null)
+            hintSymex.saveState
 
-          val hintExprs =
-            for (hint <- hints;
-                 cHint = hint.asInstanceOf[Comment_abs_hint];
-                 hint_clause <- cHint.listabs_hint_clause_;
-                 if (hint_clause.isInstanceOf[Predicate_hint]);
-                 e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
-            yield e
+            val hintExprs =
+              for (hint <- hints;
+                   cHint = hint.asInstanceOf[Comment_abs_hint];
+                   hint_clause <- cHint.listabs_hint_clause_;
+                   if (hint_clause.isInstanceOf[Predicate_hint]);
+                   e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
+              yield e
 
-          if (!hintSymex.atomValuesUnchanged)
-            throw new TranslationException(
-              "Hints are not side effect-free: " +
-              (for (h <- hints.iterator) yield (printer print h)).mkString(""))
+            if (!hintSymex.atomValuesUnchanged)
+              throw new TranslationException(
+                "Hints are not side effect-free: " +
+                (for (h <- hints.iterator)
+                 yield (printer print h)).mkString(""))
 
-          val subst =
-            (for ((c, n) <- (globalVars.iterator ++ localVars.iterator).zipWithIndex)
-             yield (c -> v(n))).toMap
-          val hintFors =
-            for (e <- hintExprs) yield ConstantSubstVisitor(e.toFormula, subst)
+            val subst =
+              (for ((c, n) <-
+                      (globalVars.iterator ++ localVars.iterator).zipWithIndex)
+               yield (c -> v(n))).toMap
+            val hintFors =
+              for (e <- hintExprs)
+              yield ConstantSubstVisitor(e.toFormula, subst)
 
-          variablePredicates += hintFors
+            variablePredicates(variablePredicates.size - 1) = hintFors
+          }
         }
       }
     }
