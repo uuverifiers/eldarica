@@ -20,7 +20,10 @@ res=0
 if cmp -s "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"; then
     echo -ne "\tSucceeded"
 else
-    echo -ne "\tFAILED"
+    echo -e "\tFAILED"
+    echo
+    diff "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX" || true
+    echo
     cp "$DIR"/Output"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"-"`date`"
     res=1
 fi

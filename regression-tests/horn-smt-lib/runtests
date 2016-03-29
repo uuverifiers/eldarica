@@ -10,7 +10,8 @@ TESTS="mccarthy91.nts.smt2 \
        test0.correct.pierre.nts.smt2 \
        rate_limiter.c.nts.smt2 \
        a_1.source.smt2 \
-       uninterpreted_fun.smt2"
+       uninterpreted_fun.smt2 \
+       array-exception.smt2"
 
 for name in $TESTS; do
     echo

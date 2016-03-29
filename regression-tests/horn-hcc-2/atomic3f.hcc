@@ -1,0 +1,12 @@
+
+int x = 0;
+
+void main() {
+  clock C = 0;
+
+  within(C <= 3) {
+    while(1)
+      x++;
+    C = 0;
+  }
+}

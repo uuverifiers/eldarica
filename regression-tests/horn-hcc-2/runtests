@@ -1,0 +1,13 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="atomic3e.hcc atomic3f.hcc \
+       clocks1.hcc clocks2.hcc clocks3.hcc clocks4.hcc clocks5.hcc \
+       fischer.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex "$@" $name 2>&1 | grep -v 'at '
+done

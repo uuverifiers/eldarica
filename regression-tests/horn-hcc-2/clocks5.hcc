@@ -1,0 +1,17 @@
+int lock = 0;
+
+void main() {
+  int tid;
+  clock C;
+
+  while (1) {
+    atomic { assume(lock == 0); C = 0; }
+    within (C <= 1) lock = tid;
+  }
+}
+
+thread A {
+  while (1) {
+    lock = 0;
+  }
+}

@@ -1,0 +1,8 @@
+
+
+thread A {
+  clock x = 0;
+  clock z = 1;
+  
+  assert(z > x);
+}

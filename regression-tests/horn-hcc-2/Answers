@@ -1,0 +1,36 @@
+
+atomic3e.hcc
+Warning: enabling time
+SAFE
+
+atomic3f.hcc
+Warning: enabling time
+lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
+
+clocks1.hcc
+Warning: enabling time
+SAFE
+
+clocks2.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE
+
+clocks3.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE
+
+clocks4.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE
+
+clocks5.hcc
+Warning: enabling time
+SAFE
+
+fischer.hcc
+Warning: enabling time
+Warning: entry function "main" not found
+SAFE

@@ -1,0 +1,20 @@
+int lock = 0;
+
+thread[tid] Proc {
+  clock C;
+  assume(tid > 0);
+
+  while (1) {
+    atomic { assume(lock == 0); C = 0; }
+    within (C <= 1) lock = tid;
+
+    C = 0;
+    assume(C > 1);
+
+    if (lock == tid) {
+      // critical section
+      assert(lock == tid);
+      lock = 0;
+    }
+  }
+}

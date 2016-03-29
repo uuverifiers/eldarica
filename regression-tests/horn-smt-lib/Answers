@@ -61,3 +61,8 @@ sat
 uninterpreted_fun.smt2
 Warning: ignoring get-model
 sat
+
+array-exception.smt2
+Warning: ignoring get-model
+Theories: SimpleArray(1)
+unknown
