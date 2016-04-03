@@ -27,13 +27,13 @@ startDaemon() {
     done
         
     if [ ! -f "$portfile" ]; then
-        touch "$lockfile"
+        echo >"$lockfile"
 
         BASEDIR=`dirname $($pathCmd $0)`
         . $BASEDIR/eldEnv
 
         tempportfile=`mktemp`
-        touch "$tempportfile"
+        echo >"$tempportfile"
         chmod go-rwx "$tempportfile"
 
         $LAZABS_CMD lazabs.ServerMain >"$tempportfile" &
