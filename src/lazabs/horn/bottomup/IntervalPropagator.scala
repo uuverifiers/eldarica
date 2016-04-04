@@ -124,7 +124,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
         yield num
 
       if (clausesH.isEmpty)
-        List.fill(rs.arity)(EMPTY_INTERVAL)
+        List(EMPTY_INTERVAL)
       else
         (for (constNum <- (0 until rs.arity).iterator) yield {
            (for (clauseNum <- clausesH.iterator)
@@ -163,8 +163,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 
     for (NormClause(_, body, head) <- clauses.iterator;
          rs <- body.iterator.map(_._1) ++ (Iterator single head._1))
-      rsBoundCache.put(rs,
-                       for (_ <- 0 until (rs.arity max 1)) yield EMPTY_INTERVAL)
+      rsBoundCache.put(rs, List(EMPTY_INTERVAL))
 
     val rsVersions = new MHashMap[RelationSymbol, Int] {
       override def default(rs : RelationSymbol) : Int = 0
