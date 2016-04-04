@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,10 +118,13 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
                        occ : Int,
                        order : TermOrder) : Iterator[Formula] = {
     val bounds = rsBoundCache.getOrElseUpdate(rs, {
-      val clausesH = clausesWithHead.getOrElse(rs, List())
+      val clausesH =
+        for (num <- clausesWithHead.getOrElse(rs, List());
+             if (!extendedConstraints(num).isFalse))
+        yield num
 
       if (clausesH.isEmpty)
-        List.fill(rs.arity)((None, None))
+        List.fill(rs.arity)(EMPTY_INTERVAL)
       else
         (for (constNum <- (0 until rs.arity).iterator) yield {
            (for (clauseNum <- clausesH.iterator)
@@ -131,9 +134,13 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
          }).toIndexedSeq
     })
 
-    for ((b, const) <- bounds.iterator zip (rs arguments occ).iterator;
-         f <- toFormulas(const, b, order))
-    yield f
+    if (isConsistent(bounds)) {
+      for ((b, const) <- bounds.iterator zip (rs arguments occ).iterator;
+           f <- toFormulas(const, b, order))
+      yield f
+    } else {
+      Iterator single Conjunction.FALSE
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

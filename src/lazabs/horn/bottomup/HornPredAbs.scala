@@ -706,9 +706,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
 
   val relationSymbolReducers =
-    (for (rs <- relationSymbols.valuesIterator) yield (
-       rs,
-       sf reducer relationSymbolBounds.getOrElse(rs, Conjunction.TRUE))).toMap
+    (for (rs <- relationSymbols.valuesIterator) yield {
+      val bounds = relationSymbolBounds.getOrElse(rs, Conjunction.TRUE)
+      (rs, sf reducer (if (bounds.isFalse) Conjunction.TRUE else bounds))
+     }).toMap
 
    /* {
      // Some code for eliminating unused arguments. Does not seem
