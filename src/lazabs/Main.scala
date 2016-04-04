@@ -269,7 +269,7 @@ object Main {
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
-          " -abstract:t\tInterpolation abstraction type: off, term, oct, relEqs (default), relIneqs\n" +
+          " -abstract:t\tInterp. abstraction: off, term, oct, relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
