@@ -239,7 +239,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
           rsBoundCache.put(headRS, joinedIntervals)
           rsBoundUpdateNum.put(headRS, newBoundUpdateNum)
 
-          clauseQueue ++= clausesWithBodyRS(headRS)
+          clauseQueue ++= clausesWithBodyRS.getOrElse(headRS, List())
         }
       }
     }
@@ -276,7 +276,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 
       val oldConstr = extendedConstraints(clauseNum)
       if (!oldConstr.isFalse) {
-        val clause@NormClause(_, body, head) = clauses(clauseNum)
+        val clause@NormClause(_, body, (headRS, _)) = clauses(clauseNum)
 
         implicit val order = elimOrders(clauseNum)
         import TerForConvenience._
@@ -296,10 +296,10 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
             print("-")
   
             extendedConstraints(clauseNum) = newConstr
-            rsBoundCache remove head._1
+            rsBoundCache remove headRS
 
-            clauseQueue ++= clausesWithBodyRS(head._1)
             modifiedClauses += clauseNum
+            clauseQueue ++= clausesWithBodyRS.getOrElse(headRS, List())
           }
         }
       }
