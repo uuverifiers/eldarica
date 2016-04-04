@@ -37,7 +37,8 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
 import ap.terfor.arithconj.ArithConj
 import ap.PresburgerTools
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, LinkedHashSet,
+                                 HashSet => MHashSet}
 
 object IntervalPropagator {
 
@@ -114,6 +115,10 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 
   val clausesWithHead = (0 until clauses.size) groupBy (i => clauses(i).head._1)
 
+  val clausesWithBodyRS =
+    ((for (num <- 0 until clauses.size; (b, _) <- clauses(num).body)
+      yield (num, b)) groupBy (_._2)) mapValues (_ map (_._1))
+
   def extractIntervals(rs : RelationSymbol,
                        occ : Int,
                        order : TermOrder) : Iterator[Formula] = {
@@ -145,9 +150,9 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val versions            = Array.fill(clauses.size)(0)
-  val checkedInputVersion = Array.fill(clauses.size)(-1)
-  var currentVersion      = 1
+  val clauseQueue = new LinkedHashSet[Int]
+
+  val modifiedClauses = new MHashSet[Int]
 
   //////////////////////////////////////////////////////////////////////////////
   // Abstract interpretation, to propagate possible values of predicate
@@ -164,10 +169,6 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
     for (NormClause(_, body, head) <- clauses.iterator;
          rs <- body.iterator.map(_._1) ++ (Iterator single head._1))
       rsBoundCache.put(rs, List(EMPTY_INTERVAL))
-
-    val rsVersions = new MHashMap[RelationSymbol, Int] {
-      override def default(rs : RelationSymbol) : Int = 0
-    }
 
     def computeNewConstraint(clause : NormClause,
                              clauseNum : Int) : Conjunction = {
@@ -194,59 +195,51 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
       }
     }
 
-    var changed = true
+    for ((NormClause(_, Seq(), _), clauseNum) <- clauses.iterator.zipWithIndex)
+      clauseQueue += clauseNum
 
-    while (changed) {
-      changed = false
+    while (!clauseQueue.isEmpty) {
       lazabs.GlobalParameters.get.timeoutChecker()
 
-      for ((clause@NormClause(_, body, (headRS, headOcc)), clauseNum) <-
-               clauses.iterator.zipWithIndex) {
-        val maxInputVersion =
-          (0 /: (for ((rs, _) <- body.iterator) yield rsVersions(rs))) (_ max _)
-        
-        if (checkedInputVersion(clauseNum) < maxInputVersion) {
-          checkedInputVersion(clauseNum) = maxInputVersion
+      val clauseNum = clauseQueue.head
+      clauseQueue -= clauseNum
 
-          val newConstr = computeNewConstraint(clause, clauseNum)
-          if (!newConstr.isFalse) {
-            val oldHeadIntervals =
-              rsBoundCache(headRS)
-            val newHeadIntervals =
-              for (c <- headRS arguments headOcc)
-              yield extractBounds(c, newConstr, newConstr.order)
+      val clause@NormClause(_, body, (headRS, headOcc)) = clauses(clauseNum)
 
-            val oldBoundUpdateNum = rsBoundUpdateNum(headRS)
-            val (newBoundUpdateNum, joinedIntervals) =
-              if (isConsistent(oldHeadIntervals))
-                (for (((u1, u2), (ob@(ob1, ob2), iv2)) <-
-                         oldBoundUpdateNum.iterator zip
-                           (oldHeadIntervals.iterator zip
-                              newHeadIntervals.iterator))
-                 yield {
-                   val (nb1, nb2) = joinBounds(ob, iv2)
-                   val (fb1, nu1) = widen(ob1, nb1, u1)
-                   val (fb2, nu2) = widen(ob2, nb2, u2)
-                   ((nu1, nu2), (fb1, fb2))
-                 }).toIndexedSeq.unzip
-              else
-                (oldBoundUpdateNum, newHeadIntervals)
+      val newConstr = computeNewConstraint(clause, clauseNum)
+      if (!newConstr.isFalse) {
+        val oldHeadIntervals =
+          rsBoundCache(headRS)
+        val newHeadIntervals =
+          for (c <- headRS arguments headOcc)
+          yield extractBounds(c, newConstr, newConstr.order)
 
-            if (joinedIntervals != oldHeadIntervals) {
-/*              println
-              println("updating: " + headRS)
-              println("old: " + oldHeadIntervals)
-              println("new: " + joinedIntervals) */
-              print("+")
+        val oldBoundUpdateNum = rsBoundUpdateNum(headRS)
+        val (newBoundUpdateNum, joinedIntervals) =
+          if (isConsistent(oldHeadIntervals))
+            (for (((u1, u2), (ob@(ob1, ob2), iv2)) <-
+                     oldBoundUpdateNum.iterator zip
+                       (oldHeadIntervals.iterator zip newHeadIntervals.iterator))
+             yield {
+               val (nb1, nb2) = joinBounds(ob, iv2)
+               val (fb1, nu1) = widen(ob1, nb1, u1)
+               val (fb2, nu2) = widen(ob2, nb2, u2)
+               ((nu1, nu2), (fb1, fb2))
+             }).toIndexedSeq.unzip
+          else
+            (oldBoundUpdateNum, newHeadIntervals)
 
-              rsBoundCache.put(headRS, joinedIntervals)
-              rsBoundUpdateNum.put(headRS, newBoundUpdateNum)
-              rsVersions.put(headRS, currentVersion)
-              currentVersion = currentVersion + 1
+        if (joinedIntervals != oldHeadIntervals) {
+/*          println
+          println("updating: " + headRS)
+          println("old: " + oldHeadIntervals)
+          println("new: " + joinedIntervals) */
+          print("+")
 
-              changed = true
-            }
-          }
+          rsBoundCache.put(headRS, joinedIntervals)
+          rsBoundUpdateNum.put(headRS, newBoundUpdateNum)
+
+          clauseQueue ++= clausesWithBodyRS(headRS)
         }
       }
     }
@@ -260,9 +253,12 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 //println("old constr: " +extendedConstraints(clauseNum)) 
         extendedConstraints(clauseNum) = newConstr
 //println("new constr: " +extendedConstraints(clauseNum)) 
-        versions(clauseNum) = 1
+        modifiedClauses += clauseNum
       }
-      checkedInputVersion(clauseNum) = -1
+
+      // clauses with satisfiable constraint are processes further
+      if (!newConstr.isFalse)
+        clauseQueue += clauseNum
     }
 
     rsBoundCache.clear
@@ -272,48 +268,38 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
   // Constraint propagation, to narrow the ranges of predicate arguments
 
   {
-    var changed = true
-
-    while (changed) {
-      changed = false
+    while (!clauseQueue.isEmpty) {
       lazabs.GlobalParameters.get.timeoutChecker()
 
-      for ((clause@NormClause(_, body, head), clauseNum) <-
-               clauses.iterator.zipWithIndex) {
-        val maxInputVersion =
-          (0 /: (for ((rs, _) <- body.iterator;
-                      num <- clausesWithHead.getOrElse(rs, List()).iterator)
-                 yield versions(num))) (_ max _)
-        
-        if (checkedInputVersion(clauseNum) < maxInputVersion) {
-          checkedInputVersion(clauseNum) = maxInputVersion
+      val clauseNum = clauseQueue.head
+      clauseQueue -= clauseNum
 
-          val oldConstr = extendedConstraints(clauseNum)
-  
-          implicit val order = elimOrders(clauseNum)
-          import TerForConvenience._
+      val oldConstr = extendedConstraints(clauseNum)
+      if (!oldConstr.isFalse) {
+        val clause@NormClause(_, body, head) = clauses(clauseNum)
 
-          val newConstraints =
-            for ((rs, occ) <- body.iterator;
-                 c <- extractIntervals(rs, occ, order)) yield c
-  
-          if (newConstraints.hasNext) {
-            val newConstr = reduce(
-              conj((Iterator single oldConstr) ++ newConstraints))
-  
-            if (oldConstr != newConstr) {
-/*              println
-              println("old: " + oldConstr)
-              println("new: " + newConstr) */
-              print("-")
-  
-              extendedConstraints(clauseNum) = newConstr
-              rsBoundCache remove head._1
-              versions(clauseNum) = currentVersion
-              currentVersion = currentVersion + 1
+        implicit val order = elimOrders(clauseNum)
+        import TerForConvenience._
 
-              changed = true
-            }
+        val newConstraints =
+          for ((rs, occ) <- body.iterator;
+               c <- extractIntervals(rs, occ, order)) yield c
+  
+        if (newConstraints.hasNext) {
+          val newConstr = reduce(
+            conj((Iterator single oldConstr) ++ newConstraints))
+  
+          if (oldConstr != newConstr) {
+/*            println
+            println("old: " + oldConstr)
+            println("new: " + newConstr) */
+            print("-")
+  
+            extendedConstraints(clauseNum) = newConstr
+            rsBoundCache remove head._1
+
+            clauseQueue ++= clausesWithBodyRS(head._1)
+            modifiedClauses += clauseNum
           }
         }
       }
@@ -328,7 +314,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
   val result =
     (for ((clause, clauseNum) <- clauses.iterator.zipWithIndex;
           if (!extendedConstraints(clauseNum).isFalse)) yield {
-       if (versions(clauseNum) > 0) {
+       if (modifiedClauses contains clauseNum) {
          val newConstr = reduce(extendedConstraints(clauseNum) sortBy clause.order)
          (clause updateConstraint newConstr, clause)
        } else {
