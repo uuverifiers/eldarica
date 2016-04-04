@@ -153,6 +153,9 @@ object Main {
     val params = new GlobalParameters
     GlobalParameters.parameters.value = params
 
+    // work-around: make the Princess wrapper thread-safe
+    lazabs.prover.PrincessWrapper.newWrapper
+
     import params._
     import GlobalParameters.InputFormat
 

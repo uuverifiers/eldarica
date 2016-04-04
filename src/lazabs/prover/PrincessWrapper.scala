@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,45 @@ import ap.terfor.conjunctions.Quantifier
 import scala.collection.mutable.LinkedHashMap
 
 object PrincessWrapper {
+  private val localWrapper =
+    new scala.util.DynamicVariable[PrincessWrapper] (new PrincessWrapper)
+
+  def newWrapper : Unit =
+    localWrapper.value = new PrincessWrapper
+
+  def resetSymbolReservoir = localWrapper.value.resetSymbolReservoir
+
+  def formula2Princess(
+        ts: List[Expression],
+        initialSymbolMap: LinkedHashMap[String, ConstantTerm] =
+          LinkedHashMap[String, ConstantTerm]().empty,
+        keepReservoir: Boolean = false) 
+       : (List[IExpression], LinkedHashMap[String, ConstantTerm]) =
+    localWrapper.value.formula2Princess(ts, initialSymbolMap, keepReservoir)
+
+  def reduceDeBruijn(e: Expression): Expression =
+    localWrapper.value.reduceDeBruijn(e)
+
+  def formula2Eldarica(t: IFormula,
+                       symMap : Map[ConstantTerm, String],
+                       removeVersions: Boolean): Expression =
+    localWrapper.value.formula2Eldarica(t, symMap, removeVersions)
+
+  def pathInterpols(fs: List[Expression]): List[Expression] =
+    localWrapper.value.pathInterpols(fs)
+
+  def isSatisfiable(e: Expression): Option[Boolean] =
+    localWrapper.value.isSatisfiable(e)
+
+  def elimQuantifiers(e : Expression) : Expression =
+    localWrapper.value.elimQuantifiers(e)
+
+  def simplify(e : Expression) : Expression =
+    localWrapper.value.simplify(e)
+
+}
+
+class PrincessWrapper {
   
   private val api = new PrincessAPI_v1
   import api._
