@@ -9,5 +9,5 @@ TESTS="atomic3e.hcc atomic3f.hcc \
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -cex "$@" $name 2>&1 | grep -v 'at '
+    $LAZABS -cex -abstract:off "$@" $name 2>&1 | grep -v 'at '
 done

@@ -83,7 +83,7 @@ class GlobalParameters {
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
-  var templateBasedInterpolation = false
+  var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value = AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
   var cegarHintsFile : String = ""
@@ -202,6 +202,10 @@ object Main {
         templateBasedInterpolationType = AbstractionType.RelationalIneqs
         arguments(rest)
       }
+      case "-abstract:off" :: rest => {
+        templateBasedInterpolation = false
+        arguments(rest)
+      }
       case tTimeout :: rest if (tTimeout.startsWith("-abstractTO:")) =>
         templateBasedInterpolationTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
@@ -264,8 +268,8 @@ object Main {
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
-          " -abstract\tUse interpolation abstraction for better interpolants\n" +
-          " -abstract:t\tAbstraction type: term, oct, relEqs (default), relIneqs\n" +
+//          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
+          " -abstract:t\tInterpolation abstraction type: off, term, oct, relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
