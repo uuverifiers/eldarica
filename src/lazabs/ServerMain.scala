@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,7 +47,6 @@ object ServerMain {
   private val WatchdogInit = 30
 
   private case class ThreadToken(stopTime : Long)
-  private case object ShutdownWatchdog
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -121,15 +120,13 @@ object ServerMain {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
                     var watchdogCounter = WatchdogInit
+                    var watchdogCont = true
 
                     // watchdog that makes sure that the system
                     // is shut down eventually, in case the normal
                     // timeout fails
                     val watchdog = actor {
-                      var cont = true
-                      while (cont) receiveWithin(1000) {
-                        case ShutdownWatchdog =>
-                          cont = false
+                      while (watchdogCont) receiveWithin(1000) {
                         case TIMEOUT => {
                           watchdogCounter = watchdogCounter - 1
                           if (watchdogCounter <= 0) {
@@ -169,9 +166,9 @@ object ServerMain {
                       case t : Throwable =>
                         println("ERROR: " + t.getMessage)
                         //      t.printStackTrace
+                    } finally {
+                      watchdogCont = false
                     }
-
-                    watchdog ! ShutdownWatchdog
                   }
                 }
                 case str =>

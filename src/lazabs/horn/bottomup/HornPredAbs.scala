@@ -690,8 +690,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   val (normClauses, relationSymbolBounds) = {
     val rawNormClauses = new LinkedHashMap[NormClause, CC]
 
-    for (c <- iClauses)
+    for (c <- iClauses) {
+      lazabs.GlobalParameters.get.timeoutChecker()
       rawNormClauses.put(NormClause(c, (p) => relationSymbols(p)), c)
+    }
 
     val res = new LinkedHashMap[NormClause, CC]
 
