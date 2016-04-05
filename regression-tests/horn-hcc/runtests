@@ -16,7 +16,7 @@ TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc test5.hcc \
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -cex "$@" $name 2>&1 | grep -v 'at '
+    $LAZABS -cex -abstract:off "$@" $name 2>&1 | grep -v 'at '
 done
 
 TESTS="test6.hcc test7.hcc loop1.hcc loop2.hcc locking.hcc"

@@ -15,7 +15,7 @@ TESTS="merge.horn \
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -pngNo -sol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -pngNo -sol -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
-$LAZABS -pngNo -sol -log "$@" zero-iterations.horn -hints:zero-iterations.preds 2>&1 | grep -iv "time"
+$LAZABS -pngNo -abstract:off -sol -log "$@" zero-iterations.horn -hints:zero-iterations.preds 2>&1 | grep -iv "time"
