@@ -77,22 +77,33 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
     for (p <- allPredicates)
       domCandidates.put(p, allPredSet)
 
-    var changed = true
-    while (changed) {
-      changed = false
+    val body2head =
+      ((for (Clause(IAtom(head, _), body, _) <- reachableClauses;
+                    IAtom(b, _) <- body)
+        yield (b, head)) groupBy (_._1)) mapValues (_ map (_._2))
 
-      for ((p, pClauses) <- clausesWithHead) {
-        val oldSet = domCandidates(p)
-        val newSet =
-          (for (Clause(_, body, _) <- pClauses.iterator) yield {
-             (Set(p) /: (for (IAtom(q, _) <- body.iterator)
-                         yield domCandidates(q))) (_ ++ _)
-           }) reduce (_ & _)
+    val workqueue = new LinkedHashSet[Predicate]
+    for (Clause(IAtom(head, _), Seq(), _) <- reachableClauses.iterator)
+      workqueue += head
 
-        if (newSet.size < oldSet.size) {
-          changed = true
-          domCandidates.put(p, newSet)
-        }
+    while (!workqueue.isEmpty) {
+      lazabs.GlobalParameters.get.timeoutChecker()
+
+      val p = workqueue.head
+      workqueue -= p
+
+      val pClauses = clausesWithHead(p)
+
+      val oldSet = domCandidates(p)
+      val newSet =
+        (for (Clause(_, body, _) <- pClauses.iterator) yield {
+           (Set(p) /: (for (IAtom(q, _) <- body.iterator)
+                       yield domCandidates(q))) (_ ++ _)
+         }) reduce (_ & _)
+
+      if (newSet.size < oldSet.size) {
+        domCandidates.put(p, newSet)
+        workqueue ++= body2head.getOrElse(p, List())
       }
     }
 
@@ -436,6 +447,10 @@ class ModifiedLoopVarsDetector[Dom <: AbstractDomain]
     for ((loopHead, clauses) <- loops.loopBodies) yield {
       val clausesWithHead =
         clauses groupBy { case Clause(IAtom(p, _), _, _) => p }
+      val body2head =
+        ((for (Clause(IAtom(head, _), body, _) <- clauses;
+                      IAtom(b, _) <- body)
+          yield (b, head)) groupBy (_._1)) mapValues (_ map (_._2))
       val abstractValues =
         new MHashMap[Predicate, Element].withDefault {
           p => if (clausesWithHead contains p) bottom(p.arity) else top(p.arity)
@@ -443,28 +458,32 @@ class ModifiedLoopVarsDetector[Dom <: AbstractDomain]
 
       val initialAbstractValue = initial(loopHead.arity)
 
-      var changed = true
-      while (changed) {
-        changed = false
+      val workqueue = new LinkedHashSet[Predicate]
+      workqueue ++= clausesWithHead.keys
+
+      while (!workqueue.isEmpty) {
+        lazabs.GlobalParameters.get.timeoutChecker()
+
+        val p = workqueue.head
+        workqueue -= p
+
+        val pClauses = clausesWithHead(p)
+        val oldValue = abstractValues(p)
+        val newValue =
+          (bottom(p.arity) /:
+           (for (clause@Clause(_, body, _) <- pClauses.iterator) yield {
+              val inputs = for (IAtom(q, _) <- body) yield (
+                if (q == loopHead)
+                  initialAbstractValue
+                else
+                  abstractValues(q)
+              )
+              post(clause, inputs)
+            })) (join _)
   
-        for ((p, pClauses) <- clausesWithHead.iterator) {
-          val oldValue = abstractValues(p)
-          val newValue =
-            (bottom(p.arity) /:
-             (for (clause@Clause(_, body, _) <- pClauses.iterator) yield {
-                val inputs = for (IAtom(q, _) <- body) yield (
-                  if (q == loopHead)
-                    initialAbstractValue
-                  else
-                    abstractValues(q)
-                )
-                post(clause, inputs)
-              })) (join _)
-  
-          if (newValue != oldValue) {
-            abstractValues.put(p, newValue)
-            changed = true
-          }
+        if (newValue != oldValue) {
+          abstractValues.put(p, newValue)
+          workqueue ++= body2head.getOrElse(p, List())
         }
       }
   
