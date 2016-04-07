@@ -62,11 +62,11 @@ object ReaderMain {
         println("  " + c.toPrologString)
     }
 
-    if (!system.hints.initialPredicates.isEmpty) {
+    if (!system.hints.predicateHints.isEmpty) {
       println
-      println("Initial predicates:")
+      println("Verification hints:")
       for ((p, preds) <-
-             system.hints.initialPredicates.toArray.sortBy(_._1.name)) {
+             system.hints.predicateHints.toArray.sortBy(_._1.name)) {
         print("  " + p + ": ")
         var sep = ""
         for (x <- preds) {

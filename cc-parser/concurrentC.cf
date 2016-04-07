@@ -53,9 +53,12 @@ Comment_abs_hint. Abs_hint ::= "/*@" [Abs_hint_clause] "@*/";
 
 separator nonempty Abs_hint "";
 
-Predicate_hint. Abs_hint_clause ::= "predicates" "{" Exp "}";
+Predicate_hint. Abs_hint_clause ::= CIdent Maybe_cost "{" Exp "}";
 
 separator Abs_hint_clause "";
+
+SomeCost.    Maybe_cost ::= "[" Integer "]";
+NoCost.      Maybe_cost ::= ;
 
 
 Tvoid.        Type_specifier ::= "void";

@@ -203,13 +203,13 @@ class CCReader private (prog : Program,
   private def addLocalVar(c : ConstantTerm, t : CCType) = {
     localVars += c
     localVarTypes += t
-    variablePredicates += List()
+    variableHints += List()
   }
   private def popLocalVars(n : Int) = {
     localVars trimEnd n
     localVarTypes trimEnd n
-    variablePredicates trimEnd n
-    assert(variablePredicates.size == localVars.size + globalVars.size &&
+    variableHints trimEnd n
+    assert(variableHints.size == localVars.size + globalVars.size &&
            localVarTypes.size == localVars.size)
   }
 
@@ -219,7 +219,7 @@ class CCReader private (prog : Program,
     val newSize = localFrameStack.pop
     localVars reduceToSize newSize
     localVarTypes reduceToSize newSize
-    variablePredicates reduceToSize (globalVars.size + newSize)
+    variableHints reduceToSize (globalVars.size + newSize)
   }
 
   private def allFormalVars : Seq[ITerm] =
@@ -243,7 +243,8 @@ class CCReader private (prog : Program,
     case CCFormula(f, _) => freeFromGlobal(f)
   }
 
-  private val variablePredicates = new ArrayBuffer[Seq[IFormula]]
+  private val variableHints =
+    new ArrayBuffer[Seq[ParametricEncoder.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -348,14 +349,32 @@ class CCReader private (prog : Program,
   private def newPred : Predicate = newPred(0)
 
   private def newPred(extraArgs : Int) : Predicate = {
+    import ParametricEncoder.{VerifHintTplElement, VerifHintTplEqTerm}
+
     val res = new Predicate(prefix + locationCounter,
                             allFormalVars.size + extraArgs)
     locationCounter = locationCounter + 1
-    initialPreds.put(res, for (s <- variablePredicates; p <- s) yield p)
+
+    val hints = for (s <- variableHints; p <- s) yield p
+    val allHints =
+      if (hints exists (_.isInstanceOf[VerifHintTplElement])) {
+        // make sure that all individual variables exist as templates
+        val coveredVars =
+          (for (VerifHintTplEqTerm(IVariable(n), _) <- hints.iterator)
+           yield n).toSet
+        hints ++ (for (n <- (0 until res.arity).iterator;
+                       if (!(coveredVars contains n)))
+                  yield VerifHintTplEqTerm(v(n), 10000))
+      } else {
+        hints
+      }
+
+    predicateHints.put(res, allHints)
     res
   }
 
-  private val initialPreds = new MHashMap[Predicate, Seq[IFormula]]
+  private val predicateHints =
+    new MHashMap[Predicate, Seq[ParametricEncoder.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -374,8 +393,8 @@ class CCReader private (prog : Program,
     globalVars += GTU
     globalVarTypes += CCInt
     globalVarsInit += CCTerm(GTU, CCInt)
-    variablePredicates += List()
-    variablePredicates += List()
+    variableHints += List()
+    variableHints += List()
   }
 
   private def translateProgram : Unit = {
@@ -519,7 +538,7 @@ class CCReader private (prog : Program,
                 if (global) {
                   globalVars += c
                   globalVarTypes += typ
-                  variablePredicates += List()
+                  variableHints += List()
                   typ match {
                     case typ : CCArithType =>
                       // global variables are initialised with 0
@@ -559,7 +578,7 @@ class CCReader private (prog : Program,
             if (global) {
               globalVars += c
               globalVarTypes += typ
-              variablePredicates += List()
+              variableHints += List()
             } else {
               addLocalVar(c, typ)
             }
@@ -576,6 +595,9 @@ class CCReader private (prog : Program,
         }
 
         if (isVariable) {
+          import ParametricEncoder.{VerifHintInitPred,
+                                    VerifHintTplPred, VerifHintTplEqTerm}
+
           // parse possible model checking hints
           val hints : Seq[Abs_hint] = initDecl match {
             case decl : HintDecl => decl.listabs_hint_
@@ -587,13 +609,35 @@ class CCReader private (prog : Program,
             val hintSymex = Symex(null)
             hintSymex.saveState
 
-            val hintExprs =
+            val subst =
+              (for ((c, n) <-
+                      (globalVars.iterator ++ localVars.iterator).zipWithIndex)
+               yield (c -> v(n))).toMap
+
+            val hintEls =
               for (hint <- hints;
                    cHint = hint.asInstanceOf[Comment_abs_hint];
                    hint_clause <- cHint.listabs_hint_clause_;
                    if (hint_clause.isInstanceOf[Predicate_hint]);
-                   e <- hintSymex evalList hint_clause.asInstanceOf[Predicate_hint].exp_)
-              yield e
+                   pred_hint = hint_clause.asInstanceOf[Predicate_hint];
+                   cost = pred_hint.maybe_cost_ match {
+                     case c : SomeCost => c.integer_.toInt
+                     case _ : NoCost => 1
+                   };
+                   e <- hintSymex evalList pred_hint.exp_)
+              yield pred_hint.cident_ match {
+                case "predicates" =>
+                  VerifHintInitPred(ConstantSubstVisitor(e.toFormula, subst))
+                case "predicates_tpl" =>
+                  VerifHintTplPred(ConstantSubstVisitor(e.toFormula, subst),
+                                   cost)
+                case "terms_tpl" =>
+                  VerifHintTplEqTerm(ConstantSubstVisitor(e.toTerm, subst),
+                                     cost)
+                case _ =>
+                  throw new TranslationException("cannot handle hint " +
+                                                 pred_hint.cident_)
+              }
 
             if (!hintSymex.atomValuesUnchanged)
               throw new TranslationException(
@@ -601,15 +645,7 @@ class CCReader private (prog : Program,
                 (for (h <- hints.iterator)
                  yield (printer print h)).mkString(""))
 
-            val subst =
-              (for ((c, n) <-
-                      (globalVars.iterator ++ localVars.iterator).zipWithIndex)
-               yield (c -> v(n))).toMap
-            val hintFors =
-              for (e <- hintExprs)
-              yield ConstantSubstVisitor(e.toFormula, subst)
-
-            variablePredicates(variablePredicates.size - 1) = hintFors
+            variableHints(variableHints.size - 1) = hintEls
           }
         }
       }
@@ -1794,9 +1830,9 @@ class CCReader private (prog : Program,
       processes.size == 1 &&
       processes.head._2 == ParametricEncoder.Singleton
 
-    val initPreds =
+    val predHints =
       (for (p <- ParametricEncoder.processPreds(processes).iterator;
-            preds = initialPreds(p);
+            preds = predicateHints(p);
             if (!preds.isEmpty))
        yield (p -> preds.toList)).toMap
 
@@ -1814,7 +1850,7 @@ class CCReader private (prog : Program,
                              timeInvariants,
                              assertionClauses.toList,
                              new ParametricEncoder.VerificationHints {
-                               val initialPredicates = initPreds
+                               val predicateHints = predHints
                              })
   }
 

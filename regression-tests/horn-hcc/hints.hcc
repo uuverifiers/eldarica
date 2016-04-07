@@ -1,0 +1,16 @@
+
+
+void main() {
+  int i = 0;
+
+  /* Define one term template 2*i - j, used with default cost 1 */
+
+  int /*@ terms_tpl { 2*i - j } @*/ j = 0;
+
+  while (i <= 1000) {
+    i += 1;
+    j += 2;
+  }
+
+  assert(j <= 3000);
+}

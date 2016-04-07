@@ -35,6 +35,10 @@ import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
                              HornWrapper}
+import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
+                                 LoopDetector, PredicateLattice,
+                                 TermSubsetLattice, ProductLattice}
+import lazabs.horn.bottomup.TemplateInterpolator
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer}
@@ -179,12 +183,50 @@ class VerificationLoop(system : ParametricEncoder.System,
     val interpolator = if (templateBasedInterpolation)
                              Console.withErr(Console.out) {
       val abstractionMap =
-        (new lazabs.horn.abstractions.StaticAbstractionBuilder(
-          encoder.allClauses,
-          lazabs.GlobalParameters.get.templateBasedInterpolationType)
-             .abstractions) mapValues (
-               lazabs.horn.bottomup.TemplateInterpolator.AbstractionRecord(_))
-      lazabs.horn.bottomup.TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+        if (!encoder.globalPredicateTemplates.isEmpty) {
+
+          val loopDetector = new LoopDetector(encoder.allClauses)
+
+          print("Using interpolation templates provided in program: ")
+          var sep = ""
+
+          val res =
+          (for ((pred, hints) <- encoder.globalPredicateTemplates.iterator;
+                if (loopDetector.loopHeads contains pred)) yield {
+             print(sep + pred)
+             sep = ", "
+
+             val preds = for (VerifHintTplPred(p, c) <- hints) yield (~p, c)
+             val terms = for (VerifHintTplEqTerm(t, c) <- hints) yield (t, c)
+
+             val lattices : List[AbsLattice] =
+               (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
+               (if (terms.isEmpty) List() else List(TermSubsetLattice(terms)))
+             
+             val hintLattice = lattices reduceLeft (ProductLattice(_, _, true))
+
+             (pred,
+              new TemplateInterpolator.AbstractionRecord {
+                val loopBody = (loopDetector bodyPredicates pred).toSet
+                val lattice = hintLattice
+                val loopIterationAbstractionThreshold = 3
+              })
+           }).toMap
+
+          println
+          res
+
+        } else {
+
+          (new StaticAbstractionBuilder(
+            encoder.allClauses,
+            lazabs.GlobalParameters.get.templateBasedInterpolationType)
+               .abstractions) mapValues (
+                 TemplateInterpolator.AbstractionRecord(_))
+
+        }
+
+      TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
         abstractionMap,
         lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
     } else {

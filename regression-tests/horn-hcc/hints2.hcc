@@ -1,0 +1,18 @@
+
+
+void main() {
+  int i = 0;
+
+  /* Define one predicate template 2*i == j (cost 1), and two
+     term templates i, j (cost 3) */
+
+  int /*@ predicates_tpl { 2*i == j }
+          terms_tpl[3] { i, j } @*/    j = 0;
+
+  while (i <= 1000) {
+    i += 1;
+    j += 2;
+  }
+
+  assert(j <= 3000);
+}

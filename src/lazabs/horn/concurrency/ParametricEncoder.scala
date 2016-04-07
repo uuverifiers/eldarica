@@ -100,25 +100,49 @@ object ParametricEncoder {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   *
+   * Trait for providing verification hints, associated with predicates
+   * defining the analysed programs.
    */
   trait VerificationHints {
-    val initialPredicates : Map[IExpression.Predicate, Seq[IFormula]]
+    val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
     def filterPredicates(remainingPreds : Set[IExpression.Predicate]) = {
-      val remInitPreds = initialPredicates filterKeys remainingPreds
+      val remHints = predicateHints filterKeys remainingPreds
       new VerificationHints {
-        val initialPredicates = remInitPreds
+        val predicateHints = remHints
       }
     }
   }
 
   object EmptyVerificationHints extends VerificationHints {
-    val initialPredicates = Map[IExpression.Predicate, Seq[IFormula]]()
+    val predicateHints = Map[IExpression.Predicate, Seq[VerifHintElement]]()
   }
 
   class InitPredVerificationHints(
-           val initialPredicates : Map[IExpression.Predicate, Seq[IFormula]])
-        extends VerificationHints
+     val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]])
+     extends VerificationHints
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  abstract sealed class VerifHintElement {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintElement
+  }
+  abstract sealed class VerifHintTplElement(val cost : Int)
+                                         extends VerifHintElement
+  
+  case class VerifHintInitPred(f : IFormula) extends VerifHintElement {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintInitPred =
+      VerifHintInitPred(VariableShiftVisitor(f, offset, shift))
+  }
+  case class VerifHintTplPred(f : IFormula, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplPred =
+      VerifHintTplPred(VariableShiftVisitor(f, offset, shift), cost)
+  }
+  case class VerifHintTplEqTerm(t : ITerm, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplEqTerm =
+      VerifHintTplEqTerm(VariableShiftVisitor(t, offset, shift), cost)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -143,7 +167,7 @@ object ParametricEncoder {
     val allLocalPreds =
       (for (preds <- localPreds.iterator; p <- preds.iterator) yield p).toSet
 
-    assert(hints.initialPredicates.keys forall allLocalPreds)
+    assert(hints.predicateHints.keys forall allLocalPreds)
 
     val localPredsSet = for (preds <- localPreds) yield preds.toSet
   
@@ -212,8 +236,8 @@ object ParametricEncoder {
                 case _                        => false
               }))
 
-      val newInitialPredicates =
-        new MHashMap[IExpression.Predicate, Seq[IFormula]]
+      val newPredicateHints =
+        new MHashMap[IExpression.Predicate, Seq[VerifHintElement]]
 
       val predMappings =
         (for (((n, (process, _)), i) <-
@@ -229,8 +253,8 @@ object ParametricEncoder {
               }).toMap
 
            for ((a, b) <- mapping)
-             (hints.initialPredicates get a) match {
-               case Some(preds) => newInitialPredicates.put(b, preds)
+             (hints.predicateHints get a) match {
+               case Some(preds) => newPredicateHints.put(b, preds)
                case None => // nothing
              }
 
@@ -302,7 +326,7 @@ object ParametricEncoder {
       val newSystem =
         System(newProcesses, globalVarNum, backgroundAxioms,
                timeSpec, newTimeInvs, newAssertions,
-               new InitPredVerificationHints(newInitialPredicates.toMap))
+               new InitPredVerificationHints(newPredicateHints.toMap))
       newSystem
     }
 
@@ -1027,21 +1051,34 @@ class ParametricEncoder(system : ParametricEncoder.System,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def compileInitPredicates(s : Seq[Predicate]) : Seq[IFormula] = {
-    val res = new ArrayBuffer[IFormula]
+  private def compilePredicateHints(s : Seq[Predicate])
+                                   : Seq[VerifHintElement] = {
+    val res = new ArrayBuffer[VerifHintElement]
     var shift = 0
     for (lp <- s) {
-      for (pred <- hints.initialPredicates.getOrElse(lp, List()))
-        res += VariableShiftVisitor(pred, globalVarNum, shift)
+      for (pred <- hints.predicateHints.getOrElse(lp, List()))
+        res += pred.shiftArguments(globalVarNum, shift)
       shift = shift + lp.arity - globalVarNum
     }
     res.toList
   }
 
-  val globalInitialPredicates =
+  val globalPredicateHints =
     (for ((s, p) <- globalPredsSeq.iterator;
-          preds = compileInitPredicates(s);
+          hs = compilePredicateHints(s);
+          if (!hs.isEmpty))
+     yield (p -> hs)).toMap
+
+  val globalInitialPredicates =
+    (for ((p, hs) <- globalPredicateHints.iterator;
+          preds = for (VerifHintInitPred(p) <- hs) yield p;
           if (!preds.isEmpty))
      yield (p -> preds)).toMap
+
+  val globalPredicateTemplates =
+    (for ((p, hs) <- globalPredicateHints.iterator;
+          hs2 = for (h <- hs; if (h.isInstanceOf[VerifHintTplElement])) yield h;
+          if (!hs2.isEmpty))
+     yield (p -> hs2)).toMap
 
 }
