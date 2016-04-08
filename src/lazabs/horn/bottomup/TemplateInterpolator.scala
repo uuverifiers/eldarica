@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2016 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -346,7 +346,8 @@ object TemplateInterpolator {
 
         val relMap =
           (for ((path, (lr, rr)) <- decompositionPoints.iterator zip rels.iterator) yield {
-             (decPointVocabulary(path)._2.head, (asConjunction(lr), asConjunction(rr)))
+             (decPointVocabulary(path)._2.head,
+              (!asConjunction(~lr), !asConjunction(~rr)))
            }).toMap
 
         val relTree = for (v <- vocabularyTree) yield v match {

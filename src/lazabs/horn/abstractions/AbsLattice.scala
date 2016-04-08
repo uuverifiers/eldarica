@@ -824,9 +824,17 @@ class TermSubsetLattice private (objseq: Seq[ITerm],
   //////////////////////////////////////////////////////////////////////////////
 
   private val term2Internal =
-    (for (t <- objseq.iterator) yield (
-       t -> LinearCombination(InputAbsy2Internal(t, TermOrder.EMPTY),
-                              TermOrder.EMPTY))).toMap
+    (for (t <- objseq.iterator;
+          intT = try {
+            LinearCombination(InputAbsy2Internal(t, TermOrder.EMPTY),
+                              TermOrder.EMPTY)
+          } catch {
+            // the term might contain operators that cannot directly
+            // be translated to internal (like ite, eps)
+            case _ : scala.MatchError => null
+          };
+          if (intT != null))
+     yield (t -> intT)).toMap
 
   private val trivial =
     objseq forall (_.isInstanceOf[IVariable])
@@ -840,8 +848,16 @@ class TermSubsetLattice private (objseq: Seq[ITerm],
       import TerForConvenience._
       implicit val order = TermOrder.EMPTY
 
-      val reducer = ReduceWithEqs((getTerms(o) map term2Internal).toSeq === 0, order)
-      val res = top filter { i => (o contains i) || reducer(term2Internal(objseq(i))).isZero }
+      val intTerms =
+        (for (t <- getTerms(o);
+              intT <- (term2Internal get t).iterator)
+         yield intT).toList
+
+      val reducer = ReduceWithEqs(intTerms === 0, order)
+      val res = top filter { i => (o contains i) ||
+                                  ((term2Internal get objseq(i)) exists {
+                                     x => reducer(x).isZero
+                                   }) }
 //println("extending: size is " + res.size)
 //println(o)
 //println(res)
