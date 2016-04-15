@@ -621,7 +621,7 @@ class CCReader private (prog : Program,
                    if (hint_clause.isInstanceOf[Predicate_hint]);
                    pred_hint = hint_clause.asInstanceOf[Predicate_hint];
                    cost = pred_hint.maybe_cost_ match {
-                     case c : SomeCost => c.integer_.toInt
+                     case c : SomeCost => c.unboundedinteger_.toInt
                      case _ : NoCost => 1
                    };
                    e <- hintSymex evalList pred_hint.exp_)

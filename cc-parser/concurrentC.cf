@@ -57,7 +57,7 @@ Predicate_hint. Abs_hint_clause ::= CIdent Maybe_cost "{" Exp "}";
 
 separator Abs_hint_clause "";
 
-SomeCost.    Maybe_cost ::= "[" Integer "]";
+SomeCost.    Maybe_cost ::= "[" UnboundedInteger "]";
 NoCost.      Maybe_cost ::= ;
 
 
