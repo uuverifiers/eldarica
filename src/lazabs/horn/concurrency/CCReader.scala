@@ -1311,7 +1311,9 @@ class CCReader private (prog : Program,
       case constant : Eoctal =>
         pushVal(CCTerm(IdealInt(constant.octal_, 8), CCInt))
 //      case constant : Eoctalunsign.  Constant ::= OctalUnsigned;
-//      case constant : Eoctallong.    Constant ::= OctalLong;
+      case constant : Eoctallong =>
+        pushVal(CCTerm(IdealInt(constant.octallong_.substring(0,
+                                  constant.octallong_.size - 1), 8), CCLong))
 //      case constant : Eoctalunslong. Constant ::= OctalUnsLong;
 //      case constant : Ecdouble.      Constant ::= CDouble;
 //      case constant : Ecfloat.       Constant ::= CFloat;
