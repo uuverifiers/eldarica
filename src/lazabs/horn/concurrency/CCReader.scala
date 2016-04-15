@@ -1317,7 +1317,7 @@ class CCReader private (prog : Program,
 //      case constant : Ecfloat.       Constant ::= CFloat;
 //      case constant : Eclongdouble.  Constant ::= CLongDouble;
       case constant : Eint =>
-        pushVal(CCTerm(i(constant.integer_), CCInt))
+        pushVal(CCTerm(i(IdealInt(constant.unboundedinteger_)), CCInt))
     }
   }
 

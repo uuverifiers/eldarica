@@ -224,6 +224,8 @@ separator nonempty Stm "";
 
 token CIdent (letter | '_') (letter | digit | '_')*;
 
+token UnboundedInteger ["123456789"] digit *;
+
 token Unsigned ["123456789"] digit * ('u'|'U');
 
 token Long ["123456789"] digit * ('l'|'L');
@@ -312,10 +314,10 @@ Eoctalunslong. Constant ::= OctalUnsLong;
 Ecdouble.      Constant ::= CDouble;
 Ecfloat.       Constant ::= CFloat;
 Eclongdouble.  Constant ::= CLongDouble;
-Eint.          Constant ::= Integer;  
+Eint.          Constant ::= UnboundedInteger;  
 
-internal Elonger. Constant ::= Integer;
-internal Edouble. Constant ::= Double;
+-- internal Elonger. Constant ::= Integer;
+-- internal Edouble. Constant ::= Double;
 
 Especial. Constant_expression ::= Exp3;
 

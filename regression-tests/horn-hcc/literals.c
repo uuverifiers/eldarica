@@ -26,6 +26,11 @@ int main() {
   }
 
   {
+    unsigned int x = 4294967040;
+    assert(x > 0);
+  }
+
+  {
     long x = 5;
     assert((unsigned int)x > 0);
   }
