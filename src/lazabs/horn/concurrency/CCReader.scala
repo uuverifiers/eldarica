@@ -624,7 +624,7 @@ class CCReader private (prog : Program,
                      case c : SomeCost => c.unboundedinteger_.toInt
                      case _ : NoCost => 1
                    };
-                   e <- hintSymex evalList pred_hint.exp_)
+                   e <- inAtomicMode(hintSymex evalList pred_hint.exp_))
               yield pred_hint.cident_ match {
                 case "predicates" =>
                   VerifHintInitPred(ConstantSubstVisitor(e.toFormula, subst))

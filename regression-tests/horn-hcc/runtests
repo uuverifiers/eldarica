@@ -20,7 +20,7 @@ for name in $TESTS; do
 done
 
 TESTS="test4.hcc test6.hcc test7.hcc loop1.hcc loop2.hcc locking.hcc \
-       hints.hcc hints2.hcc"
+       hints.hcc hints2.hcc hints3.hcc"
 
 for name in $TESTS; do
     echo
