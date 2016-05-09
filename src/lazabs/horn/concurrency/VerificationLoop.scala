@@ -182,10 +182,18 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     val interpolator = if (templateBasedInterpolation)
                              Console.withErr(Console.out) {
+      val builder =
+        new StaticAbstractionBuilder(
+          encoder.allClauses,
+          lazabs.GlobalParameters.get.templateBasedInterpolationType)
+      val autoAbstractionMap =
+        builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
+        
       val abstractionMap =
-        if (!encoder.globalPredicateTemplates.isEmpty) {
-
-          val loopDetector = new LoopDetector(encoder.allClauses)
+        if (encoder.globalPredicateTemplates.isEmpty) {
+          autoAbstractionMap
+        } else {
+          val loopDetector = builder.loopDetector
 
           print("Using interpolation templates provided in program: ")
           var sep = ""
@@ -205,25 +213,19 @@ class VerificationLoop(system : ParametricEncoder.System,
              
              val hintLattice = lattices reduceLeft (ProductLattice(_, _, true))
 
+             val autoRecord = autoAbstractionMap(pred)
+
              (pred,
               new TemplateInterpolator.AbstractionRecord {
-                val loopBody = (loopDetector bodyPredicates pred).toSet
-                val lattice = hintLattice
-                val loopIterationAbstractionThreshold = 3
+                val loopBody = autoRecord.loopBody
+                val lattice = ProductLattice(autoRecord.lattice, hintLattice, true)
+                val loopIterationAbstractionThreshold =
+                  autoRecord.loopIterationAbstractionThreshold
               })
            }).toMap
 
           println
           res
-
-        } else {
-
-          (new StaticAbstractionBuilder(
-            encoder.allClauses,
-            lazabs.GlobalParameters.get.templateBasedInterpolationType)
-               .abstractions) mapValues (
-                 TemplateInterpolator.AbstractionRecord(_))
-
         }
 
       TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(

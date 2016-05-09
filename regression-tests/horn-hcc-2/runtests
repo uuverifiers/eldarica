@@ -11,3 +11,13 @@ for name in $TESTS; do
     echo $name
     $LAZABS -cex -abstract:off "$@" $name 2>&1 | grep -v 'at '
 done
+
+TESTS="hints.hcc hints2.hcc hints3.hcc"
+
+for opt in -abstract -abstract:manual; do
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex $opt "$@" $name
+done
+done

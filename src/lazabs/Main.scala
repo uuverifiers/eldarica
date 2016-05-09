@@ -182,6 +182,11 @@ object Main {
       case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
+      case "-abstract:manual" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Empty
+        arguments(rest)
+      }
       case "-abstract:term" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Term
@@ -269,7 +274,8 @@ object Main {
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
-          " -abstract:t\tInterp. abstraction: off, term, oct, relEqs (default), relIneqs\n" +
+          " -abstract:t\tInterp. abstraction: off, manual, term, oct,\n" +
+          "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           

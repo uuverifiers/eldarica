@@ -496,7 +496,7 @@ class ModifiedLoopVarsDetector[Dom <: AbstractDomain]
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Term, Octagon, RelationalEqs, RelationalIneqs = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs = Value
   }
 }
 
@@ -588,6 +588,18 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def emptyAbstractions =
+    for ((head, _) <- loopDetector.loopBodies) yield {
+      Console.err.println("   " + head +
+              " (" + loopDetector.loopBodies(head).size + " clauses)")
+      // just create some unit lattice (with exactly one element)
+      (head,
+       (loopDetector bodyPredicates head,
+        TermSubsetLattice(List()).asInstanceOf[AbsLattice]))
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def relationAbstractions(ineqs : Boolean) =
     for ((loopHead, argOffsets) <-
            ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
@@ -657,6 +669,8 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
 
   val abstractions : Map[Predicate, (Seq[Predicate], AbsLattice)] =
     abstractionType match {
+      case AbstractionType.Empty =>
+        emptyAbstractions
       case AbstractionType.Term =>
         termAbstractions
       case AbstractionType.Octagon =>

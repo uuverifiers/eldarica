@@ -314,12 +314,3 @@ SAFE
 locking.hcc
 Warning: entry function "main" not found
 SAFE
-
-hints.hcc
-SAFE
-
-hints2.hcc
-SAFE
-
-hints3.hcc
-SAFE
