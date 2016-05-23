@@ -66,3 +66,8 @@ array-exception.smt2
 Warning: ignoring get-model
 Theories: SimpleArray(1)
 unknown
+
+inconclusive.smt2
+Warning: ignoring get-model
+Theories: SimpleArray(1)
+sat

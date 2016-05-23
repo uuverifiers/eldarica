@@ -419,6 +419,8 @@ class SMTHornReader protected[parser] (
 
       assert(unintHeadLits.size <= 1)
 
+      // Create new existential constants for the arguments of the
+      // individual atoms
       def existentialiseAtom(a : Atom) : IAtom = {
         val existConsts = createExistentialConstants(a.size)
 
@@ -439,10 +441,13 @@ class SMTHornReader protected[parser] (
 
       resClauses += (??? match {
         case ProverStatus.Unsat =>
-          Transform2NNF(getMinimisedConstraint ||| ~and(newUnintBodyLits) ||| or(newUnintHeadLits))
-        case ProverStatus.Sat =>
+          Transform2NNF(getMinimisedConstraint |||
+                        ~and(newUnintBodyLits) |||
+                        or(newUnintHeadLits))
+        case ProverStatus.Sat | ProverStatus.Inconclusive =>
           // then the resulting constraint is false
-          Transform2NNF(~and(newUnintBodyLits) ||| or(newUnintHeadLits))
+          Transform2NNF(~and(newUnintBodyLits) |||
+                        or(newUnintHeadLits))
       })
     }
 
