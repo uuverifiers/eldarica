@@ -195,6 +195,20 @@ object HornClauses {
       }
       print(".")
     }
+
+    def toFormula : IFormula = {
+      import IExpression._
+
+      val headFor : IFormula = head.pred match {
+        case FALSE => false
+        case _ => head
+      }
+
+      val matrix = (and(body) &&& constraint) ===> headFor
+      quanConsts(Quantifier.ALL, constants.toSeq, matrix)
+    }
+
+    def toSMTString : String = SMTLineariser asString this.toFormula
   }
 
   class PrologApplier(constr : IFormula) {

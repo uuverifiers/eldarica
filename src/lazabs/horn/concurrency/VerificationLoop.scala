@@ -177,6 +177,36 @@ class VerificationLoop(system : ParametricEncoder.System,
     val encoder =
       new ParametricEncoder (system, invariants)
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    if (lazabs.GlobalParameters.get.printIntermediateClauseSets) {
+      val basename = lazabs.GlobalParameters.get.fileName
+      val suffix =
+        (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
+      val filename = basename + "-" + suffix + ".smt2"
+
+      println
+      println("Writing Horn clauses to " + filename)
+
+      val allPredicates = new MHashSet[IExpression.Predicate]
+
+      for (c <- encoder.allClauses)
+        allPredicates ++= c.predicates
+
+      allPredicates -= HornClauses.FALSE
+
+      val out = new java.io.FileOutputStream(filename)
+      Console.withOut(out) {
+        SMTLineariser("C_VC", "HORN", "unknown",
+                      List(), allPredicates.toSeq.sortBy(_.name),
+                      (for (c <- encoder.allClauses.iterator)
+                      yield c.toFormula).toList)
+      }
+      out.close
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     println
     println("Solving ...")
 
@@ -234,6 +264,8 @@ class VerificationLoop(system : ParametricEncoder.System,
     } else {
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
+
+    ////////////////////////////////////////////////////////////////////////////
 
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
       new HornPredAbs(encoder.allClauses,

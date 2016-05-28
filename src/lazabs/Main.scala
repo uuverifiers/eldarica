@@ -74,6 +74,7 @@ class GlobalParameters {
   var smtPrettyPrint = false  
   var interpolation = false
   var ntsPrint = false
+  var printIntermediateClauseSets = false
   var horn = false
   var concurrentC = false
   var global = false
@@ -165,6 +166,7 @@ object Main {
       case "-r" :: rest => drawRTree = true; arguments(rest)
       case "-f" :: rest => absInFile = true; arguments(rest)
       case "-p" :: rest => prettyPrint = true; arguments(rest)
+      case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
       case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
