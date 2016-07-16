@@ -64,6 +64,8 @@ object HornClauses {
     lazy val predicates =
       (for (IAtom(p, _) <- (Iterator single head) ++ body.iterator) yield p).toSet
 
+    def hasUnsatConstraint : Boolean = constraint.isFalse
+
     def inline(args : Seq[ITerm]) : (Seq[IAtom], IFormula) =
       if (headCanDirectlyBeInlined) {
         val replacement =
@@ -106,16 +108,22 @@ object HornClauses {
           if (!(definedConsts contains c))
             replacement.put(c, i(new ConstantTerm(c.name)))
 
-        for ((IConstant(c), t) <- thisBodyArgs.iterator zip thatHeadArgs.iterator)
+        for ((IConstant(c), t) <-
+               thisBodyArgs.iterator zip thatHeadArgs.iterator)
           replacement.put(c, t)
 
-        Clause(ConstantSubstVisitor(head, replacement).asInstanceOf[IAtom],
+        Clause(SimplifyingConstantSubstVisitor(head, replacement)
+                  .asInstanceOf[IAtom],
                thatBody,
-               ConstantSubstVisitor(constraint, replacement) &&& thatConstraint)
+               SimplifyingConstantSubstVisitor(constraint, replacement) &&&
+                  thatConstraint)
       } else {
-        val (Clause(newHead, List(IAtom(_, newBodyArgs)), newConstraint), _) = refresh
+        val (Clause(newHead, List(IAtom(_, newBodyArgs)), newConstraint), _) =
+          refresh
         Clause(newHead, thatBody,
-               newConstraint &&& thatConstraint &&& (newBodyArgs === thatHeadArgs))
+               newConstraint &&&
+               thatConstraint &&&
+               (newBodyArgs === thatHeadArgs))
       }
     }
 
@@ -125,16 +133,18 @@ object HornClauses {
       val newConsts =
         for (c <- consts) yield new ConstantTerm(c.name)
       val replacement =
-        (for ((c, nc) <- consts.iterator zip newConsts.iterator)
-         yield (c -> i(nc))).toMap
+        (consts.iterator zip newConsts.iterator).toMap
 
-      (Clause(ConstantSubstVisitor(head, replacement).asInstanceOf[IAtom],
-              for (a <- body) yield ConstantSubstVisitor(a, replacement).asInstanceOf[IAtom],
-              ConstantSubstVisitor(constraint, replacement)),
+      (Clause(ConstantSubstVisitor.rename(head, replacement)
+                 .asInstanceOf[IAtom],
+              for (a <- body)
+                 yield ConstantSubstVisitor.rename(a, replacement)
+                         .asInstanceOf[IAtom],
+              ConstantSubstVisitor.rename(constraint, replacement)),
        newConsts)
     }
     
-    def substitute(m : MHashMap[ConstantTerm, ITerm]) = {
+    private def substitute(m : MHashMap[ConstantTerm, ITerm]) = {
       Clause(
           ConstantSubstVisitor(head, m).asInstanceOf[IAtom],
           for (a <- body) yield ConstantSubstVisitor(a, m).asInstanceOf[IAtom],

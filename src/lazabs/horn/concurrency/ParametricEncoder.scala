@@ -403,12 +403,16 @@ object ParametricEncoder {
 
                 val newClauses =
                   if (incoming forall (isLocalClause(_)))
-                    for ((c1, _) <- incoming; (c2, s) <- outgoing)
-                    yield (c2 mergeWith c1, s)
+                    for ((c1, _) <- incoming; (c2, s) <- outgoing;
+                         newClause = c2 mergeWith c1;
+                         if !newClause.hasUnsatConstraint)
+                    yield (newClause, s)
                   else if (!outgoing.isEmpty &&
                            (outgoing forall (isLocalClause(_))))
-                    for ((c1, s) <- incoming; (c2, _) <- outgoing)
-                    yield (c2 mergeWith c1, s)
+                    for ((c1, s) <- incoming; (c2, _) <- outgoing;
+                         newClause = c2 mergeWith c1;
+                         if !newClause.hasUnsatConstraint)
+                    yield (newClause, s)
                   else
                     null
 

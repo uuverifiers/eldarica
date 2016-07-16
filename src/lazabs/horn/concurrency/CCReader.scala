@@ -284,45 +284,48 @@ class CCReader private (prog : Program,
 
     def chainClauses(currentClause : Clause,
                      currentSync : ParametricEncoder.Synchronisation,
-                     seenPreds : Set[Predicate]) : Unit = {
-      val headPred = currentClause.head.pred
-      if (seenPreds contains headPred)
-        throw new TranslationException(
-          "cycles in atomic blocks are not supported yet")
+                     seenPreds : Set[Predicate]) : Unit =
+      if (!currentClause.hasUnsatConstraint) {
+        val headPred = currentClause.head.pred
+        if (seenPreds contains headPred)
+          throw new TranslationException(
+            "cycles in atomic blocks are not supported yet")
 
-      (lastClauses get headPred) match {
-        case Some(cls) => {
-          if (timeInvariants exists (_.predicates contains headPred))
-            throw new TranslationException(
-              "time invariants in atomic blocks are not supported")
-
-          for ((c, sync) <- cls)
-            if (currentSync == ParametricEncoder.NoSync)
-              chainClauses(c mergeWith currentClause, sync,
-                           seenPreds + headPred)
-            else if (sync == ParametricEncoder.NoSync)
-              chainClauses(c mergeWith currentClause, currentSync,
-                           seenPreds + headPred)
-            else
+        (lastClauses get headPred) match {
+          case Some(cls) => {
+            if (timeInvariants exists (_.predicates contains headPred))
               throw new TranslationException(
-                "Cannot execute " + currentSync + " and " + sync +
-                " in one step")
+                "time invariants in atomic blocks are not supported")
 
-          // add further assertion clauses, since some intermediate
-          // states disappear
-          for (c <- assertionClauses.toList)
-            if (c.bodyPredicates contains headPred) {
-              if (currentSync != ParametricEncoder.NoSync)
+            for ((c, sync) <- cls)
+              if (currentSync == ParametricEncoder.NoSync)
+                chainClauses(c mergeWith currentClause, sync,
+                             seenPreds + headPred)
+              else if (sync == ParametricEncoder.NoSync)
+                chainClauses(c mergeWith currentClause, currentSync,
+                             seenPreds + headPred)
+              else
                 throw new TranslationException(
-                  "Cannot execute " + currentSync + " and an assertion" +
+                  "Cannot execute " + currentSync + " and " + sync +
                   " in one step")
-              assertionClauses += (c mergeWith currentClause)
-            }
+
+            // add further assertion clauses, since some intermediate
+            // states disappear
+            for (c <- assertionClauses.toList)
+              if (c.bodyPredicates contains headPred) {
+                if (currentSync != ParametricEncoder.NoSync)
+                  throw new TranslationException(
+                    "Cannot execute " + currentSync + " and an assertion" +
+                    " in one step")
+                val newAssertionClause = c mergeWith currentClause
+                if (!newAssertionClause.hasUnsatConstraint)
+                  assertionClauses += newAssertionClause
+              }
+          }
+          case None =>
+            clauses += ((currentClause, currentSync))
         }
-        case None =>
-          clauses += ((currentClause, currentSync))
       }
-    }
 
     for ((c, sync) <- entryClauses)
       chainClauses(c, sync, Set())
