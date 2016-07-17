@@ -30,6 +30,7 @@
 
 package lazabs.horn.bottomup
 
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
@@ -124,14 +125,15 @@ class HornWrapper(constraints: Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val (simplified, initialPredicates) = Console.withErr(outStream) {
-    var (simplified, initialPredicates) =
+  private val (simplified, initialPredicates, preprocBackTranslator) =
+    Console.withErr(outStream) {
+    var (simplified, initialPredicates, backTranslator) =
       if (!lbe) {
-        val preprocessor =
-          new HornPreprocessor(unsimplified, unsimpInitialPredicates)
-        (preprocessor.result, preprocessor.initialPredicates)
+        val preprocessor = new DefaultPreprocessor
+        preprocessor.process(unsimplified, unsimpInitialPredicates)
       } else {
-        (unsimplified, unsimpInitialPredicates)
+        (unsimplified, unsimpInitialPredicates,
+         HornPreprocessor.IDENTITY_TRANSLATOR)
       }
 
     // problem: transforming back and forth doesn't produce  
@@ -149,7 +151,7 @@ class HornWrapper(constraints: Seq[HornClause],
       println("-------------------------------")
     }
 
-    (simplified, initialPredicates)
+    (simplified, initialPredicates, backTranslator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -214,14 +216,34 @@ class HornWrapper(constraints: Seq[HornClause],
       else
         HornPredAbs.CounterexampleMethod.FirstBestShortest
 
-    (Console.withOut(outStream)(
-       new HornPredAbs(simplified,
-                       initialPredicates, predGenerator,
-                       counterexampleMethod))).result match {
+    val rawResult = Console.withOut(outStream) {
+      println
+      println(
+        "-------------------- Starting solver -----------------------")
+
+       (new HornPredAbs(simplified,
+                        initialPredicates, predGenerator,
+                        counterexampleMethod)).result
+    }
+
+/*    val result = preprocBackTranslator translate rawResult
+
+    println("raw:")
+    println(rawResult)
+
+    println
+    println("final:")
+    println(result)
+    println
+*/
+    val result = rawResult
+
+    result match {
       case Left(res) =>
         // only keep relation symbols that were also part of the orginal problem
         Left(res filterKeys predPool.values.toSet)
-      case Right(cex) => Right(for (p <- cex) yield p._1)
+      case Right(cex) =>
+        Right(for (p <- cex) yield p._1)
     }
   }
 

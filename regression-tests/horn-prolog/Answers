@@ -44,11 +44,14 @@ palindrome_q4(A,B,C,D,E,F) :- ((D = 1); ((((C + (-2 * D)) - B) >= -3), (D >= 2))
 listcounter.error.nts.horn
 NOT SOLVABLE
 Loading CEGAR hints ...
+--------------------- Preprocessing ------------------------
+Initially:                         7 clauses
+After constraint simplification:   7 clauses
+After clause inlining:             7 clauses
+After shortening of clauses:       7 clauses
 
-Initially:                7 clauses
-After inlining:           7 clauses
-After shortening clauses: 7 clauses
 
+-------------------- Starting solver -----------------------
 Constant and interval propagation +++++++++++++++
 Unique satisfiable clauses: 6
 Starting CEGAR

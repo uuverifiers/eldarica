@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,6 +66,10 @@ object HornClauses {
 
     def hasUnsatConstraint : Boolean = constraint.isFalse
 
+    /**
+     * Inline the given head arguments, and return the resulting set of body
+     * literals, and the new constraint.
+     */
     def inline(args : Seq[ITerm]) : (Seq[IAtom], IFormula) =
       if (headCanDirectlyBeInlined) {
         val replacement =
@@ -78,8 +82,9 @@ object HornClauses {
         while (it1.hasNext)
           replacement.put(it1.next.asInstanceOf[IConstant].c, it2.next)
 
-        (for (a <- body) yield ConstantSubstVisitor(a, replacement).asInstanceOf[IAtom],
-         ConstantSubstVisitor(constraint, replacement))
+        (for (a <- body) yield SimplifyingConstantSubstVisitor(a, replacement)
+                                      .asInstanceOf[IAtom],
+         SimplifyingConstantSubstVisitor(constraint, replacement))
       } else {
         val (Clause(IAtom(_, defHeadArgs), newBody, newConstraint), _) = refresh
         (newBody, newConstraint & (args === defHeadArgs))

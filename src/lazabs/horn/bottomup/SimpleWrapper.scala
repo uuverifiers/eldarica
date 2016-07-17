@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,8 @@
 
 package lazabs.horn.bottomup
 
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
+
 import ap.parser._
 import ap.terfor.preds.Predicate
 import Util._
@@ -50,9 +52,10 @@ object SimpleWrapper {
       
     Console.withErr(errOutput) { Console.withOut(Console.err) {
       var (newClauses, newInitialPredicates) = {
-        val preprocessor =
-          new HornPreprocessor(clauses.toSeq, initialPredicates)
-        (preprocessor.result, preprocessor.initialPredicates)
+        val preprocessor = new DefaultPreprocessor
+        val (newClauses, newHints, backTranslator) =
+          preprocessor.process(clauses.toSeq, initialPredicates)
+        (newClauses, newHints)
       }
   
       val interpolator = if (useTemplates) {
