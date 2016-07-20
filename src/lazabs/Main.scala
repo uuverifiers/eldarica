@@ -105,6 +105,9 @@ class GlobalParameters {
   var plainCEX = false;
   var assertions = false
   var timeoutChecker : () => Unit = () => ()
+
+  def needFullSolution = displaySolutionProlog || displaySolutionSMT
+  def needFullCEX = plainCEX || !pngNo
 }
 
 ////////////////////////////////////////////////////////////////////////////////

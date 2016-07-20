@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,11 +54,30 @@ object Util {
     def drop(n : Int) : Dag[D]
     def apply(n : Int) : D
 
+    def zipWithIndex : Dag[(D, Int)] = zipWithIndexHelp(0)
+
+    protected[Util]
+      def zipWithIndexHelp(depth : Int) : Dag[(D, Int)]
+
+    def zip[B](that : Dag[B]) : Dag[(D, B)]
+
     def updated[B >: D](updates : Map[Int, (B, List[Int])]) : Dag[B] =
       updatedHelp(0, updates)
     protected[Util]
       def updatedHelp[B >: D](depth : Int,
                               updates : Map[Int, (B, List[Int])]) : Dag[B]
+
+    /**
+     * Substitute nodes at given indexes with sub-dags. Each sub-dag
+     * of size <code>n</code> can reference nodes <code>n+1, n+2, ...</code>,
+     * which are then connected to the children of the original node.
+     */
+    def substitute[B >: D](insertedDags : Map[Int, Dag[B]]) : Dag[B] =
+      substituteHelp(0, insertedDags)._1
+    protected[Util]
+      def substituteHelp[B >: D](depth : Int,
+                                 insertedDags : Map[Int, Dag[B]])
+                                : (Dag[B], List[Int])
 
     def head = apply(0)
     def tail = drop(1)
@@ -133,8 +152,18 @@ object Util {
       f(d)
       next foreach f
     }
+
+    protected[Util]
+      def zipWithIndexHelp(depth : Int) : Dag[(D, Int)] =
+        DagNode((d, depth), children, next.zipWithIndexHelp(depth + 1))
+
     def drop(n : Int) : Dag[D] =
       if (n == 0) this else (next drop (n-1))
+
+    def zip[B](that : Dag[B]) : Dag[(D, B)] =
+      DagNode((d, that.asInstanceOf[DagNode[B]].d),
+              children,
+              next zip that.asInstanceOf[DagNode[B]].next)
 
     protected[Util]
        def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
@@ -173,6 +202,35 @@ object Util {
           DagNode(newD, newChildren, newNext)
       }
     }
+
+    protected[Util]
+      def substituteHelp[B >: D](depth : Int,
+                                 insertedDags : Map[Int, Dag[B]])
+                                : (Dag[B], List[Int]) = {
+      val (newNext, gaps) = next.substituteHelp(depth + 1, insertedDags)
+      val newChildren = for (c <- children) yield (c + firstNSum(gaps, c-1))
+
+      (insertedDags get depth) match {
+        case None =>
+          (DagNode(d, newChildren, newNext), 0 :: gaps)
+
+        case Some(subDag) => {
+          def substChildren(dag : Dag[B]) : (Dag[B], Int) = dag match {
+            case DagNode(dagD, dagChildren, dagNext) => {
+              val (newDagNext, size) = substChildren(dagNext)
+              val newDagChildren =
+                for (c <- dagChildren)
+                yield (if (c > size) (newChildren(c - size - 1) + size) else c)
+              (DagNode(dagD, newDagChildren, newDagNext), size + 1)
+            }
+            case DagEmpty =>
+              (newNext, 0)
+          }
+          
+          (substChildren(subDag)._1, (subDag.size - 1) :: gaps)
+        }
+      }
+    }
   }
 
   case object DagEmpty extends Dag[Nothing] {
@@ -180,11 +238,18 @@ object Util {
     val size : Int = 0
     def map[E](f : Nothing => E) : Dag[E] = this
     def foreach[U](f : Nothing => U) : Unit = {}
+
+    protected[Util]
+      def zipWithIndexHelp(depth : Int) : Dag[(Nothing, Int)] = DagEmpty
+
     def drop(n : Int) : Dag[Nothing] = {
       if (n != 0)
         throw new IllegalArgumentException
       this
     }
+
+    def zip[B](that : Dag[B]) : Dag[(Nothing, B)] = DagEmpty
+
     protected[Util]
       def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
                                   : (Dag[Nothing], List[Boolean]) = (this, List())
@@ -192,10 +257,29 @@ object Util {
       throw new UnsupportedOperationException
     def toTree[B >: Nothing] : Tree[B] =
       throw new UnsupportedOperationException
+
     protected[Util]
       def updatedHelp[B >: Nothing](
                depth : Int,
                updates : Map[Int, (B, List[Int])]) : Dag[B] = this
+    protected[Util]
+      def substituteHelp[B >: Nothing](depth : Int,
+                                       insertedDags : Map[Int, Dag[B]])
+                                      : (Dag[B], List[Int]) = (this, List())
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def firstNSum(l : List[Int], n : Int) : Int = {
+    var res = 0
+    var i = 0
+    var rem = l
+    while (i < n && !rem.isEmpty) {
+      res = res + rem.head
+      rem = rem.tail
+      i = i + 1
+    }
+    res
   }
 
   //////////////////////////////////////////////////////////////////////////////

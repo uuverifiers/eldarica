@@ -216,7 +216,7 @@ class HornWrapper(constraints: Seq[HornClause],
       else
         HornPredAbs.CounterexampleMethod.FirstBestShortest
 
-    val rawResult = Console.withOut(outStream) {
+    val result = Console.withOut(outStream) {
       println
       println(
         "-------------------- Starting solver -----------------------")
@@ -226,24 +226,28 @@ class HornWrapper(constraints: Seq[HornClause],
                         counterexampleMethod)).result
     }
 
-/*    val result = preprocBackTranslator translate rawResult
-
-    println("raw:")
-    println(rawResult)
+/*    println("raw:")
+    println(result)
 
     println
     println("final:")
     println(result)
-    println
-*/
-    val result = rawResult
+    println */
+
+//    val result = rawResult
 
     result match {
       case Left(res) =>
-        // only keep relation symbols that were also part of the orginal problem
-        Left(res filterKeys predPool.values.toSet)
+//        if (lazabs.GlobalParameters.get.needFullSolution)
+//          Left(preprocBackTranslator translate res)
+//        else
+          // only keep relation symbols that were also part of the orginal problem
+          Left(res filterKeys predPool.values.toSet)
       case Right(cex) =>
-        Right(for (p <- cex) yield p._1)
+//        if (lazabs.GlobalParameters.get.needFullCEX)
+//          Right(for (p <- preprocBackTranslator translate cex) yield p._1)
+//        else
+          Right(for (p <- cex) yield p._1)
     }
   }
 

@@ -31,7 +31,7 @@ package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -46,7 +46,7 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 /**
  * Inline linear definitions.
  */
-object ClauseInliner extends HornPreprocessor {
+class ClauseInliner extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "clause inlining"
@@ -55,19 +55,173 @@ object ClauseInliner extends HornPreprocessor {
              : (Clauses, VerificationHints, BackTranslator) = {
     val (newClauses, newHints) = elimLinearDefs(clauses, hints)
 
-    (newClauses, newHints, IDENTITY_TRANSLATOR)
+    val translator = new BackTranslator {
+      private val inlinedClauses = originalInlinedClauses.toMap
+      private val backMapping = clauseBackMapping.toMap
+
+      //////////////////////////////////////////////////////////////////////////
+
+      def translate(solution : Solution) = {
+        // augment solution to also satisfy inlined clauses
+        var remaining =
+          (for ((p, c) <- inlinedClauses.iterator;
+                if !(solution contains p))
+           yield c).toList
+
+        if (remaining.isEmpty) {
+          solution
+        } else SimpleAPI.withProver(enableAssert = true) { p =>
+          import p._
+          
+          var curSolution = solution
+
+          while (!remaining.isEmpty)
+            remaining = for (c <- remaining; if {
+              if (c.body forall {
+                    case IAtom(p, _) => curSolution contains p
+                  }) scope {
+                  
+                // compute the value of the head symbol through quantifier elimination
+                val Clause(head, body, constraint) = c
+                val headVars = createConstants(head.pred.arity)
+                addConstants(c.constants.toSeq.sortWith(_.name < _.name))
+                
+                val completeConstraint =
+                  constraint &
+                  and(for (IAtom(pred, args) <- body)
+                      yield subst(curSolution(pred), args.toList, 0)) &
+                  (head.args === headVars)
+
+                val simpSol = (new Simplifier)(projectEx(completeConstraint, headVars))
+                val simpSolVar =
+                  ConstantSubstVisitor(simpSol,
+                                       (for ((IConstant(c), n) <-
+                                          headVars.iterator.zipWithIndex)
+                                        yield (c -> v(n))).toMap)
+                curSolution = curSolution + (c.head.pred -> simpSolVar)
+                
+                false
+              } else {
+                true
+              }
+            }) yield c
+
+          curSolution
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      def translate(cex : CounterExample) =
+        (cex substitute buildSubst(cex)).elimUnconnectedNodes
+
+      private def buildSubst(cex : CounterExample) : Map[Int, CounterExample] =
+        SimpleAPI.withProver { p =>
+          implicit val _ = p
+          
+          (for ((subCEX@DagNode((a, clause), children, _), i) <-
+                  cex.subdagIterator.zipWithIndex;
+                replDag = backMapping get clause;
+                if replDag.isDefined)
+           yield {
+             val bodyAtoms = for (c <- children) yield subCEX(c)._1
+             i -> transformCEXFragment(a, bodyAtoms, replDag.get)
+           }).toMap
+        }
+
+      private def transformCEXFragment(rootAtom : IAtom,
+                                       bodyAtoms : Seq[IAtom],
+                                       dag : Dag[Option[Clause]])
+                                      (implicit p : SimpleAPI)
+                                      : CounterExample = p.scope {
+        import p._
+
+        // discover leafs in the dag
+        val leafIndexes =
+          (for ((None, i) <- dag.iterator.zipWithIndex) yield i).toList
+        val leafNum =
+          leafIndexes.iterator.zipWithIndex.toMap
+        val dagSize = dag.size
+
+        // introduce variables for intermediate states
+        val varDag = for (p <- dag.zipWithIndex) yield p match {
+          case (Some(clause), _) =>
+            IAtom(clause.head.pred, createConstants(clause.head.pred.arity))
+          case (None, num) =>
+            bodyAtoms(leafNum(num))
+        }
+
+        // add constraints to find intermediate states
+        for (subdag@DagNode((Some(clause), rootVars), children, _) <-
+               (dag zip varDag).subdagIterator) {
+          val bodyVars = for (c <- children) yield subdag(c)._2
+          val (Clause(head, body, constraint), newConsts) = clause.refresh
+
+          addConstants(newConsts)
+
+          !! (constraint)
+          !! (rootVars.args === head.args)
+          for ((atom, vars) <- body.iterator zip bodyVars.iterator)
+            !! (atom.args === vars.args)
+        }
+
+        !! (varDag.head.args === rootAtom.args)
+
+        val pRes = ???
+        assert(pRes == ProverStatus.Sat)
+
+        val interStates = for (symState <- varDag) yield {
+          val IAtom(p, vars) = symState
+          IAtom(p, for (v <- vars) yield i(eval(v)))
+        }
+
+        def translate(depth : Int, dag : Dag[(IAtom, Option[Clause])]) : CounterExample =
+          dag match {
+            case DagNode((_, None), _, next) =>
+              DagNode(null, List(), translate(depth + 1, next))
+            case DagNode((state, Some(clause)), children, next) => {
+              val newChildren = for (c <- children; n = c + depth) yield
+                (leafNum get n) match {
+                  case Some(leaf) => dagSize - depth + leaf
+                  case None => c
+                }
+              DagNode((state, clause), newChildren, translate(depth + 1, next))
+            }
+            case DagEmpty =>
+              DagEmpty
+          }
+
+        translate(0, interStates zip dag)
+      }
+    }
+
+    originalInlinedClauses.clear
+    clauseBackMapping.clear
+
+    (newClauses, newHints, translator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def elimLinearDefs(allClauses : Seq[HornClauses.Clause],
-                     allInitialPreds : Map[Predicate, Seq[IFormula]])
-                    : (Seq[HornClauses.Clause], Map[Predicate, Seq[IFormula]]) = {
+  // all clauses that were inlined and thus eliminated
+  private val originalInlinedClauses = new MHashMap[Predicate, Clause]
+
+  // mapping from the newly produced clauses to trees of the orginal clauses
+  private val clauseBackMapping = new MHashMap[Clause, Dag[Option[Clause]]]
+
+  private def defaultBackMapping(c : Clause) = {
+    val N = c.body.size
+    DagNode(Some(c), (1 to N).toList,
+            (DagEmpty.asInstanceOf[Dag[Option[Clause]]] /: (0 until N)) {
+              case (d, _) => DagNode(None, List(), d) })
+  }
+
+  private def elimLinearDefs(allClauses : Seq[HornClauses.Clause],
+                             allInitialPreds : Map[Predicate, Seq[IFormula]])
+                  : (Seq[HornClauses.Clause], Map[Predicate, Seq[IFormula]]) = {
     var changed = true
     var clauses = allClauses
     var initialPreds = allInitialPreds
-
-    val allInlinedClauses = new MHashMap[Predicate, Clause]
 
     while (changed) {
       changed = false
@@ -77,7 +231,7 @@ object ClauseInliner extends HornPreprocessor {
       val uniqueDefs =
         extractUniqueDefs(clauses)
       val finalDefs =
-        extractAcyclicDefs(allClauses, uniqueDefs, allInlinedClauses)
+        extractAcyclicDefs(allClauses, uniqueDefs)
 
       val newClauses =
         for (clause@Clause(IAtom(p, _), _, _) <- clauses;
@@ -97,7 +251,7 @@ object ClauseInliner extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def extractUniqueDefs(clauses : Iterable[Clause]) = {
+  private def extractUniqueDefs(clauses : Iterable[Clause]) = {
     val uniqueDefs = new MHashMap[Predicate, Clause]
     val badHeads = new MHashSet[Predicate]
     badHeads += FALSE
@@ -123,9 +277,8 @@ object ClauseInliner extends HornPreprocessor {
    * Extract an acyclic subset of the definitions, and
    * shorten definition paths
    */
-  def extractAcyclicDefs(clauses : Clauses,
-                         uniqueDefs : Map[Predicate, Clause],
-                         oriInlinedClauses : MHashMap[Predicate, Clause]) = {
+  private def extractAcyclicDefs(clauses : Clauses,
+                                 uniqueDefs : Map[Predicate, Clause]) = {
     var remDefs = new MHashMap[Predicate, Clause] ++ uniqueDefs
     val finalDefs = new MHashMap[Predicate, Clause]
 
@@ -156,7 +309,7 @@ object ClauseInliner extends HornPreprocessor {
         }
 
         finalDefs ++= defsToInline
-        oriInlinedClauses ++= defsToInline
+        originalInlinedClauses ++= defsToInline
       }
     }
 
@@ -172,21 +325,45 @@ object ClauseInliner extends HornPreprocessor {
 
     var changed = false
 
-    val (newBody, newConstraints) = (for (bodyLit@IAtom(p, args) <- body) yield {
-      (defs get p) match {
-        case None =>
-          (List(bodyLit), i(true))
-        case Some(defClause) => {
-          changed = true
-          defClause inline args
-        }
-      }
-    }).unzip
+    val (newBody, newConstraints, inlinedClauses) =
+      (for (bodyLit@IAtom(p, args) <- body) yield {
+        (defs get p) match {
+          case None =>
+            (List(bodyLit), i(true), DagNode(None, List(), DagEmpty))
+          case Some(defClause) => {
+            changed = true
+            val (lit, constr) = defClause inline args
+            val inlinedClauses = (clauseBackMapping get defClause) match {
+              case Some(dag) => dag
+              case None => defaultBackMapping(defClause)
+            }
+            (lit, constr, inlinedClauses)
+          }
+       }
+      }).unzip3
 
-    if (changed)
-      Clause(head, newBody.flatten, constraint &&& and(newConstraints))
-    else
+    if (changed) {
+      val res = Clause(head, newBody.flatten, constraint &&& and(newConstraints))
+
+      val oldMapping = (clauseBackMapping get clause) match {
+        case Some(dag) => dag
+        case None => defaultBackMapping(clause)
+      }
+
+      val leafIndexes =
+        (for ((None, i) <- oldMapping.iterator.zipWithIndex) yield i).toList
+
+      assert(leafIndexes.size == inlinedClauses.size)
+
+      val newMapping =
+        oldMapping.substitute(
+          (leafIndexes.iterator zip inlinedClauses.iterator).toMap)
+
+      clauseBackMapping.put(res, newMapping)
+      res
+    } else {
       clause
+    }
   }
 
 }
