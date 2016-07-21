@@ -30,12 +30,15 @@
 
 package lazabs.horn.bottomup
 
+import ap.parser._
+import IExpression._
+import ap.SimpleAPI
+import ap.SimpleAPI.ProverStatus
+
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
-import ap.parser._
-import IExpression._
 import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
 import Util._
@@ -238,16 +241,61 @@ class HornWrapper(constraints: Seq[HornClause],
 
     result match {
       case Left(res) =>
-//        if (lazabs.GlobalParameters.get.needFullSolution)
-//          Left(preprocBackTranslator translate res)
-//        else
+        if (lazabs.GlobalParameters.get.needFullSolution) {
+          val fullSol = preprocBackTranslator translate res
+
+          // verify correctness of the solution
+          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+            import p._
+            unsimplified forall { case clause@Clause(head, body, constraint) => scope {
+                addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+                !! (constraint)
+                for (IAtom(pred, args) <- body)
+                  !! (subst(fullSol(pred), args.toList, 0))
+                ?? (if (head.pred == HornClauses.FALSE)
+                      i(false)
+                    else
+                      subst(fullSol(head.pred), head.args.toList, 0))
+                ??? == ProverStatus.Valid
+              }}})
+
+          Left(fullSol)
+        } else {
           // only keep relation symbols that were also part of the orginal problem
           Left(res filterKeys predPool.values.toSet)
+        }
+        
       case Right(cex) =>
-//        if (lazabs.GlobalParameters.get.needFullCEX)
-//          Right(for (p <- preprocBackTranslator translate cex) yield p._1)
-//        else
+        if (lazabs.GlobalParameters.get.needFullCEX) {
+          val fullCEX = preprocBackTranslator translate cex
+
+          // verify correctness of the counterexample
+          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+            import p._
+            fullCEX.head._1.pred == HornClauses.FALSE &&
+            (fullCEX.subdagIterator forall {
+               case dag@DagNode((state, clause@Clause(head, body, constraint)), children, _) =>
+                 // syntactic check: do clauses fit together?
+                 state.pred == head.pred &&
+                 children.size == body.size &&
+                 ((children.iterator zip body.iterator) forall {
+                    case (c, IAtom(pred, _)) => c > 0 && dag(c)._1.pred == pred }) &&
+                 // semantic check: are clause constraints satisfied?
+                 scope {
+                   addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+                   !! (state.args === head.args)
+                   for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
+                     !! (dag(c)._1.args === args)
+                   !! (constraint)
+                   ??? == ProverStatus.Sat
+                 }
+             })
+          })
+
+          Right(for (p <- fullCEX) yield p._1)
+        } else {
           Right(for (p <- cex) yield p._1)
+        }
     }
   }
 

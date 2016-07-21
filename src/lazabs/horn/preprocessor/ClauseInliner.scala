@@ -70,7 +70,7 @@ class ClauseInliner extends HornPreprocessor {
 
         if (remaining.isEmpty) {
           solution
-        } else SimpleAPI.withProver(enableAssert = true) { p =>
+        } else SimpleAPI.withProver { p =>
           import p._
           
           var curSolution = solution
