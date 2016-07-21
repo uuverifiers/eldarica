@@ -72,10 +72,14 @@ class ClauseInliner extends HornPreprocessor {
           solution
         } else SimpleAPI.withProver { p =>
           import p._
-          
+
+          assert(!(remaining contains HornClauses.FALSE))
+
           var curSolution = solution
 
-          while (!remaining.isEmpty)
+          while (!remaining.isEmpty) {
+            val oldSize = remaining.size
+
             remaining = for (c <- remaining; if {
               if (c.body forall {
                     case IAtom(p, _) => curSolution contains p
@@ -105,6 +109,10 @@ class ClauseInliner extends HornPreprocessor {
                 true
               }
             }) yield c
+
+            // there should be some progress ...
+            assert(remaining.size < oldSize)
+          }
 
           curSolution
         }
