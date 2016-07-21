@@ -110,8 +110,18 @@ class ClauseInliner extends HornPreprocessor {
               }
             }) yield c
 
-            // there should be some progress ...
-            assert(remaining.size < oldSize)
+            // if there was no progress, select some undefined
+            // predicate that occurs in the body of a clause and set it to false
+            if (remaining.size == oldSize) {
+              val headPreds =
+                (for (Clause(IAtom(p, _), _, _) <- remaining.iterator) yield p).toSet
+              val danglingPreds =
+                for (Clause(_, body, _) <- remaining.iterator;
+                     IAtom(p, _) <- body.iterator;
+                     if !(headPreds contains p) && !(curSolution contains p))
+                yield p
+              curSolution = curSolution + (danglingPreds.next -> i(false))
+            }
           }
 
           curSolution
