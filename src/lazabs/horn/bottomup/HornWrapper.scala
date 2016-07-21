@@ -278,6 +278,7 @@ class HornWrapper(constraints: Seq[HornClause],
                  // syntactic check: do clauses fit together?
                  state.pred == head.pred &&
                  children.size == body.size &&
+                 (unsimplified contains clause) &&
                  ((children.iterator zip body.iterator) forall {
                     case (c, IAtom(pred, _)) => c > 0 && dag(c)._1.pred == pred }) &&
                  // semantic check: are clause constraints satisfied?
