@@ -99,10 +99,10 @@ NOT SOLVABLE
 3: p(3)
 Loading CEGAR hints ...
 --------------------- Preprocessing ------------------------
-Initially:                         7 clauses
-After constraint simplification:   7 clauses
-After clause inlining:             7 clauses
-After shortening of clauses:       7 clauses
+Initially:                           7 clauses
+After constraint simplification:     7 clauses
+After clause inlining:               7 clauses
+After shortening of clauses:         7 clauses
 
 
 -------------------- Starting solver -----------------------
@@ -121,3 +121,10 @@ SOLVABLE
 a(A) :- (A >= 1).
 b(A) :- (A >= 0).
 c(A) :- (A >= 2).
+long-body2.horn
+NOT SOLVABLE
+
+0: FALSE -> 1
+1: q(20) -> 3, 3, 3, 3, 2, 3
+2: p(5)
+3: p(3)

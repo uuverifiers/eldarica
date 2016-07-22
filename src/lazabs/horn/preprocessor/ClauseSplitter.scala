@@ -47,41 +47,58 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 /**
  * Split clause bodies into separate disjuncts.
  */
-object ClauseSplitter extends HornPreprocessor {
+class ClauseSplitter extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "splitting clause constraints"
 
+  private val clauseBackMapping = new MHashMap[Clause, Clause]
+
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
     val newClauses = SimpleAPI.withProver { p =>
-        // turn the resulting formula into DNF, and split positive equations
-        // (which often gives better performance)
+      // turn the resulting formula into DNF, and split positive equations
+      // (which often gives better performance)
 
-        import p._
+      import p._
 
-        val newClauses = new ArrayBuffer[Clause]
+      val newClauses = new ArrayBuffer[Clause]
 
-        for (clause@Clause(head, body, constraint) <- clauses) scope {
-          addConstantsRaw(SymbolCollector constantsSorted constraint)
-          for (d <- ap.PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint)))
-            for (f <- splitPosEquations(Transform2NNF(!asIFormula(d)))) {
-              if (newClauses.size % 100 == 0)
-                lazabs.GlobalParameters.get.timeoutChecker()
-              newClauses += Clause(head, body, Transform2NNF(!f))
-            }
-        }
-
-        Console.err.println("After splitting clauses:  " + newClauses.size + " clauses")
-
-        newClauses
-
-//        (for (Clause(head, body, constraint) <- clauses4.iterator;
-//              constraint2 <- splitConstraint(~constraint))
-//         yield Clause(head, body, Transform2NNF(!constraint2))).toList
+      for (clause@Clause(head, body, constraint) <- clauses) scope {
+        addConstantsRaw(SymbolCollector constantsSorted constraint)
+        for (d <- ap.PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint)))
+          for (f <- splitPosEquations(Transform2NNF(!asIFormula(d)))) {
+            if (newClauses.size % 100 == 0)
+              lazabs.GlobalParameters.get.timeoutChecker()
+            val newClause = Clause(head, body, Transform2NNF(!f))
+            newClauses += newClause
+            clauseBackMapping.put(newClause, clause)
+          }
       }
 
-    (newClauses, hints, IDENTITY_TRANSLATOR)
+      newClauses
+
+//      (for (Clause(head, body, constraint) <- clauses4.iterator;
+//            constraint2 <- splitConstraint(~constraint))
+//       yield Clause(head, body, Transform2NNF(!constraint2))).toList
+    }
+
+    val translator = new BackTranslator {
+      private val backMapping = clauseBackMapping.toMap
+
+      def translate(solution : Solution) =
+        solution
+
+      def translate(cex : CounterExample) =
+        for (p <- cex) yield {
+          val (a, clause) = p
+          (a, backMapping(clause))
+        }
+    }
+    
+    clauseBackMapping.clear
+
+    (newClauses, hints, translator)
   }
 
   //////////////////////////////////////////////////////////////////////////////

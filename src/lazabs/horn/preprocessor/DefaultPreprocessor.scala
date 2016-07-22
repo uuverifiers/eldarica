@@ -46,14 +46,14 @@ class DefaultPreprocessor extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "default"
-  val printWidth = 35
+  val printWidth = 37
 
   val stages : List[HornPreprocessor] =
     List(DefinitionInliner,
          new ClauseInliner,
          new ClauseShortener) ++
     (if (lazabs.GlobalParameters.get.splitClauses)
-      List(ClauseSplitter) else List()) ++
+      List(new ClauseSplitter) else List()) ++
     (if (lazabs.GlobalParameters.get.staticAccelerate)
       List(Accelerator) else List())
 
