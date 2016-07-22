@@ -30,7 +30,7 @@
 package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.HornClauses._
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -49,7 +49,8 @@ class ClauseShortener extends HornPreprocessor {
   import HornPreprocessor._
 
   private val maxClauseBodySize = 3
-  private var tempPredCounter = 0
+  private val tempPredicates = new MHashSet[Predicate]
+  private val clauseBackMapping = new MHashMap[Clause, Clause]
 
   val name : String = "shortening of clauses"
 
@@ -57,14 +58,58 @@ class ClauseShortener extends HornPreprocessor {
              : (Clauses, VerificationHints, BackTranslator) = {
     val (newClauses, newHints) =
       splitClauseBodies3(clauses, hints)
-    (newClauses, newHints, IDENTITY_TRANSLATOR)
+
+    val translator = new BackTranslator {
+      private val tempPreds = tempPredicates.toSet
+      private val backMapping = clauseBackMapping.toMap
+
+      def translate(solution : Solution) =
+        solution -- tempPreds
+
+      def translate(cex : CounterExample) =
+        if (tempPreds.isEmpty)
+          cex
+        else
+          translateCEX(cex).elimUnconnectedNodes
+
+      private def translateCEX(dag : CounterExample) : CounterExample = dag match {
+        case DagNode(p@(a, clause), children, next) => {
+          val newNext = translateCEX(next)
+          (backMapping get clause) match {
+            case Some(oldClause) => {
+              val newChildren =
+                for (c <- children; d <- allProperChildren(dag drop c))
+                yield (d + c)
+              DagNode((a, oldClause), newChildren, newNext)
+            }
+            case None =>
+              DagNode(p, children, newNext)
+          }
+        }
+        case DagEmpty =>
+          DagEmpty
+      }
+
+      private def allProperChildren(dag : CounterExample) : List[Int] = {
+        val DagNode((IAtom(p, _), _), children, _) = dag
+        if (tempPreds contains p)
+          for (c <- children; d <- allProperChildren(dag drop c)) yield (d + c)
+        else
+          List(0)
+      }
+    }
+
+    tempPredicates.clear
+    clauseBackMapping.clear
+
+    (newClauses, newHints, translator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def splitClauseBody(clause : Clause,
-                      initialPreds : Map[Predicate, Seq[IFormula]])
-                     : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
+  private def splitClauseBody(clause : Clause,
+                              initialPreds : Map[Predicate, Seq[IFormula]])
+                             : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
     val Clause(head, body, constraint) = clause
 
     if (body.size > 2) {
@@ -94,8 +139,8 @@ class ClauseShortener extends HornPreprocessor {
           List(body1Syms.head)
         case syms => syms
       }
-      val tempPred = new Predicate ("temp" + tempPredCounter, commonSyms.size)
-      tempPredCounter = tempPredCounter + 1
+      val tempPred = new Predicate ("temp" + tempPredicates.size, commonSyms.size)
+      tempPredicates += tempPred
 
       val head1 = IAtom(tempPred, commonSyms)
 
@@ -206,9 +251,10 @@ class ClauseShortener extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
   // Alternative implementation, creating wider but less deep trees
 
-  def splitClauseBody2(clause : Clause,
-                       initialPredicates : Map[IExpression.Predicate, Seq[IFormula]])
-                      : List[Clause] =
+  private def splitClauseBody2(clause : Clause,
+                               initialPredicates : Map[IExpression.Predicate,
+                                                       Seq[IFormula]])
+                               : List[Clause] =
     if (clause.body.size <= maxClauseBodySize ||
         ((initialPredicates get clause.head.pred) match {
           case Some(s) => !s.isEmpty
@@ -220,9 +266,9 @@ class ClauseShortener extends HornPreprocessor {
                        LineariseVisitor(Transform2NNF(clause.constraint),
                                         IBinJunctor.And))
 
-  def splitClauseBody2(head : IAtom,
-                       body : List[IAtom],
-                       constraint : Seq[IFormula]) : List[Clause] =
+  private def splitClauseBody2(head : IAtom,
+                               body : List[IAtom],
+                               constraint : Seq[IFormula]) : List[Clause] =
     if (body.size <= maxClauseBodySize) {
       List(Clause(head, body, and(constraint)))
     } else {
@@ -258,8 +304,8 @@ class ClauseShortener extends HornPreprocessor {
       val args1 = (for (IAtom(_, a) <- bodyHalf1; t <- a) yield t).distinct
       val half1Constraints = findRelevantConstraints(args1)
 
-      val half1Pred = new Predicate ("temp" + tempPredCounter, args1.size)
-      tempPredCounter = tempPredCounter + 1
+      val half1Pred = new Predicate ("temp" + tempPredicates.size, args1.size)
+      tempPredicates += half1Pred
 
       val head1 = IAtom(half1Pred, args1)
       val clauses1 = splitClauseBody2(head1, bodyHalf1, half1Constraints)
@@ -270,8 +316,8 @@ class ClauseShortener extends HornPreprocessor {
           val args2 = (for (IAtom(_, a) <- bodyHalf2; t <- a) yield t).distinct
           val half2Constraints = findRelevantConstraints(args2)
 
-          val half2Pred = new Predicate ("temp" + tempPredCounter, args2.size)
-          tempPredCounter = tempPredCounter + 1
+          val half2Pred = new Predicate ("temp" + tempPredicates.size, args2.size)
+          tempPredicates += half2Pred
 
           val head2 = IAtom(half2Pred, args2)
           (head2, splitClauseBody2(head2, bodyHalf2, half2Constraints))
@@ -284,15 +330,18 @@ class ClauseShortener extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
   // Alternative implementation, using fewer new predicates
 
-  def splitClauseBodies3(clauses : Seq[Clause],
-                         initialPreds : Map[Predicate, Seq[IFormula]])
-                        : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
+  private def splitClauseBodies3(clauses : Seq[Clause],
+                                 initialPreds : Map[Predicate, Seq[IFormula]])
+                               : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
+    // global list of all predicates, to ensure determinism
     val allPredicates = new LinkedHashSet[Predicate]
-    for (Clause(head, body, _) <- clauses)
-      for (IAtom(p, _) <- head :: body)
-        allPredicates += p
 
+    // List of newly introduced predicates. Each new predicates represents
+    // a vector of old predicates, possible containing some predicates multiple
+    // times. An entry <List((p, 2), (q, 1)), p_q> expresses that the new
+    // predicate p_q stands for the predicate vector <p, p, q>.
     val combiningPreds = new ArrayBuffer[(List[(Predicate, Int)], Predicate)]
+
     val newClauses = new ArrayBuffer[Clause]
     var newInitialPreds = initialPreds
 
@@ -309,6 +358,7 @@ class ClauseShortener extends HornPreprocessor {
                                    (allPreds map (_.arity)).sum)
       combiningPreds += ((predCounts, newPred))
       allPredicates += newPred
+      tempPredicates += newPred
 
       val definingBody = for ((p, num) <- allPreds.zipWithIndex) yield
         IAtom(p, for (k <- 0 until p.arity)
@@ -336,12 +386,19 @@ class ClauseShortener extends HornPreprocessor {
 
     ////////////////////////////////////////////////////////////////////////////
 
+    var changed = false
+
     for (clause <- clauses)
       newClauses += (
         if (clause.body.size <= maxClauseBodySize) {
           clause
         } else {
+          changed = true
+
           val Clause(head, body, constraint) = clause
+
+          for (IAtom(p, _) <- head :: body)
+            allPredicates += p
 
           var bodySize = body.size
           val bodyLits = new MHashMap[Predicate, List[IAtom]]
@@ -413,9 +470,15 @@ class ClauseShortener extends HornPreprocessor {
                   a <- bodyLits.getOrElse(p, List()).iterator)
              yield a).toList
 
-          Clause(head, newBody, constraint)
+          val newClause = Clause(head, newBody, constraint)
+          clauseBackMapping.put(newClause, clause)
+
+          newClause
         })
 
-    (newClauses.toList, newInitialPreds)
+    if (changed)
+      (newClauses.toList, newInitialPreds)
+    else
+      (clauses.toList, initialPreds)
   }
 }

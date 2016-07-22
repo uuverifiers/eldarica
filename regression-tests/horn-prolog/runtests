@@ -10,7 +10,9 @@ TESTS="merge.horn \
        mccarthy91.nts.horn \
        mccarthy92.nts.horn \
        palindrome.nts.horn \
-       listcounter.error.nts.horn"
+       listcounter.error.nts.horn \
+       long-body.horn \
+       long-body2.horn"
 
 for name in $TESTS; do
     echo
