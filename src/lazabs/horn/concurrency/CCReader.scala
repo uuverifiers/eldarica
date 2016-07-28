@@ -249,6 +249,16 @@ class CCReader private (prog : Program,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private var tempVarCounter = 0
+
+  private def getFreshEvalVar : ConstantTerm = {
+    val res = new ConstantTerm("__eval" + tempVarCounter)
+    tempVarCounter = tempVarCounter + 1
+    res
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val channels = new MHashMap[String, ParametricEncoder.CommChannel]
 
   private val functionDefs  = new MHashMap[String, Function_def]
@@ -794,14 +804,15 @@ class CCReader private (prog : Program,
       if (!atomicMode && touchedGlobalState) outputClause
 
     private def pushVal(v : CCExpr) = {
-//println("push " + v)
+      val c = getFreshEvalVar
+// println("push " + v + " -> " + c)
       addValue(v)
       // reserve a local variable, in case we need one later
-      addLocalVar(new ConstantTerm("__eval" + localVars.size), v.typ)
+      addLocalVar(c, v.typ)
     }
 
     private def pushFormalVal(t : CCType) = {
-      val c = new ConstantTerm("__eval" + localVars.size)
+      val c = getFreshEvalVar
       addLocalVar(c, t)
       addValue(CCTerm(c, t))
       addGuard(t rangePred c)
