@@ -2,7 +2,7 @@
 
 LAZABS=../../eld
 
-TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc test5.hcc \
+TESTS="test1.hcc test2.hcc test2b.hcc test2c.hcc test3.hcc test4.hcc \
        test-para1.hcc test-para2.hcc lazy-eval1.hcc \
        jumps.hcc jumps2.hcc jumps3.hcc \
        functions.hcc functions2.hcc extended-decl.hcc \
@@ -19,7 +19,8 @@ for name in $TESTS; do
     $LAZABS -cex -abstract:off "$@" $name 2>&1 | grep -v 'at '
 done
 
-TESTS="test4.hcc test6.hcc test7.hcc loop1.hcc loop2.hcc locking.hcc"
+TESTS="test4.hcc test5.hcc test6.hcc test7.hcc \
+       loop1.hcc loop2.hcc locking.hcc"
 
 for name in $TESTS; do
     echo

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,10 +32,13 @@ package lazabs.horn.abstractions
 import ap.parser._
 import ap.parameters.ParserSettings
 import ap.parser.Parser2InputAbsy.CRRemover2
+
 import TplSpec._
 import TplSpec.Absyn._
 
-import scala.collection.mutable.ArrayBuffer
+import lazabs.horn.preprocessor.HornPreprocessor
+
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 class AbsReader(input : java.io.Reader) {
 
@@ -47,7 +50,7 @@ class AbsReader(input : java.io.Reader) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val (initialPredicates, templates) = {
+  val (initialPredicates, allHints) = {
     Console.err.println("Loading CEGAR hints ...")
 
     val l = new Yylex(new CRRemover2 (input))
@@ -79,7 +82,7 @@ class AbsReader(input : java.io.Reader) {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    val initialPredicates =
+    val initialPredicates : List[(String, Seq[IFormula])] =
     (for (predspec <-
             specC.asInstanceOf[Spec].listpredspec_.iterator;
           if (predspec.isInstanceOf[InitialPredicates]);
@@ -98,61 +101,64 @@ class AbsReader(input : java.io.Reader) {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    val templates =
+    import HornPreprocessor.{VerifHintElement, VerifHintInitPred,
+                             VerifHintTplElement,
+                             VerifHintTplPred, VerifHintTplPredPosNeg,
+                             VerifHintTplEqTerm, VerifHintTplInEqTerm,
+                             VerifHintTplInEqTermPosNeg,
+                             VerifHintTplIterationThreshold}
+
+    val templateHints : List[(String, Seq[VerifHintElement])] =
     (for (predspec <-
             specC.asInstanceOf[Spec].listpredspec_.iterator;
           if (predspec.isInstanceOf[Templates]);
           templates = predspec.asInstanceOf[Templates]) yield {
        val (predName, varNum) = translatePredRef(templates.predrefc_)
- 
-       val preds = new ArrayBuffer[(IFormula, Int)]
-       val terms = new ArrayBuffer[(ITerm, Int)]
-       val ineqs = new ArrayBuffer[(ITerm, Int)]
-       var iterationThreshold : Option[Int] = None
+
+       val hints = new ArrayBuffer[VerifHintElement]
 
        for (templatec <- templates.listtemplatec_)
          templatec match {
            case template : TermTemplate => {
              val expr = smtParser.parseExpression(printer print template.term_)
              val cost = template.numeral_.toInt
- 
+
              (template.templatetype_, expr) match {
                case (_ : PredicateType,            f : IFormula) =>
-                 preds += ((~f, cost))
-               case (_ : PredicatePosNegType,      f : IFormula) => {
-                 preds += ((f, cost))
-                 preds += ((~f, cost))
-               }
+                 hints += VerifHintTplPred(f, cost)
+               case (_ : PredicatePosNegType,      f : IFormula) =>
+                 hints += VerifHintTplPredPosNeg(f, cost)
                case (_ : TermType,                 t : ITerm) =>
-                 terms += ((t, cost))
+                 hints += VerifHintTplEqTerm(t, cost)
                case (_ : InequalityTermType,       t : ITerm) =>
-                 ineqs += ((t, cost))
-               case (_ : InequalityTermPosNegType, t : ITerm) => {
-                 ineqs += ((t, cost))
-                 ineqs += ((-t, cost))
-               }
+                 hints += VerifHintTplInEqTerm(t, cost)
+               case (_ : InequalityTermPosNegType, t : ITerm) =>
+                 hints += VerifHintTplInEqTermPosNeg(t, cost)
              }
            }
            case threshold : IterationThreshold =>
-             iterationThreshold = Some(threshold.numeral_.toInt)
+             hints += VerifHintTplIterationThreshold(threshold.numeral_.toInt)
          }
- 
-       for (_ <- 0 until varNum)
-         env.popVar
- 
-       val lattices : List[AbsLattice] =
-         (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
-         (if (terms.isEmpty) List() else List(TermSubsetLattice(terms))) ++
-         (if (ineqs.isEmpty) List() else List(TermIneqLattice(ineqs)))
 
-       (predName ->
-        ((lattices reduceLeft (ProductLattice(_, _, true)),
-         iterationThreshold)))
-    }).toList
+       (predName, hints.toSeq)
+     }).toList
 
     ////////////////////////////////////////////////////////////////////////////
 
-    (initialPredicates, templates)
+    val allHints : Map[String, Seq[VerifHintElement]] = {
+      val res = new MHashMap[String, Seq[VerifHintElement]]
+
+      for ((predName, preds) <- initialPredicates)
+        res.put(predName, preds map (VerifHintInitPred(_)))
+      for ((predName, hints) <- templateHints)
+        res.put(predName, res.getOrElse(predName, List()) ++ hints)
+      
+      res.toMap
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    (initialPredicates, allHints)
   }
 
 }

@@ -63,10 +63,21 @@ object TemplateInterpolator {
   //////////////////////////////////////////////////////////////////////////////
 
   object AbstractionRecord {
-    def apply(pair : (Iterable[Predicate], AbsLattice)) = new AbstractionRecord {
-      val loopBody = pair._1.toSet
-      val lattice = pair._2
-      val loopIterationAbstractionThreshold = 3
+    def apply(pair : (Iterable[Predicate], AbsLattice)) =
+      new AbstractionRecord {
+        val loopBody = pair._1.toSet
+        val lattice = pair._2
+        val loopIterationAbstractionThreshold = 3
+      }
+
+    def mergeMaps(a : AbstractionMap, b : AbstractionMap) : AbstractionMap = {
+      val res = new MHashMap[Predicate, AbstractionRecord]
+      res ++= a
+      for ((pred, record) <- b) (res get pred) match {
+        case Some(oldRecord) => res.put(pred, oldRecord merge record)
+        case None => res.put(pred, record)
+      }
+      res.toMap
     }
   }
 
@@ -76,6 +87,22 @@ object TemplateInterpolator {
     // how often does a predicate have to occur in a counterexample before
     // interpolation abstraction is applied
     val loopIterationAbstractionThreshold : Int
+
+    def merge(that : AbstractionRecord) : AbstractionRecord =
+      if (this.lattice.isUnit) {
+        that
+      } else if (that.lattice.isUnit) {
+        this
+      } else {
+        val x = this
+        new AbstractionRecord {
+          val loopBody = that.loopBody
+          val lattice = ProductLattice(x.lattice, that.lattice, true)
+          val loopIterationAbstractionThreshold =
+            x.loopIterationAbstractionThreshold min
+            that.loopIterationAbstractionThreshold
+        }
+      }
   }
 
   type AbstractionMap = Map[Predicate, AbstractionRecord]

@@ -36,6 +36,7 @@ import concurrentC._
 import concurrentC.Absyn._
 
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.preprocessor.HornPreprocessor
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
                                  Stack, LinkedHashSet}
@@ -244,7 +245,7 @@ class CCReader private (prog : Program,
   }
 
   private val variableHints =
-    new ArrayBuffer[Seq[ParametricEncoder.VerifHintElement]]
+    new ArrayBuffer[Seq[HornPreprocessor.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -352,7 +353,7 @@ class CCReader private (prog : Program,
   private def newPred : Predicate = newPred(0)
 
   private def newPred(extraArgs : Int) : Predicate = {
-    import ParametricEncoder.{VerifHintTplElement, VerifHintTplEqTerm}
+    import HornPreprocessor.{VerifHintTplElement, VerifHintTplEqTerm}
 
     val res = new Predicate(prefix + locationCounter,
                             allFormalVars.size + extraArgs)
@@ -377,7 +378,7 @@ class CCReader private (prog : Program,
   }
 
   private val predicateHints =
-    new MHashMap[Predicate, Seq[ParametricEncoder.VerifHintElement]]
+    new MHashMap[Predicate, Seq[HornPreprocessor.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -598,8 +599,8 @@ class CCReader private (prog : Program,
         }
 
         if (isVariable) {
-          import ParametricEncoder.{VerifHintInitPred,
-                                    VerifHintTplPred, VerifHintTplEqTerm}
+          import HornPreprocessor.{VerifHintInitPred,
+                                   VerifHintTplPred, VerifHintTplEqTerm}
 
           // parse possible model checking hints
           val hints : Seq[Abs_hint] = initDecl match {
@@ -1854,9 +1855,7 @@ class CCReader private (prog : Program,
                                ParametricEncoder.NoTime,
                              timeInvariants,
                              assertionClauses.toList,
-                             new ParametricEncoder.VerificationHints {
-                               val predicateHints = predHints
-                             })
+                             HornPreprocessor.VerificationHints(predHints))
   }
 
 }

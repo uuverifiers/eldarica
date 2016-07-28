@@ -54,6 +54,9 @@ trait AbsLattice
   val top, bottom : LatticeObject
   val arity : Int
 
+  /** Does the lattice only contain one element? */
+  def isUnit : Boolean = (top == bottom)
+
   def pp(o : LatticeObject) : String
 
   def join(x: LatticeObject, y: LatticeObject): LatticeObject

@@ -43,7 +43,8 @@ import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
 import Util._
 import HornPredAbs.{RelationSymbol}
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
+                                 StaticAbstractionBuilder}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
@@ -60,13 +61,14 @@ object HornWrapper {
 ////////////////////////////////////////////////////////////////////////////////
 
 class HornWrapper(constraints: Seq[HornClause], 
-                  absMap: Option[Map[String, AbsLattice]],
+                  uppaalAbsMap: Option[Map[String, AbsLattice]],
                   lbe: Boolean,
                   log : Boolean,
-                  disjunctive : Boolean,
-                  interpolatorType : (Boolean, Boolean)) {
+                  disjunctive : Boolean) {
 
   import HornWrapper._
+  import HornPreprocessor.{VerifHintElement, VerificationHints,
+                           EmptyVerificationHints}
 
   def printClauses(cs : Seq[Clause]) = {
     for (c <- cs) {
@@ -84,135 +86,114 @@ class HornWrapper(constraints: Seq[HornClause],
   private val outStream = if (log) Console.err else NullStream
 
   private val originalClauses = constraints
-  private val unsimplified = originalClauses map (transform(_))
+  private val unsimplifiedClauses = originalClauses map (transform(_))
 
 //    if (lazabs.GlobalParameters.get.printHornSimplified)
-//      printMonolithic(unsimplified)
+//      printMonolithic(unsimplifiedClauses)
 
   private val name2Pred =
-    (for (Clause(head, body, _) <- unsimplified.iterator;
+    (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
           IAtom(p, _) <- (head :: body).iterator)
      yield (p.name -> p)).toMap
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val hintsReader =
+  private val hints : VerificationHints =
     lazabs.GlobalParameters.get.cegarHintsFile match {
       case "" =>
-        None
-      case hintsFile =>
-        Some(new AbsReader (
-               new java.io.BufferedReader (
-                 new java.io.FileReader(hintsFile))))
-  }
-
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private val unsimpInitialPredicates : Map[Predicate, Seq[IFormula]] =
-    hintsReader match {
-      case Some(reader) if (!reader.initialPredicates.isEmpty) => {
-        (for ((predName, formulas) <- reader.initialPredicates.iterator;
+        EmptyVerificationHints
+      case hintsFile => {
+        val reader = new AbsReader (
+                       new java.io.BufferedReader (
+                         new java.io.FileReader(hintsFile)))
+        val hints =
+          (for ((predName, hints) <- reader.allHints.iterator;
                 pred = name2Pred get predName;
                 if {
                   if (!pred.isDefined)
-                    Console.err.println("   Ignoring initial predicates for " + predName + "\n")
+                    Console.err.println("   Ignoring hints for " + predName + "\n")
                   pred.isDefined
                 }) yield {
-             (pred.get, formulas)
+             (pred.get, hints)
            }).toMap
+        VerificationHints(hints)
       }
-      case _ =>
-        Map()
     }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val (simplified, initialPredicates, preprocBackTranslator) =
+  private val (simplifiedClauses, simpHints, preprocBackTranslator) =
     Console.withErr(outStream) {
-    var (simplified, initialPredicates, backTranslator) =
-      if (!lbe) {
-        val preprocessor = new DefaultPreprocessor
-        preprocessor.process(unsimplified, unsimpInitialPredicates)
+    var (simplifiedClauses, simpHints, backTranslator) =
+      if (lbe) {
+        (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       } else {
-        (unsimplified, unsimpInitialPredicates,
-         HornPreprocessor.IDENTITY_TRANSLATOR)
+        val preprocessor = new DefaultPreprocessor
+        preprocessor.process(unsimplifiedClauses, hints)
       }
 
-    // problem: transforming back and forth doesn't produce  
     if (lazabs.GlobalParameters.get.printHornSimplified) {
       println("-------------------------------")
-      printClauses(simplified)
+      printClauses(simplifiedClauses)
       println("-------------------------------")
       println("simplified clauses:")
-      //val aux = simplified map (horn2Eldarica(_))
-      val aux = horn2Eldarica(simplified)
+      //val aux = simplifiedClauses map (horn2Eldarica(_))
+      val aux = horn2Eldarica(simplifiedClauses)
       println(lazabs.viewer.HornPrinter(aux))
-      simplified = aux map (transform(_))
+      simplifiedClauses = aux map (transform(_))
       println("-------------------------------")
-      printClauses(simplified)
+      printClauses(simplifiedClauses)
       println("-------------------------------")
     }
 
-    (simplified, initialPredicates, backTranslator)
+    (simplifiedClauses, simpHints, backTranslator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private lazy val loopDetector = new LoopDetector(simplified)
+  private lazy val loopDetector = new LoopDetector(simplifiedClauses)
+
+  /** Manually provided interpolation abstraction hints */
+  private lazy val hintsAbstraction : TemplateInterpolator.AbstractionMap =
+    if (simpHints.isEmpty)
+      Map()
+    else
+      loopDetector hints2AbstractionRecord simpHints
+
+  /** Automatically computed interpolation abstraction hints */
+  private val abstractionType =
+    lazabs.GlobalParameters.get.templateBasedInterpolationType
+
+  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
+    if (abstractionType == StaticAbstractionBuilder.AbstractionType.Empty) {
+      Map()
+    } else {
+      val builder = new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
+      builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private val predGenerator = Console.withErr(outStream) {
-    interpolatorType match {
-      case (true, true) => {
-        val Some(am) = absMap
-        assert(!am.isEmpty)
-        TemplateInterpolator.interpolatingPredicateGenCEXAbsUpp(am) _
-      }
-      case (_, false) => DagInterpolator.interpolatingPredicateGenCEXAndOr _
-      case (false , true) => {
-        val abstractionMap = constructAbstractionMap(simplified, hintsReader)
+    if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
+      val fullAbstractionMap =
+        TemplateInterpolator.AbstractionRecord
+          .mergeMaps(hintsAbstraction, autoAbstraction)
+
+      if (fullAbstractionMap.isEmpty)
+        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+      else
         TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-          abstractionMap,
+          fullAbstractionMap,
           lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-//      TemplateInterpolator.interpolatingPredicateGenCEXAbs _
-      }
+    } else {
+      DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private def constructAbstractionMap(cs : Seq[Clause], hintsReader : Option[AbsReader])
-                             : TemplateInterpolator.AbstractionMap =
-    hintsReader match {
-      case Some(reader) if (!reader.templates.isEmpty) => {
-        (for ((predName, (hintLattice, threshold)) <- reader.templates.iterator;
-              pred = loopDetector.loopHeads.find((_.name == predName));
-              if {
-                if (!pred.isDefined)
-                  Console.err.println("   Ignoring templates for " + predName + "\n" +
-                                      "   (no loop head, or eliminated during simplification)")
-                pred.isDefined
-              }) yield {
-           (pred.get,
-            new TemplateInterpolator.AbstractionRecord {
-              val loopBody = (loopDetector bodyPredicates pred.get).toSet
-              val lattice = hintLattice
-              val loopIterationAbstractionThreshold = threshold getOrElse 3
-            })
-         }).toMap
-      }
-
-      case _ => {
-        (new lazabs.horn.abstractions.StaticAbstractionBuilder(
-          cs, lazabs.GlobalParameters.get.templateBasedInterpolationType)
-             .abstractions) mapValues (TemplateInterpolator.AbstractionRecord(_))
-      }
-    }
 
   //////////////////////////////////////////////////////////////////////////////
 
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
-
     val counterexampleMethod =
       if (disjunctive)
         HornPredAbs.CounterexampleMethod.AllShortest
@@ -224,20 +205,10 @@ class HornWrapper(constraints: Seq[HornClause],
       println(
         "-------------------- Starting solver -----------------------")
 
-       (new HornPredAbs(simplified,
-                        initialPredicates, predGenerator,
+       (new HornPredAbs(simplifiedClauses,
+                        simpHints.toInitialPredicates, predGenerator,
                         counterexampleMethod)).result
     }
-
-/*    println("raw:")
-    println(result)
-
-    println
-    println("final:")
-    println(result)
-    println */
-
-//    val result = rawResult
 
     result match {
       case Left(res) =>
@@ -247,7 +218,7 @@ class HornWrapper(constraints: Seq[HornClause],
           // verify correctness of the solution
           if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
             import p._
-            unsimplified forall { case clause@Clause(head, body, constraint) => scope {
+            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
                 addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
                 !! (constraint)
                 for (IAtom(pred, args) <- body)
@@ -274,13 +245,15 @@ class HornWrapper(constraints: Seq[HornClause],
             import p._
             fullCEX.head._1.pred == HornClauses.FALSE &&
             (fullCEX.subdagIterator forall {
-               case dag@DagNode((state, clause@Clause(head, body, constraint)), children, _) =>
+               case dag@DagNode((state, clause@Clause(head, body, constraint)),
+                                children, _) =>
                  // syntactic check: do clauses fit together?
                  state.pred == head.pred &&
                  children.size == body.size &&
-                 (unsimplified contains clause) &&
+                 (unsimplifiedClauses contains clause) &&
                  ((children.iterator zip body.iterator) forall {
-                    case (c, IAtom(pred, _)) => c > 0 && dag(c)._1.pred == pred }) &&
+                    case (c, IAtom(pred, _)) =>
+                      c > 0 && dag(c)._1.pred == pred }) &&
                  // semantic check: are clause constraints satisfied?
                  scope {
                    addConstants(clause.constants.toSeq.sortWith(_.name < _.name))

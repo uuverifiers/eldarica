@@ -41,6 +41,8 @@ import Util._
  */
 object SimpleWrapper {
 
+  import HornPreprocessor.InitPredicateVerificationHints
+
   def solve(clauses : Iterable[HornClauses.Clause],
             initialPredicates : Map[Predicate, Seq[IFormula]],
             useTemplates : Boolean,
@@ -53,9 +55,10 @@ object SimpleWrapper {
     Console.withErr(errOutput) { Console.withOut(Console.err) {
       var (newClauses, newInitialPredicates) = {
         val preprocessor = new DefaultPreprocessor
+        val hints = new InitPredicateVerificationHints(initialPredicates)
         val (newClauses, newHints, backTranslator) =
-          preprocessor.process(clauses.toSeq, initialPredicates)
-        (newClauses, newHints)
+          preprocessor.process(clauses.toSeq, hints)
+        (newClauses, newHints.toInitialPredicates)
       }
   
       val interpolator = if (useTemplates) {

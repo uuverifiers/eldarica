@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,10 +38,9 @@ import abstractions.{AbsLattice}
 
 object Solve {
   def apply(clauseSet: Seq[HornClause], 
-            absMap: Option[Map[String, AbsLattice]], 
+            uppaalAbsMap: Option[Map[String, AbsLattice]], 
             global: Boolean, 
             disjunctive : Boolean, 
-            interpolatorType : (Boolean, Boolean), 
             drawRTree: Boolean, 
             lbe: Boolean, log: Boolean) = {
 
@@ -78,8 +77,7 @@ object Solve {
       } else {
 
         val result = try {
-          (new HornWrapper(clauseSet, absMap, lbe, log,
-                           disjunctive, interpolatorType)).result
+          (new HornWrapper(clauseSet, uppaalAbsMap, lbe, log, disjunctive)).result
         } catch {
           case t@(lazabs.Main.TimeoutException |
                   lazabs.Main.StoppedException) => {

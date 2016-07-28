@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -49,9 +49,9 @@ object FatTest {
     }.toList
     if(allClauses.size != 0) {
       // -----  Just to wake up Java -----
-      new HornWrapper(allClauses.head._1.take(10), None, true, false, false, (false, false))
-      new HornWrapper(allClauses.head._1.take(10), None, true, false, false, (false, false))
-      new HornWrapper(allClauses.head._1.take(10), None, true, false, false, (false, false))
+      new HornWrapper(allClauses.head._1.take(10), None, true, false, false)
+      new HornWrapper(allClauses.head._1.take(10), None, true, false, false)
+      new HornWrapper(allClauses.head._1.take(10), None, true, false, false)
       // ---------------------------------
       allClauses.foreach{ clauseSet =>
         var timeStart = System.currentTimeMillis
@@ -64,10 +64,10 @@ object FatTest {
          * interpolatorType : (Boolean, Boolean))
          */
 
-        new HornWrapper(clauseSet._1, None, false, false, false, (false, false))
+        new HornWrapper(clauseSet._1, None, false, false, false)
         println("time for " + clauseSet._2 + " in TI : " + (System.currentTimeMillis - timeStart) + " milli-seconds")
         timeStart = System.currentTimeMillis
-        new HornWrapper(clauseSet._1, None, false, false, true, (false, false))
+        new HornWrapper(clauseSet._1, None, false, false, true)
         println("time for " + clauseSet._2 + " in DI : " + (System.currentTimeMillis - timeStart) + " milli-seconds")
       }
     }

@@ -36,9 +36,9 @@ import ap.SimpleAPI.ProverStatus
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
                              HornWrapper}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-                                 LoopDetector, PredicateLattice,
-                                 TermSubsetLattice, ProductLattice}
+                                 LoopDetector}
 import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.horn.preprocessor.{HornPreprocessor, DefaultPreprocessor}
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer}
@@ -158,6 +158,8 @@ class VerificationLoop(system : ParametricEncoder.System,
 
   import VerificationLoop._
   import ParametricEncoder._
+  import HornPreprocessor.{VerifHintTplElement, VerifHintTplPred,
+                           VerifHintTplEqTerm}
   import HornClauses.{Clause, FALSE}
   import Util._
 
@@ -174,8 +176,7 @@ class VerificationLoop(system : ParametricEncoder.System,
     println
     println("Using invariants " + (invariants mkString ", "))
 
-    val encoder =
-      new ParametricEncoder (system, invariants)
+    val encoder =  new ParametricEncoder (system, invariants)
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -208,13 +209,18 @@ class VerificationLoop(system : ParametricEncoder.System,
     ////////////////////////////////////////////////////////////////////////////
 
     println
-    println("Solving ...")
+
+    val preprocessor = new DefaultPreprocessor
+    val (simpClauses, simpHints, backTranslator) =
+      Console.withErr(Console.out) {
+        preprocessor.process(encoder.allClauses, encoder.globalHints)
+      }
 
     val interpolator = if (templateBasedInterpolation)
                              Console.withErr(Console.out) {
       val builder =
         new StaticAbstractionBuilder(
-          encoder.allClauses,
+          simpClauses,
           lazabs.GlobalParameters.get.templateBasedInterpolationType)
       val autoAbstractionMap =
         builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
@@ -226,36 +232,14 @@ class VerificationLoop(system : ParametricEncoder.System,
           val loopDetector = builder.loopDetector
 
           print("Using interpolation templates provided in program: ")
-          var sep = ""
 
-          val res =
-          (for ((pred, hints) <- encoder.globalPredicateTemplates.iterator;
-                if (loopDetector.loopHeads contains pred)) yield {
-             print(sep + pred)
-             sep = ", "
+          val hintsAbstractionMap =
+            loopDetector hints2AbstractionRecord simpHints
 
-             val preds = for (VerifHintTplPred(p, c) <- hints) yield (~p, c)
-             val terms = for (VerifHintTplEqTerm(t, c) <- hints) yield (t, c)
+          println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
-             val lattices : List[AbsLattice] =
-               (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
-               (if (terms.isEmpty) List() else List(TermSubsetLattice(terms)))
-             
-             val hintLattice = lattices reduceLeft (ProductLattice(_, _, true))
-
-             val autoRecord = autoAbstractionMap(pred)
-
-             (pred,
-              new TemplateInterpolator.AbstractionRecord {
-                val loopBody = autoRecord.loopBody
-                val lattice = ProductLattice(autoRecord.lattice, hintLattice, true)
-                val loopIterationAbstractionThreshold =
-                  autoRecord.loopIterationAbstractionThreshold
-              })
-           }).toMap
-
-          println
-          res
+          TemplateInterpolator.AbstractionRecord.mergeMaps(
+            autoAbstractionMap, hintsAbstractionMap)
         }
 
       TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
@@ -267,14 +251,20 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     ////////////////////////////////////////////////////////////////////////////
 
+    println
+    println(
+      "-------------------- Starting solver -----------------------")
+
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
-      new HornPredAbs(encoder.allClauses,
-                      encoder.globalInitialPredicates,
+      new HornPredAbs(simpClauses, // encoder.allClauses,
+                      simpHints.toInitialPredicates, // encoder.globalInitialPredicates,
                       interpolator))
 
     predAbs.result match {
-      case Right(cex) => {
+      case Right(rawCEX) => {
         println("NOT SOLVABLE")
+
+        val cex = backTranslator translate rawCEX
 
         // check whether the counterexample is good enough to
         // reconstruct a genuine counterexample to system correctness
@@ -624,7 +614,8 @@ class VerificationLoop(system : ParametricEncoder.System,
 //        cex.prettyPrint
       }
 
-      case Left(solution) => {
+      case Left(rawSol) => {
+        val solution = backTranslator translate rawSol
         println("SOLVABLE: " + solution)
         res = Left(())
       }

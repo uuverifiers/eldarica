@@ -32,6 +32,7 @@ package lazabs.horn.concurrency
 import ap.parser._
 import ap.util.{Seqs, Combinatorics}
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.preprocessor.HornPreprocessor
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer, HashMap => MHashMap}
@@ -99,52 +100,10 @@ object ParametricEncoder {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Trait for providing verification hints, associated with predicates
-   * defining the analysed programs.
-   */
-  trait VerificationHints {
-    val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
-    def filterPredicates(remainingPreds : Set[IExpression.Predicate]) = {
-      val remHints = predicateHints filterKeys remainingPreds
-      new VerificationHints {
-        val predicateHints = remHints
-      }
-    }
-  }
-
-  object EmptyVerificationHints extends VerificationHints {
-    val predicateHints = Map[IExpression.Predicate, Seq[VerifHintElement]]()
-  }
-
-  class InitPredVerificationHints(
-     val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]])
-     extends VerificationHints
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  abstract sealed class VerifHintElement {
-    def shiftArguments(offset : Int, shift : Int) : VerifHintElement
-  }
-  abstract sealed class VerifHintTplElement(val cost : Int)
-                                         extends VerifHintElement
-  
-  case class VerifHintInitPred(f : IFormula) extends VerifHintElement {
-    def shiftArguments(offset : Int, shift : Int) : VerifHintInitPred =
-      VerifHintInitPred(VariableShiftVisitor(f, offset, shift))
-  }
-  case class VerifHintTplPred(f : IFormula, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
-    def shiftArguments(offset : Int, shift : Int) : VerifHintTplPred =
-      VerifHintTplPred(VariableShiftVisitor(f, offset, shift), cost)
-  }
-  case class VerifHintTplEqTerm(t : ITerm, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
-    def shiftArguments(offset : Int, shift : Int) : VerifHintTplEqTerm =
-      VerifHintTplEqTerm(VariableShiftVisitor(t, offset, shift), cost)
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
+  import HornPreprocessor.{VerificationHints, VerifHintElement,
+                           VerifHintTplElement, VerifHintTplPred,
+                           VerifHintTplEqTerm, EmptyVerificationHints,
+                           InitPredicateVerificationHints}
 
   case class System(processes : ParametricEncoder.ProcessSet,
                     globalVarNum : Int,
@@ -326,7 +285,7 @@ object ParametricEncoder {
       val newSystem =
         System(newProcesses, globalVarNum, backgroundAxioms,
                timeSpec, newTimeInvs, newAssertions,
-               new InitPredVerificationHints(newPredicateHints.toMap))
+               VerificationHints(newPredicateHints.toMap))
       newSystem
     }
 
@@ -436,15 +395,13 @@ object ParametricEncoder {
         assertions filter {
           clause => clause.predicates subsetOf allPreds }
 
-      val newSystem = System(newProcesses,
-                             globalVarNum,
-                             backgroundAxioms,
-                             timeSpec,
-                             timeInvariants,
-                             newAssertions,
-                             hints filterPredicates allPreds)
-
-      newSystem
+      System(newProcesses,
+             globalVarNum,
+             backgroundAxioms,
+             timeSpec,
+             timeInvariants,
+             newAssertions,
+             hints filterPredicates allPreds)
     }
 
   }
@@ -469,6 +426,10 @@ class ParametricEncoder(system : ParametricEncoder.System,
                         invariants : Seq[Seq[Int]]) {
 
   import ParametricEncoder._
+  import HornPreprocessor.{VerificationHints, VerifHintElement,
+                           VerifHintTplElement, VerifHintTplPred,
+                           VerifHintTplEqTerm, EmptyVerificationHints,
+                           VerifHintInitPred}
   import HornClauses.Clause
   import IExpression._
   import Combinatorics._
@@ -1072,6 +1033,8 @@ class ParametricEncoder(system : ParametricEncoder.System,
           hs = compilePredicateHints(s);
           if (!hs.isEmpty))
      yield (p -> hs)).toMap
+
+  val globalHints = VerificationHints(globalPredicateHints)
 
   val globalInitialPredicates =
     (for ((p, hs) <- globalPredicateHints.iterator;

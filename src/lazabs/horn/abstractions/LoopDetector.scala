@@ -30,6 +30,9 @@
 package lazabs.horn.abstractions
 
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.TemplateInterpolator.{AbstractionRecord,
+                                                  AbstractionMap}
+import lazabs.horn.preprocessor.HornPreprocessor
 
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
@@ -37,7 +40,7 @@ import ap.basetypes.IdealInt
 import ap.parser._
 import ap.util.LRUCache
 
-import scala.collection.mutable.{LinkedHashSet,
+import scala.collection.mutable.{LinkedHashSet, ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
 
 /**
@@ -145,6 +148,63 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
      yield (h, (for (Clause(IAtom(p, _), _, _) <- loopBodies(h).iterator)
                 yield p).toList)).toMap
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  import HornPreprocessor.{VerificationHints, VerifHintTplElement,
+                           VerifHintTplPred, VerifHintTplPredPosNeg,
+                           VerifHintTplEqTerm, VerifHintTplInEqTerm,
+                           VerifHintTplInEqTermPosNeg,
+                           VerifHintTplIterationThreshold}
+
+  def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap =
+    (for (head <- loopHeads.iterator;
+          maybeHints = allHints.predicateHints get head;
+          if maybeHints.isDefined;
+          hints = maybeHints.get;
+          if (hints exists {
+            case _ : VerifHintTplElement => true
+            case _ => false
+          })) yield {
+       val preds = new ArrayBuffer[(IFormula, Int)]
+       val terms = new ArrayBuffer[(ITerm, Int)]
+       val ineqs = new ArrayBuffer[(ITerm, Int)]
+       var iterationThreshold : Option[Int] = None
+
+       for (hint <- hints) hint match {
+         case VerifHintTplPred(f, cost) =>
+           preds += ((~f, cost))
+         case VerifHintTplPredPosNeg(f, cost) => {
+           preds += ((f, cost))
+           preds += ((~f, cost))
+         }
+         case VerifHintTplEqTerm(t, cost) =>
+           terms += ((t, cost))
+         case VerifHintTplInEqTerm(t, cost) =>
+           ineqs += ((t, cost))
+         case VerifHintTplInEqTermPosNeg(t, cost) => {
+           ineqs += ((t, cost))
+           ineqs += ((-t, cost))
+         }
+         case VerifHintTplIterationThreshold(thre) =>
+           iterationThreshold = Some(thre)
+         case _ =>
+           // nothing
+       }
+
+       val lattices : List[AbsLattice] =
+         (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
+         (if (terms.isEmpty) List() else List(TermSubsetLattice(terms))) ++
+         (if (ineqs.isEmpty) List() else List(TermIneqLattice(ineqs)))
+
+       val latt = lattices reduceLeft (ProductLattice(_, _, true))
+
+       head -> (new AbstractionRecord {
+         val loopBody : Set[Predicate] = bodyPredicates(head).toSet
+         val lattice : AbsLattice = latt
+         val loopIterationAbstractionThreshold : Int =
+           iterationThreshold getOrElse 3
+       })
+     }).toMap
 
   /*
   Not used, probably bad idea:

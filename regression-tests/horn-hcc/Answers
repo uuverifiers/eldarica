@@ -149,31 +149,27 @@ test4.hcc
 Warning: entry function "main" not found
 SAFE
 
-test5.hcc
-Warning: entry function "main" not found
-SAFE
-
 test-para1.hcc
 Warning: entry function "main" not found
 UNSAFE
 
-----------------------------------------------------
+---------------------------------------
 Init:
- Proc1(0, 0)  Proc1(0, 3)  Proc1(0, 2)  Proc1(0, 1) 
-----------------------------------------------------
+ Proc1(0, 0)  Proc1(0, 2)  Proc1(0, 1) 
+---------------------------------------
       |      
       |      
       V      
  Proc2(0, 0) 
-----------------------------------------------------
+---------------------------------------
                    |      
                    |      
                    V      
-              Proc2(3, 3) 
-----------------------------------------------------
+              Proc2(2, 2) 
+---------------------------------------
 Final:
- Proc2(3, 0)  Proc2(3, 3)  Proc1(3, 2)  Proc1(3, 1) 
-----------------------------------------------------
+ Proc2(2, 0)  Proc2(2, 2)  Proc1(2, 1) 
+---------------------------------------
 
 test-para2.hcc
 Warning: entry function "main" not found
@@ -292,6 +288,10 @@ Warning: no definition of function "__VERIFIER_nondet_int" available
 SAFE
 
 test4.hcc
+Warning: entry function "main" not found
+SAFE
+
+test5.hcc
 Warning: entry function "main" not found
 SAFE
 

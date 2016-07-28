@@ -331,8 +331,8 @@ class ClauseShortener extends HornPreprocessor {
   // Alternative implementation, using fewer new predicates
 
   private def splitClauseBodies3(clauses : Seq[Clause],
-                                 initialPreds : Map[Predicate, Seq[IFormula]])
-                               : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
+                                 initialPreds : VerificationHints)
+                               : (List[Clause], VerificationHints) = {
     // global list of all predicates, to ensure determinism
     val allPredicates = new LinkedHashSet[Predicate]
 
@@ -375,11 +375,13 @@ class ClauseShortener extends HornPreprocessor {
              initPred <- {
                offset = nextOffset
                nextOffset = nextOffset + p.arity
-               newInitialPreds.getOrElse(p, List())
+               newInitialPreds.predicateHints.getOrElse(p, List())
              })
-        yield VariableShiftVisitor(initPred, 0, offset)
+        yield initPred.shiftArguments(0, offset)
 
-      newInitialPreds = newInitialPreds + (newPred -> initPreds)
+      if (!initPreds.isEmpty)
+        newInitialPreds =
+          newInitialPreds.addPredicateHints(Map(newPred -> initPreds))
 
       newPred
     }

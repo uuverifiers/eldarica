@@ -41,11 +41,117 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 
 object HornPreprocessor {
 
+  /**
+   * Trait for providing verification hints, associated with predicates
+   * defining the analysed programs.
+   */
+  trait VerificationHints {
+    val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
+
+    def isEmpty = predicateHints.isEmpty
+
+    def filterPredicates(remainingPreds : Set[IExpression.Predicate]) = {
+      val remHints = predicateHints filterKeys remainingPreds
+      VerificationHints(remHints)
+    }
+
+    def filterNotPredicates(removed : Set[IExpression.Predicate]) =
+      if (removed.isEmpty)
+        this
+      else
+        VerificationHints(predicateHints -- removed)
+
+    def addPredicateHints(
+          hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
+      if (hints.isEmpty)
+        this
+      else
+        VerificationHints(predicateHints ++ hints)
+
+    def toInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]] =
+      (for ((p, hints) <- predicateHints.iterator;
+            remHints = for (VerifHintInitPred(f) <- hints) yield f;
+            if !remHints.isEmpty)
+       yield (p -> remHints)).toMap
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  object VerificationHints {
+    def apply(hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
+      new VerificationHints {
+        val predicateHints = hints
+      }
+  }
+
+  object EmptyVerificationHints extends VerificationHints {
+    val predicateHints = Map[IExpression.Predicate, Seq[VerifHintElement]]()
+    override def filterPredicates(remainingPreds : Set[IExpression.Predicate]) =
+      this
+    override def toInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]] =
+      Map()
+  }
+
+  class InitPredicateVerificationHints(preds : Map[Predicate, Seq[IFormula]])
+        extends VerificationHints {
+    val predicateHints = preds mapValues { l => l map (VerifHintInitPred(_)) }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  abstract sealed class VerifHintElement {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintElement
+  }
+  
+  abstract sealed class VerifHintTplElement(val cost : Int)
+                                         extends VerifHintElement
+
+  case class VerifHintTplIterationThreshold(threshold : Int)
+                                         extends VerifHintElement {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintElement = this
+  }
+
+  case class VerifHintInitPred(f : IFormula) extends VerifHintElement {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintInitPred =
+      VerifHintInitPred(VariableShiftVisitor(f, offset, shift))
+  }
+  
+  case class VerifHintTplPred(f : IFormula, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplPred =
+      VerifHintTplPred(VariableShiftVisitor(f, offset, shift), cost)
+  }
+  
+  case class VerifHintTplPredPosNeg(f : IFormula, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplPredPosNeg =
+      VerifHintTplPredPosNeg(VariableShiftVisitor(f, offset, shift), cost)
+  }
+  
+  case class VerifHintTplEqTerm(t : ITerm, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplEqTerm =
+      VerifHintTplEqTerm(VariableShiftVisitor(t, offset, shift), cost)
+  }
+
+  case class VerifHintTplInEqTerm(t : ITerm, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTerm =
+      VerifHintTplInEqTerm(VariableShiftVisitor(t, offset, shift), cost)
+  }
+
+  case class VerifHintTplInEqTermPosNeg(t : ITerm, _cost : Int)
+                                         extends VerifHintTplElement(_cost) {
+    def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTermPosNeg =
+      VerifHintTplInEqTermPosNeg(VariableShiftVisitor(t, offset, shift), cost)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   type Solution = Map[Predicate, IFormula]
   type CounterExample = Dag[(IAtom, HornClauses.Clause)]
 
   type Clauses = Seq[HornClauses.Clause]
-  type VerificationHints = Map[IExpression.Predicate, Seq[IFormula]]
 
   /**
    * Class for back-translating solutions of Horn constraints,

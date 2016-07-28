@@ -235,11 +235,11 @@ class ClauseInliner extends HornPreprocessor {
   }
 
   private def elimLinearDefs(allClauses : Seq[HornClauses.Clause],
-                             allInitialPreds : Map[Predicate, Seq[IFormula]])
-                  : (Seq[HornClauses.Clause], Map[Predicate, Seq[IFormula]]) = {
+                             hints : VerificationHints)
+                  : (Seq[HornClauses.Clause], VerificationHints) = {
     var changed = true
     var clauses = allClauses
-    var initialPreds = allInitialPreds
+    var removedPreds : Set[Predicate] = Set()
 
     while (changed) {
       changed = false
@@ -261,10 +261,10 @@ class ClauseInliner extends HornPreprocessor {
         changed = true
       }
 
-      initialPreds = initialPreds -- finalDefs.keys
+      removedPreds = removedPreds ++ finalDefs.keys
     }
 
-    (clauses, initialPreds)
+    (clauses, hints filterNotPredicates removedPreds)
   }
 
   //////////////////////////////////////////////////////////////////////////////

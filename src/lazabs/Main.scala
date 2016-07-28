@@ -437,10 +437,10 @@ object Main {
 
       if (log) Console.withErr(Console.out) {
         lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          (uppflag, templateBasedInterpolation), drawRTree, lbe, log)
+                          drawRTree, lbe, log)
       } else {
         lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          (uppflag, templateBasedInterpolation), drawRTree, lbe, log)
+                          drawRTree, lbe, log)
       }
         
       return
