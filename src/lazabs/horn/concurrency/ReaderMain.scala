@@ -67,15 +67,11 @@ object ReaderMain {
       println("Verification hints:")
       for ((p, preds) <-
              system.hints.predicateHints.toArray.sortBy(_._1.name)) {
-        print("  " + p + ": ")
-        var sep = ""
+        println("  " + p + ": ")
         for (x <- preds) {
-          print(sep)
-          sep = ", "
 //          PrincessLineariser printExpression x
-          print(x)
+          println("    " + x)
         }
-        println
       }
     }
   }

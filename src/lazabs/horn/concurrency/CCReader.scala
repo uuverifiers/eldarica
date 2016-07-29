@@ -32,6 +32,8 @@ package lazabs.horn.concurrency
 
 import ap.basetypes.IdealInt
 import ap.parser._
+import ap.util.Combinatorics
+
 import concurrentC._
 import concurrentC.Absyn._
 
@@ -137,6 +139,7 @@ object CCReader {
   private abstract sealed class CCExpr(val typ : CCType) {
     def toTerm : ITerm
     def toFormula : IFormula
+    def occurringConstants : Seq[ConstantTerm]
     def castTo(x : CCType) : CCExpr
     def mapTerm(m : ITerm => ITerm) : CCExpr =
       CCTerm(m(this.toTerm), this.typ)
@@ -145,6 +148,8 @@ object CCReader {
                extends CCExpr(_typ) {
     def toTerm : ITerm = t
     def toFormula : IFormula = !eqZero(t)
+    def occurringConstants : Seq[ConstantTerm] =
+      SymbolCollector constantsSorted t
     def castTo(x : CCType) : CCExpr = CCTerm(t, x)
   }
   private case class CCFormula(f : IFormula, _typ : CCType)
@@ -155,6 +160,8 @@ object CCReader {
       case f =>               ite(f, 1, 0)
     }
     def toFormula : IFormula = f
+    def occurringConstants : Seq[ConstantTerm] =
+      SymbolCollector constantsSorted f
     def castTo(x : CCType) : CCExpr = CCFormula(f, x)
   }
 }
@@ -185,16 +192,18 @@ class CCReader private (prog : Program,
       case i  => Some(i)
     }
 
-  private def lookupVar(name : String) : Int =
+  private def lookupVarNoException(name : String) : Int =
     (localVars lastIndexWhere (_.name == name)) match {
-      case -1 =>
-        (globalVars lastIndexWhere (_.name == name)) match {
-          case -1 =>
-            throw new TranslationException(
-                        "Symbol " + name + " is not declared")
-          case i => i
-        }
+      case -1 => globalVars lastIndexWhere (_.name == name)
       case i  => i + globalVars.size
+    }
+
+  private def lookupVar(name : String) : Int =
+    lookupVarNoException(name) match {
+      case -1 =>
+        throw new TranslationException(
+                      "Symbol " + name + " is not declared")
+      case i => i
     }
 
   private val localVars = new ArrayBuffer[ConstantTerm]
@@ -246,6 +255,7 @@ class CCReader private (prog : Program,
 
   private val variableHints =
     new ArrayBuffer[Seq[HornPreprocessor.VerifHintElement]]
+  private var usingInitialPredicates = false
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -640,8 +650,10 @@ class CCReader private (prog : Program,
                    };
                    e <- inAtomicMode(hintSymex evalList pred_hint.exp_))
               yield pred_hint.cident_ match {
-                case "predicates" =>
+                case "predicates" => {
+                  usingInitialPredicates = true
                   VerifHintInitPred(ConstantSubstVisitor(e.toFormula, subst))
+                }
                 case "predicates_tpl" =>
                   VerifHintTplPred(ConstantSubstVisitor(e.toFormula, subst),
                                    cost)
@@ -806,6 +818,31 @@ class CCReader private (prog : Program,
     private def pushVal(v : CCExpr) = {
       val c = getFreshEvalVar
 // println("push " + v + " -> " + c)
+
+      if (usingInitialPredicates) {
+        import HornPreprocessor.VerifHintInitPred
+        
+        // if the pushed value refers to other variables,
+        // add initial predicates that relate the values of
+        // temporary variables with the original variables
+        
+        val varMapping =
+          (for (d <- v.occurringConstants.iterator;
+                index = lookupVarNoException(d.name))
+           yield (d -> index)).toMap
+
+        if (varMapping forall { case (_, ind) => ind >= 0 }) {
+          val defTerm =
+            ConstantSubstVisitor(v.toTerm,
+                                 varMapping mapValues (IExpression.v(_)))
+          val defEq =
+            defTerm === IExpression.v(variableHints.size - 1)
+
+          variableHints(variableHints.size - 1) =
+            List(VerifHintInitPred(defEq))
+        }
+      }
+      
       addValue(v)
       // reserve a local variable, in case we need one later
       addLocalVar(c, v.typ)
