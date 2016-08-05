@@ -336,6 +336,7 @@ object ParametricEncoder {
           val predsBuffer = (preds.iterator filterNot predsToKeep).toBuffer
 
           var changed = true
+          var considerJoins = false
           while (changed) {
             changed = false
 
@@ -343,46 +344,59 @@ object ParametricEncoder {
               val incoming =
                 for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
                 yield p
-              val outgoing =
-                for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <- clauseBuffer)
-                yield p
 
-              if (// avoid blow-up
-                  (incoming.size <= 1 || outgoing.size <= 1) &&
-                  (incoming forall {
-                     case (c, _) => !(c.bodyPredicates contains pred) &&
-                                    (!outgoing.isEmpty ||
-                                     Seqs.disjoint(predsWithTimeInvs, c.predicates))
-                   }) &&
-                  (outgoing forall {
-                     case (c, _) => c.head.pred != pred &&
-                                    Seqs.disjoint(predsWithTimeInvs, c.predicates)
-//                                    !(predsWithTimeInvs contains c.head.pred)
-                   })) {
+              if (considerJoins != (incoming.size <= 1)) {
+                val outgoing =
+                  for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <-
+                         clauseBuffer)
+                  yield p
 
-                val newClauses =
-                  if (incoming forall (isLocalClause(_)))
-                    for ((c1, _) <- incoming; (c2, s) <- outgoing;
-                         newClause = c2 mergeWith c1;
-                         if !newClause.hasUnsatConstraint)
-                    yield (newClause, s)
-                  else if (!outgoing.isEmpty &&
-                           (outgoing forall (isLocalClause(_))))
-                    for ((c1, s) <- incoming; (c2, _) <- outgoing;
-                         newClause = c2 mergeWith c1;
-                         if !newClause.hasUnsatConstraint)
-                    yield (newClause, s)
-                  else
-                    null
+                if (// avoid blow-up
+                    (incoming.size * outgoing.size <=
+                       incoming.size + outgoing.size) &&
+                    (incoming forall {
+                       case (c, _) => !(c.bodyPredicates contains pred) &&
+                                      (!outgoing.isEmpty ||
+                                       Seqs.disjoint(predsWithTimeInvs,
+                                                     c.predicates))
+                     }) &&
+                    (outgoing forall {
+                       case (c, _) => c.head.pred != pred &&
+                                      Seqs.disjoint(predsWithTimeInvs,
+                                                    c.predicates)
+//                                     !(predsWithTimeInvs contains c.head.pred)
+                     })) {
 
-                if (newClauses != null) {
-                  predsBuffer -= pred
-                  clauseBuffer --= incoming
-                  clauseBuffer --= outgoing
-                  clauseBuffer ++= newClauses
-                  changed = true
+                  val newClauses =
+                    if (incoming forall (isLocalClause(_)))
+                      for ((c1, _) <- incoming; (c2, s) <- outgoing;
+                           newClause = c2 mergeWith c1;
+                           if !newClause.hasUnsatConstraint)
+                      yield (newClause, s)
+                    else if (!outgoing.isEmpty &&
+                             (outgoing forall (isLocalClause(_))))
+                      for ((c1, s) <- incoming; (c2, _) <- outgoing;
+                           newClause = c2 mergeWith c1;
+                           if !newClause.hasUnsatConstraint)
+                      yield (newClause, s)
+                    else
+                      null
+
+                  if (newClauses != null) {
+                    predsBuffer -= pred
+                    clauseBuffer --= incoming
+                    clauseBuffer --= outgoing
+                    clauseBuffer ++= newClauses
+                    changed = true
+                    considerJoins = false
+                  }
                 }
               }
+            }
+
+            if (!changed && !considerJoins) {
+              changed = true
+              considerJoins = true
             }
           }
 

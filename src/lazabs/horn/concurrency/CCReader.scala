@@ -825,6 +825,8 @@ class CCReader private (prog : Program,
         // if the pushed value refers to other variables,
         // add initial predicates that relate the values of
         // temporary variables with the original variables
+        //
+        // TODO: this is currently not very effective ...
         
         val varMapping =
           (for (d <- v.occurringConstants.iterator;
@@ -835,11 +837,13 @@ class CCReader private (prog : Program,
           val defTerm =
             ConstantSubstVisitor(v.toTerm,
                                  varMapping mapValues (IExpression.v(_)))
-          val defEq =
-            defTerm === IExpression.v(variableHints.size - 1)
+          val rhs = IExpression.v(variableHints.size - 1)
 
-          variableHints(variableHints.size - 1) =
-            List(VerifHintInitPred(defEq))
+          if (defTerm != rhs) {
+            val defEq = defTerm === rhs
+            variableHints(variableHints.size - 1) =
+              List(VerifHintInitPred(defEq))
+          }
         }
       }
       
@@ -1046,7 +1050,9 @@ class CCReader private (prog : Program,
         outputClause(intermediatePred)
       }
       case exp : Elor => {
-        val cond = eval(exp.exp_1).toFormula
+        evalHelp(exp.exp_1)
+        maybeOutputClause
+        val cond = popVal.toFormula
 
         saveState
         addGuard(~cond)
@@ -1070,7 +1076,9 @@ class CCReader private (prog : Program,
         }
       }
       case exp : Eland => {
-        val cond = eval(exp.exp_1).toFormula
+        evalHelp(exp.exp_1)
+        maybeOutputClause
+        val cond = popVal.toFormula
 
         saveState
         addGuard(cond)

@@ -1,0 +1,11 @@
+int x;
+
+void main(void) {
+  int y;
+  y = (0 == x && x == 1);
+  assert(!y);
+}
+
+thread A {
+  x = 1;
+}
