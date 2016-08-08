@@ -650,6 +650,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   val startTime = System.currentTimeMillis
   var predicateGeneratorTime : Long = 0
   var implicationChecks = 0
+  var implicationChecksPos = 0
+  var implicationChecksNeg = 0
+  var implicationChecksPosTime : Long = 0
+  var implicationChecksNegTime : Long = 0
+  var implicationChecksSetup = 0
+  var implicationChecksSetupTime : Long = 0
   
   // first find out which theories are relevant
   val theories = {
@@ -859,6 +865,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   for ((clause@NormClause(constraint, Seq(), _), _) <- normClauses)
     nextToProcess.enqueue(List(), clause, constraint)
 
+  val endSetupTime = System.currentTimeMillis
+
   //////////////////////////////////////////////////////////////////////////////
     
   // the main loop
@@ -980,17 +988,25 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val endTime = System.currentTimeMillis
 
     println
-    println("CEGAR iterations: " + iterationNum)
-    println("Total CEGAR time (ms): " + (endTime - startTime))
-    println("Final number of abstract states: " +
+    println("CEGAR iterations:                           " + iterationNum)
+    println("Total CEGAR time (ms):                      " + (endTime - startTime))
+    println("Setup time (ms):                            " + (endSetupTime - startTime))
+    println("Final number of abstract states:            " +
             (for ((_, s) <- maxAbstractStates.iterator) yield s.size).sum)
-    println("Final number of matched abstract states: " +
+    println("Final number of matched abstract states:    " +
             (for ((_, s) <- activeAbstractStates.iterator) yield s.size).sum)
-    println("Final number of abstract edges: " + abstractEdges.size)
-    println("Number of generated predicates: " +
+    println("Final number of abstract edges:             " + abstractEdges.size)
+    println("Number of generated predicates:             " +
             (for ((_, s) <- predicates.iterator) yield s.size).sum)
-    println("Predicate generation time (ms): " + predicateGeneratorTime)
-    println("Number of implication checks: " + implicationChecks)
+    println("Predicate generation time (ms):             " + predicateGeneratorTime)
+    println("Number of implication checks:               " + implicationChecks)
+    println
+    println("Number of implication checks (setup):       " + implicationChecksSetup)
+    println("Number of implication checks (positive):    " + implicationChecksPos)
+    println("Number of implication checks (negative):    " + implicationChecksNeg)
+    println("Time for implication checks (setup, ms):    " + implicationChecksSetupTime)
+    println("Time for implication checks (positive, ms): " + implicationChecksPosTime)
+    println("Time for implication checks (negative, ms): " + implicationChecksNegTime)
 
 /*    println
     println("Number of subsumed abstract states: " +
@@ -1389,9 +1405,18 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   def genEdge(clause : NormClause,
               from : Seq[AbstractState], assumptions : Conjunction) = {
+    val startTime = System.currentTimeMillis
     val prover = emptyProver.assert(assumptions, clause.order)
+
     implicationChecks = implicationChecks + 1
-    if (isValid(prover)) {
+    implicationChecksSetup = implicationChecksSetup + 1
+
+    val valid = isValid(prover)
+    
+    implicationChecksSetupTime =
+      implicationChecksSetupTime + (System.currentTimeMillis - startTime)
+      
+    if (valid) {
       // assumptions are inconsistent, nothing to do
       None
     } else {
@@ -1416,7 +1441,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                        rs : RelationSymbol, rsOcc : Int,
                        prover : ModelSearchProver.IncProver,
                        order : TermOrder) : AbstractState = {
+    val startTime = System.currentTimeMillis
     val reducer = sf reducer assumptions
+    implicationChecksSetupTime =
+      implicationChecksSetupTime + (System.currentTimeMillis - startTime)
+    
     val predConsequences =
       (for (pred <- predicates(rs).iterator;
             if (predIsConsequence(pred, rsOcc, reducer, prover, order)))
@@ -1428,11 +1457,26 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                         reducer : ReduceWithConjunction,
                         prover : => ModelSearchProver.IncProver,
                         order : TermOrder) = {
+    val startTime = System.currentTimeMillis
     implicationChecks = implicationChecks + 1
     val reducedInstance = reducer.tentativeReduce(pred posInstances rsOcc)
 
-    !reducedInstance.isFalse &&
-    (reducedInstance.isTrue || isValid(prover.conclude(reducedInstance, order)))
+    val res =
+      !reducedInstance.isFalse &&
+      (reducedInstance.isTrue ||
+       isValid(prover.conclude(reducedInstance, order)))
+
+    if (res) {
+      implicationChecksPos = implicationChecksPos + 1
+      implicationChecksPosTime =
+        implicationChecksPosTime + (System.currentTimeMillis - startTime)
+    } else {
+      implicationChecksNeg = implicationChecksNeg + 1
+      implicationChecksNegTime =
+        implicationChecksNegTime + (System.currentTimeMillis - startTime)
+    }
+
+    res
   }
   
   //////////////////////////////////////////////////////////////////////////////
