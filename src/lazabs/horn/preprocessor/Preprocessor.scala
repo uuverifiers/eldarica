@@ -34,7 +34,7 @@ import IExpression._
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -152,6 +152,39 @@ object HornPreprocessor {
   type CounterExample = Dag[(IAtom, HornClauses.Clause)]
 
   type Clauses = Seq[HornClauses.Clause]
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Simplify a counterexample by merging multiple occurrences of the
+   * same state.
+   */
+  def simplify(cex : CounterExample) : CounterExample = {
+    val seenStates = new MHashMap[IAtom, Int]
+
+    def simplifyHelp(depth : Int, dag : CounterExample)
+                    : (CounterExample, List[Int]) = dag match {
+      case DagNode(pair@(atom, clause), children, next) => {
+        val (newNext, shifts) = simplifyHelp(depth + 1, next)
+        val newChildren = for (c <- children) yield (c + shifts(c - 1))
+        val newShifts = (seenStates get atom) match {
+          case None => {
+            seenStates.put(atom, depth)
+            0 :: shifts
+          }
+          case Some(d) =>
+            (d - depth) :: shifts
+        }
+        (DagNode(pair, newChildren, newNext), newShifts)
+      }
+      case DagEmpty =>
+        (DagEmpty, List())
+    }
+
+    simplifyHelp(0, cex)._1.elimUnconnectedNodes
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Class for back-translating solutions of Horn constraints,
