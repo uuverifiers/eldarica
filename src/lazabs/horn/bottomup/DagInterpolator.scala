@@ -601,8 +601,9 @@ object DagInterpolator {
       val syms = createConstantsRaw(rs.name, 0 until rs.arity)
       if (children.isEmpty || definedArgSyms(depth).isEmpty) {
         definedArgSyms(depth) = syms :: definedArgSyms(depth)
-        Tree((depth, syms, Some(createConstantsRaw(rs.name + "_local",
-                                                   0 until clause.localSymbols.size))),
+        Tree((depth, syms,
+              Some(createConstantsRaw(rs.name + "_local",
+                                      0 until clause.localSymbols.size))),
              for (c <- children) yield dag2Tree(d drop c, depth + c))
       } else {
         Leaf((depth, syms, None))
@@ -633,7 +634,7 @@ object DagInterpolator {
 
     var didRefinement = true
     while (didRefinement && ??? == ProverStatus.Sat) {
-      // search for leaves where the tree could be refined
+      // search for leafs where the tree could be refined
       lazabs.GlobalParameters.get.timeoutChecker()
 
       didRefinement = false
@@ -670,7 +671,8 @@ object DagInterpolator {
       }
 
       def refine(t : SpanTree) : SpanTree = t match {
-        case Leaf(dagIndex, syms, None) if (refinementPoints contains syms.head) => {
+        case Leaf(dagIndex, syms, None)
+          if (!syms.isEmpty && (refinementPoints contains syms.head)) => {
           // a point to refine
 
           val d@DagNode(clause@NormClause(_, _, (rs, _)), children, _) =

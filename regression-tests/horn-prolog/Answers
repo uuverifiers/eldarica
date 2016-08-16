@@ -97,6 +97,120 @@ NOT SOLVABLE
 1: q(20) -> 3, 3, 3, 3, 2, 3
 2: p(5)
 3: p(3)
+
+nullary-bug.horn
+NOT SOLVABLE
+
+0: FALSE -> 1
+1: Block6_1(0, 1) -> 2
+2: Block6(0, 0) -> 3
+3: Block4_1(0, 0, 0, 1) -> 4, 5
+4: iTestggvoidgawaitAllopk_post -> 43
+5: Block4(0, 0, 0, 1) -> 6
+6: Block3_5(0, 0, 0, 1) -> 7, 8
+7: iTestggvoidgonlyPreserveointpk_post(0) -> 28
+8: Block3_4(0, 0, 0, 1) -> 9
+9: Block3_3(0, 0, 0, 0, 0, 1) -> 10
+10: Block3_2(0, 0, 0, 0, 1) -> 26, 11
+11: Block3_1(0, 0, 0, 1) -> 12, 13
+12: iTestggvoidgmethod_v1ointpk_post(0) -> 28
+13: Block3(0, 0, 0, 0, 0, 0, 1) -> 14
+14: Block1_11(0, 0, 0, 0, 0, 0, 0, 1) -> 15, 16
+15: iTestggbooleangnondetBoolopk_post(0) -> 28
+16: Block1_10(0, 0, 0, 0, 0, 0, 1) -> 20, 17
+17: Block1_9(0, 0, 0, 0, 0, 1) -> 18, 19
+18: iTestggintgnondetIntopk_post(1) -> 27
+19: Block1_8(0, 0, 0, 0, 0) -> 20, 21
+20: iTestggintgnondetIntopk_post(0) -> 28
+21: Block1_7(0, 0, 0, 0) -> 22
+22: Block1_6(0, 0, 0, 0) -> 23
+23: Block1_5(0, 0, 0) -> 26, 24
+24: Block1_4(0, 0, 0) -> 25, 48
+25: iTestggvoidgiclinitkopk_post -> 43
+26: inv_JayhornGlobalsClassVar(0, 0) -> 45
+27: Block0(1) -> 29
+28: Block0(0) -> 30
+29: Block1_5(1) -> 31, 36
+30: Block1_5(0) -> 31, 42
+31: ijavaulanguObjectggvoidgiinitkopk_post(0, 0) -> 32
+32: Block0_2(0) -> 33
+33: Block0_1(0, 0, 0) -> 34
+34: Block0(0, 0, 0, 0) -> 35
+35: ijavaulanguObjectggvoidgiinitkopk_pre(0) -> 42
+36: Block1_4(1, 0) -> 37
+37: Block1_3(1, 0, 0) -> 38
+38: Block1_2(1, 0, 1, 0) -> 39
+39: Block1_1(1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0) -> 40
+40: Block1(1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 41
+41: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(1)
+42: Block1_4(0, 0) -> 48
+43: Block0 -> 44
+44: Block1_2 -> 45
+45: Block1_1(0, 0) -> 46
+46: Block1(0, 0) -> 47
+47: iTestggvoidgiclinitkopk_pre -> 48
+48: Block1_3(0, 0, 0) -> 49
+49: Block1_2(0, 0, 0, 0) -> 50
+50: Block1_1(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 51
+51: Block1(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 52
+52: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(0)
+nullary-bug.horn
+NOT SOLVABLE
+
+0: FALSE -> 1
+1: Block6_1(0, 1) -> 2
+2: Block6(0, 0) -> 3
+3: Block4_1(0, 0, 0, 1) -> 4, 5
+4: iTestggvoidgawaitAllopk_post -> 43
+5: Block4(0, 0, 0, 1) -> 6
+6: Block3_5(0, 0, 0, 1) -> 7, 8
+7: iTestggvoidgonlyPreserveointpk_post(0) -> 27
+8: Block3_4(0, 0, 0, 1) -> 9
+9: Block3_3(0, 0, 0, 0, 0, 1) -> 10
+10: Block3_2(0, 0, 0, 0, 1) -> 26, 11
+11: Block3_1(0, 0, 0, 1) -> 12, 13
+12: iTestggvoidgmethod_v1ointpk_post(0) -> 27
+13: Block3(0, 0, 0, 0, 0, 0, 1) -> 14
+14: Block1_11(0, 0, 0, 0, 0, 0, 0, 1) -> 15, 16
+15: iTestggbooleangnondetBoolopk_post(0) -> 27
+16: Block1_10(0, 0, 0, 0, 0, 0, 1) -> 20, 17
+17: Block1_9(0, 0, 0, 0, 0, 1) -> 18, 19
+18: iTestggintgnondetIntopk_post(1) -> 28
+19: Block1_8(0, 0, 0, 0, 0) -> 20, 21
+20: iTestggintgnondetIntopk_post(0) -> 27
+21: Block1_7(0, 0, 0, 0) -> 22
+22: Block1_6(0, 0, 0, 0) -> 23
+23: Block1_5(0, 0, 0) -> 26, 24
+24: Block1_4(0, 0, 0) -> 25, 48
+25: iTestggvoidgiclinitkopk_post -> 43
+26: inv_JayhornGlobalsClassVar(0, 0) -> 45
+27: Block0(0) -> 29
+28: Block0(1) -> 30
+29: Block1_5(0) -> 31, 36
+30: Block1_5(1) -> 31, 37
+31: ijavaulanguObjectggvoidgiinitkopk_post(0, 0) -> 32
+32: Block0_2(0) -> 33
+33: Block0_1(0, 0, 0) -> 34
+34: Block0(0, 0, 0, 0) -> 35
+35: ijavaulanguObjectggvoidgiinitkopk_pre(0) -> 37
+36: Block1_4(0, 0) -> 48
+37: Block1_4(1, 0) -> 38
+38: Block1_3(1, 0, 0) -> 39
+39: Block1_2(1, 0, 1, 0) -> 40
+40: Block1_1(1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0) -> 41
+41: Block1(1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 42
+42: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(1)
+43: Block0 -> 44
+44: Block1_2 -> 45
+45: Block1_1(0, 0) -> 46
+46: Block1(0, 0) -> 47
+47: iTestggvoidgiclinitkopk_pre -> 48
+48: Block1_3(0, 0, 0) -> 49
+49: Block1_2(0, 0, 0, 0) -> 50
+50: Block1_1(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 51
+51: Block1(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 52
+52: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(0)
+zero-iterations.horn
 Loading CEGAR hints ...
 --------------------- Preprocessing ------------------------
 Initially:                           7 clauses

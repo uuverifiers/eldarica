@@ -70,7 +70,7 @@ class ClauseShortener extends HornPreprocessor {
         if (tempPreds.isEmpty)
           cex
         else
-          translateCEX(cex).elimUnconnectedNodes
+          simplify(translateCEX(cex).elimUnconnectedNodes)
 
       private def translateCEX(dag : CounterExample) : CounterExample = dag match {
         case DagNode(p@(a, clause), children, next) => {

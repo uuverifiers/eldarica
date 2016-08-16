@@ -131,7 +131,7 @@ class ClauseInliner extends HornPreprocessor {
       //////////////////////////////////////////////////////////////////////////
 
       def translate(cex : CounterExample) =
-        (cex substitute buildSubst(cex)).elimUnconnectedNodes
+        simplify((cex substitute buildSubst(cex)).elimUnconnectedNodes)
 
       private def buildSubst(cex : CounterExample) : Map[Int, CounterExample] =
         SimpleAPI.withProver { p =>

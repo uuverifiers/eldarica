@@ -435,7 +435,7 @@ object DisjInterpolator {
         def refine(t : SpanTree,
                    currentBFlag : IFormula) : SpanTree = t match {
           case Tree((dagIndex, OrNode((syms, branchFlags))), List())
-              if (refinementPoints contains syms.head) => {
+              if (!syms.isEmpty && (refinementPoints contains syms.head)) => {
             val newT = 
               dag2TreeOr2(clauseDag drop dagIndex,
                           dagIndex, 1, currentBFlag, branchFlags, syms)

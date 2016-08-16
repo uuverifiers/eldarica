@@ -1,0 +1,179 @@
+% Input file that previously led to an exception in the interpolator.
+% The clauses are unsat, which is because the output from JayHorn led
+% to some symbol clashes.
+
+		Block1(kin_0_1, kin_0_1, kthis__2, Test_3, r0_4, r0_kdynamicType_5730_5) :- iTestggvoidgiinitkopk_pre(kin_0_1).
+
+
+		Block1_1(kin_0_0, kin_0_6, Test_8) :- Block1(kin_0_0, kin_0_6, kthis__7, Test_8, r0_9, r0_kdynamicType_5730_10).
+
+		Block1_2(x, Test_12, kthis_11) :- Block1_1(x, kthis_11, Test_12).
+
+		Block13(x, r0_15, X) :- Block1_2(x, Test_14, r0_15), X=74.
+		inv_Test(r0_17, r0_kdynamicType_5730_18) :- Block1_3(kin_0_0, r0_17, r0_kdynamicType_5730_18).
+		Block1_4(kin_0_0, r0_17) :- Block1_3(kin_0_0, r0_17, r0_kdynamicType_5730_18).
+		ijavaulanguObjectggvoidgiinitkopk_pre(r0_19) :- Block1_4(kin_0_0, r0_19).
+		Block1_5(kin_0_0) :- Block1_4(kin_0_0, r0_19), ijavaulanguObjectggvoidgiinitkopk_post(r0_19, callRes_21).
+		Block0(kin_0_0) :- Block1_5(kin_0_0).
+		iTestggvoidgiinitkopk_post(kin_0_22, resultVar0_23, resultVar1_24) :- Block0(kin_0_22).
+		Block0(kin_0_29, havoc327_26, havoc328_27, lastExceptionThrown_28) :- ijavaulanguObjectggvoidgiinitkopk_pre(kin_0_29).
+		Block0_1(kin_0_25, havoc328_31, havoc327_30) :- Block0(kin_0_25, havoc327_30, havoc328_31, lastExceptionThrown_32).
+		inv_javavlangvThrowable(lastExceptionThrown_34, havoc328_33) :- Block0_1(kin_0_25, havoc328_33, lastExceptionThrown_34).
+		Block0_2(kin_0_25) :- Block0_1(kin_0_25, havoc328_33, lastExceptionThrown_34).
+		ijavaulanguObjectggvoidgiinitkopk_post(kin_0_35, resultVar0_36) :- Block0_2(kin_0_35).
+		Block1(ki0_37, knew0_38, knull_39, kr1_40, r0_41) :- iTestggintgnondetIntopk_pre.
+		Block1_1(knew0_43) :- Block1(ki0_42, knew0_43, knull_44, kr1_45, r0_46), \+(knew0_43 = knull_44).
+		Block1_2(knew0_47) :- Block1_1(knew0_47).
+		ijavauutiluRandomggvoidgiinitkolongpk_pre(kr1_49, X) :- Block1_2(kr1_49), X=42.
+		Block1_3(kr1_49) :- Block1_2(kr1_49), ijavauutiluRandomggvoidgiinitkolongpk_post(kr1_49, X, callRes_64, callRes_65, callRes_66, callRes_67, callRes_68, callRes_69, callRes_70, callRes_71, callRes_72, callRes_73, callRes_74, callRes_75, callRes_76, callRes_77), X=42.
+		Block1_4(kr1_78) :- Block1_3(kr1_78).
+		ijavauutiluRandomggintgnextIntopk_pre(r0_80) :- Block1_4(r0_80).
+		Block1_5(callRes_82) :- Block1_4(r0_80), ijavauutiluRandomggintgnextIntopk_post(r0_80, callRes_82).
+		Block1_6(ki0_83) :- Block1_5(ki0_83).
+		Block0(kret__85) :- Block1_6(kret__85).
+		iTestggintgnondetIntopk_post(kret__86) :- Block0(kret__86).
+		Block1(kin_0_89, kin_1_90, kin_0_89, kin_1_90, kthis__91, javavutilvRandom_92, this_93, this_kdynamicType_5743_94, this_haveNextNextGaussian_02_95, this_nextNextGaussian_01_96, this_seed_3370_97) :- ijavauutiluRandomggvoidgiinitkolongpk_pre(kin_0_89, kin_1_90).
+		Block1_1(kin_0_87, kin_1_88, kin_1_99, kin_0_98, javavutilvRandom_101, this_haveNextNextGaussian_02_104, this_nextNextGaussian_01_105, this_seed_3370_106) :- Block1(kin_0_87, kin_1_88, kin_0_98, kin_1_99, kthis__100, javavutilvRandom_101, this_102, this_kdynamicType_5743_103, this_haveNextNextGaussian_02_104, this_nextNextGaussian_01_105, this_seed_3370_106).
+		Block1_2(kin_0_87, kin_1_88, kin_1_107, javavutilvRandom_109, kthis__108, this_haveNextNextGaussian_02_110, this_nextNextGaussian_01_111, this_seed_3370_112) :- Block1_1(kin_0_87, kin_1_88, kin_1_107, kthis__108, javavutilvRandom_109, this_haveNextNextGaussian_02_110, this_nextNextGaussian_01_111, this_seed_3370_112).
+		Block1_3(kin_0_87, kin_1_88, javavutilvRandom_115, this_116, this_haveNextNextGaussian_02_117, this_nextNextGaussian_01_118, this_seed_3370_119) :- Block1_2(kin_0_87, kin_1_88, kin_1_114, javavutilvRandom_115, this_116, this_haveNextNextGaussian_02_117, this_nextNextGaussian_01_118, this_seed_3370_119).
+		Block1_4(kin_0_87, kin_1_88, this_121, X, this_haveNextNextGaussian_02_122, this_nextNextGaussian_01_123, this_seed_3370_124) :- Block1_3(kin_0_87, kin_1_88, javavutilvRandom_120, this_121, this_haveNextNextGaussian_02_122, this_nextNextGaussian_01_123, this_seed_3370_124), X=76.
+		inv_javavutilvRandom(this_126, this_seed_3370_130, this_nextNextGaussian_01_129, this_haveNextNextGaussian_02_128, this_kdynamicType_5743_127) :- Block1_4(kin_0_87, kin_1_88, this_126, this_kdynamicType_5743_127, this_haveNextNextGaussian_02_128, this_nextNextGaussian_01_129, this_seed_3370_130).
+		Block1_5(kin_0_87, kin_1_88) :- Block1_4(kin_0_87, kin_1_88, this_126, this_kdynamicType_5743_127, this_haveNextNextGaussian_02_128, this_nextNextGaussian_01_129, this_seed_3370_130).
+		Block0(kin_0_87, kin_1_88) :- Block1_5(kin_0_87, kin_1_88).
+		ijavauutiluRandomggvoidgiinitkolongpk_post(kin_0_131, kin_1_132, resultVar0_133, resultVar1_134, resultVar2_135, resultVar3_136, resultVar4_137, resultVar5_138, resultVar6_139, resultVar7_140, resultVar8_141, resultVar9_142, resultVar10_143, resultVar11_144, resultVar12_145, resultVar13_146) :- Block0(kin_0_131, kin_1_132).
+		Block1(kin_0_148, kin_0_148, kthis__149, havoc_150) :- ijavauutiluRandomggintgnextIntopk_pre(kin_0_148).
+		Block1_1(kin_0_147, kin_0_151) :- Block1(kin_0_147, kin_0_151, kthis__152, havoc_153).
+		Block1_2(kin_0_147) :- Block1_1(kin_0_147, kthis__154).
+		iHavoc_Classggintghavoc_intopk_pre :- Block1_2(kin_0_147).
+		Block1_3(kin_0_147, callRes_156) :- Block1_2(kin_0_147), iHavoc_Classggintghavoc_intopk_post(callRes_156).
+		Block1_4(kin_0_147, havoc_157) :- Block1_3(kin_0_147, havoc_157).
+		Block0(kin_0_147, kret__159) :- Block1_4(kin_0_147, kret__159).
+		ijavauutiluRandomggintgnextIntopk_post(kin_0_161, kret__160) :- Block0(kin_0_161, kret__160).
+		Block1(knew0_162, knull_163, kr1_164, kz0_165, r0_166) :- iTestggbooleangnondetBoolopk_pre.
+		Block1_1(knew0_167) :- Block1(knew0_167, knull_168, kr1_169, kz0_170, r0_171), \+(knew0_167 = knull_168).
+		Block1_2(knew0_172) :- Block1_1(knew0_172).
+		ijavauutiluRandomggvoidgiinitkolongpk_pre(kr1_174, X) :- Block1_2(kr1_174), X=42.
+		Block1_3(kr1_174) :- Block1_2(kr1_174), ijavauutiluRandomggvoidgiinitkolongpk_post(kr1_174, X, callRes_189, callRes_190, callRes_191, callRes_192, callRes_193, callRes_194, callRes_195, callRes_196, callRes_197, callRes_198, callRes_199, callRes_200, callRes_201, callRes_202), X=42.
+		Block1_4(kr1_203) :- Block1_3(kr1_203).
+		ijavauutiluRandomggbooleangnextBooleanopk_pre(r0_205) :- Block1_4(r0_205).
+		Block1_5(callRes_207) :- Block1_4(r0_205), ijavauutiluRandomggbooleangnextBooleanopk_post(r0_205, callRes_207).
+		Block1_6(kz0_208) :- Block1_5(kz0_208).
+		Block0(kret__210) :- Block1_6(kret__210).
+		iTestggbooleangnondetBoolopk_post(kret__211) :- Block0(kret__211).
+		Block1(kin_0_213, kin_0_213, kthis__214, havoc_215) :- ijavauutiluRandomggbooleangnextBooleanopk_pre(kin_0_213).
+		Block1_1(kin_0_212, kin_0_216) :- Block1(kin_0_212, kin_0_216, kthis__217, havoc_218).
+		Block1_2(kin_0_212) :- Block1_1(kin_0_212, kthis__219).
+		iHavoc_Classggbooleanghavoc_booleanopk_pre :- Block1_2(kin_0_212).
+		Block1_3(kin_0_212, callRes_221) :- Block1_2(kin_0_212), iHavoc_Classggbooleanghavoc_booleanopk_post(callRes_221).
+		Block1_4(kin_0_212, havoc_222) :- Block1_3(kin_0_212, havoc_222).
+		Block0(kin_0_212, kret__224) :- Block1_4(kin_0_212, kret__224).
+		ijavauutiluRandomggbooleangnextBooleanopk_post(kin_0_226, kret__225) :- Block0(kin_0_226, kret__225).
+		Block1(kin_0_228, kin_0_228) :- iTestggvoidgonlyPreserveointpk_pre(kin_0_228).
+		Block1_1(kin_0_227) :- Block1(kin_0_227, kin_0_229).
+		Block0(kin_0_227) :- Block1_1(kin_0_227).
+		iTestggvoidgonlyPreserveointpk_post(kin_0_230) :- Block0(kin_0_230).
+		Block1 :- iTestggvoidgawaitAllopk_pre.
+		Block0 :- Block1.
+		iTestggvoidgawaitAllopk_post :- Block0.
+		Block1(kin_0_233, kassert_7_232, kin_0_233, kz0_234, JayArray_java_lang_String_235, JayhornGlobals_236, Test_c0_237, undef_field0_238, undef_field1_239, undef_field2_240, undef_field3_241, undef_field4_242, undef_size_243) :- iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(kin_0_233).
+		Block1_1(kin_0_231, kassert_7_244, kin_0_245, JayArray_java_lang_String_247, JayhornGlobals_248, undef_field0_250, undef_field1_251, undef_field2_252, undef_field3_253, undef_field4_254, undef_size_255) :- Block1(kin_0_231, kassert_7_244, kin_0_245, kz0_246, JayArray_java_lang_String_247, JayhornGlobals_248, Test_c0_249, undef_field0_250, undef_field1_251, undef_field2_252, undef_field3_253, undef_field4_254, undef_size_255), undef_size_255 >= 0.
+		inv_JayArray_java_lang_String(kin_0_257, undef_size_265, X, X, undef_field0_260, undef_field1_261, undef_field2_262, undef_field3_263, undef_field4_264) :- Block1_1(kin_0_231, kassert_7_256, kin_0_257, JayArray_java_lang_String_258, JayhornGlobals_259, undef_field0_260, undef_field1_261, undef_field2_262, undef_field3_263, undef_field4_264, undef_size_265), X=83.
+		Block1_2(kin_0_231, kassert_7_256, kin_0_257, JayhornGlobals_259) :- Block1_1(kin_0_231, kassert_7_256, kin_0_257, JayArray_java_lang_String_258, JayhornGlobals_259, undef_field0_260, undef_field1_261, undef_field2_262, undef_field3_263, undef_field4_264, undef_size_265).
+		Block1_3(kin_0_231, kassert_7_266, JayhornGlobals_268) :- Block1_2(kin_0_231, kassert_7_266, kin_0_267, JayhornGlobals_268).
+		iTestggvoidgiclinitkopk_pre :- Block1_3(kin_0_231, kassert_7_269, JayhornGlobals_270).
+		Block1_4(kin_0_231, kassert_7_269, JayhornGlobals_270) :- Block1_3(kin_0_231, kassert_7_269, JayhornGlobals_270), iTestggvoidgiclinitkopk_post.
+		Block1_5(kin_0_231, kassert_7_271, JayhornGlobals_272) :- Block1_4(kin_0_231, kassert_7_271, JayhornGlobals_272), inv_JayhornGlobalsClassVar(JayhornGlobals_272, unpackRes_Test_c0_273).
+		Block1_6(kin_0_231, kassert_7_274, JayhornGlobals_275, X) :- Block1_5(kin_0_231, kassert_7_274, JayhornGlobals_275), X=0.
+		inv_JayhornGlobalsClassVar(JayhornGlobals_278, Test_c0_279) :- Block1_6(kin_0_231, kassert_7_277, JayhornGlobals_278, Test_c0_279).
+		Block1_7(kin_0_231, kassert_7_277, JayhornGlobals_278, Test_c0_279) :- Block1_6(kin_0_231, kassert_7_277, JayhornGlobals_278, Test_c0_279).
+		iTestggintgnondetIntopk_pre :- Block1_7(kin_0_231, kassert_7_280, JayhornGlobals_281, Test_c0_282).
+		Block1_8(kin_0_231, kassert_7_280, JayhornGlobals_281, Test_c0_282, callRes_284) :- Block1_7(kin_0_231, kassert_7_280, JayhornGlobals_281, Test_c0_282), iTestggintgnondetIntopk_post(callRes_284).
+		iTestggintgnondetIntopk_pre :- Block1_8(kin_0_231, kassert_7_285, JayhornGlobals_286, Test_c0_287, i1_288).
+		Block1_9(kin_0_231, kassert_7_285, JayhornGlobals_286, Test_c0_287, i1_288, callRes_290) :- Block1_8(kin_0_231, kassert_7_285, JayhornGlobals_286, Test_c0_287, i1_288), iTestggintgnondetIntopk_post(callRes_290).
+		iTestggintgnondetIntopk_pre :- Block1_9(kin_0_231, kassert_7_291, JayhornGlobals_292, Test_c0_293, i1_294, i2_295).
+		Block1_10(kin_0_231, kassert_7_291, JayhornGlobals_292, Test_c0_293, callRes_297, i1_294, i2_295) :- Block1_9(kin_0_231, kassert_7_291, JayhornGlobals_292, Test_c0_293, i1_294, i2_295), iTestggintgnondetIntopk_post(callRes_297).
+		iTestggbooleangnondetBoolopk_pre :- Block1_10(kin_0_231, kassert_7_298, JayhornGlobals_299, Test_c0_300, i0_301, i1_302, i2_303).
+		Block1_11(kin_0_231, kassert_7_298, callRes_305, JayhornGlobals_299, Test_c0_300, i0_301, i1_302, i2_303) :- Block1_10(kin_0_231, kassert_7_298, JayhornGlobals_299, Test_c0_300, i0_301, i1_302, i2_303), iTestggbooleangnondetBoolopk_post(callRes_305).
+		Block2(kin_0_231, kassert_7_306, JayhornGlobals_308, Test_c0_309, i0_310, i1_311, i2_312) :- Block1_11(kin_0_231, kassert_7_306, kz0_307, JayhornGlobals_308, Test_c0_309, i0_310, i1_311, i2_312), \+(kz0_307 = 0).
+		Block3(kin_0_231, kassert_7_306, JayhornGlobals_308, Test_c0_309, i0_310, i1_311, i2_312) :- Block1_11(kin_0_231, kassert_7_306, kz0_307, JayhornGlobals_308, Test_c0_309, i0_310, i1_311, i2_312), kz0_307 = 0.
+		iTestggvoidgmethod_v2ointpk_pre(i0_316) :- Block2(kin_0_231, kassert_7_313, JayhornGlobals_314, Test_c0_315, i0_316, i1_317, i2_318).
+		Block2_1(kin_0_231, kassert_7_313, JayhornGlobals_314, i1_317) :- Block2(kin_0_231, kassert_7_313, JayhornGlobals_314, Test_c0_315, i0_316, i1_317, i2_318), iTestggvoidgmethod_v2ointpk_post(i0_316).
+		Block2_2(kin_0_231, kassert_7_319, JayhornGlobals_320, unpackRes_Test_c0_323, i1_321) :- Block2_1(kin_0_231, kassert_7_319, JayhornGlobals_320, i1_321), inv_JayhornGlobalsClassVar(JayhornGlobals_320, unpackRes_Test_c0_323).
+		Block2_3(kin_0_231, kassert_7_324, JayhornGlobals_325, Test_c0_326, i1_327, Test_c0_326) :- Block2_2(kin_0_231, kassert_7_324, JayhornGlobals_325, Test_c0_326, i1_327).
+		inv_JayhornGlobalsClassVar(JayhornGlobals_330, Test_c0_331) :- Block2_3(kin_0_231, kassert_7_329, JayhornGlobals_330, Test_c0_331, i1_332, i2_333).
+		Block2_4(kin_0_231, kassert_7_329, i1_332, i2_333) :- Block2_3(kin_0_231, kassert_7_329, JayhornGlobals_330, Test_c0_331, i1_332, i2_333).
+		iTestggvoidgonlyPreserveointpk_pre(i2_336) :- Block2_4(kin_0_231, kassert_7_334, i1_335, i2_336).
+		Block2_5(kin_0_231, kassert_7_334, i1_335, i2_336) :- Block2_4(kin_0_231, kassert_7_334, i1_335, i2_336), iTestggvoidgonlyPreserveointpk_post(i2_336).
+		Block4(kin_0_231, kassert_7_337, i1_338, i2_339) :- Block2_5(kin_0_231, kassert_7_337, i1_338, i2_339).
+		iTestggvoidgmethod_v1ointpk_pre(i0_343) :- Block3(kin_0_231, kassert_7_340, JayhornGlobals_341, Test_c0_342, i0_343, i1_344, i2_345).
+		Block3_1(kin_0_231, kassert_7_340, JayhornGlobals_341, i2_345) :- Block3(kin_0_231, kassert_7_340, JayhornGlobals_341, Test_c0_342, i0_343, i1_344, i2_345), iTestggvoidgmethod_v1ointpk_post(i0_343).
+		Block3_2(kin_0_231, kassert_7_346, JayhornGlobals_347, unpackRes_Test_c0_350, i2_348) :- Block3_1(kin_0_231, kassert_7_346, JayhornGlobals_347, i2_348), inv_JayhornGlobalsClassVar(JayhornGlobals_347, unpackRes_Test_c0_350).
+		Block3_3(kin_0_231, kassert_7_351, JayhornGlobals_352, Test_c0_353, Test_c0_353, i2_354) :- Block3_2(kin_0_231, kassert_7_351, JayhornGlobals_352, Test_c0_353, i2_354).
+		inv_JayhornGlobalsClassVar(JayhornGlobals_357, Test_c0_358) :- Block3_3(kin_0_231, kassert_7_356, JayhornGlobals_357, Test_c0_358, i1_359, i2_360).
+		Block3_4(kin_0_231, kassert_7_356, i1_359, i2_360) :- Block3_3(kin_0_231, kassert_7_356, JayhornGlobals_357, Test_c0_358, i1_359, i2_360).
+		iTestggvoidgonlyPreserveointpk_pre(i1_362) :- Block3_4(kin_0_231, kassert_7_361, i1_362, i2_363).
+		Block3_5(kin_0_231, kassert_7_361, i1_362, i2_363) :- Block3_4(kin_0_231, kassert_7_361, i1_362, i2_363), iTestggvoidgonlyPreserveointpk_post(i1_362).
+		Block4(kin_0_231, kassert_7_364, i1_365, i2_366) :- Block3_5(kin_0_231, kassert_7_364, i1_365, i2_366).
+		iTestggvoidgawaitAllopk_pre :- Block4(kin_0_231, kassert_7_367, i1_368, i2_369).
+		Block4_1(kin_0_231, kassert_7_367, i1_368, i2_369) :- Block4(kin_0_231, kassert_7_367, i1_368, i2_369), iTestggvoidgawaitAllopk_post.
+		Block5(kin_0_231) :- Block4_1(kin_0_231, kassert_7_370, i1_371, i2_372), i1_371 = i2_372.
+		Block6(kin_0_231, kassert_7_370) :- Block4_1(kin_0_231, kassert_7_370, i1_371, i2_372), \+(i1_371 = i2_372).
+		Block0(kin_0_231) :- Block5(kin_0_231).
+		Block6_1(kin_0_231, X) :- Block6(kin_0_231, kassert_7_373), X=1.
+		false :- Block6_1(kin_0_231, kassert_7_374), \+(kassert_7_374 = 0).
+		Block6_2(kin_0_231) :- Block6_1(kin_0_231, kassert_7_374).
+		Block5(kin_0_231) :- Block6_2(kin_0_231).
+		iTestggvoidgmainoJayArray_java_lang_Stringpk_post(kin_0_375) :- Block0(kin_0_375).
+		Block1(JayhornGlobals_376, Test_c0_377) :- iTestggvoidgiclinitkopk_pre.
+		Block1_1(JayhornGlobals_378, X) :- Block1(JayhornGlobals_378, Test_c0_379), X=0.
+		inv_JayhornGlobalsClassVar(JayhornGlobals_380, Test_c0_381) :- Block1_1(JayhornGlobals_380, Test_c0_381).
+		Block1_2 :- Block1_1(JayhornGlobals_380, Test_c0_381).
+		Block0 :- Block1_2.
+		iTestggvoidgiclinitkopk_post :- Block0.
+		Block1(kin_0_385, ki1_383, ki2_384, kin_0_385, JayhornGlobals_386, Test_c0_387) :- iTestggvoidgmethod_v1ointpk_pre(kin_0_385).
+		Block1_1(kin_0_382, ki1_388, ki2_389, JayhornGlobals_391, Test_c0_392, kin_0_390) :- Block1(kin_0_382, ki1_388, ki2_389, kin_0_390, JayhornGlobals_391, Test_c0_392).
+		Block1_2(kin_0_382, ki1_394, ki2_395, JayhornGlobals_396, Test_c0_397, i0_398, X) :- Block1_1(kin_0_382, ki1_394, ki2_395, JayhornGlobals_396, Test_c0_397, i0_398), X=0.
+		Block2(kin_0_382, ki1_400, ki2_401, JayhornGlobals_402, Test_c0_403, i0_404, i3_405) :- Block1_2(kin_0_382, ki1_400, ki2_401, JayhornGlobals_402, Test_c0_403, i0_404, i3_405).
+		Block3(kin_0_382) :- Block2(kin_0_382, ki1_406, ki2_407, JayhornGlobals_408, Test_c0_409, i0_410, i3_411), i3_411 >= i0_410.
+		Block4(kin_0_382, ki1_406, ki2_407, JayhornGlobals_408, Test_c0_409, i0_410, i3_411) :- Block2(kin_0_382, ki1_406, ki2_407, JayhornGlobals_408, Test_c0_409, i0_410, i3_411), \+(i3_411 >= i0_410).
+		Block0(kin_0_382) :- Block3(kin_0_382).
+		Block4_1(kin_0_382, JayhornGlobals_414, unpackRes_Test_c0_418, i0_416, i3_417) :- Block4(kin_0_382, ki1_412, ki2_413, JayhornGlobals_414, Test_c0_415, i0_416, i3_417), inv_JayhornGlobalsClassVar(JayhornGlobals_414, unpackRes_Test_c0_418).
+		Block4_2(kin_0_382, Test_c0_420, JayhornGlobals_419, i0_421, i3_422) :- Block4_1(kin_0_382, JayhornGlobals_419, Test_c0_420, i0_421, i3_422).
+		Block4_3(kin_0_382, ki1_424, X, JayhornGlobals_425, i0_426, i3_427) :- Block4_2(kin_0_382, ki1_424, JayhornGlobals_425, i0_426, i3_427), X=ki1_424 + 1.
+		Block4_4(kin_0_382, ki1_429, ki2_430, JayhornGlobals_431, ki2_430, i0_432, i3_433) :- Block4_3(kin_0_382, ki1_429, ki2_430, JayhornGlobals_431, i0_432, i3_433).
+		Block4_5(kin_0_382, ki1_435, ki2_436, JayhornGlobals_437, Test_c0_438, i0_439, X) :- Block4_4(kin_0_382, ki1_435, ki2_436, JayhornGlobals_437, Test_c0_438, i0_439, i3_440), X=i3_440 + 1.
+		inv_JayhornGlobalsClassVar(JayhornGlobals_443, Test_c0_444) :- Block4_5(kin_0_382, ki1_441, ki2_442, JayhornGlobals_443, Test_c0_444, i0_445, i3_446).
+		Block4_6(kin_0_382, ki1_441, ki2_442, JayhornGlobals_443, Test_c0_444, i0_445, i3_446) :- Block4_5(kin_0_382, ki1_441, ki2_442, JayhornGlobals_443, Test_c0_444, i0_445, i3_446).
+		Block2(kin_0_382, ki1_447, ki2_448, JayhornGlobals_449, Test_c0_450, i0_451, i3_452) :- Block4_6(kin_0_382, ki1_447, ki2_448, JayhornGlobals_449, Test_c0_450, i0_451, i3_452).
+		iTestggvoidgmethod_v1ointpk_post(kin_0_453) :- Block0(kin_0_453).
+		Block1(kin_0_457, ki1_455, ki2_456, kin_0_457, JayhornGlobals_458, Test_c0_459) :- iTestggvoidgmethod_v2ointpk_pre(kin_0_457).
+		Block1_1(kin_0_454, ki1_460, ki2_461, JayhornGlobals_463, Test_c0_464, kin_0_462) :- Block1(kin_0_454, ki1_460, ki2_461, kin_0_462, JayhornGlobals_463, Test_c0_464).
+		Block1_2(kin_0_454, ki1_466, ki2_467, JayhornGlobals_468, Test_c0_469, i0_470, X) :- Block1_1(kin_0_454, ki1_466, ki2_467, JayhornGlobals_468, Test_c0_469, i0_470), X=0.
+		Block2(kin_0_454, ki1_472, ki2_473, JayhornGlobals_474, Test_c0_475, i0_476, i3_477) :- Block1_2(kin_0_454, ki1_472, ki2_473, JayhornGlobals_474, Test_c0_475, i0_476, i3_477).
+		Block3(kin_0_454) :- Block2(kin_0_454, ki1_478, ki2_479, JayhornGlobals_480, Test_c0_481, i0_482, i3_483), i3_483 >= i0_482.
+		Block4(kin_0_454, ki1_478, ki2_479, JayhornGlobals_480, Test_c0_481, i0_482, i3_483) :- Block2(kin_0_454, ki1_478, ki2_479, JayhornGlobals_480, Test_c0_481, i0_482, i3_483), \+(i3_483 >= i0_482).
+		Block0(kin_0_454) :- Block3(kin_0_454).
+		Block4_1(kin_0_454, JayhornGlobals_486, unpackRes_Test_c0_490, i0_488, i3_489) :- Block4(kin_0_454, ki1_484, ki2_485, JayhornGlobals_486, Test_c0_487, i0_488, i3_489), inv_JayhornGlobalsClassVar(JayhornGlobals_486, unpackRes_Test_c0_490).
+		Block4_2(kin_0_454, Test_c0_492, JayhornGlobals_491, i0_493, i3_494) :- Block4_1(kin_0_454, JayhornGlobals_491, Test_c0_492, i0_493, i3_494).
+		Block4_3(kin_0_454, ki1_496, X, JayhornGlobals_497, i0_498, i3_499) :- Block4_2(kin_0_454, ki1_496, JayhornGlobals_497, i0_498, i3_499), X=ki1_496 -2.
+		Block4_4(kin_0_454, ki1_501, ki2_502, JayhornGlobals_503, ki2_502, i0_504, i3_505) :- Block4_3(kin_0_454, ki1_501, ki2_502, JayhornGlobals_503, i0_504, i3_505).
+		Block4_5(kin_0_454, ki1_507, ki2_508, JayhornGlobals_509, Test_c0_510, i0_511, X) :- Block4_4(kin_0_454, ki1_507, ki2_508, JayhornGlobals_509, Test_c0_510, i0_511, i3_512), X=i3_512 + 1.
+		inv_JayhornGlobalsClassVar(JayhornGlobals_515, Test_c0_516) :- Block4_5(kin_0_454, ki1_513, ki2_514, JayhornGlobals_515, Test_c0_516, i0_517, i3_518).
+		Block4_6(kin_0_454, ki1_513, ki2_514, JayhornGlobals_515, Test_c0_516, i0_517, i3_518) :- Block4_5(kin_0_454, ki1_513, ki2_514, JayhornGlobals_515, Test_c0_516, i0_517, i3_518).
+		Block2(kin_0_454, ki1_519, ki2_520, JayhornGlobals_521, Test_c0_522, i0_523, i3_524) :- Block4_6(kin_0_454, ki1_519, ki2_520, JayhornGlobals_521, Test_c0_522, i0_523, i3_524).
+		iTestggvoidgmethod_v2ointpk_post(kin_0_525) :- Block0(kin_0_525).
+		Block0(havoc329_526, havoc330_527, lastExceptionThrown_528) :- iHavoc_Classggintghavoc_intopk_pre.
+		Block0_1(havoc330_530, havoc329_529) :- Block0(havoc329_529, havoc330_530, lastExceptionThrown_531).
+		inv_javavlangvThrowable(lastExceptionThrown_533, havoc330_532) :- Block0_1(havoc330_532, lastExceptionThrown_533).
+		Block0_2 :- Block0_1(havoc330_532, lastExceptionThrown_533).
+		iHavoc_Classggintghavoc_intopk_post(resultVar0_534) :- Block0_2.
+		Block0(havoc331_535, havoc332_536, lastExceptionThrown_537) :- iHavoc_Classggbooleanghavoc_booleanopk_pre.
+		Block0_1(havoc332_539, havoc331_538) :- Block0(havoc331_538, havoc332_539, lastExceptionThrown_540).
+		inv_javavlangvThrowable(lastExceptionThrown_542, havoc332_541) :- Block0_1(havoc332_541, lastExceptionThrown_542).
+		Block0_2 :- Block0_1(havoc332_541, lastExceptionThrown_542).
+		iHavoc_Classggbooleanghavoc_booleanopk_post(resultVar0_543) :- Block0_2.
+		Block1 :- ijavauutiluRandomggvoidgiclinitkopk_pre.
+		Block0 :- Block1.
+		ijavauutiluRandomggvoidgiclinitkopk_post :- Block0.
+
+iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(kin_0_233) :- 1=1.
