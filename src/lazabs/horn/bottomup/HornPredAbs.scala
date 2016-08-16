@@ -656,7 +656,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   var implicationChecksNegTime : Long = 0
   var implicationChecksSetup = 0
   var implicationChecksSetupTime : Long = 0
-  
+  var matchCount = 0
+  var matchTime : Long = 0  
+
   // first find out which theories are relevant
   val theories = {
     val coll = new TheoryCollector
@@ -769,7 +771,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
 */
 
+  println
   println("Unique satisfiable clauses: " + normClauses.size)
+
+  for ((num, clauses) <-
+        (normClauses groupBy { c => c._1.body.size }).toList sortBy (_._1))
+    println("" + clauses.size + " clauses of size " + num)
+
+  println
 
   val relationSymbolOccurrences = {
     val relationSymbolOccurrences =
@@ -1007,6 +1016,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Time for implication checks (setup, ms):    " + implicationChecksSetupTime)
     println("Time for implication checks (positive, ms): " + implicationChecksPosTime)
     println("Time for implication checks (negative, ms): " + implicationChecksNegTime)
+    println
+    println("Number of state matchings:                  " + matchCount)
+    println("Time for state matchings (ms):              " + matchTime)
 
 /*    println
     println("Number of subsumed abstract states: " +
@@ -1132,6 +1144,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   //////////////////////////////////////////////////////////////////////////////
 
   def findNewMatches(state : AbstractState) : Unit = {
+    val startTime = System.currentTimeMillis
+
     val rs = state.rs
 
     import TerForConvenience._
@@ -1171,6 +1185,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         }
       }
     }
+
+    matchCount = matchCount + 1
+    matchTime = matchTime + (System.currentTimeMillis - startTime)
   }
 
   //////////////////////////////////////////////////////////////////////////////
