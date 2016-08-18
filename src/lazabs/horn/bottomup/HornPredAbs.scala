@@ -801,16 +801,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       RelationSymbolPred(posF, negF, rs)
   }
 
-  for ((p, preds) <- initialPredicates) {
-    val rs = relationSymbols(p)
-    val internalPreds =
-      for (f <- preds)
-      yield predicateFromInputAbsy(
-                   IExpression.subst(f, rs.argumentITerms.head.toList, 0),
-                   rs)
-    predicates(rs) ++= internalPreds
-  }
-  
   //////////////////////////////////////////////////////////////////////////////
 
   val goalSettings = {
@@ -841,6 +831,44 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         case Left(_) => false
       }))
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Hashing/sampling to speed up implication checks
+
+  val hasher = new Hasher(sf.order)
+
+  val predicateHashIndexes =
+    (for (rs <- relationSymbols.values)
+         yield (rs -> new ArrayBuffer[Stream[Int]])).toMap
+
+  def addRelationSymbolPred(pred : RelationSymbolPred) : Unit = {
+    assert(predicates(pred.rs).size == predicateHashIndexes(pred.rs).size)
+
+    predicates(pred.rs) +=
+      pred
+    predicateHashIndexes(pred.rs) +=
+      (for (f <- pred.posInstances) yield (hasher addFormula f))
+  }
+
+  def addRelationSymbolPreds(preds : Seq[RelationSymbolPred]) : Unit =
+    for (pred <- preds) addRelationSymbolPred(pred)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Initialise with given initial predicates
+  
+  for ((p, preds) <- initialPredicates) {
+    val rs = relationSymbols(p)
+
+    for (f <- preds) {
+      val pred =
+        predicateFromInputAbsy(
+                   IExpression.subst(f, rs.argumentITerms.head.toList, 0),
+                   rs)
+      addRelationSymbolPred(pred)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   // Abstract states that are used for matching and instantiating clauses
@@ -1464,7 +1492,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       implicationChecksSetupTime + (System.currentTimeMillis - startTime)
     
     val predConsequences =
-      (for (pred <- predicates(rs).iterator;
+      (for ((pred, predIndex) <- predicates(rs).iterator.zipWithIndex;
+            if { println(predicateHashIndexes(rs)(predIndex)(rsOcc)); true };
             if (predIsConsequence(pred, rsOcc, reducer, prover, order)))
        yield pred).toVector
     AbstractState(rs, predConsequences)
@@ -1658,7 +1687,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         print(p.name + ": ")
         println(rsPreds mkString ", ")
 
-        predicates(rs) ++= rsPreds
+        addRelationSymbolPreds(rsPreds)
 
         // check whether any edges need to be updated
         for (i <- 0 until abstractEdges.size) {
