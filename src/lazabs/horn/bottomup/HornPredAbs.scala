@@ -853,6 +853,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   def addRelationSymbolPreds(preds : Seq[RelationSymbolPred]) : Unit =
     for (pred <- preds) addRelationSymbolPred(pred)
 
+  // Add clause constraints to hasher
+
+  val clauseHashIndexes =
+    (for ((clause, _) <- normClauses.iterator)
+     yield (clause, hasher addFormula clause.constraint)).toMap
+
   //////////////////////////////////////////////////////////////////////////////
 
   // Initialise with given initial predicates
@@ -1453,27 +1459,39 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val startTime = System.currentTimeMillis
     val prover = emptyProver.assert(assumptions, clause.order)
 
-    implicationChecks = implicationChecks + 1
-    implicationChecksSetup = implicationChecksSetup + 1
+    hasher.scope {
+      hasher assertFormula clauseHashIndexes(clause)
+      for ((state, (rs, occ)) <- from.iterator zip clause.body.iterator)
+        for (pred <- state.preds.iterator) {
+          val id =
+            predicateHashIndexes(rs)(predicates(rs) indexOf pred)(occ)
+          hasher assertFormula id
+        }
 
-    val valid = isValid(prover)
+      println(hasher.isSat)
+
+      implicationChecks = implicationChecks + 1
+      implicationChecksSetup = implicationChecksSetup + 1
+
+      val valid = isValid(prover)
     
-    implicationChecksSetupTime =
-      implicationChecksSetupTime + (System.currentTimeMillis - startTime)
-      
-    if (valid) {
-      // assumptions are inconsistent, nothing to do
-      None
-    } else {
-      // assumptions are consistent
-      clause.head._1.pred match {
-        case HornClauses.FALSE =>
-          throw new Counterexample(from, clause)
-        case _ => {
-          val state = genAbstractState(assumptions,
-                                       clause.head._1, clause.head._2,
-                                       prover, clause.order)
-          Some(AbstractEdge(from, state, clause, assumptions))
+      implicationChecksSetupTime =
+        implicationChecksSetupTime + (System.currentTimeMillis - startTime)
+
+      if (valid) {
+        // assumptions are inconsistent, nothing to do
+        None
+      } else {
+        // assumptions are consistent
+        clause.head._1.pred match {
+          case HornClauses.FALSE =>
+            throw new Counterexample(from, clause)
+          case _ => {
+            val state = genAbstractState(assumptions,
+                                         clause.head._1, clause.head._2,
+                                         prover, clause.order)
+            Some(AbstractEdge(from, state, clause, assumptions))
+          }
         }
       }
     }

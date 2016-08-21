@@ -36,7 +36,14 @@ import scala.collection.mutable.{ArrayBuffer, BitSet => MBitSet}
 
 object Hasher {
 
-  type Model = Conjunction
+  private type Model = Conjunction
+
+  private abstract sealed class AssertionStackElement
+
+  private case class AssertedFormula(id : Int)
+                     extends AssertionStackElement
+  private case class AssertionFrame(oldVector : MBitSet)
+                     extends AssertionStackElement
 
   private def eval(model : Model, f : Conjunction)
                   (implicit order : TermOrder) : Boolean = {
@@ -80,16 +87,20 @@ class Hasher(globalOrder : TermOrder) {
     // all variables distinct, increasing
     models +=
       conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex)
-           yield (c === n))
+           yield (c === (n+1)))
 
     // all variables distinct, decreasing
     models +=
       conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex)
-           yield (c === -n))
+           yield (c === -(n+1)))
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Make the hasher watch the given formula. The formula can be referred
+   * to using the returned id.
+   */
   def addFormula(f : Conjunction) : Int = {
     val res = watchedFormulas.size
     watchedFormulas += f
@@ -104,5 +115,53 @@ class Hasher(globalOrder : TermOrder) {
 
     res
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  // API for checking satisfaction and implications
+
+  def push : Unit =
+    assertionStack += AssertionFrame(currentEvalVector)
+  def pop : Unit = {
+    var i = assertionStack.size - 1
+    while (i >= 0) {
+      assertionStack(i) match {
+        case AssertionFrame(vec) => {
+          currentEvalVector = vec
+          assertionStack reduceToSize i
+          return
+        }
+        case _ =>
+          // nothing
+      }
+      i = i - 1
+    }
+  }
+
+  def scope[A](comp : => A) : A = {
+    push
+    try {
+      comp
+    } finally {
+      pop
+    }
+  }
+
+  def assertFormula(forId : Int) : Unit = {
+    assertionStack += AssertedFormula(forId)
+    if (currentEvalVector == null)
+      currentEvalVector = evalVectors(forId)
+    else
+      currentEvalVector = currentEvalVector & evalVectors(forId)
+  }
+
+  def isSat : Boolean =
+    !currentEvalVector.isEmpty
+
+  def mightBeImplied(forId : Int) : Boolean =
+    currentEvalVector subsetOf evalVectors(forId)
+
+  private var currentEvalVector : MBitSet = null
+  private val assertionStack = new ArrayBuffer[AssertionStackElement]
 
 }
