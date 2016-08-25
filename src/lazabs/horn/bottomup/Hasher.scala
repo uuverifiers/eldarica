@@ -36,7 +36,7 @@ import scala.collection.mutable.{ArrayBuffer, BitSet => MBitSet}
 
 object Hasher {
 
-  private type Model = Conjunction
+  type Model = Conjunction
 
   private abstract sealed class AssertionStackElement
 
@@ -60,7 +60,22 @@ object Hasher {
     reducer(f).isTrue
   }
 
+  private def mergeModels(model1 : Model, model2 : Model)
+                         (implicit order : TermOrder) : Option[Model] = {
+    import TerForConvenience._
+    val res = model1 & model2
+    if (res.isFalse) None else Some(res)
+  }
+
+  private def setBit(set : MBitSet, index : Int, value : Boolean) : Unit =
+    if (value)
+      set += index
+    else
+      set -= index
+
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Class to approximate sat and implication checks, by keeping a set of
@@ -114,6 +129,57 @@ class Hasher(globalOrder : TermOrder) {
     println("Adding " + f + ": " + evalVector)
 
     res
+  }
+
+  /**
+   * Add a new model that is subsequently used for hashing.
+   */
+  def addModel(model : Model) : Unit = {
+    var i = 0
+    var finished = false
+
+    while (i < models.size && !finished)
+      mergeModels(model, models(i)) match {
+        case Some(mergedModel) => {
+          models(i) = mergedModel
+          finished = true
+        }
+        case None =>
+          i = i + 1
+      }
+
+    if (!finished) {
+      i = models.size
+      models += model
+    }
+
+    updateEvalVectors(i)
+  }
+
+  def acceptsModels : Boolean = true
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def updateEvalVectors(modelIndex : Int) : Unit = {
+    val model = models(modelIndex)
+
+    // update the stored vectors
+    for (formulaIndex <- 0 until watchedFormulas.size) {
+      val newBit = eval(model, watchedFormulas(formulaIndex))
+      setBit(evalVectors(formulaIndex), modelIndex, newBit)
+    }
+
+    // update assertion stack
+    var newBit = true
+    for (el <- assertionStack) el match {
+      case AssertedFormula(id) =>
+        newBit = newBit && evalVectors(id)(modelIndex)
+      case AssertionFrame(oldVector) =>
+        setBit(oldVector, modelIndex, newBit)
+    }
+
+    if (currentEvalVector != null)
+      setBit(currentEvalVector, modelIndex, newBit)
   }
 
   //////////////////////////////////////////////////////////////////////////////
