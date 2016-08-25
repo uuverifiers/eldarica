@@ -31,6 +31,7 @@ package lazabs.horn.bottomup
 
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience}
+import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, BitSet => MBitSet}
 
@@ -45,33 +46,13 @@ object Hasher {
   private case class AssertionFrame(oldVector : MBitSet)
                      extends AssertionStackElement
 
-  private def eval(model : Model, f : Conjunction)
-                  (implicit order : TermOrder) : Boolean = {
-    import TerForConvenience._
-
-    val undefConsts = f.constants filterNot model.constants
-    val completeModel =
-      if (undefConsts.isEmpty)
-        model
-      else
-        model & (undefConsts.toSeq === 0)
-
-    val reducer = ReduceWithConjunction(completeModel, order)
-    reducer(f).isTrue
-  }
-
-  private def mergeModels(model1 : Model, model2 : Model)
-                         (implicit order : TermOrder) : Option[Model] = {
-    import TerForConvenience._
-    val res = model1 & model2
-    if (res.isFalse) None else Some(res)
-  }
-
   private def setBit(set : MBitSet, index : Int, value : Boolean) : Unit =
     if (value)
       set += index
     else
       set -= index
+
+  private val maxModelNum = 64
 
 }
 
@@ -90,6 +71,7 @@ class Hasher(globalOrder : TermOrder) {
   private val evalVectors = new ArrayBuffer[MBitSet]
 
   private val models = new ArrayBuffer[Model]
+  private val reducers = new ArrayBuffer[ReduceWithConjunction]
 
   {
     // set up some default models
@@ -108,6 +90,42 @@ class Hasher(globalOrder : TermOrder) {
     models +=
       conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex)
            yield (c === -(n+1)))
+
+    for (m <- models)
+      reducers += ReduceWithConjunction(m, globalOrder)
+  }
+
+  private val presetModelNum = models.size
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  var evalTime : Long = 0
+  var evalNum : Int = 0
+
+  private def eval(modelIndex : Int, f : Conjunction) : Boolean = {
+    import TerForConvenience._
+
+    val startTime = System.currentTimeMillis
+
+    val reduced1 = reducers(modelIndex) tentativeReduce f
+    val reduced2 = reducers(0) tentativeReduce reduced1
+    val res = reduced2.isTrue
+
+    evalTime = evalTime + (System.currentTimeMillis - startTime)
+    evalNum = evalNum + 1
+
+    res
+  }
+
+  private def mergeModels(modelIndex : Int,
+                          model2 : Model) : Option[Model] = {
+    import TerForConvenience._
+    if ((reducers(modelIndex) tentativeReduce model2).isFalse) {
+      None
+    } else {
+      val res = models(modelIndex) & model2
+      if (res.isFalse) None else Some(res)
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -121,12 +139,12 @@ class Hasher(globalOrder : TermOrder) {
     watchedFormulas += f
 
     val evalVector = new MBitSet
-    for ((m, i) <- models.iterator.zipWithIndex)
-      if (eval(m, f))
+    for (i <- 0 until models.size)
+      if (eval(i, f))
         evalVector += i
     evalVectors += evalVector
 
-    println("Adding " + f + ": " + evalVector)
+//    println("Adding " + f + ": " + evalVector)
 
     res
   }
@@ -135,13 +153,18 @@ class Hasher(globalOrder : TermOrder) {
    * Add a new model that is subsequently used for hashing.
    */
   def addModel(model : Model) : Unit = {
-    var i = 0
+    println("Adding model ...")
+    var i = presetModelNum
     var finished = false
 
     while (i < models.size && !finished)
-      mergeModels(model, models(i)) match {
+      mergeModels(i, model) match {
         case Some(mergedModel) => {
+          val changedConstants = model.constants filterNot models(i).constants
           models(i) = mergedModel
+          reducers(i) = ReduceWithConjunction(mergedModel, globalOrder)
+    println("Merged with #" + i)
+          extendModelAndUpdateVectors(i, changedConstants)
           finished = true
         }
         case None =>
@@ -151,31 +174,61 @@ class Hasher(globalOrder : TermOrder) {
     if (!finished) {
       i = models.size
       models += model
+      reducers += ReduceWithConjunction(model, globalOrder)
+      extendEvalVectors(i)
+println("now have " + models.size + " models")
     }
 
-    updateEvalVectors(i)
+    updateAssertionStack(i)
   }
 
-  def acceptsModels : Boolean = true
+  def acceptsModels : Boolean = models.size < maxModelNum
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def updateEvalVectors(modelIndex : Int) : Unit = {
+  private def extendEvalVectors(modelIndex : Int) : Unit = {
     val model = models(modelIndex)
+    val assignedConstants = model.constants
 
     // update the stored vectors
     for (formulaIndex <- 0 until watchedFormulas.size) {
-      val newBit = eval(model, watchedFormulas(formulaIndex))
-      setBit(evalVectors(formulaIndex), modelIndex, newBit)
+      val formula = watchedFormulas(formulaIndex)
+      val vector = evalVectors(formulaIndex)
+
+      val newBit =
+        if (Seqs.disjoint(formula.constants, assignedConstants))
+          // use existing model where all constants are assigned 0
+          vector(0)
+        else
+          eval(modelIndex, formula)
+
+      setBit(vector, modelIndex, newBit)
+    }
+  }
+
+  private def extendModelAndUpdateVectors
+                         (modelIndex : Int,
+                          changedConstants : Set[ConstantTerm]) : Unit = {
+      val model = models(modelIndex)
+
+      // update the stored vectors
+      for (formulaIndex <- 0 until watchedFormulas.size) {
+        val formula = watchedFormulas(formulaIndex)
+        if (!Seqs.disjoint(formula.constants, changedConstants)) {
+          val newBit = eval(modelIndex, formula)
+          setBit(evalVectors(formulaIndex), modelIndex, newBit)
+        }
+      }
     }
 
-    // update assertion stack
+  private def updateAssertionStack(modelIndex : Int) : Unit = {
     var newBit = true
     for (el <- assertionStack) el match {
       case AssertedFormula(id) =>
         newBit = newBit && evalVectors(id)(modelIndex)
       case AssertionFrame(oldVector) =>
-        setBit(oldVector, modelIndex, newBit)
+        if (oldVector != null)
+          setBit(oldVector, modelIndex, newBit)
     }
 
     if (currentEvalVector != null)
@@ -222,10 +275,11 @@ class Hasher(globalOrder : TermOrder) {
   }
 
   def isSat : Boolean =
-    !currentEvalVector.isEmpty
+    currentEvalVector == null || !currentEvalVector.isEmpty
 
   def mightBeImplied(forId : Int) : Boolean =
-    currentEvalVector subsetOf evalVectors(forId)
+    currentEvalVector != null &&
+    (currentEvalVector subsetOf evalVectors(forId))
 
   private var currentEvalVector : MBitSet = null
   private val assertionStack = new ArrayBuffer[AssertionStackElement]
