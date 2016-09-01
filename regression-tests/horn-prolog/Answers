@@ -221,15 +221,26 @@ After shortening of clauses:         7 clauses
 
 -------------------- Starting solver -----------------------
 Constant and interval propagation +++++++++++++++
+
 Unique satisfiable clauses: 6
+3 clauses of size 0
+2 clauses of size 1
+1 clauses of size 3
+
 Starting CEGAR
 ......
-CEGAR iterations: 0
-Final number of abstract states: 3
-Final number of matched abstract states: 3
-Final number of abstract edges: 6
-Number of generated predicates: 3
-Number of implication checks: 12
+CEGAR iterations:                           0
+Final number of abstract states:            3
+Final number of matched abstract states:    3
+Final number of abstract edges:             6
+Number of generated predicates:             3
+Number of implication checks:               12
+
+Number of implication checks (setup):       6
+Number of implication checks (positive):    6
+Number of implication checks (negative):    0
+
+Number of state matchings:                  3
 
 SOLVABLE
 a(A) :- (A >= 1).
