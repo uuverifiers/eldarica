@@ -46,12 +46,8 @@ Number of implication checks:               679
 Number of implication checks (setup):       97
 Number of implication checks (positive):    202
 Number of implication checks (negative):    380
-Time for implication checks (setup, ms):    417
-Time for implication checks (positive, ms): 124
-Time for implication checks (negative, ms): 1390
 
 Number of state matchings:                  66
-Time for state matchings (ms):              43
 
 
 SOLVABLE: 
@@ -91,12 +87,8 @@ Number of implication checks:               116
 Number of implication checks (setup):       29
 Number of implication checks (positive):    20
 Number of implication checks (negative):    67
-Time for implication checks (setup, ms):    29
-Time for implication checks (positive, ms): 16
-Time for implication checks (negative, ms): 89
 
 Number of state matchings:                  25
-Time for state matchings (ms):              8
 
 
 SOLVABLE: 
