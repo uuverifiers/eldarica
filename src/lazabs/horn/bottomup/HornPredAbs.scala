@@ -1088,9 +1088,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Time for state/clause matchings (ms):       " + matchTime)
     println
     println("Number of models in hasher:                 " + hasher.modelNum)
+
+    val hasherChecksNum = hasherChecksMiss + hasherChecksHit
+    val hasherChecksRate =
+      if (hasherChecksNum == 0) 0 else (hasherChecksHit * 100 / hasherChecksNum)
     println("Hasher hits/misses:                         " +
             hasherChecksHit + "/" + hasherChecksMiss + " = " +
-            (hasherChecksHit * 100 / (hasherChecksMiss + hasherChecksHit)) + "%")
+            hasherChecksRate + "%")
+
     println("Number of hasher evals:                     " + hasher.evalNum)
     println("Time for hasher eval:                       " + hasher.evalTime)
 
