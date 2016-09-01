@@ -819,6 +819,10 @@ class CCReader private (prog : Program,
       val c = getFreshEvalVar
 // println("push " + v + " -> " + c)
 
+      addValue(v)
+      // reserve a local variable, in case we need one later
+      addLocalVar(c, v.typ)
+
       if (usingInitialPredicates) {
         import HornPreprocessor.VerifHintInitPred
         
@@ -846,10 +850,6 @@ class CCReader private (prog : Program,
           }
         }
       }
-      
-      addValue(v)
-      // reserve a local variable, in case we need one later
-      addLocalVar(c, v.typ)
     }
 
     private def pushFormalVal(t : CCType) = {
