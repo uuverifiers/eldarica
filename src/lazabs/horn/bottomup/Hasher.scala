@@ -52,7 +52,7 @@ object Hasher {
     else
       set -= index
 
-  private val maxModelNum = 64
+  private val maxModelNum = 1024
 
 }
 
@@ -101,6 +101,7 @@ class Hasher(globalOrder : TermOrder) {
 
   var evalTime : Long = 0
   var evalNum : Int = 0
+  def modelNum = models.size
 
   private def eval(modelIndex : Int, f : Conjunction) : Boolean = {
     import TerForConvenience._

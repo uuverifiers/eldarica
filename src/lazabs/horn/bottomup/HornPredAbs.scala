@@ -650,15 +650,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   val startTime = System.currentTimeMillis
   var predicateGeneratorTime : Long = 0
-  var implicationChecks = 0
-  var implicationChecksPos = 0
-  var implicationChecksNeg = 0
+  var implicationChecks, implicationChecksPos, implicationChecksNeg = 0
   var implicationChecksPosTime : Long = 0
   var implicationChecksNegTime : Long = 0
   var implicationChecksSetup = 0
   var implicationChecksSetupTime : Long = 0
+  var hasherChecksHit, hasherChecksMiss = 0
   var matchCount = 0
   var matchTime : Long = 0  
+
+  val rand = new Random (98762521)
 
   // first find out which theories are relevant
   val theories = {
@@ -818,9 +819,20 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     prover
   }
 
+  var hardValidityCheckNum = 0
+  var hardValidityCheckThreshold = 7
+  var hardValidityCheckNumSqrt = 3
+
   def isValid(prover : ModelSearchProver.IncProver) : Boolean =
     prover.isObviouslyValid || {
-      if (hasher.acceptsModels)
+      hardValidityCheckNum = hardValidityCheckNum + 1
+      if (hardValidityCheckNum == hardValidityCheckThreshold) {
+        hardValidityCheckNum = 0
+        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
+        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
+      }
+
+      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
         (prover checkValidity true) match {
           case Left(m) =>
             if (m.isFalse) {
@@ -1072,9 +1084,13 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Time for implication checks (positive, ms): " + implicationChecksPosTime)
     println("Time for implication checks (negative, ms): " + implicationChecksNegTime)
     println
-    println("Number of state matchings:                  " + matchCount)
-    println("Time for state matchings (ms):              " + matchTime)
+    println("Number of state/clause matchings:           " + matchCount)
+    println("Time for state/clause matchings (ms):       " + matchTime)
     println
+    println("Number of models in hasher:                 " + hasher.modelNum)
+    println("Hasher hits/misses:                         " +
+            hasherChecksHit + "/" + hasherChecksMiss + " = " +
+            (hasherChecksHit * 100 / (hasherChecksMiss + hasherChecksHit)) + "%")
     println("Number of hasher evals:                     " + hasher.evalNum)
     println("Time for hasher eval:                       " + hasher.evalTime)
 
@@ -1488,7 +1504,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       val hasherSat = hasher.isSat
 //      println("Hasher: " + hasherSat)
 
-      val valid = !hasherSat && isValid(prover)
+      val valid =
+        if (hasherSat) {
+          hasherChecksHit = hasherChecksHit + 1
+          false
+        } else {
+          val res = isValid(prover)
+          if (!res)
+            hasherChecksMiss = hasherChecksMiss + 1
+          res
+        }
     
       implicationChecks = implicationChecks + 1
       implicationChecksSetup = implicationChecksSetup + 1
@@ -1539,17 +1564,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                                   prover : => ModelSearchProver.IncProver,
                                   order : TermOrder) : Boolean = {
     val hasherId = predicateHashIndexes(pred.rs)(pred.predIndex)(rsOcc)
-    val hasherImp = hasher mightBeImplied hasherId
 
-    if (!hasherImp)
-      return false
-
-    val preciseImp = predIsConsequence(pred, rsOcc, reducer, prover, order)
-
-//    println("" + hasherId + ": " + hasherImp + " " + preciseImp)
-//    assert(hasherImp || !preciseImp)
-
-    preciseImp
+    if (hasher mightBeImplied hasherId) {
+      val res = predIsConsequence(pred, rsOcc, reducer, prover, order)
+      if (!res)
+        hasherChecksMiss = hasherChecksMiss + 1
+      res
+    } else {
+      hasherChecksHit = hasherChecksHit + 1
+      false
+    }
   }
 
   def predIsConsequence(pred : RelationSymbolPred, rsOcc : Int,
@@ -1659,7 +1683,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                    CounterexampleMethod.MaxNOrShortest =>
                 minEdges
               case CounterexampleMethod.RandomShortest =>
-                List(minEdges(Random nextInt minEdges.size))
+                List(minEdges(rand nextInt minEdges.size))
             }
 
             // recursively add all the children
