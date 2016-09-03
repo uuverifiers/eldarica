@@ -37,7 +37,7 @@ f_sf(A,B,C,D) :- ((C = 91); (((B - C) >= 10), (C >= 92))).
 main_s1(A,B,C,D) :- ((D = B), (C = A)).
 main_s2(A,B,C,D) :- ((C = A), (D =< 100)).
 main_s3(A,B,C,D) :- ((D =< 100), ((C = 91); (((D - C) >= 10), (C >= 92)))).
-main_sf(A,B,C,D) :- ((C = 91), (D =< 100)).
+main_sf(A,B,C,D) :- 1 = 1.
 
 mccarthy92.nts.horn
 SOLVABLE
@@ -48,7 +48,7 @@ f_sf(A,B,C,D) :- ((C = 92); ((((B - C) = 10), (B >= 101)), ((((((14 - B) mod 2) 
 main_s1(A,B,C,D,E,F) :- (((F = C), (E = B)), (D = A)).
 main_s2(A,B,C,D,E,F) :- ((((E = B), (D = A)), (F =< 100)), (((-1 * F) mod 2) = 0)).
 main_s3(A,B,C,D,E,F) :- (((D = A), (F =< 100)), ((((-1 * F) mod 2) = 0), ((E = 92); ((((F - E) = 10), (E >= 91)), ((((((4 - E) mod 2) = 0), (((2 - E) mod 2) = 0)), (((10 + E) mod 2) = 0)), (((-2 + E) mod 2) = 0)))))).
-main_sf(A,B,C,D,E,F) :- ((((E = 92), (D = A)), (F =< 100)), (((-1 * F) mod 2) = 0)).
+main_sf(A,B,C,D,E,F) :- 1 = 1.
 
 palindrome.nts.horn
 SOLVABLE
@@ -213,11 +213,12 @@ NOT SOLVABLE
 zero-iterations.horn
 Loading CEGAR hints ...
 --------------------- Preprocessing ------------------------
-Initially:                           7 clauses
-After constraint simplification:     7 clauses
-After clause inlining:               7 clauses
-After slicing:                       7 clauses
-After shortening of clauses:         7 clauses
+Initially:                                     7 clauses
+After eliminating fwd/bwd unreachable clauses: 7 clauses
+After constraint simplification:               7 clauses
+After clause inlining:                         7 clauses
+After slicing:                                 7 clauses
+After shortening of clauses:                   7 clauses
 
 
 -------------------- Starting solver -----------------------

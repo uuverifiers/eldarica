@@ -46,10 +46,11 @@ class DefaultPreprocessor extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "default"
-  val printWidth = 37
+  val printWidth = 47
 
   val stages : List[HornPreprocessor] =
-    List(DefinitionInliner,
+    List(ReachabilityChecker,
+         DefinitionInliner,
          new ClauseInliner,
          Slicer,
          new ClauseShortener) ++

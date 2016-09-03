@@ -38,6 +38,7 @@ import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
+import scala.collection.{Set => GSet}
 
 object HornPreprocessor {
 
@@ -50,12 +51,12 @@ object HornPreprocessor {
 
     def isEmpty = predicateHints.isEmpty
 
-    def filterPredicates(remainingPreds : Set[IExpression.Predicate]) = {
+    def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {
       val remHints = predicateHints filterKeys remainingPreds
       VerificationHints(remHints)
     }
 
-    def filterNotPredicates(removed : Set[IExpression.Predicate]) =
+    def filterNotPredicates(removed : GSet[IExpression.Predicate]) =
       if (removed.isEmpty)
         this
       else
@@ -86,8 +87,8 @@ object HornPreprocessor {
 
   object EmptyVerificationHints extends VerificationHints {
     val predicateHints = Map[IExpression.Predicate, Seq[VerifHintElement]]()
-    override def filterPredicates(remainingPreds : Set[IExpression.Predicate]) =
-      this
+    override def filterPredicates(
+                   remainingPreds : GSet[IExpression.Predicate]) = this
     override def toInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]] =
       Map()
   }
