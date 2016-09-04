@@ -332,12 +332,19 @@ object ParametricEncoder {
       val newProcesses =
         (for (((clauses, repl), preds) <-
                processes.iterator zip localPreds.iterator) yield {
-          val clauseBuffer =
-            clauses.toBuffer
+          val clauseBuffer = clauses.toBuffer
+
+          // sort the predicates, to eliminate first predicates with high arity,
+          // and then predicates with few incoming clauses
           val predsBuffer =
-            (preds.iterator filterNot predsToKeep).toBuffer sortBy {
-              (p:Predicate) => -p.arity
-            }
+            ((for (pred <- preds.iterator;
+                   if !(predsToKeep contains pred);
+                   incoming =
+                     for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
+                     yield p)
+              yield (pred, incoming.size)).toVector
+                                          .sortBy(t => (-t._1.arity, t._2))
+                                          .map(_._1)).toBuffer
 
           var changed = true
           while (changed) {
