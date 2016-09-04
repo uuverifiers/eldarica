@@ -332,20 +332,24 @@ object ParametricEncoder {
       val newProcesses =
         (for (((clauses, repl), preds) <-
                processes.iterator zip localPreds.iterator) yield {
-          val clauseBuffer = clauses.toBuffer
-          val predsBuffer = (preds.iterator filterNot predsToKeep).toBuffer
+          val clauseBuffer =
+            clauses.toBuffer
+          val predsBuffer =
+            (preds.iterator filterNot predsToKeep).toBuffer sortBy {
+              (p:Predicate) => -p.arity
+            }
 
           var changed = true
-          var considerJoins = false
           while (changed) {
             changed = false
 
-            for (pred <- predsBuffer.toList) {
+            val predsIt = predsBuffer.iterator
+            while (!changed && predsIt.hasNext) {
+              val pred = predsIt.next
               val incoming =
                 for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
                 yield p
 
-              if (considerJoins != (incoming.size <= 1)) {
                 val outgoing =
                   for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <-
                          clauseBuffer)
@@ -388,15 +392,8 @@ object ParametricEncoder {
                     clauseBuffer --= outgoing
                     clauseBuffer ++= newClauses
                     changed = true
-                    considerJoins = false
                   }
                 }
-              }
-            }
-
-            if (!changed && !considerJoins) {
-              changed = true
-              considerJoins = true
             }
           }
 
