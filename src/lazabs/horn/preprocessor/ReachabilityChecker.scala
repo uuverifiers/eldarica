@@ -40,8 +40,7 @@ import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.util.Seqs
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, ArrayBuffer}
+import scala.collection.mutable.{HashSet => MHashSet, ArrayStack}
 
 /**
  * Simple pre-processor that removes clauses that are unreachable from the entry
@@ -67,13 +66,12 @@ object ReachabilityChecker extends HornPreprocessor {
     val fwdReachable, fwdUnreachable = new MHashSet[Predicate]
 
     val fwdReachableClauses = {
-      val workList = new LinkedHashSet[Predicate]
+      val workList = new ArrayStack[Predicate]
 
       // add entry predicates
-      for (Clause(IAtom(p, _), Seq(), _) <- clauses) {
-        fwdReachable += p
-        workList += p
-      }
+      for (Clause(IAtom(p, _), Seq(), _) <- clauses)
+        if (fwdReachable add p)
+          workList push p
 
       // fixed-point iteration
       val clausesWithBodyPred =
@@ -82,15 +80,14 @@ object ReachabilityChecker extends HornPreprocessor {
          yield (p, clause)) groupBy (_._1)
     
       while (!workList.isEmpty) {
-        val pred = workList.head
-        workList -= pred
+        val pred = workList.pop
 
         for ((_, Clause(IAtom(headPred, _), body, _)) <-
                clausesWithBodyPred.getOrElse(pred, List()))
           if (!(fwdReachable contains headPred) &&
               (body forall { case IAtom(p, _) => fwdReachable contains p })) {
             fwdReachable += headPred
-            workList += headPred
+            workList push headPred
           }
       }
 
@@ -103,23 +100,22 @@ object ReachabilityChecker extends HornPreprocessor {
     val bwdReachable = new MHashSet[Predicate]
 
     val bwdReachableClauses = {
-      val workList = new LinkedHashSet[Predicate]
+      val workList = new ArrayStack[Predicate]
 
       // FALSE is exit
       bwdReachable += HornClauses.FALSE
-      workList += HornClauses.FALSE
+      workList push HornClauses.FALSE
 
       // fixed-point iteration
       val clausesWithHeadPred = fwdReachableClauses groupBy (_.head.pred)
 
       while (!workList.isEmpty) {
-        val pred = workList.head
-        workList -= pred
+        val pred = workList.pop
 
         for (Clause(_, body, _) <- clausesWithHeadPred.getOrElse(pred, List()))
           for (IAtom(p, _) <- body)
             if (bwdReachable add p)
-              workList += p
+              workList push p
       }
       
       for (clause <- clauses; if clause.predicates subsetOf bwdReachable)
