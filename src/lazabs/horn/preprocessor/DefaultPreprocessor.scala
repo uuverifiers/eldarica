@@ -51,9 +51,10 @@ class DefaultPreprocessor extends HornPreprocessor {
   val stages : List[HornPreprocessor] =
     List(ReachabilityChecker,
          DefinitionInliner,
-         new ClauseInliner,
-         Slicer,
-         new ClauseShortener) ++
+         new ClauseInliner) ++
+    (if (lazabs.GlobalParameters.get.slicing)
+      List(Slicer) else List()) ++
+    List(new ClauseShortener) ++
     (if (lazabs.GlobalParameters.get.splitClauses)
       List(new ClauseSplitter) else List()) ++
     (if (lazabs.GlobalParameters.get.staticAccelerate)

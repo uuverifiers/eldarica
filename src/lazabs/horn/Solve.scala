@@ -118,10 +118,8 @@ object Solve {
               case _ =>
                 println("SOLVABLE")
             }
-            (log,
-             lazabs.GlobalParameters.get.displaySolutionProlog,
-             lazabs.GlobalParameters.get.displaySolutionSMT) match {
-              case (true, _, false) | (_, true, _) => {
+
+            if (lazabs.GlobalParameters.get.displaySolutionProlog) {
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,
@@ -131,8 +129,7 @@ object Solve {
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
                   println(lazabs.viewer.HornPrinter.print(cl))
                 }
-              }
-              case (_, _, true) => {
+            } else if (lazabs.GlobalParameters.get.displaySolutionSMT) {
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,
@@ -142,8 +139,6 @@ object Solve {
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
                   println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
                 }
-              }
-              case _ => // nothing
             }
           }
         }

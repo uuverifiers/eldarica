@@ -70,6 +70,7 @@ class GlobalParameters {
   var drawCFG = false
   var absInFile = false
   var lbe = false
+  var slicing = true
   var prettyPrint = false
   var smtPrettyPrint = false  
   var interpolation = false
@@ -231,6 +232,7 @@ object Main {
       case "-n" :: rest => spuriousness = false; arguments(rest)
       case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
+      case "-noSlicing" :: rest => slicing = false; arguments(rest)
       case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
       case "-stac" :: rest => staticAccelerate = true; arguments(rest)
@@ -274,7 +276,8 @@ object Main {
           " -ssol\t\tShow solution in SMT-LIB format\n" + 
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
-          " -lbe\t\tDisable inlining of linear Horn clauses\n" +
+          " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
+          " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
