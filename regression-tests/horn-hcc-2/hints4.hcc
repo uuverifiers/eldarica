@@ -1,0 +1,16 @@
+
+
+int toggle(int /*@ predicates { x, !x } @*/ x,
+           int /*@ predicates { y, !y } @*/ y) {
+  int i;
+  for (i = 0; i < 10; ++i) {
+    x = !x;
+    y = !y;
+  }
+  return (x != 0) == (y != 0);
+}
+
+void main() {
+  int res = toggle(1, 2);
+  assert(res);
+}

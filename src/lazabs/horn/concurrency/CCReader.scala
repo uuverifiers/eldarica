@@ -619,9 +619,6 @@ class CCReader private (prog : Program,
         }
 
         if (isVariable) {
-          import HornPreprocessor.{VerifHintInitPred,
-                                   VerifHintTplPred, VerifHintTplEqTerm}
-
           // parse possible model checking hints
           val hints : Seq[Abs_hint] = initDecl match {
             case decl : HintDecl => decl.listabs_hint_
@@ -629,7 +626,19 @@ class CCReader private (prog : Program,
             case _ => List()
           }
 
+          processHints(hints)
+        }
+      }
+    }
+    case _ : NoDeclarator =>
+      // nothing
+  }
+
+  private def processHints(hints : Seq[Abs_hint]) : Unit =
           if (!hints.isEmpty) {
+            import HornPreprocessor.{VerifHintInitPred,
+                                     VerifHintTplPred, VerifHintTplEqTerm}
+
             val hintSymex = Symex(null)
             hintSymex.saveState
 
@@ -673,12 +682,6 @@ class CCReader private (prog : Program,
 
             variableHints(variableHints.size - 1) = hintEls
           }
-        }
-      }
-    }
-    case _ : NoDeclarator =>
-      // nothing
-  }
 
   private def getName(decl : Declarator) : String = decl match {
     case decl : NoPointer => getName(decl.direct_declarator_)
@@ -1415,6 +1418,11 @@ class CCReader private (prog : Program,
             case argDec : TypeAndParam =>
               addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
                           getType(argDec.listdeclaration_specifier_))
+            case argDec : TypeHintAndParam => {
+              addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
+                          getType(argDec.listdeclaration_specifier_))
+              processHints(argDec.listabs_hint_)
+            }
 //            case argDec : Abstract =>
           }
 //      case dec : OldFuncDef =>

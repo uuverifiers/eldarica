@@ -143,6 +143,7 @@ AllSpec.  Parameter_type ::= [Parameter_declaration] ;
 
 OnlyType.      Parameter_declaration ::= [Declaration_specifier] ;
 TypeAndParam.  Parameter_declaration ::= [Declaration_specifier] Declarator ;
+TypeHintAndParam.  Parameter_declaration ::= [Declaration_specifier] [Abs_hint] Declarator ;
 Abstract.      Parameter_declaration ::= [Declaration_specifier] Abstract_declarator ;
 
 separator nonempty Parameter_declaration ",";

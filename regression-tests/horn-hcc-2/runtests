@@ -21,3 +21,7 @@ for name in $TESTS; do
     $LAZABS -cex $opt "$@" $name
 done
 done
+
+echo
+echo hints4.hcc
+$LAZABS -log -abstract:off "$@" hints4.hcc | grep 'SAFE\|CEGAR iterations'
