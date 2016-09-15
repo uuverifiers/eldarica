@@ -32,7 +32,7 @@ mccarthy91.nts.horn
 SOLVABLE
 f_s1(A,B,C,D) :- (B >= D).
 f_s2(A,B,C,D) :- (((D - C) = -11), (((B - C) >= -11), (C =< 111))).
-f_s3(A,B,C,D) :- ((C =< 101), (C >= 91)).
+f_s3(A,B,C,D) :- (((C =< 101), (C >= 91)), (D =< 100)).
 f_sf(A,B,C,D) :- ((C = 91); (((B - C) >= 10), (C >= 92))).
 main_s1(A,B,C,D) :- ((D = B), (C = A)).
 main_s2(A,B,C,D) :- ((C = A), (D =< 100)).
@@ -43,7 +43,7 @@ mccarthy92.nts.horn
 SOLVABLE
 f_s1(A,B,C,D) :- ((B = D), (((((((((14 - B) mod 2) = 0), (((12 - B) mod 2) = 0)), (((2 - B) mod 2) = 0)), (((-1 * B) mod 2) = 0)), (((-12 + B) mod 2) = 0)), (((-2 + B) mod 2) = 0)), ((B mod 2) = 0))).
 f_s2(A,B,C,D) :- ((((D = B), ((C - B) = 12)), (B =< 100)), (((-12 + B) mod 2) = 0)).
-f_s3(A,B,C,D) :- (((C =< 102), (C >= 91)), ((((((2 - C) mod 2) = 0), (((-2 + C) mod 2) = 0)), ((C =< 99); ((((4 - C) mod 2) = 0), ((C = 102); (C = 100))))), ((C =< 99); ((((2 - C) mod 2) = 0), ((C = 102); (C = 100)))))).
+f_s3(A,B,C,D) :- ((((C =< 102), (C >= 91)), (D =< 100)), ((((((2 - C) mod 2) = 0), (((-2 + C) mod 2) = 0)), ((C =< 99); ((((4 - C) mod 2) = 0), ((C = 102); (C = 100))))), ((C =< 99); ((((2 - C) mod 2) = 0), ((C = 102); (C = 100)))))).
 f_sf(A,B,C,D) :- ((C = 92); ((((B - C) = 10), (B >= 101)), ((((((14 - B) mod 2) = 0), (((12 - B) mod 2) = 0)), (((-12 + B) mod 2) = 0)), ((B mod 2) = 0)))).
 main_s1(A,B,C,D,E,F) :- (((F = C), (E = B)), (D = A)).
 main_s2(A,B,C,D,E,F) :- ((((E = B), (D = A)), (F =< 100)), (((-1 * F) mod 2) = 0)).
@@ -213,12 +213,13 @@ NOT SOLVABLE
 zero-iterations.horn
 Loading CEGAR hints ...
 --------------------- Preprocessing ------------------------
-Initially:                                     7 clauses
-After eliminating fwd/bwd unreachable clauses: 7 clauses
-After constraint simplification:               7 clauses
-After clause inlining:                         7 clauses
-After slicing:                                 7 clauses
-After shortening of clauses:                   7 clauses
+Initially:                                             7 clauses
+After eliminating fwd/bwd unreachable clauses (9ms):   7 clauses
+After Boolean clause splitting (8ms):                  7 clauses
+After constraint simplification (2ms):                 7 clauses
+After clause inlining (4ms):                           7 clauses
+After slicing (7ms):                                   7 clauses
+After shortening of clauses (1ms):                     7 clauses
 
 
 -------------------- Starting solver -----------------------

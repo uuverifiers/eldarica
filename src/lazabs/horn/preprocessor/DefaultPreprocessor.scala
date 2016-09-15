@@ -46,10 +46,11 @@ class DefaultPreprocessor extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "default"
-  val printWidth = 47
+  val printWidth = 55
 
   val stages : List[HornPreprocessor] =
     List(ReachabilityChecker,
+         BooleanClauseSplitter,
          DefinitionInliner,
          new ClauseInliner) ++
     (if (lazabs.GlobalParameters.get.slicing)
@@ -71,13 +72,17 @@ class DefaultPreprocessor extends HornPreprocessor {
                         curClauses.size + " clauses")
 
     val translators = for (stage <- stages) yield {
+      val startTime = System.currentTimeMillis
+
       val (newClauses, newHints, translator) =
         stage.process(curClauses, curHints)
       curClauses = newClauses
       curHints = newHints
 
-      Console.err.println("After " + stage.name +
-                          ":" + (" " * (printWidth - 7 - stage.name.size)) +
+      val time = "" + (System.currentTimeMillis - startTime) + "ms"
+      val prefix = "After " + stage.name + " (" + time + "):"
+
+      Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
                           curClauses.size + " clauses")
 
       translator
