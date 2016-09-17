@@ -25,7 +25,7 @@ echo nullary-bug.horn
 $LAZABS -pngNo -sol -cex -abstract "$@" nullary-bug.horn 2>&1 | grep -v "^Elapsed Time"
 
 echo zero-iterations.horn
-$LAZABS -pngNo -abstract:off -sol -log "$@" zero-iterations.horn -hints:zero-iterations.preds 2>&1 | grep -iv 'time\|([0-9]ms)'
+$LAZABS -pngNo -abstract:off -sol -log "$@" zero-iterations.horn -hints:zero-iterations.preds 2>&1 | grep -iv 'time\|[0-9]ms'
 
 echo long-body2.horn
 $LAZABS -pngNo -sol -cex -splitClauses -abstract:off "$@" long-body2.horn 2>&1 | grep -v "^Elapsed Time"
