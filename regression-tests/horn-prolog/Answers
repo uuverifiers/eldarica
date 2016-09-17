@@ -214,12 +214,6 @@ zero-iterations.horn
 Loading CEGAR hints ...
 --------------------- Preprocessing ------------------------
 Initially:                                             7 clauses
-After eliminating fwd/bwd unreachable clauses (9ms):   7 clauses
-After Boolean clause splitting (8ms):                  7 clauses
-After constraint simplification (2ms):                 7 clauses
-After clause inlining (4ms):                           7 clauses
-After slicing (7ms):                                   7 clauses
-After shortening of clauses (1ms):                     7 clauses
 
 
 -------------------- Starting solver -----------------------
