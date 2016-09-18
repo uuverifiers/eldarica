@@ -53,12 +53,12 @@ object SimpleWrapper {
       if (debuggingOutput) Console.err else HornWrapper.NullStream
       
     Console.withErr(errOutput) { Console.withOut(Console.err) {
-      var (newClauses, newInitialPredicates) = {
+      var (newClauses, newInitialPredicates, backTranslator) = {
         val preprocessor = new DefaultPreprocessor
         val hints = new InitPredicateVerificationHints(initialPredicates)
         val (newClauses, newHints, backTranslator) =
           preprocessor.process(clauses.toSeq, hints)
-        (newClauses, newHints.toInitialPredicates)
+        (newClauses, newHints.toInitialPredicates, backTranslator)
       }
   
       val interpolator = if (useTemplates) {
@@ -78,10 +78,7 @@ object SimpleWrapper {
       val predAbs =
         new HornPredAbs(newClauses, initialPredicates, interpolator)
   
-      predAbs.result match {
-        case Right(cex) => Right(cex)
-        case Left(sol) => Left(sol)
-      }
+      backTranslator translate predAbs.result
     }}
   }
 
