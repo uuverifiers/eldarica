@@ -218,8 +218,10 @@ object Slicer extends HornPreprocessor {
                   case None => // nothing
                 }
               }
-            case _ =>
+            case _ => {
+              usedArgSet += argInd
               seenConsts ++= SymbolCollector constants arg
+            }
           }
         }
 
