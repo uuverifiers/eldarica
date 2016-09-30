@@ -324,6 +324,11 @@ object IdentityDomain extends AbstractDomain {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Stride domain: for each argument of a relation variable, remember
+ * whether the value of the argument is equal to some initial argument
+ * value plus some offset.
+ */
 class StrideDomain(sizeBound : Int, p : SimpleAPI)
       extends AbstractDomain {
 
@@ -353,9 +358,18 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
   def join(a : Element, b : Element) : Element =
     canonise((for ((x, y) <- a.iterator zip b.iterator)
               yield (for (s <- x; t <- y) yield (s ++ t))).toList)
-  
+
+  // For each argument of the head of a clause, the following cache
+  // contains a list of body arguments that are connected
+  // (modulo some constant offset)
   private val clauseOffsets =
     new LRUCache[Clause, Option[List[List[(Int, IdealInt)]]]](10000)
+
+  // Indexes of the offsets (stored in the above cache)
+  // that were chosen in the post operation. This map is maintained
+  // to prevent cycles
+  private val chosenOffsetIndex =
+    new MHashMap[Clause, List[Option[Int]]]
 
 //  p setMostGeneralConstraints true
 
@@ -439,19 +453,37 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
 
     if (offsets.isDefined) {
       val allInputs = inputs.flatten
-      (for ((offset, num) <- offsets.get.iterator.zipWithIndex) yield {
-         if (offset.isEmpty) {
-           None
-         } else {
-           val (bestInput, bestOffset) =
-             offset minBy { case (inp, _) =>
-                              allInputs(inp) match {
-                                case Some(s) => s.size
-                                case None => Int.MaxValue
-                              }}
-           for (s <- allInputs(bestInput)) yield {
-             for ((x, y) <- s) yield (x, y + bestOffset)
-           }
+
+      val newChosenOffsetIndex = for (offset <- offsets.get) yield {
+        if (offset.isEmpty)
+          None
+        else
+          Some((offset.iterator.zipWithIndex minBy {
+                  case ((inp, _), _) => allInputs(inp) match {
+                    case Some(s) => s.size
+                    case None => Int.MaxValue
+                  }
+                })._2)
+      }
+
+      val finalChosenOffsetIndex = (chosenOffsetIndex get clause) match {
+        case Some(oldChosen) =>
+          // take the minimum of the new and the previously chosen
+          // indexes, to prevent looping
+          (for ((n, o) <- oldChosen.iterator zip newChosenOffsetIndex.iterator)
+           yield (for (n2 <- n; o2 <- o) yield (n2 min o2))).toList
+        case None =>
+          newChosenOffsetIndex
+      }
+
+      chosenOffsetIndex.put(clause, finalChosenOffsetIndex)
+
+      (for ((offset, chosenIndex) <-
+              offsets.get.iterator zip finalChosenOffsetIndex.iterator) yield {
+         for (index <- chosenIndex;
+              (bestInput, bestOffset) = offset(index);
+              s <- allInputs(bestInput)) yield {
+           for ((x, y) <- s) yield (x, y + bestOffset)
          }
        }).toList
     } else {

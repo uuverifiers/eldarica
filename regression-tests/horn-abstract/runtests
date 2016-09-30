@@ -6,7 +6,8 @@ TESTS="cousot.correct.nts.smt2 \
        palindrome.nts.smt2 \
        inf1.error.nts.smt2 \
        eq.smt2 \
-       monniaux-loop1.smt2 monniaux-loop2.smt2"
+       monniaux-loop1.smt2 monniaux-loop2.smt2 \
+       loopDetectorBug.smt2"
 
 for name in $TESTS; do
     echo
