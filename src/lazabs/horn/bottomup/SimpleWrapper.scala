@@ -100,7 +100,7 @@ object SimpleWrapper {
         if (showDot) {
           val oldConf = lazabs.GlobalParameters.get.pngNo
           lazabs.GlobalParameters.get.pngNo = false
-          Util.show(cex, "SimpleWrapper")
+          Util.show(cex map (_._1), "SimpleWrapper")
           lazabs.GlobalParameters.get.pngNo = oldConf
         }
         Right(cex)
