@@ -21,7 +21,7 @@ for name in $TESTS; do
 done
 
 echo mult.horn
-$LAZABS -pngNo -sol -cex -abstract:relIneqs "$@" mult.horn 2>&1 | grep -v "^Elapsed Time"
+$LAZABS -pngNo -sol -cex -abstract:relIneqs -abstractTO:4 "$@" mult.horn 2>&1 | grep -v "^Elapsed Time"
 
 echo nullary-bug.horn
 $LAZABS -pngNo -sol -cex -abstract "$@" nullary-bug.horn 2>&1 | grep -v "^Elapsed Time"
