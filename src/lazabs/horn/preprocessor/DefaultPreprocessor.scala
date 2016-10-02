@@ -48,11 +48,11 @@ class DefaultPreprocessor extends HornPreprocessor {
   val name : String = "default"
   val printWidth = 55
 
-  val stages : List[HornPreprocessor] =
+  val preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
-         BooleanClauseSplitter,
-         DefinitionInliner,
-         new ClauseInliner) ++
+         BooleanClauseSplitter)
+
+  val postStages : List[HornPreprocessor] =
     (if (lazabs.GlobalParameters.get.slicing)
       List(Slicer) else List()) ++
     List(new ClauseShortener) ++
@@ -71,7 +71,9 @@ class DefaultPreprocessor extends HornPreprocessor {
     Console.err.println("Initially:" + (" " * (printWidth - 10)) +
                         curClauses.size + " clauses")
 
-    val translators = for (stage <- stages) yield {
+    val translators = new ArrayBuffer[BackTranslator]
+
+    def applyStage(stage : HornPreprocessor) = {
       val startTime = System.currentTimeMillis
 
       val (newClauses, newHints, translator) =
@@ -85,8 +87,34 @@ class DefaultPreprocessor extends HornPreprocessor {
       Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
                           curClauses.size + " clauses")
 
-      translator
+      translators += translator
     }
+
+    // First set of processors
+    for (stage <- preStages)
+      applyStage(stage)
+
+    // Apply clause simplification and inlining repeatedly, if necessary
+    applyStage(DefinitionInliner)
+    applyStage(new ClauseInliner)
+
+    var lastSize = -1
+    var curSize = curClauses.size
+    while (lastSize != curSize) {
+      lastSize = curSize
+      applyStage(DefinitionInliner)
+      curSize = curClauses.size
+
+      if (curSize != lastSize) {
+        lastSize = curSize
+        applyStage(new ClauseInliner)
+        curSize = curClauses.size
+      }
+    }
+
+    // Last set of processors
+    for (stage <- postStages)
+      applyStage(stage)
 
     Console.err.println
 

@@ -4,7 +4,6 @@ LAZABS=../../eld
 
 TESTS="merge.horn \
        gcd.horn \
-       mult.horn \
        Levenstein.horn \
        disjunctive.horn \
        mccarthy91.nts.horn \
@@ -20,6 +19,9 @@ for name in $TESTS; do
     echo $name
     $LAZABS -pngNo -sol -cex -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
+
+echo mult.horn
+$LAZABS -pngNo -sol -cex -abstract:relIneqs "$@" mult.horn 2>&1 | grep -v "^Elapsed Time"
 
 echo nullary-bug.horn
 $LAZABS -pngNo -sol -cex -abstract "$@" nullary-bug.horn 2>&1 | grep -v "^Elapsed Time"

@@ -133,17 +133,21 @@ class HornWrapper(constraints: Seq[HornClause],
       }
 
     if (lazabs.GlobalParameters.get.printHornSimplified) {
-      println("-------------------------------")
-      printClauses(simplifiedClauses)
-      println("-------------------------------")
-      println("simplified clauses:")
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
+
+      println("Clauses after preprocessing:")
+      for (c <- simplifiedClauses)
+        println(c.toSMTString)
+
       //val aux = simplifiedClauses map (horn2Eldarica(_))
-      val aux = horn2Eldarica(simplifiedClauses)
-      println(lazabs.viewer.HornPrinter(aux))
-      simplifiedClauses = aux map (transform(_))
-      println("-------------------------------")
-      printClauses(simplifiedClauses)
-      println("-------------------------------")
+//      val aux = horn2Eldarica(simplifiedClauses)
+//      println(lazabs.viewer.HornPrinter(aux))
+//      simplifiedClauses = aux map (transform(_))
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
     }
 
     (simplifiedClauses, simpHints, backTranslator)

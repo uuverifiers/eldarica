@@ -723,8 +723,9 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
                          List(IdealInt.ONE, IdealInt.MINUS_ONE)
                        else
                          l2).iterator;
-                if (!o2.isZero))
-           yield ((v(counterInd)*o2 - v(i2)*o1) -> 2)).toList
+                if (!o2.isZero);
+                (op1, op2) = if (o2.signum >= 0) (o1, o2) else (-o1, -o2))
+           yield ((v(counterInd)*op2 - v(i2)*op1) -> 2)).toList.distinct
         case None =>
           List()
       }
