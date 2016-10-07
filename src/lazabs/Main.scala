@@ -99,6 +99,7 @@ class GlobalParameters {
   var babarew = false
   var log = false
   var logCEX = false
+  var logStat = false
   var printHornSimplified = false
   var dotSpec = false
   var dotFile : String = null
@@ -109,6 +110,29 @@ class GlobalParameters {
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
   def needFullCEX = assertions || plainCEX || !pngNo
+
+  def setLogLevel(level : Int) : Unit = level match {
+    case x if x <= 0 => { // no logging
+      log = false
+      logStat = false
+      logCEX = false
+    }
+    case 1 => { // statistics only
+      log = false
+      logStat = true
+      logCEX = false
+    }
+    case 2 => { // full logging
+      log = true
+      logStat = true
+      logCEX = false
+    }
+    case x if x >= 3 => { // full logging + detailed counterexamples
+      log = true
+      logStat = true
+      logCEX = true
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -250,8 +274,10 @@ object Main {
         timeout = Some(time); arguments(rest)
       case mFuncName :: rest if (mFuncName.startsWith("-m:")) => funcName = mFuncName drop 3; arguments(rest)
       case sSolFileName :: rest if (sSolFileName.startsWith("-s:")) => solFileName = sSolFileName.drop(3); arguments(rest)
-      case "-log" :: rest => log = true; arguments(rest)
-      case "-log:2" :: rest => log = true; logCEX = true; arguments(rest)
+      case "-log" :: rest => setLogLevel(2); arguments(rest)
+      case "-statistics" :: rest => setLogLevel(1); arguments(rest)
+      case logOption :: rest if (logOption startsWith "-log:") =>
+        setLogLevel((logOption drop 5).toInt); arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
@@ -263,6 +289,8 @@ object Main {
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
           " -log\t\tDisplay progress and found invariants\n" + 
+          " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" + 
+          " -statistics\tDisplay statistics (implied by -log)\n" + 
           " -t:time\tSet timeout (in seconds)\n" +
           " -cex\t\tShow textual counterexamples\n" + 
           " -dotCEX\tShow counterexample using dot\n" + 
@@ -438,17 +466,20 @@ object Main {
         case _ => false
       }
 
-      if (log) Console.withErr(Console.out) {
-        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          drawRTree, lbe, log)
-      } else {
-        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          drawRTree, lbe, log)
-      }
+      lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
+                        drawRTree, lbe)
         
       return
 
     } else if (concurrentC) {
+
+      val outStream =
+        if (logStat) Console.err else lazabs.horn.bottomup.HornWrapper.NullStream
+
+      Console.withOut(outStream) {
+        println(
+          "---------------------------- Reading C/C++ file --------------------------------")
+      }
 
       val system = 
         lazabs.horn.concurrency.CCReader(
@@ -461,7 +492,6 @@ object Main {
 
       val smallSystem = system.mergeLocalTransitions
 
-
       if (prettyPrint) {
         println
         println("After simplification:")
@@ -470,11 +500,7 @@ object Main {
       }
 
       val result = try {
-        if (log) {
-          new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem,
-            templateBasedInterpolation).result
-        } else Console.withOut(lazabs.horn.bottomup.HornWrapper.NullStream) {
+        Console.withOut(outStream) {
           new lazabs.horn.concurrency.VerificationLoop(
             smallSystem,
             templateBasedInterpolation).result

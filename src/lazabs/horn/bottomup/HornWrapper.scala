@@ -63,7 +63,6 @@ object HornWrapper {
 class HornWrapper(constraints: Seq[HornClause], 
                   uppaalAbsMap: Option[Map[String, AbsLattice]],
                   lbe: Boolean,
-                  log : Boolean,
                   disjunctive : Boolean) {
 
   import HornWrapper._
@@ -83,7 +82,8 @@ class HornWrapper(constraints: Seq[HornClause],
 
   ap.util.Debug enableAllAssertions lazabs.Main.assertions
 
-  private val outStream = if (log) Console.err else NullStream
+  private val outStream =
+     if (lazabs.GlobalParameters.get.logStat) Console.err else NullStream
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))
@@ -124,7 +124,7 @@ class HornWrapper(constraints: Seq[HornClause],
 
   private val (simplifiedClauses, simpHints, preprocBackTranslator) =
     Console.withErr(outStream) {
-    var (simplifiedClauses, simpHints, backTranslator) =
+    val (simplifiedClauses, simpHints, backTranslator) =
       if (lbe) {
         (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       } else {
@@ -207,7 +207,7 @@ class HornWrapper(constraints: Seq[HornClause],
     val result = Console.withOut(outStream) {
       println
       println(
-        "-------------------- Starting solver -----------------------")
+         "----------------------------------- CEGAR --------------------------------------")
 
        (new HornPredAbs(simplifiedClauses,
                         simpHints.toInitialPredicates, predGenerator,

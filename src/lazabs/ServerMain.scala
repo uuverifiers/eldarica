@@ -42,7 +42,7 @@ object ServerMain {
 
   private val InactivityTimeout = 60 * 60 * 1000 // shutdown after 60min inactivity
   private val TicketLength = 40
-  private val MaxThreadNum = 2
+  private val MaxThreadNum = 4
   private val MaxWaitNum   = 32
   private val WatchdogInit = 30
 
@@ -100,7 +100,7 @@ object ServerMain {
         val clientSocket = socket.accept
 
         actor {
-          Console setErr lazabs.horn.bottomup.HornWrapper.NullStream
+//          Console setErr lazabs.horn.bottomup.HornWrapper.NullStream
   
           val inputReader =
             new java.io.BufferedReader(
@@ -117,6 +117,7 @@ object ServerMain {
                 case "PROVE_AND_EXIT" => {
                   done = true
                   Console.withOut(clientSocket.getOutputStream) {
+                  Console.withErr(clientSocket.getOutputStream) {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
                     var watchdogCounter = WatchdogInit
@@ -169,7 +170,7 @@ object ServerMain {
                     } finally {
                       watchdogCont = false
                     }
-                  }
+                  }}
                 }
                 case str =>
                   arguments += str

@@ -194,7 +194,8 @@ trait AbsLattice
     def apply =
       if (System.currentTimeMillis > startTime + timeout) {
         if (!printedTimeout) {
-          print(" TIMEOUT")
+          if (lazabs.GlobalParameters.get.log)
+            print(" TIMEOUT")
           printedTimeout = true
         }
         true
@@ -375,7 +376,8 @@ trait AbsLattice
                        topBound : LatticeObject,
                        currentCost : Int
                       ) : Seq[LatticeObject] = {
-      print(".")
+      if (lazabs.GlobalParameters.get.log)
+        print(".")
 /*      println("Cheapest MF objects:" + (minFeasEls map (pp _)).mkString(", "))
       println("Costly objects:" + (costlyElements map (pp _)).mkString(", "))
       println("current cost bound: " + currentCost) */
@@ -395,14 +397,18 @@ trait AbsLattice
               val oCost = cost(o)
               // found a cheap mfe
               if (oCost < currentCost) {
-                println
-                println("New cost bound: " + oCost)
-                print("Interpolation abstraction: " + pp(o) + " ")
+                if (lazabs.GlobalParameters.get.log) {
+                  println
+                  println("New cost bound: " + oCost)
+                  print("Interpolation abstraction: " + pp(o) + " ")
+                }
                 (Seq(o), List(), removeExpensivePreds(topBound, oCost), oCost)
               } else {
                 assert(oCost == currentCost)
-                println
-                print("Interpolation abstraction: " + pp(o) + " ")
+                if (lazabs.GlobalParameters.get.log) {
+                  println
+                  print("Interpolation abstraction: " + pp(o) + " ")
+                }
                 (minFeasEls :+ o, costlyElements, topBound, currentCost)
               }
             }
@@ -425,10 +431,12 @@ trait AbsLattice
     //val time = System.nanoTime;
     val allFeasibleAbs = 
       if (cheapIsFeasible(bottom)) {
-        print("Interpolation abstraction: " + pp(bottom))
+        if (lazabs.GlobalParameters.get.log)
+          print("Interpolation abstraction: " + pp(bottom))
         Seq(bottom)
       } else if (!cheapIsFeasible(top)) {
-        print("Top interpolation abstraction is not feasible")
+        if (lazabs.GlobalParameters.get.log)
+          print("Top interpolation abstraction is not feasible")
         Seq()
       } else {
         val Left(mfe) = try {
@@ -441,8 +449,10 @@ trait AbsLattice
         val minCost = cost(mfe)
         val topBound = removeExpensivePreds(top, minCost)
 
-        println("Cost bound: " + minCost)
-        print("Interpolation abstraction: " + pp(mfe) + " ")
+        if (lazabs.GlobalParameters.get.log) {
+          println("Cost bound: " + minCost)
+          print("Interpolation abstraction: " + pp(mfe) + " ")
+        }
         //assert(mfe != bottom && newBot > mfe)
       
         val inc = incomparable(topBound, Seq(mfe))
@@ -450,7 +460,8 @@ trait AbsLattice
       }
 
 //    assert(allFeasibleAbs.filter( x => pred(x).exists( p => isFeasible(p))).isEmpty)
-    println
+    if (lazabs.GlobalParameters.get.log)
+      println
     allFeasibleAbs
   }
 

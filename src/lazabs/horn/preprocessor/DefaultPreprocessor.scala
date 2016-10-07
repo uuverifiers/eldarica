@@ -67,7 +67,7 @@ class DefaultPreprocessor extends HornPreprocessor {
     var curHints = hints
 
     Console.err.println(
-      "--------------------- Preprocessing ------------------------")
+         "------------------------------- Preprocessing ----------------------------------")
     Console.err.println("Initially:" + (" " * (printWidth - 10)) +
                         curClauses.size + " clauses")
 

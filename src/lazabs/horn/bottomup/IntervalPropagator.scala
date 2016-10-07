@@ -159,7 +159,8 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
   // arguments
 
   {
-    print("Constant and interval propagation ")
+    if (lazabs.GlobalParameters.get.log)
+      print("Constant and interval propagation ")
 
     val rsBoundUpdateNum = new MHashMap[RelationSymbol, Seq[(Int, Int)]] {
       override def default(rs : RelationSymbol) : Seq[(Int, Int)] =
@@ -234,7 +235,8 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
           println("updating: " + headRS)
           println("old: " + oldHeadIntervals)
           println("new: " + joinedIntervals) */
-          print("+")
+          if (lazabs.GlobalParameters.get.log)
+            print("+")
 
           rsBoundCache.put(headRS, joinedIntervals)
           rsBoundUpdateNum.put(headRS, newBoundUpdateNum)
@@ -293,7 +295,8 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
 /*            println
             println("old: " + oldConstr)
             println("new: " + newConstr) */
-            print("-")
+            if (lazabs.GlobalParameters.get.log)
+              print("-")
   
             extendedConstraints(clauseNum) = newConstr
             rsBoundCache remove headRS
@@ -305,7 +308,10 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
       }
     }
 
-    println
+    if (lazabs.GlobalParameters.get.log) {
+      println
+      println
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -253,7 +253,7 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     println
     println(
-      "-------------------- Starting solver -----------------------")
+       "----------------------------------- CEGAR --------------------------------------")
 
     val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
       new HornPredAbs(simpClauses, // encoder.allClauses,
@@ -262,7 +262,8 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     predAbs.result match {
       case Right(rawCEX) => {
-        println("NOT SOLVABLE")
+        if (lazabs.GlobalParameters.get.log)
+          println("Not solvable")
 
         val cex = backTranslator translate rawCEX
 
@@ -543,7 +544,12 @@ class VerificationLoop(system : ParametricEncoder.System,
 
              }).toList
 
-          prettyPrint(cexTrace)
+        
+          if (lazabs.GlobalParameters.get.log) {
+            println
+            prettyPrint(cexTrace)
+            println
+          }
 
           res = Right(cexTrace)
 
@@ -562,18 +568,22 @@ class VerificationLoop(system : ParametricEncoder.System,
               }
              }).toSet
 
-          println
-          println("Raw counterexample:")
-          (cex map (_._1)).prettyPrint
+          if (lazabs.GlobalParameters.get.log) {
+            println
+            println("Raw counterexample:")
+            (cex map (_._1)).prettyPrint
 
-          println
-          println("Involved processes:")
-          for ((process, id) <- processes) {
-            print("Process index: " + process)
-            system.processes(process) match {
-              case (_, Singleton) => println
-              case (_, Infinite)  => println(", id: " + id)
+            println
+            println("Involved processes:")
+            for ((process, id) <- processes) {
+              print("Process index: " + process)
+              system.processes(process) match {
+                case (_, Singleton) => println
+                case (_, Infinite)  => println(", id: " + id)
+              }
             }
+          } else {
+            println("Unsat, trying again with higher precision ...")
           }
 
           invariants =
@@ -615,8 +625,13 @@ class VerificationLoop(system : ParametricEncoder.System,
       }
 
       case Left(rawSol) => {
-        val solution = backTranslator translate rawSol
-        println("SOLVABLE: " + solution)
+        if (lazabs.GlobalParameters.get.log) {
+          println("Solution:")
+          val solution = backTranslator translate rawSol
+          for ((p, f) <- solution)
+            println("" + p + ": " + f)
+          println
+        }
         res = Left(())
       }
     }

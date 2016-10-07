@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@ object MainArrays extends App {
   import IExpression._
   
   ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(2)
 
   val ar = SimpleArray(1)
   import ar._

@@ -3,10 +3,10 @@ Theories: SimpleArray(1)
 Constant and interval propagation ++++++++
 
 Unique satisfiable clauses: 8
-1 clauses of size 0
-7 clauses of size 1
+   1 clauses with 0 body literals
+   7 clauses with 1 body literals
 
-Starting CEGAR
+Starting CEGAR ...
 ...
 Found counterexample #1, refining ... (3and/0or)  9 -> 7 ... adding predicates:
 p0: p0_0_0 = 1
@@ -36,6 +36,8 @@ Found counterexample #7, refining ... (15and/0or)  72 -> 69 ... adding predicate
 p1: p1_1_0 >= 0, p1_1_0 >= 1, p1_1_0 >= 2, p1_1_0 >= 3, p1_1_0 >= 4
 p2: p2_1_0 >= 0, p2_1_0 >= 1, p2_1_0 >= 2
 ...............
+
+--------------------------------- Statistics -----------------------------------
 CEGAR iterations:                           7
 Final number of abstract states:            12
 Final number of matched abstract states:    12
@@ -48,6 +50,7 @@ Number of implication checks (positive):    202
 Number of implication checks (negative):    380
 
 Number of state matchings:                  66
+--------------------------------------------------------------------------------
 
 
 SOLVABLE: 
@@ -56,10 +59,10 @@ Theories: SimpleArray(1)
 Constant and interval propagation ++++++++++
 
 Unique satisfiable clauses: 6
-1 clauses of size 0
-5 clauses of size 1
+   1 clauses with 0 body literals
+   5 clauses with 1 body literals
 
-Starting CEGAR
+Starting CEGAR ...
 ....
 Found counterexample #1, refining ... (4and/0or)  8 -> 6 ... adding predicates:
 p1: p1_0_0 = 0
@@ -77,6 +80,8 @@ p3: select(p3_1_0, 0) = 0
 p1: p1_0_0 = 1 & select(p1_1_0, 0) = 0, p1_0_0 = 2 & select(p1_1_0, 0) = 0, select(p1_1_0, 0) = 0
 p2: p2_0_0 = 0 & select(p2_1_0, 0) = 0, p2_0_0 = 1 & select(p2_1_0, 0) = 0, select(p2_1_0, 0) = 0
 .......
+
+--------------------------------- Statistics -----------------------------------
 CEGAR iterations:                           4
 Final number of abstract states:            5
 Final number of matched abstract states:    9
@@ -89,6 +94,7 @@ Number of implication checks (positive):    20
 Number of implication checks (negative):    67
 
 Number of state matchings:                  25
+--------------------------------------------------------------------------------
 
 
 SOLVABLE: 

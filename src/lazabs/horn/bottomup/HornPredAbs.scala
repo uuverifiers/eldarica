@@ -771,14 +771,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
 */
 
-  println
   println("Unique satisfiable clauses: " + normClauses.size)
 
   for ((num, clauses) <-
         (normClauses groupBy { c => c._1.body.size }).toList sortBy (_._1))
-    println("" + clauses.size + " clauses of size " + num)
-
-  println
+    println("   " + clauses.size + " clauses with " + num + " body literals")
 
   val relationSymbolOccurrences = {
     val relationSymbolOccurrences =
@@ -887,7 +884,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
     inferenceAPIProver = p */ {
 
-    println("Starting CEGAR")
+    if (lazabs.GlobalParameters.get.log) {
+      println
+      println("Starting CEGAR ...")
+    }
 
     import TerForConvenience._
     var res : Either[Map[Predicate, Conjunction], Dag[(Atom, CC)]] = null
@@ -937,15 +937,17 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
             nextToProcess.enqueue(states, clause, assumptions)
 
             val clauseDag = extractCounterexample(from, clause)
-  	    println
 
-            iterationNum = iterationNum + 1
-            print("Found counterexample #" + iterationNum + ", refining ... ")
-            if (lazabs.GlobalParameters.get.logCEX) {
-              println
-              clauseDag.prettyPrint
+            if (lazabs.GlobalParameters.get.log) {
+    	      println
+
+              iterationNum = iterationNum + 1
+              print("Found counterexample #" + iterationNum + ", refining ... ")
+              if (lazabs.GlobalParameters.get.logCEX) {
+                println
+                clauseDag.prettyPrint
+              }
             }
-//            print("Refining ...")
         
             {
               val predStartTime = System.currentTimeMillis
@@ -955,12 +957,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
               preds
             } match {
               case Right(trace) => {
-                println(" ... failed, counterexample is genuine")
+                if (lazabs.GlobalParameters.get.log)
+                  print(" ... failed, counterexample is genuine")
                 val clauseMapping = normClauses.toMap
                 res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
               }
               case Left(newPredicates) => {
-                println(" ... adding predicates:")
+                if (lazabs.GlobalParameters.get.log)
+                  println(" ... adding predicates:")
                 addPredicates(newPredicates)
               }
             }
@@ -996,7 +1000,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
     val endTime = System.currentTimeMillis
 
+    if (lazabs.GlobalParameters.get.log)
+      println
+
     println
+    println(
+         "--------------------------------- Statistics -----------------------------------")
     println("CEGAR iterations:                           " + iterationNum)
     println("Total CEGAR time (ms):                      " + (endTime - startTime))
     println("Setup time (ms):                            " + (endSetupTime - startTime))
@@ -1025,6 +1034,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
             (for ((_, s) <- activeAbstractStates.iterator;
                   t <- s.iterator;
                   if (s exists { r => r != t && subsumes(r, t) })) yield t).size) */
+    println(
+         "--------------------------------------------------------------------------------")
     println
 
     res
@@ -1102,7 +1113,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     addState(newEdge.to)
     abstractEdges += newEdge
 //    println("Adding edge: " + newEdge)
-    print(".")
+    if (lazabs.GlobalParameters.get.log)
+      print(".")
   }
   
   def addState(state : AbstractState) = if (!(forwardSubsumedStates contains state)) {
@@ -1655,8 +1667,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                          if (!(predicates(rs) contains pred))) yield pred
 
       if (!rsPreds.isEmpty) {
-        print(p.name + ": ")
-        println(rsPreds mkString ", ")
+        if (lazabs.GlobalParameters.get.log) {
+          print(p.name + ": ")
+          println(rsPreds mkString ", ")
+        }
 
         predicates(rs) ++= rsPreds
 

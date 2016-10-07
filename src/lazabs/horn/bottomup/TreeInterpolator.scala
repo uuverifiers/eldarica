@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -185,14 +185,16 @@ object TreeInterpolator {
   def preSimplify(problem : Tree[Conjunction],
                   order : TermOrder)
             : (Tree[Conjunction], Seq[ModelElement]) = {
-    print(" " + size(problem) + " -> ")
+    if (lazabs.GlobalParameters.get.log)
+      print(" " + size(problem) + " -> ")
 
     val witnesses = new ArrayBuffer[ModelElement]
 
 //    val newProblem = elimSimpleEqs(problem, order, witnesses)
     val newProblem2 = elimLocalSyms(problem, order, witnesses)
 
-    print(size(newProblem2))
+    if (lazabs.GlobalParameters.get.log)
+      print(size(newProblem2))
 
     (newProblem2, witnesses)
   }

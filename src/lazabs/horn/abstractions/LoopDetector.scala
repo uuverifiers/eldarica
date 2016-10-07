@@ -53,7 +53,7 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
   import HornClauses.Clause
 
   Console.err.println(
-    "-------------------- Analysing loops -----------------------")
+         "------------------------------ Analysing loops ---------------------------------")
 
   val allPredicates = new LinkedHashSet[Predicate]
 
