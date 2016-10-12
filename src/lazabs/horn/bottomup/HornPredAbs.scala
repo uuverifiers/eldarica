@@ -937,12 +937,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
             nextToProcess.enqueue(states, clause, assumptions)
 
             val clauseDag = extractCounterexample(from, clause)
+            iterationNum = iterationNum + 1
 
             if (lazabs.GlobalParameters.get.log) {
     	      println
-
-              iterationNum = iterationNum + 1
               print("Found counterexample #" + iterationNum + ", refining ... ")
+
               if (lazabs.GlobalParameters.get.logCEX) {
                 println
                 clauseDag.prettyPrint
