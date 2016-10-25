@@ -110,8 +110,15 @@ class HornWrapper(constraints: Seq[HornClause],
           (for ((predName, hints) <- reader.allHints.iterator;
                 pred = name2Pred get predName;
                 if {
-                  if (!pred.isDefined)
+                  if (pred.isDefined) {
+                    if (pred.get.arity != reader.predArities(predName))
+                      throw new Exception(
+                        "Hints contain predicate with wrong arity: " +
+                        predName + " (should be " + pred.get.arity + " but is " +
+                        reader.predArities(predName) + ")")
+                  } else {
                     Console.err.println("   Ignoring hints for " + predName + "\n")
+                  }
                   pred.isDefined
                 }) yield {
              (pred.get, hints)
@@ -155,26 +162,22 @@ class HornWrapper(constraints: Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private lazy val loopDetector = new LoopDetector(simplifiedClauses)
+  /** Automatically computed interpolation abstraction hints */
+  private val abstractionType =
+    lazabs.GlobalParameters.get.templateBasedInterpolationType
+
+  private lazy val absBuilder =
+    new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
+
+  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
+    absBuilder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
 
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction : TemplateInterpolator.AbstractionMap =
     if (simpHints.isEmpty)
       Map()
     else
-      loopDetector hints2AbstractionRecord simpHints
-
-  /** Automatically computed interpolation abstraction hints */
-  private val abstractionType =
-    lazabs.GlobalParameters.get.templateBasedInterpolationType
-
-  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
-    if (abstractionType == StaticAbstractionBuilder.AbstractionType.Empty) {
-      Map()
-    } else {
-      val builder = new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
-      builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
-    }
+      absBuilder.loopDetector hints2AbstractionRecord simpHints
 
   //////////////////////////////////////////////////////////////////////////////
 

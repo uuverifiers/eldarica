@@ -50,7 +50,7 @@ class AbsReader(input : java.io.Reader) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val (initialPredicates, allHints) = {
+  val (initialPredicates, allHints, predArities) = {
     Console.err.println("Loading CEGAR hints ...")
 
     val l = new Yylex(new CRRemover2 (input))
@@ -59,6 +59,8 @@ class AbsReader(input : java.io.Reader) {
 
     val smtParser = SMTParser2InputAbsy(ParserSettings.DEFAULT)
     val env = smtParser.env
+
+    val predArities = new MHashMap[String, Int]
 
     def translatePredRef(predrefC : PredRefC) : (String, Int) = {
       val predref = predrefC.asInstanceOf[PredRef]
@@ -77,7 +79,10 @@ class AbsReader(input : java.io.Reader) {
         env.pushVar(printer print variable.symbol_, t)
       }
 
-      (predName, predref.listsortedvariablec_.size)
+      val arity = predref.listsortedvariablec_.size
+      predArities.put(predName, arity)
+
+      (predName, arity)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -140,6 +145,9 @@ class AbsReader(input : java.io.Reader) {
              hints += VerifHintTplIterationThreshold(threshold.numeral_.toInt)
          }
 
+       for (_ <- 0 until varNum)
+         env.popVar
+
        (predName, hints.toSeq)
      }).toList
 
@@ -158,7 +166,7 @@ class AbsReader(input : java.io.Reader) {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    (initialPredicates, allHints)
+    (initialPredicates, allHints, predArities.toMap)
   }
 
 }
