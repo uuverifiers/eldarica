@@ -198,10 +198,16 @@ class VerificationLoop(system : ParametricEncoder.System,
 
       val out = new java.io.FileOutputStream(filename)
       Console.withOut(out) {
+        val clauseFors =
+          for (c <- encoder.allClauses) yield {
+            val f = c.toFormula
+            // eliminate remaining operators like eps
+            ~EquivExpander(PartialEvaluator(~f))
+          }
+
         SMTLineariser("C_VC", "HORN", "unknown",
                       List(), allPredicates.toSeq.sortBy(_.name),
-                      (for (c <- encoder.allClauses.iterator)
-                      yield c.toFormula).toList)
+                      clauseFors)
       }
       out.close
     }
