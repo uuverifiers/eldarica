@@ -159,6 +159,30 @@ object HornReader {
       quantifiers(aF).length
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  object PredUnderQuantifierVisitor
+         extends ContextAwareVisitor[Unit, Unit] {
+    private object FoundPredUnderQuantifier extends Exception
+
+    def apply(f : IExpression) : Boolean =
+      try {
+        visitWithoutResult(f, Context(()))
+        false
+      } catch {
+        case FoundPredUnderQuantifier => true
+      }
+
+    override def preVisit(t : IExpression,
+                          arg : Context[Unit]) : PreVisitResult = t match {
+      case _ : IAtom if (!arg.binders.isEmpty) => throw FoundPredUnderQuantifier
+      case _ => super.preVisit(t, arg)
+    }
+   
+    def postVisit(t : IExpression,
+                  arg : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -170,7 +194,7 @@ class SMTHornReader protected[parser] (
          p : SimpleAPI) {
 
   import IExpression._
-  import HornReader.cnf_if_needed
+  import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor}
 
   private val reader = new java.io.BufferedReader (
                  new java.io.FileReader(new java.io.File (fileName)))
@@ -311,7 +335,8 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    if (quanNum == 0 && allTheories.isEmpty)
+    if (allTheories.isEmpty &&
+        (quanNum == 0 || !PredUnderQuantifierVisitor(clause)))
       return List(clause)
 
     lazabs.GlobalParameters.get.didIncompleteTransformation = true

@@ -270,3 +270,6 @@ Warning: ignoring get-model
 Theories: SimpleArray(1)
 sat
 (define-fun INV_MAIN_0 ((A Int) (B Int)) Bool true)
+
+quantifier.smt2
+unsat

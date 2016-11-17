@@ -117,10 +117,14 @@ object BooleanClauseSplitter extends HornPreprocessor {
       Transform2Prenex(Transform2NNF(processedConstraint), Set(Quantifier.ALL))
     var varSubst : List[ITerm] = List()
     
-    while (prenexConstraint.isInstanceOf[IQuantified]) {
-      val IQuantified(Quantifier.ALL, d) = prenexConstraint
-      prenexConstraint = d
-      varSubst = newConst :: varSubst
+    var cont = true
+    while (cont) prenexConstraint match {
+      case IQuantified(Quantifier.ALL, d) => {
+        prenexConstraint = d
+        varSubst = newConst :: varSubst
+      }
+      case _ =>
+        cont = false
     }
 
     val groundConstraint = subst(prenexConstraint, varSubst, 0)
