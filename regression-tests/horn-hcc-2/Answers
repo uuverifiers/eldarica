@@ -79,6 +79,9 @@ SAFE
 hints3.hcc
 SAFE
 
+interval-propagator-bug.hcc
+SAFE
+
 hints4.hcc
 CEGAR iterations:                           0
 SAFE

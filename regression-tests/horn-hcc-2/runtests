@@ -22,6 +22,14 @@ for name in $TESTS; do
 done
 done
 
+TESTS="interval-propagator-bug.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -abstract "$@" $name
+done
+
 echo
 echo hints4.hcc
 $LAZABS -statistics -abstract:off "$@" hints4.hcc 2>&1 | grep 'SAFE\|CEGAR iterations'

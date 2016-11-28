@@ -26,10 +26,10 @@ rf(A,B,C) :- ((((A + (C - B)) >= 4), (A >= 0)); ((A >= 0), (C >= 0))).
 
 mccarthy91.nts.horn
 SOLVABLE
-f_s1(A,B,C,D) :- (B >= D).
-f_s2(A,B,C,D) :- (((D - C) = -11), (((B - C) >= -11), (C =< 111))).
-f_s3(A,B,C,D) :- ((C =< 101), (C >= 91)).
-f_sf(A,B,C,D) :- ((C = 91); (((B - C) >= 10), (C >= 92))).
+f_s1(A,B,C,D) :- ((B =< 111), (B >= D)).
+f_s2(A,B,C,D) :- (((D - C) = -11), ((((B - C) >= -11), (C =< 111)), (B =< 111))).
+f_s3(A,B,C,D) :- (((B =< 111), (C =< 101)), (C >= 91)).
+f_sf(A,B,C,D) :- (((C = 91), (B =< 111)); (((B =< 111), ((B - C) >= 10)), (C >= 91))).
 main_s1(A,B,C,D) :- ((D = B), (C = A)).
 main_s2(A,B,C,D) :- ((C = A), (D =< 100)).
 main_s3(A,B,C,D) :- ((D =< 100), ((C = 91); (((D - C) >= 10), (C >= 92)))).
@@ -52,11 +52,11 @@ main_q0(A,B,C,D,E,F) :- (((F = C), (E = B)), (D = A)).
 main_q1(A,B,C,D,E,F) :- ((F =< E), (F >= 0)).
 main_q2(A,B,C,D,E,F) :- (((F =< E), (F >= 0)), ((D = 1); ((((E + (-2 * D)) - F) >= -3), (D >= 2)))).
 main_qf :- 1 = 1.
-palindrome_q0(A,B,C,D,E,F,G,H) :- ((B + ((G - F) - C)) >= 0).
-palindrome_q1(A,B,C,D,E,F,G,H) :- (((F - G) >= 1), ((G + ((B - C) - F)) >= 0)).
-palindrome_q2(A,B,C,D,E,F,G,H) :- (((B + ((-2 * H) - C)) >= -1), (H >= 1)).
-palindrome_q3(A,B,C,D,E,F,G,H) :- (((G + ((B - C) - F)) >= 0), (G >= F)).
-palindrome_q4(A,B,C,D,E,F) :- ((D = 1); ((((C + (-2 * D)) - B) >= -3), (D >= 2))).
+palindrome_q0(A,B,C,D,E,F,G,H) :- ((((((B + ((G - F) - C)) >= 0), (B >= 0)), (C >= 0)), (F >= 0)), (G >= 0)).
+palindrome_q1(A,B,C,D,E,F,G,H) :- (((((F - G) >= 1), ((G + ((B - C) - F)) >= 0)), (G >= 0)), (C >= 0)).
+palindrome_q2(A,B,C,D,E,F,G,H) :- ((((B + ((-2 * H) - C)) >= -1), (C >= 0)), (H >= 1)).
+palindrome_q3(A,B,C,D,E,F,G,H) :- (((((((G + ((B - C) - F)) >= 0), (G >= F)), (G >= 0)), (F >= 0)), (C >= 0)), (B >= 0)).
+palindrome_q4(A,B,C,D,E,F) :- (((D = 1), ((B >= 0), (C >= 0))); ((((((C + (-2 * D)) - B) >= -3), (B >= 0)), (C >= 0)), (D >= 1))).
 
 listcounter.error.nts.horn
 NOT SOLVABLE

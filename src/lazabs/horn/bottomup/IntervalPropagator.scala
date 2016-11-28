@@ -53,15 +53,28 @@ object IntervalPropagator {
 
   def extractBounds(c : ConstantTerm,
                     constr : Conjunction,
-                    order : TermOrder) : (Option[IdealInt], Option[IdealInt]) = {
-    (for (lc <- constr.arithConj.positiveEqs.toMap get c;
-          if (lc.constants.size == 1))
-     yield (Some(-lc.constant), Some(-lc.constant))) getOrElse {
-      val inEqs = constr.arithConj.inEqs
-      (inEqs.findLowerBound(LinearCombination(c, order)),
-       for (b <- inEqs.findLowerBound(-LinearCombination(c, order))) yield -b)
+                    order : TermOrder) : (Option[IdealInt], Option[IdealInt]) =
+    (constr.arithConj.positiveEqs.toMap get c) match {
+      case Some(lc) if (lc.constants.size == 1) =>
+        // equation defining the value of the constant: c + offset = 0
+        (Some(-lc.constant), Some(-lc.constant))
+      case Some(lc) if (lc.constants.size == 2 &&
+                        (lc getCoeff 0).isOne &&
+                        (lc getCoeff 1).isMinusOne) => {
+        // equation defining the value of the constant in terms of some
+        // other constant: c - d + offset = 0
+        val (lb, ub) = extractBounds((lc getTerm 1).asInstanceOf[ConstantTerm],
+                                     constr, order)
+        (for (v <- lb) yield (v - lc.constant),
+         for (v <- ub) yield (v - lc.constant))
+      }
+      case _ => {
+        val inEqs = constr.arithConj.inEqs
+        (inEqs.findLowerBound(LinearCombination(c, order)),
+         for (b <- inEqs.findLowerBound(-LinearCombination(c, order)))
+         yield -b)
+      }
     }
-  }
 
   def joinBounds(a : (Option[IdealInt], Option[IdealInt]),
                  b : (Option[IdealInt], Option[IdealInt])) =
