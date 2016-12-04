@@ -202,7 +202,7 @@ class VerificationLoop(system : ParametricEncoder.System,
           for (c <- encoder.allClauses) yield {
             val f = c.toFormula
             // eliminate remaining operators like eps
-            ~EquivExpander(PartialEvaluator(~f))
+            Transform2Prenex(EquivExpander(PartialEvaluator(f)))
           }
 
         SMTLineariser("C_VC", "HORN", "unknown",
