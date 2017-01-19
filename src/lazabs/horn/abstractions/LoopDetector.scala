@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -385,7 +385,7 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
     val Clause(IAtom(_, headArgs), body, constraint) = clause
     assert(inputs.size == body.size)
 
-    val offsets = clauseOffsets(clause) {
+    val offsets = clauseOffsets(clause) { try {
       lazabs.GlobalParameters.get.timeoutChecker()
 
       import p._
@@ -449,7 +449,12 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
           }).toList)
         }
       }
-    }
+    } catch {
+      case SimpleAPI.NoModelException => {
+        Console.err.println("Warning: could not fully compute clause offsets, probably due to quantifiers")
+        None
+      }
+    }}
 
     if (offsets.isDefined) {
       val allInputs = inputs.flatten
