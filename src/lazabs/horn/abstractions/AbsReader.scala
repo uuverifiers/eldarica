@@ -32,6 +32,7 @@ package lazabs.horn.abstractions
 import ap.parser._
 import ap.parameters.ParserSettings
 import ap.parser.Parser2InputAbsy.CRRemover2
+import ap.SimpleAPI
 
 import TplSpec._
 import TplSpec.Absyn._
@@ -50,7 +51,9 @@ class AbsReader(input : java.io.Reader) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val (initialPredicates, allHints, predArities) = {
+  val (initialPredicates, allHints, predArities) =
+    SimpleAPI.withProver(enableAssert =
+                         lazabs.GlobalParameters.get.assertions) { prover =>
     Console.err.println("Loading CEGAR hints ...")
 
     val l = new Yylex(new CRRemover2 (input))
@@ -85,6 +88,20 @@ class AbsReader(input : java.io.Reader) {
       (predName, arity)
     }
 
+    def parseExpr(str : String) : IExpression =
+      (smtParser parseExpression str) match {
+        case f : IFormula =>
+          // check whether the formula contains quantifiers, which
+          // we would have to eliminate
+          if (QuantifierCountVisitor(f) > 0) prover.scope {
+            prover simplify f
+          } else {
+            f
+          }
+        case t : ITerm =>
+          t
+      }
+
     ////////////////////////////////////////////////////////////////////////////
 
     val initialPredicates : List[(String, Seq[IFormula])] =
@@ -95,7 +112,7 @@ class AbsReader(input : java.io.Reader) {
        val (predName, varNum) = translatePredRef(initPreds.predrefc_)
 
        val preds = (for (term <- initPreds.listterm_.iterator) yield {
-         smtParser.parseExpression(printer print term).asInstanceOf[IFormula]
+         parseExpr(printer print term).asInstanceOf[IFormula]
        }).toList
 
        for (_ <- 0 until varNum)
@@ -125,7 +142,7 @@ class AbsReader(input : java.io.Reader) {
        for (templatec <- templates.listtemplatec_)
          templatec match {
            case template : TermTemplate => {
-             val expr = smtParser.parseExpression(printer print template.term_)
+             val expr = parseExpr(printer print template.term_)
              val cost = template.numeral_.toInt
 
              (template.templatetype_, expr) match {
