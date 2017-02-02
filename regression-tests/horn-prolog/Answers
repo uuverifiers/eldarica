@@ -152,7 +152,6 @@ NOT SOLVABLE
 52: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(0)
 mult.horn
 SOLVABLE
-mult(A,B,C) :- ((((((A = 0), (C >= 0)); ((A >= 4), (((-1 * A) mod 2) = 0))); (((A >= 2), (((-2 * B) + C) >= 0)), (((-1 * A) mod 2) = 0))); ((A >= 2), (((1 - A) mod 2) = 0))); (((A >= 1), (B =< C)), (((1 - A) mod 2) = 0))).
 nullary-bug.horn
 NOT SOLVABLE
 
