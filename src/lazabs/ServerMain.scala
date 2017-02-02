@@ -89,8 +89,6 @@ object ServerMain {
         val clientSocket = socket.accept
   
         val thread = new Thread(new Runnable { def run : Unit = {
-          Console setErr lazabs.horn.bottomup.HornWrapper.NullStream
-  
           val inputReader =
             new java.io.BufferedReader(
             new java.io.InputStreamReader(clientSocket.getInputStream))
@@ -98,6 +96,7 @@ object ServerMain {
           val receivedTicket = inputReader.readLine
           if (ticket == receivedTicket) {
             val arguments = new ArrayBuffer[String]
+            var showErrOutput = false
     
             var str = inputReader.readLine
             var done = false
@@ -106,6 +105,10 @@ object ServerMain {
                 case "PROVE_AND_EXIT" => {
                   done = true
                   Console.withOut(clientSocket.getOutputStream) {
+                  Console.withErr(if (showErrOutput)
+                                    clientSocket.getOutputStream
+                                  else
+                                    lazabs.horn.bottomup.HornWrapper.NullStream) {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
                     var watchdogCounter = WatchdogInit
@@ -159,10 +162,13 @@ object ServerMain {
                     } finally {
                       watchdogCont = false
                     }
-                  }
+                  }}
                 }
-                case str =>
+                case str => {
                   arguments += str
+                  if (str startsWith "-log")
+                    showErrOutput = true
+                }
               }
     
               if (!done)
