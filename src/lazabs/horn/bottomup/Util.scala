@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -285,22 +285,25 @@ object Util {
   //////////////////////////////////////////////////////////////////////////////
 
   def show[D](d : Dag[D], name : String) : Unit = {
-    val runTime = Runtime.getRuntime   
-    val filename = if (lazabs.GlobalParameters.get.dotSpec)
-                     lazabs.GlobalParameters.get.dotFile
-                   else
-                     "dag-graph-" + name + ".dot"
-    val dotOutput = new java.io.FileOutputStream(filename)
-    Console.withOut(dotOutput) {
-      d.dotPrint(true)
-    }
-    dotOutput.close
     if (!lazabs.GlobalParameters.get.pngNo) {
-      var proc = runTime.exec( "dot -Tpng " + filename + " -o " + filename + ".png" )
-      proc.waitFor    
-      proc = runTime.exec( "eog " + filename + ".png")
-    }
+      val runTime = Runtime.getRuntime   
+      val filename = if (lazabs.GlobalParameters.get.dotSpec)
+                       lazabs.GlobalParameters.get.dotFile
+                     else
+                       "dag-graph-" + name + ".dot"
+      val dotOutput = new java.io.FileOutputStream(filename)
+      Console.withOut(dotOutput) {
+        d.dotPrint(true)
+      }
+      dotOutput.close
+
+      if (lazabs.GlobalParameters.get.eogCEX) {
+        var proc = runTime.exec( "dot -Tpng " + filename + " -o " + filename + ".png" )
+        proc.waitFor    
+        proc = runTime.exec( "eog " + filename + ".png")
 //    proc.waitFor
+      }
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2017 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -104,6 +104,7 @@ class GlobalParameters {
   var dotSpec = false
   var dotFile : String = null
   var pngNo = true;
+  var eogCEX = false;
   var plainCEX = false;
   var assertions = false
   var timeoutChecker : () => Unit = () => ()
@@ -175,7 +176,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica, 2016-02-21. (C) Copyright 2012-2016 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica, 2017-02-17. (C) Copyright 2012-2017 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -282,6 +283,7 @@ object Main {
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
+      case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: lazabs [options] file\n\n" +
@@ -293,7 +295,8 @@ object Main {
           " -statistics\tDisplay statistics (implied by -log)\n" + 
           " -t:time\tSet timeout (in seconds)\n" +
           " -cex\t\tShow textual counterexamples\n" + 
-          " -dotCEX\tShow counterexample using dot\n" + 
+          " -dotCEX\tOutput counterexample in dot format\n" + 
+          " -eogCEX\tDisplay counterexample using eog\n" + 
           " -m:func\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +
