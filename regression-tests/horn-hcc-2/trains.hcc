@@ -1,4 +1,7 @@
-
+/**
+ * A simplified, but parameterised version of the train crossing
+ * model from the FORTE'94 paper
+ */
 
 chan appr,     // signal approaching train
      stop,     // tell train to stop
