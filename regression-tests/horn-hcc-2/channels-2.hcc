@@ -1,0 +1,22 @@
+
+
+chan c;
+int p;
+
+thread A {
+  atomic {
+    p = 42;
+    chan_send(c);
+  }
+}
+
+thread B {
+  int x = -10;
+  atomic {
+    chan_receive(c);
+    x += p;
+  }
+  assert(x > 0);
+  chan_receive(c);
+  assert(0);
+}

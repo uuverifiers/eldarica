@@ -44,8 +44,18 @@ object ReaderMain {
         case ParametricEncoder.Infinite =>
           println("  Replicated thread:")
       }
-      for ((c, _) <- p)
-        println("    " + c.toPrologString)
+      for ((c, sync) <- p) {
+        val prefix = "    " + c.toPrologString
+        print(prefix + (" " * ((50 - prefix.size) max 2)))
+        sync match {
+          case ParametricEncoder.Send(chan) =>
+            println("chan_send(" + chan + ")")
+          case ParametricEncoder.Receive(chan) =>
+            println("chan_receive(" + chan + ")")
+          case ParametricEncoder.NoSync =>
+            println
+        }
+      }
     }
 
     if (!system.timeInvariants.isEmpty) {

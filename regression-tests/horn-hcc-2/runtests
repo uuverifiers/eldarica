@@ -4,7 +4,8 @@ LAZABS=../../eld
 
 TESTS="atomic3e.hcc atomic3f.hcc \
        clocks1.hcc clocks2.hcc clocks3.hcc clocks4.hcc clocks5.hcc \
-       fischer.hcc lazy-and-or-bug.hcc"
+       fischer.hcc lazy-and-or-bug.hcc \
+       channels.hcc channels-2.hcc channels-2b.hcc channels-3.hcc"
 
 for name in $TESTS; do
     echo

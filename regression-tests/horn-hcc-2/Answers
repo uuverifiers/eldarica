@@ -61,6 +61,35 @@ Final:
      A0(1)        main4(1, 1)   
 --------------------------------
 
+channels.hcc
+Warning: entry function "main" not found
+SAFE
+
+channels-2.hcc
+Warning: entry function "main" not found
+SAFE
+
+channels-2b.hcc
+Warning: entry function "main" not found
+UNSAFE
+
+--------------------------
+Init:
+    A1(0)        B1(0)    
+--------------------------
+      |            |      
+     c?           c!      
+      |            |      
+      V            V      
+   A0(42)     B3(42, -10) 
+--------------------------
+Final:
+   A0(42)     B3(42, -10) 
+--------------------------
+
+channels-3.hcc
+lazabs.horn.concurrency.CCReader$TranslationException: Cannot execute Receive(d) and Send(c) in one step
+
 hints.hcc
 SAFE
 

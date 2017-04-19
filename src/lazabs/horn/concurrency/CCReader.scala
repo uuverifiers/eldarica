@@ -284,9 +284,11 @@ class CCReader private (prog : Program,
   private val clauses =
     new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
 
-  private def output(c : Clause) : Unit = {
+  private def output(c : Clause,
+                     sync : ParametricEncoder.Synchronisation =
+                       ParametricEncoder.NoSync) : Unit = {
 //println(c)
-    clauses += ((c, ParametricEncoder.NoSync))
+    clauses += ((c, sync))
 }
 
   private def mergeClauses(from : Int) : Unit = if (from < clauses.size - 1) {
@@ -879,8 +881,10 @@ class CCReader private (prog : Program,
       Clause(asAtom(pred), List(initAtom), guard)
     }
 
-    def outputClause(pred : Predicate) : Unit = {
-      output(genClause(pred))
+    def outputClause(pred : Predicate,
+                     sync : ParametricEncoder.Synchronisation =
+                       ParametricEncoder.NoSync) : Unit = {
+      output(genClause(pred), sync)
       resetFields(pred)
     }
 
@@ -1192,6 +1196,22 @@ class CCReader private (prog : Program,
                           if (exp.listexp_.size == 1) => {
           addGuard(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true, CCInt))
+        }
+        case cmd@("chan_send" | "chan_receive") if (exp.listexp_.size == 1) => {
+          val name = printer print exp.listexp_.head
+          (channels get name) match {
+            case Some(chan) => {
+              val sync = cmd match {
+                case "chan_send" =>    ParametricEncoder.Send(chan)
+                case "chan_receive" => ParametricEncoder.Receive(chan)
+              }
+              outputClause(newPred, sync)
+              pushVal(CCFormula(true, CCInt))
+            }
+            case None =>
+              throw new TranslationException(
+                name + " is not a declared channel")
+          }
         }
         case name => {
           // then we inline the called function
