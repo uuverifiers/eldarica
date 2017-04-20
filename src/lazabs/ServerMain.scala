@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -166,7 +166,8 @@ object ServerMain {
                 }
                 case str => {
                   arguments += str
-                  if (str startsWith "-log")
+                  if ((str startsWith "-log") ||
+                      str == "-statistics")
                     showErrOutput = true
                 }
               }

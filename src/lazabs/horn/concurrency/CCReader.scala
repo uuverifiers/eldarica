@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -147,7 +147,10 @@ object CCReader {
   private case class CCTerm(t : ITerm, _typ : CCType)
                extends CCExpr(_typ) {
     def toTerm : ITerm = t
-    def toFormula : IFormula = !eqZero(t)
+    def toFormula : IFormula = t match {
+      case IIntLit(value) => !value.isZero
+      case t =>              !eqZero(t)
+    }
     def occurringConstants : Seq[ConstantTerm] =
       SymbolCollector constantsSorted t
     def castTo(x : CCType) : CCExpr = CCTerm(t, x)
@@ -289,7 +292,7 @@ class CCReader private (prog : Program,
                        ParametricEncoder.NoSync) : Unit = {
 //println(c)
     clauses += ((c, sync))
-}
+  }
 
   private def mergeClauses(from : Int) : Unit = if (from < clauses.size - 1) {
     val concernedClauses = clauses.slice(from, clauses.size)
@@ -884,12 +887,17 @@ class CCReader private (prog : Program,
     def outputClause(pred : Predicate,
                      sync : ParametricEncoder.Synchronisation =
                        ParametricEncoder.NoSync) : Unit = {
-      output(genClause(pred), sync)
+      val c = genClause(pred)
+      if (!c.hasUnsatConstraint)
+        output(c, sync)
       resetFields(pred)
     }
 
-    def outputClause(headAtom : IAtom) : Unit =
-      output(Clause(headAtom, List(initAtom), guard))
+    def outputClause(headAtom : IAtom) : Unit = {
+      val c = Clause(headAtom, List(initAtom), guard)
+      if (!c.hasUnsatConstraint)
+        output(c)
+    }
 
     def resetFields(pred : Predicate) : Unit = {
       initAtom = atom(pred, allFormalVars)
