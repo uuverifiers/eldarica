@@ -135,6 +135,10 @@ object CCReader {
     def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "clock"
   }
+  private case object CCDuration extends CCType {
+    def rangePred(t : ITerm) : IFormula = (t >= 0)
+    override def toString : String = "duration"
+  }
 
   private abstract sealed class CCExpr(val typ : CCType) {
     def toTerm : ITerm
@@ -614,7 +618,9 @@ class CCReader private (prog : Program,
   
             typ match {
               case CCClock =>
-                values addValue translateTimeValue(initValue)
+                values addValue translateClockValue(initValue)
+              case CCDuration =>
+                values addValue translateDurationValue(initValue)
               case typ =>
                 values addValue (initValue castTo typ)
             }
@@ -737,6 +743,11 @@ class CCReader private (prog : Program,
                 throw NeedsTimeException
               typ = CCClock
             }
+            case _ : Tduration => {
+              if (!useTime)
+                throw NeedsTimeException
+              typ = CCDuration
+            }
             case x => {
               warn("type " + (printer print x) +
                    " not supported, assuming int")
@@ -753,15 +764,33 @@ class CCReader private (prog : Program,
       case _ : NewFuncInt => CCInt
     }
 
-  private def translateTimeValue(expr : CCExpr) : CCExpr = {
+  private def translateClockValue(expr : CCExpr) : CCExpr = {
     if (!useTime)
       throw NeedsTimeException
     expr.toTerm match {
       case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
         CCTerm(GT + GTU*(-v), CCClock)
-      case _ =>
+      case t if (expr.typ == CCDuration) =>
+        CCTerm(GT + t, CCClock)
+      case t => {
+        println(t)
         throw new TranslationException(
           "clocks can only be set to or compared with integers")
+      }
+    }
+  }
+
+  private def translateDurationValue(expr : CCExpr) : CCExpr = {
+    if (!useTime)
+      throw NeedsTimeException
+    expr.toTerm match {
+      case _ if (expr.typ == CCDuration) =>
+        expr
+      case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
+        CCTerm(GTU*v, CCDuration)
+      case t =>
+        throw new TranslationException(
+          "duration variable cannot be set or compared to " + t)
     }
   }
 
@@ -954,6 +983,14 @@ class CCReader private (prog : Program,
                     (printer print exp))
     }
 
+    private def isDurationVariable(exp : Exp) : Boolean = exp match {
+      case exp : Evar => getValue(exp.cident_).typ == CCDuration
+      case exp =>
+        throw new TranslationException(
+                    "Can only handle assignments to variables, not " +
+                    (printer print exp))
+    }
+
     def eval(exp : Exp) : CCExpr = {
       val initSize = values.size
       evalHelp(exp)
@@ -1012,7 +1049,13 @@ class CCReader private (prog : Program,
                              isClockVariable(exp.exp_1)) => {
         evalHelp(exp.exp_2)
         maybeOutputClause
-        setValue(asLValue(exp.exp_1), translateTimeValue(topVal))
+        setValue(asLValue(exp.exp_1), translateClockValue(topVal))
+      }
+      case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign] &&
+                             isDurationVariable(exp.exp_1)) => {
+        evalHelp(exp.exp_2)
+        maybeOutputClause
+        setValue(asLValue(exp.exp_1), translateDurationValue(topVal))
       }
       case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign]) => {
         evalHelp(exp.exp_2)
@@ -1028,7 +1071,7 @@ class CCReader private (prog : Program,
         val rhs = rhsE.toTerm
         val lhsE = popVal
         val lhs = lhsE.toTerm
-	if (lhsE.typ == CCClock)
+	if (lhsE.typ == CCClock || lhsE.typ == CCDuration)
           throw new TranslationException("unsupported assignment to clock")
         val newVal = CCTerm(exp.assignment_op_ match {
           case _ : AssignMul =>
@@ -1314,6 +1357,10 @@ class CCReader private (prog : Program,
                     case (_ : CCArithType, CCClock) =>
                       CCFormula(op(GTU * lhs.toTerm,
                                    GT - rhs.toTerm), CCInt)
+                    case (CCClock, CCDuration) =>
+                      CCFormula(op(GT - lhs.toTerm, rhs.toTerm), CCInt)
+                    case (CCDuration, CCClock) =>
+                      CCFormula(op(lhs.toTerm, GT - rhs.toTerm), CCInt)
                     case (CCClock, CCClock) =>
                       CCFormula(op(-lhs.toTerm, -rhs.toTerm), CCInt)
                     case _ =>

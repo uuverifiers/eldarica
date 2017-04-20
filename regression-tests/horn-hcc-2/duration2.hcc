@@ -1,0 +1,22 @@
+int x;
+
+duration D, E;
+chan start;
+
+void main() {
+  clock C1;
+  assume(D <= E);
+
+  atomic { chan_send(start); C1 = 0; }
+  within(C1 <= D) x = 42;
+}
+
+thread A {
+  clock C2;
+  assume(D <= E);
+
+  atomic { chan_receive(start); C2 = 0; }
+  assume(C2 >= E);
+
+  assert(x > 0);
+}

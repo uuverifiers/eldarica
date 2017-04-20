@@ -74,6 +74,7 @@ Tunsigned.    Type_specifier ::= "unsigned";
 -- Tenum.        Type_specifier ::= Enum_specifier;
 -- Tname.        Type_specifier ::= "Typedef_name";
 Tclock.       Type_specifier ::= "clock";
+Tduration.    Type_specifier ::= "duration";
 
 
 -- MyType.         Storage_class_specifier ::= "typedef";
