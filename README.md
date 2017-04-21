@@ -32,6 +32,13 @@ is normally as easy as saying
 
   <code>./eld regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
 
+When using a binary release, one can instead also call
+
+  <code>java -jar dist/lazabs.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
+
+A set of examples is provided on http://logicrunch.it.uu.se:4096/~wv/eldarica, and included
+in the distributions directory <code>regression-tests</code>.
+
 You can use the script <code>eld-client</code> instead of
 <code>eld</code> in order to run Eldarica in a server-client mode,
 which significantly speeds up processing of multiple problems.
