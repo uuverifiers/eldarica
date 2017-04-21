@@ -770,8 +770,10 @@ class CCReader private (prog : Program,
     expr.toTerm match {
       case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
         CCTerm(GT + GTU*(-v), CCClock)
+      case t if (expr.typ == CCClock) =>
+        CCTerm(t, CCClock)
       case t if (expr.typ == CCDuration) =>
-        CCTerm(GT + t, CCClock)
+        CCTerm(GT - t, CCClock)
       case t => {
         println(t)
         throw new TranslationException(
@@ -1357,12 +1359,21 @@ class CCReader private (prog : Program,
                     case (_ : CCArithType, CCClock) =>
                       CCFormula(op(GTU * lhs.toTerm,
                                    GT - rhs.toTerm), CCInt)
+                    case (CCClock, CCClock) =>
+                      CCFormula(op(-lhs.toTerm, -rhs.toTerm), CCInt)
+
+                    case (CCDuration, _ : CCArithType) =>
+                      CCFormula(op(lhs.toTerm, GTU * rhs.toTerm), CCInt)
+                    case (_ : CCArithType, CCDuration) =>
+                      CCFormula(op(GTU * lhs.toTerm, rhs.toTerm), CCInt)
+                    case (CCDuration, CCDuration) =>
+                      CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
+
                     case (CCClock, CCDuration) =>
                       CCFormula(op(GT - lhs.toTerm, rhs.toTerm), CCInt)
                     case (CCDuration, CCClock) =>
                       CCFormula(op(lhs.toTerm, GT - rhs.toTerm), CCInt)
-                    case (CCClock, CCClock) =>
-                      CCFormula(op(-lhs.toTerm, -rhs.toTerm), CCInt)
+
                     case _ =>
                       CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
                   })
@@ -1376,6 +1387,11 @@ class CCReader private (prog : Program,
             t
         case (oldType : CCArithType, newType : CCArithType) =>
           t castTo newType
+        case (oldType : CCArithType, CCDuration) => {
+          if (!useTime)
+            throw NeedsTimeException
+          CCTerm(GTU * t.toTerm, CCDuration)
+        }
 
 /*
         case (oldType : CCArithType, newType : CCArithType)
@@ -1413,6 +1429,11 @@ class CCReader private (prog : Program,
             (a, convertType(b, at))
           else
             (convertType(a, bt), b)
+
+        case (at : CCArithType, CCDuration) =>
+          (convertType(a, CCDuration), b)
+        case (CCDuration, bt : CCArithType) =>
+          (a, convertType(b, CCDuration))
 
         case _ =>
           throw new TranslationException("incompatible types")

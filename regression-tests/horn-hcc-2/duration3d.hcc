@@ -1,0 +1,24 @@
+
+duration A;
+chan finished;
+
+int main() {
+
+  clock x = 0;
+  within(x <= A + 1)
+    chan_send(finished);
+
+}
+
+thread B {
+
+  clock x = 0;
+  assume(x >= A);
+  x = 0;
+  assume(x >= 1);
+
+  chan_receive(finished);
+
+  assert(0);
+
+}
