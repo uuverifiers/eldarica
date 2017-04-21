@@ -75,7 +75,7 @@ Related Links
 -------------
 
 * A library of Horn clause benchmarks:
-  https://svn.sosy-lab.org/software/sv-benchmarks/trunk/clauses/LIA/Eldarica/
+  https://github.com/sosy-lab/sv-benchmarks/tree/master/clauses
 * Numerical transition system benchmarks:
   http://richmodels.epfl.ch/ntscomp/ntslib
 
