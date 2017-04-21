@@ -2,12 +2,18 @@ Eldarica
 ========
 
 Eldarica is a model checker for Horn clauses, Numerical Transition
-Systems, and Scala programs.  Inputs can be read in a variety of
-formats, including SMT-LIB 2 and Prolog for Horn clauses, and are
-analysed using a variant of the Counterexample-Guided Abstraction
+Systems, and software programs. Inputs can be read in a variety of
+formats, including SMT-LIB 2 and Prolog for Horn clauses, and fragments of
+Scala and C for software programs, and are analysed using a variant of the
+Counterexample-Guided Abstraction
 Refinement (CEGAR) method. Eldarica is fast and includes sophisticated
 interpolation-based techniques for synthesising new predicates for
 CEGAR, enabling it to solve a wide range of verification problems.
+
+The Eldarica C parser also accepts programs augmented with various primitives
+from the timed automata world: supporting concurrency, clocks, communication
+channels, as well as analysis of systems with an unbounded number of
+processes (parameterised analysis).
 
 Eldarica has been developed by Hossein Hojjat and Philipp Ruemmer,
 with further contributions by Filip Konecny and Pavle Subotic.
