@@ -176,7 +176,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica 1.3, 2017-04-21. (C) Copyright 2012-2017 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v1.3, 2017-04-21. (C) Copyright 2012-2017 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
