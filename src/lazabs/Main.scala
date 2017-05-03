@@ -286,7 +286,7 @@ object Main {
       case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
-      case "-h" :: rest => println(greeting + "\n\nUsage: lazabs [options] file\n\n" +
+      case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
@@ -356,8 +356,11 @@ object Main {
     if (!arguments(args.toList))
       return
 
-    if (in == null)
+    if (in == null) {
+      arguments(List("-h"))
       throw new MainException("no input file given")
+      return
+    }
 
     val startTime = System.currentTimeMillis
 
