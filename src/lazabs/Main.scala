@@ -37,8 +37,8 @@ import lazabs.art.SearchMethod._
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
-import lazabs.utils.PointerAnalysis
-import lazabs.cfg.MakeCFG
+//import lazabs.utils.PointerAnalysis
+//import lazabs.cfg.MakeCFG
 import lazabs.nts._
 import lazabs.horn.parser.HornReader
 import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
@@ -47,8 +47,8 @@ import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
-    val Nts, Scala,
-        Prolog, SMTHorn, UppaalOG, UppaalRG, UppaalRelational, Bip,
+    val //Nts, Scala,
+        Prolog, SMTHorn, //UppaalOG, UppaalRG, UppaalRelational, Bip,
         ConcurrentC, AutoDetect = Value
   }
 
@@ -67,14 +67,14 @@ class GlobalParameters {
   var spuriousness = true
   var searchMethod = DFS
   var drawRTree = false
-  var drawCFG = false
+  //var drawCFG = false
   var absInFile = false
   var lbe = false
   var slicing = true
   var prettyPrint = false
   var smtPrettyPrint = false  
-  var interpolation = false
-  var ntsPrint = false
+//  var interpolation = false
+//  var ntsPrint = false
   var printIntermediateClauseSets = false
   var horn = false
   var concurrentC = false
@@ -156,6 +156,7 @@ object Main {
     if (in == null)
       throw new MainException("Input file missing")
   }
+  /*
   def getASTree = {
     val params = GlobalParameters.parameters.value
     import params._
@@ -164,11 +165,11 @@ object Main {
     val tree = parser.parse()
     if(!(tree.value.isInstanceOf[lazabs.ast.ASTree.Sobject]))
       throw new MainException("The input file is invalid")
-    val spa = PointerAnalysis(tree.value.asInstanceOf[lazabs.ast.ASTree.Sobject])
+    //val spa = PointerAnalysis(tree.value.asInstanceOf[lazabs.ast.ASTree.Sobject])
     val so = inline(spa)
     val typ = lazabs.types.TypeCheck(so)
     typ
-  }
+  }*/
 
   def main(args: Array[String]) : Unit = doMain(args, false)
 
@@ -191,26 +192,26 @@ object Main {
 
     def arguments(args: List[String]): Boolean = args match {
       case Nil => true
-      case "-c" :: rest => drawCFG = true; arguments(rest)
-      case "-r" :: rest => drawRTree = true; arguments(rest)
+      //case "-c" :: rest => drawCFG = true; arguments(rest)
+      //case "-r" :: rest => drawRTree = true; arguments(rest)
       case "-f" :: rest => absInFile = true; arguments(rest)
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
-      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
+//      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
 
-      case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
+//      case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
       case "-hin" :: rest => format = InputFormat.Prolog; arguments(rest)
       case "-hsmt" :: rest => format = InputFormat.SMTHorn; arguments(rest)
-      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
-      case "-upprg" :: rest => format = InputFormat.UppaalRG; arguments(rest)
-      case "-upprel" :: rest => format = InputFormat.UppaalRelational; arguments(rest)
-      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
+//      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
+//      case "-upprg" :: rest => format = InputFormat.UppaalRG; arguments(rest)
+//      case "-upprel" :: rest => format = InputFormat.UppaalRelational; arguments(rest)
+//      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstract:manual" :: rest => {
@@ -255,10 +256,10 @@ object Main {
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 
       case "-n" :: rest => spuriousness = false; arguments(rest)
-      case "-i" :: rest => interpolation = true; arguments(rest)
+//      case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
       case "-noSlicing" :: rest => slicing = false; arguments(rest)
-      case "-array" :: rest => arrayRemoval = true; arguments(rest)
+      //case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
       case "-stac" :: rest => staticAccelerate = true; arguments(rest)
       case "-dynac" :: rest => dynamicAccelerate = true; arguments(rest)
@@ -266,10 +267,10 @@ object Main {
       case "-tem" :: rest => template = true; arguments(rest)
       case "-dinq" :: rest => dumpInterpolationQuery = true; arguments(rest)
       case "-brew" :: rest => babarew = true; arguments(rest)
-      case "-bfs" :: rest => searchMethod = BFS; arguments(rest)
+/*      case "-bfs" :: rest => searchMethod = BFS; arguments(rest)
       case "-prq" :: rest => searchMethod = PRQ; arguments(rest)
       case "-dfs" :: rest => searchMethod = DFS; arguments(rest)
-      case "-rnd" :: rest => searchMethod = RND; arguments(rest)
+      case "-rnd" :: rest => searchMethod = RND; arguments(rest)*/
       case tTimeout :: rest if (tTimeout.startsWith("-t:")) =>
         val time = (java.lang.Float.parseFloat(tTimeout.drop(3)) * 1000).toInt
         timeout = Some(time); arguments(rest)
@@ -332,11 +333,11 @@ object Main {
           " -r\t\tDraw reachability\n" +
           " -f\t\tWrite abstraction information in file\n" +
           " -p\t\tPretty Print\n" +
-          " -ints\t\tInput a file in NTS format\n" +
-          " -pnts\t\tPrint the CFG in NTS format\n" +
+//          " -ints\t\tInput a file in NTS format\n" +
+//          " -pnts\t\tPrint the CFG in NTS format\n" +
           " -n\t\tDo not check the counter examples for spuriousness\n" +
           " -i\t\tUse interpolation\n" +
-          " -lbe\t\tUse large block encoding for NTS files\n" +
+//          " -lbe\t\tUse large block encoding for NTS files\n" +
           " -array\t\tRemove array operations\n" +          
           " -princess\tUse Princess as theorem prover\n" +
           " -stac\t\tStatic acceleration of loops\n" +
@@ -385,18 +386,19 @@ object Main {
         // try to guess the file type from the extension
         if (fileName endsWith ".horn")
           format = InputFormat.Prolog
-        else if (fileName endsWith ".smt2")
+        else if (fileName endsWith ".smt2") {
           format = InputFormat.SMTHorn
-        else if (fileName endsWith ".nts") {
-          format = InputFormat.Nts
+//        } else if (fileName endsWith ".nts") {
+//          format = InputFormat.Nts
           // then also choose -horn by default
           horn = true         
-        } else if (fileName endsWith ".scala")
-          format = InputFormat.Scala
-        else if (fileName endsWith ".bip")
-          format = InputFormat.Bip
-        else if (fileName endsWith ".xml")
-          format = InputFormat.UppaalOG
+        } 
+//        else if (fileName endsWith ".scala")
+//          format = InputFormat.Scala
+//        else if (fileName endsWith ".bip")
+//          format = InputFormat.Bip
+//        else if (fileName endsWith ".xml")
+//          format = InputFormat.UppaalOG
         else if ((fileName endsWith ".hcc") ||
                  (fileName endsWith ".c") ||
                  (fileName endsWith ".cc") ||
@@ -408,9 +410,10 @@ object Main {
     }
 
     format match {
-      case InputFormat.Prolog | InputFormat.SMTHorn | InputFormat.Bip |
-           InputFormat.UppaalOG | InputFormat.UppaalRG |
-           InputFormat.UppaalRelational =>
+      case InputFormat.Prolog | InputFormat.SMTHorn //| InputFormat.Bip |
+           //InputFormat.UppaalOG | InputFormat.UppaalRG |
+           //InputFormat.UppaalRelational 
+      =>
         // those formats can only be handled in Horn mode
         horn = true
       case _ =>
@@ -419,7 +422,7 @@ object Main {
 
     if (horn) {
       
-      format match {
+/*      format match {
         case InputFormat.Bip =>
           // BIP mode
 //          lazabs.bip.HornBip.apply(fileName)
@@ -430,19 +433,19 @@ object Main {
           return
         case _ =>
           // nothing
-      }
+      }*/
 
       val (clauseSet, absMap) = try { format match {
         case InputFormat.Prolog =>
           (lazabs.horn.parser.HornReader.apply(fileName), None)
         case InputFormat.SMTHorn =>
           (lazabs.horn.parser.HornReader.fromSMT(fileName), None)
-        case InputFormat.UppaalOG =>
+/*        case InputFormat.UppaalOG =>
           lazabs.upp.OwickiGries(fileName, templateBasedInterpolation)
         case InputFormat.UppaalRG =>
           lazabs.upp.RelyGuarantee(fileName, templateBasedInterpolation)
         case InputFormat.Nts =>
-          (NtsHorn(NtsWrapper(fileName)), None)
+          (NtsHorn(NtsWrapper(fileName)), None)*/
       }
       } catch {
         case t@(TimeoutException | StoppedException) => {
@@ -467,10 +470,10 @@ object Main {
         return
       }
 
-      val uppflag = format match {
+/*      val uppflag = format match {
         case InputFormat.UppaalOG | InputFormat.UppaalRG => true
         case _ => false
-      }
+      }*/
 
       lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
                         drawRTree, lbe)
@@ -537,7 +540,7 @@ object Main {
       return
     }
 
-    val (cfg,m) = format match {
+    /*val (cfg,m) = format match {
       case InputFormat.Nts =>
         val ntsc = NtsCFG(NtsWrapper(fileName),lbe,staticAccelerate)
         (ntsc,Some(Map[Int,String]().empty ++ NtsWrapper.stateNameMap))
@@ -546,20 +549,20 @@ object Main {
         val ast = getASTree
         if(prettyPrint) {println(ScalaPrinter(ast)); return}
         (MakeCFG(ast,"sc_" + funcName,arrayRemoval,staticAccelerate),None)
-    }
+    }*/
 
-    if(drawCFG) {DrawGraph(cfg.transitions.toList,cfg.predicates,absInFile,m); return}
+    //if(drawCFG) {DrawGraph(cfg.transitions.toList,cfg.predicates,absInFile,m); return}
 
-    if(ntsPrint) {
+    /*if(ntsPrint) {
       println(NTSPrinter(cfg))
       return
-    }
+    }*/
 
 //    if(timeout.isDefined) Z3Wrapper.setTimeout(timeout)
 
-    val rTree = if (!interpolation) MakeRTree(cfg, MakeCFG.getLoops, spuriousness, searchMethod, log)
-      else MakeRTreeInterpol(cfg, MakeCFG.getLoops, searchMethod, babarew, dumpInterpolationQuery, dynamicAccelerate, underApproximate, template, log)
-    if(drawRTree) DrawGraph(rTree, absInFile)
+    /*val rTree = if (!interpolation) MakeRTree(cfg, MakeCFG.getLoops, spuriousness, searchMethod, log)
+      else MakeRTreeInterpol(cfg, MakeCFG.getLoops, searchMethod, babarew, dumpInterpolationQuery, dynamicAccelerate, underApproximate, template, log)*/
+    //if(drawRTree) DrawGraph(rTree, absInFile)
 
   } catch {
     case TimeoutException | StoppedException => // nothing
