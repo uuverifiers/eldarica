@@ -8,42 +8,28 @@ lazy val commonSettings = Seq(
     publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
 )
 
-// Jar files for the parsers
-
-lazy val parserSettings = Seq(
-    publishArtifact in packageDoc := false,
-    publishArtifact in packageSrc := false,
-    exportJars := true,
-    crossPaths := true 
-)
-
-lazy val parser = (project in file("parser")).
-  settings(commonSettings: _*).
-  settings(parserSettings: _*).
-  settings(
-    name := "Princess-parser",
-    packageBin in Compile := baseDirectory.value / "parser.jar"
-  )
-
-lazy val smtParser = (project in file("smt-parser")).
-  settings(commonSettings: _*).
-  settings(parserSettings: _*).
-  settings(
-    name := "Princess-smt-parser",
-    packageBin in Compile := baseDirectory.value / "smt-parser.jar"
-  )
-
 // Actual project
 
 lazy val root = (project in file(".")).
-  aggregate(parser, smtParser).
-  dependsOn(parser, smtParser).
   settings(commonSettings: _*).
 //
   settings(
     scalaSource in Compile := baseDirectory.value / "src",
 //
-    mainClass in Compile := Some("ap.CmdlMain"),
+    mainClass in Compile := Some("Main"),
+//
+	unmanagedBase := baseDirectory.value / "lib",
+//
+//	unmanagedBase ++= baseDirectory.value / "flata",	
+//
+	// exclude any folders 
+/*	excludeFilter in Compile := {
+		val refine = (baseDirectory.value / "src" / "lazabs" / "refine" ).getCanonicalPath
+  		new SimpleFileFilter(f => 
+  			(f.getCanonicalPath startsWith refine)  			
+  		)
+	},
+*/
 //
     scalacOptions in Compile ++=
       List("-feature",
@@ -58,3 +44,7 @@ lazy val root = (project in file(".")).
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+//
+    
+
+//
