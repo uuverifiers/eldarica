@@ -5,7 +5,7 @@ lazy val commonSettings = Seq(
     version := "2016-12-26",
     scalaVersion := "2.11.8",
     crossScalaVersions := Seq("2.11.8", "2.12.1"),
-    publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
+    publishTo := Some(Resolver.file("file",  new File( "./" )) )
 )
 
 // Actual project
@@ -20,8 +20,15 @@ lazy val root = (project in file(".")).
 //
 	unmanagedBase := baseDirectory.value / "lib",
 //
-//	unmanagedBase ++= baseDirectory.value / "flata",	
+	unmanagedBase <<= baseDirectory { base => base / "flata" },
 //
+
+unmanagedJars in Compile <++= baseDirectory map { base =>
+    val baseDirectories = (base / "lib") +++ (base / "flata")
+    val customJars = (baseDirectories ** "*.jar")  // +++ (base / "d" / "my.jar")
+    customJars.classpath
+},
+
 	// exclude any folders 
 /*	excludeFilter in Compile := {
 		val refine = (baseDirectory.value / "src" / "lazabs" / "refine" ).getCanonicalPath
@@ -43,8 +50,11 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
 //
-    
+	libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+//
+    resolvers += "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven/",
+    libraryDependencies += "uuverifiers" %% "princess" % "2016-12-26")
 
 //
