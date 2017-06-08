@@ -33,7 +33,7 @@ package lazabs.horn.parser
 import java.io.{FileInputStream,InputStream,FileNotFoundException}
 import lazabs.horn.global._
 import ap.parser._
-import ap.theories.{Theory, TheoryRegistry, TheoryCollector}
+import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
 import ap.proof.theoryPlugins.Plugin
@@ -249,7 +249,8 @@ class SMTHornReader protected[parser] (
                       PreprocessingSettings.DEFAULT,
                       Param.TriggerStrategyOptions.AllMaximal))
     clause = processedClause_aux
-    
+    println
+    println(clause)
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
@@ -260,9 +261,11 @@ class SMTHornReader protected[parser] (
     }
 
     val groundClause = subst(clause, parameterConsts, 0)
+
+    println
+    println(groundClause)
     
     // transform to CNF and try to generate one clause per conjunct
-    
     for (conjunctRaw <- cnf_if_needed(groundClause);
          conjunct <- elimQuansTheories(conjunctRaw,
                                        unintPredicates,
@@ -295,25 +298,32 @@ class SMTHornReader protected[parser] (
         val lit = litsTodo.head
         litsTodo = litsTodo.tail
         lit match {
-          case INot(a : IAtom) =>
+          case INot(a@IAtom(p, _)) if (TheoryRegistry lookupSymbol p).isEmpty =>
             body = translateAtom(a) :: body
-          case a : IAtom => {
+          case a@IAtom(p, _) if (TheoryRegistry lookupSymbol p).isEmpty => {
             //assert(head == null)
             if (head != null) {
               System.err.println(conjunct)
-              throw new Exception ("Negated uninterpreted predicates in the body of a clause are not supported.")
+              throw new Exception (
+                "Negated uninterpreted predicates in the body of a clause " +
+                "are not supported.")
             }
             head = translateAtom(a)
           }
           case f =>
+            // TODO: at this point we have to handle the case that f is
+            // an ADT atom
             body = Interp(PrincessWrapper.formula2Eldarica(~f, symMap, false)) :: body
         }
       }
 
+      val res =
       HornClause(if (head == null) Interp(lazabs.ast.ASTree.BoolConst(false))
                  else head,
                  if (body.isEmpty) List(Interp(lazabs.ast.ASTree.BoolConst(true))) 
                  else body)
+      println(" -> " + res)
+      res
     }
   }
 
@@ -335,7 +345,9 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    if (allTheories.isEmpty &&
+    val keptTheories = allTheories filter (_.isInstanceOf[ADT])
+
+    if (allTheories.size == keptTheories.size &&
         (quanNum == 0 || !PredUnderQuantifierVisitor(clause)))
       return List(clause)
 
