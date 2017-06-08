@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -205,9 +205,9 @@ class PetriMain {
             forStr = "true"
 
           // parse the formula
-          val env = new Environment[Unit, Unit, Unit, Unit]
+          val env = new Environment[Unit, Sort, Unit, Unit, Sort]
           for (p <- places.toList.reverse)
-            env.pushVar(p, ())
+            env.pushVar(p, Sort.Integer)
           
           val reader = new java.io.StringReader(forStr)
           finalConfig =

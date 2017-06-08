@@ -51,6 +51,8 @@ unmanagedJars in Compile <++= baseDirectory map { base =>
 	libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
 //
     resolvers += "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "2016-12-26")
+//    libraryDependencies += "uuverifiers" %% "princess" % "2016-12-26"
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+)
 
 //
