@@ -10,17 +10,13 @@ lazy val commonSettings = Seq(
 
 // Actual project
 
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
+	lazy val root = (project in file(".")).
+	settings(commonSettings: _*).
 //
   settings(
     scalaSource in Compile := baseDirectory.value / "src",
 //
-    mainClass in Compile := Some("Main"),
-//
-	unmanagedBase := baseDirectory.value / "lib",
-//
-	unmanagedBase <<= baseDirectory { base => base / "flata" },
+    mainClass in Compile := Some("lazabs.Main"),
 //
 
 unmanagedJars in Compile <++= baseDirectory map { base =>
