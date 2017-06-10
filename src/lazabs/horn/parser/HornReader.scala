@@ -310,10 +310,18 @@ class SMTHornReader protected[parser] (
             }
             head = translateAtom(a)
           }
-          case f =>
-            // TODO: at this point we have to handle the case that f is
-            // an ADT atom
-            body = Interp(PrincessWrapper.formula2Eldarica(~f, symMap, false)) :: body
+          // TODO: at this point we have to handle the case that f is
+          // an ADT atom
+          case INot(a@IAtom(p, _)) if !(TheoryRegistry lookupSymbol p).isEmpty =>
+            //body = Interp(PrincessWrapper.formula2Eldarica(~f, symMap, false)) :: body
+            // TODO
+            body = translateAtom(a) :: body
+
+          case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isEmpty => {
+            //assert(head == null)
+            // TODO
+            translateAtom(a)
+          }
         }
       }
 
