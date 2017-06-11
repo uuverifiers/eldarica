@@ -42,7 +42,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.{TerForConvenience, TermOrder}
 import lazabs.prover.PrincessWrapper
-import lazabs.ast.ASTree.Parameter
+import lazabs.ast.ASTree._
 import lazabs.types.IntegerType
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 
@@ -293,6 +293,11 @@ class SMTHornReader protected[parser] (
         }).toList
         RelVar(pred.name, newArgs)
       }
+      
+      def translateCtor(a : IAtom) : Interp = {
+        Interp(BoolConst(false))
+      }
+
 
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
@@ -314,9 +319,8 @@ class SMTHornReader protected[parser] (
           // an ADT atom
           case INot(a@IAtom(p, _)) if !(TheoryRegistry lookupSymbol p).isEmpty =>
             //body = Interp(PrincessWrapper.formula2Eldarica(~f, symMap, false)) :: body
-            // TODO
-            body = translateAtom(a) :: body
-
+            // TODO: constructor or selector?
+            body = translateCtor(a) :: body
           case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isEmpty => {
             //assert(head == null)
             // TODO

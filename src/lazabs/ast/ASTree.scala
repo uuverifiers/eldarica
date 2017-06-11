@@ -90,6 +90,12 @@ object ASTree {
    */
   case class ScSet(aName: Option[Variable]) extends Expression
   
+  // ADT
+  
+  case class ADTctor(cons: Seq[ADTsel])
+  case class ADTsel(v: Variable)
+  case class ADTtest(v: Variable)
+  case class ADTsize(v: Variable)  
   
   // Actor
   case class ReactBlock(cases: List[CaseClause]) extends ASTree
