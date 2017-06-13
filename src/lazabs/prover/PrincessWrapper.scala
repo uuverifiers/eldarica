@@ -293,7 +293,16 @@ class PrincessWrapper {
       case IAtom(pred, args) => 
         theory match {
           case Some(adt: ADT) =>
-            ADTctor(pred.name, args.map(rvT(_)))
+            if (adt.constructors.map(_.name).contains(pred.name))
+              ADTctor(pred.name, args.map(rvT(_)))
+            else {
+              rvT(args.head) match {
+                case v@Variable(_,_) =>ADTsel(v)
+                case _ => 
+                  throw new Exception("Selector applied to non-variable")
+                  BoolConst(false)
+              }
+            }            
           case None =>
             throw new Exception("Theory not supported")
             BoolConst(false)
