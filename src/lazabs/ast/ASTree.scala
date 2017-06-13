@@ -92,10 +92,10 @@ object ASTree {
   
   // ADT
   
-  case class ADTctor(cons: Seq[ADTsel])
-  case class ADTsel(v: Variable)
-  case class ADTtest(v: Variable)
-  case class ADTsize(v: Variable)  
+  case class ADTctor(ctorName: String, exprList: Seq[Expression]) extends Expression
+  case class ADTsel(v: Variable) extends Expression
+  case class ADTtest(v: Variable) extends Expression
+  case class ADTsize(v: Variable) extends Expression
   
   // Actor
   case class ReactBlock(cases: List[CaseClause]) extends ASTree

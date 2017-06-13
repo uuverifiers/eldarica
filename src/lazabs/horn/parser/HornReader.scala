@@ -293,11 +293,6 @@ class SMTHornReader protected[parser] (
         }).toList
         RelVar(pred.name, newArgs)
       }
-      
-      def translateCtor(a : IAtom) : Interp = {
-        Interp(BoolConst(false))
-      }
-
 
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
@@ -317,10 +312,18 @@ class SMTHornReader protected[parser] (
           }
           // TODO: at this point we have to handle the case that f is
           // an ADT atom
-          case INot(a@IAtom(p, _)) if !(TheoryRegistry lookupSymbol p).isEmpty =>
+          case INot(a@IAtom(p, _)) if !((TheoryRegistry lookupSymbol p).isEmpty) => 
             //body = Interp(PrincessWrapper.formula2Eldarica(~f, symMap, false)) :: body
             // TODO: constructor or selector?
-            body = translateCtor(a) :: body
+            //val adt: ADT = (TheoryRegistry lookupSymbol p).get
+            ((TheoryRegistry lookupSymbol p).get) match {
+              case adt: ADT =>
+                println(adt.constructors.head.name)
+                println(adt.constructors.contains(p))                
+                body = Interp(PrincessWrapper.formula2Eldarica(a, symMap, false, Some(adt))) :: body
+              case _ =>
+            }         
+
           case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isEmpty => {
             //assert(head == null)
             // TODO

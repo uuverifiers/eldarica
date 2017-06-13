@@ -38,6 +38,7 @@ import ap.parser._
 import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
+import ap.theories._
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -63,8 +64,9 @@ object PrincessWrapper {
 
   def formula2Eldarica(t: IFormula,
                        symMap : Map[ConstantTerm, String],
-                       removeVersions: Boolean): Expression =
-    localWrapper.value.formula2Eldarica(t, symMap, removeVersions)
+                       removeVersions: Boolean,
+                       theory: Option[Theory] = None): Expression =
+    localWrapper.value.formula2Eldarica(t, symMap, removeVersions, theory)
 
   def pathInterpols(fs: List[Expression]): List[Expression] =
     localWrapper.value.pathInterpols(fs)
@@ -98,7 +100,8 @@ class PrincessWrapper {
    * converts a list of formulas in Eldarica format to a list of formulas in Princess format
    * returns both the formulas in Princess format and the symbols used in the formulas
    */
-  def formula2Princess(ts: List[Expression],initialSymbolMap: LinkedHashMap[String, ConstantTerm] = LinkedHashMap[String, ConstantTerm]().empty, keepReservoir: Boolean = false) 
+  def formula2Princess(ts: List[Expression],initialSymbolMap: LinkedHashMap[String, ConstantTerm] = LinkedHashMap[String, ConstantTerm]().empty, 
+                       keepReservoir: Boolean = false) 
     : (List[IExpression], LinkedHashMap[String, ConstantTerm]) = {
     val symbolMap = initialSymbolMap
     if (!keepReservoir)
@@ -205,7 +208,7 @@ class PrincessWrapper {
    * @param removeVersions Removes the versions in the SSA conversion 
    */
   import scala.util.matching.Regex
-  def formula2Eldarica(t: IFormula, symMap : Map[ConstantTerm, String], removeVersions: Boolean): Expression = {
+  def formula2Eldarica(t: IFormula, symMap : Map[ConstantTerm, String], removeVersions: Boolean, theory: Option[Theory] = None): Expression = {
     def rvT(t: ITerm): Expression = t match {
       case IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2)) =>
         lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
@@ -287,11 +290,18 @@ class PrincessWrapper {
       case IQuantified(Quantifier.ALL, e) => lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
+      case IAtom(pred, args) => 
+        theory match {
+          case Some(adt: ADT) =>
+            ADTctor(pred.name, args.map(rvT(_)))
+          case None =>
+            throw new Exception("Theory not supported")
+            BoolConst(false)
+        }        
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
         BoolConst(false)
     }
-
     rvF(t)
   }
     
