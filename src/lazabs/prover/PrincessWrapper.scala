@@ -174,6 +174,13 @@ class PrincessWrapper {
         symbolReservoir = symbolReservoir.tail
         newSym
       })
+
+      // TODO
+      case lazabs.ast.ASTree.ADTctor(_,_) => IBoolLit(false)
+      case lazabs.ast.ASTree.ADTsel(_,_) => IBoolLit(false)
+      case lazabs.ast.ASTree.ADTtest(_) => IBoolLit(false)
+      case lazabs.ast.ASTree.ADTsize(_) => IBoolLit(false)
+
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
       case lazabs.ast.ASTree.BoolConst(v) => IBoolLit(v)
@@ -297,7 +304,7 @@ class PrincessWrapper {
               ADTctor(pred.name, args.map(rvT(_)))
             else {
               rvT(args.head) match {
-                case v@Variable(_,_) =>ADTsel(v)
+                case v@Variable(_,_) => ADTsel(pred.name,v)
                 case _ => 
                   throw new Exception("Selector applied to non-variable")
                   BoolConst(false)

@@ -93,7 +93,7 @@ object ASTree {
   // ADT
   
   case class ADTctor(ctorName: String, exprList: Seq[Expression]) extends Expression
-  case class ADTsel(v: Variable) extends Expression
+  case class ADTsel(selName: String, v: Variable) extends Expression
   case class ADTtest(v: Variable) extends Expression
   case class ADTsize(v: Variable) extends Expression
   
