@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.util.Seqs
 import ap.theories.{Theory, TheoryCollector}
+import ap.types.TypeTheory
 import SimpleAPI.ProverStatus
 
 import lazabs.prover.{Tree, Leaf}
@@ -122,6 +123,9 @@ object HornPredAbs {
     def toInternalClausify(f : IFormula) : Conjunction =
       HornPredAbs.toInternal(f, signature, functionEnc,
                              clausifyPreprocSettings)
+                             
+    def preprocess(f : Conjunction) : Conjunction =
+      !Theory.preprocess(!f, theories, order)
   }
 
   val normalPreprocSettings = PreprocessingSettings.DEFAULT
@@ -319,7 +323,9 @@ object HornPredAbs {
 //      val localOrder = sf.order restrict syms
 
       val constraint =
-       c.instantiateConstraint(litSyms.last, litSyms.init, List(), sf.signature)
+        sf.preprocess(
+          c.instantiateConstraint(litSyms.last, litSyms.init, List(),
+                                  sf.signature))
        
       // TODO: check whether any quantifiers are left in the contraint, which could
       // be eliminated right away
@@ -662,6 +668,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   // first find out which theories are relevant
   val theories = {
     val coll = new TheoryCollector
+    coll addTheory TypeTheory
     for (c <- iClauses)
       c collectTheories coll
     coll.theories
