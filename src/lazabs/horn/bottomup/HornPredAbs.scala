@@ -89,6 +89,14 @@ object HornPredAbs {
       res
     }
 
+    private var skolemCounter = 0
+
+    def genSkolemConstant : ConstantTerm = {
+      val num = skolemCounter
+      skolemCounter = skolemCounter + 1
+      genConstant("sk" + num)
+    }
+
     def addSymbol(c : ConstantTerm) : Unit =
       constantsToAdd += c
     def addSymbols(cs : Seq[ConstantTerm]) : Unit =
@@ -101,14 +109,14 @@ object HornPredAbs {
     
     def genConstants(prefix : String,
                      num : Int, suffix : String) : Seq[ConstantTerm] = {
-      val res =
-        for (i <- 0 until num) yield new ConstantTerm(prefix + "_" + i + "_" + suffix)
+      val res = for (i <- 0 until num)
+                yield new ConstantTerm(prefix + "_" + i + "_" + suffix)
       addSymbols(res)
       res
     }
 
     def duplicateConstants(cs : Seq[ConstantTerm]) = {
-      val res = for (c <- cs) yield new ConstantTerm(c.name)
+      val res = for (c <- cs) yield c.clone
       addSymbols(res)
       res
     }
@@ -326,14 +334,58 @@ object HornPredAbs {
         sf.preprocess(
           c.instantiateConstraint(litSyms.last, litSyms.init, List(),
                                   sf.signature))
-       
-      // TODO: check whether any quantifiers are left in the contraint, which could
-      // be eliminated right away
 
-      NormClause(constraint, lits.init, lits.last)
+      val skConstraint =
+        skolemise(constraint, false, List())
+      val finalConstraint =
+        if (skConstraint eq constraint)
+          constraint
+        else
+          sf reduce skConstraint
+
+      NormClause(finalConstraint, lits.init, lits.last)
     }
   }
-  
+
+  private def skolemise(c : Conjunction,
+                        negated : Boolean,
+                        substTerms : List[Term])
+                       (implicit sf : SymbolFactory) : Conjunction = {
+    val newSubstTerms = c.quans match {
+      case Seq() =>
+        substTerms
+      case quans => {
+        val N = quans.size
+        Seqs.prepend(
+          for ((q, n) <- quans.zipWithIndex) yield q match {
+            case Quantifier.EX if !negated => sf.genSkolemConstant
+            case Quantifier.ALL if negated => sf.genSkolemConstant
+            case _ => v(n)
+          },
+          for (t <- substTerms) yield t match {
+            case VariableTerm(ind) => VariableTerm(ind + N)
+            case t => t
+          })
+      }
+    }
+
+    val newNegConjs =
+      c.negatedConjs.update(
+        for (d <- c.negatedConjs) yield skolemise(d, !negated, newSubstTerms),
+        sf.order)
+
+    if (newSubstTerms.isEmpty) {
+      c.updateNegatedConjs(newNegConjs)(sf.order)
+    } else {
+      val subst = VariableSubst(0, newSubstTerms, sf.order)
+      Conjunction(c.quans,
+                  subst(c.arithConj),
+                  subst(c.predConj),
+                  newNegConjs,
+                  sf.order)
+    }
+  }
+
   case class NormClause(constraint : Conjunction,
                         body : Seq[(RelationSymbol, Int)],
                         head : (RelationSymbol, Int))

@@ -249,8 +249,8 @@ class SMTHornReader protected[parser] (
                       PreprocessingSettings.DEFAULT,
                       Param.TriggerStrategyOptions.AllMaximal))
     clause = processedClause_aux
-    println
-    println(clause)
+//    println
+//    println(clause)
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
@@ -262,8 +262,8 @@ class SMTHornReader protected[parser] (
 
     val groundClause = subst(clause, parameterConsts, 0)
 
-    println
-    println(groundClause)
+//    println
+//    println(groundClause)
     
     // transform to CNF and try to generate one clause per conjunct
     for (conjunctRaw <- cnf_if_needed(groundClause);
@@ -336,13 +336,13 @@ class SMTHornReader protected[parser] (
         }
       }
 
-      val res =
+//      val res =
       HornClause(if (head == null) Interp(lazabs.ast.ASTree.BoolConst(false))
                  else head,
                  if (body.isEmpty) List(Interp(lazabs.ast.ASTree.BoolConst(true))) 
                  else body)
-      println(" -> " + res)
-      res
+//      println(" -> " + res)
+//      res
     }
   }
 
