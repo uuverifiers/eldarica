@@ -28,10 +28,10 @@ if [ -f ${LAZABS_HOME}/dist/lazabs.jar ]; then
    	# binary distribution
 	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/dist/lazabs.jar"
 
-else if [ -f ${LAZABS_HOME}/target/scala-2.*/Eldarica-Horn-Solver-assembly*.jar ]; then
+else if [ -f ${LAZABS_HOME}/target/scala-2.*/Eldarica-assembly*.jar ]; then
 
         # binary distribution
-	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/target/scala-2.*/Eldarica-Horn-Solver-assembly*.jar"
+	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/target/scala-2.*/Eldarica-assembly*.jar"
 
 else
 
