@@ -3,7 +3,7 @@ JLEX_PATH:=/usr/share/java/JLex.jar
 JAVA_CUP_PATH:=../cc-parser/lib/java-cup-11a.jar
 
 JAVAC:=javac
-#JAVAC_FLAGS:=-target 1.5
+JAVAC_FLAGS:=-target 1.5
 
 JAVA:=java
 JAVA_FLAGS:=
