@@ -5,12 +5,41 @@ lazy val commonSettings = Seq(
     version := "2017-07-21-SNAPSHOT",
     scalaVersion := "2.11.8",
     crossScalaVersions := Seq("2.11.8", "2.12.1"),
-    publishTo := Some(Resolver.file("file",  new File( "./" )) )
+    publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
 )
+
+// Jar files for the parsers
+
+lazy val parserSettings = Seq(
+    publishArtifact in packageDoc := false,
+    publishArtifact in packageSrc := false,
+    exportJars := true,
+    crossPaths := true 
+)
+
+lazy val ccParser = (project in file("cc-parser")).
+  settings(commonSettings: _*).
+  settings(parserSettings: _*).
+  settings(
+    name := "Eldarica-CC-parser",
+    packageBin in Compile := baseDirectory.value / "cc-parser.jar"
+  ).
+  disablePlugins(AssemblyPlugin)
+
+lazy val tplspecParser = (project in file("template-parser")).
+  settings(commonSettings: _*).
+  settings(parserSettings: _*).
+  settings(
+    name := "Eldarica-tplspec-parser",
+    packageBin in Compile := baseDirectory.value / "tplspec-parser.jar"
+  ).
+  disablePlugins(AssemblyPlugin)
 
 // Actual project
 
 lazy val root = (project in file(".")).
+    aggregate(ccParser, tplspecParser).
+    dependsOn(ccParser, tplspecParser).
     settings(commonSettings: _*).
 //
     settings(
@@ -19,11 +48,11 @@ lazy val root = (project in file(".")).
       mainClass in Compile := Some("lazabs.Main"),
 //
 
-unmanagedJars in Compile <++= baseDirectory map { base =>
-    val baseDirectories = (base / "lib") +++ (base / "flata")
-    val customJars = (baseDirectories ** "*.jar")  // +++ (base / "d" / "my.jar")
-    customJars.classpath
-},
+      unmanagedJars in Compile <++= baseDirectory map { base =>
+        val baseDirectories = (base / "lib") +++ (base / "flata")
+        val customJars = (baseDirectories ** "*.jar")  // +++ (base / "d" / "my.jar")
+        customJars.classpath
+      },
 
 	// exclude any folders 
 /*	excludeFilter in Compile := {
