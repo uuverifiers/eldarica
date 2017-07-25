@@ -71,6 +71,25 @@ lazy val root = (project in file(".")).
       case "2.12.1" => "-opt:l:classpath"
     }},
 //
+/*
+	sourceGenerators in Compile <+= (sourceManaged in Compile, baseDirectory, managedClasspath in Compile, unmanagedJars in Compile) 
+	                                map { (dir, base, managed, unmanaged) => 
+		val cacheDir = base / ".cache"
+		val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
+		val hornLexerFile =  hornParserDir / "HornLexer.java"
+		val hornParserFile = hornParserDir / "Parser.java"
+		val hornSymFile = hornParserDir / "Symbols.java"
+		
+  		val cache = FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists){ (in: Set[File]) =>		
+			scala.sys.process.Process(
+				s"java -jar ./lib/JFlex.jar -d src/lazabs/horn/parser/ --nobak src/lazabs/horn/parser/HornLexer.jflex").!
+			scala.sys.process.Process(
+				s"java -cp ./lib/ -jar ./lib/java-cup-11a.jar -destdir src/lazabs/horn/parser/ -parser Parser -symbols Symbols src/lazabs/horn/parser/HornParser.cup").!
+		}	
+		cache(Set("src/lazabs/horn/parser/HornLexer.jflex")).toSeq
+	},
+*/	
+//
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
