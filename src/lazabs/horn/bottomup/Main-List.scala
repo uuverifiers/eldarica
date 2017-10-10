@@ -58,7 +58,6 @@ object MainList extends App {
   val Seq(colour, clist) = listADT.sorts
   val Seq(red, green, blue, nil, cons) = listADT.constructors
   val Seq(_, _, _, _, Seq(head, tail)) = listADT.selectors
-println(listADT.termSize)
   val Seq(_, listSize) = listADT.termSize
 
   val C = MonoSortedPredicate("C", List(clist, clist, clist))
