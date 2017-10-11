@@ -20,8 +20,12 @@ lazy val parserSettings = Seq(
 // Horn parser settings
 
 lazy val hornParserSettings = Seq(
-	sourceGenerators in Compile <+= (sourceManaged in Compile, baseDirectory, managedClasspath in Compile, unmanagedJars in Compile) 
-	                                map { (dir, base, managed, unmanaged) => 
+	sourceGenerators in Compile += Def.task {
+          val dir = (sourceManaged in Compile).value
+          val base = baseDirectory.value
+          val managed = (managedClasspath in Compile).value
+          val unmanaged = (unmanagedJars in Compile).value
+
 		val cacheDir = base / "hornParser" / ".cache"
 		val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
 		// generated Java files
@@ -40,7 +44,7 @@ lazy val hornParserSettings = Seq(
 			Set(hornLexerFile,hornParserFile,hornSymFile)
 		}
 		cache(Set(hornFlex,hornCup)).toSeq
-	}
+        }.taskValue
 )
 
 lazy val ccParser = (project in file("cc-parser")).
@@ -75,11 +79,11 @@ lazy val root = (project in file(".")).
       mainClass in Compile := Some("lazabs.Main"),
 //
 
-      unmanagedJars in Compile <++= baseDirectory map { base =>
+      unmanagedJars in Compile ++= (baseDirectory map { base =>
         val baseDirectories = (base / "lib") +++ (base / "flata")
         val customJars = (baseDirectories ** "*.jar")  // +++ (base / "d" / "my.jar")
         customJars.classpath
-      },
+      }).value,
 
 	// exclude any folders 
 /*	excludeFilter in Compile := {
@@ -93,10 +97,10 @@ lazy val root = (project in file(".")).
     scalacOptions in Compile ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
-    scalacOptions <+= scalaVersion map { sv => sv match {
+    scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.8" => "-optimise"
       case "2.12.1" => "-opt:l:classpath"
-    }},	
+    }}).value,	
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
