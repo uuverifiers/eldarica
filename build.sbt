@@ -25,25 +25,42 @@ lazy val hornParserSettings = Seq(
           val base = baseDirectory.value
           val managed = (managedClasspath in Compile).value
           val unmanaged = (unmanagedJars in Compile).value
-
-		val cacheDir = base / "hornParser" / ".cache"
+          
+		//val hornCacheDir = base / "hornParser" / ".cache"
+		val cacheDir = base / "parser" / ".cache"
+		
 		val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
+		val parserDir = base / "src" / "lazabs" / "parser"
+		
 		// generated Java files
 		val hornLexerFile =  hornParserDir / "HornLexer.java"
+		val lexerFile =  parserDir / "Lexer.java"
+		
 		val hornParserFile = hornParserDir / "Parser.java"
+		val parserFile = parserDir / "Parser.java"
+		
 		val hornSymFile = hornParserDir / "Symbols.java"
+		val symFile = parserDir / "Symbols.java"
+		
 		// grammar file
 		val hornFlex = hornParserDir / "HornLexer.jflex"
+		val flex = parserDir / "Lexer.jflex"
+		
 		val hornCup =  hornParserDir / "HornParser.cup"
+		val cup =  parserDir / "Parser.cup"
 		
   		val cache = FileFunction.cached(cacheDir, inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists){ _ =>
 			scala.sys.process.Process(
 				s"java -jar ./lib/JFlex.jar -d src/lazabs/horn/parser/ --nobak src/lazabs/horn/parser/HornLexer.jflex").!
 			scala.sys.process.Process(
 				s"java -cp ./lib/ -jar ./lib/java-cup-11a.jar -destdir src/lazabs/horn/parser/ -parser Parser -symbols Symbols src/lazabs/horn/parser/HornParser.cup").!
-			Set(hornLexerFile,hornParserFile,hornSymFile)
+			scala.sys.process.Process(
+				s"java -jar ./lib/JFlex.jar -d src/lazabs/parser/ --nobak src/lazabs/parser/Lexer.jflex").!
+			scala.sys.process.Process(
+				s"java -cp ./lib/ -jar ./lib/java-cup-11a.jar -destdir src/lazabs/parser/ -parser Parser -symbols Symbols src/lazabs/parser/Parser.cup").!
+			Set(lexerFile,parserFile,symFile,hornLexerFile,hornParserFile,hornSymFile)
 		}
-		cache(Set(hornFlex,hornCup)).toSeq
+		cache(Set(hornFlex,hornCup,flex,cup)).toSeq
         }.taskValue
 )
 
@@ -105,8 +122,8 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
-    libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+//    libraryDependencies +=
+//      "net.sf.squirrel-sql.thirdparty-non-maven", % "java-cup" % "0.11a",
 //
     libraryDependencies +=
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
