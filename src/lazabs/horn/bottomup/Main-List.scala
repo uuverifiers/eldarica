@@ -101,7 +101,11 @@ object MainList extends App {
     (n * 2 + 1 === listSize(x))        :- S(x, n)
   )
 
-  val clauses = axiomClauses ++ prop1 ++ prop3 ++ prop3b ++ prop4
+  val prop5 = List(
+    ((head(x) === head(r)) | (head(y) === head(r))) :- (C(x, y, r), r =/= nil())
+  )
+
+  val clauses = axiomClauses ++ prop1 ++ prop3 ++ prop3b ++ prop4 ++ prop5
 
   println
   println(clauses mkString "\n")
