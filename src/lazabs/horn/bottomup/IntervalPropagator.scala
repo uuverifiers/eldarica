@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 package lazabs.horn.bottomup
 
 import ap.basetypes.IdealInt
+import ap.parameters.ReducerSettings
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience,
                   Term, Formula}
@@ -103,7 +104,8 @@ object IntervalPropagator {
 
 }
 
-class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
+class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause],
+                         reducerSettings : ReducerSettings) {
 
   import HornPredAbs._
   import IntervalPropagator._
@@ -114,7 +116,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause]) {
   }).toIndexedSeq
 
   def reduce(c : Conjunction) =
-    ReduceWithConjunction(Conjunction.TRUE, c.order)(c)
+    ReduceWithConjunction(Conjunction.TRUE, c.order, reducerSettings)(c)
 
   val extendedConstraints =
     (for ((NormClause(constraint, _, _), order) <-

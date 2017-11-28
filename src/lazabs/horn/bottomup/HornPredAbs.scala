@@ -32,13 +32,16 @@ package lazabs.horn.bottomup
 import ap.basetypes.IdealInt
 import ap.{Signature, DialogUtil, SimpleAPI, PresburgerTools}
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
+import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
+                      ReducerSettings}
 import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience,
                   Term, Formula}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
+                               SeqReducerPluginFactory}
 import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
+import ap.proof.theoryPlugins.PluginSequence
 import ap.util.Seqs
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.TypeTheory
@@ -64,6 +67,16 @@ object HornPredAbs {
     val functionalPreds =
       (for (t <- theories.iterator;
             p <- t.functionalPredicates.iterator) yield p).toSet
+
+    val reducerSettings = {
+      var rs = ReducerSettings.DEFAULT
+      rs = Param.FUNCTIONAL_PREDICATES.set(
+             rs, functionalPreds)
+      rs = Param.REDUCER_PLUGIN.set(
+             rs, SeqReducerPluginFactory(
+                   for (t <- theories) yield t.reducerPlugin))
+      rs
+    }
 
     var orderVar : TermOrder = TermOrder.EMPTY
     val functionEnc =
@@ -103,7 +116,7 @@ object HornPredAbs {
       constantsToAdd ++= cs
     
     def reducer(assumptions : Conjunction) =
-      ReduceWithConjunction(assumptions, functionalPreds, order)
+      ReduceWithConjunction(assumptions, order, reducerSettings)
     def reduce(c : Conjunction) =
       reducer(Conjunction.TRUE)(c)
     
@@ -732,9 +745,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   val plugins =
     for (t <- theories; p <- t.plugin.toSeq) yield p
 
-  // currently at most one plugin is supported
-  assert(plugins.size <= 1)
-
   implicit val sf = new SymbolFactory(theories)
   
   val relationSymbols =
@@ -764,7 +774,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
     val res = new LinkedHashMap[NormClause, CC]
 
-    val propagator = new IntervalPropagator (rawNormClauses.keys.toIndexedSeq)
+    val propagator =
+      new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
+                              sf.reducerSettings)
 
     for ((nc, oc) <- propagator.result)
       res.put(nc, rawNormClauses(oc))
@@ -877,7 +889,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, sf.functionalPreds)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, sf.functionalPreds)
 //    gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
-    gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
+    gs = Param.THEORY_PLUGIN.set(gs, PluginSequence(plugins))
     gs
   }
 

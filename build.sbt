@@ -20,47 +20,63 @@ lazy val parserSettings = Seq(
 // Horn parser settings
 
 lazy val hornParserSettings = Seq(
-	sourceGenerators in Compile += Def.task {
-          val dir = (sourceManaged in Compile).value
+  sourceGenerators in Compile += Def.task {
+          val outputDir = (sourceManaged in Compile).value / "parser"
           val base = baseDirectory.value
-          val managed = (managedClasspath in Compile).value
-          val unmanaged = (unmanagedJars in Compile).value
           
-		//val hornCacheDir = base / "hornParser" / ".cache"
-		val cacheDir = base / "parser" / ".cache"
+          val cacheDir = outputDir / ".cache"
+
+          val parserDir = base / "src" / "lazabs" / "parser"
+          val parserOutputDir = outputDir / "normal"
 		
-		val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
-		val parserDir = base / "src" / "lazabs" / "parser"
+          val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
+          val hornParserOutputDir = outputDir / "horn"
 		
-		// generated Java files
-		val hornLexerFile =  hornParserDir / "HornLexer.java"
-		val lexerFile =  parserDir / "Lexer.java"
+          // generated Java files
+          val lexerFile =  parserOutputDir / "Lexer.java"
+          val hornLexerFile =  hornParserOutputDir / "HornLexer.java"
 		
-		val hornParserFile = hornParserDir / "Parser.java"
-		val parserFile = parserDir / "Parser.java"
+          val parserFile = parserOutputDir / "Parser.java"
+          val hornParserFile = hornParserOutputDir / "Parser.java"
 		
-		val hornSymFile = hornParserDir / "Symbols.java"
-		val symFile = parserDir / "Symbols.java"
+          val symFile = parserOutputDir / "Symbols.java"
+          val hornSymFile = hornParserOutputDir / "Symbols.java"
 		
-		// grammar file
-		val hornFlex = hornParserDir / "HornLexer.jflex"
-		val flex = parserDir / "Lexer.jflex"
+          // grammar file
+          val flex = parserDir / "Lexer.jflex"
+          val hornFlex = hornParserDir / "HornLexer.jflex"
 		
-		val hornCup =  hornParserDir / "HornParser.cup"
-		val cup =  parserDir / "Parser.cup"
+          val cup =  parserDir / "Parser.cup"
+          val hornCup =  hornParserDir / "HornParser.cup"
 		
-  		val cache = FileFunction.cached(cacheDir, inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists){ _ =>
-			scala.sys.process.Process(
-				s"java -jar ./lib/JFlex.jar -d src/lazabs/horn/parser/ --nobak src/lazabs/horn/parser/HornLexer.jflex").!
-			scala.sys.process.Process(
-				s"java -cp ./lib/ -jar ./lib/java-cup-11a.jar -destdir src/lazabs/horn/parser/ -parser Parser -symbols Symbols src/lazabs/horn/parser/HornParser.cup").!
-			scala.sys.process.Process(
-				s"java -jar ./lib/JFlex.jar -d src/lazabs/parser/ --nobak src/lazabs/parser/Lexer.jflex").!
-			scala.sys.process.Process(
-				s"java -cp ./lib/ -jar ./lib/java-cup-11a.jar -destdir src/lazabs/parser/ -parser Parser -symbols Symbols src/lazabs/parser/Parser.cup").!
-			Set(lexerFile,parserFile,symFile,hornLexerFile,hornParserFile,hornSymFile)
-		}
-		cache(Set(hornFlex,hornCup,flex,cup)).toSeq
+          val jflexLib = "./lib/JFlex.jar"
+          val cupLib = "./lib/java-cup-11a.jar"
+
+          val cache = FileFunction.cached(cacheDir,
+                                          inStyle = FilesInfo.lastModified,
+                                          outStyle = FilesInfo.exists){ _ =>
+            scala.sys.process.Process(
+              "java -jar " + jflexLib + " -d " +
+              hornParserOutputDir + " --nobak " + hornFlex).!
+            scala.sys.process.Process(
+              "java -cp ./lib/ -jar " + cupLib + " -destdir " +
+              hornParserOutputDir + " -parser Parser -symbols Symbols " +
+              hornCup).!
+            scala.sys.process.Process(
+              "java -jar " + jflexLib + " -d " + parserOutputDir +
+              " --nobak " + flex).!
+            scala.sys.process.Process(
+              "java -cp ./lib/ -jar " + cupLib + " -destdir " +
+              parserOutputDir + " -parser Parser -symbols Symbols " + cup).!
+            Set(lexerFile,
+                parserFile,
+                symFile,
+                hornLexerFile,
+                hornParserFile,
+                hornSymFile)
+          }
+
+          cache(Set(hornFlex, hornCup, flex, cup)).toSeq
         }.taskValue
 )
 
@@ -129,8 +145,8 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
 //
     resolvers += "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "2017-07-17"
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    libraryDependencies += "uuverifiers" %% "princess" % "2017-07-17"
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 
 //

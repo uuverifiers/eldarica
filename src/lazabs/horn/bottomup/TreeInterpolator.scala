@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.arithconj.{ModelElement, EqModelElement}
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.ModelSearchProver
+import ap.proof.theoryPlugins.PluginSequence
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
 import ap.util.Seqs
 
@@ -75,7 +76,10 @@ object TreeInterpolator {
 
     // theory axioms
     val axioms =
-      Conjunction.conj(for (t <- theories.iterator) yield t.axioms, order).negate
+      Conjunction.conj(for (t <- theories.iterator) yield t.axioms,
+                       order).negate
+    val theoryPlugin =
+      PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
 
     // convert to internal representation, pre-simplify
     val formulas = problem.toSeq
@@ -84,9 +88,11 @@ object TreeInterpolator {
       (for ((f, n) <- (problem zip partNames).iterator) yield (n -> f.negate)).toMap + (
        PartName.NO_NAME -> axioms
       )
-    
+
     val interpolationSettings =
-      Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
+      Param.THEORY_PLUGIN.set(
+      Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true),
+                              theoryPlugin)
     val prover = {
       val prover = ModelSearchProver emptyIncProver interpolationSettings
       prover.conclude(axioms, order)
