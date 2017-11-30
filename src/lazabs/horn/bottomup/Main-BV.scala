@@ -48,11 +48,10 @@ object MainBV extends App {
   val x = UnsignedBVSort(8) newConstant "x"
 
   val clauses = List(
-    i1(0)                               :- true,
-    i2(bvadd(x, cast2UnsignedBV(8, 1))) :- (i1(x),
-                                            bvult(x, cast2UnsignedBV(8, 100))),
-    i1(bvadd(x, cast2UnsignedBV(8, 2))) :- i2(x),
-    bvult(x, cast2UnsignedBV(8, 200))   :- i1(x)
+    i1(0)                  :- true,
+    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(x, bv(8, 100))),
+    i1(bvadd(x, bv(8, 2))) :- i2(x),
+    bvult(x, bv(8, 200))   :- i1(x)
   )
 
   println
@@ -66,13 +65,11 @@ object MainBV extends App {
   //
 
   val clauses2 = List(
-    i1(100)                             :- true,
-    i2(bvadd(x, cast2UnsignedBV(8, 3))) :- (i1(x),
-                                            bvult(x, cast2UnsignedBV(8, 50))),
-    i2(bvadd(x, cast2UnsignedBV(8, 1))) :- (i1(x),
-                                            bvult(cast2UnsignedBV(8, 70), x)),
-    i1(bvadd(x, cast2UnsignedBV(8, 2))) :- i2(x),
-    (x =/= 75)                          :- i1(x)
+    i1(100)                :- true,
+    i2(bvadd(x, bv(8, 3))) :- (i1(x), bvult(x, bv(8, 50))),
+    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(bv(8, 70), x)),
+    i1(bvadd(x, bv(8, 2))) :- i2(x),
+    (x =/= 75)             :- i1(x)
   )
 
   println
