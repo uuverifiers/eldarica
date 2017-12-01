@@ -36,6 +36,7 @@ import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
 
 import ap.basetypes.IdealInt
 import ap.parser._
+import ap.theories.TheoryCollector
 import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience, Term, OneTerm, Formula}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.preds.{Predicate, Atom}
@@ -263,6 +264,8 @@ object TemplateInterpolator {
     SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
       import p._
 
+      val coll = new TheoryCollector
+
       val (decompositionPoints, relAbstractions) = decompositions.unzip
  
       val decPointVocabulary =
@@ -312,6 +315,11 @@ object TemplateInterpolator {
                 case Left(syms) => syms
                 case Right((syms, _, _)) => syms
               }
+
+              clause collectTheories coll
+              addTheories(coll.newTheories)
+              coll.reset
+
               val constraint = clause.substituteSyms(newLocalSyms, newHeadSyms, newBodySymbols)(order)
               addAssertion(constraint)
               constraint

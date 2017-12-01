@@ -78,5 +78,6 @@ object MainBV extends App {
   println
   println("Solving ...")
 
-  println(SimpleWrapper.solve(clauses2, debuggingOutput = true))
+  println(SimpleWrapper.solve(clauses2, debuggingOutput = true,
+                              useTemplates = true))
 }
