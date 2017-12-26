@@ -175,12 +175,18 @@ class PrincessWrapper {
         newSym
       })
 
-      // TODO
-      case lazabs.ast.ASTree.ADTctor(_,_) => IBoolLit(false)
-      case lazabs.ast.ASTree.ADTsel(_,_) => IBoolLit(false)
-      case lazabs.ast.ASTree.ADTtest(_) => IBoolLit(false)
-      case lazabs.ast.ASTree.ADTsize(_) => IBoolLit(false)
-
+      // ADT conversion to Princess
+      case lazabs.ast.ASTree.ADTctor(adt, name, exprList) =>
+        val sort = adt.sorts.head
+        val ctor = adt.constructors.head
+        ctor(exprList.map(f2p(_).asInstanceOf[ITerm]): _*)
+      case lazabs.ast.ASTree.ADTsel(adt, selName, v) => 
+        IBoolLit(false)
+      case lazabs.ast.ASTree.ADTtest(v) => 
+        IBoolLit(false)
+      case lazabs.ast.ASTree.ADTsize(v) => 
+        IBoolLit(false)    
+       
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
       case lazabs.ast.ASTree.BoolConst(v) => IBoolLit(v)
@@ -301,18 +307,14 @@ class PrincessWrapper {
         theory match {
           case Some(adt: ADT) =>
             if (adt.constructors.map(_.name).contains(pred.name))
-              ADTctor(pred.name, args.map(rvT(_)))
+              ADTctor(adt,Variable(pred.name).stype(AdtType("adt")), args.map(rvT(_)))
             else {
-              rvT(args.head) match {
-                case v@Variable(_,_) => ADTsel(pred.name,v)
-                case _ => 
-                  throw new Exception("Selector applied to non-variable")
-                  BoolConst(false)
-              }
-            }            
-          case None =>
+              ADTsel(adt,pred.name,args.map(rvT(_)))
+            }   
+          case Some(_) =>
             throw new Exception("Theory not supported")
             BoolConst(false)
+          case None => BoolConst(false)
         }        
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)

@@ -30,6 +30,8 @@
 package lazabs.ast
 
 import lazabs.types._
+import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
+
 
 object ASTree {
   sealed abstract class ASTree extends ScalaType
@@ -92,8 +94,8 @@ object ASTree {
   
   // ADT
   
-  case class ADTctor(ctorName: String, exprList: Seq[Expression]) extends Expression
-  case class ADTsel(selName: String, v: Variable) extends Expression
+  case class ADTctor(adt: ADT, name: Variable, exprList: Seq[Expression]) extends Expression
+  case class ADTsel(adt: ADT, name: String, exprList: Seq[Expression]) extends Expression
   case class ADTtest(v: Variable) extends Expression
   case class ADTsize(v: Variable) extends Expression
   

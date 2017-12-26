@@ -293,7 +293,7 @@ class SMTHornReader protected[parser] (
         }).toList
         RelVar(pred.name, newArgs)
       }
-
+      
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
         litsTodo = litsTodo.tail
@@ -314,6 +314,7 @@ class SMTHornReader protected[parser] (
           // an ADT atom
           case INot(a@IAtom(p, _)) if !((TheoryRegistry lookupSymbol p).isEmpty) => 
             // TODO
+            //println("INot: " + a)
             ((TheoryRegistry lookupSymbol p).get) match {
               case adt: ADT =>
                 body = Interp(PrincessWrapper.formula2Eldarica(a, symMap, false, Some(adt))) :: body
