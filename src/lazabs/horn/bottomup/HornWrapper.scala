@@ -366,6 +366,7 @@ class HornTranslator {
         case Some(p) => p
         case None =>
           predicates += (varName -> new Literal {
+            // TODO: we should generate a MonoSortedPredicate at this point
             val predicate = new IExpression.Predicate(varName, params.size)
             val relevantArguments = (0 until params.size)
           })
