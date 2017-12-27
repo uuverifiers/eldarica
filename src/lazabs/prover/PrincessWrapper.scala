@@ -176,14 +176,16 @@ class PrincessWrapper {
       })
 
       // ADT conversion to Princess
-      case lazabs.ast.ASTree.ADTctor(adt, name, exprList) => {
-        val sort = adt.sorts.head
-        val ctor = adt.constructors.head
+      case e@lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
+        val Some(ctor) = adt.constructors.find(_.name == ctorName.name)
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
-        ctor(termArgs.init : _*) === termArgs.last
+        ctor(termArgs : _*)
       }
-      case lazabs.ast.ASTree.ADTsel(adt, selName, v) => 
-        IBoolLit(false)
+      case lazabs.ast.ASTree.ADTsel(adt, selName, exprList) => {
+        val Some(sel) = adt.selectors.flatten.find(_.name == selName)
+        val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
+        sel(termArgs : _*)
+      }
       case lazabs.ast.ASTree.ADTtest(v) => 
         IBoolLit(false)
       case lazabs.ast.ASTree.ADTsize(v) => 
@@ -305,19 +307,23 @@ class PrincessWrapper {
       case IQuantified(Quantifier.ALL, e) => lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
-      case IAtom(pred, args) => 
-        theory match {
-          case Some(adt: ADT) =>
-            if (adt.constructors.map(_.name).contains(pred.name))
-              ADTctor(adt,Variable(pred.name).stype(AdtType("adt")), args.map(rvT(_)))
-            else {
-              ADTsel(adt,pred.name,args.map(rvT(_)))
-            }   
-          case Some(_) =>
-            throw new Exception("Theory not supported")
-            BoolConst(false)
-          case None => BoolConst(false)
-        }        
+      case IAtom(pred, args) =>
+        (TheoryRegistry lookupSymbol pred) match {
+          case Some(adt: ADT) => {
+            val argExprs = args.map(rvT(_))
+            val lhs =
+              if (adt.constructors.map(_.name).contains(pred.name)) {
+                ADTctor(adt,
+                        Variable(pred.name).stype(AdtType("adt")),
+                        argExprs.init)
+              } else {
+                ADTsel(adt, pred.name, argExprs.init)
+              }
+            lazabs.ast.ASTree.Equality(lhs, argExprs.last)
+          }
+          case _ =>
+            throw new Exception("Unsupported predicate: " + pred)
+        }
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
         BoolConst(false)
