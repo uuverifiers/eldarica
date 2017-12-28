@@ -186,12 +186,11 @@ class PrincessWrapper {
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
         sel(termArgs : _*)
       }
-      case e1@lazabs.ast.ASTree.ADTtest(v) =>
-        println("this is e: " + e1)
+      case e1@lazabs.ast.ASTree.ADTtest(adt, v) =>
+        println("this is test: " + e1)
         IBoolLit(false)
-      case e2@lazabs.ast.ASTree.ADTsize(v) =>
-        println("this is e: " + e2)
-        IBoolLit(false)    
+      case lazabs.ast.ASTree.ADTsize(adt, v) =>
+        adt.termSizePreds.head(f2p(v).asInstanceOf[ITerm])
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
@@ -318,8 +317,15 @@ class PrincessWrapper {
                 ADTctor(adt,
                         Variable(pred.name).stype(AdtType("adt")),
                         argExprs.init)
-              } else {
+              } else if (adt.selectors.flatten.map(_.name).contains(pred.name)) {
                 ADTsel(adt, pred.name, argExprs.init)
+              } else {
+                argExprs.head match {
+                  case e@Variable(v,_) =>
+                    ADTsize(adt, e)
+                  case e@_ => 
+                    throw new Exception("size applied to non-variable: " + e)
+                }                
               }
             lazabs.ast.ASTree.Equality(lhs, argExprs.last)
           }
