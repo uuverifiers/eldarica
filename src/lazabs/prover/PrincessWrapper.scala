@@ -176,7 +176,7 @@ class PrincessWrapper {
       })
 
       // ADT conversion to Princess
-      case e@lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
+      case lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
         val Some(ctor) = adt.constructors.find(_.name == ctorName.name)
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
         ctor(termArgs : _*)
@@ -186,9 +186,11 @@ class PrincessWrapper {
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
         sel(termArgs : _*)
       }
-      case lazabs.ast.ASTree.ADTtest(v) => 
+      case e1@lazabs.ast.ASTree.ADTtest(v) =>
+        println("this is e: " + e1)
         IBoolLit(false)
-      case lazabs.ast.ASTree.ADTsize(v) => 
+      case e2@lazabs.ast.ASTree.ADTsize(v) =>
+        println("this is e: " + e2)
         IBoolLit(false)    
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
