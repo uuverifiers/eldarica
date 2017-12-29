@@ -189,8 +189,10 @@ class PrincessWrapper {
       case e1@lazabs.ast.ASTree.ADTtest(adt, v) =>
         println("this is test: " + e1)
         IBoolLit(false)
-      case lazabs.ast.ASTree.ADTsize(adt, v) =>
-        adt.termSizePreds.head(f2p(v).asInstanceOf[ITerm])
+      case lazabs.ast.ASTree.ADTsize(adt, v) => {
+        // TODO: use the right size function!
+        adt.termSize.head(f2p(v).asInstanceOf[ITerm])
+      }
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
@@ -315,7 +317,7 @@ class PrincessWrapper {
             val lhs =
               if (adt.constructors.map(_.name).contains(pred.name)) {
                 ADTctor(adt,
-                        Variable(pred.name).stype(AdtType("adt")),
+                        Variable(pred.name).stype(AdtType(adt, "adt")),
                         argExprs.init)
               } else if (adt.selectors.flatten.map(_.name).contains(pred.name)) {
                 ADTsel(adt, pred.name, argExprs.init)

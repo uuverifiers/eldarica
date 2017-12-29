@@ -14,6 +14,6 @@
            (=> (and (not (= r Nil)) (Concat x y r)) (or (= (head r) (head x)) (= (head r) (head y)) ))))
 
 (assert (forall ((x IList)(y IList)(r IList)(nx Int)(ny Int)(nr Int))
-           (=> (and (Concat x y r) (= nx (_size x)) (= ny (_size y)) (= nr (_size r)) (= nr (+ nx ny))))))
+           (=> (and (Concat x y r) (= nx (_size x)) (= ny (_size y)) (= nr (_size r))) (= (+ nr 1) (+ nx ny)))))
 
 (check-sat)
