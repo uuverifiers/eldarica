@@ -46,7 +46,7 @@ import ap.proof.goal.Goal
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.{TerForConvenience, TermOrder}
-import ap.types.SortedPredicate
+import ap.types.{SortedPredicate, SortedIFunction}
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
@@ -231,8 +231,8 @@ class SMTHornReader protected[parser] (
     var symMap = Map[ConstantTerm, String]()
     var clause = cc
 
-    def newConstantTerm(name : String) = {
-      val const = new ConstantTerm (name)
+    def newConstantTerm(name : String, s : Sort) = {
+      val const = s newConstant name
       symMap = symMap + (const -> name)
       const
     }
@@ -257,13 +257,28 @@ class SMTHornReader protected[parser] (
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
+    var varNum = 0
+
     while (clause.isInstanceOf[IQuantified]) {
       val IQuantified(Quantifier.ALL, d) = clause
       clause = d
-      parameterConsts = newConstantTerm("P" + symMap.size) :: parameterConsts
+      varNum = varNum + 1
     }
 
-    val groundClause = subst(clause, parameterConsts, 0)
+    val groundClause =
+      if (varNum > 0) {
+        val inferrer = new VarTypeInferrer(varNum)
+        inferrer.visitWithoutResult(clause, Context(()))
+        for (s <- inferrer.types.reverseIterator) {
+          parameterConsts =
+            newConstantTerm("P" + symMap.size,
+                            if (s == null) Sort.Integer else s) ::
+              parameterConsts
+        }
+        subst(clause, parameterConsts, 0)
+      } else {
+        clause
+      }
 
 //    println
 //    println(groundClause)
@@ -292,7 +307,7 @@ class SMTHornReader protected[parser] (
             case IConstant(c) =>
               Parameter(c.name, PrincessWrapper.sort2Type(tSort))
             case t => {
-              val newC = newConstantTerm("T" + symMap.size)
+              val newC = newConstantTerm("T" + symMap.size, tSort)
               litsTodo = (t =/= newC) :: litsTodo
               Parameter(newC.name, PrincessWrapper.sort2Type(tSort))
             }
@@ -360,6 +375,35 @@ class SMTHornReader protected[parser] (
                       List(Interp(lazabs.ast.ASTree.BoolConst(false)))))
     }
     case s => s
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private class VarTypeInferrer(varNum : Int)
+                extends ContextAwareVisitor[Unit, Unit] {
+    val types = new Array[Sort](varNum)
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = {
+      t match {
+        case IAtom(pred, args) => {
+          val argSorts = SortedPredicate.iArgumentSorts(pred, args)
+          for ((IVariable(ind), sort) <- args.iterator zip argSorts.iterator)
+            if (ind >= ctxt.binders.size)
+              types(ind - ctxt.binders.size) = sort
+        }
+        case IFunApp(pred, args) => {
+          val argSorts = SortedIFunction.iArgumentSorts(pred, args)
+          for ((IVariable(ind), sort) <- args.iterator zip argSorts.iterator)
+            if (ind >= ctxt.binders.size)
+              types(ind - ctxt.binders.size) = sort
+        }
+        case _ =>
+          // nothing
+      }
+      super.preVisit(t, ctxt)
+    }
+    def postVisit(t : IExpression,
+                  arg : Context[Unit], subres : Seq[Unit]) : Unit = ()
   }
 
   //////////////////////////////////////////////////////////////////////////////

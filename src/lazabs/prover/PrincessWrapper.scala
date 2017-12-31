@@ -250,7 +250,12 @@ class PrincessWrapper {
    * @param removeVersions Removes the versions in the SSA conversion 
    */
   import scala.util.matching.Regex
-  def formula2Eldarica(t: IFormula, symMap : Map[ConstantTerm, String], removeVersions: Boolean, theory: Option[Theory] = None): Expression = {
+  def formula2Eldarica(t: IFormula,
+                       symMap : Map[ConstantTerm, String],
+                       removeVersions: Boolean,
+                       theory: Option[Theory] = None): Expression = {
+    import Sort.:::
+    import PrincessWrapper.sort2Type
     def rvT(t: ITerm): Expression = t match {
       case IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2)) =>
         lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
@@ -270,13 +275,13 @@ class PrincessWrapper {
         lazabs.ast.ASTree.SetIntersect(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
       case IConstant(`emptyset`) =>
         lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
-      case IConstant(cterm) =>
+      case IConstant(cterm) ::: sort =>
         val pattern = """x(\d+)(\w+)""".r
         symMap(cterm) match {
           case pattern(cVersion,n) if (removeVersions) =>
-            lazabs.ast.ASTree.Variable(n,None).stype(IntegerType())
+            lazabs.ast.ASTree.Variable(n,None).stype(sort2Type(sort))
           case noVersion@_ =>
-            lazabs.ast.ASTree.Variable(noVersion,None).stype(IntegerType())
+            lazabs.ast.ASTree.Variable(noVersion,None).stype(sort2Type(sort))
         }
       case IVariable(index) => 
         lazabs.ast.ASTree.Variable("_" + index,Some(index)).stype(IntegerType())      
