@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2017 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,25 @@ object PrincessWrapper {
 
   def simplify(e : Expression) : Expression =
     localWrapper.value.simplify(e)
+
+  def type2Sort(t : Type) : Sort = t match {
+    case IntegerType() => Sort.Integer
+    case BooleanType() => Sort.MultipleValueBool
+//    case AdtType(id) => ??? sorts are in ADT.sorts
+    case _ =>
+      throw new Exception("Unhandled type: " + t)
+  }
+
+  def sort2Type(s : Sort) : Type = s match {
+    case Sort.Integer =>
+      IntegerType()
+    case Sort.Bool | Sort.MultipleValueBool =>
+      BooleanType()
+    case s : ADT.ADTProxySort =>
+      AdtType(s.name) // ??? s.adtTheory is the ADT
+    case _ =>
+      throw new Exception("Unhandled sort: " + s)
+  }
 
 }
 

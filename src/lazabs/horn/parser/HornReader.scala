@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2017 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,12 @@
 package lazabs.horn.parser
 
 import java.io.{FileInputStream,InputStream,FileNotFoundException}
+
 import lazabs.horn.global._
+import lazabs.prover.PrincessWrapper
+import lazabs.ast.ASTree._
+import lazabs.types.IntegerType
+
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
 import ap.{SimpleAPI, Signature}
@@ -41,9 +46,7 @@ import ap.proof.goal.Goal
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.{TerForConvenience, TermOrder}
-import lazabs.prover.PrincessWrapper
-import lazabs.ast.ASTree._
-import lazabs.types.IntegerType
+import ap.types.SortedPredicate
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
@@ -282,15 +285,18 @@ class SMTHornReader protected[parser] (
 
       def translateAtom(a : IAtom) : RelVar = {
         val IAtom(pred, args) = a
-        val newArgs = (for (t <- args.iterator) yield t match {
-          case IConstant(c) =>
-            Parameter(c.name, IntegerType())
-          case t => {
-            val newC = newConstantTerm("T" + symMap.size)
-            litsTodo = (t =/= newC) :: litsTodo
-            Parameter(newC.name, IntegerType())
-          }
-        }).toList
+        val argSorts = SortedPredicate.iArgumentSorts(pred, args)
+        val newArgs =
+          (for ((t, tSort) <-
+                   args.iterator zip argSorts.iterator) yield t match {
+            case IConstant(c) =>
+              Parameter(c.name, PrincessWrapper.sort2Type(tSort))
+            case t => {
+              val newC = newConstantTerm("T" + symMap.size)
+              litsTodo = (t =/= newC) :: litsTodo
+              Parameter(newC.name, PrincessWrapper.sort2Type(tSort))
+            }
+          }).toList
         RelVar(pred.name, newArgs)
       }
       

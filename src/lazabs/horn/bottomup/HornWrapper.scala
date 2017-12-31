@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2017 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ import ap.parser._
 import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
+import ap.types.MonoSortedPredicate
 
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.bottomup.HornClauses._
@@ -41,6 +42,7 @@ import lazabs.horn.global._
 import lazabs.utils.Manip._
 import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
+import lazabs.types.Type
 import Util._
 import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
@@ -361,7 +363,7 @@ class HornTranslator {
   
   val predicates = MHashMap[String,Literal]().empty
   def getPrincessPredLiteral(r: HornLiteral): Literal = r match {
-    case RelVar(varName,params) =>
+    case RelVar(varName, params) =>
       predicates.get(varName) match{
         case Some(p) => p
         case None =>
@@ -470,43 +472,48 @@ class HornTranslator {
     constraints map (horn2Eldarica(_))
   }
   
-    var predPool = Map[(String,Int),ap.terfor.preds.Predicate]().empty
-    def getPred(name: String, arity: Int): ap.terfor.preds.Predicate = predPool.get((name,arity)) match{
-      case Some(p) => p
-      case None => 
-        val newPredicate = new ap.terfor.preds.Predicate(name, arity)
-        predPool += (name,arity) -> newPredicate
-        newPredicate
+    val predPool = new MHashMap[(String,Int), Predicate]
+
+    def relVar2Atom(rv : RelVar,
+                    symbolMap: LinkedHashMap[String, ConstantTerm]) : IAtom = {
+      val RelVar(varName, params) =
+        rv
+      val argExprs =
+        params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(
+                             lazabs.types.IntegerType())))
+      val (ps, _) = formula2Princess(argExprs, symbolMap, true)
+println(params)
+      val pred = predPool.getOrElseUpdate((varName, params.size), {
+        val sorts = for (p <- params) yield type2Sort(p.typ)
+        MonoSortedPredicate(varName, sorts)
+      })
+      IAtom(pred, ps.asInstanceOf[List[ITerm]])
     }
-    
+
     def transform(cl: HornClause): Clause = {
 
       val symbolMap = LinkedHashMap[String, ConstantTerm]().empty      
-      lazabs.prover.PrincessWrapper.resetSymbolReservoir
+      resetSymbolReservoir
 
       val headAtom = cl.head match {
-        case Interp(lazabs.ast.ASTree.BoolConst(false)) => IAtom(HornClauses.FALSE, List())
-        case RelVar(varName, params) =>
-          val (ps,sym) = lazabs.prover.PrincessWrapper.formula2Princess(
-            params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(lazabs.types.IntegerType()))),
-            symbolMap,true)
-          IAtom(getPred(varName, params.size),ps.asInstanceOf[List[ITerm]])
-        case _ => throw new UnsupportedOperationException
+        case Interp(lazabs.ast.ASTree.BoolConst(false)) =>
+          IAtom(HornClauses.FALSE, List())
+        case rv : RelVar =>
+          relVar2Atom(rv, symbolMap)
+        case _ =>
+          throw new UnsupportedOperationException
       }
 
       var interpFormulas = List[IExpression]()
       var relVarAtoms = List[IAtom]()
 
       cl.body.foreach { lit => lit match {
-        case Interp(e) => 
-          val (interp,sym) = lazabs.prover.PrincessWrapper.formula2Princess(List(e),symbolMap,true)
+        case Interp(e) => {
+          val (interp,sym) = formula2Princess(List(e), symbolMap, true)
           interpFormulas ::= interp.head
-        case RelVar(varName, params)  =>
-          val (ps,sym) = lazabs.prover.PrincessWrapper.formula2Princess(
-            params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(lazabs.types.IntegerType()))),
-            symbolMap,true)
-          val relVarAtom = IAtom(getPred(varName, params.size),ps.asInstanceOf[List[ITerm]])
-          relVarAtoms ::= relVarAtom
+        }
+        case rv : RelVar =>
+          relVarAtoms ::= relVar2Atom(rv, symbolMap)
       }}
 
       Clause(headAtom,relVarAtoms, interpFormulas.size match {
