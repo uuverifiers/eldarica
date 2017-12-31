@@ -189,9 +189,12 @@ class PrincessWrapper {
       case e1@lazabs.ast.ASTree.ADTtest(adt, v) =>
         println("this is test: " + e1)
         IBoolLit(false)
-      case lazabs.ast.ASTree.ADTsize(adt, v) => {
-        // TODO: use the right size function!
-        adt.termSize.head(f2p(v).asInstanceOf[ITerm])
+      case e2@lazabs.ast.ASTree.ADTsize(adt, v) => {
+        val Some(size) = v.stype match {
+          case AdtType(x) => adt.termSize.find(_.name == x)
+          case _ => throw new Exception("Invalid type in ADT size")
+        }
+         size(f2p(v).asInstanceOf[ITerm])
       }
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
@@ -317,14 +320,14 @@ class PrincessWrapper {
             val lhs =
               if (adt.constructors.map(_.name).contains(pred.name)) {
                 ADTctor(adt,
-                        Variable(pred.name).stype(AdtType(adt, "adt")),
+                        Variable(pred.name).stype(AdtType("adt")),
                         argExprs.init)
               } else if (adt.selectors.flatten.map(_.name).contains(pred.name)) {
                 ADTsel(adt, pred.name, argExprs.init)
               } else {
                 argExprs.head match {
                   case e@Variable(v,_) =>
-                    ADTsize(adt, e)
+                    ADTsize(adt, e.stype(AdtType(pred.name)))
                   case e@_ => 
                     throw new Exception("size applied to non-variable: " + e)
                 }                
