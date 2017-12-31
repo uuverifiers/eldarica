@@ -482,7 +482,6 @@ class HornTranslator {
         params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(
                              lazabs.types.IntegerType())))
       val (ps, _) = formula2Princess(argExprs, symbolMap, true)
-println(params)
       val pred = predPool.getOrElseUpdate((varName, params.size), {
         val sorts = for (p <- params) yield type2Sort(p.typ)
         MonoSortedPredicate(varName, sorts)
