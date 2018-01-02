@@ -83,7 +83,7 @@ object PrincessWrapper {
   def type2Sort(t : Type) : Sort = t match {
     case IntegerType() => Sort.Integer
     case BooleanType() => Sort.MultipleValueBool
-//    case AdtType(id) => ??? sorts are in ADT.sorts
+    case AdtType(s) => s //??? sorts are in ADT.sorts
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -94,7 +94,7 @@ object PrincessWrapper {
     case Sort.Bool | Sort.MultipleValueBool =>
       BooleanType()
     case s : ADT.ADTProxySort =>
-      AdtType(s.name) // ??? s.adtTheory is the ADT
+      AdtType(s) // ??? s.adtTheory is the ADT
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -210,7 +210,7 @@ class PrincessWrapper {
         IBoolLit(false)
       case e2@lazabs.ast.ASTree.ADTsize(adt, v) => {
         val Some(size) = v.stype match {
-          case AdtType(x) => adt.termSize.find(_.name == x)
+          case AdtType(x) => adt.termSize.find(_.name == (x + "_size"))
           case _ => throw new Exception("Invalid type in ADT size")
         }
          size(f2p(v).asInstanceOf[ITerm])
@@ -344,14 +344,14 @@ class PrincessWrapper {
             val lhs =
               if (adt.constructors.map(_.name).contains(pred.name)) {
                 ADTctor(adt,
-                        Variable(pred.name).stype(AdtType("adt")),
+                        Variable(pred.name),
                         argExprs.init)
               } else if (adt.selectors.flatten.map(_.name).contains(pred.name)) {
                 ADTsel(adt, pred.name, argExprs.init)
               } else {
                 argExprs.head match {
-                  case e@Variable(v,_) =>
-                    ADTsize(adt, e.stype(AdtType(pred.name)))
+                  case v@Variable(name,_) =>
+                    ADTsize(adt, v)
                   case e@_ => 
                     throw new Exception("size applied to non-variable: " + e)
                 }                
