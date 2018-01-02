@@ -273,7 +273,7 @@ class PrincessWrapper {
         lazabs.ast.ASTree.SetUnion(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
       case IFunApp(`intersection`, Seq(e0,e1)) =>
         lazabs.ast.ASTree.SetIntersect(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
-      case IFunApp(f, arg) if f.name.endsWith("_size") =>
+      case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
         // case class ADTsize(adt: ADT, v: Variable) extends Expression
         BoolConst(false)
       case IFunApp(f, arg) =>
