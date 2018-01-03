@@ -89,6 +89,12 @@ object HornPrinter {
       case Modulo(e1, e2) => 
         "(" + printExp(e1) + " mod " + printExp(e2) + ")"
       case BinaryExpression(e1, op, e2) => "(" + printExp(e1) + " " + op.st + " " + printExp(e2) + ")"
+      case ADTctor(adt, name, exprList) =>
+        name + "(" + exprList.map(printExp).mkString(", ") + ")"
+      case ADTsel(adt, name, exprList) =>
+        name + "(" + exprList.map(printExp).mkString(", ") + ")"
+      case ADTsize(adt, v) =>
+        "_size(" + printExp(v) + ")"        
       case Not(e) => "\\" + "+(" + printExp(e) + ")"
       case UnaryExpression(op, e) => op.st + "(" + printExp(e) + ")"
       case Variable(name,None) => varMap.get(name) match {

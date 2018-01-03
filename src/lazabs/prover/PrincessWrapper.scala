@@ -274,10 +274,18 @@ class PrincessWrapper {
       case IFunApp(`intersection`, Seq(e0,e1)) =>
         lazabs.ast.ASTree.SetIntersect(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
-        // case class ADTsize(adt: ADT, v: Variable) extends Expression
-        BoolConst(false)
-      case IFunApp(f, arg) =>
-        BoolConst(false)
+        rvT(e) match {
+          case v@Variable(_,_) => ADTsize(adt, v)
+          case _ => throw new Exception("size applied to non-variable: " + e) 
+        }
+      case IFunApp(ADT.CtorId(adt, sortNum), e) =>
+        rvT(e.head) match {
+          case v@Variable(_,_) => ADTctor(adt, v, e.tail.map(rvT(_)))
+          case _ => throw new Exception("ctor applied to non-variable: " + e) 
+        }                
+      case IFunApp(f, Seq(arg)) =>
+        //ADTsel(adt: ADT, name: String, exprList: Seq[Expression]) extends Expression
+        BoolConst(false)        
       case IConstant(`emptyset`) =>
         lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
       case IConstant(cterm) ::: sort =>
