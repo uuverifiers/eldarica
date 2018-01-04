@@ -278,14 +278,13 @@ class PrincessWrapper {
           case v@Variable(_,_) => ADTsize(adt, v)
           case _ => throw new Exception("size applied to non-variable: " + e) 
         }
-      case IFunApp(ADT.CtorId(adt, sortNum), e) =>
+      case IFunApp(ADT.Constructor(adt, sortNum), e) =>
         rvT(e.head) match {
           case v@Variable(_,_) => ADTctor(adt, v, e.tail.map(rvT(_)))
           case _ => throw new Exception("ctor applied to non-variable: " + e) 
         }                
-      case IFunApp(f, Seq(arg)) =>
-        //ADTsel(adt: ADT, name: String, exprList: Seq[Expression]) extends Expression
-        BoolConst(false)        
+      case IFunApp(ADT.Selector(adt,cidx,sidx), Seq(e)) =>
+        ADTsel(adt, adt.selectors(cidx)(sidx).name, Seq(rvT(e)))
       case IConstant(`emptyset`) =>
         lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
       case IConstant(cterm) ::: sort =>
