@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -75,8 +75,7 @@ object DisjInterpolator {
       })
     }
     case Right(cex) =>
-      Right(for (p <- cex; (a, clause) = p)
-              yield (IAtom(a.pred, for (lc <- a) yield IExpression.i(lc.constant)), clause))
+      Right(cex)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -94,10 +93,10 @@ object DisjInterpolator {
                         (clauseDag : Dag[AndOrNode[CC, Unit]],
                          orInterpolationTimeout : Int = Int.MaxValue)
                        : Either[Seq[(Predicate, Seq[Conjunction])],
-                                Dag[(Atom, Option[CC])]] = {
+                                Dag[(IAtom, Option[CC])]] = {
     val (factoredDag, localPreds) = factoring(clauseDag)
     var dag = factoredDag
-    var res : Either[Seq[(Predicate, Seq[Conjunction])], Dag[(Atom, Option[CC])]] = null
+    var res : Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, Option[CC])]] = null
 
     def simplify(andNum : Int, orNum : Int) = {
         // simplify the clause dag by removing some or-nodes
@@ -193,7 +192,7 @@ object DisjInterpolator {
                         (clauseDag : Dag[AndOrNode[CC, Unit]],
                          giveUpCondition : (Int, Int) => Boolean)
                        : Either[Seq[(Predicate, Seq[Conjunction])],
-                                Dag[(Atom, CC)]] =
+                                Dag[(IAtom, CC)]] =
     SimpleAPI.withProver(enableAssert = lazabs.GlobalParameters.get.assertions) { p =>
       import p._
 
@@ -271,8 +270,9 @@ object DisjInterpolator {
           case _ => { assert(false); null } // should not be reachable
         }
 
-        val syms = createConstantsRaw(headLit.predicate.name + "_" + constCopyNum + "_",
-                                      0 until headLit.predicate.arity)
+        val syms = for ((s, n) <- headLit.argumentSorts.zipWithIndex)
+                   yield createConstantRaw(headLit.predicate.name + "_" +
+                                           constCopyNum + "_" + n, s)
         constCopyNum = constCopyNum + 1
 
         dag2TreeOr2(d, depth,
@@ -675,7 +675,7 @@ object DisjInterpolator {
             }
           }
 
-          val fullDag = (DagEmpty.asInstanceOf[Dag[(Atom, CC)]] /: cexNodes) {
+          val fullDag = (DagEmpty.asInstanceOf[Dag[(IAtom, CC)]] /: cexNodes) {
             case (dag, Tree((_, OrNode(_)), List())) =>
               // disconnected node, which can be ignored at this point
               dag
@@ -698,7 +698,8 @@ object DisjInterpolator {
                              (relevantSyms forall { j => ba(j) == ba2(j) })))
                     yield (i + 1)).toSeq.last
                  }).toList
-              DagNode((clause.head.predicate(for (c <- syms) yield l(eval(c))),
+              DagNode((IAtom(clause.head.predicate,
+                             for (c <- syms) yield evalToTerm(c)),
                        clause),
                       dagChildren, dag)
             }

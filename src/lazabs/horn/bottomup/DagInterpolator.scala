@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,7 +90,7 @@ object DagInterpolator {
    */ 
   def interpolatingPredicateGen(clauseDag : Dag[NormClause])
                                : Either[Seq[(Predicate, Seq[Conjunction])],
-                                        Tree[Atom]] = {
+                                        Tree[IAtom]] = {
 //        (for (c <- clauseDag) yield c.head).prettyPrint
 
 //    val expandedDag = expandSharedClauses(clauseDag)
@@ -128,13 +128,13 @@ object DagInterpolator {
    */
   def interpolatingPredicateGenCEX(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     interpolatingPredicateGenCEX(clauseDag, TreeInterpolator.treeInterpolate _)
 
   def interpolatingPredicateGenCEX(clauseDag : Dag[AndOrNode[NormClause, Unit]],
                                    treeInterpolator : TreeInterpolator.TreeInterpolatorFun)
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     cexGuidedExpansion(stripOrNodes(clauseDag)) match {
       case Left(partialTree) =>
         partialPredicateGen(partialTree, false, treeInterpolator) match {
@@ -153,7 +153,7 @@ object DagInterpolator {
    */
   def interpolatingPredicateGenCEXAndOr(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, HornPredAbs.NormClause)]] =
+                              Dag[(IAtom, HornPredAbs.NormClause)]] =
     predicateGenerator(clauseDag, 1500) match {
       case Left(preds) =>
         Left(preds)
@@ -184,7 +184,7 @@ object DagInterpolator {
    */
   def layeredPredicateGen(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] = {
+                              Dag[(IAtom, NormClause)]] = {
     val orNum = clauseDag.iterator.count(_.isInstanceOf[OrNode[_, _]])
 
     if (orNum <= 4) {
@@ -200,7 +200,7 @@ object DagInterpolator {
   def layeredPredicateGenHelp[CC <% HornClauses.ConstraintClause]
                              (clauseDag : Dag[AndOrNode[CC, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, CC)]] = {
+                              Dag[(IAtom, CC)]] = {
       import HornClauses._
 
       val usedIndexes = new MHashSet[Int]
@@ -332,13 +332,13 @@ object DagInterpolator {
 
   def partialPredicateGen(spanningTree : Tree[Either[NormClause, RelationSymbol]],
                           fullCEX : Boolean)
-                 : Either[Seq[(Predicate, Seq[Conjunction])], Tree[Atom]] =
+                 : Either[Seq[(Predicate, Seq[Conjunction])], Tree[IAtom]] =
     partialPredicateGen(spanningTree, fullCEX, TreeInterpolator.treeInterpolate _)
 
   def partialPredicateGen(spanningTree : Tree[Either[NormClause, RelationSymbol]],
                           fullCEX : Boolean,
                           treeInterpolator : TreeInterpolator.TreeInterpolatorFun)
-                 : Either[Seq[(Predicate, Seq[Conjunction])], Tree[Atom]] = {
+                 : Either[Seq[(Predicate, Seq[Conjunction])], Tree[IAtom]] = {
     val theories = {
       val coll = new TheoryCollector
       for (Left(NormClause(constraint, _, _)) <- spanningTree.iterator)
@@ -389,7 +389,7 @@ object DagInterpolator {
                        constraintTree : Tree[Conjunction],
                        vocabularyTree : Tree[Seq[ConstantTerm]],
                        order : TermOrder)
-                      : Either[Seq[(Predicate, Seq[Conjunction])], Tree[Atom]] = {
+                      : Either[Seq[(Predicate, Seq[Conjunction])], Tree[IAtom]] = {
     val theories = {
       val coll = new TheoryCollector
       for (c <- constraintTree)
@@ -407,7 +407,7 @@ object DagInterpolator {
                        order : TermOrder,
                        theories : Seq[Theory],
                        treeInterpolator : TreeInterpolator.TreeInterpolatorFun)
-                      : Either[Seq[(Predicate, Seq[Conjunction])], Tree[Atom]] = {
+                      : Either[Seq[(Predicate, Seq[Conjunction])], Tree[IAtom]] = {
     treeInterpolator(constraintTree, order, false, theories) match {
       case Right(m) => { assert(false); null } // should not happen
 /*
@@ -590,7 +590,7 @@ object DagInterpolator {
 
   def cexGuidedExpansion(clauseDag : Dag[NormClause])
                         : Either[Tree[Either[NormClause, RelationSymbol]],
-                                 Dag[(Atom, NormClause)]] = SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
+                                 Dag[(IAtom, NormClause)]] = SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
     import p._
 
     type SpanTree = Tree[(Int, Seq[ConstantTerm], Option[Seq[ConstantTerm]])]
@@ -601,7 +601,8 @@ object DagInterpolator {
     def dag2Tree(d : Dag[NormClause], depth : Int) : SpanTree = {
       val DagNode(clause@NormClause(constraint, _, (rs, _)), children, _) = d
       addTheoriesFor(constraint.order)
-      val syms = createConstantsRaw(rs.name, 0 until rs.arity)
+      val syms = for ((s, n) <- rs.argumentSorts.zipWithIndex)
+                 yield createConstantRaw(rs.name + "_" + n, s)
       if (children.isEmpty || definedArgSyms(depth).isEmpty) {
         definedArgSyms(depth) = syms :: definedArgSyms(depth)
         Tree((depth, syms,
@@ -728,16 +729,16 @@ object DagInterpolator {
         // found a genuine counterexample,
         // build a minimal counterexample dag
 
-        def cexAtom(dagIndex : Int, syms : Seq[ConstantTerm]) : Atom = {
+        def cexAtom(dagIndex : Int, syms : Seq[ConstantTerm]) : IAtom = {
           val NormClause(_, _, (RelationSymbol(pred), _)) = clauseDag(dagIndex)
-          pred(for (c <- syms) yield l(eval(c)))
+          IAtom(pred, for (c <- syms) yield evalToTerm(c))
         }
 
         val cexNodes = partialTree.subtrees.toSeq sortWith {
           case (Tree((c, _, _), _), Tree((d, _, _), _)) => c > d
         }
 
-        val fullDag = (DagEmpty.asInstanceOf[Dag[(Atom, NormClause)]] /: cexNodes) {
+        val fullDag = (DagEmpty.asInstanceOf[Dag[(IAtom, NormClause)]] /: cexNodes) {
           case (dag, Tree((_, _, None), _)) =>
             // disconnected node, which can be ignored at this point
             dag

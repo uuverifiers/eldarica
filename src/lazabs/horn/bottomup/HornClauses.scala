@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -263,6 +263,14 @@ object HornClauses {
      * Predicate representing this relation variable
      */
     val predicate : Predicate
+
+    /**
+     * Argument sorts of the predicate
+     */
+    lazy val argumentSorts : Seq[Sort] = predicate match {
+      case pred : ap.types.MonoSortedPredicate => pred.argSorts
+      case _ => for (_ <- 0 until predicate.arity) yield ap.types.Sort.Integer
+    }
 
     /**
      * (Ordered) list of arguments that are relevant for a clause,

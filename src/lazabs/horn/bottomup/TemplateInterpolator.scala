@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2018 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -113,7 +113,7 @@ object TemplateInterpolator {
   def interpolatingPredicateGenCEXAbsUpp(absMap : Map[String, AbsLattice])
                                         (clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
       case Left(partialTree) => {
         // let's try some abstraction ...
@@ -159,7 +159,7 @@ object TemplateInterpolator {
                 alwaysAddOrdinaryInterpolants : Boolean)
                 (clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
       case Left(partialTree) => {
         // let's try some abstraction ...
@@ -210,7 +210,7 @@ object TemplateInterpolator {
    */
   def interpolatingPredicateGenCEXAbs(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(Atom, NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
       case Left(partialTree) => {
         // let's try some abstraction ...

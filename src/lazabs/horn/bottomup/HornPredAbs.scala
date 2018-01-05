@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,7 @@ import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.util.Seqs
 import ap.theories.{Theory, TheoryCollector}
-import ap.types.TypeTheory
+import ap.types.{TypeTheory, Sort, MonoSortedPredicate}
 import SimpleAPI.ProverStatus
 
 import lazabs.prover.{Tree, Leaf}
@@ -128,6 +128,15 @@ object HornPredAbs {
       res
     }
 
+    def genConstants(prefix : String,
+                     sorts : Seq[Sort],
+                     suffix : String) : Seq[ConstantTerm] = {
+      val res = (for ((s, i) <- sorts.iterator.zipWithIndex)
+                 yield s.newConstant(prefix + "_" + i + "_" + suffix)).toList
+      addSymbols(res)
+      res
+    }
+
     def duplicateConstants(cs : Seq[ConstantTerm]) = {
       val res = for (c <- cs) yield c.clone
       addSymbols(res)
@@ -175,8 +184,12 @@ object HornPredAbs {
   case class RelationSymbol(pred : Predicate)(implicit val sf : SymbolFactory) {
     def arity = pred.arity
     def name = pred.name
+    val argumentSorts = pred match {
+      case pred : MonoSortedPredicate => pred.argSorts
+      case _ => for (_ <- 0 until arity) yield Sort.Integer
+    }
     val arguments = toStream {
-      case i => sf.genConstants(name, arity, "" + i)
+      case i => sf.genConstants(name, argumentSorts, "" + i)
     }
 
     val argumentITerms = arguments map (_.map(IExpression.i(_)))
@@ -710,7 +723,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                   initialPredicates : Map[Predicate, Seq[IFormula]],
                   predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
                                        Either[Seq[(Predicate, Seq[Conjunction])],
-                                              Dag[(Atom, HornPredAbs.NormClause)]],
+                                              Dag[(IAtom, HornPredAbs.NormClause)]],
                   counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
                                            HornPredAbs.CounterexampleMethod.FirstBestShortest) {
   
@@ -951,7 +964,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   private var inferenceAPIProver : SimpleAPI = null
 
   val rawResult : Either[Map[Predicate, Conjunction],
-                         Dag[(Atom, CC)]] = /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
+                         Dag[(IAtom, CC)]] = /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
 
     inferenceAPIProver = p */ {
 
@@ -961,7 +974,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     }
 
     import TerForConvenience._
-    var res : Either[Map[Predicate, Conjunction], Dag[(Atom, CC)]] = null
+    var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
     var iterationNum = 0
 
     while (!nextToProcess.isEmpty && res == null) {
@@ -1163,19 +1176,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                            Dag[(IAtom, CC)]] = rawResult match {
     case Left(solution) =>
       Left(for ((p, c) <- solution)
-             yield (p, (new Simplifier)(
-                         Internal2InputAbsy(c, sf.functionEnc.predTranslation))))
+           yield (p, (new Simplifier)(
+                       Internal2InputAbsy(c, sf.functionEnc.predTranslation))))
     case Right(trace) =>
-      Right(for (p <- trace) yield {
-              import IExpression._
-              val (a, c) = p
-              (IAtom(a.pred, for (lc <- a) yield (
-                 if (lc.isConstant)
-                   i(lc.constant)
-                 else
-                   Internal2InputAbsy(lc)
-               )), c)
-            })
+      Right(trace)
   }
   
   //////////////////////////////////////////////////////////////////////////////
