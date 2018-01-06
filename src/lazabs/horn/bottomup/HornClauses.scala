@@ -267,10 +267,8 @@ object HornClauses {
     /**
      * Argument sorts of the predicate
      */
-    lazy val argumentSorts : Seq[Sort] = predicate match {
-      case pred : ap.types.MonoSortedPredicate => pred.argSorts
-      case _ => for (_ <- 0 until predicate.arity) yield ap.types.Sort.Integer
-    }
+    lazy val argumentSorts : Seq[Sort] =
+      HornPredAbs predArgumentSorts predicate
 
     /**
      * (Ordered) list of arguments that are relevant for a clause,

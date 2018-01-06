@@ -44,7 +44,7 @@ import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.util.Seqs
 import ap.theories.{Theory, TheoryCollector}
-import ap.types.{TypeTheory, Sort, MonoSortedPredicate}
+import ap.types.{TypeTheory, Sort, MonoSortedPredicate, IntToTermTranslator}
 import SimpleAPI.ProverStatus
 
 import lazabs.prover.{Tree, Leaf}
@@ -158,6 +158,11 @@ object HornPredAbs {
       !Theory.preprocess(!f, theories, order)
   }
 
+  def predArgumentSorts(pred : Predicate) : Seq[Sort] = pred match {
+    case pred : MonoSortedPredicate => pred.argSorts
+    case _ => for (_ <- 0 until pred.arity) yield Sort.Integer
+  }
+
   val normalPreprocSettings = PreprocessingSettings.DEFAULT
   val clausifyPreprocSettings = Param.CLAUSIFIER.set(normalPreprocSettings,
                                                      Param.ClausifierOptions.Simple)
@@ -184,10 +189,7 @@ object HornPredAbs {
   case class RelationSymbol(pred : Predicate)(implicit val sf : SymbolFactory) {
     def arity = pred.arity
     def name = pred.name
-    val argumentSorts = pred match {
-      case pred : MonoSortedPredicate => pred.argSorts
-      case _ => for (_ <- 0 until arity) yield Sort.Integer
-    }
+    val argumentSorts = predArgumentSorts(pred)
     val arguments = toStream {
       case i => sf.genConstants(name, argumentSorts, "" + i)
     }
@@ -1175,9 +1177,34 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   lazy val result : Either[Map[Predicate, IFormula],
                            Dag[(IAtom, CC)]] = rawResult match {
     case Left(solution) =>
-      Left(for ((p, c) <- solution)
-           yield (p, (new Simplifier)(
-                       Internal2InputAbsy(c, sf.functionEnc.predTranslation))))
+      Left(for ((p, c) <- solution) yield {
+             if (c.isTrue) {
+               (p, IBoolLit(true))
+             } else if (c.isFalse) {
+               (p, IBoolLit(false))
+             } else {
+               // we replace the variables with sorted constants, to
+               // to enable theory-specific back-translation
+               val consts =
+                 for (s <- predArgumentSorts(p)) yield (s newConstant "X")
+               val order =
+                 c.order extend consts
+               val cWithConsts =
+                 VariableSubst(0, consts, order)(c)
+               implicit val context =
+                 new Theory.DefaultDecoderContext(cWithConsts)
+               val internal =
+                 Internal2InputAbsy(cWithConsts,
+                                    sf.functionEnc.predTranslation)
+               val simp =
+                 IntToTermTranslator((new Simplifier)(internal))
+               val backSubst =
+                 (for ((c, n) <- consts.iterator.zipWithIndex)
+                  yield (c -> IVariable(n))).toMap
+               val simpWithVars =
+                 ConstantSubstVisitor(simp, backSubst)
+               (p, simpWithVars)
+             }})
     case Right(trace) =>
       Right(trace)
   }

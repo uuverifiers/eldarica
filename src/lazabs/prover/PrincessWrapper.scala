@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2018 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -263,6 +263,8 @@ class PrincessWrapper {
         lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
       case IPlus(e1,e2) => lazabs.ast.ASTree.Addition(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
       case ITimes(e1,e2) => lazabs.ast.ASTree.Multiplication(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
+
+      // Theory of sets (not really supported anymore ...)
       case IFunApp(`size`, arg) =>
         lazabs.ast.ASTree.SetSize(rvT(arg.head).stype(SetType(IntegerType())))
       case IFunApp(`singleton`, Seq(e)) =>
@@ -273,6 +275,16 @@ class PrincessWrapper {
         lazabs.ast.ASTree.SetUnion(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
       case IFunApp(`intersection`, Seq(e0,e1)) =>
         lazabs.ast.ASTree.SetIntersect(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
+      case IConstant(`emptyset`) =>
+        lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
+
+      // Booleans
+      case ADT.BoolADT.True =>
+        lazabs.ast.ASTree.BoolConst(true)
+      case ADT.BoolADT.False =>
+        lazabs.ast.ASTree.BoolConst(false)
+
+      // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
         rvT(e) match {
           case v@Variable(_,_) => ADTsize(adt, v)
@@ -285,8 +297,7 @@ class PrincessWrapper {
         }                
       case IFunApp(ADT.Selector(adt,cidx,sidx), Seq(e)) =>
         ADTsel(adt, adt.selectors(cidx)(sidx).name, Seq(rvT(e)))
-      case IConstant(`emptyset`) =>
-        lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
+
       case IConstant(cterm) ::: sort =>
         val pattern = """x(\d+)(\w+)""".r
         symMap(cterm) match {
