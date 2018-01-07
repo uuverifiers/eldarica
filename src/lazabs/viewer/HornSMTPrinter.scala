@@ -95,6 +95,12 @@ object HornSMTPrinter {
       case Subtraction(e1, e2) => "(- " + printExp(e1) + " " + printExp(e2) + ")"
       case Multiplication(e1, e2) => "(* " + printExp(e1) + " " + printExp(e2) + ")"
       case Division(e1, e2) => "(div " + printExp(e1) + " " + printExp(e2) + ")"
+      case ADTctor(adt, name, exprList) =>
+        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+      case ADTsel(adt, name, exprList) =>
+        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+      case ADTsize(adt, v) =>
+        "(_size " + printExp(v) + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case Variable(name,None) => varMap.get(name) match {

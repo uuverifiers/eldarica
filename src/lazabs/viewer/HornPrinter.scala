@@ -94,7 +94,7 @@ object HornPrinter {
       case ADTsel(adt, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
       case ADTsize(adt, v) =>
-        "_size(" + printExp(v) + ")"        
+        "_size(" + printExp(v) + ")"
       case Not(e) => "\\" + "+(" + printExp(e) + ")"
       case UnaryExpression(op, e) => op.st + "(" + printExp(e) + ")"
       case Variable(name,None) => varMap.get(name) match {
@@ -111,7 +111,6 @@ object HornPrinter {
       case BoolConst(v: Boolean) if (v == false) => "false"
       case BoolConst(v: Boolean) if (v == true) => "1 = 1"
       case _ =>
-        println(e)
         throw new Exception("Invalid expression")
         ""
     }
