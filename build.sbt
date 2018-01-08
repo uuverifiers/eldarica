@@ -4,7 +4,7 @@ lazy val commonSettings = Seq(
     organization := "uuverifiers",
     version := "2017-07-21-SNAPSHOT",
     scalaVersion := "2.11.8",
-    crossScalaVersions := Seq("2.11.8", "2.12.1"),
+    crossScalaVersions := Seq("2.11.8", "2.12.4"),
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
 )
 
@@ -17,9 +17,9 @@ lazy val parserSettings = Seq(
     crossPaths := true 
 )
 
-// Horn parser settings
+// Parser generation
 
-lazy val hornParserSettings = Seq(
+lazy val parserGen = Seq(
   sourceGenerators in Compile += Def.task {
           val outputDir = (sourceManaged in Compile).value / "parser"
           val base = baseDirectory.value
@@ -49,8 +49,8 @@ lazy val hornParserSettings = Seq(
           val cup =  parserDir / "Parser.cup"
           val hornCup =  hornParserDir / "HornParser.cup"
 		
-          val jflexLib = "./lib/JFlex.jar"
-          val cupLib = "./lib/java-cup-11a.jar"
+          val jflexLib = "./tools/JFlex.jar"
+          val cupLib = "./tools/java-cup-11a.jar"
 
           val cache = FileFunction.cached(cacheDir,
                                           inStyle = FilesInfo.lastModified,
@@ -59,14 +59,14 @@ lazy val hornParserSettings = Seq(
               "java -jar " + jflexLib + " -d " +
               hornParserOutputDir + " --nobak " + hornFlex).!
             scala.sys.process.Process(
-              "java -cp ./lib/ -jar " + cupLib + " -destdir " +
+              "java -cp ./tools/ -jar " + cupLib + " -destdir " +
               hornParserOutputDir + " -parser Parser -symbols Symbols " +
               hornCup).!
             scala.sys.process.Process(
               "java -jar " + jflexLib + " -d " + parserOutputDir +
               " --nobak " + flex).!
             scala.sys.process.Process(
-              "java -cp ./lib/ -jar " + cupLib + " -destdir " +
+              "java -cp ./tools/ -jar " + cupLib + " -destdir " +
               parserOutputDir + " -parser Parser -symbols Symbols " + cup).!
             Set(lexerFile,
                 parserFile,
@@ -103,7 +103,7 @@ lazy val tplspecParser = (project in file("template-parser")).
 lazy val root = (project in file(".")).
     aggregate(ccParser, tplspecParser).
     dependsOn(ccParser, tplspecParser).
-    settings(hornParserSettings: _*).
+    settings(parserGen: _*).
     settings(commonSettings: _*).
 //
     settings(
@@ -111,35 +111,28 @@ lazy val root = (project in file(".")).
 //
       mainClass in Compile := Some("lazabs.Main"),
 //
-
       unmanagedJars in Compile ++= (baseDirectory map { base =>
-        val baseDirectories = (base / "lib") +++ (base / "flata")
-        val customJars = (baseDirectories ** "*.jar")  // +++ (base / "d" / "my.jar")
+        val baseDirectories = (base / "flata")
+        val customJars = (baseDirectories ** "*.jar")
         customJars.classpath
       }).value,
-
-	// exclude any folders 
-/*	excludeFilter in Compile := {
-		val refine = (baseDirectory.value / "src" / "lazabs" / "refine" ).getCanonicalPath
-  		new SimpleFileFilter(f => 
-  			(f.getCanonicalPath startsWith refine)  			
-  		)
-	},
-*/
 //
     scalacOptions in Compile ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.8" => "-optimise"
-      case "2.12.1" => "-opt:l:classpath"
+      case "2.12.4" => "-opt:_"
     }}).value,	
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
-//    libraryDependencies +=
-//      "net.sf.squirrel-sql.thirdparty-non-maven", % "java-cup" % "0.11a",
+    libraryDependencies +=
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+//
+    libraryDependencies +=
+      "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
@@ -148,5 +141,4 @@ lazy val root = (project in file(".")).
 //    libraryDependencies += "uuverifiers" %% "princess" % "2017-07-17"
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
-
 //
