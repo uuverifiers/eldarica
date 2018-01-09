@@ -1188,7 +1188,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                val consts =
                  for (s <- predArgumentSorts(p)) yield (s newConstant "X")
                val order =
-                 c.order extend consts
+                 c.order extend consts.reverse
                val cWithConsts =
                  VariableSubst(0, consts, order)(c)
                implicit val context =

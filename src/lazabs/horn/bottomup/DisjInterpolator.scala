@@ -688,7 +688,8 @@ object DisjInterpolator {
 
               val bodyAtoms = for ((t, i) <- children.zipWithIndex) yield {
                 val Tree((tIndex, OrNode((tSyms, _))), _) = t
-                clause.body(i).predicate(for (c <- tSyms) yield l(eval(c)))
+                IAtom(clause.body(i).predicate,
+                      for (c <- tSyms) yield evalToTerm(c))
               }
               val dagChildren =
                 (for ((ba, bodyLit) <- bodyAtoms.iterator zip clause.body.iterator;
