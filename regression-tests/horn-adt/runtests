@@ -1,0 +1,17 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="simple-adt-horn.smt2 \
+       bool.smt2 \
+       bool-unsat.smt2 \
+       list-synasc.smt2 \
+       list-synasc-unsat.smt2 \
+       unbounded-tree.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol -cex -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done
+
