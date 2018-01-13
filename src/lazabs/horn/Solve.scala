@@ -134,8 +134,10 @@ object Solve {
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,
-                             (0 until pred.arity).map(p =>
-                                      Parameter("_" + p,lazabs.types.IntegerType())).toList),
+                  (0 until pred.arity).zip(HornPredAbs.predArgumentSorts(pred).map(
+                      lazabs.prover.PrincessWrapper.sort2Type(_))).map(p =>
+                        Parameter("_" + p._1,p._2)
+                  ).toList),
                       List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
                   println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))

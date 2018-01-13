@@ -109,7 +109,7 @@ object HornPrinter {
         getAlphbeticChar(index)  // variable from Princess
       case NumericalConst(num) => num.toString
       case BoolConst(v: Boolean) if (v == false) => "false"
-      case BoolConst(v: Boolean) if (v == true) => "1 = 1"
+      case BoolConst(v: Boolean) if (v == true) => "true"
       case _ =>
         throw new Exception("Invalid expression")
         ""

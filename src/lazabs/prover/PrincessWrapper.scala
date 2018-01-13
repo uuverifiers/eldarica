@@ -306,7 +306,7 @@ class PrincessWrapper {
           case noVersion@_ =>
             lazabs.ast.ASTree.Variable(noVersion,None).stype(sort2Type(sort))
         }
-      case IVariable(index) => 
+      case IVariable(index) =>
         lazabs.ast.ASTree.Variable("_" + index,Some(index)).stype(IntegerType())      
       case IIntLit(value) => lazabs.ast.ASTree.NumericalConst(value.bigIntValue)
       case _ =>

@@ -30,6 +30,7 @@
 
 package lazabs.viewer
 
+import lazabs.types._
 import lazabs.ast.ASTree._
 import lazabs.horn.global._
 import lazabs.horn.parser.HornReader
@@ -50,11 +51,17 @@ object HornSMTPrinter {
     val alpha = i / 26
     /*"?" +*/ ((i % 26 + 65).toChar + (if(alpha > 0) alpha.toString else "")).toString
   }
+  
+  def type2String(t: Type) = t match {
+    case AdtType(s) => s.name
+    case _ => "Int"
+  }
+  
   /**
    * printing a horn clause
    */
   def print(h: HornClause): String = printFull(h, false)
-  def printFull(h: HornClause, asDefineFun : Boolean): String = {
+  def printFull(h: HornClause, asDefineFun : Boolean): String = {    
     var varMap = Map[String,Int]().empty
     var curVarCounter = -1
     def getNewVarCounter: Int = {
@@ -127,13 +134,15 @@ object HornSMTPrinter {
       case 0 => ""
       case 1 => printHornLiteral(h.body.head) 
       case _ => h.body.map(printHornLiteral).reduceLeft((a,b) => ("(and " + a + " " + b + ")")) 
-    }
-    val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ")
-
+    }    
+    
     if (asDefineFun) {
-      val RelVar(name, _) = h.head
-      "(define-fun " + name + " (" + boundVars + ") Bool " + body + ")"
+      val RelVar(name, params) = h.head
+      "(define-fun " + name + " (" + 
+        (0 until varMap.size).zip(params).map(v => "(" + getAlphbeticChar(v._1) + " " + type2String(v._2.typ) + ")").mkString(" ") + 
+        ") Bool " + body + ")"
     } else {
+      val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ")
       h.head match{
         case Interp(BoolConst(false)) =>
           if (!boundVars.isEmpty) {
