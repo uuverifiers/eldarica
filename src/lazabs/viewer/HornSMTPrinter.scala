@@ -54,6 +54,7 @@ object HornSMTPrinter {
   
   def type2String(t: Type) = t match {
     case AdtType(s) => s.name
+    case BooleanType() => "Bool"
     case _ => "Int"
   }
   
@@ -62,7 +63,7 @@ object HornSMTPrinter {
    */
   def print(h: HornClause): String = printFull(h, false)
   def printFull(h: HornClause, asDefineFun : Boolean): String = {    
-    var varMap = Map[String,Int]().empty
+    var varMap = Map[String,(Int,Type)]().empty
     var curVarCounter = -1
     def getNewVarCounter: Int = {
       curVarCounter = curVarCounter + 1
@@ -77,10 +78,10 @@ object HornSMTPrinter {
     }
 
     def printParameter(p: Parameter): String = varMap.get(p.name) match {
-      case Some(i) => getAlphbeticChar(i)
+      case Some(i) => getAlphbeticChar(i._1)
       case None => 
         val newIndex = getNewVarCounter
-        varMap += (p.name -> newIndex)
+        varMap += (p.name -> (newIndex,p.typ))
         getAlphbeticChar(newIndex)
     }
 
@@ -110,11 +111,11 @@ object HornSMTPrinter {
         "(_size " + printExp(v) + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
-      case Variable(name,None) => varMap.get(name) match {
-        case Some(i) => getAlphbeticChar(i)
+      case v@Variable(name,None) => varMap.get(name) match {
+        case Some(i) => getAlphbeticChar(i._1)
         case None =>
           val newIndex = getNewVarCounter
-          varMap += (name -> newIndex)
+          varMap += (name -> (newIndex,v.stype))
           getAlphbeticChar(newIndex)
       }
       case Variable(_,Some(index)) => getAlphbeticChar(index)
@@ -134,15 +135,16 @@ object HornSMTPrinter {
       case 0 => ""
       case 1 => printHornLiteral(h.body.head) 
       case _ => h.body.map(printHornLiteral).reduceLeft((a,b) => ("(and " + a + " " + b + ")")) 
-    }    
+    }
+    
+    //val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ") 
+
+    val boundVars = varMap.values.map(v => "(" + getAlphbeticChar(v._1) + " " + type2String(v._2) + ")").mkString(" ")
     
     if (asDefineFun) {
-      val RelVar(name, params) = h.head
-      "(define-fun " + name + " (" + 
-        (0 until varMap.size).zip(params).map(v => "(" + getAlphbeticChar(v._1) + " " + type2String(v._2.typ) + ")").mkString(" ") + 
-        ") Bool " + body + ")"
+      val RelVar(name, params) = h.head      
+      "(define-fun " + name + " (" + boundVars + ") Bool " + body + ")"
     } else {
-      val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ")
       h.head match{
         case Interp(BoolConst(false)) =>
           if (!boundVars.isEmpty) {
