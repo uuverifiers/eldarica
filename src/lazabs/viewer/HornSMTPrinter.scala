@@ -139,7 +139,7 @@ object HornSMTPrinter {
     
     //val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ") 
 
-    val boundVars = varMap.values.map(v => "(" + getAlphbeticChar(v._1) + " " + type2String(v._2) + ")").mkString(" ")
+    val boundVars = varMap.toSeq.sortWith(_._1 < _._1).map(v => "(" + getAlphbeticChar(v._2._1) + " " + type2String(v._2._2) + ")").mkString(" ")
     
     if (asDefineFun) {
       val RelVar(name, params) = h.head      
