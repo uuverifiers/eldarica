@@ -1,6 +1,12 @@
 #!/bin/sh
 
-export JAVA_OPTS="-Xmx2024m -Xss20000k";
 export LAZABS_HOME=../..
+export JAR="${LAZABS_HOME}"/target/scala-*/Eldarica-assembly-*.jar
+export JAVA_OPTS="-Xmx2024m -Xss20000k -cp $JAR"
 
-scala -cp "${LAZABS_HOME}"/dist/lazabs.jar:"${LAZABS_HOME}"/lib/princess.jar lazabs.horn.concurrency.Main 2>&1 | grep -v 'time' | sed -e 's/Map(.*$//g'
+for mainClass in lazabs.horn.concurrency.Main; do
+    echo
+    echo $mainClass
+    java $JAVA_OPTS $mainClass 2>&1 | grep -v time | grep -v 'ms)' | sed -e 's/Map(.*$//g'
+done
+
