@@ -5,7 +5,13 @@ scala:
 os:
     - linux
 
+# Undo _JAVA_OPTIONS environment variable
+before_script:
+  - _JAVA_OPTIONS=
+
 script:
   - sbt assembly
   - cd regression-tests
   - ./runalldirs
+
+
