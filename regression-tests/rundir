@@ -18,9 +18,13 @@ TIME=`time ( cd $DIR; ./runtests "$@" >Output"$ANSWER_SUFFIX" 2>&1; ) 2>&1`
 res=0
 
 if cmp -s "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"; then
+    tput setaf 2
     echo -ne "\tSucceeded"
+    tput sgr0
 else
+    tput setaf 1
     echo -e "\tFAILED"
+    tput sgr0
     echo
     diff "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX" || true
     echo

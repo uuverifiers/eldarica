@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2018 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ import lazabs.horn.parser.HornReader
 object HornSMTPrinter {
 
   def apply(system: Seq[HornClause]): String =
-    "(set-info :origin \"NTS benchmark converted to SMT-LIB2 using Eldarica (http://lara.epfl.ch/w/eldarica)\")\n" +
+    "(set-info :origin \"NTS benchmark converted to SMT-LIB2 using Eldarica (https://github.com/uuverifiers/eldarica)\")\n" +
     "(set-logic HORN)\n" +
     system.map(Horn.getRelVarArities(_)).flatten.distinct
       .map(rv => "(declare-fun " + rv._1 + " " + (0 until rv._2).map(_ => "Int").mkString("("," ",")") + " Bool)").mkString("\n") + "\n" +
@@ -47,7 +47,7 @@ object HornSMTPrinter {
   /**
    * gets the alphabetic character corresponding to an int 
    */
-  def getAlphbeticChar(i :Int): String = {
+  def getAlphabeticChar(i :Int): String = {
     val alpha = i / 26
     /*"?" +*/ ((i % 26 + 65).toChar + (if(alpha > 0) alpha.toString else "")).toString
   }
@@ -78,11 +78,11 @@ object HornSMTPrinter {
     }
 
     def printParameter(p: Parameter): String = varMap.get(p.name) match {
-      case Some(i) => getAlphbeticChar(i._1)
+      case Some(i) => getAlphabeticChar(i._1)
       case None => 
         val newIndex = getNewVarCounter
         varMap += (p.name -> (newIndex,p.typ))
-        getAlphbeticChar(newIndex)
+        getAlphabeticChar(newIndex)
     }
 
     def printExp(e: Expression): String = e match {
@@ -112,13 +112,13 @@ object HornSMTPrinter {
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {
-        case Some(i) => getAlphbeticChar(i._1)
+        case Some(i) => getAlphabeticChar(i._1)
         case None =>
           val newIndex = getNewVarCounter
           varMap += (name -> (newIndex,v.stype))
-          getAlphbeticChar(newIndex)
+          getAlphabeticChar(newIndex)
       }
-      case Variable(_,Some(index)) => getAlphbeticChar(index)
+      case Variable(_,Some(index)) => getAlphabeticChar(index)
       case NumericalConst(num) =>
         if (num<0) {
           "(- "+(num.abs)+")"
@@ -131,20 +131,29 @@ object HornSMTPrinter {
         ""
     }
     val head = printHornLiteral(h.head)
-    val body = h.body.size match{
+    val body = h.body.size match {
       case 0 => ""
       case 1 => printHornLiteral(h.body.head) 
       case _ => h.body.map(printHornLiteral).reduceLeft((a,b) => ("(and " + a + " " + b + ")")) 
     }
     
-    //val boundVars = (0 until varMap.size).map(v => "(" + getAlphbeticChar(v) + " Int)").mkString(" ") 
-
-    val boundVars = varMap.toSeq.sortWith(_._1 < _._1).map(v => "(" + getAlphbeticChar(v._2._1) + " " + type2String(v._2._2) + ")").mkString(" ")
-    
     if (asDefineFun) {
-      val RelVar(name, params) = h.head      
-      "(define-fun " + name + " (" + boundVars + ") Bool " + body + ")"
+      val RelVar(name, params) = h.head
+
+      val args = (for (p <- params) yield {
+        val (ind, t) = varMap(p.name)
+        "(" + getAlphabeticChar(ind) + " " +
+          type2String(varMap(p.name)._2) + ")"
+      }) mkString " "
+
+      "(define-fun " + name + " (" + args + ") Bool " + body + ")"
     } else {
+      val boundVars =
+        varMap.values.toSeq.sortWith(_._1 < _._1)
+              .map(v => "(" + getAlphabeticChar(v._1) + " " +
+                        type2String(v._2) + ")")
+              .mkString(" ")
+
       h.head match{
         case Interp(BoolConst(false)) =>
           if (!boundVars.isEmpty) {

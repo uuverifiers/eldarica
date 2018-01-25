@@ -12,13 +12,13 @@ sat
 
 mccarthy92.nts.smt2
 sat
-(define-fun f_s1 ((A Int) (B Int) (C Int) (D Int)) Bool (and (= B D) (and (and (and (= (mod (- 12 B) 2) 0) (= (mod (* (- 1) B) 2) 0)) (= (mod (+ (- 12) B) 2) 0)) (= (mod B 2) 0))))
+(define-fun f_s1 ((A Int) (B Int) (C Int) (D Int)) Bool (and (= B D) (and (and (= (mod (- 12 B) 2) 0) (= (mod (* (- 1) B) 2) 0)) (= (mod B 2) 0))))
 (define-fun f_s2 ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (and (= D B) (= (- C B) 12)) (<= B 100)) (= (mod (- 12 B) 2) 0)))
-(define-fun f_s3 ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (<= C 102) (>= C 91)) (and (and (and (= (mod (- 2 C) 2) 0) (or (<= C 99) (or (and (= (- B C) (- 2)) (<= B 100)) (and (= B 99) (= C 100))))) (or (<= C 99) (and (= (mod (+ 10 (+ (* (- 2) B) C)) 2) 0) (or (= C 102) (= C 100))))) (or (<= C 99) (and (= (mod (- 2 C) 2) 0) (or (= C 102) (= C 100)))))))
-(define-fun f_sf ((A Int) (B Int) (C Int) (D Int)) Bool (or (= C 92) (and (and (= (- B C) 10) (>= B 101)) (and (= (mod (- 12 B) 2) 0) (= (mod B 2) 0)))))
+(define-fun f_s3 ((A Int) (B Int) (C Int) (D Int)) Bool (and (>= C 91) (and (and (= (mod (- 2 C) 2) 0) (or (<= C 101) (and (= B 100) (= C 102)))) (or (<= C 99) (and (= (mod (- 2 C) 2) 0) (or (= C 102) (<= C 100)))))))
+(define-fun f_sf ((A Int) (B Int) (C Int) (D Int)) Bool (or (= C 92) (and (and (and (not (= (- B C) 12)) (not (= (- B C) 11))) (and (>= (- B C) 10) (>= C 91))) (and (= (mod (- 2 C) 2) 0) (or (not (= (- B C) 10)) (and (= (mod (- 12 B) 2) 0) (= (mod B 2) 0)))))))
 (define-fun main_s1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F C) (= E B)) (= D A)))
 (define-fun main_s2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= E B) (= D A)) (<= F 100)) (= (mod (* (- 1) F) 2) 0)))
-(define-fun main_s3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= D A) (<= F 100)) (and (= (mod (* (- 1) F) 2) 0) (or (= E 92) (and (and (= (- F E) 10) (>= E 91)) (and (= (mod (- 2 E) 2) 0) (= (mod (+ 10 E) 2) 0)))))))
+(define-fun main_s3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= D A) (<= F 100)) (and (= (mod (* (- 1) F) 2) 0) (or (= E 92) (and (and (>= (- F E) 10) (>= E 91)) (= (mod (- 2 E) 2) 0))))))
 (define-fun main_sf ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool true)
 
 palindrome.nts.smt2
@@ -219,7 +219,7 @@ sat
 (define-fun traverse_main_without_err_1_sf ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int)) Bool (and (and (and (and (and (and (and (= B 0) (= C 0)) (= F 0)) (= G 1)) (= I 1)) (= J 1)) (= R 0)) (and (and (and (and (and (and (and (and (and (and (and (<= D 1) (>= D 0)) (<= K 1)) (>= K 0)) (<= L 1)) (>= L 0)) (<= N 1)) (>= N 0)) (<= O 1)) (>= O 0)) (<= Q 1)) (>= Q 0))))
 (define-fun traverse_main_without_err_1_si ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int)) Bool (and (and (and (and (and (and (and (and (and (and (and (and (and (= T 1) (= S I)) (= R H)) (= Q 0)) (= P F)) (= O E)) (= N 0)) (= M 0)) (= L B)) (= J 1)) (= G 0)) (= D 0)) (= C 0)) (and (and (and (<= H 1) (>= H 0)) (<= E 1)) (>= E 0))))
 (define-fun traverse_main_without_err_1_si5_0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int)) Bool (and (and (and (and (and (and (and (and (and (= T 0) (= R H)) (= N 0)) (= L B)) (= K 1)) (= J 1)) (= G 0)) (= D 0)) (= C 0)) (and (and (and (and (and (and (and (and (and (and (and (and (and (<= S 1) (>= S 0)) (<= Q 1)) (>= Q 0)) (<= P 1)) (>= P 0)) (<= O 1)) (>= O 0)) (<= M 1)) (>= M 0)) (<= H 1)) (>= H 0)) (<= E 1)) (>= E 0))))
-(define-fun traverse_main_without_err_1_si5_1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int)) Bool (and (and (and (and (and (and (and (and (= T 0) (= (+ R (- (* (- 1) O) H)) (- 1))) (= L B)) (= K 1)) (= J 1)) (= G 0)) (= D 0)) (= C 0)) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (<= S 1) (>= S 0)) (<= Q 1)) (>= Q 0)) (<= P 1)) (>= P 0)) (>= (- (* (- 1) O) H) (- 2))) (<= O 1)) (>= (+ O H) 1)) (<= N 1)) (>= N 0)) (<= M 1)) (>= M 0)) (<= H 1)) (<= E 1)) (>= E 0))))
+(define-fun traverse_main_without_err_1_si5_1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int)) Bool (and (and (and (and (and (and (and (and (= T 0) (= (+ R (- (* (- 1) O) H)) (- 1))) (= L B)) (= K 1)) (= J 1)) (= G 0)) (= D 0)) (= C 0)) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (<= S 1) (>= S 0)) (<= Q 1)) (>= Q 0)) (<= P 1)) (>= P 0)) (<= O 1)) (>= (+ O H) 1)) (<= N 1)) (>= N 0)) (<= M 1)) (>= M 0)) (<= H 1)) (<= E 1)) (>= E 0))))
 
 rate_limiter.c.nts.smt2
 sat

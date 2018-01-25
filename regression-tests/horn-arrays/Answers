@@ -1,6 +1,8 @@
+
+lazabs.horn.bottomup.MainArrays
 Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -1 * 4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),(((k + -1 * 3) = 0) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
-Theories: SimpleArray(1)
-Constant and interval propagation ++++++++
+Theories: Types, SimpleArray(1)
+Constant and interval propagation ++++++++++++++
 
 Unique satisfiable clauses: 8
    1 clauses with 0 body literals
@@ -11,51 +13,46 @@ Starting CEGAR ...
 Found counterexample #1, refining ... (3and/0or)  9 -> 7 ... adding predicates:
 p0: p0_0_0 = 1
 .......
-Found counterexample #2, refining ... (5and/0or)  17 -> 13 ... adding predicates:
-p1: 0 >= p1_1_0
+Found counterexample #2, refining ... (5and/0or)  19 -> 14 ... adding predicates:
+p1: p1_1_0 = 0
 ......
-Found counterexample #3, refining ... (7and/0or)  28 -> 25 ... adding predicates:
-p1: 1 >= p1_1_0
-p2: 0 >= p2_1_0
-.........
-Found counterexample #4, refining ... (9and/0or)  39 -> 36 ... adding predicates:
-p1: 2 >= p1_1_0
-p2: 1 >= p2_1_0
-............
-Found counterexample #5, refining ... (11and/0or)  50 -> 47 ... adding predicates:
-p1: 3 >= p1_1_0
-p2: 2 >= p2_1_0
-...............
-Found counterexample #6, refining ... (13and/0or)  61 -> 58 ... adding predicates:
+Found counterexample #3, refining ... (7and/0or)  36 -> 31 ... adding predicates:
+p1: p1_1_0 = 1
+p2: p2_1_0 = 0
+........
+Found counterexample #4, refining ... (9and/0or)  53 -> 48 ... adding predicates:
+p1: p1_1_0 = 2
+p2: p2_1_0 = 1
+........
+Found counterexample #5, refining ... (11and/0or)  70 -> 65 ... adding predicates:
+p1: p1_1_0 = 3
+p2: p2_1_0 = 2
+........
+Found counterexample #6, refining ... (13and/0or)  87 -> 82 ... adding predicates:
 p3: select(p3_2_0, 4) + -1*select(p3_2_0, 3) >= 0
 p0: select(p0_2_0, 4) + -1*select(p0_2_0, 3) >= 0
-p1: p1_1_0 = 0, p1_1_0 = 1, p1_1_0 = 2, p1_1_0 = 3, select(p1_2_0, 4) + -1*select(p1_2_0, 3) >= 0
-p2: p2_1_0 = 0, p2_1_0 = 1, p2_1_0 = 2, p2_1_0 = 3
-.....................
-Found counterexample #7, refining ... (15and/0or)  72 -> 69 ... adding predicates:
-p1: p1_1_0 >= 0, p1_1_0 >= 1, p1_1_0 >= 2, p1_1_0 >= 3, p1_1_0 >= 4
-p2: p2_1_0 >= 0, p2_1_0 >= 1, p2_1_0 >= 2
-...............
+p1: p1_1_0 != 4 | select(p1_2_0, 4) + -1*select(p1_2_0, 3) >= 0
+................
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           7
-Final number of abstract states:            12
+CEGAR iterations:                           6
+Final number of abstract states:            5
 Final number of matched abstract states:    12
-Final number of abstract edges:             17
-Number of generated predicates:             27
-Number of implication checks:               679
+Final number of abstract edges:             18
+Number of generated predicates:             11
+Number of implication checks:               221
 
-Number of implication checks (setup):       97
-Number of implication checks (positive):    202
-Number of implication checks (negative):    380
+Number of implication checks (setup):       62
+Number of implication checks (positive):    42
+Number of implication checks (negative):    117
 
-Number of state matchings:                  66
+Number of state matchings:                  42
 --------------------------------------------------------------------------------
 
 
 SOLVABLE: 
 Solving List(Clause(p0(x, a),List(),true), Clause(p1(0, a),List(p0(x, a)),true), Clause(p2(x, store(a, x, x)),List(p1(x, a)),(((3 + -1 * x) + -1) >= 0)), Clause(p1((x + 1), a),List(p2(x, a)),true), Clause(p3(x, a),List(p1(x, a)),((x + -1 * 3) >= 0)), Clause(FALSE,List(p3(x, a)),!(select(a, 0) = 0))) ...
-Theories: SimpleArray(1)
+Theories: Types, SimpleArray(1)
 Constant and interval propagation ++++++++++
 
 Unique satisfiable clauses: 6
@@ -98,3 +95,319 @@ Number of state matchings:                  25
 
 
 SOLVABLE: 
+
+lazabs.horn.bottomup.MainADT
+ADT: ADT(p)
+
+Clause(i1(p(0, true)),List(),true)
+Clause(i2(p((left(p) + 1), (1 + -1 * right(p)))),List(i1(p)),true)
+Clause(i1(p(2 * left(p), (1 + -1 * right(p)))),List(i2(p)),true)
+Clause(FALSE,List(i1(p)),(!(left(p) >= 0) | !((right(p) + -1 * true) = 0)))
+
+Solving ...
+------------------------------- Preprocessing ----------------------------------
+Initially:                                             4 clauses
+
+Theories: Types, ADT(true, false), ADT(p)
+Constant and interval propagation ++
+
+Unique satisfiable clauses: 4
+   1 clauses with 0 body literals
+   3 clauses with 1 body literals
+
+Starting CEGAR ...
+.
+Found counterexample #1, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk4 + -1 >= 0 & -1*sk3 + 1 >= 0 & sk3 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk3) & left(i1_0_0, sk4) & p(sk4, sk3, i1_0_0))) -> 1
+1: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
+(2and/0or)  11 -> 11 ... adding predicates:
+i1: left(i1_0_0) = 0
+
+Found counterexample #2, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 1) & left(i1_0_0, sk5) & p(sk5, 1, i1_0_0))) -> 1
+1: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
+(2and/0or)  8 -> 8 ... adding predicates:
+i1: right(i1_0_0) = 0
+.
+Found counterexample #3, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk4 + -1 >= 0 & -1*sk3 + 1 >= 0 & sk3 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk3) & left(i1_0_0, sk4) & p(sk4, sk3, i1_0_0))) -> 1
+1: AndNode(i1(i1_0_1) :- i1(i1_0_0) | (-1*sk0 + 1 >= 0 & sk0 >= 0 & pair_ctor(sk2, 0) & pair_ctor(i1_0_1, 0) & pair_ctor(i1_0_0, 0) & right(sk2, -1*sk0 + 1) & right(i1_0_1, sk0) & right(i1_0_0, sk0) & left(sk2, sk1 + 1) & left(i1_0_1, 2*sk1 + 2) & left(i1_0_0, sk1) & p(2*sk1 + 2, sk0, i1_0_1) & p(sk1 + 1, -1*sk0 + 1, sk2) & p(sk1, sk0, i1_0_0))) -> 2
+2: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
+(3and/0or)  25 -> 25 ... adding predicates:
+i1: left(i1_0_0) >= 2
+.
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                           3
+Final number of abstract states:            2
+Final number of matched abstract states:    2
+Final number of abstract edges:             3
+Number of generated predicates:             3
+Number of implication checks:               15
+
+Number of implication checks (setup):       6
+Number of implication checks (positive):    6
+Number of implication checks (negative):    3
+
+Number of state matchings:                  5
+--------------------------------------------------------------------------------
+
+Left(
+
+lazabs.horn.bottomup.MainList
+ADT: ADT(red, green, blue, nil, cons)
+
+Clause(C(nil, y, y),List(),true)
+Clause(C(cons(c, x), y, cons(c, r)),List(C(x, y, r)),true)
+Clause(S(nil, 0),List(),true)
+Clause(S(cons(c, x), (n + 1)),List(S(x, n)),true)
+Clause(FALSE,List(S(x, n)),!(n >= 0))
+Clause(FALSE,List(C(x, y, r)),!(((clist_size(r) + -1 * 1) + -1 * (((clist_size(x) + -1 * 1) + clist_size(y)) + -1 * 1)) = 0))
+Clause(FALSE,List(C(x, y, r)),!((EPS EX EX EX ((((((_0 + -1 * (clist_size(r) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + -1 * (EPS EX EX EX ((((((_0 + -1 * (clist_size(x) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + EPS EX EX EX ((((((_0 + -1 * (clist_size(y) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)))) = 0))
+Clause(FALSE,List(S(x, n)),!(((2 * n + 1) + -1 * clist_size(x)) = 0))
+Clause(FALSE,List(C(x, y, r)),((!((r + -1 * nil) = 0) & !((head(x) + -1 * head(r)) = 0)) & !((head(y) + -1 * head(r)) = 0)))
+
+Solving ...
+------------------------------- Preprocessing ----------------------------------
+Initially:                                             9 clauses
+
+Theories: Types, ADT(red, green, blue, nil, cons), BitShiftMultiplication
+Constant and interval propagation +++++++++
+
+Unique satisfiable clauses: 8
+   2 clauses with 0 body literals
+   6 clauses with 1 body literals
+
+Starting CEGAR ...
+.
+Found counterexample #1, refining ... 
+0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk10 + -2*sk7 + -1 = 0 & sk9 + -2*sk6 + -1 = 0 & sk8 + -2*sk5 + -1 = 0 & sk7 + -1*sk6 + -1*sk5 != 0 & sk7 >= 0 & sk6 >= 0 & sk5 >= 0 & clist_size(C_2_0, 2*sk7 + 1) & clist_size(C_1_0, 2*sk5 + 1) & clist_size(C_0_0, 2*sk6 + 1))) -> 1
+1: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
+(2and/0or)  14 -> 11 ... adding predicates:
+C: C_2_0 = C_1_0 & \size(C_0_0) = 1
+.
+Found counterexample #2, refining ... 
+0: AndNode(FALSE() :- S(S_0_0, S_1_0) | (sk24 + -2*sk23 + -1 = 0 & sk23 + -1*S_1_0 != 0 & sk23 >= 0 & S_1_0 >= 0 & clist_size(S_0_0, 2*sk23 + 1))) -> 1
+1: AndNode(S(S_0_0, S_1_0) :-  | (S_1_0 = 0 & clist_size(S_0_0, 1) & clist_ctor(S_0_0, 0) & nil(S_0_0)))
+(2and/0or)  9 -> 8 ... adding predicates:
+S: S_1_0 = 0 & \size(S_0_0) = 1
+.
+Found counterexample #3, refining ... 
+0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk10 + -2*sk7 + -1 = 0 & sk9 + -2*sk6 + -1 = 0 & sk8 + -2*sk5 + -1 = 0 & sk7 + -1*sk6 + -1*sk5 != 0 & sk7 >= 0 & sk6 >= 0 & sk5 >= 0 & clist_size(C_2_0, 2*sk7 + 1) & clist_size(C_1_0, 2*sk5 + 1) & clist_size(C_0_0, 2*sk6 + 1))) -> 1
+1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
+2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
+(3and/0or)  31 -> 28 ... adding predicates:
+C: \forall int v0, v1, v2; (2*v2 + -1*\size(C_0_0) != -1 | 2*v1 + -1*\size(C_1_0) != -1 | 2*v0 + -1*\size(C_2_0) != -1 | v2 + v1 + v0 + -1*\size(C_2_0) = -1)
+.
+Found counterexample #4, refining ... 
+0: AndNode(FALSE() :- S(S_0_0, S_1_0) | (sk24 + -2*sk23 + -1 = 0 & sk23 + -1*S_1_0 != 0 & sk23 >= 0 & S_1_0 >= 0 & clist_size(S_0_0, 2*sk23 + 1))) -> 1
+1: AndNode(S(S_0_1, S_1_1) :- S(S_0_0, S_1_0) | (S_1_1 + -1*S_1_0 + -1 = 0 & -1*sk4 + 2 >= 0 & sk4 >= 0 & sk3 + -1 >= 0 & S_1_0 >= 0 & clist_size(S_0_1, sk3 + 2) & clist_size(S_0_0, sk3) & clist_ctor(S_0_1, 1) & tail(S_0_1, S_0_0) & head(S_0_1, sk4) & cons(sk4, S_0_0, S_0_1))) -> 2
+2: AndNode(S(S_0_0, S_1_0) :-  | (S_1_0 = 0 & clist_size(S_0_0, 1) & clist_ctor(S_0_0, 0) & nil(S_0_0)))
+(3and/0or)  20 -> 19 ... adding predicates:
+S: \forall int v0; (2*v0 + -1*\size(S_0_0) != -1 | v0 = S_1_0)
+.
+Found counterexample #5, refining ... 
+0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk36 + -1*sk35 != 0 & sk35 + -1*sk34 != 0 & sk25 + -1*C_2_0 != 0 & -1*sk36 + 2 >= 0 & sk36 >= 0 & -1*sk35 + 2 >= 0 & sk35 >= 0 & -1*sk34 + 2 >= 0 & sk34 >= 0 & sk26 + -1 >= 0 & clist_size(sk27, sk26) & clist_size(sk25, 1) & clist_size(C_2_0, sk26 + 2) & clist_ctor(sk25, 0) & clist_ctor(C_2_0, 1) & tail(C_2_0, sk27) & head(C_2_0, sk35) & head(C_1_0, sk34) & head(C_0_0, sk36) & cons(sk35, sk27, C_2_0) & nil(sk25) & ! (! (sk36 + -1*sk32 = 0 & sk31 + -1 >= 0 & clist_size(sk33, sk31) & clist_size(C_0_0, sk31 + 2) & clist_ctor(C_0_0, 1) & tail(C_0_0, sk33) & cons(sk32, sk33, C_0_0)) & ! (sk25 + -1*C_0_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0))) & ! (! (sk34 + -1*sk29 = 0 & sk28 + -1 >= 0 & clist_size(sk30, sk28) & clist_size(C_1_0, sk28 + 2) & clist_ctor(C_1_0, 1) & tail(C_1_0, sk30) & cons(sk29, sk30, C_1_0)) & ! (sk25 + -1*C_1_0 = 0 & clist_size(C_1_0, 1) & clist_ctor(C_1_0, 0))))) -> 1
+1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
+2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
+(3and/0or)  62 -> 58 ... adding predicates:
+C: head(C_2_0) = head(C_0_0)
+...
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                           5
+Final number of abstract states:            3
+Final number of matched abstract states:    4
+Final number of abstract edges:             6
+Number of generated predicates:             5
+Number of implication checks:               36
+
+Number of implication checks (setup):       17
+Number of implication checks (positive):    12
+Number of implication checks (negative):    7
+
+Number of state matchings:                  11
+--------------------------------------------------------------------------------
+
+Left(
+
+lazabs.horn.bottomup.MainBV
+
+Clause(i1(0),List(),true)
+Clause(i2(bv_add(8, x, mod_cast(0, 255, 1))),List(i1(x)),bv_ult(8, x, mod_cast(0, 255, 100)))
+Clause(i1(bv_add(8, x, mod_cast(0, 255, 2))),List(i2(x)),true)
+Clause(FALSE,List(i1(x)),!bv_ult(8, x, mod_cast(0, 255, 200)))
+
+Solving ...
+------------------------------- Preprocessing ----------------------------------
+Initially:                                             4 clauses
+
+Theories: Types, ModuloArithmetic, GroebnerMultiplication
+Constant and interval propagation ++++++++-
+
+Unique satisfiable clauses: 2
+   1 clauses with 0 body literals
+   1 clauses with 1 body literals
+
+Starting CEGAR ...
+..
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                           0
+Final number of abstract states:            1
+Final number of matched abstract states:    1
+Final number of abstract edges:             2
+Number of generated predicates:             0
+Number of implication checks:               2
+
+Number of implication checks (setup):       2
+Number of implication checks (positive):    0
+Number of implication checks (negative):    0
+
+Number of state matchings:                  1
+--------------------------------------------------------------------------------
+
+Left(
+
+Clause(i1(0),List(),true)
+Clause(i2(bv_add(8, x, mod_cast(0, 255, 1))),List(i1(x)),bv_ult(8, x, mod_cast(0, 255, 100)))
+Clause(i1(bv_add(8, x, mod_cast(0, 255, 2))),List(i2(x)),true)
+Clause(FALSE,List(i1(x)),!bv_ult(8, x, mod_cast(0, 255, 200)))
+
+Solving ...
+------------------------------- Preprocessing ----------------------------------
+Initially:                                             5 clauses
+
+------------------------------ Analysing loops ---------------------------------
+Loop heads:
+   i1/1 (3 clauses, 1 templates)
+Theories: Types, ModuloArithmetic, GroebnerMultiplication
+Constant and interval propagation ++++++++++++++++
+
+Unique satisfiable clauses: 5
+   1 clauses with 0 body literals
+   4 clauses with 1 body literals
+
+Starting CEGAR ...
+.
+Found counterexample #1, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+ 2 clauses ... 2 -> 2 ... adding predicates:
+i1: i1_0_0 = 100
+..
+Found counterexample #2, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 3
+3: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+ 4 clauses ... 12 -> 12 ... adding predicates:
+i1: i1_0_0 != 75
+i2: i2_0_0 = 101
+.....
+Found counterexample #3, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (i1_0_0 + -1*i2_0_0 + 3 = 0 & -1*i2_0_0 + 52 >= 0 & i2_0_0 + -3 >= 0)) -> 3
+3: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 4
+4: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 5
+5: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+
+Searching for interpolation abstractions ...
+Interpolation abstraction: i1: <>
+ 20 -> 19 6 clauses ... 20 -> 20 ... adding predicates:
+i1: i1_0_0 >= 103
+i2: 52 >= i2_0_0 & i2_0_0 >= 3
+..
+Found counterexample #4, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 3
+3: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 4
+4: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 5
+5: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+
+Searching for interpolation abstractions ...
+Cost bound: 6
+Interpolation abstraction: i1: <_0> .
+ 24 -> 22 6 clauses ... 22 -> 22 ... adding predicates:
+i1: i1_0_0 = 103
+i2: i2_0_0 = 104
+....
+Found counterexample #5, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 3
+3: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 4
+4: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 5
+5: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 6
+6: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 7
+7: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+
+Searching for interpolation abstractions ...
+Cost bound: 12
+Interpolation abstraction: i1: <_0>, i1: <_0> .
+ 36 -> 33 8 clauses ... 32 -> 32 ... adding predicates:
+i1: i1_0_0 = 106
+i2: i2_0_0 = 107
+....
+Found counterexample #6, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 3
+3: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 4
+4: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 5
+5: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 6
+6: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 7
+7: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 8
+8: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 9
+9: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+
+Searching for interpolation abstractions ...
+Cost bound: 12
+Interpolation abstraction: i1: <_0>, i1: <_0>, i1: <> .
+ 46 -> 43 10 clauses ... 42 -> 42 ... adding predicates:
+i1: i1_0_0 = 109, i1_0_0 >= 74 | 2 >= i1_0_0
+i2: i2_0_0 = 110, i2_0_0 >= 72 | 0 >= i2_0_0, i2_0_0 >= 75 | 0 >= i2_0_0
+................
+Found counterexample #7, refining ... 
+0: AndNode(FALSE() :- i1(i1_0_0) | (i1_0_0 + -75 = 0)) -> 1
+1: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 2
+2: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 3
+3: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 4
+4: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (i1_0_0 + -1*i2_0_0 + 3 = 0 & -1*i2_0_0 + 52 >= 0 & i2_0_0 + -3 >= 0)) -> 5
+5: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 6
+6: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 7
+7: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 8
+8: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 9
+9: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 10
+10: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 11
+11: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 12
+12: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 13
+13: AndNode(i1(i1_0_0) :- i2(i2_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i2_0_0 + 2, i1_0_0))) -> 14
+14: AndNode(i2(i2_0_0) :- i1(i1_0_0) | (-1*i1_0_0 + 255 >= 0 & i1_0_0 + -71 >= 0 & -1*i2_0_0 + 255 >= 0 & i2_0_0 >= 0 & mod_cast(0, 255, i1_0_0 + 1, i2_0_0))) -> 15
+15: AndNode(i1(i1_0_0) :-  | (i1_0_0 + -100 = 0))
+
+Searching for interpolation abstractions ...
+Cost bound: 6
+Interpolation abstraction: i1: <>, i1: <_0>, i1: <>, i1: <>, i1: <>, i1: <> .
+ 72 -> 69 16 clauses ... 70 -> 70 ... adding predicates:
+i1: 54 >= i1_0_0
+.
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                           7
+Final number of abstract states:            4
+Final number of matched abstract states:    13
+Final number of abstract edges:             15
+Number of generated predicates:             15
+Number of implication checks:               258
+
+Number of implication checks (setup):       42
+Number of implication checks (positive):    68
+Number of implication checks (negative):    148
+
+Number of state matchings:                  38
+--------------------------------------------------------------------------------
+
+Left(
