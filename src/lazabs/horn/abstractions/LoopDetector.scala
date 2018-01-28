@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -718,16 +718,18 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
               if (l exists (_.isUnit))) yield k).toSeq.headOption   orElse (
          modifiedArgs.headOption)
 
+      def handleEmpty(l : List[IdealInt]) : List[IdealInt] = l match {
+        case List() => List(IdealInt.ONE, IdealInt.MINUS_ONE)
+        case l => l
+      }
+
       val offsetDiffCosts = counter match {
         case Some(counterInd) =>
-          (for (o1 <- argOffsets(counterInd).iterator;
+          (for (o1 <- handleEmpty(argOffsets(counterInd)).iterator;
                 if (!o1.isZero);
                 (l2, i2) <- argOffsets.iterator.zipWithIndex;
                 if (i2 != counterInd);
-                o2 <- (if (l2.isEmpty)
-                         List(IdealInt.ONE, IdealInt.MINUS_ONE)
-                       else
-                         l2).iterator;
+                o2 <- handleEmpty(l2).iterator;
                 if (!o2.isZero);
                 (op1, op2) = if (o2.signum >= 0) (o1, o2) else (-o1, -o2))
            yield ((v(counterInd)*op2 - v(i2)*op1) -> 2)).toList.distinct
