@@ -45,7 +45,7 @@ object MainBV2 extends App {
     val y = createConstant("y", UnsignedBVSort(32))
 
     val C = createRelation("C", Seq(UnsignedBVSort(32), UnsignedBVSort(32)))
-    val D = createRelation("C", Seq(UnsignedBVSort(32), UnsignedBVSort(32)))
+    val D = createRelation("D", Seq(UnsignedBVSort(32), UnsignedBVSort(32)))
 
     val defClauses = List(
       C(bv(32, 1), bv(32, 1))                     :- true,
