@@ -36,6 +36,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.TermOrder
 import ap.Signature
 import ap.parameters.PreprocessingSettings
+import HornPredAbs.predArgumentSorts
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -75,7 +76,7 @@ object HornClauses {
         val replacement =
           new MHashMap[ConstantTerm, ITerm]
         for (c <- localConstants)
-          replacement.put(c, i(new ConstantTerm(c.name)))
+          replacement.put(c, i(c.clone))
 
         val it1 = head.args.iterator
         val it2 = args.iterator
@@ -111,7 +112,7 @@ object HornClauses {
           (for (IConstant(c) <- thisBodyArgs.iterator) yield c).toSet
         for (c <- constants)
           if (!(definedConsts contains c))
-            replacement.put(c, i(new ConstantTerm(c.name)))
+            replacement.put(c, i(c.clone))
 
         for ((IConstant(c), t) <-
                thisBodyArgs.iterator zip thatHeadArgs.iterator)
@@ -136,7 +137,7 @@ object HornClauses {
       val consts =
         constants.toSeq.sortWith(_.name < _.name)
       val newConsts =
-        for (c <- consts) yield new ConstantTerm(c.name)
+        for (c <- consts) yield c.clone
       val replacement =
         (consts.iterator zip newConsts.iterator).toMap
 
@@ -163,7 +164,7 @@ object HornClauses {
       val consts = constants.toSeq.sortWith(_.name < _.name)
       val replacement = new MHashMap[ConstantTerm, ITerm]
       val newLocalConsts = for (c <- consts) yield {
-        val newC = new ConstantTerm(c.name)
+        val newC = c.clone
         replacement.put(c, i(newC))
         newC
       }
@@ -173,17 +174,18 @@ object HornClauses {
       
       var x = 1
       def normalizeAtom(a : IAtom) : IAtom = {
-        IAtom(a.pred, for (t <- a.args) yield {
-          t match {
-            case IConstant(c) => IConstant(c)
-            case _ => {
-              val ic = i(new ConstantTerm("aux_"+x))
-              x = x+1
-              f = f &&& (ic === t)
-              ic
+        IAtom(a.pred,
+          for ((t, tSort) <- a.args zip predArgumentSorts(a.pred)) yield {
+            t match {
+              case IConstant(c) => IConstant(c)
+              case _ => {
+                val ic = i(tSort newConstant ("aux_"+x))
+                x = x+1
+                f = f &&& (ic === t)
+                ic
+              }
             }
-          }
-        })
+          })
       }
       
       Clause(
@@ -268,7 +270,7 @@ object HornClauses {
      * Argument sorts of the predicate
      */
     lazy val argumentSorts : Seq[Sort] =
-      HornPredAbs predArgumentSorts predicate
+      predArgumentSorts(predicate)
 
     /**
      * (Ordered) list of arguments that are relevant for a clause,
