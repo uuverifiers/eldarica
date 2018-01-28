@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 
 package lazabs.horn.preprocessor
 
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.parser.HornReader
@@ -78,35 +79,37 @@ object BooleanClauseSplitter extends HornPreprocessor {
     var newConstraint = constraint
     val seenHeadArgs = new MHashSet[ConstantTerm]
 
-    def newConst = {
-      val res = new ConstantTerm("arg" + newConstCounter)
+    def newConst(s : Sort) = {
+      val res = s newConstant ("arg" + newConstCounter)
       newConstCounter = newConstCounter + 1
       i(res)
     }
 
     val newHeadArgs =
-      for (t <- headArgs) yield t match {
+      for ((t, tSort) <- headArgs zip predArgumentSorts(headPred))
+      yield t match {
         case IConstant(c) if !(seenHeadArgs contains c) => {
           seenHeadArgs += c
           t
         }
         case t => {
-          val newArg = newConst
+          val newArg = newConst(tSort)
           newConstraint = newConstraint & (t === newArg)
           newArg
         }
       }
 
     val newBody = for (IAtom(pred, args) <- body) yield {
-      val newArgs = for (t <- args) yield {
-        if (needsProcessing(t)) {
-          val newArg = newConst
-          newConstraint = newConstraint & (t === newArg)
-          newArg
-        } else {
-          t
+      val newArgs =
+        for ((t, tSort) <- args zip predArgumentSorts(pred)) yield {
+          if (needsProcessing(t)) {
+            val newArg = newConst(tSort)
+            newConstraint = newConstraint & (t === newArg)
+            newArg
+          } else {
+            t
+          }
         }
-      }
       IAtom(pred, newArgs)
     }
 
@@ -121,7 +124,7 @@ object BooleanClauseSplitter extends HornPreprocessor {
     while (cont) prenexConstraint match {
       case IQuantified(Quantifier.ALL, d) => {
         prenexConstraint = d
-        varSubst = newConst :: varSubst
+        varSubst = newConst(Sort.Integer) :: varSubst
       }
       case _ =>
         cont = false
