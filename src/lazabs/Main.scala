@@ -317,12 +317,12 @@ object Main {
           " -abstract:t\tInterp. abstraction: off, manual, term, oct,\n" +
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
-          " -splitClauses\tTurn clause constraints into pure inequalities\n" +
+          " -splitClauses\tTurn clause constraints into pure inequalities\n" // +
           
-          "\n" +
-          " -hin\t\tExpect input in Prolog Horn format\n" +  
-          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
-          " -ints\t\tExpect input in integer NTS format\n" // +
+//          "\n" +
+//          " -hin\t\tExpect input in Prolog Horn format\n" +  
+//          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
+//          " -ints\t\tExpect input in integer NTS format\n" +
 //          " -bip\t\tExpect input in BIP format\n" +
 //          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
 //          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
