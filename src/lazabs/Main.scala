@@ -177,7 +177,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0-alpha1, 2018-01-29. (C) Copyright 2012-2018 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0-alpha1, 2018-01-29.\n(C) Copyright 2012-2018 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -311,7 +311,7 @@ object Main {
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
-          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
+//          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
           " -abstract:t\tInterp. abstraction: off, manual, term, oct,\n" +
@@ -322,33 +322,12 @@ object Main {
           "\n" +
           " -hin\t\tExpect input in Prolog Horn format\n" +  
           " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
-          " -ints\t\tExpect input in integer NTS format\n" +
-          " -bip\t\tExpect input in BIP format\n" +
-          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
-          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
-          " -upprel\tExpect UPPAAL file using Relational Encoding\n" + 
-          "\n" +
-          "Standard CEGAR engine (partly obsolete):\n" +
-          " -c\t\tDraw control flow graph\n" +
-          " -r\t\tDraw reachability\n" +
-          " -f\t\tWrite abstraction information in file\n" +
-          " -p\t\tPretty Print\n" +
-//          " -ints\t\tInput a file in NTS format\n" +
-//          " -pnts\t\tPrint the CFG in NTS format\n" +
-          " -n\t\tDo not check the counter examples for spuriousness\n" +
-          " -i\t\tUse interpolation\n" +
-//          " -lbe\t\tUse large block encoding for NTS files\n" +
-          " -array\t\tRemove array operations\n" +          
-          " -princess\tUse Princess as theorem prover\n" +
-          " -stac\t\tStatic acceleration of loops\n" +
-          " -dynac\t\tDynamic acceleration of loops\n" +
-          " -unap\t\tUnder approximation of loops in dynamic acceleration\n" +
-          " -dinq\t\tDump interpolation query\n" + 
-          " -brew\t\tRewrites bapa formulae into Presburger formulae\n" +          
-          " -bfs\t\tUse Breadth-first search\n" +
-          " -dfs\t\tUse Depth-first search\n" +
-          " -prq\t\tUse Priority queue search\n" +
-          " -rnd\t\tUse random search\n")
+          " -ints\t\tExpect input in integer NTS format\n" // +
+//          " -bip\t\tExpect input in BIP format\n" +
+//          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
+//          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
+//          " -upprel\tExpect UPPAAL file using Relational Encoding\n"
+          )
           false
       case fn :: rest => fileName = fn;  openInputFile; arguments(rest)
     }
