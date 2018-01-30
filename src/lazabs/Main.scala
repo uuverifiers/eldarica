@@ -207,6 +207,7 @@ object Main {
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
 
       case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
+      case "-conc" :: rest => format = InputFormat.ConcurrentC; arguments(rest)
       case "-hin" :: rest => format = InputFormat.Prolog; arguments(rest)
       case "-hsmt" :: rest => format = InputFormat.SMTHorn; arguments(rest)
 //      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
@@ -320,10 +321,11 @@ object Main {
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
-//          "\n" +
-//          " -hin\t\tExpect input in Prolog Horn format\n" +  
-//          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
-          " -ints\t\tExpect input in integer NTS format\n"
+          "\n" +
+          " -hin\t\tExpect input in Prolog Horn format\n" +  
+          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
+          " -ints\t\tExpect input in integer NTS format\n" +
+          " -conc\t\tExpect input in C/C++/TA format\n"
 //          " -bip\t\tExpect input in BIP format\n" +
 //          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
 //          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +

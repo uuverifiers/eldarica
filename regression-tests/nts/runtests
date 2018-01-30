@@ -1,0 +1,12 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="cousot.correct.nts listreversal.error.nts"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -sol -abstract "$@" $name 2>&1
+done
+
