@@ -47,7 +47,8 @@ import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
-    val //Nts, Scala,
+    val //Scala,
+        Nts,
         Prolog, SMTHorn, //UppaalOG, UppaalRG, UppaalRelational, Bip,
         ConcurrentC, AutoDetect = Value
   }
@@ -74,7 +75,7 @@ class GlobalParameters {
   var prettyPrint = false
   var smtPrettyPrint = false  
 //  var interpolation = false
-//  var ntsPrint = false
+  var ntsPrint = false
   var printIntermediateClauseSets = false
   var horn = false
   var concurrentC = false
@@ -205,7 +206,7 @@ object Main {
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
 
-//      case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
+      case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
       case "-hin" :: rest => format = InputFormat.Prolog; arguments(rest)
       case "-hsmt" :: rest => format = InputFormat.SMTHorn; arguments(rest)
 //      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
@@ -317,12 +318,12 @@ object Main {
           " -abstract:t\tInterp. abstraction: off, manual, term, oct,\n" +
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
-          " -splitClauses\tTurn clause constraints into pure inequalities\n" // +
+          " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
 //          "\n" +
 //          " -hin\t\tExpect input in Prolog Horn format\n" +  
 //          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
-//          " -ints\t\tExpect input in integer NTS format\n" +
+          " -ints\t\tExpect input in integer NTS format\n"
 //          " -bip\t\tExpect input in BIP format\n" +
 //          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
 //          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
@@ -367,8 +368,8 @@ object Main {
           format = InputFormat.Prolog
         else if (fileName endsWith ".smt2") {
           format = InputFormat.SMTHorn
-//        } else if (fileName endsWith ".nts") {
-//          format = InputFormat.Nts
+        } else if (fileName endsWith ".nts") {
+          format = InputFormat.Nts
           // then also choose -horn by default
           horn = true         
         } 
@@ -398,7 +399,7 @@ object Main {
       case _ =>
         // nothing
     }
-
+    
     if (horn) {
       
 /*      format match {
@@ -419,12 +420,13 @@ object Main {
           (lazabs.horn.parser.HornReader.apply(fileName), None)
         case InputFormat.SMTHorn =>
           (lazabs.horn.parser.HornReader.fromSMT(fileName), None)
+        case InputFormat.Nts =>
+          (NtsHorn(NtsWrapper(fileName)), None)
 /*        case InputFormat.UppaalOG =>
           lazabs.upp.OwickiGries(fileName, templateBasedInterpolation)
         case InputFormat.UppaalRG =>
           lazabs.upp.RelyGuarantee(fileName, templateBasedInterpolation)
-        case InputFormat.Nts =>
-          (NtsHorn(NtsWrapper(fileName)), None)*/
+*/
       }
       } catch {
         case t@(TimeoutException | StoppedException) => {
@@ -432,7 +434,7 @@ object Main {
           throw t
         }
       }
-
+      
       if(prettyPrint) {
         println(HornPrinter(clauseSet))
         //println(clauseSet.map(lazabs.viewer.HornPrinter.printDebug(_)).mkString("\n\n"))
@@ -519,23 +521,23 @@ object Main {
       return
     }
 
-    /*val (cfg,m) = format match {
+    val (cfg,m) = format match {
       case InputFormat.Nts =>
         val ntsc = NtsCFG(NtsWrapper(fileName),lbe,staticAccelerate)
-        (ntsc,Some(Map[Int,String]().empty ++ NtsWrapper.stateNameMap))
-      case InputFormat.Scala =>
+        (ntsc,Some(Map[Int,String]().empty ++ NtsWrapper.stateNameMap))        
+/*      case InputFormat.Scala =>
         checkInputFile
         val ast = getASTree
         if(prettyPrint) {println(ScalaPrinter(ast)); return}
-        (MakeCFG(ast,"sc_" + funcName,arrayRemoval,staticAccelerate),None)
-    }*/
+        (MakeCFG(ast,"sc_" + funcName,arrayRemoval,staticAccelerate),None)*/
+    }
 
     //if(drawCFG) {DrawGraph(cfg.transitions.toList,cfg.predicates,absInFile,m); return}
 
-    /*if(ntsPrint) {
+    if(ntsPrint) {
       println(NTSPrinter(cfg))
       return
-    }*/
+    }
 
 //    if(timeout.isDefined) Z3Wrapper.setTimeout(timeout)
 
