@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
@@ -87,7 +88,8 @@ class ClauseInliner extends HornPreprocessor {
                   
                 // compute the value of the head symbol through quantifier elimination
                 val Clause(head, body, constraint) = c
-                val headVars = createConstants(head.pred.arity)
+                val headVars = for (s <- predArgumentSorts(head.pred))
+                               yield createConstant("X", s)
                 addConstants(c.constants.toSeq.sortWith(_.name < _.name))
                 
                 val completeConstraint =
@@ -164,7 +166,9 @@ class ClauseInliner extends HornPreprocessor {
         // introduce variables for intermediate states
         val varDag = for (p <- dag.zipWithIndex) yield p match {
           case (Some(clause), _) =>
-            IAtom(clause.head.pred, createConstants(clause.head.pred.arity))
+            IAtom(clause.head.pred,
+                  for (s <- predArgumentSorts(clause.head.pred))
+                    yield createConstant("X", s))
           case (None, num) =>
             bodyAtoms(leafNum(num))
         }
@@ -190,7 +194,7 @@ class ClauseInliner extends HornPreprocessor {
 
         val interStates = for (symState <- varDag) yield {
           val IAtom(p, vars) = symState
-          IAtom(p, for (v <- vars) yield i(eval(v)))
+          IAtom(p, for (v <- vars) yield evalToTerm(v))
         }
 
         def translate(depth : Int, dag : Dag[(IAtom, Option[Clause])]) : CounterExample =

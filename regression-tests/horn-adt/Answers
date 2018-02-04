@@ -32,3 +32,18 @@ unsat
 unbounded-tree.smt2
 Theories: ADT(node, nil, cons)
 sat
+
+record-cex.smt2
+Theories: ADT(ArRec0)
+unsat
+
+0: FALSE -> 1
+1: p7(1, ArRec0(1), ArRec0(1), 0) -> 2
+2: p6(1, ArRec0(1), ArRec0(1), 0) -> 3
+3: p5(1, ArRec0(1), ArRec0(1)) -> 4
+4: p1(1, ArRec0(1), ArRec0(1), 1) -> 5
+5: p4(1, ArRec0(1), ArRec0(1), 0) -> 6
+6: p3(1, ArRec0(1), ArRec0(1), 0) -> 7
+7: p2(1, ArRec0(1), ArRec0(1), 0) -> 8
+8: p1(1, ArRec0(1), ArRec0(1), 0) -> 9
+9: p0(1, ArRec0(1), ArRec0(1))
