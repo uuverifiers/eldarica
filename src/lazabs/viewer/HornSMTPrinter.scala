@@ -156,17 +156,17 @@ object HornSMTPrinter {
 
       h.head match{
         case Interp(BoolConst(false)) =>
-          if (!boundVars.isEmpty) {
-            "(assert (not (exists (" + boundVars + ") " + body + ")))"
-          } else {
+          if (boundVars.isEmpty) {
             "(assert (not " + body + "))"
+          } else {
+            "(assert (forall (" + boundVars + ") (not " + body + ")))"
           }
         case _ => 
-          if (!boundVars.isEmpty) {
+          if (boundVars.isEmpty) {
+            "(assert" + "(=> " + body + " " + head + "))"
+          } else {
             "(assert (forall (" + boundVars + ")" +
             "(=> " + body + " " + head + ")))"
-          } else {
-            "(assert" + "(=> " + body + " " + head + "))"
           }
       }
     }
