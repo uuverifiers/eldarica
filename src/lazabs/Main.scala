@@ -44,6 +44,7 @@ import lazabs.horn.parser.HornReader
 import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
+import lazabs.horn.concurrency.CCReader
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
@@ -90,6 +91,8 @@ class GlobalParameters {
   var templateBasedInterpolationType : AbstractionType.Value = AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
   var cegarHintsFile : String = ""
+  var arithmeticMode : CCReader.ArithmeticMode.Value =
+    CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
   var princess = false
   var staticAccelerate = false
@@ -257,6 +260,18 @@ object Main {
 
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 
+      case arithMode :: rest if (arithMode startsWith "-arithMode:") => {
+        arithmeticMode = arithMode match {
+          case "-arithMode:math"  => CCReader.ArithmeticMode.Mathematical
+          case "-arithMode:ilp32" => CCReader.ArithmeticMode.ILP32
+          case "-arithMode:lp64"  => CCReader.ArithmeticMode.LP64
+          case "-arithMode:llp64" => CCReader.ArithmeticMode.LLP64
+          case _                  =>
+            throw new MainException("Unrecognised mode " + arithMode)
+        }
+        arguments(rest)
+      }
+
       case "-n" :: rest => spuriousness = false; arguments(rest)
 //      case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
@@ -325,11 +340,15 @@ object Main {
           " -hin\t\tExpect input in Prolog Horn format\n" +  
           " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
           " -ints\t\tExpect input in integer NTS format\n" +
-          " -conc\t\tExpect input in C/C++/TA format\n"
+          " -conc\t\tExpect input in C/C++/TA format\n" +
 //          " -bip\t\tExpect input in BIP format\n" +
 //          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
 //          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
 //          " -upprel\tExpect UPPAAL file using Relational Encoding\n"
+          "\n" +
+          "C/C++/TA front-end:\n" +
+          " -arithMode:t\tInteger semantics: math (default), ilp32, lp64, llp64\n" +
+          " -pIntermediate\tDump Horn clauses encoding concurrent programs\n"
           )
           false
       case fn :: rest => fileName = fn;  openInputFile; arguments(rest)
@@ -474,10 +493,10 @@ object Main {
       }
 
       val system = 
-        lazabs.horn.concurrency.CCReader(
-                    new java.io.BufferedReader (
-                      new java.io.FileReader(new java.io.File (fileName))),
-                    funcName)
+        CCReader(new java.io.BufferedReader (
+                   new java.io.FileReader(new java.io.File (fileName))),
+                 funcName,
+                 arithmeticMode)
 
       if (prettyPrint)
         lazabs.horn.concurrency.ReaderMain.printClauses(system)

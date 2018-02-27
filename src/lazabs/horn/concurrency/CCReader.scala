@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package lazabs.horn.concurrency
 
 import ap.basetypes.IdealInt
 import ap.parser._
+import ap.theories.ModuloArithmetic
 import ap.util.Combinatorics
 
 import concurrentC._
@@ -45,7 +46,8 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
 
 object CCReader {
 
-  def apply(input : java.io.Reader, entryFunction : String)
+  def apply(input : java.io.Reader, entryFunction : String,
+            arithMode : ArithmeticMode.Value = ArithmeticMode.Mathematical)
            : ParametricEncoder.System = {
     def entry(parser : concurrentC.parser) = parser.pProgram
     val prog = parseWithEntry(input, entry _)
@@ -55,7 +57,7 @@ object CCReader {
     var reader : CCReader = null
     while (reader == null)
       try {
-        reader = new CCReader(prog, entryFunction, useTime)
+        reader = new CCReader(prog, entryFunction, useTime, arithMode)
       } catch {
         case NeedsTimeException => {
           warn("enabling time")
@@ -94,59 +96,66 @@ object CCReader {
   def warn(msg : String) : Unit =
     Console.err.println("Warning: " + msg)
 
+  object ArithmeticMode extends Enumeration {
+    val Mathematical, ILP32, LP64, LLP64 = Value
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   import IExpression._
 
   private abstract sealed class CCType {
-    def rangePred(t : ITerm) : IFormula
   }
   private abstract class CCArithType extends CCType {
     val UNSIGNED_RANGE : IdealInt
     val isUnsigned : Boolean
   }
   private case object CCVoid extends CCType {
-    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "void"
   }
   private case object CCInt extends CCArithType {
-    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "int"
     val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFF", 16) // 32bit
     val isUnsigned : Boolean = false
   }
   private case object CCUInt extends CCArithType {
-    def rangePred(t : ITerm) : IFormula = (t >= 0)
     override def toString : String = "unsigned int"
     val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFF", 16) // 32bit
     val isUnsigned : Boolean = true
   }
   private case object CCLong extends CCArithType {
-    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "long"
     val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
     val isUnsigned : Boolean = false
   }
   private case object CCULong extends CCArithType {
-    def rangePred(t : ITerm) : IFormula = (t >= 0)
     override def toString : String = "unsigned long"
     val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
     val isUnsigned : Boolean = true
   }
+  private case object CCLongLong extends CCArithType {
+    override def toString : String = "long long"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
+    val isUnsigned : Boolean = false
+  }
+  private case object CCULongLong extends CCArithType {
+    override def toString : String = "unsigned long long"
+    val UNSIGNED_RANGE : IdealInt = IdealInt("FFFFFFFFFFFFFFFF", 16) // 64bit
+    val isUnsigned : Boolean = true
+  }
   private case object CCClock extends CCType {
-    def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "clock"
   }
   private case object CCDuration extends CCType {
-    def rangePred(t : ITerm) : IFormula = (t >= 0)
     override def toString : String = "duration"
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private abstract sealed class CCExpr(val typ : CCType) {
     def toTerm : ITerm
     def toFormula : IFormula
     def occurringConstants : Seq[ConstantTerm]
-    def castTo(x : CCType) : CCExpr
-    def mapTerm(m : ITerm => ITerm) : CCExpr =
-      CCTerm(m(this.toTerm), this.typ)
   }
   private case class CCTerm(t : ITerm, _typ : CCType)
                extends CCExpr(_typ) {
@@ -157,7 +166,6 @@ object CCReader {
     }
     def occurringConstants : Seq[ConstantTerm] =
       SymbolCollector constantsSorted t
-    def castTo(x : CCType) : CCExpr = CCTerm(t, x)
   }
   private case class CCFormula(f : IFormula, _typ : CCType)
                      extends CCExpr(_typ) {
@@ -169,7 +177,6 @@ object CCReader {
     def toFormula : IFormula = f
     def occurringConstants : Seq[ConstantTerm] =
       SymbolCollector constantsSorted f
-    def castTo(x : CCType) : CCExpr = CCFormula(f, x)
   }
 }
 
@@ -177,7 +184,8 @@ object CCReader {
 
 class CCReader private (prog : Program,
                         entryFunction : String,
-                        useTime : Boolean) {
+                        useTime : Boolean,
+                        arithmeticMode : CCReader.ArithmeticMode.Value) {
 
   import CCReader._
 
@@ -186,6 +194,76 @@ class CCReader private (prog : Program,
   //////////////////////////////////////////////////////////////////////////////
 
   import IExpression._
+
+  private implicit def toRichType(typ : CCType) = new Object {
+    import ModuloArithmetic._
+
+    def toSort : Sort = arithmeticMode match {
+      case ArithmeticMode.Mathematical => typ match {
+        case typ : CCArithType if typ.isUnsigned  => Sort.Nat
+        case CCDuration                           => Sort.Nat
+        case _                                    => Sort.Integer
+      }
+      case ArithmeticMode.ILP32 => typ match {
+        case CCInt      => ModuloArithmetic.SignedBVSort(32)
+        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
+        case CCLong     => ModuloArithmetic.SignedBVSort(32)
+        case CCULong    => ModuloArithmetic.UnsignedBVSort(32)
+        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
+        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCDuration => Sort.Nat
+        case _          => Sort.Integer
+      }
+      case ArithmeticMode.LP64 => typ match {
+        case CCInt      => ModuloArithmetic.SignedBVSort(32)
+        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
+        case CCLong     => ModuloArithmetic.SignedBVSort(64)
+        case CCULong    => ModuloArithmetic.UnsignedBVSort(64)
+        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
+        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCDuration => Sort.Nat
+        case _          => Sort.Integer
+      }
+      case ArithmeticMode.LLP64 => typ match {
+        case CCInt      => ModuloArithmetic.SignedBVSort(32)
+        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
+        case CCLong     => ModuloArithmetic.SignedBVSort(32)
+        case CCULong    => ModuloArithmetic.UnsignedBVSort(32)
+        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
+        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCDuration => Sort.Nat
+        case _          => Sort.Integer
+      }
+    }
+
+    def rangePred(t : ITerm) : IFormula =
+      toSort membershipConstraint t
+
+    def newConstant(name : String) =
+      toSort newConstant name
+
+    def cast(t : ITerm) : ITerm = toSort match {
+      case s : ModSort => cast2Sort(s, t)
+      case _ => t
+    }
+
+    def cast(e : CCExpr) : CCExpr = e match {
+      case CCTerm(t, _)    => CCTerm(cast(t), typ)
+      case CCFormula(f, _) => CCFormula(f, typ)
+    }
+
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private implicit def toRichExpr(expr : CCExpr) = new Object {
+    def mapTerm(m : ITerm => ITerm) : CCExpr =
+      // TODO: type promotion when needed
+      CCTerm(expr.typ cast m(expr.toTerm), expr.typ)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   import HornClauses.Clause
 
   private val globalVars = new ArrayBuffer[ConstantTerm]
@@ -416,8 +494,8 @@ class CCReader private (prog : Program,
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
   // Reserve two variables for time
-  val GT = new ConstantTerm("_GT")
-  val GTU = new ConstantTerm("_GTU")
+  val GT = CCClock newConstant "_GT"
+  val GTU = Sort.Integer newConstant "_GTU"
 
   if (useTime) {
     globalVars += GT
@@ -492,7 +570,7 @@ class CCReader private (prog : Program,
             case thread : ParaThread => {
               setPrefix(thread.cident_2)
               pushLocalFrame
-              addLocalVar(new ConstantTerm(thread.cident_1), CCInt)
+              addLocalVar(CCInt newConstant thread.cident_1, CCInt)
               val translator = FunctionTranslator.apply
               translator translateNoReturn thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
@@ -567,7 +645,7 @@ class CCReader private (prog : Program,
                 functionDecls.put(name, (directDecl, typ))
               case _ => {
                 isVariable = true
-                val c = new ConstantTerm(name)
+                val c = typ newConstant name
                 if (global) {
                   globalVars += c
                   globalVarTypes += typ
@@ -599,7 +677,7 @@ class CCReader private (prog : Program,
             }
 
             isVariable = true
-            val c = new ConstantTerm(getName(declarator))
+            val c = typ newConstant getName(declarator)
             val (initValue, initGuard) = initializer match {
               case init : InitExpr =>
                 if (init.exp_.isInstanceOf[Enondet])
@@ -622,7 +700,7 @@ class CCReader private (prog : Program,
               case CCDuration =>
                 values addValue translateDurationValue(initValue)
               case typ =>
-                values addValue (initValue castTo typ)
+                values addValue (typ cast initValue)
             }
   
             values addGuard initGuard
@@ -738,6 +816,10 @@ class CCReader private (prog : Program,
               typ = CCLong
             case _ : Tlong if (typ == CCUInt) =>
               typ = CCULong
+            case _ : Tlong if (typ == CCLong) =>
+              typ = CCLongLong
+            case _ : Tlong if (typ == CCULong) =>
+              typ = CCULongLong
             case _ : Tclock => {
               if (!useTime)
                 throw NeedsTimeException
@@ -1075,13 +1157,13 @@ class CCReader private (prog : Program,
         val lhs = lhsE.toTerm
 	if (lhsE.typ == CCClock || lhsE.typ == CCDuration)
           throw new TranslationException("unsupported assignment to clock")
-        val newVal = CCTerm(exp.assignment_op_ match {
+        val newVal = CCTerm(lhsE.typ cast (exp.assignment_op_ match {
           case _ : AssignMul =>
             lhs * rhs
           case _ : AssignDiv =>
-            ap.theories.BitShiftMultiplication.tDiv(lhs, rhs)
+            ap.theories.nia.GroebnerMultiplication.tDiv(lhs, rhs)
           case _ : AssignMod =>
-            ap.theories.BitShiftMultiplication.tMod(lhs, rhs)
+            ap.theories.nia.GroebnerMultiplication.tMod(lhs, rhs)
           case _ : AssignAdd =>
             lhs + rhs
           case _ : AssignSub =>
@@ -1091,7 +1173,7 @@ class CCReader private (prog : Program,
 //          case _ : AssignAnd.    Assignment_op ::= "&=" ;
 //          case _ : AssignXor.    Assignment_op ::= "^=" ;
 //          case _ : AssignOr.     Assignment_op ::= "|=" ;
-        }, lhsE.typ)
+        }), lhsE.typ)
         pushVal(newVal)
         setValue(asLValue(exp.exp_1), newVal)
       }
@@ -1187,12 +1269,12 @@ class CCReader private (prog : Program,
       case exp : Ediv =>
         strictBinFun(exp.exp_1, exp.exp_2, {
           (x : ITerm, y : ITerm) =>
-            ap.theories.BitShiftMultiplication.tDiv(x, y)
+            ap.theories.nia.GroebnerMultiplication.tDiv(x, y)
         })
       case exp : Emod =>
         strictBinFun(exp.exp_1, exp.exp_2, {
           (x : ITerm, y : ITerm) =>
-            ap.theories.BitShiftMultiplication.tMod(x, y)
+            ap.theories.nia.GroebnerMultiplication.tMod(x, y)
         })
       case exp : Etypeconv => {
         evalHelp(exp.exp_)
@@ -1345,7 +1427,9 @@ class CCReader private (prog : Program,
       strictBinOp(left, right,
                   (lhs : CCExpr, rhs : CCExpr) => {
                      val (promLhs, promRhs) = unifyTypes(lhs, rhs)
-                     CCTerm(op(promLhs.toTerm, promRhs.toTerm), promLhs.typ)
+                     // TODO: correct type promotion
+                     val typ = promLhs.typ
+                     CCTerm(typ cast op(promLhs.toTerm, promRhs.toTerm), typ)
                    })
     }
 
@@ -1386,32 +1470,12 @@ class CCReader private (prog : Program,
           if (oldType == newType) =>
             t
         case (oldType : CCArithType, newType : CCArithType) =>
-          t castTo newType
+          newType cast t
         case (oldType : CCArithType, CCDuration) => {
           if (!useTime)
             throw NeedsTimeException
           CCTerm(GTU * t.toTerm, CCDuration)
         }
-
-/*
-        case (oldType : CCArithType, newType : CCArithType)
-          if (oldType.isUnsigned == newType.isUnsigned) =>
-            t castTo newType
-        case (oldType : CCArithType, newType : CCArithType)
-          if (oldType.isUnsigned) => { // unsigned to signed
-            val tt = t.toTerm
-            CCTerm(ite(tt >= (oldType.UNSIGNED_RANGE / 2),
-                       tt - oldType.UNSIGNED_RANGE,
-                       tt), newType)
-          }
-        case (oldType : CCArithType, newType : CCArithType)
-          if (!oldType.isUnsigned) => { // signed to unsigned
-            val tt = t.toTerm
-            CCTerm(ite(!geqZero(tt),
-                       tt + oldType.UNSIGNED_RANGE,
-                       tt), newType)
-          }
-*/
         case _ =>
           throw new TranslationException(
             "do not know how to convert " + t + " to " + newType)
@@ -1511,12 +1575,13 @@ class CCReader private (prog : Program,
           argDec match {
             case argDec : OnlyType =>
               // ignore, a void argument implies that there are no arguments
-            case argDec : TypeAndParam =>
-              addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
-                          getType(argDec.listdeclaration_specifier_))
+            case argDec : TypeAndParam => {
+              val typ = getType(argDec.listdeclaration_specifier_)
+              addLocalVar(typ newConstant getName(argDec.declarator_), typ)
+            }
             case argDec : TypeHintAndParam => {
-              addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
-                          getType(argDec.listdeclaration_specifier_))
+              val typ = getType(argDec.listdeclaration_specifier_)
+              addLocalVar(typ newConstant getName(argDec.declarator_), typ)
               processHints(argDec.listabs_hint_)
             }
 //            case argDec : Abstract =>
