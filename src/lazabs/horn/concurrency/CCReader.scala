@@ -33,6 +33,7 @@ package lazabs.horn.concurrency
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.theories.ModuloArithmetic
+import ap.types.MonoSortedPredicate
 import ap.util.Combinatorics
 
 import concurrentC._
@@ -319,6 +320,9 @@ class CCReader private (prog : Program,
 
   private def allFormalVars : Seq[ITerm] =
     globalVars.toList ++ localVars.toList
+  private def allFormalVarTypes : Seq[CCType] =
+    globalVarTypes.toList ++ localVarTypes.toList
+
   private def allFormalExprs : Seq[CCExpr] =
     ((for ((v, t) <- globalVars.iterator zip globalVarTypes.iterator)
       yield CCTerm(v, t)) ++
@@ -462,8 +466,10 @@ class CCReader private (prog : Program,
   private def newPred(extraArgs : Int) : Predicate = {
     import HornPreprocessor.{VerifHintTplElement, VerifHintTplEqTerm}
 
-    val res = new Predicate(prefix + locationCounter,
-                            allFormalVars.size + extraArgs)
+    val res = MonoSortedPredicate(prefix + locationCounter,
+                                  (allFormalVarTypes map (_.toSort)) ++
+                                  (for (_ <- 0 until extraArgs)
+                                   yield Sort.Integer))
     locationCounter = locationCounter + 1
 
     val hints = for (s <- variableHints; p <- s) yield p
