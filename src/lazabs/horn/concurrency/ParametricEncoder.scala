@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,9 +30,12 @@
 package lazabs.horn.concurrency
 
 import ap.parser._
+import ap.types.MonoSortedPredicate
 import ap.util.{Seqs, Combinatorics}
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor
+
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer, HashMap => MHashMap}
@@ -128,6 +131,9 @@ object ParametricEncoder {
 
     assert(hints.predicateHints.keys forall allLocalPreds)
 
+    val globalVarSorts =
+      predArgumentSorts(allLocalPreds.iterator.next) take globalVarNum
+
     val localPredsSet = for (preds <- localPreds) yield preds.toSet
   
     val processIndex =
@@ -208,7 +214,8 @@ object ParametricEncoder {
                 case None =>
                   p -> p
                 case _ =>
-                  p -> new Predicate(p.name + "_" + j, p.arity)
+                  p -> MonoSortedPredicate(p.name + "_" + j,
+                                           predArgumentSorts(p))
               }).toMap
 
            for ((a, b) <- mapping)
@@ -467,9 +474,11 @@ class ParametricEncoder(system : ParametricEncoder.System,
     (for (inv <- invariants.iterator;
           s <- genSubsequencesWithDups(localPreds, inv)) yield {
        val name = "inv_" + ((s.iterator map (_.name)) mkString "_")
-       val arity = (s.iterator map (_.arity)).sum -
-                   (s.size - 1) * globalVarNum
-       (s, new Predicate (name, arity))
+       val sorts = globalVarSorts ++
+                   (for (p <- s;
+                         argSort <- predArgumentSorts(p) drop globalVarNum)
+                    yield argSort)
+       (s, MonoSortedPredicate (name, sorts))
      }).toList
 
   val globalPreds = globalPredsSeq.toMap
@@ -580,13 +589,15 @@ class ParametricEncoder(system : ParametricEncoder.System,
   //////////////////////////////////////////////////////////////////////////////
 
   def freshGlobalParams =
-    (for (j <- 0 until globalVarNum) yield i(new ConstantTerm ("g_" + j))).toList
+    (for ((s, j) <- globalVarSorts.iterator.zipWithIndex)
+     yield i(s newConstant ("g_" + j))).toList
 
   def freshParams(preds : Seq[Predicate]) =
     (for ((p, k) <- preds.iterator.zipWithIndex) yield {
        (p,
-        for (j <- (0 until (p.arity - globalVarNum)).toList)
-          yield i(new ConstantTerm (p.name + "_" + k + "_" + j)))
+        (for ((s, j) <- (predArgumentSorts(p).iterator drop globalVarNum)
+                                             .zipWithIndex)
+           yield i(s newConstant (p.name + "_" + k + "_" + j))).toList)
      }).toList
 
   def distinctIds(localParams : Seq[(Predicate, Seq[ITerm])]) =

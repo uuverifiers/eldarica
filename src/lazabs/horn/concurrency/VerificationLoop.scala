@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ object VerificationLoop {
 
   def prettyPrint(cex : Counterexample) : Unit = {
     val colWidth = ((for (step <- cex.iterator; a <- step.newStates.iterator)
-                     yield a.toString.size).max + 2) max 10
+                     yield (SimpleAPI pp a).size).max + 2) max 10
     val totalWidth = cex.head.newStates.size * colWidth
 
     def toColWidth(s : String) = {
@@ -80,8 +80,8 @@ object VerificationLoop {
       ((" " * ((colWidth - shortened.size)/2)) + s).padTo(colWidth, ' ')
     }
 
-    def asColumns[A](strs : Seq[A]) =
-      println((for (x <- strs) yield toColWidth(x.toString)) mkString "")
+    def asColumns(strs : Seq[IAtom]) =
+      println((for (x <- strs) yield toColWidth(SimpleAPI pp x)) mkString "")
 
     def inColumns(data : Map[Int, Seq[String]]) = {
       val cols = (for ((c, _) <- data) yield c).max + 1
@@ -109,7 +109,7 @@ object VerificationLoop {
             index -> List("  |  ",
                           "  |  ",
                           "  V  ",
-                          states(index).toString)
+                          SimpleAPI pp states(index))
           ))
         case CEXCommStep(states, channel, senderIndex, _, receiverIndex, _) =>
           inColumns(Map(
@@ -117,12 +117,12 @@ object VerificationLoop {
                                   "" + channel + "!",
                                   "|",
                                   "V",
-                                  states(senderIndex).toString),
+                                  SimpleAPI pp states(senderIndex)),
             receiverIndex -> List("|",
                                   "" + channel + "?",
                                   "|",
                                   "V",
-                                  states(receiverIndex).toString)
+                                  SimpleAPI pp states(receiverIndex))
           ))
         case CEXBarrierStep(states, barrier, clauses) =>
           inColumns(
@@ -134,7 +134,7 @@ object VerificationLoop {
                              "" + barrier,
                              "|",
                              "V",
-                             states(ind).toString)
+                             SimpleAPI pp states(ind))
              }).toMap
           )
         case CEXTimeElapse(_, (delayNum, delayDenom)) =>
