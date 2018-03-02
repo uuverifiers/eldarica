@@ -60,6 +60,8 @@ object HornClauses {
       (constants -- (for (IConstant(c) <- head.args.iterator) yield c)
        ).toSeq.sortWith(_.name < _.name)
 
+    lazy val allAtoms = head :: body
+
     lazy val bodyPredicates =
       (for (IAtom(p, _) <- body.iterator) yield p).toSet
     lazy val predicates =

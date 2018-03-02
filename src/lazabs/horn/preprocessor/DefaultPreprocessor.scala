@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,6 +93,14 @@ class DefaultPreprocessor extends HornPreprocessor {
     // First set of processors
     for (stage <- preStages)
       applyStage(stage)
+
+    // Clone relation symbols with consistently concrete arguments
+    {
+      val oldClauses = curClauses
+      applyStage(SymbolSplitter)
+      if (!(curClauses eq oldClauses))
+        applyStage(ReachabilityChecker)
+    }
 
     // Apply clause simplification and inlining repeatedly, if necessary
     applyStage(DefinitionInliner)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,6 +61,14 @@ object HornPreprocessor {
         this
       else
         VerificationHints(predicateHints -- removed)
+
+    def duplicatePredicates(newPreds : Predicate => Iterable[Predicate]) =
+      if (isEmpty)
+        this
+      else
+        VerificationHints((for ((p, hints) <- predicateHints.iterator;
+                                newP <- newPreds(p).iterator)
+                           yield (newP, hints)).toMap)
 
     def addPredicateHints(
           hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
