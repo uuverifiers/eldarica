@@ -273,3 +273,13 @@ sat
 
 quantifier.smt2
 unsat
+
+nonlinear.smt2
+Theories: GroebnerMultiplication
+sat
+(define-fun Inv ((A Int) (B Int)) Bool (and (= A 5) (>= B 1)))
+
+nonlinear2.smt2
+Theories: GroebnerMultiplication
+sat
+(define-fun Inv ((A Int) (B Int)) Bool (and (and (<= A 5) (>= A 2)) (>= B 1)))

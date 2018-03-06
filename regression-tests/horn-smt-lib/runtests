@@ -13,7 +13,9 @@ TESTS="mccarthy91.nts.smt2 \
        uninterpreted_fun.smt2 \
        array-exception.smt2 \
        inconclusive.smt2 \
-       quantifier.smt2"
+       quantifier.smt2 \
+       nonlinear.smt2 \
+       nonlinear2.smt2"
 
 for name in $TESTS; do
     echo

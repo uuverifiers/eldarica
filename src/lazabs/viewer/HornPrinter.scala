@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat. All rights reserved.
+ * Copyright (c) 2011-2018 Hossein Hojjat. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,7 +93,7 @@ object HornPrinter {
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
       case ADTsel(adt, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
-      case ADTsize(adt, v) =>
+      case ADTsize(adt, _, v) =>
         "_size(" + printExp(v) + ")"
       case Not(e) => "\\" + "+(" + printExp(e) + ")"
       case UnaryExpression(op, e) => op.st + "(" + printExp(e) + ")"

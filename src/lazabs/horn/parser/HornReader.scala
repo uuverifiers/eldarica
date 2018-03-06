@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2018 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,9 @@ import lazabs.ast.ASTree._
 import lazabs.types.IntegerType
 
 import ap.parser._
-import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
+import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
+                    MulTheory}
+import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
 import ap.proof.theoryPlugins.Plugin
@@ -46,7 +48,7 @@ import ap.proof.goal.Goal
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.{TerForConvenience, TermOrder}
-import ap.types.{SortedPredicate, SortedIFunction}
+import ap.types.{SortedPredicate, SortedIFunction, TypeTheory}
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
@@ -243,15 +245,33 @@ class SMTHornReader protected[parser] (
         }))
       throw new Exception ("Uninterpreted functions are not supported")
     
-    // preprocessing: e.g., encode functions as predicates
-    val (List(INamedPart(_, processedClause_aux)), _, sig2) =
-      Preprocessing(clause,
-                    List(),
-                    signature,
-                    Param.TRIGGER_STRATEGY.set(
-                      PreprocessingSettings.DEFAULT,
-                      Param.TriggerStrategyOptions.AllMaximal))
-    clause = processedClause_aux
+    clause = signature.theories match {
+      case theories if (theories forall {
+                          case _ : SimpleArray => true
+                          case TypeTheory      => true
+                          case _               => false
+                        }) => {
+        // need full preprocessing, in particular to introduce triggers
+        val (List(INamedPart(_, processedClause_aux)), _, sig2) =
+          Preprocessing(clause,
+                        List(),
+                        signature,
+                        Param.TRIGGER_STRATEGY.set(
+                          PreprocessingSettings.DEFAULT,
+                          Param.TriggerStrategyOptions.AllMaximal))
+        processedClause_aux
+      }
+      case theories if (theories forall {
+                          case _ : ADT       => true
+                          case _ : MulTheory => true
+                          case TypeTheory    => true
+                          case _             => false
+                        }) =>
+        EquivExpander(PartialEvaluator(clause))
+      case _ =>
+        throw new Exception ("Combination of theories is not supported")
+    }
+
 //    println
 //    println(clause)
     // transformation to prenex normal form
@@ -415,7 +435,11 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    val keptTheories = allTheories filter (_.isInstanceOf[ADT])
+    val keptTheories = allTheories filter {
+      case _ : ADT                => true
+      case GroebnerMultiplication => true
+      case _                      => false
+    }
 
     if (allTheories.size == keptTheories.size &&
         (quanNum == 0 || !PredUnderQuantifierVisitor(clause)))

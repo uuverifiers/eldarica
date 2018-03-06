@@ -38,7 +38,7 @@ import lazabs.horn.parser.HornReader
 object HornSMTPrinter {
 
   def apply(system: Seq[HornClause]): String =
-    "(set-info :origin \"NTS benchmark converted to SMT-LIB2 using Eldarica (https://github.com/uuverifiers/eldarica)\")\n" +
+    "(set-info :origin \"Horn problem converted to SMT-LIB2 using Eldarica (https://github.com/uuverifiers/eldarica)\")\n" +
     "(set-logic HORN)\n" +
     system.map(Horn.getRelVarArities(_)).flatten.distinct
       .map(rv => "(declare-fun " + rv._1 + " " + (0 until rv._2).map(_ => "Int").mkString("("," ",")") + " Bool)").mkString("\n") + "\n" +
@@ -107,7 +107,7 @@ object HornSMTPrinter {
         "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsel(adt, name, exprList) =>
         "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
-      case ADTsize(adt, v) =>
+      case ADTsize(adt, _, v) =>
         "(_size " + printExp(v) + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"

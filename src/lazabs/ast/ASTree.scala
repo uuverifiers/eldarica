@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,10 +94,14 @@ object ASTree {
   
   // ADT
   
-  case class ADTctor(adt: ADT, name: Variable, exprList: Seq[Expression]) extends Expression
-  case class ADTsel(adt: ADT, name: String, exprList: Seq[Expression]) extends Expression
-  case class ADTtest(adt: ADT, v: Variable) extends Expression
-  case class ADTsize(adt: ADT, v: Variable) extends Expression
+  case class ADTctor(adt: ADT, name: String,
+                     exprList: Seq[Expression]) extends Expression
+  case class ADTsel(adt: ADT, name: String,
+                    exprList: Seq[Expression]) extends Expression
+  case class ADTtest(adt: ADT, sortNum : Int,
+                     v: Expression) extends Expression
+  case class ADTsize(adt: ADT, sortNum : Int,
+                     v: Expression) extends Expression
   
   // Actor
   case class ReactBlock(cases: List[CaseClause]) extends ASTree

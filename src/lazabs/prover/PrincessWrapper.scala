@@ -39,6 +39,7 @@ import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.theories._
+import ap.theories.nia.GroebnerMultiplication
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -160,16 +161,13 @@ class PrincessWrapper {
       case lazabs.ast.ASTree.Addition(e1,e2) => f2p(e1).asInstanceOf[ITerm] + f2p(e2).asInstanceOf[ITerm]
       case lazabs.ast.ASTree.Minus(e) => -f2p(e).asInstanceOf[ITerm]    
       case lazabs.ast.ASTree.Subtraction(e1,e2) => f2p(e1).asInstanceOf[ITerm] - f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.Multiplication(e1,e2) => (e1,e2) match {
-        case (NumericalConst(_), _) => f2p(e1).asInstanceOf[ITerm] * f2p(e2).asInstanceOf[ITerm]
-        case (_,NumericalConst(_)) => f2p(e1).asInstanceOf[ITerm] * f2p(e2).asInstanceOf[ITerm]
-        case (Minus(NumericalConst(_)), _) => f2p(e1).asInstanceOf[ITerm] * f2p(e2).asInstanceOf[ITerm]
-        case (_,Minus(NumericalConst(_))) => f2p(e1).asInstanceOf[ITerm] * f2p(e2).asInstanceOf[ITerm]
-        case _ =>
-          throw new Exception("Only multiplication by constant is supported: " + ex)
-      }
-      case Division(e1,e2) => div(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
-      case Modulo(e1,e2) => mod(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
+      case lazabs.ast.ASTree.Multiplication(e1,e2) =>
+        GroebnerMultiplication.mult(f2p(e1).asInstanceOf[ITerm],
+                                    f2p(e2).asInstanceOf[ITerm])
+      case Division(e1,e2) =>
+        div(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
+      case Modulo(e1,e2) =>
+        mod(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
 
       case lazabs.ast.ASTree.Not(e) => !f2p(e).asInstanceOf[IFormula]
       case lazabs.ast.ASTree.Inequality(e1, e2) => f2p(lazabs.ast.ASTree.Not(lazabs.ast.ASTree.Equality(e1, e2)))
@@ -196,7 +194,7 @@ class PrincessWrapper {
 
       // ADT conversion to Princess
       case lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
-        val Some(ctor) = adt.constructors.find(_.name == ctorName.name)
+        val Some(ctor) = adt.constructors.find(_.name == ctorName)
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
         ctor(termArgs : _*)
       }
@@ -205,16 +203,11 @@ class PrincessWrapper {
         val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
         sel(termArgs : _*)
       }
-      case e1@lazabs.ast.ASTree.ADTtest(adt, v) =>
+      case e1@lazabs.ast.ASTree.ADTtest(adt, sortNum, v) =>
         println("this is test: " + e1)
         IBoolLit(false)
-      case e2@lazabs.ast.ASTree.ADTsize(adt, v) => {
-        val Some(size) = v.stype match {
-          case AdtType(x) => adt.termSize.find(_.name == (x + "_size"))
-          case _ => throw new Exception("Invalid type in ADT size")
-        }
-         size(f2p(v).asInstanceOf[ITerm])
-      }
+      case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
+        adt.termSize(sortNum)(f2p(v).asInstanceOf[ITerm])
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
@@ -249,7 +242,6 @@ class PrincessWrapper {
    * converts a formula in Princess format to a formula in Eldarica format
    * @param removeVersions Removes the versions in the SSA conversion 
    */
-  import scala.util.matching.Regex
   def formula2Eldarica(t: IFormula,
                        symMap : Map[ConstantTerm, String],
                        removeVersions: Boolean,
@@ -278,6 +270,11 @@ class PrincessWrapper {
       case IConstant(`emptyset`) =>
         lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
 
+      // Multiplication
+      case IFunApp(MulTheory.Mul(), Seq(e1, e2)) =>
+        lazabs.ast.ASTree.Multiplication(rvT(e1).stype(IntegerType()),
+                                         rvT(e2).stype(IntegerType()))
+
       // Booleans
       case ADT.BoolADT.True =>
         lazabs.ast.ASTree.BoolConst(true)
@@ -286,17 +283,11 @@ class PrincessWrapper {
 
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
-        rvT(e) match {
-          case v@Variable(_,_) => ADTsize(adt, v)
-          case _ => throw new Exception("size applied to non-variable: " + e) 
-        }
-      case IFunApp(ADT.Constructor(adt, sortNum), e) =>
-        rvT(e.head) match {
-          case v@Variable(_,_) => ADTctor(adt, v, e.tail.map(rvT(_)))
-          case _ => throw new Exception("ctor applied to non-variable: " + e) 
-        }                
-      case IFunApp(ADT.Selector(adt,cidx,sidx), Seq(e)) =>
-        ADTsel(adt, adt.selectors(cidx)(sidx).name, Seq(rvT(e)))
+        ADTsize(adt, sortNum, rvT(e))
+      case IFunApp(f@ADT.Constructor(adt, _), e) =>
+        ADTctor(adt, f.name, e.map(rvT(_)))
+      case IFunApp(f@ADT.Selector(adt, _, _), Seq(e)) =>
+        ADTsel(adt, f.name, Seq(rvT(e)))
 
       case IConstant(cterm) ::: sort =>
         val pattern = """x(\d+)(\w+)""".r
@@ -360,30 +351,6 @@ class PrincessWrapper {
       case IQuantified(Quantifier.ALL, e) => lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
-      case IAtom(pred, args) =>
-        (TheoryRegistry lookupSymbol pred) match {
-          case Some(adt: ADT) => {
-            val argExprs = args.map(rvT(_))
-            val lhs =
-              if (adt.constructors.map(_.name).contains(pred.name)) {
-                ADTctor(adt,
-                        Variable(pred.name),
-                        argExprs.init)
-              } else if (adt.selectors.flatten.map(_.name).contains(pred.name)) {
-                ADTsel(adt, pred.name, argExprs.init)
-              } else {
-                argExprs.head match {
-                  case v@Variable(name,_) =>
-                    ADTsize(adt, v)
-                  case e@_ => 
-                    throw new Exception("size applied to non-variable: " + e)
-                }                
-              }
-            lazabs.ast.ASTree.Equality(lhs, argExprs.last)
-          }
-          case _ =>
-            throw new Exception("Unsupported predicate: " + pred)
-        }
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
         BoolConst(false)
