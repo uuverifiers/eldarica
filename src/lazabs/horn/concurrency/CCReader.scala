@@ -1271,7 +1271,10 @@ class CCReader private (prog : Program,
       case exp : Eminus =>
         strictBinFun(exp.exp_1, exp.exp_2, _ - _)
       case exp : Etimes =>
-        strictBinFun(exp.exp_1, exp.exp_2, _ * _)
+        strictBinFun(exp.exp_1, exp.exp_2, {
+          (x : ITerm, y : ITerm) =>
+            ap.theories.nia.GroebnerMultiplication.mult(x, y)
+        })
       case exp : Ediv =>
         strictBinFun(exp.exp_1, exp.exp_2, {
           (x : ITerm, y : ITerm) =>
