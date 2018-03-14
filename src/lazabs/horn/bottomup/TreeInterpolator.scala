@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,52 +27,72 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package lazabs.horn.bottomup
+package lazabs.horn.bottomup
 
 import ap.basetypes.IdealInt
 import ap.parameters.{Param, GoalSettings}
-import ap.parser.{PartName, IInterpolantSpec}
-import ap.theories.{Theory, TheoryCollector}
+import ap.parser.PartName
+import ap.theories.Theory
 import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience, Term,
                   ComputationLogger}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ConjunctEliminator, NegatedConjunctions}
-import ap.terfor.substitutions.{ConstantSubst, Substitution, ComposeSubsts}
-import ap.terfor.preds.Predicate
+import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.equations.EquationConj
 import ap.terfor.arithconj.{ModelElement, EqModelElement}
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.ModelSearchProver
 import ap.proof.theoryPlugins.PluginSequence
-import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
+import ap.proof.certificates.Certificate
 import ap.util.Seqs
 
 import lazabs.prover.Tree
 
-import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
+                                 HashMap => MHashMap}
 
 object TreeInterpolator {
 
-    type TreeInterpolatorFun =
-      (Tree[Conjunction], TermOrder, Boolean, Seq[Theory]) => Either[Tree[Conjunction],Conjunction]
+  type TreeInterpolatorFun =
+    (Tree[Conjunction], TermOrder, Boolean, Seq[Theory]) =>
+      Either[Tree[Conjunction],Conjunction]
+
+  val interpolator = LinTreeInterpolator
+//  val interpolator = BSTreeInterpolator
+
+  def treeInterpolate(oriProblem : Tree[Conjunction],
+                      order : TermOrder,
+                      fullCEX : Boolean,
+                      theories : Seq[Theory])
+                     : Either[Tree[Conjunction],Conjunction] =
+    interpolator.treeInterpolate(oriProblem, order, fullCEX, theories)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Generic implementation of tree interpolation.
+ */
+abstract class TreeInterpolator {
 
     def treeInterpolate(oriProblem : Tree[Conjunction],
                         order : TermOrder,
                         fullCEX : Boolean,
                         theories : Seq[Theory])
                        : Either[Tree[Conjunction],Conjunction] = {
-//    println("and-tree interpolation: " + problem)
+//    println("and-tree interpolation:")
+//    oriProblem.prettyPrint
 
-    val (problem2, preWitnesses) = preSimplify(oriProblem, order)
-    val problem = for (c <- problem2) yield factorCommonParts(c, order)
+    val (problem2, symbolTranslation, preWitnesses) =
+      preSimplify(oriProblem, order)
+    val problem =
+      for (c <- problem2) yield factorCommonParts(c, order)
 
     var partNum = 0
     val partNames = for (f <- problem) yield {
       partNum = partNum + 1
       new PartName("part" + (partNum-1))
     }
-
-    val allNames = partNames.toSet
 
     // theory axioms
     val axioms =
@@ -85,9 +105,9 @@ object TreeInterpolator {
     val formulas = problem.toSeq
 
     val namedParts =
-      (for ((f, n) <- (problem zip partNames).iterator) yield (n -> f.negate)).toMap + (
-       PartName.NO_NAME -> axioms
-      )
+      (for ((f, n) <- (problem zip partNames).iterator)
+       yield (n -> f.negate)).toMap +
+      (PartName.NO_NAME -> axioms)
 
     val interpolationSettings =
       Param.THEORY_PLUGIN.set(
@@ -99,11 +119,11 @@ object TreeInterpolator {
     }
 
     prover.assert(formulas, order).checkValidity(fullCEX) match {
-    case Left(m) if (fullCEX) => {
-      // formula is sat
+      case Left(m) if (fullCEX) => {
+        // formula is sat
 
-      assert(false) // not supported right now
-      null
+        assert(false) // not supported right now
+        null
 
 /*
  
@@ -119,90 +139,47 @@ object TreeInterpolator {
 
       Right(m & arithModel)
 */
-    }
+      }
 
-    case Left(m) => {
-      // formula is sat
-      Right(m)
-    }
+      case Left(m) =>
+        // formula is sat
+        Right(m)
       
-    case Right(cert) => {
-      // found a proof of unsatisfiability, extract tree interpolants
-
-//      print("Found proof (" + cert.inferenceCount + "), simplifying ")
-      val simpCert = ProofSimplifier(cert) // simplify the proof if possible
-//      println("(" + simpCert.inferenceCount + ")")
-
-      def computeInts(names : Tree[PartName],
-                      fors  : Tree[Conjunction],
-                      intKnown : Option[Conjunction]) : Tree[Conjunction] = {
-        val Tree(rootFor, forChildren) = fors
-
-        val thisInt =
-          if (intKnown.isDefined) {
-            intKnown.get
-          } else if (fors.iterator forall (_.isTrue)) {
-            // trivial sub-tree
-            Conjunction.TRUE
-          } else {
-            val subNames = names.toList
-            val superNames = (allNames -- subNames).toList
-            val spec = IInterpolantSpec(subNames, superNames)
-            val iContext = InterpolationContext(namedParts, spec, order)
-            Interpolator(simpCert, iContext, true)
-          }
-
-        if (thisInt.isTrue) {
-          // interpolants in the whole subtree can be assumed to be true
-          for (_ <- names) yield Conjunction.TRUE
-        } else {
-          val kI =
-            if (rootFor.isTrue && names.children.size == 1) Some(thisInt) else None
-          Tree(thisInt,
-               for ((s, f) <- names.children zip forChildren)
-                 yield computeInts(s, f, kI))
-        }
-      }
-
-/*
-        val trueRightParts = new ArrayBuffer[Set[PartName]]
-        Left(for (s <- partitions) yield {
-          if (s.right.isEmpty) {
-            Conjunction.FALSE
-          } else if (trueRightParts exists {
-                       case rp => rp subsetOf s.right.toSet }) {
-            Conjunction.TRUE
-          } else {
-            val iContext = InterpolationContext(namedParts, s, order)
-            val interpolant = Interpolator(simpCert, iContext, true)
-            if (interpolant.isTrue)
-              trueRightParts += s.right.toSet
-            interpolant
-          }
-        })
-*/
-        Left(computeInts(partNames, problem, Some(Conjunction.FALSE)))
-      }
+      case Right(cert) =>
+        // found a proof of unsatisfiability, extract tree interpolants
+        Left(computeInts(cert, partNames, namedParts, problem,
+                         symbolTranslation, order))
     }
   }
+
+  def computeInts(cert : Certificate,
+                  names : Tree[PartName],
+                  namedParts : Map[PartName, Conjunction],
+                  fors  : Tree[Conjunction],
+                  symbolTranslation : Tree[Map[ConstantTerm, ConstantTerm]],
+                  order : TermOrder) : Tree[Conjunction]
 
   //////////////////////////////////////////////////////////////////////////////
 
   def preSimplify(problem : Tree[Conjunction],
                   order : TermOrder)
-            : (Tree[Conjunction], Seq[ModelElement]) = {
+               : (Tree[Conjunction],
+                  Tree[Map[ConstantTerm, ConstantTerm]],
+                  Seq[ModelElement]) = {
     if (lazabs.GlobalParameters.get.log)
       print(" " + size(problem) + " -> ")
+
+    val (newProblem, symbolTranslation) = propagateSymbols(problem, order)
 
     val witnesses = new ArrayBuffer[ModelElement]
 
 //    val newProblem = elimSimpleEqs(problem, order, witnesses)
-    val newProblem2 = elimLocalSyms(problem, order, witnesses)
+    val newProblem2 = elimLocalSyms(newProblem, order, witnesses)
 
     if (lazabs.GlobalParameters.get.log)
       print(size(newProblem2))
 
-    (newProblem2, witnesses)
+    (newProblem2, symbolTranslation, witnesses)
   }
 
   def size(t : Tree[Conjunction]) =
@@ -212,6 +189,11 @@ object TreeInterpolator {
     ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
       case (n,d) => n + nodeCount(d)
     }
+
+  def propagateSymbols(problem : Tree[Conjunction], order : TermOrder)
+                      : (Tree[Conjunction],
+                         Tree[Map[ConstantTerm, ConstantTerm]]) =
+    (problem, for (f <- problem) yield Map())
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -369,7 +351,6 @@ object TreeInterpolator {
                         order : TermOrder) : Conjunction =
     ReduceWithConjunction(Conjunction.TRUE, order)(
       factorCommonPartsHelp(c, order))
-
 
   private def factorCommonPartsHelp(c : Conjunction,
                                     order : TermOrder) : Conjunction = {
