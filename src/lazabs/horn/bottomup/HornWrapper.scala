@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2018 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -479,8 +479,8 @@ class HornTranslator {
       val RelVar(varName, params) =
         rv
       val argExprs =
-        params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(
-                             lazabs.types.IntegerType())))
+        params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(p.typ)))
+
       val (ps, _) = formula2Princess(argExprs, symbolMap, true)
       val pred = predPool.getOrElseUpdate((varName, params.size), {
         val sorts = for (p <- params) yield type2Sort(p.typ)
@@ -491,8 +491,7 @@ class HornTranslator {
 
     def transform(cl: HornClause): Clause = {
 
-      val symbolMap = LinkedHashMap[String, ConstantTerm]().empty      
-      resetSymbolReservoir
+      val symbolMap = LinkedHashMap[String, ConstantTerm]().empty
 
       val headAtom = cl.head match {
         case Interp(lazabs.ast.ASTree.BoolConst(false)) =>
@@ -506,14 +505,23 @@ class HornTranslator {
       var interpFormulas = List[IExpression]()
       var relVarAtoms = List[IAtom]()
 
-      cl.body.foreach { lit => lit match {
+      // first translate relation symbols in the body
+      for (rv <- cl.body) rv match {
+        case rv : RelVar =>
+          relVarAtoms ::= relVar2Atom(rv, symbolMap)
+        case _ =>
+          // nothing
+      }
+
+      // and then interpreted constraints
+      for (rv <- cl.body) rv match {
         case Interp(e) => {
           val (interp,sym) = formula2Princess(List(e), symbolMap, true)
           interpFormulas ::= interp.head
         }
-        case rv : RelVar =>
-          relVarAtoms ::= relVar2Atom(rv, symbolMap)
-      }}
+        case _ =>
+          // nothing
+      }
 
       Clause(headAtom,relVarAtoms, interpFormulas.size match {
         case 0 => true

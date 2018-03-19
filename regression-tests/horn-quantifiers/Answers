@@ -2,21 +2,21 @@
 simple-init.smt2
 Theories: SimpleArray(1)
 sat
-(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (and (>= A 1) (or (not (= D 0)) (= B E)))))
+(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (and (= B E) (>= A 1)) (and (not (= D 0)) (>= A 1)))))
 
 heaps.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= C G) (= D H)) (>= D 0)) (or (not (= A E)) (= B F))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (or (and (and (and (= B F) (= C G)) (= D H)) (>= D 0)) (and (and (and (= C G) (= D H)) (not (= A E))) (>= D 0))))
 
 double-heap.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (and (= C H) (= D I)) (= E J)) (or (not (= A F)) (= B G))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (or (and (and (and (= B G) (= C H)) (= D I)) (= E J)) (and (and (and (= C H) (= D I)) (= E J)) (not (= A F)))))
 
 array_noloop_crash.smt2
 Warning: ignoring get-model

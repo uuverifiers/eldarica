@@ -34,6 +34,7 @@ import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.parser.HornReader
 
+import ap.{SimpleAPI, PresburgerTools}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -54,11 +55,12 @@ object BooleanClauseSplitter extends HornPreprocessor {
              : (Clauses, VerificationHints, BackTranslator) = {
     val clauseMapping = new MHashMap[Clause, Clause]
 
-    val newClauses =
-      for (clause <- clauses; newClause <- simpClause(clause)) yield {
+    val newClauses = SimpleAPI.withProver { p =>
+      for (clause <- clauses; newClause <- simpClause(clause)(p)) yield {
         clauseMapping.put(newClause, clause)
         newClause
       }
+    }
 
     val translator = new BackTranslator {
       def translate(solution : Solution) =
@@ -72,7 +74,8 @@ object BooleanClauseSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def simpClause(clause : Clause) : Seq[Clause] = {
+  private def simpClause(clause : Clause)
+                        (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(head@IAtom(headPred, headArgs), body, constraint) = clause
 
     var newConstCounter = 0
@@ -132,8 +135,22 @@ object BooleanClauseSplitter extends HornPreprocessor {
 
     val groundConstraint = subst(prenexConstraint, varSubst, 0)
 
-    for (conjunct <- HornReader.cnf_if_needed(groundConstraint)) yield {
-      Clause(IAtom(headPred, newHeadArgs), newBody, ~conjunct)
+    if (needsSplitting(groundConstraint)) {
+      if (ContainsSymbol isPresburger groundConstraint) p.scope {
+        import p._
+        addConstantsRaw(SymbolCollector constantsSorted groundConstraint)
+        val disjuncts =
+          PresburgerTools.nonDNFEnumDisjuncts(asConjunction(~groundConstraint))
+        (for (d <- disjuncts) yield
+         Clause(IAtom(headPred, newHeadArgs), newBody, asIFormula(d))).toSeq
+      } else {
+        // TODO: this might not be effective at all
+        for (conjunct <- HornReader.cnf_if_needed(groundConstraint)) yield {
+          Clause(IAtom(headPred, newHeadArgs), newBody, ~conjunct)
+        }
+      }
+    } else {
+      List(Clause(IAtom(headPred, newHeadArgs), newBody, ~groundConstraint))
     }
   }
 
@@ -155,6 +172,15 @@ object BooleanClauseSplitter extends HornPreprocessor {
       KeepArg
     }
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
+  }
+
+  private def needsSplitting(f : IFormula) : Boolean = f match {
+    case IBinFormula(IBinJunctor.And, _, _) =>
+      true
+    case IBinFormula(IBinJunctor.Or, f1, f2) =>
+      needsSplitting(f1) || needsSplitting(f2)
+    case _ =>
+      false
   }
 
 }

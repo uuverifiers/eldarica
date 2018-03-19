@@ -50,8 +50,6 @@ object PrincessWrapper {
   def newWrapper : Unit =
     localWrapper.value = new PrincessWrapper
 
-  def resetSymbolReservoir = localWrapper.value.resetSymbolReservoir
-
   def formula2Princess(
         ts: List[Expression],
         initialSymbolMap: LinkedHashMap[String, ConstantTerm] =
@@ -107,15 +105,6 @@ class PrincessWrapper {
   private val api = new PrincessAPI_v1
   import api._
 
-  // Constants used in expressions in the Princess API
-  private def constantStream(num : Int) : Stream[ConstantTerm] =
-    Stream.cons(new ConstantTerm("c" + num), constantStream(num + 1))
-  private val globalConstants = constantStream(0)
-  var symbolReservoir = globalConstants
-
-  def resetSymbolReservoir =
-    symbolReservoir = globalConstants
-
   /**
    * converts a list of formulas in Eldarica format to a list of formulas in Princess format
    * returns both the formulas in Princess format and the symbols used in the formulas
@@ -124,8 +113,6 @@ class PrincessWrapper {
                        keepReservoir: Boolean = false) 
     : (List[IExpression], LinkedHashMap[String, ConstantTerm]) = {
     val symbolMap = initialSymbolMap
-    if (!keepReservoir)
-      resetSymbolReservoir
 
     def f2p(ex: Expression): IExpression = ex match {
       case lazabs.ast.ASTree.ArraySelect(array, ind) =>
@@ -186,10 +173,8 @@ class PrincessWrapper {
           setEqual(lhs.asInstanceOf[ITerm], rhs.asInstanceOf[ITerm])
         else
           (lhs.asInstanceOf[ITerm] === rhs.asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.Variable(vname,None) => symbolMap.getOrElseUpdate(vname, {
-        val newSym = symbolReservoir.head
-        symbolReservoir = symbolReservoir.tail
-        newSym
+      case s@lazabs.ast.ASTree.Variable(vname,None) => symbolMap.getOrElseUpdate(vname, {
+        PrincessWrapper.type2Sort(s.stype) newConstant vname
       })
 
       // ADT conversion to Princess
