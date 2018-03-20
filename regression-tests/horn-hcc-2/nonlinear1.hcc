@@ -1,0 +1,14 @@
+
+int nondet();
+
+void main() {
+  int f = 1;
+  int i = 1;
+
+  while (nondet()) {
+    f = f * i;
+    i++;
+  }
+
+  assert(f > 0 && i > 0);
+}

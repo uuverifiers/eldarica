@@ -140,7 +140,7 @@ object Slicer extends HornPreprocessor {
                   val stat = ???
                   assert(stat == ProverStatus.Sat)
                   
-                  for (t <- head.args) yield i(eval(t))
+                  for (t <- head.args) yield evalToTerm(t)
                 } else {
                   oldHeadArgs
                 }

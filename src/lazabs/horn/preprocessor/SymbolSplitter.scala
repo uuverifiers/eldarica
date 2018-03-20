@@ -37,6 +37,7 @@ import lazabs.horn.parser.HornReader
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.types.MonoSortedPredicate
+import ap.types.Sort
 import IExpression._
 import ap.util.Seqs
 
@@ -83,19 +84,34 @@ object SymbolSplitter extends HornPreprocessor {
 
       def renamePred(p : Predicate,
                      concreteArgs : Seq[Option[ITerm]]) : Option[Predicate] = {
-        val relevantArgPositions = concreteArgsPerPred(p)
-        if (relevantArgPositions.isEmpty) {
+        val fixedArgPositions = concreteArgsPerPred(p)
+        if (fixedArgPositions.isEmpty) {
           None
         } else {
-          val relevantArgs =
+          val fixedArgs =
             (for ((a, i) <- concreteArgs.zipWithIndex;
-                  if relevantArgPositions contains i)
+                  if fixedArgPositions contains i)
              yield a.get).toList
           Some(predMapping.getOrElseUpdate(
-                 (p, relevantArgs),
+                 (p, fixedArgs),
                  MonoSortedPredicate(p.name + "_" + predMapping.size,
                                      predArgumentSorts(p))))
         }
+      }
+
+      def renameFormalArgs(p : Predicate,
+                           args : Seq[ITerm]) : Seq[ITerm] = {
+        val fixedArgPositions = concreteArgsPerPred(p)
+        (for ((arg, argNum) <- args.iterator.zipWithIndex) yield {
+           if (fixedArgPositions contains argNum) {
+             // we can use a fresh constant as argument, since
+             // the value of the argument is determined by the constraint
+             // anyway
+             IConstant(new ConstantTerm (p.name + "_" + argNum))
+           } else {
+             arg
+           }
+         }).toList
       }
 
       val newClauses =
@@ -103,7 +119,8 @@ object SymbolSplitter extends HornPreprocessor {
                 clauses.iterator zip clauseArguments.iterator) yield {
           val newLits =
             for ((IAtom(p, as), concArgs) <- clause.allAtoms zip concreteArgs)
-            yield (for (newP <- renamePred(p, concArgs)) yield IAtom(newP, as))
+            yield (for (newP <- renamePred(p, concArgs))
+                   yield IAtom(newP, renameFormalArgs(p, as)))
 
           if (newLits exists (_.isDefined)) {
             val allLits =
@@ -171,8 +188,21 @@ object SymbolSplitter extends HornPreprocessor {
           for (p <- cex) yield {
             val IAtom(pred, args) = p._1
             val newAtom = (predBackMapping get pred) match {
-              case Some((oldPred, _)) => IAtom(oldPred, args)
-              case None               => p._1
+              case Some((oldPred, fixedArgs)) => {
+                val fixedArgPositions = concreteArgsPerPred(oldPred)
+                var fixedArgInd = 0
+                val fullArgs =
+                  (for ((arg, argNum) <- args.iterator.zipWithIndex) yield {
+                     if (fixedArgPositions contains argNum) {
+                       fixedArgInd = fixedArgInd + 1
+                       fixedArgs(fixedArgInd - 1)
+                     } else {
+                       arg
+                     }
+                   }).toList
+                IAtom(oldPred, fullArgs)
+              }
+              case None => p._1
             }
             (newAtom, clauseBackMapping(p._2))
           }
@@ -185,14 +215,18 @@ object SymbolSplitter extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   private def concreteArguments(clause : Clause) : Seq[Seq[Option[ITerm]]] = {
+    import Sort.:::
+    import Sort.MultipleValueBool.{True, False}
+
     val constValue = new MHashMap[ConstantTerm, ITerm]
 
     // TODO: generalise to terms with constructors
     object ConcreteTerm {
       def unapply(t : ITerm) : Option[ITerm] = t match {
-        case t : IIntLit  => Some(t)
-        case IConstant(c) => constValue get c
-        case _            => None
+        case t : IIntLit                  => Some(t)
+        case IConstant(c)                 => constValue get c
+        case True | False                 => Some(t)
+        case _                            => None
       }
     }
 
@@ -207,13 +241,43 @@ object SymbolSplitter extends HornPreprocessor {
           constValue.getOrElseUpdate(c, t)
         case Eq(ConcreteTerm(t), IConstant(c)) =>
           constValue.getOrElseUpdate(c, t)
+
+        // special handling of Boolean values
+        case INot(EqZ(IConstant(c) ::: BoolSort())) =>
+          constValue.getOrElseUpdate(c, False)
+
+        case INot(Eq(IConstant(c) ::: BoolSort(),
+                     IIntLit(IdealInt.ONE) | False)) =>
+          constValue.getOrElseUpdate(c, False)
+        case INot(Eq(IIntLit(IdealInt.ONE) | False,
+                     IConstant(c) ::: BoolSort())) =>
+          constValue.getOrElseUpdate(c, True)
+
         case _ =>
           // nothing
       }
     }
 
+    // make sure that Booleans are not represented using numbers
+    constValue transform {
+      case (c, IIntLit(IdealInt.ZERO)) if BoolSort.unapply(Sort sortOf c) =>
+        True
+      case (c, IIntLit(IdealInt.ONE)) if BoolSort.unapply(Sort sortOf c) =>
+        False
+      case (_, t) =>
+        t
+    }
+
     for (IAtom(_, args) <- clause.allAtoms)
     yield (for (a <- args) yield (ConcreteTerm unapply a))
+  }
+
+  private object BoolSort {
+    def unapply(s : Sort) : Boolean = s match {
+      case Sort.Bool              => true
+      case Sort.MultipleValueBool => true
+      case _                      => false
+    }
   }
 
 }

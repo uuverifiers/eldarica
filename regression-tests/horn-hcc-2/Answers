@@ -203,6 +203,10 @@ Final:
    B6(0, 1, 0, -1)      main1(0, 1, 0)    
 ------------------------------------------
 
+nonlinear1.hcc
+Warning: no definition of function "nondet" available
+SAFE
+
 hints.hcc
 SAFE
 
