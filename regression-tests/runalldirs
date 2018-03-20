@@ -4,7 +4,7 @@ set -e
 
 ./rundir horn-hcc "" -assert -t:60
 ./rundir horn-hcc-2 "" -assert -t:60
-./rundir horn-quantifiers "" -assert -t:60
+./rundir horn-quantifiers "" -assert -t:90
 ./rundir horn-prolog "" -assert -t:60
 ./rundir horn-smt-lib "" -assert -t:60
 ./rundir horn-abstract "" -assert -t:60 -abstractTO:4

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -135,6 +135,10 @@ object CCReader {
     def rangePred(t : ITerm) : IFormula = true
     override def toString : String = "clock"
   }
+  private case object CCDuration extends CCType {
+    def rangePred(t : ITerm) : IFormula = (t >= 0)
+    override def toString : String = "duration"
+  }
 
   private abstract sealed class CCExpr(val typ : CCType) {
     def toTerm : ITerm
@@ -147,7 +151,10 @@ object CCReader {
   private case class CCTerm(t : ITerm, _typ : CCType)
                extends CCExpr(_typ) {
     def toTerm : ITerm = t
-    def toFormula : IFormula = !eqZero(t)
+    def toFormula : IFormula = t match {
+      case IIntLit(value) => !value.isZero
+      case t =>              !eqZero(t)
+    }
     def occurringConstants : Seq[ConstantTerm] =
       SymbolCollector constantsSorted t
     def castTo(x : CCType) : CCExpr = CCTerm(t, x)
@@ -284,10 +291,12 @@ class CCReader private (prog : Program,
   private val clauses =
     new ArrayBuffer[(Clause, ParametricEncoder.Synchronisation)]
 
-  private def output(c : Clause) : Unit = {
+  private def output(c : Clause,
+                     sync : ParametricEncoder.Synchronisation =
+                       ParametricEncoder.NoSync) : Unit = {
 //println(c)
-    clauses += ((c, ParametricEncoder.NoSync))
-}
+    clauses += ((c, sync))
+  }
 
   private def mergeClauses(from : Int) : Unit = if (from < clauses.size - 1) {
     val concernedClauses = clauses.slice(from, clauses.size)
@@ -609,7 +618,9 @@ class CCReader private (prog : Program,
   
             typ match {
               case CCClock =>
-                values addValue translateTimeValue(initValue)
+                values addValue translateClockValue(initValue)
+              case CCDuration =>
+                values addValue translateDurationValue(initValue)
               case typ =>
                 values addValue (initValue castTo typ)
             }
@@ -619,9 +630,6 @@ class CCReader private (prog : Program,
         }
 
         if (isVariable) {
-          import HornPreprocessor.{VerifHintInitPred,
-                                   VerifHintTplPred, VerifHintTplEqTerm}
-
           // parse possible model checking hints
           val hints : Seq[Abs_hint] = initDecl match {
             case decl : HintDecl => decl.listabs_hint_
@@ -629,7 +637,19 @@ class CCReader private (prog : Program,
             case _ => List()
           }
 
+          processHints(hints)
+        }
+      }
+    }
+    case _ : NoDeclarator =>
+      // nothing
+  }
+
+  private def processHints(hints : Seq[Abs_hint]) : Unit =
           if (!hints.isEmpty) {
+            import HornPreprocessor.{VerifHintInitPred,
+                                     VerifHintTplPred, VerifHintTplEqTerm}
+
             val hintSymex = Symex(null)
             hintSymex.saveState
 
@@ -673,12 +693,6 @@ class CCReader private (prog : Program,
 
             variableHints(variableHints.size - 1) = hintEls
           }
-        }
-      }
-    }
-    case _ : NoDeclarator =>
-      // nothing
-  }
 
   private def getName(decl : Declarator) : String = decl match {
     case decl : NoPointer => getName(decl.direct_declarator_)
@@ -729,6 +743,11 @@ class CCReader private (prog : Program,
                 throw NeedsTimeException
               typ = CCClock
             }
+            case _ : Tduration => {
+              if (!useTime)
+                throw NeedsTimeException
+              typ = CCDuration
+            }
             case x => {
               warn("type " + (printer print x) +
                    " not supported, assuming int")
@@ -745,15 +764,35 @@ class CCReader private (prog : Program,
       case _ : NewFuncInt => CCInt
     }
 
-  private def translateTimeValue(expr : CCExpr) : CCExpr = {
+  private def translateClockValue(expr : CCExpr) : CCExpr = {
     if (!useTime)
       throw NeedsTimeException
     expr.toTerm match {
       case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
         CCTerm(GT + GTU*(-v), CCClock)
-      case _ =>
+      case t if (expr.typ == CCClock) =>
+        CCTerm(t, CCClock)
+      case t if (expr.typ == CCDuration) =>
+        CCTerm(GT - t, CCClock)
+      case t => {
+        println(t)
         throw new TranslationException(
           "clocks can only be set to or compared with integers")
+      }
+    }
+  }
+
+  private def translateDurationValue(expr : CCExpr) : CCExpr = {
+    if (!useTime)
+      throw NeedsTimeException
+    expr.toTerm match {
+      case _ if (expr.typ == CCDuration) =>
+        expr
+      case IIntLit(v) if (expr.typ.isInstanceOf[CCArithType]) =>
+        CCTerm(GTU*v, CCDuration)
+      case t =>
+        throw new TranslationException(
+          "duration variable cannot be set or compared to " + t)
     }
   }
 
@@ -876,13 +915,20 @@ class CCReader private (prog : Program,
       Clause(asAtom(pred), List(initAtom), guard)
     }
 
-    def outputClause(pred : Predicate) : Unit = {
-      output(genClause(pred))
+    def outputClause(pred : Predicate,
+                     sync : ParametricEncoder.Synchronisation =
+                       ParametricEncoder.NoSync) : Unit = {
+      val c = genClause(pred)
+      if (!c.hasUnsatConstraint)
+        output(c, sync)
       resetFields(pred)
     }
 
-    def outputClause(headAtom : IAtom) : Unit =
-      output(Clause(headAtom, List(initAtom), guard))
+    def outputClause(headAtom : IAtom) : Unit = {
+      val c = Clause(headAtom, List(initAtom), guard)
+      if (!c.hasUnsatConstraint)
+        output(c)
+    }
 
     def resetFields(pred : Predicate) : Unit = {
       initAtom = atom(pred, allFormalVars)
@@ -933,6 +979,14 @@ class CCReader private (prog : Program,
 
     private def isClockVariable(exp : Exp) : Boolean = exp match {
       case exp : Evar => getValue(exp.cident_).typ == CCClock
+      case exp =>
+        throw new TranslationException(
+                    "Can only handle assignments to variables, not " +
+                    (printer print exp))
+    }
+
+    private def isDurationVariable(exp : Exp) : Boolean = exp match {
+      case exp : Evar => getValue(exp.cident_).typ == CCDuration
       case exp =>
         throw new TranslationException(
                     "Can only handle assignments to variables, not " +
@@ -997,7 +1051,13 @@ class CCReader private (prog : Program,
                              isClockVariable(exp.exp_1)) => {
         evalHelp(exp.exp_2)
         maybeOutputClause
-        setValue(asLValue(exp.exp_1), translateTimeValue(topVal))
+        setValue(asLValue(exp.exp_1), translateClockValue(topVal))
+      }
+      case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign] &&
+                             isDurationVariable(exp.exp_1)) => {
+        evalHelp(exp.exp_2)
+        maybeOutputClause
+        setValue(asLValue(exp.exp_1), translateDurationValue(topVal))
       }
       case exp : Eassign if (exp.assignment_op_.isInstanceOf[Assign]) => {
         evalHelp(exp.exp_2)
@@ -1013,7 +1073,7 @@ class CCReader private (prog : Program,
         val rhs = rhsE.toTerm
         val lhsE = popVal
         val lhs = lhsE.toTerm
-	if (lhsE.typ == CCClock)
+	if (lhsE.typ == CCClock || lhsE.typ == CCDuration)
           throw new TranslationException("unsupported assignment to clock")
         val newVal = CCTerm(exp.assignment_op_ match {
           case _ : AssignMul =>
@@ -1190,6 +1250,22 @@ class CCReader private (prog : Program,
           addGuard(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
+        case cmd@("chan_send" | "chan_receive") if (exp.listexp_.size == 1) => {
+          val name = printer print exp.listexp_.head
+          (channels get name) match {
+            case Some(chan) => {
+              val sync = cmd match {
+                case "chan_send" =>    ParametricEncoder.Send(chan)
+                case "chan_receive" => ParametricEncoder.Receive(chan)
+              }
+              outputClause(newPred, sync)
+              pushVal(CCFormula(true, CCInt))
+            }
+            case None =>
+              throw new TranslationException(
+                name + " is not a declared channel")
+          }
+        }
         case name => {
           // then we inline the called function
 
@@ -1285,6 +1361,19 @@ class CCReader private (prog : Program,
                                    GT - rhs.toTerm), CCInt)
                     case (CCClock, CCClock) =>
                       CCFormula(op(-lhs.toTerm, -rhs.toTerm), CCInt)
+
+                    case (CCDuration, _ : CCArithType) =>
+                      CCFormula(op(lhs.toTerm, GTU * rhs.toTerm), CCInt)
+                    case (_ : CCArithType, CCDuration) =>
+                      CCFormula(op(GTU * lhs.toTerm, rhs.toTerm), CCInt)
+                    case (CCDuration, CCDuration) =>
+                      CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
+
+                    case (CCClock, CCDuration) =>
+                      CCFormula(op(GT - lhs.toTerm, rhs.toTerm), CCInt)
+                    case (CCDuration, CCClock) =>
+                      CCFormula(op(lhs.toTerm, GT - rhs.toTerm), CCInt)
+
                     case _ =>
                       CCFormula(op(lhs.toTerm, rhs.toTerm), CCInt)
                   })
@@ -1298,6 +1387,11 @@ class CCReader private (prog : Program,
             t
         case (oldType : CCArithType, newType : CCArithType) =>
           t castTo newType
+        case (oldType : CCArithType, CCDuration) => {
+          if (!useTime)
+            throw NeedsTimeException
+          CCTerm(GTU * t.toTerm, CCDuration)
+        }
 
 /*
         case (oldType : CCArithType, newType : CCArithType)
@@ -1335,6 +1429,11 @@ class CCReader private (prog : Program,
             (a, convertType(b, at))
           else
             (convertType(a, bt), b)
+
+        case (at : CCArithType, CCDuration) =>
+          (convertType(a, CCDuration), b)
+        case (CCDuration, bt : CCArithType) =>
+          (a, convertType(b, CCDuration))
 
         case _ =>
           throw new TranslationException("incompatible types")
@@ -1415,6 +1514,11 @@ class CCReader private (prog : Program,
             case argDec : TypeAndParam =>
               addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
                           getType(argDec.listdeclaration_specifier_))
+            case argDec : TypeHintAndParam => {
+              addLocalVar(new ConstantTerm(getName(argDec.declarator_)),
+                          getType(argDec.listdeclaration_specifier_))
+              processHints(argDec.listabs_hint_)
+            }
 //            case argDec : Abstract =>
           }
 //      case dec : OldFuncDef =>

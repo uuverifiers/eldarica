@@ -43,22 +43,22 @@ object SimpleWrapper {
 
   import HornPreprocessor.InitPredicateVerificationHints
 
-  def solve(clauses : Iterable[HornClauses.Clause],
-            initialPredicates : Map[Predicate, Seq[IFormula]],
-            useTemplates : Boolean,
-            debuggingOutput : Boolean)
-          : Either[Map[Predicate, IFormula],
-                   Dag[(IAtom, HornClauses.Clause)]] = {
+  def solveLazily(clauses : Iterable[HornClauses.Clause],
+                  initialPredicates : Map[Predicate, Seq[IFormula]],
+                  useTemplates : Boolean,
+                  debuggingOutput : Boolean)
+                : Either[() => Map[Predicate, IFormula],
+                         () => Dag[(IAtom, HornClauses.Clause)]] = {
     val errOutput =
       if (debuggingOutput) Console.err else HornWrapper.NullStream
-      
+
     Console.withErr(errOutput) { Console.withOut(Console.err) {
-      var (newClauses, newInitialPredicates) = {
+      var (newClauses, newInitialPredicates, backTranslator) = {
         val preprocessor = new DefaultPreprocessor
         val hints = new InitPredicateVerificationHints(initialPredicates)
         val (newClauses, newHints, backTranslator) =
           preprocessor.process(clauses.toSeq, hints)
-        (newClauses, newHints.toInitialPredicates)
+        (newClauses, newHints.toInitialPredicates, backTranslator)
       }
   
       val interpolator = if (useTemplates) {
@@ -77,14 +77,44 @@ object SimpleWrapper {
       
       val predAbs =
         new HornPredAbs(newClauses, initialPredicates, interpolator)
-  
+
       predAbs.result match {
-        case Right(cex) => Right(cex)
-        case Left(sol) => Left(sol)
+        case Left(x) => Left(() => backTranslator translate x)
+        case Right(x) => Right(() => backTranslator translate x)
       }
     }}
   }
 
+  def solve(clauses : Iterable[HornClauses.Clause],
+            initialPredicates : Map[Predicate, Seq[IFormula]] = Map(),
+            useTemplates : Boolean = false,
+            debuggingOutput : Boolean = false,
+            showDot : Boolean = false)
+          : Either[Map[Predicate, IFormula],
+                   Dag[(IAtom, HornClauses.Clause)]] =
+    solveLazily(clauses, initialPredicates, useTemplates,
+                debuggingOutput) match {
+      case Left(x) => Left(x())
+      case Right(x) => {
+        val cex = x()
+        if (showDot) {
+          val oldConf = lazabs.GlobalParameters.get.pngNo
+          lazabs.GlobalParameters.get.pngNo = false
+          Util.show(cex map (_._1), "SimpleWrapper")
+          lazabs.GlobalParameters.get.pngNo = oldConf
+        }
+        Right(cex)
+      }
+    }
+
+  def isSat(clauses : Iterable[HornClauses.Clause],
+            initialPredicates : Map[Predicate, Seq[IFormula]] = Map(),
+            useTemplates : Boolean = false,
+            debuggingOutput : Boolean = false)
+          : Boolean =
+    solveLazily(clauses, initialPredicates, useTemplates,
+                debuggingOutput).isLeft
+  
   def clause(head : IAtom, body : List[IAtom], constraint : IFormula)
             : HornClauses.Clause =
     HornClauses.Clause(head, body, constraint)

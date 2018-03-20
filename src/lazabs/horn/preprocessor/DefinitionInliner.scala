@@ -79,45 +79,63 @@ object DefinitionInliner extends HornPreprocessor {
     val headSyms = SymbolCollector constants head
     var body = oriBody
 
-    var conjuncts = LineariseVisitor(constraint, IBinJunctor.And)
-    val oriConjunctNum = conjuncts.size
+    var conjuncts = LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
     val replacement = new MHashMap[ConstantTerm, ITerm]
     val replacedConsts = new MHashSet[ConstantTerm]
+    val conjunctsToKeep = new ArrayBuffer[IFormula]
 
-    var changed = true
-    while (changed) {
-      changed = false
+    var changed = false
 
+    var cont = true
+    while (cont) {
       val remConjuncts = conjuncts filter {
         case Eq(IConstant(c), IConstant(d))
-          if (c == d) =>
+          if c == d =>
             false
-        case Eq(IConstant(c), IConstant(d))
-          if (c != d &&
-              !(replacedConsts contains c) && !(replacedConsts contains d)) =>
-            if (!(headSyms contains c)) {
-              replacement.put(c, IConstant(d))
-              replacedConsts += c
-              replacedConsts += d
-              false
-            } else if (!(headSyms contains d)) {
-              replacement.put(d, IConstant(c))
-              replacedConsts += c
-              replacedConsts += d
-              false
-            } else {
-              true
+        case eq@Eq(left, right)
+          if Seqs.disjoint(SymbolCollector constants eq, replacedConsts) =>
+            (left, right) match {
+              case (IConstant(c), _) if !(headSyms contains c) => {
+                replacement.put(c, right)
+                replacedConsts ++= SymbolCollector constants eq
+                false
+              }
+              case (_, IConstant(c)) if !(headSyms contains c) => {
+                replacement.put(c, left)
+                replacedConsts ++= SymbolCollector constants eq
+                false
+              }
+              case (IConstant(c), _) => {
+                conjunctsToKeep += eq
+                replacement.put(c, right)
+                replacedConsts ++= SymbolCollector constants eq
+                false
+              }
+              case (_, IConstant(c)) => {
+                conjunctsToKeep += eq
+                replacement.put(c, left)
+                replacedConsts ++= SymbolCollector constants eq
+                false
+              }
+              case _ =>
+                // then keep this conjunct
+                true
             }
         case _ => true
       }
 
-      if (!replacement.isEmpty) {
+      if (replacement.isEmpty) {
+        cont = false
+      } else {
         changed = true
+
+        val lastSize = conjuncts.size
+
         conjuncts =
-          for (f <- remConjuncts;
-               newF = SimplifyingConstantSubstVisitor(f, replacement);
-               if !newF.isTrue)
-          yield newF
+          (for (f <- remConjuncts;
+                newF = SimplifyingConstantSubstVisitor(f, replacement);
+                if !newF.isTrue)
+           yield newF) ++ conjunctsToKeep
 
         if (conjuncts exists (_.isFalse))
           return null
@@ -129,10 +147,13 @@ object DefinitionInliner extends HornPreprocessor {
 
         replacement.clear
         replacedConsts.clear
+        conjunctsToKeep.clear
+
+        cont = (conjuncts.size < lastSize)
       }
     }
 
-    if (oriConjunctNum != conjuncts.size)
+    if (changed)
       Clause(head, body, and(conjuncts))
     else
       clause

@@ -32,6 +32,7 @@ package lazabs.horn.abstractions
 import ap.parser._
 import ap.parameters.ParserSettings
 import ap.parser.Parser2InputAbsy.CRRemover2
+import ap.SimpleAPI
 
 import TplSpec._
 import TplSpec.Absyn._
@@ -50,7 +51,9 @@ class AbsReader(input : java.io.Reader) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val (initialPredicates, allHints) = {
+  val (initialPredicates, allHints, predArities) =
+    SimpleAPI.withProver(enableAssert =
+                         lazabs.GlobalParameters.get.assertions) { prover =>
     Console.err.println("Loading CEGAR hints ...")
 
     val l = new Yylex(new CRRemover2 (input))
@@ -59,6 +62,8 @@ class AbsReader(input : java.io.Reader) {
 
     val smtParser = SMTParser2InputAbsy(ParserSettings.DEFAULT)
     val env = smtParser.env
+
+    val predArities = new MHashMap[String, Int]
 
     def translatePredRef(predrefC : PredRefC) : (String, Int) = {
       val predref = predrefC.asInstanceOf[PredRef]
@@ -77,8 +82,25 @@ class AbsReader(input : java.io.Reader) {
         env.pushVar(printer print variable.symbol_, t)
       }
 
-      (predName, predref.listsortedvariablec_.size)
+      val arity = predref.listsortedvariablec_.size
+      predArities.put(predName, arity)
+
+      (predName, arity)
     }
+
+    def parseExpr(str : String) : IExpression =
+      (smtParser parseExpression str) match {
+        case f : IFormula =>
+          // check whether the formula contains quantifiers, which
+          // we would have to eliminate
+          if (QuantifierCountVisitor(f) > 0) prover.scope {
+            prover simplify f
+          } else {
+            f
+          }
+        case t : ITerm =>
+          t
+      }
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -90,7 +112,7 @@ class AbsReader(input : java.io.Reader) {
        val (predName, varNum) = translatePredRef(initPreds.predrefc_)
 
        val preds = (for (term <- initPreds.listterm_.iterator) yield {
-         smtParser.parseExpression(printer print term).asInstanceOf[IFormula]
+         parseExpr(printer print term).asInstanceOf[IFormula]
        }).toList
 
        for (_ <- 0 until varNum)
@@ -120,7 +142,7 @@ class AbsReader(input : java.io.Reader) {
        for (templatec <- templates.listtemplatec_)
          templatec match {
            case template : TermTemplate => {
-             val expr = smtParser.parseExpression(printer print template.term_)
+             val expr = parseExpr(printer print template.term_)
              val cost = template.numeral_.toInt
 
              (template.templatetype_, expr) match {
@@ -140,6 +162,9 @@ class AbsReader(input : java.io.Reader) {
              hints += VerifHintTplIterationThreshold(threshold.numeral_.toInt)
          }
 
+       for (_ <- 0 until varNum)
+         env.popVar
+
        (predName, hints.toSeq)
      }).toList
 
@@ -158,7 +183,7 @@ class AbsReader(input : java.io.Reader) {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    (initialPredicates, allHints)
+    (initialPredicates, allHints, predArities.toMap)
   }
 
 }

@@ -1,0 +1,15 @@
+
+
+chan c, d;
+int x;
+
+thread A {
+  x++;
+  chan_send(c);
+}
+
+thread B {
+  chan_receive(c);
+  x++;
+  assert(x == 2);
+}

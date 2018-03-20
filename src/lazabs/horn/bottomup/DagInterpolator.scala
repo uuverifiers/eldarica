@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -113,7 +113,8 @@ object DagInterpolator {
       case Left(preds) =>
         Left(preds)
       case Right(_) => {
-        print(" ... expanding,")
+        if (lazabs.GlobalParameters.get.log)
+          print(" ... expanding,")
 //        partialPredicateGen((for (c <- clauseDag) yield Left(c)).toTree)
         partialPredicateGen(extractSpanningTree(expandSharedClauses(clauseDag)), true)
       }
@@ -190,7 +191,8 @@ object DagInterpolator {
       interpolatingPredicateGenCEXAndOr(clauseDag)
     } else {
       // extract a set of recursion-free Horn clauses
-      print("(" + orNum + "or) CEGAR interpolator")
+      if (lazabs.GlobalParameters.get.log)
+        print("(" + orNum + "or) CEGAR interpolator")
       layeredPredicateGenHelp(clauseDag)
     }
   }
@@ -346,7 +348,8 @@ object DagInterpolator {
 
     implicit val sf = new SymbolFactory (theories)
 
-    print(" " + spanningTree.size + " clauses ...")
+    if (lazabs.GlobalParameters.get.log)
+      print(" " + spanningTree.size + " clauses ...")
 
 /*
     assert(clauseTree.d.head._1.pred == HornClauses.FALSE &&
@@ -702,7 +705,8 @@ object DagInterpolator {
       findRefinements(partialTree, null, 0)
 
       if (!refinementPoints.isEmpty) {
-        print(".")
+        if (lazabs.GlobalParameters.get.log)
+          print(".")
         didRefinement = true
         partialTree = refine(partialTree)
       }

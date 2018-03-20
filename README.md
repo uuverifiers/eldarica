@@ -2,12 +2,20 @@ Eldarica
 ========
 
 Eldarica is a model checker for Horn clauses, Numerical Transition
-Systems, and Scala programs.  Inputs can be read in a variety of
-formats, including SMT-LIB 2 and Prolog for Horn clauses, and are
-analysed using a variant of the Counterexample-Guided Abstraction
+Systems, and software programs. Inputs can be read in a variety of
+formats, including SMT-LIB 2 and Prolog for Horn clauses, and fragments of
+Scala and C for software programs, and are analysed using a variant of the
+Counterexample-Guided Abstraction
 Refinement (CEGAR) method. Eldarica is fast and includes sophisticated
 interpolation-based techniques for synthesising new predicates for
 CEGAR, enabling it to solve a wide range of verification problems.
+
+The Eldarica C parser accepts programs augmented with various primitives
+from the timed automata world: supporting concurrency, clocks, communication
+channels, as well as analysis of systems with an unbounded number of
+processes (parameterised analysis).
+
+There is also a variant of Eldarica for analysing Petri nets: http://www.philipp.ruemmer.org/eldarica-p.shtml
 
 Eldarica has been developed by Hossein Hojjat and Philipp Ruemmer,
 with further contributions by Filip Konecny and Pavle Subotic.
@@ -31,6 +39,13 @@ After compilation (or downloading a binary release), calling Eldarica
 is normally as easy as saying
 
   <code>./eld regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
+
+When using a binary release, one can instead also call
+
+  <code>java -jar dist/lazabs.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
+
+A set of examples is provided on http://logicrunch.it.uu.se:4096/~wv/eldarica, and included
+in the distributions directory <code>regression-tests</code>.
 
 You can use the script <code>eld-client</code> instead of
 <code>eld</code> in order to run Eldarica in a server-client mode,
@@ -60,8 +75,8 @@ Related Links
 -------------
 
 * A library of Horn clause benchmarks:
-  https://svn.sosy-lab.org/software/sv-benchmarks/trunk/clauses/LIA/Eldarica/
+  https://github.com/sosy-lab/sv-benchmarks/tree/master/clauses
 * Numerical transition system benchmarks:
-  http://richmodels.epfl.ch/ntscomp/ntslib
+  http://nts.imag.fr/index.php/Main_Page
 
 [![Build Status](https://travis-ci.org/uuverifiers/eldarica.svg?branch=master)](https://travis-ci.org/uuverifiers/eldarica)

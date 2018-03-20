@@ -969,8 +969,10 @@ object TemplateInterpolator {
     if (decompositions.isEmpty)
       return None
 
-    println
-    println("Searching for interpolation abstractions ...")
+    if (lazabs.GlobalParameters.get.log) {
+      println
+      println("Searching for interpolation abstractions ...")
+    }
 
     Some(exploreLattice(clauseTree, decompositions, timeout)._1)
   }

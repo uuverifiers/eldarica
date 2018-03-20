@@ -74,6 +74,7 @@ Tunsigned.    Type_specifier ::= "unsigned";
 -- Tenum.        Type_specifier ::= Enum_specifier;
 -- Tname.        Type_specifier ::= "Typedef_name";
 Tclock.       Type_specifier ::= "clock";
+Tduration.    Type_specifier ::= "duration";
 
 
 -- MyType.         Storage_class_specifier ::= "typedef";
@@ -143,6 +144,7 @@ AllSpec.  Parameter_type ::= [Parameter_declaration] ;
 
 OnlyType.      Parameter_declaration ::= [Declaration_specifier] ;
 TypeAndParam.  Parameter_declaration ::= [Declaration_specifier] Declarator ;
+TypeHintAndParam.  Parameter_declaration ::= [Declaration_specifier] [Abs_hint] Declarator ;
 Abstract.      Parameter_declaration ::= [Declaration_specifier] Abstract_declarator ;
 
 separator nonempty Parameter_declaration ",";

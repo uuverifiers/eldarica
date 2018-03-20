@@ -1,0 +1,19 @@
+
+
+chan c, d;
+int x;
+
+thread A {
+  x++;
+  atomic {
+    chan_receive(d);
+    chan_send(c);
+  }
+}
+
+thread B {
+  chan_receive(c);
+  x++;
+  assert(x == 2);
+}
+

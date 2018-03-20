@@ -63,7 +63,6 @@ object HornWrapper {
 class HornWrapper(constraints: Seq[HornClause], 
                   uppaalAbsMap: Option[Map[String, AbsLattice]],
                   lbe: Boolean,
-                  log : Boolean,
                   disjunctive : Boolean) {
 
   import HornWrapper._
@@ -83,7 +82,8 @@ class HornWrapper(constraints: Seq[HornClause],
 
   ap.util.Debug enableAllAssertions lazabs.Main.assertions
 
-  private val outStream = if (log) Console.err else NullStream
+  private val outStream =
+     if (lazabs.GlobalParameters.get.logStat) Console.err else NullStream
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))
@@ -110,8 +110,15 @@ class HornWrapper(constraints: Seq[HornClause],
           (for ((predName, hints) <- reader.allHints.iterator;
                 pred = name2Pred get predName;
                 if {
-                  if (!pred.isDefined)
+                  if (pred.isDefined) {
+                    if (pred.get.arity != reader.predArities(predName))
+                      throw new Exception(
+                        "Hints contain predicate with wrong arity: " +
+                        predName + " (should be " + pred.get.arity + " but is " +
+                        reader.predArities(predName) + ")")
+                  } else {
                     Console.err.println("   Ignoring hints for " + predName + "\n")
+                  }
                   pred.isDefined
                 }) yield {
              (pred.get, hints)
@@ -124,7 +131,7 @@ class HornWrapper(constraints: Seq[HornClause],
 
   private val (simplifiedClauses, simpHints, preprocBackTranslator) =
     Console.withErr(outStream) {
-    var (simplifiedClauses, simpHints, backTranslator) =
+    val (simplifiedClauses, simpHints, backTranslator) =
       if (lbe) {
         (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       } else {
@@ -133,17 +140,21 @@ class HornWrapper(constraints: Seq[HornClause],
       }
 
     if (lazabs.GlobalParameters.get.printHornSimplified) {
-      println("-------------------------------")
-      printClauses(simplifiedClauses)
-      println("-------------------------------")
-      println("simplified clauses:")
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
+
+      println("Clauses after preprocessing:")
+      for (c <- simplifiedClauses)
+        println(c.toSMTString)
+
       //val aux = simplifiedClauses map (horn2Eldarica(_))
-      val aux = horn2Eldarica(simplifiedClauses)
-      println(lazabs.viewer.HornPrinter(aux))
-      simplifiedClauses = aux map (transform(_))
-      println("-------------------------------")
-      printClauses(simplifiedClauses)
-      println("-------------------------------")
+//      val aux = horn2Eldarica(simplifiedClauses)
+//      println(lazabs.viewer.HornPrinter(aux))
+//      simplifiedClauses = aux map (transform(_))
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
     }
 
     (simplifiedClauses, simpHints, backTranslator)
@@ -151,26 +162,22 @@ class HornWrapper(constraints: Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private lazy val loopDetector = new LoopDetector(simplifiedClauses)
+  /** Automatically computed interpolation abstraction hints */
+  private val abstractionType =
+    lazabs.GlobalParameters.get.templateBasedInterpolationType
+
+  private lazy val absBuilder =
+    new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
+
+  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
+    absBuilder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
 
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction : TemplateInterpolator.AbstractionMap =
     if (simpHints.isEmpty)
       Map()
     else
-      loopDetector hints2AbstractionRecord simpHints
-
-  /** Automatically computed interpolation abstraction hints */
-  private val abstractionType =
-    lazabs.GlobalParameters.get.templateBasedInterpolationType
-
-  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
-    if (abstractionType == StaticAbstractionBuilder.AbstractionType.Empty) {
-      Map()
-    } else {
-      val builder = new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
-      builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
-    }
+      absBuilder.loopDetector hints2AbstractionRecord simpHints
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -203,7 +210,7 @@ class HornWrapper(constraints: Seq[HornClause],
     val result = Console.withOut(outStream) {
       println
       println(
-        "-------------------- Starting solver -----------------------")
+         "----------------------------------- CEGAR --------------------------------------")
 
        (new HornPredAbs(simplifiedClauses,
                         simpHints.toInitialPredicates, predGenerator,

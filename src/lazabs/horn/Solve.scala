@@ -42,7 +42,9 @@ object Solve {
             global: Boolean, 
             disjunctive : Boolean, 
             drawRTree: Boolean, 
-            lbe: Boolean, log: Boolean) = {
+            lbe: Boolean) = {
+
+    val log = lazabs.GlobalParameters.get.log
 
 /*    if(clauseSet.size == 0) {
       println("No Horn clause")
@@ -53,16 +55,15 @@ object Solve {
     val timeStart = System.currentTimeMillis
 
     def printTime =
-      Console.err.println(
-        "Elapsed Time: " + (System.currentTimeMillis - timeStart) +
-        " milli-seconds")
+      if (lazabs.GlobalParameters.get.logStat)
+        Console.err.println(
+          "Total elapsed time (ms): " + (System.currentTimeMillis - timeStart))
 
       if(global) {
         val cegar = new HornCegar(clauseSet,log)
         val arg = cegar.apply
 
-        Console.err.println(
-          "Elapsed Time: " + (System.currentTimeMillis - timeStart) + " milli-seconds")
+        printTime
 
         if(log && cegar.status == Status.SAFE) {
           for((i,sol) <- arg.reportSolution) {
@@ -77,7 +78,7 @@ object Solve {
       } else {
 
         val result = try {
-          (new HornWrapper(clauseSet, uppaalAbsMap, lbe, log, disjunctive)).result
+          (new HornWrapper(clauseSet, uppaalAbsMap, lbe, disjunctive)).result
         } catch {
           case t@(lazabs.Main.TimeoutException |
                   lazabs.Main.StoppedException) => {
@@ -118,10 +119,8 @@ object Solve {
               case _ =>
                 println("SOLVABLE")
             }
-            (log,
-             lazabs.GlobalParameters.get.displaySolutionProlog,
-             lazabs.GlobalParameters.get.displaySolutionSMT) match {
-              case (true, _, false) | (_, true, _) => {
+
+            if (lazabs.GlobalParameters.get.displaySolutionProlog) {
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,
@@ -131,8 +130,7 @@ object Solve {
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
                   println(lazabs.viewer.HornPrinter.print(cl))
                 }
-              }
-              case (_, _, true) => {
+            } else if (lazabs.GlobalParameters.get.displaySolutionSMT) {
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,
@@ -142,8 +140,6 @@ object Solve {
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
                   println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
                 }
-              }
-              case _ => // nothing
             }
           }
         }

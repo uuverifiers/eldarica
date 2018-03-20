@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,7 @@ package lazabs;
 import ap.util.CmdlParser
 
 import scala.collection.mutable.ArrayBuffer
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
+import java.util.concurrent.Semaphore
 
 import java.net._
 
@@ -42,20 +41,16 @@ object ServerMain {
 
   private val InactivityTimeout = 60 * 60 * 1000 // shutdown after 60min inactivity
   private val TicketLength = 40
-  private val MaxThreadNum = 2
+  private val MaxThreadNum = 4
   private val MaxWaitNum   = 32
   private val WatchdogInit = 30
 
-  private case class ThreadToken(stopTime : Long)
+  private var lastActiveTime = System.currentTimeMillis
+  private val serverSem = new Semaphore (MaxThreadNum)
 
   //////////////////////////////////////////////////////////////////////////////
 
   def main(args : Array[String]) : Unit = {
-
-    // since some of the actors in the class use blocking file operations,
-    // we have to disable the actor-fork-join stuff to prevent deadlocks
-    sys.props += ("actors.enableForkJoin" -> "false")
-
     val predefPort = args match {
       case Array(CmdlParser.IntVal(v)) => Some(v)
       case _ => None
@@ -81,10 +76,6 @@ object ServerMain {
     println(port)
     println(ticket)
 
-    val serverActor = self
-    for (_ <- 0 until MaxThreadNum)
-      serverActor ! ThreadToken(System.currentTimeMillis)
-
     ////////////////////////////////////////////////////////////////////////////
     // The main loop
 
@@ -92,16 +83,12 @@ object ServerMain {
     while (serverRunning) {
 
       // Get a token to serve another request
-      val curToken = receive {
-        case t : ThreadToken => t
-      }
+      serverSem.acquire
 
       try {
         val clientSocket = socket.accept
-
-        actor {
-          Console setErr lazabs.horn.bottomup.HornWrapper.NullStream
   
+        val thread = new Thread(new Runnable { def run : Unit = {
           val inputReader =
             new java.io.BufferedReader(
             new java.io.InputStreamReader(clientSocket.getInputStream))
@@ -109,6 +96,7 @@ object ServerMain {
           val receivedTicket = inputReader.readLine
           if (ticket == receivedTicket) {
             val arguments = new ArrayBuffer[String]
+            var showErrOutput = false
     
             var str = inputReader.readLine
             var done = false
@@ -117,6 +105,10 @@ object ServerMain {
                 case "PROVE_AND_EXIT" => {
                   done = true
                   Console.withOut(clientSocket.getOutputStream) {
+                  Console.withErr(if (showErrOutput)
+                                    clientSocket.getOutputStream
+                                  else
+                                    lazabs.horn.bottomup.HornWrapper.NullStream) {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
                     var watchdogCounter = WatchdogInit
@@ -125,17 +117,18 @@ object ServerMain {
                     // watchdog that makes sure that the system
                     // is shut down eventually, in case the normal
                     // timeout fails
-                    val watchdog = actor {
-                      while (watchdogCont) receiveWithin(1000) {
-                        case TIMEOUT => {
-                          watchdogCounter = watchdogCounter - 1
-                          if (watchdogCounter <= 0) {
-                            println("ERROR: hanging system, shutting down")
-                            java.lang.System exit 1
-                          }
+                    val watchdog = new Thread(new Runnable { def run : Unit = {
+                      while (watchdogCont) {
+                        Thread sleep 1000
+                        watchdogCounter = watchdogCounter - 1
+                        if (watchdogCounter <= 0) {
+                          println("ERROR: hanging system, shutting down")
+                          java.lang.System exit 1
                         }
                       }
-                    }
+                    }})
+
+                    watchdog.start
 
                     try {
                       Main.doMain(arguments.toArray, {
@@ -169,10 +162,14 @@ object ServerMain {
                     } finally {
                       watchdogCont = false
                     }
-                  }
+                  }}
                 }
-                case str =>
+                case str => {
                   arguments += str
+                  if ((str startsWith "-log") ||
+                      str == "-statistics")
+                    showErrOutput = true
+                }
               }
     
               if (!done)
@@ -183,35 +180,19 @@ object ServerMain {
           inputReader.close
   
           // Put back the token
-          serverActor ! ThreadToken(System.currentTimeMillis)
-        }
+          lastActiveTime = System.currentTimeMillis
+          serverSem.release
+        }})
+
+        thread.start
   
       } catch {
         case _ : SocketTimeoutException => {
           // check whether any other thread is still active
-  
-          serverActor ! curToken
+          serverSem.release
 
-          var joinedThreads = List[ThreadToken]()
-          var stillActive = false
-          while (!stillActive && joinedThreads.size < MaxThreadNum)
-            receiveWithin(0) {
-              case t : ThreadToken => {
-                joinedThreads = t :: joinedThreads
-                // some thread only finished recently
-                stillActive =
-                  System.currentTimeMillis - t.stopTime < InactivityTimeout
-              }
-              case TIMEOUT => {
-                // there are still some threads running
-                stillActive = true
-              }
-            }
-  
-          if (stillActive) {
-            for (t <- joinedThreads)
-              serverActor ! t
-          } else {
+          if (serverSem.availablePermits == MaxThreadNum &&
+              System.currentTimeMillis - lastActiveTime > InactivityTimeout) {
             Console.err.println("Shutting down inactive Eldarica daemon")
             serverRunning = false
           }

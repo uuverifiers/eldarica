@@ -46,12 +46,16 @@ class DefaultPreprocessor extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "default"
-  val printWidth = 37
+  val printWidth = 55
 
-  val stages : List[HornPreprocessor] =
-    List(DefinitionInliner,
-         new ClauseInliner,
-         new ClauseShortener) ++
+  val preStages : List[HornPreprocessor] =
+    List(ReachabilityChecker,
+         BooleanClauseSplitter)
+
+  val postStages : List[HornPreprocessor] =
+    (if (lazabs.GlobalParameters.get.slicing)
+      List(Slicer) else List()) ++
+    List(new ClauseShortener) ++
     (if (lazabs.GlobalParameters.get.splitClauses)
       List(new ClauseSplitter) else List()) ++
     (if (lazabs.GlobalParameters.get.staticAccelerate)
@@ -63,22 +67,54 @@ class DefaultPreprocessor extends HornPreprocessor {
     var curHints = hints
 
     Console.err.println(
-      "--------------------- Preprocessing ------------------------")
+         "------------------------------- Preprocessing ----------------------------------")
     Console.err.println("Initially:" + (" " * (printWidth - 10)) +
                         curClauses.size + " clauses")
 
-    val translators = for (stage <- stages) yield {
+    val translators = new ArrayBuffer[BackTranslator]
+
+    def applyStage(stage : HornPreprocessor) = {
+      val startTime = System.currentTimeMillis
+
       val (newClauses, newHints, translator) =
         stage.process(curClauses, curHints)
       curClauses = newClauses
       curHints = newHints
 
-      Console.err.println("After " + stage.name +
-                          ":" + (" " * (printWidth - 7 - stage.name.size)) +
+      val time = "" + (System.currentTimeMillis - startTime) + "ms"
+      val prefix = "After " + stage.name + " (" + time + "):"
+
+      Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
                           curClauses.size + " clauses")
 
-      translator
+      translators += translator
     }
+
+    // First set of processors
+    for (stage <- preStages)
+      applyStage(stage)
+
+    // Apply clause simplification and inlining repeatedly, if necessary
+    applyStage(DefinitionInliner)
+    applyStage(new ClauseInliner)
+
+    var lastSize = -1
+    var curSize = curClauses.size
+    while (lastSize != curSize) {
+      lastSize = curSize
+      applyStage(DefinitionInliner)
+      curSize = curClauses.size
+
+      if (curSize != lastSize) {
+        lastSize = curSize
+        applyStage(new ClauseInliner)
+        curSize = curClauses.size
+      }
+    }
+
+    // Last set of processors
+    for (stage <- postStages)
+      applyStage(stage)
 
     Console.err.println
 

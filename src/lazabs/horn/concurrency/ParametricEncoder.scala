@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -310,7 +310,9 @@ object ParametricEncoder {
         predsToKeep ++= c.predicates
 
       def isLocalClause(p : (Clause, Synchronisation)) =
-        p._2 == NoSync && p._1.body.size == 1 && {
+        p._2 == NoSync &&
+        p._1.body.size == 1 &&
+        Seqs.disjoint(predsWithTimeInvs, p._1.predicates) && {
           val Clause(head@IAtom(_, headArgs),
                      body@List(IAtom(_, bodyArgs)),
                      constraint) = p._1
@@ -333,70 +335,70 @@ object ParametricEncoder {
         (for (((clauses, repl), preds) <-
                processes.iterator zip localPreds.iterator) yield {
           val clauseBuffer = clauses.toBuffer
-          val predsBuffer = (preds.iterator filterNot predsToKeep).toBuffer
+
+          // sort the predicates, to eliminate first predicates with high arity,
+          // and then predicates with few incoming clauses
+          val predsBuffer =
+            ((for (pred <- preds.iterator;
+                   if !(predsToKeep contains pred);
+                   incoming =
+                     for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
+                     yield p)
+              yield (pred, incoming.size)).toVector
+                                          .sortBy(t => (-t._1.arity, t._2))
+                                          .map(_._1)).toBuffer
 
           var changed = true
-          var considerJoins = false
           while (changed) {
             changed = false
 
-            for (pred <- predsBuffer.toList) {
+            val predsIt = predsBuffer.iterator
+            while (!changed && predsIt.hasNext) {
+              val pred = predsIt.next
               val incoming =
                 for (p@(Clause(IAtom(`pred`, _), _, _), _) <- clauseBuffer)
                 yield p
 
-              if (considerJoins != (incoming.size <= 1)) {
-                val outgoing =
-                  for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <-
-                         clauseBuffer)
-                  yield p
+              val outgoing =
+                for (p@(Clause(_, List(IAtom(`pred`, _)), _), _) <-clauseBuffer)
+                yield p
 
-                if (// avoid blow-up
-                    (incoming.size * outgoing.size <=
-                       incoming.size + outgoing.size) &&
-                    (incoming forall {
-                       case (c, _) => !(c.bodyPredicates contains pred) &&
-                                      (!outgoing.isEmpty ||
-                                       Seqs.disjoint(predsWithTimeInvs,
-                                                     c.predicates))
-                     }) &&
-                    (outgoing forall {
-                       case (c, _) => c.head.pred != pred &&
-                                      Seqs.disjoint(predsWithTimeInvs,
-                                                    c.predicates)
-//                                     !(predsWithTimeInvs contains c.head.pred)
-                     })) {
+              if (// avoid blow-up
+                  (incoming.size * outgoing.size <=
+                     incoming.size + outgoing.size) &&
+                  (incoming forall {
+                     case (c, _) => !(c.bodyPredicates contains pred) &&
+                                    (!outgoing.isEmpty ||
+                                     Seqs.disjoint(predsWithTimeInvs,
+                                                   c.predicates))
+                   }) &&
+                  (outgoing forall {
+                     case (c, _) => c.head.pred != pred
+                   })) {
 
-                  val newClauses =
-                    if (incoming forall (isLocalClause(_)))
-                      for ((c1, _) <- incoming; (c2, s) <- outgoing;
-                           newClause = c2 mergeWith c1;
-                           if !newClause.hasUnsatConstraint)
-                      yield (newClause, s)
-                    else if (!outgoing.isEmpty &&
-                             (outgoing forall (isLocalClause(_))))
-                      for ((c1, s) <- incoming; (c2, _) <- outgoing;
-                           newClause = c2 mergeWith c1;
-                           if !newClause.hasUnsatConstraint)
-                      yield (newClause, s)
-                    else
-                      null
+                val newClauses =
+                  if (incoming forall (isLocalClause(_)))
+                    for ((c1, _) <- incoming; (c2, s) <- outgoing;
+                         newClause = c2 mergeWith c1;
+                         if !newClause.hasUnsatConstraint)
+                    yield (newClause, s)
+                  else if (!outgoing.isEmpty &&
+                           (outgoing forall (isLocalClause(_))))
+                    for ((c1, s) <- incoming; (c2, _) <- outgoing;
+                         newClause = c2 mergeWith c1;
+                         if !newClause.hasUnsatConstraint)
+                    yield (newClause, s)
+                  else
+                    null
 
-                  if (newClauses != null) {
-                    predsBuffer -= pred
-                    clauseBuffer --= incoming
-                    clauseBuffer --= outgoing
-                    clauseBuffer ++= newClauses
-                    changed = true
-                    considerJoins = false
-                  }
+                if (newClauses != null) {
+                  predsBuffer -= pred
+                  clauseBuffer --= incoming
+                  clauseBuffer --= outgoing
+                  clauseBuffer ++= newClauses
+                  changed = true
                 }
               }
-            }
-
-            if (!changed && !considerJoins) {
-              changed = true
-              considerJoins = true
             }
           }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2017 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,7 @@ class GlobalParameters {
   var drawCFG = false
   var absInFile = false
   var lbe = false
+  var slicing = true
   var prettyPrint = false
   var smtPrettyPrint = false  
   var interpolation = false
@@ -98,16 +99,41 @@ class GlobalParameters {
   var babarew = false
   var log = false
   var logCEX = false
+  var logStat = false
   var printHornSimplified = false
   var dotSpec = false
   var dotFile : String = null
   var pngNo = true;
+  var eogCEX = false;
   var plainCEX = false;
   var assertions = false
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
   def needFullCEX = assertions || plainCEX || !pngNo
+
+  def setLogLevel(level : Int) : Unit = level match {
+    case x if x <= 0 => { // no logging
+      log = false
+      logStat = false
+      logCEX = false
+    }
+    case 1 => { // statistics only
+      log = false
+      logStat = true
+      logCEX = false
+    }
+    case 2 => { // full logging
+      log = true
+      logStat = true
+      logCEX = false
+    }
+    case x if x >= 3 => { // full logging + detailed counterexamples
+      log = true
+      logStat = true
+      logCEX = true
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -150,7 +176,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica, 2016-02-21. (C) Copyright 2012-2016 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v1.3, 2017-04-21. (C) Copyright 2012-2017 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -231,6 +257,7 @@ object Main {
       case "-n" :: rest => spuriousness = false; arguments(rest)
       case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
+      case "-noSlicing" :: rest => slicing = false; arguments(rest)
       case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
       case "-stac" :: rest => staticAccelerate = true; arguments(rest)
@@ -248,22 +275,28 @@ object Main {
         timeout = Some(time); arguments(rest)
       case mFuncName :: rest if (mFuncName.startsWith("-m:")) => funcName = mFuncName drop 3; arguments(rest)
       case sSolFileName :: rest if (sSolFileName.startsWith("-s:")) => solFileName = sSolFileName.drop(3); arguments(rest)
-      case "-log" :: rest => log = true; arguments(rest)
-      case "-log:2" :: rest => log = true; logCEX = true; arguments(rest)
+      case "-log" :: rest => setLogLevel(2); arguments(rest)
+      case "-statistics" :: rest => setLogLevel(1); arguments(rest)
+      case logOption :: rest if (logOption startsWith "-log:") =>
+        setLogLevel((logOption drop 5).toInt); arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
+      case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
-      case "-h" :: rest => println(greeting + "\n\nUsage: lazabs [options] file\n\n" +
+      case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
           " -log\t\tDisplay progress and found invariants\n" + 
+          " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" + 
+          " -statistics\tDisplay statistics (implied by -log)\n" + 
           " -t:time\tSet timeout (in seconds)\n" +
           " -cex\t\tShow textual counterexamples\n" + 
-          " -dotCEX\tShow counterexample using dot\n" + 
+          " -dotCEX\tOutput counterexample in dot format\n" + 
+          " -eogCEX\tDisplay counterexample using eog\n" + 
           " -m:func\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +
@@ -274,7 +307,8 @@ object Main {
           " -ssol\t\tShow solution in SMT-LIB format\n" + 
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
-          " -lbe\t\tDisable inlining of linear Horn clauses\n" +
+          " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
+          " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
           " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
@@ -322,8 +356,11 @@ object Main {
     if (!arguments(args.toList))
       return
 
-    if (in == null)
+    if (in == null) {
+      arguments(List("-h"))
       throw new MainException("no input file given")
+      return
+    }
 
     val startTime = System.currentTimeMillis
 
@@ -435,17 +472,20 @@ object Main {
         case _ => false
       }
 
-      if (log) Console.withErr(Console.out) {
-        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          drawRTree, lbe, log)
-      } else {
-        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          drawRTree, lbe, log)
-      }
+      lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
+                        drawRTree, lbe)
         
       return
 
     } else if (concurrentC) {
+
+      val outStream =
+        if (logStat) Console.err else lazabs.horn.bottomup.HornWrapper.NullStream
+
+      Console.withOut(outStream) {
+        println(
+          "---------------------------- Reading C/C++ file --------------------------------")
+      }
 
       val system = 
         lazabs.horn.concurrency.CCReader(
@@ -458,7 +498,6 @@ object Main {
 
       val smallSystem = system.mergeLocalTransitions
 
-
       if (prettyPrint) {
         println
         println("After simplification:")
@@ -467,11 +506,7 @@ object Main {
       }
 
       val result = try {
-        if (log) {
-          new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem,
-            templateBasedInterpolation).result
-        } else Console.withOut(lazabs.horn.bottomup.HornWrapper.NullStream) {
+        Console.withOut(outStream) {
           new lazabs.horn.concurrency.VerificationLoop(
             smallSystem,
             templateBasedInterpolation).result

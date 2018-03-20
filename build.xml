@@ -13,7 +13,6 @@
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
-    <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors-2.11.0.jar"/>
     <property name="scala-xml.jar" value="${scala.home}/lib/scala-xml_2.11-1.0.4.jar"/>
     <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.4.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
@@ -138,7 +137,6 @@
             <classpath>
             	<pathelement location="${scala-library.jar}" />
             	<pathelement location="${scala-reflect.jar}" />
-            	<pathelement location="${scala-actors.jar}" />
             	<pathelement location="${scala-xml.jar}" />
             	<pathelement location="${scala-parser-combinators.jar}" />
                 <pathelement location="${java-cup-runtime.jar}" />
@@ -216,7 +214,6 @@
 			<fileset dir="${build.dir}" includes="**/*.class" />
 			<zipfileset src="${scala-library.jar}" />
 			<zipfileset src="${scala-reflect.jar}" />
-			<zipfileset src="${scala-actors.jar}" />
 			<zipfileset src="${scala-xml.jar}" />
 			<zipfileset src="${scala-parser-combinators.jar}" />
 			<zipfileset src="${nts.jar}" />

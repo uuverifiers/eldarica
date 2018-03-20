@@ -1,0 +1,64 @@
+/**
+ * A simplified, but parameterised version of the train crossing
+ * model from the FORTE'94 paper
+ */
+
+chan appr,     // signal approaching train
+     stop,     // tell train to stop
+     go,       // tell train to cross
+     leave;    // signal leaving train
+
+thread Controller {
+  int n = 0;  // number of approaching and waiting trains
+  clock y;
+
+  while (1) {
+    // bridge is free; let a waiting or approaching train pass
+
+    if (n > 0) {
+      chan_send(go);
+    } else {
+      chan_receive(appr); n++;
+    }
+    
+    // a train is currently passing, stop other arriving trains
+
+    while (1) {
+      if (nondet()) {
+        atomic { chan_receive(appr); n++; y = 0; }
+        within(y <= 5) chan_send(stop);
+      } else {
+        chan_receive(leave); n--; break;
+      }
+    }
+  }
+}
+
+int passing_train_id;
+
+thread[id] Train {
+  clock x;
+  int passing = 0;
+
+  // signal that we are approaching
+
+  atomic { chan_send(appr); x = 0; }
+
+  if (nondet()) {
+    // train is stopped and has to wait
+    atomic { assume(x <= 10); chan_receive(stop); }
+    atomic { chan_receive(go); x = 0; }
+    assume(x >= 7 && x <= 15);
+  } else {
+    // train can pass right away
+    assume(x >= 10);
+  }
+
+  // verify that no other train is allowed to pass at the same time
+  passing_train_id = id;
+  assert(passing_train_id == id);
+
+  chan_send(leave);
+}
+
+int nondet();

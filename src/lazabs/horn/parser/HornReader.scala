@@ -63,6 +63,126 @@ object HornReader {
     SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
       (new SMTHornReader(fileName, p)).result
     }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def cnf_if_needed(aF : IFormula) : List[IFormula] = {
+    val conjuncts = LineariseVisitor(aF, IBinJunctor.And)
+    if (conjuncts.forall(
+          LineariseVisitor(_, IBinJunctor.Or).forall(isLiteral(_))
+        )) {
+      conjuncts.toList
+    } else {
+      ccnf(aF)
+    }
+  }
+
+  // conjunctive normal form (quantified subformulas are considered as atoms)
+  private def ccnf(aF : ap.parser.IFormula) : List[ap.parser.IFormula] = {
+    var cnf : List[IFormula] = Nil
+    aF match {
+      case IBinFormula(j,f1,f2) =>
+        val cnf1 = ccnf(f1)
+        val cnf2 = ccnf(f2)
+        j match {
+          case IBinJunctor.And =>
+            cnf = cnf1 ::: cnf2
+          case IBinJunctor.Or =>
+            cnf = cnf_base(cnf1,cnf2)
+          case IBinJunctor.Eqv =>
+            assert(false)
+        }
+      case f@INot(IAtom(_,_)) => cnf = f :: Nil
+      case f@INot(IBoolLit(_)) => cnf = f :: Nil
+      case f@INot(IIntFormula(_,_)) => cnf = f :: Nil
+      case f : IAtom => cnf = f :: Nil
+      case f : IBoolLit => cnf = f :: Nil
+      case f : IIntFormula => cnf = f :: Nil
+      case f : IQuantified => cnf = f :: Nil
+      case _ => 
+        assert(false)
+    }
+    cnf
+  }
+
+  private def dnf_base(dnf1 : List[ap.parser.IFormula], dnf2 : List[ap.parser.IFormula]) = {
+    var dnf : List[ap.parser.IFormula] = List()
+    for (f1 <- dnf1) {
+      for (f2 <- dnf2) {
+        dnf = (f1 &&& f2) :: dnf
+      }
+    }
+    dnf
+  }
+
+  private def cnf_base(cnf1 : List[ap.parser.IFormula], cnf2 : List[ap.parser.IFormula]) = {
+    var cnf : List[ap.parser.IFormula] = List()
+    for (f1 <- cnf1) {
+      for (f2 <- cnf2) {
+        cnf = (f1 ||| f2) :: cnf
+      }
+    }
+    cnf
+  }
+
+  private def containsPredicate(aF : IFormula) : Boolean = {
+    aF match {
+        case IQuantified(q,f) => containsPredicate(f)
+        case IBinFormula(j,f1,f2) => containsPredicate(f1) || containsPredicate(f2)
+        case INot(f) => containsPredicate(f)
+        case a : IAtom => true
+        case _ =>false
+    }
+  }
+
+  private def isLiteral(aF : IFormula) = {
+    !containsPredicate(aF) || (aF match {
+      case IAtom(_,_) => true
+      case INot(IAtom(_,_)) => true
+      case _ => false
+    })
+  }
+
+  private def quantifiers(aF : IFormula) : List[ap.terfor.conjunctions.Quantifier] = {
+      aF match {
+        case IQuantified(q,f) =>
+          q :: quantifiers(f)
+        case IBinFormula(j,f1,f2) =>
+          quantifiers(f1) ::: quantifiers(f2)
+        case INot(f) =>
+          quantifiers(f)
+        case _ => Nil
+      }
+  }
+
+  private def cnt_quantif(aF : IFormula) : Int = {
+      quantifiers(aF).length
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  object PredUnderQuantifierVisitor
+         extends ContextAwareVisitor[Unit, Unit] {
+    private object FoundPredUnderQuantifier extends Exception
+
+    def apply(f : IExpression) : Boolean =
+      try {
+        visitWithoutResult(f, Context(()))
+        false
+      } catch {
+        case FoundPredUnderQuantifier => true
+      }
+
+    override def preVisit(t : IExpression,
+                          arg : Context[Unit]) : PreVisitResult = t match {
+      case _ : IAtom if (!arg.binders.isEmpty) => throw FoundPredUnderQuantifier
+      case _ => super.preVisit(t, arg)
+    }
+   
+    def postVisit(t : IExpression,
+                  arg : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,6 +194,7 @@ class SMTHornReader protected[parser] (
          p : SimpleAPI) {
 
   import IExpression._
+  import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor}
 
   private val reader = new java.io.BufferedReader (
                  new java.io.FileReader(new java.io.File (fileName)))
@@ -139,17 +260,6 @@ class SMTHornReader protected[parser] (
     }
 
     val groundClause = subst(clause, parameterConsts, 0)
-    
-    def cnf_if_needed(aF : IFormula) : List[IFormula] = {
-      val conjuncts = LineariseVisitor(aF, IBinJunctor.And)
-      if (conjuncts.forall(
-            LineariseVisitor(_, IBinJunctor.Or).forall(isLiteral(_))
-          )) {
-        conjuncts.toList
-      } else {
-        ccnf(aF)
-      }
-    }
     
     // transform to CNF and try to generate one clause per conjunct
     
@@ -218,90 +328,6 @@ class SMTHornReader protected[parser] (
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def dnf_base(dnf1 : List[ap.parser.IFormula], dnf2 : List[ap.parser.IFormula]) = {
-    var dnf : List[ap.parser.IFormula] = List()
-    for (f1 <- dnf1) {
-      for (f2 <- dnf2) {
-        dnf = (f1 &&& f2) :: dnf
-      }
-    }
-    dnf
-  }
-
-  private def cnf_base(cnf1 : List[ap.parser.IFormula], cnf2 : List[ap.parser.IFormula]) = {
-    var cnf : List[ap.parser.IFormula] = List()
-    for (f1 <- cnf1) {
-      for (f2 <- cnf2) {
-        cnf = (f1 ||| f2) :: cnf
-      }
-    }
-    cnf
-  }
-
-  // conjunctive normal form (quantified subformulas are considered as atoms)
-  private def ccnf(aF : ap.parser.IFormula) : List[ap.parser.IFormula] = {
-    var cnf : List[IFormula] = Nil
-    aF match {
-      case IBinFormula(j,f1,f2) =>
-        val cnf1 = ccnf(f1)
-        val cnf2 = ccnf(f2)
-        j match {
-          case IBinJunctor.And =>
-            cnf = cnf1 ::: cnf2
-          case IBinJunctor.Or =>
-            cnf = cnf_base(cnf1,cnf2)
-          case IBinJunctor.Eqv =>
-            assert(false)
-        }
-      case f@INot(IAtom(_,_)) => cnf = f :: Nil
-      case f@INot(IBoolLit(_)) => cnf = f :: Nil
-      case f@INot(IIntFormula(_,_)) => cnf = f :: Nil
-      case f : IAtom => cnf = f :: Nil
-      case f : IBoolLit => cnf = f :: Nil
-      case f : IIntFormula => cnf = f :: Nil
-      case f : IQuantified => cnf = f :: Nil
-      case _ => 
-        assert(false)
-    }
-    cnf
-  }
-
-  private def containsPredicate(aF : IFormula) : Boolean = {
-    aF match {
-        case IQuantified(q,f) => containsPredicate(f)
-        case IBinFormula(j,f1,f2) => containsPredicate(f1) || containsPredicate(f2)
-        case INot(f) => containsPredicate(f)
-        case a : IAtom => true
-        case _ =>false
-    }
-  }
-
-  private def isLiteral(aF : IFormula) = {
-    !containsPredicate(aF) || (aF match {
-      case IAtom(_,_) => true
-      case INot(IAtom(_,_)) => true
-      case _ => false
-    })
-  }
-
-  private def quantifiers(aF : IFormula) : List[ap.terfor.conjunctions.Quantifier] = {
-      aF match {
-        case IQuantified(q,f) =>
-          q :: quantifiers(f)
-        case IBinFormula(j,f1,f2) =>
-          quantifiers(f1) ::: quantifiers(f2)
-        case INot(f) =>
-          quantifiers(f)
-        case _ => Nil
-      }
-  }
-
-  private def cnt_quantif(aF : IFormula) : Int = {
-      quantifiers(aF).length
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   private def elimQuansTheories(
                 clause : IFormula,
                 unintPredicates : LinkedHashSet[Predicate],
@@ -309,7 +335,8 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    if (quanNum == 0 && allTheories.isEmpty)
+    if (allTheories.isEmpty &&
+        (quanNum == 0 || !PredUnderQuantifierVisitor(clause)))
       return List(clause)
 
     lazabs.GlobalParameters.get.didIncompleteTransformation = true

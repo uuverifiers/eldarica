@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -127,7 +127,8 @@ object DisjInterpolator {
       val andNum = dag.iterator.count(_.isInstanceOf[AndNode[_, _]])
       val orNum = dag.iterator.count(_.isInstanceOf[OrNode[_, _]])
 
-      print("(" + andNum + "and/" + orNum + "or) ")
+      if (lazabs.GlobalParameters.get.log)
+        print("(" + andNum + "and/" + orNum + "or) ")
 
       if (orInterpolationTimeout == Int.MaxValue ||
           isProbablyFeasible(andNum, orNum)) {
@@ -154,10 +155,12 @@ object DisjInterpolator {
 //        println("success: " + (System.currentTimeMillis - bef) + ", " + andNum + ", " + orNum)
       } {
         // simplify the clause dag by removing some or-nodes
-        print(" ... restarting ")
+        if (lazabs.GlobalParameters.get.log)
+          print(" ... restarting ")
       }
       } else {
-        print(" ... simplifying ")
+        if (lazabs.GlobalParameters.get.log)
+          print(" ... simplifying ")
       }
 
       if (res == null)
@@ -494,7 +497,8 @@ object DisjInterpolator {
         if (!refinementPoints.isEmpty) {
           pop
 
-          print(".")
+          if (lazabs.GlobalParameters.get.log)
+            print(".")
           didRefinement = true
           partialTree = refine(partialTree, rootFlag)
 
