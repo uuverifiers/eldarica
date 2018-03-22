@@ -45,8 +45,6 @@ Number of implication checks:               221
 Number of implication checks (setup):       62
 Number of implication checks (positive):    42
 Number of implication checks (negative):    117
-
-Number of state matchings:                  42
 --------------------------------------------------------------------------------
 
 
@@ -89,8 +87,6 @@ Number of implication checks:               116
 Number of implication checks (setup):       29
 Number of implication checks (positive):    20
 Number of implication checks (negative):    67
-
-Number of state matchings:                  25
 --------------------------------------------------------------------------------
 
 
@@ -148,8 +144,6 @@ Number of implication checks:               15
 Number of implication checks (setup):       6
 Number of implication checks (positive):    6
 Number of implication checks (negative):    3
-
-Number of state matchings:                  5
 --------------------------------------------------------------------------------
 
 Left(
@@ -225,8 +219,6 @@ Number of implication checks:               36
 Number of implication checks (setup):       17
 Number of implication checks (positive):    12
 Number of implication checks (negative):    7
-
-Number of state matchings:                  11
 --------------------------------------------------------------------------------
 
 Left(
@@ -243,6 +235,7 @@ Solving ...
 Initially:                                             4 clauses
 
 Theories: Types, ModuloArithmetic, GroebnerMultiplication
+State hashing enabled
 Constant and interval propagation ++++++++-
 
 Unique satisfiable clauses: 2
@@ -264,7 +257,10 @@ Number of implication checks (setup):       2
 Number of implication checks (positive):    0
 Number of implication checks (negative):    0
 
-Number of state matchings:                  1
+Number of models in hasher:                 4
+Number of hasher evals:                     8
+Time for hasher eval:                       7
+Hasher hits/misses:                         1/1 (50%)
 --------------------------------------------------------------------------------
 
 Left(
@@ -282,6 +278,7 @@ Initially:                                             5 clauses
 Loop heads:
    i1/1 (3 clauses, 1 templates)
 Theories: Types, ModuloArithmetic, GroebnerMultiplication
+State hashing enabled
 Constant and interval propagation ++++++++++++++++
 
 Unique satisfiable clauses: 5
@@ -401,13 +398,16 @@ Final number of abstract states:            4
 Final number of matched abstract states:    13
 Final number of abstract edges:             15
 Number of generated predicates:             15
-Number of implication checks:               258
+Number of implication checks:               165
 
 Number of implication checks (setup):       42
 Number of implication checks (positive):    68
-Number of implication checks (negative):    148
+Number of implication checks (negative):    55
 
-Number of state matchings:                  38
+Number of models in hasher:                 12
+Number of hasher evals:                     249
+Time for hasher eval:                       60
+Hasher hits/misses:                         115/75 (60%)
 --------------------------------------------------------------------------------
 
 Left(
@@ -420,6 +420,7 @@ Initially:                                             4 clauses
 Loop heads:
    C/2 (1 clauses, 4 templates)
 Theories: Types, ModuloArithmetic, GroebnerMultiplication
+State hashing enabled
 Unique satisfiable clauses: 3
    1 clauses with 0 body literals
    2 clauses with 1 body literals
@@ -430,13 +431,16 @@ Final number of abstract states:            1
 Final number of matched abstract states:    5
 Final number of abstract edges:             6
 Number of generated predicates:             8
-Number of implication checks:               102
+Number of implication checks:               65
 
 Number of implication checks (setup):       16
 Number of implication checks (positive):    33
-Number of implication checks (negative):    53
+Number of implication checks (negative):    16
 
-Number of state matchings:                  15
+Number of models in hasher:                 8
+Number of hasher evals:                     161
+Time for hasher eval:                       73
+Hasher hits/misses:                         46/23 (66%)
 --------------------------------------------------------------------------------
 
 sat
