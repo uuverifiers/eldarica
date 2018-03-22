@@ -1,0 +1,12 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="nonlinear2.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
+done
+

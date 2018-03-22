@@ -201,7 +201,8 @@ object HornPredAbs {
 
   case class RelationSymbolPred(positive : Conjunction,
                                 negative : Conjunction,
-                                rs : RelationSymbol) {
+                                rs : RelationSymbol,
+                                predIndex : Int) {
     val posInstances = for (cs <- rs.arguments) yield {
       val sMap =
         (for ((oriC, newC) <- rs.arguments.head.iterator zip cs.iterator)
@@ -742,8 +743,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   var implicationChecksNegTime : Long = 0
   var implicationChecksSetup = 0
   var implicationChecksSetupTime : Long = 0
+
+  var hasherChecksHit, hasherChecksMiss = 0
   var matchCount = 0
   var matchTime : Long = 0  
+
+  val rand = new Random (98762521)
 
   // first find out which theories are relevant
   val theories = {
@@ -759,6 +764,22 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   val plugins =
     for (t <- theories; p <- t.plugin.toSeq) yield p
+
+  val useHashing =
+    (theories forall {
+       case ap.types.TypeTheory                    => true
+       case ap.theories.nia.GroebnerMultiplication => true
+       case ap.theories.ModuloArithmetic           => true
+       case _                                      => false
+     }) &&
+    (theories exists {
+       case ap.theories.nia.GroebnerMultiplication => true
+       case ap.theories.ModuloArithmetic           => true
+       case _                                      => false
+     })
+
+  if (useHashing)
+    println("State hashing enabled")
 
   implicit val sf = new SymbolFactory(theories)
   
@@ -878,22 +899,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     (for (rs <- relationSymbols.values)
        yield (rs -> new ArrayBuffer[RelationSymbolPred])).toMap
   
-  def predicateFromInputAbsy(f : IFormula, rs : RelationSymbol) = {
-      val posF = sf.toInternal(!f).negate
-      val negF = sf.toInternal(f)
-      RelationSymbolPred(posF, negF, rs)
-  }
-
-  for ((p, preds) <- initialPredicates) {
-    val rs = relationSymbols(p)
-    val internalPreds =
-      for (f <- preds)
-      yield predicateFromInputAbsy(
-                   IExpression.subst(f, rs.argumentITerms.head.toList, 0),
-                   rs)
-    predicates(rs) ++= internalPreds
-  }
-  
   //////////////////////////////////////////////////////////////////////////////
 
   val goalSettings = {
@@ -916,14 +921,99 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     prover
   }
 
+  var hardValidityCheckNum = 0
+  var hardValidityCheckThreshold = 27
+  var hardValidityCheckNumSqrt = 3
+
   def isValid(prover : ModelSearchProver.IncProver) : Boolean =
-    prover.isObviouslyValid ||
-    (!prover.isObviouslyUnprovable &&
-     ((prover checkValidity false) match {
-        case Left(m) if (m.isFalse) => true
-        case Left(_) => false
-      }))
+    prover.isObviouslyValid || {
+      hardValidityCheckNum = hardValidityCheckNum + 1
+      if (hardValidityCheckNum == hardValidityCheckThreshold) {
+        hardValidityCheckNum = 0
+        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
+        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
+      }
+
+      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
+        (prover checkValidity true) match {
+          case Left(m) =>
+            if (m.isFalse) {
+              true
+            } else {
+              hasher addModel m
+              false
+            }
+          case Right(_) =>
+            throw new Exception("Unexpected prover result")
+        }
+      else
+        !prover.isObviouslyUnprovable &&
+         ((prover checkValidity false) match {
+            case Left(m) if (m.isFalse) => true
+            case Left(_) => false
+            case Right(_) =>
+              throw new Exception("Unexpected prover result")
+          })
+    }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Hashing/sampling to speed up implication checks
+
+  val hasher =
+    if (useHashing)
+      new Hasher(sf.order, sf.reducerSettings)
+    else
+      InactiveHasher
+
+  val predicateHashIndexes =
+    (for (rs <- relationSymbols.values)
+         yield (rs -> new ArrayBuffer[Stream[Int]])).toMap
+
+  def addRelationSymbolPred(pred : RelationSymbolPred) : Unit = {
+    assert(predicates(pred.rs).size == predicateHashIndexes(pred.rs).size &&
+           pred.predIndex == predicates(pred.rs).size)
+
+    predicates(pred.rs) +=
+      pred
+    predicateHashIndexes(pred.rs) +=
+      (for (f <- pred.posInstances) yield (hasher addFormula f))
+  }
+
+  def addRelationSymbolPreds(preds : Seq[RelationSymbolPred]) : Unit =
+    for (pred <- preds) addRelationSymbolPred(pred)
+
+  def addHasherAssertions(clause : NormClause,
+                          from : Seq[AbstractState]) = if (hasher.isActive) {
+    hasher assertFormula clauseHashIndexes(clause)
+    for ((state, (rs, occ)) <- from.iterator zip clause.body.iterator)
+      for (pred <- state.preds) {
+        val id = predicateHashIndexes(rs)(pred.predIndex)(occ)
+        hasher assertFormula id
+      }
+  }
+
+  // Add clause constraints to hasher
+
+  val clauseHashIndexes =
+    (for ((clause, _) <- normClauses.iterator)
+     yield (clause, hasher addFormula clause.constraint)).toMap
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Initialise with given initial predicates
+  
+  for ((p, preds) <- initialPredicates) {
+    val rs = relationSymbols(p)
+    for ((f, predIndex) <- preds.iterator.zipWithIndex) {
+      val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
+      val posF = sf.toInternal(!intF).negate
+      val negF = sf.toInternal(intF)
+      val pred = RelationSymbolPred(posF, negF, rs, predIndex)
+      addRelationSymbolPred(pred)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   // Abstract states that are used for matching and instantiating clauses
@@ -1007,7 +1097,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       )
 */
 
-      val expansion@(states, clause, assumptions, time) = nextToProcess.dequeue
+      val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
 
       if (states exists (backwardSubsumedStates contains _)) {
         postponedExpansions += expansion
@@ -1111,9 +1201,24 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Time for implication checks (setup, ms):    " + implicationChecksSetupTime)
     println("Time for implication checks (positive, ms): " + implicationChecksPosTime)
     println("Time for implication checks (negative, ms): " + implicationChecksNegTime)
-    println
-    println("Number of state matchings:                  " + matchCount)
-    println("Time for state matchings (ms):              " + matchTime)
+
+    if (hasher.isActive) {
+//      println
+//      println("Number of state/clause matchings:           " + matchCount)
+//      println("Time for state/clause matchings (ms):       " + matchTime)
+      println
+      hasher.printStatistics
+
+      val hasherChecksNum = hasherChecksMiss + hasherChecksHit
+      val hasherChecksRate =
+        if (hasherChecksNum == 0)
+          0
+        else
+          hasherChecksHit * 100 / hasherChecksNum
+      println("Hasher hits/misses:                         " +
+              hasherChecksHit + "/" + hasherChecksMiss + " (" +
+              hasherChecksRate + "%)")
+    }
 
 /*    println
     println("Number of subsumed abstract states: " +
@@ -1537,29 +1642,42 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   def genEdge(clause : NormClause,
               from : Seq[AbstractState], assumptions : Conjunction) = {
     val startTime = System.currentTimeMillis
-    val prover = emptyProver.assert(assumptions, clause.order)
+    lazy val prover = emptyProver.assert(assumptions, clause.order)
 
-    implicationChecks = implicationChecks + 1
-    implicationChecksSetup = implicationChecksSetup + 1
+    hasher.scope {
+      addHasherAssertions(clause, from)
+      val hasherSat = hasher.isSat
 
-    val valid = isValid(prover)
+      val valid =
+        if (hasherSat) {
+          hasherChecksHit = hasherChecksHit + 1
+          false
+        } else {
+          val res = isValid(prover)
+          if (!res)
+            hasherChecksMiss = hasherChecksMiss + 1
+          res
+        }
     
-    implicationChecksSetupTime =
-      implicationChecksSetupTime + (System.currentTimeMillis - startTime)
-      
-    if (valid) {
-      // assumptions are inconsistent, nothing to do
-      None
-    } else {
-      // assumptions are consistent
-      clause.head._1.pred match {
-        case HornClauses.FALSE =>
-          throw new Counterexample(from, clause)
-        case _ => {
-          val state = genAbstractState(assumptions,
-                                       clause.head._1, clause.head._2,
-                                       prover, clause.order)
-          Some(AbstractEdge(from, state, clause, assumptions))
+      implicationChecks = implicationChecks + 1
+      implicationChecksSetup = implicationChecksSetup + 1
+      implicationChecksSetupTime =
+        implicationChecksSetupTime + (System.currentTimeMillis - startTime)
+
+      if (valid) {
+        // assumptions are inconsistent, nothing to do
+        None
+      } else {
+        // assumptions are consistent
+        clause.head._1.pred match {
+          case HornClauses.FALSE =>
+            throw new Counterexample(from, clause)
+          case _ => {
+            val state = genAbstractState(assumptions,
+                                         clause.head._1, clause.head._2,
+                                         prover, clause.order)
+            Some(AbstractEdge(from, state, clause, assumptions))
+          }
         }
       }
     }
@@ -1570,7 +1688,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   
   def genAbstractState(assumptions : Conjunction,
                        rs : RelationSymbol, rsOcc : Int,
-                       prover : ModelSearchProver.IncProver,
+                       prover : => ModelSearchProver.IncProver,
                        order : TermOrder) : AbstractState = {
     val startTime = System.currentTimeMillis
     val reducer = sf reducer assumptions
@@ -1579,15 +1697,33 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     
     val predConsequences =
       (for (pred <- predicates(rs).iterator;
-            if (predIsConsequence(pred, rsOcc, reducer, prover, order)))
+            if predIsConsequenceWithHasher(pred, rsOcc,
+                                           reducer, prover, order))
        yield pred).toVector
     AbstractState(rs, predConsequences)
   }
   
+  def predIsConsequenceWithHasher(pred : RelationSymbolPred, rsOcc : Int,
+                                  reducer : ReduceWithConjunction,
+                                  prover : => ModelSearchProver.IncProver,
+                                  order : TermOrder) : Boolean = {
+    val hasherId = predicateHashIndexes(pred.rs)(pred.predIndex)(rsOcc)
+
+    if (hasher mightBeImplied hasherId) {
+      val res = predIsConsequence(pred, rsOcc, reducer, prover, order)
+      if (!res)
+        hasherChecksMiss = hasherChecksMiss + 1
+      res
+    } else {
+      hasherChecksHit = hasherChecksHit + 1
+      false
+    }
+  }
+
   def predIsConsequence(pred : RelationSymbolPred, rsOcc : Int,
                         reducer : ReduceWithConjunction,
                         prover : => ModelSearchProver.IncProver,
-                        order : TermOrder) = {
+                        order : TermOrder) : Boolean = {
     val startTime = System.currentTimeMillis
     implicationChecks = implicationChecks + 1
     val reducedInstance = reducer.tentativeReduce(pred posInstances rsOcc)
@@ -1691,7 +1827,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                    CounterexampleMethod.MaxNOrShortest =>
                 minEdges
               case CounterexampleMethod.RandomShortest =>
-                List(minEdges(Random nextInt minEdges.size))
+                List(minEdges(rand nextInt minEdges.size))
             }
 
             // recursively add all the children
@@ -1762,11 +1898,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       val subst = VariableSubst(0, rs.arguments.head, sf.order)
       val rsReducer = relationSymbolReducers(rs)
 
-      val rsPreds = for (f <- fors;
-                         substF = rsReducer(subst(f));
-                         if (reallyAddPredicate(substF, rs));
-                         pred = genSymbolPred(substF, rs);
-                         if (!(predicates(rs) contains pred))) yield pred
+      val rsPreds =
+        (for (f <- fors.iterator;
+              substF = rsReducer(subst(f));
+              if (reallyAddPredicate(substF, rs));
+              pred = genSymbolPred(substF, rs);
+              if (!(predicates(rs) exists
+                      (_.positive == pred.positive)))) yield {
+           addRelationSymbolPred(pred)
+           pred
+         }).toVector
 
       if (!rsPreds.isEmpty) {
         if (lazabs.GlobalParameters.get.log) {
@@ -1774,20 +1915,20 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           println(rsPreds mkString ", ")
         }
 
-        predicates(rs) ++= rsPreds
-
         // check whether any edges need to be updated
         for (i <- 0 until abstractEdges.size) {
           val AbstractEdge(from, to, clause, assumptions) = abstractEdges(i)
-          if (to.rs == rs) {
-            val reducer = sf reducer assumptions
+          if (to.rs == rs) hasher.scope {
+            addHasherAssertions(clause, from)
             lazy val prover = emptyProver.assert(assumptions, clause.order)
+            val reducer = sf reducer assumptions
             
             val additionalPreds =
               for (pred <- rsPreds;
-                   if (predIsConsequence(pred, clause.head._2, reducer,
-                                         prover, clause.order)))
-                yield pred
+                   if predIsConsequenceWithHasher(pred, clause.head._2,
+                                                  reducer, prover,
+                                                  clause.order))
+              yield pred
                 
             if (!additionalPreds.isEmpty) {
               val newState = AbstractState(rs, to.preds ++ additionalPreds)
@@ -1867,7 +2008,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   def genSymbolPred(f : Conjunction,
                     rs : RelationSymbol) : RelationSymbolPred =
     if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
-      RelationSymbolPred(f, f, rs)
+      RelationSymbolPred(f, f, rs, predicates(rs).size)
     } else {
       // some simplification, to avoid quantifiers in predicates
       // as far as possible, or at least provide good triggers
@@ -1887,7 +2028,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)
 
-      RelationSymbolPred(posF, negF, rs)
+      RelationSymbolPred(posF, negF, rs, predicates(rs).size)
     }
 
   //////////////////////////////////////////////////////////////////////////////

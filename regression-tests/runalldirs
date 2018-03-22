@@ -2,6 +2,7 @@
 
 set -e
 
+./rundir horn-bv "" -assert -t:60
 ./rundir horn-adt "" -assert -t:60
 ./rundir horn-hcc "" -assert -t:60
 ./rundir horn-hcc-2 "" -assert -t:60
