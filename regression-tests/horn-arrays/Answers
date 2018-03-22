@@ -259,7 +259,6 @@ Number of implication checks (negative):    0
 
 Number of models in hasher:                 4
 Number of hasher evals:                     8
-Time for hasher eval:                       7
 Hasher hits/misses:                         1/1 (50%)
 --------------------------------------------------------------------------------
 
@@ -406,7 +405,6 @@ Number of implication checks (negative):    55
 
 Number of models in hasher:                 12
 Number of hasher evals:                     249
-Time for hasher eval:                       60
 Hasher hits/misses:                         115/75 (60%)
 --------------------------------------------------------------------------------
 
@@ -439,7 +437,6 @@ Number of implication checks (negative):    16
 
 Number of models in hasher:                 8
 Number of hasher evals:                     161
-Time for hasher eval:                       73
 Hasher hits/misses:                         46/23 (66%)
 --------------------------------------------------------------------------------
 
