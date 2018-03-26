@@ -47,6 +47,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   val name : String = "default"
   val printWidth = 55
+  val clauseNumWidth = 10
 
   val preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
@@ -66,10 +67,20 @@ class DefaultPreprocessor extends HornPreprocessor {
     var curClauses = clauses
     var curHints = hints
 
+    def printStats(prefix : String) : Unit = {
+      val predNum = (HornClauses allPredicates curClauses).size
+      val clauseNumStr = "" + curClauses.size
+      Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
+                          clauseNumStr +
+                            (" " * (clauseNumWidth - clauseNumStr.size)) +
+                          predNum)
+    }
+
     Console.err.println(
          "------------------------------- Preprocessing ----------------------------------")
-    Console.err.println("Initially:" + (" " * (printWidth - 10)) +
-                        curClauses.size + " clauses")
+   
+    Console.err.println((" " * printWidth) + "#clauses  #relation syms")
+    printStats("Initially:")
 
     val translators = new ArrayBuffer[BackTranslator]
 
@@ -82,10 +93,7 @@ class DefaultPreprocessor extends HornPreprocessor {
       curHints = newHints
 
       val time = "" + (System.currentTimeMillis - startTime) + "ms"
-      val prefix = "After " + stage.name + " (" + time + "):"
-
-      Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
-                          curClauses.size + " clauses")
+      printStats("After " + stage.name + " (" + time + "):")
 
       translators += translator
     }

@@ -48,6 +48,10 @@ object HornClauses {
   // everywhere later)
   val FALSE = new Predicate ("FALSE", 0)
   
+  def allPredicates(clauses : Iterable[Clause]) : Set[Predicate] =
+    (for (clause <- clauses.iterator;
+          p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
+
   case class Clause(head : IAtom, body : List[IAtom], constraint : IFormula) {
     lazy val constants =
       SymbolCollector constants (and(body) & constraint & head)

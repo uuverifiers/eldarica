@@ -189,13 +189,6 @@ class VerificationLoop(system : ParametricEncoder.System,
       println
       println("Writing Horn clauses to " + filename)
 
-      val allPredicates = new MHashSet[IExpression.Predicate]
-
-      for (c <- encoder.allClauses)
-        allPredicates ++= c.predicates
-
-      allPredicates -= HornClauses.FALSE
-
       val out = new java.io.FileOutputStream(filename)
       Console.withOut(out) {
         val clauseFors =
@@ -204,6 +197,9 @@ class VerificationLoop(system : ParametricEncoder.System,
             // eliminate remaining operators like eps
             Transform2Prenex(EquivExpander(PartialEvaluator(f)))
           }
+
+        val allPredicates =
+          HornClauses allPredicates encoder.allClauses
 
         SMTLineariser("C_VC", "HORN", "unknown",
                       List(), allPredicates.toSeq.sortBy(_.name),

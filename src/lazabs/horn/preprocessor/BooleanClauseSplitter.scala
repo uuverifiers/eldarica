@@ -29,6 +29,7 @@
 
 package lazabs.horn.preprocessor
 
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
@@ -38,7 +39,7 @@ import ap.{SimpleAPI, PresburgerTools}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
-import ap.util.Seqs
+import ap.util.{Seqs, Timeout}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -140,7 +141,9 @@ object BooleanClauseSplitter extends HornPreprocessor {
         import p._
         addConstantsRaw(SymbolCollector constantsSorted groundConstraint)
         val disjuncts =
-          PresburgerTools.nonDNFEnumDisjuncts(asConjunction(~groundConstraint))
+          Timeout.withChecker(GlobalParameters.get.timeoutChecker) {
+           PresburgerTools.nonDNFEnumDisjuncts(asConjunction(~groundConstraint))
+          }
         (for (d <- disjuncts) yield
          Clause(IAtom(headPred, newHeadArgs), newBody, asIFormula(d))).toSeq
       } else {
