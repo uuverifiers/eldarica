@@ -7,7 +7,7 @@ sat
 
 bool.smt2
 sat
-(define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A false) (= B false)) (and (= A true) (= B true))))
+(define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A true) (= B true)) (and (= A false) (= B false))))
 
 bool-unsat.smt2
 unsat

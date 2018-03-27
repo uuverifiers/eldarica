@@ -211,7 +211,8 @@ NOT SOLVABLE
 zero-iterations.horn
 Loading CEGAR hints ...
 ------------------------------- Preprocessing ----------------------------------
-Initially:                                             7 clauses
+                                                       #clauses  #relation syms
+Initially:                                             7         3
 
 
 ----------------------------------- CEGAR --------------------------------------

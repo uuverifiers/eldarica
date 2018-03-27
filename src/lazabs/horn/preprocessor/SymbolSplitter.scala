@@ -150,61 +150,69 @@ object SymbolSplitter extends HornPreprocessor {
 
       val translator = new BackTranslator {
 
-        def translate(solution : Solution) = {
-          val aggregatedFormulas = new MHashMap[Predicate, IFormula]
-          for ((p, sol) <- solution) (predBackMapping get p) match {
-            case Some((oldPred, fixedArgs)) => {
-              val bits =
-                concreteArgsPerPred(oldPred)
+        def translate(solution : Solution) =
+          if (predBackMapping.isEmpty) {
+            solution
+          } else {
+            val aggregatedFormulas = new MHashMap[Predicate, IFormula]
+            val sortedSolution = solution.toIndexedSeq.sortBy(_._1.name)
+            for ((p, sol) <- sortedSolution) (predBackMapping get p) match {
+              case Some((oldPred, fixedArgs)) => {
+                val bits =
+                  concreteArgsPerPred(oldPred)
 
-              var offset = -1
-              val subst =
-                for (ind <- (0 until oldPred.arity).toList) yield
-                  if (bits contains ind) {
-                    offset = offset + 1
-                    fixedArgs(offset)
-                  } else {
-                    v(ind)
-                  }
+                var offset = -1
+                val subst =
+                  for (ind <- (0 until oldPred.arity).toList) yield
+                    if (bits contains ind) {
+                      offset = offset + 1
+                      fixedArgs(offset)
+                    } else {
+                      v(ind)
+                    }
 
-              val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
+                val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
-              val newSol =
-                and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
-                    yield (v(ind) === arg)) &&& simpSol
-              aggregatedFormulas.put(
-                oldPred,
-                aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)
+                val newSol =
+                  and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
+                      yield (v(ind) === arg)) &&& simpSol
+                aggregatedFormulas.put(
+                  oldPred,
+                  aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)
+              }
+
+              case None =>
+                aggregatedFormulas.put(p, sol)
             }
 
-            case None =>
-              aggregatedFormulas.put(p, sol)
+            aggregatedFormulas.toMap
           }
 
-          aggregatedFormulas.toMap
-        }
-
         def translate(cex : CounterExample) =
-          for (p <- cex) yield {
-            val IAtom(pred, args) = p._1
-            val newAtom = (predBackMapping get pred) match {
-              case Some((oldPred, fixedArgs)) => {
-                val fixedArgPositions = concreteArgsPerPred(oldPred)
-                var fixedArgInd = 0
-                val fullArgs =
-                  (for ((arg, argNum) <- args.iterator.zipWithIndex) yield {
-                     if (fixedArgPositions contains argNum) {
-                       fixedArgInd = fixedArgInd + 1
-                       fixedArgs(fixedArgInd - 1)
-                     } else {
-                       arg
-                     }
-                   }).toList
-                IAtom(oldPred, fullArgs)
+          if (predBackMapping.isEmpty) {
+            cex
+          } else {
+            for (p <- cex) yield {
+              val IAtom(pred, args) = p._1
+              val newAtom = (predBackMapping get pred) match {
+                case Some((oldPred, fixedArgs)) => {
+                  val fixedArgPositions = concreteArgsPerPred(oldPred)
+                  var fixedArgInd = 0
+                  val fullArgs =
+                    (for ((arg, argNum) <- args.iterator.zipWithIndex) yield {
+                       if (fixedArgPositions contains argNum) {
+                         fixedArgInd = fixedArgInd + 1
+                         fixedArgs(fixedArgInd - 1)
+                       } else {
+                         arg
+                       }
+                     }).toList
+                  IAtom(oldPred, fullArgs)
+                }
+                case None => p._1
               }
-              case None => p._1
+              (newAtom, clauseBackMapping(p._2))
             }
-            (newAtom, clauseBackMapping(p._2))
           }
       }
 
