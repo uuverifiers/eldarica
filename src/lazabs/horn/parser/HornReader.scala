@@ -39,7 +39,7 @@ import lazabs.types.IntegerType
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
-                    MulTheory}
+                    MulTheory, ModuloArithmetic}
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -247,12 +247,24 @@ class SMTHornReader protected[parser] (
     
     clause = signature.theories match {
       case theories if (theories forall {
-                          case _ : SimpleArray => true
-                          case TypeTheory      => true
-                          case _               => false
-                        }) => {
+                          case _ : ADT          => true
+                          case _ : MulTheory    => true
+                          case TypeTheory       => true
+                          case ModuloArithmetic => true
+                          case _                => false
+                        }) =>
+        EquivExpander(PartialEvaluator(clause))
+      case theories if ((theories exists {
+                           case _ : SimpleArray => true
+                           case _               => false
+                         }) &&
+                        (theories forall {
+                           case _ : SimpleArray => true
+                           case TypeTheory      => true
+                           case _               => false
+                         })) => {
         // need full preprocessing, in particular to introduce triggers
-        val (List(INamedPart(_, processedClause_aux)), _, sig2) =
+        val (List(INamedPart(_, processedClause_aux)), _, _) =
           Preprocessing(clause,
                         List(),
                         signature,
@@ -261,13 +273,6 @@ class SMTHornReader protected[parser] (
                           Param.TriggerStrategyOptions.AllMaximal))
         processedClause_aux
       }
-      case theories if (theories forall {
-                          case _ : ADT       => true
-                          case _ : MulTheory => true
-                          case TypeTheory    => true
-                          case _             => false
-                        }) =>
-        EquivExpander(PartialEvaluator(clause))
       case _ =>
         throw new Exception ("Combination of theories is not supported")
     }
