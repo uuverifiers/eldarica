@@ -42,6 +42,7 @@ case class AnyType() extends Type
 case class ArrayType(t: Type) extends Type
 case class SetType(t: Type) extends Type
 case class AdtType(s: Sort) extends Type
+case class ModType(s: Sort) extends Type
 case object ActorType extends Type
 case class ClassType(id: String) extends Type
 

@@ -83,6 +83,7 @@ object PrincessWrapper {
     case IntegerType() => Sort.Integer
     case BooleanType() => Sort.MultipleValueBool
     case AdtType(s) => s //??? sorts are in ADT.sorts
+    case ModType(s) => s
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -94,6 +95,8 @@ object PrincessWrapper {
       BooleanType()
     case s : ADT.ADTProxySort =>
       AdtType(s) // ??? s.adtTheory is the ADT
+    case s: ModuloArithmetic.ModSort =>
+      ModType(s)
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
