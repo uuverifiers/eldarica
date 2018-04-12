@@ -34,6 +34,7 @@ import ap.parser.{PartName, IInterpolantSpec}
 import ap.proof.certificates.Certificate
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{TermOrder, ConstantTerm}
+import ap.util.Timeout
 
 import lazabs.prover.Tree
 
@@ -111,7 +112,9 @@ object LinTreeInterpolator extends TreeInterpolator {
         })
 */
 
-    computeInts(partNames, problem, Some(Conjunction.FALSE))
+    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
+      computeInts(partNames, problem, Some(Conjunction.FALSE))
+    }
   }
 
 }
