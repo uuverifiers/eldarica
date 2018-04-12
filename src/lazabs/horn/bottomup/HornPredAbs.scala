@@ -42,7 +42,7 @@ import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
-import ap.util.Seqs
+import ap.util.{Seqs, Timeout}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.{TypeTheory, Sort, MonoSortedPredicate, IntToTermTranslator}
 import SimpleAPI.ProverStatus
@@ -926,7 +926,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   var hardValidityCheckNumSqrt = 3
 
   def isValid(prover : ModelSearchProver.IncProver) : Boolean =
-    prover.isObviouslyValid || {
+    prover.isObviouslyValid ||
+    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
       hardValidityCheckNum = hardValidityCheckNum + 1
       if (hardValidityCheckNum == hardValidityCheckThreshold) {
         hardValidityCheckNum = 0
