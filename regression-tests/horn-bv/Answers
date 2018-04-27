@@ -66,6 +66,27 @@ Final:
  main5((-447365120).\as[signed bv[32]], 11.\as[signed bv[32]]) 
 ---------------------------------------------------------------
 
+loop.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+sat
+
+loop2.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+unsat
+
+0: FALSE -> 1
+1: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 10)) -> 2
+2: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 9)) -> 3
+3: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 8)) -> 4
+4: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 7)) -> 5
+5: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 6)) -> 6
+6: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 5)) -> 7
+7: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 4)) -> 8
+8: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 3)) -> 9
+9: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 2)) -> 10
+10: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 1)) -> 11
+11: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 0))
+
 ../horn-hcc/loop1.hcc
 Warning: entry function "main" not found
 SAFE

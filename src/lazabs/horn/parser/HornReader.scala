@@ -340,9 +340,12 @@ class SMTHornReader protected[parser] (
         RelVar(pred.name, newArgs)
       }
       
+      import Sort.:::
+
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
         litsTodo = litsTodo.tail
+
         lit match {
           case INot(a@IAtom(p, _)) if (TheoryRegistry lookupSymbol p).isEmpty =>
             body = translateAtom(a) :: body
@@ -356,29 +359,21 @@ class SMTHornReader protected[parser] (
             }
             head = translateAtom(a)
           }
-          // TODO: at this point we have to handle the case that f is
-          // an ADT atom
-          case INot(a@IAtom(p, _)) if !((TheoryRegistry lookupSymbol p).isEmpty) => 
-            // TODO
-            //println("INot: " + a)
-            ((TheoryRegistry lookupSymbol p).get) match {
-              case adt: ADT =>
-                body = Interp(PrincessWrapper.formula2Eldarica(a, symMap, false, Some(adt))) :: body
-              case _ =>
-            }
 
-          case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isEmpty => {
-            //assert(head == null)
-            // TODO            
-            ((TheoryRegistry lookupSymbol p).get) match {
-              case adt: ADT =>
-                body = Interp(PrincessWrapper.formula2Eldarica(~a, symMap, false, Some(adt))) :: body
-              case _ =>
-            }            
-          }
+          case INot(a@IAtom(p, _)) if !((TheoryRegistry lookupSymbol p).isEmpty) => 
+            body = Interp(PrincessWrapper.formula2Eldarica(a, symMap, false)) :: body
+
+          case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isEmpty =>
+            body = Interp(PrincessWrapper.formula2Eldarica(~a, symMap, false)) :: body
+
+          case INot(GeqZ(IConstant(_) :::
+                           ModuloArithmetic.UnsignedBVSort(_)) |
+                    Geq(IIntLit(_),
+                        IConstant(_) ::: ModuloArithmetic.UnsignedBVSort(_))) =>
+            // inequality introduced by the parser that can be ignored
           
           case l => {
-            body = Interp(PrincessWrapper.formula2Eldarica(~l, symMap, false, None)) :: body
+            body = Interp(PrincessWrapper.formula2Eldarica(~l, symMap, false)) :: body
           }          
         }
       }
@@ -442,7 +437,8 @@ class SMTHornReader protected[parser] (
 
     val keptTheories = allTheories filter {
       case _ : ADT                => true
-      case GroebnerMultiplication => true
+      case _ : MulTheory          => true
+      case ModuloArithmetic       => true
       case _                      => false
     }
 

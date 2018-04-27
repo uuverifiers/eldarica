@@ -103,6 +103,11 @@ object ASTree {
   case class ADTsize(adt: ADT, sortNum : Int,
                      v: Expression) extends Expression
   
+  // Bit-vectors
+  case class BVconst(bits: Int, num : BigInt) extends Expression
+  case class BVadd(bits : Int) extends BinaryOperator("bvadd")
+  case class BVult(bits : Int) extends BinaryOperator("bvult")
+
   // Actor
   case class ReactBlock(cases: List[CaseClause]) extends ASTree
   

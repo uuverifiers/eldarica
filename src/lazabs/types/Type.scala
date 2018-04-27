@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@ case class AnyType() extends Type
 case class ArrayType(t: Type) extends Type
 case class SetType(t: Type) extends Type
 case class AdtType(s: Sort) extends Type
-case class ModType(s: Sort) extends Type
+case class BVType(bits: Int) extends Type
 case object ActorType extends Type
 case class ClassType(id: String) extends Type
 

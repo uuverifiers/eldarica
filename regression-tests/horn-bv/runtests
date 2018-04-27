@@ -3,6 +3,8 @@
 LAZABS=../../eld
 
 TESTS="nonlinear2.hcc \
+       loop.smt2 \
+       loop2.smt2 \
        ../horn-hcc/loop1.hcc \
        ../horn-hcc/loop2.hcc"
 

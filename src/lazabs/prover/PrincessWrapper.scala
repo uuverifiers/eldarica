@@ -63,9 +63,8 @@ object PrincessWrapper {
 
   def formula2Eldarica(t: IFormula,
                        symMap : Map[ConstantTerm, String],
-                       removeVersions: Boolean,
-                       theory: Option[Theory] = None): Expression =
-    localWrapper.value.formula2Eldarica(t, symMap, removeVersions, theory)
+                       removeVersions: Boolean): Expression =
+    localWrapper.value.formula2Eldarica(t, symMap, removeVersions)
 
   def pathInterpols(fs: List[Expression]): List[Expression] =
     localWrapper.value.pathInterpols(fs)
@@ -83,7 +82,7 @@ object PrincessWrapper {
     case IntegerType() => Sort.Integer
     case BooleanType() => Sort.MultipleValueBool
     case AdtType(s) => s //??? sorts are in ADT.sorts
-    case ModType(s) => s
+    case BVType(n) => ModuloArithmetic.UnsignedBVSort(n)
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -95,8 +94,8 @@ object PrincessWrapper {
       BooleanType()
     case s : ADT.ADTProxySort =>
       AdtType(s) // ??? s.adtTheory is the ADT
-    case s: ModuloArithmetic.ModSort =>
-      ModType(s)
+    case ModuloArithmetic.UnsignedBVSort(n) =>
+      BVType(n)
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -196,6 +195,17 @@ class PrincessWrapper {
         IBoolLit(false)
       case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
         adt.termSize(sortNum)(f2p(v).asInstanceOf[ITerm])
+
+      // Bit-vectors
+      case BVconst(bits, value) =>
+        ModuloArithmetic.bv(bits, IdealInt(value.bigInteger))
+      case BinaryExpression(left, BVadd(_), right) =>
+        ModuloArithmetic.bvadd(f2p(left).asInstanceOf[ITerm],
+                               f2p(right).asInstanceOf[ITerm])
+
+      case BinaryExpression(left, BVult(_), right) =>
+        ModuloArithmetic.bvult(f2p(left).asInstanceOf[ITerm],
+                               f2p(right).asInstanceOf[ITerm])
        
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
@@ -232,8 +242,7 @@ class PrincessWrapper {
    */
   def formula2Eldarica(t: IFormula,
                        symMap : Map[ConstantTerm, String],
-                       removeVersions: Boolean,
-                       theory: Option[Theory] = None): Expression = {
+                       removeVersions: Boolean): Expression = {
     import Sort.:::
     import PrincessWrapper.sort2Type
     def rvT(t: ITerm): Expression = t match {
@@ -276,6 +285,17 @@ class PrincessWrapper {
         ADTctor(adt, f.name, e.map(rvT(_)))
       case IFunApp(f@ADT.Selector(adt, _, _), Seq(e)) =>
         ADTsel(adt, f.name, Seq(rvT(e)))
+
+      // Bit-vectors
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) => {
+        val ModuloArithmetic.UnsignedBVSort(bits) =
+          ModuloArithmetic.ModSort(lower, upper)
+        BVconst(bits, value.bigIntValue).stype(BVType(bits))
+      }
+      case IFunApp(ModuloArithmetic.bv_add,
+                   Seq(IIntLit(IdealInt(bits)), left, right)) =>
+        BinaryExpression(rvT(left), BVadd(bits), rvT(right)).stype(BVType(bits))
 
       case IConstant(cterm) ::: sort =>
         val pattern = """x(\d+)(\w+)""".r
@@ -339,6 +359,12 @@ class PrincessWrapper {
       case IQuantified(Quantifier.ALL, e) => lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
+
+      // Bit-vectors
+      case IAtom(ModuloArithmetic.bv_ult,
+                 Seq(IIntLit(IdealInt(bits)), left, right)) =>
+        BinaryExpression(rvT(left), BVult(bits), rvT(right)).stype(BooleanType())
+
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
         BoolConst(false)
