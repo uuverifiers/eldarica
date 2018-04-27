@@ -11,5 +11,5 @@ for mainClass in lazabs.horn.bottomup.MainArrays \
                  lazabs.horn.bottomup.MainBV2; do
     echo
     echo $mainClass
-    java $JAVA_OPTS $mainClass 2>&1 | grep -iv time | grep -v 'ms)' | sed -e 's/Map(.*$//g'
+    java $JAVA_OPTS $mainClass 2>&1 | grep -iv time | grep -v 'ms)' | grep -iv 'hasher' | sed -e 's/Map(.*$//g'
 done

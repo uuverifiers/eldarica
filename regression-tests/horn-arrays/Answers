@@ -260,9 +260,6 @@ Number of implication checks (setup):       2
 Number of implication checks (positive):    0
 Number of implication checks (negative):    0
 
-Number of models in hasher:                 4
-Number of hasher evals:                     8
-Hasher hits/misses:                         1/1 (50%)
 --------------------------------------------------------------------------------
 
 Left(
@@ -407,9 +404,6 @@ Number of implication checks (setup):       42
 Number of implication checks (positive):    68
 Number of implication checks (negative):    55
 
-Number of models in hasher:                 12
-Number of hasher evals:                     249
-Hasher hits/misses:                         115/75 (60%)
 --------------------------------------------------------------------------------
 
 Left(
@@ -440,9 +434,6 @@ Number of implication checks (setup):       16
 Number of implication checks (positive):    33
 Number of implication checks (negative):    16
 
-Number of models in hasher:                 8
-Number of hasher evals:                     161
-Hasher hits/misses:                         46/23 (66%)
 --------------------------------------------------------------------------------
 
 sat
