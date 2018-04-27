@@ -65,3 +65,11 @@ Init:
 Final:
  main5((-447365120).\as[signed bv[32]], 11.\as[signed bv[32]]) 
 ---------------------------------------------------------------
+
+../horn-hcc/loop1.hcc
+Warning: entry function "main" not found
+SAFE
+
+../horn-hcc/loop2.hcc
+Warning: entry function "main" not found
+SAFE

@@ -2,7 +2,9 @@
 
 LAZABS=../../eld
 
-TESTS="nonlinear2.hcc"
+TESTS="nonlinear2.hcc \
+       ../horn-hcc/loop1.hcc \
+       ../horn-hcc/loop2.hcc"
 
 for name in $TESTS; do
     echo
