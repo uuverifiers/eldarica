@@ -87,6 +87,22 @@ unsat
 10: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 1)) -> 11
 11: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 0))
 
+mccarthy91_bv8.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+sat
+
+mccarthy91_bv32.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+sat
+
+test0.correct.pierre_bv8.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+sat
+
+test0.correct.pierre_bv32.smt2
+Theories: ModuloArithmetic, GroebnerMultiplication
+sat
+
 ../horn-hcc/loop1.hcc
 Warning: entry function "main" not found
 SAFE

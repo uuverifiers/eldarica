@@ -197,16 +197,33 @@ class PrincessWrapper {
         adt.termSize(sortNum)(f2p(v).asInstanceOf[ITerm])
 
       // Bit-vectors
+
       case BVconst(bits, value) =>
         ModuloArithmetic.bv(bits, IdealInt(value.bigInteger))
-      case BinaryExpression(left, BVadd(_), right) =>
-        ModuloArithmetic.bvadd(f2p(left).asInstanceOf[ITerm],
-                               f2p(right).asInstanceOf[ITerm])
 
-      case BinaryExpression(left, BVult(_), right) =>
-        ModuloArithmetic.bvult(f2p(left).asInstanceOf[ITerm],
-                               f2p(right).asInstanceOf[ITerm])
+      case BinaryExpression(left, BVconcat(bits1, bits2), right) =>
+        ModuloArithmetic.bv_concat(bits1, bits2, f2pterm(left), f2pterm(right))
+      case UnaryExpression(BVextract(bits1, bits2, bits3), arg) =>
+        ModuloArithmetic.bv_extract(bits1, bits2, bits3, f2pterm(arg))
+
+      case UnaryExpression(BVnot(bits), arg) =>
+        ModuloArithmetic.bv_not(bits, f2pterm(arg))
+      case UnaryExpression(BVneg(bits), arg) =>
+        ModuloArithmetic.bv_neg(bits, f2pterm(arg))
+
+      case BinaryExpression(left, BVBinFun(fun, bits), right) =>
+        fun(bits, f2pterm(left), f2pterm(right))
+
+      case BinaryExpression(left, BVBinPred(pred, bits), right) =>
+        pred(bits, f2pterm(left), f2pterm(right))
        
+      case UnaryExpression(BV2Int(bits), arg) =>
+        ModuloArithmetic.cast2SignedBV(bits, f2pterm(arg))
+      case UnaryExpression(BV2Nat(bits), arg) =>
+        ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
+      case UnaryExpression(Int2BV(bits), arg) =>
+        ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
+
       case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
       case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
       case lazabs.ast.ASTree.BoolConst(v) => IBoolLit(v)
@@ -215,8 +232,43 @@ class PrincessWrapper {
         println("Error in conversion from Eldarica to Princess: " + ex)
         IBoolLit(false)
     }
+
+    def f2pterm(ex: Expression): ITerm = f2p(ex).asInstanceOf[ITerm]
+
     val res = ts.map(f2p)
     (res,symbolMap)
+  }
+
+  private object BVBinFun {
+    def unapply(op : BinaryOperator) : Option[(IFunction, Int)] = op match {
+      case BVand(bits) => Some((ModuloArithmetic.bv_and, bits))
+      case BVor(bits)  => Some((ModuloArithmetic.bv_or, bits))
+      case BVadd(bits) => Some((ModuloArithmetic.bv_add, bits))
+      case BVsub(bits) => Some((ModuloArithmetic.bv_sub, bits))
+      case BVmul(bits) => Some((ModuloArithmetic.bv_mul, bits))
+      case BVudiv(bits)=> Some((ModuloArithmetic.bv_udiv, bits))
+      case BVsdiv(bits)=> Some((ModuloArithmetic.bv_sdiv, bits))
+      case BVurem(bits)=> Some((ModuloArithmetic.bv_urem, bits))
+      case BVsrem(bits)=> Some((ModuloArithmetic.bv_srem, bits))
+      case BVsmod(bits)=> Some((ModuloArithmetic.bv_smod, bits))
+      case BVshl(bits) => Some((ModuloArithmetic.bv_shl, bits))
+      case BVlshr(bits)=> Some((ModuloArithmetic.bv_lshr, bits))
+      case BVashr(bits)=> Some((ModuloArithmetic.bv_ashr, bits))
+      case BVxor(bits) => Some((ModuloArithmetic.bv_xor, bits))
+      case BVxnor(bits)=> Some((ModuloArithmetic.bv_xnor, bits))
+      case _           => None
+    }
+  }
+  
+  private object BVBinPred {
+    def unapply(op : BinaryOperator)
+                 : Option[(IExpression.Predicate, Int)] = op match {
+      case BVult(bits) => Some((ModuloArithmetic.bv_ult, bits))
+      case BVule(bits) => Some((ModuloArithmetic.bv_ule, bits))
+      case BVslt(bits) => Some((ModuloArithmetic.bv_slt, bits))
+      case BVsle(bits) => Some((ModuloArithmetic.bv_sle, bits))
+      case _           => None
+    }
   }
   
   /**
@@ -287,15 +339,76 @@ class PrincessWrapper {
         ADTsel(adt, f.name, Seq(rvT(e)))
 
       // Bit-vectors
+
       case IFunApp(ModuloArithmetic.mod_cast,
-                   Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) => {
+                   Seq(IIntLit(IdealInt.ZERO),
+                       IIntLit(upper), IIntLit(value))) => {
         val ModuloArithmetic.UnsignedBVSort(bits) =
-          ModuloArithmetic.ModSort(lower, upper)
+          ModuloArithmetic.ModSort(IdealInt.ZERO, upper)
         BVconst(bits, value.bigIntValue).stype(BVType(bits))
       }
-      case IFunApp(ModuloArithmetic.bv_add,
-                   Seq(IIntLit(IdealInt(bits)), left, right)) =>
-        BinaryExpression(rvT(left), BVadd(bits), rvT(right)).stype(BVType(bits))
+
+      // A sequence encoding sign_extend
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
+                       IFunApp(ModuloArithmetic.mod_cast,
+                               Seq(IIntLit(lower2), IIntLit(upper2),
+                                   arg)))) => {
+        val ModuloArithmetic.UnsignedBVSort(bits1) =
+          ModuloArithmetic.ModSort(IdealInt.ZERO, upper)
+        val ModuloArithmetic.SignedBVSort(bits2) =
+          ModuloArithmetic.ModSort(lower2, upper2)
+        UnaryExpression(Int2BV(bits1),
+          UnaryExpression(BV2Int(bits2),
+                          rvT(arg)).stype(IntegerType())).stype(BVType(bits1))
+      }
+
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(IdealInt.ZERO), IIntLit(upper), arg)) => {
+        val ModuloArithmetic.UnsignedBVSort(bits) =
+          ModuloArithmetic.ModSort(IdealInt.ZERO, upper)
+        val argExpr = rvT(arg)
+        argExpr.stype match {
+          case IntegerType() =>
+            UnaryExpression(Int2BV(bits), argExpr).stype(BVType(bits))
+          case BVType(bits2) =>
+            UnaryExpression(Int2BV(bits),
+              UnaryExpression(BV2Nat(bits2),
+                              argExpr).stype(IntegerType())).stype(BVType(bits))
+          case t =>
+            throw new Exception("Unhandled type: " + t)
+        }
+      }
+
+      case IFunApp(fun, Seq(IIntLit(IdealInt(bits)), left, right))
+             if fun2BVBinOp contains fun => {
+        val (op, typ) = fun2BVBinOp(fun)(bits)
+        BinaryExpression(rvT(left), op, rvT(right)).stype(typ)
+      }
+
+      case IFunApp(ModuloArithmetic.bv_concat,
+                   Seq(IIntLit(IdealInt(bits1)), IIntLit(IdealInt(bits2)),
+                       left, right)) =>
+        BinaryExpression(rvT(left), BVconcat(bits1, bits2),
+                         rvT(right)).stype(BVType(bits1 + bits2))
+
+      case IFunApp(ModuloArithmetic.bv_extract,
+                   Seq(IIntLit(IdealInt(bits1)),
+                       IIntLit(IdealInt(bits2)),
+                       IIntLit(IdealInt(bits3)),
+                       arg)) =>
+        UnaryExpression(BVextract(bits1, bits2, bits3),
+                        rvT(arg)).stype(BVType(bits2))
+
+      case IFunApp(ModuloArithmetic.bv_not,
+                   Seq(IIntLit(IdealInt(bits)), arg)) =>
+        UnaryExpression(BVnot(bits), rvT(arg)).stype(BVType(bits))
+
+      case IFunApp(ModuloArithmetic.bv_neg,
+                   Seq(IIntLit(IdealInt(bits)), arg)) =>
+        UnaryExpression(BVneg(bits), rvT(arg)).stype(BVType(bits))
+
+      // Constants and variables
 
       case IConstant(cterm) ::: sort =>
         val pattern = """x(\d+)(\w+)""".r
@@ -361,9 +474,10 @@ class PrincessWrapper {
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
 
       // Bit-vectors
-      case IAtom(ModuloArithmetic.bv_ult,
-                 Seq(IIntLit(IdealInt(bits)), left, right)) =>
-        BinaryExpression(rvT(left), BVult(bits), rvT(right)).stype(BooleanType())
+      case IAtom(pred, Seq(IIntLit(IdealInt(bits)), left, right))
+             if pred2BVBinOp contains pred =>
+        BinaryExpression(rvT(left), pred2BVBinOp(pred)(bits),
+                         rvT(right)).stype(BooleanType())
 
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
@@ -371,7 +485,34 @@ class PrincessWrapper {
     }
     rvF(t)
   }
-    
+
+  private val fun2BVBinOp : Map[IFunction, Int => (BinaryOperator, Type)] =
+    Map(
+      ModuloArithmetic.bv_and -> ((bits:Int) => (BVand(bits), BVType(bits))),
+      ModuloArithmetic.bv_or  -> ((bits:Int) => (BVor(bits), BVType(bits))),
+      ModuloArithmetic.bv_add -> ((bits:Int) => (BVadd(bits), BVType(bits))),
+      ModuloArithmetic.bv_sub -> ((bits:Int) => (BVsub(bits), BVType(bits))),
+      ModuloArithmetic.bv_mul -> ((bits:Int) => (BVmul(bits), BVType(bits))),
+      ModuloArithmetic.bv_udiv-> ((bits:Int) => (BVudiv(bits), BVType(bits))),
+      ModuloArithmetic.bv_sdiv-> ((bits:Int) => (BVsdiv(bits), BVType(bits))),
+      ModuloArithmetic.bv_urem-> ((bits:Int) => (BVurem(bits), BVType(bits))),
+      ModuloArithmetic.bv_srem-> ((bits:Int) => (BVsrem(bits), BVType(bits))),
+      ModuloArithmetic.bv_smod-> ((bits:Int) => (BVsmod(bits), BVType(bits))),
+      ModuloArithmetic.bv_shl -> ((bits:Int) => (BVshl(bits), BVType(bits))),
+      ModuloArithmetic.bv_lshr-> ((bits:Int) => (BVlshr(bits), BVType(bits))),
+      ModuloArithmetic.bv_ashr-> ((bits:Int) => (BVashr(bits), BVType(bits))),
+      ModuloArithmetic.bv_xor -> ((bits:Int) => (BVxor(bits), BVType(bits))),
+      ModuloArithmetic.bv_xnor-> ((bits:Int) => (BVxnor(bits), BVType(bits)))
+    )
+
+  private val pred2BVBinOp : Map[IExpression.Predicate, Int => BinaryOperator] =
+    Map(
+      ModuloArithmetic.bv_ult -> ((bits:Int) => BVult(bits)),
+      ModuloArithmetic.bv_ule -> ((bits:Int) => BVule(bits)),
+      ModuloArithmetic.bv_slt -> ((bits:Int) => BVslt(bits)),
+      ModuloArithmetic.bv_sle -> ((bits:Int) => BVsle(bits))
+    )
+
   // PartNames used in interpolation queries
   private def partNameStream(num : Int) : Stream[PartName] =
     Stream.cons(new PartName("part" + num), partNameStream(num + 1))

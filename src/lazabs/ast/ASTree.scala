@@ -104,9 +104,46 @@ object ASTree {
                      v: Expression) extends Expression
   
   // Bit-vectors
+
   case class BVconst(bits: Int, num : BigInt) extends Expression
-  case class BVadd(bits : Int) extends BinaryOperator("bvadd")
-  case class BVult(bits : Int) extends BinaryOperator("bvult")
+
+  case class BVconcat(bits1 : Int, bits2 : Int)
+       extends BinaryOperator ("concat")
+
+  // extract the middle <code>bits2</code> from a bit-vector of length
+  // <code>bits1 + bits2 + bits3</code>
+  case class BVextract(bits1 : Int, bits2 : Int, bits3 : Int)
+       extends UnaryOperator ("concat")
+
+  case class BVnot(bits : Int) extends UnaryOperator ("bvnot")
+  case class BVneg(bits : Int) extends UnaryOperator ("bvneg")
+
+  case class BVand(bits : Int)   extends BinaryOperator("bvand")
+  case class BVor(bits : Int)    extends BinaryOperator("bvor")
+  case class BVadd(bits : Int)   extends BinaryOperator("bvadd")
+  case class BVsub(bits : Int)   extends BinaryOperator("bvsub")
+  case class BVmul(bits : Int)   extends BinaryOperator("bvmul")
+  case class BVudiv(bits : Int)  extends BinaryOperator("bvudiv")
+  case class BVsdiv(bits : Int)  extends BinaryOperator("bvsdiv")
+  case class BVurem(bits : Int)  extends BinaryOperator("bvurem")
+  case class BVsrem(bits : Int)  extends BinaryOperator("bvsrem")
+  case class BVsmod(bits : Int)  extends BinaryOperator("bvsmod")
+  case class BVshl(bits : Int)   extends BinaryOperator("bvshl")
+  case class BVlshr(bits : Int)  extends BinaryOperator("bvlshr")
+  case class BVashr(bits : Int)  extends BinaryOperator("bvashr")
+  case class BVxor(bits : Int)   extends BinaryOperator("bvxor")
+  case class BVxnor(bits : Int)  extends BinaryOperator("bvxnor")
+
+  case class BVult(bits : Int)   extends BinaryOperator("bvult")
+  case class BVule(bits : Int)   extends BinaryOperator("bvule")
+  case class BVslt(bits : Int)   extends BinaryOperator("bvslt")
+  case class BVsle(bits : Int)   extends BinaryOperator("bvsle")
+
+  case class BV2Int(bits : Int)  extends UnaryOperator ("bv2int")
+  case class BV2Nat(bits : Int)  extends UnaryOperator ("bv2nat")
+
+  case class Int2BV(bits : Int)  extends UnaryOperator ("int2bv")
+
 
   // Actor
   case class ReactBlock(cases: List[CaseClause]) extends ASTree
