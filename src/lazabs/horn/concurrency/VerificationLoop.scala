@@ -175,6 +175,7 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     println
     println("Using invariants " + (invariants mkString ", "))
+    println
 
     val encoder =  new ParametricEncoder (system, invariants)
 

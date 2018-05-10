@@ -984,47 +984,47 @@ class ParametricEncoder(system : ParametricEncoder.System,
   //////////////////////////////////////////////////////////////////////////////
 
 //  println(symmetryTransitions)
-  println("Symmetry clauses:                      " +
+  println("Symmetry clauses:                                      " +
           symmetryTransitions.size)
 
 //  println(initTransitions)
-  println("Init clauses:                          " +
+  println("Init clauses:                                          " +
           initTransitions.size)
 
 //  println(timeElapseTransitions)
-  println("Time elapse clauses:                   " +
+  println("Time elapse clauses:                                   " +
           timeElapseTransitions.size)
 
 //  println(assertionTransitions)
-  println("Assertion clauses:                     " +
+  println("Assertion clauses:                                     " +
           assertionTransitions.size)
 
 //  println(localTransitions)
-  println("Local transition clauses:              " +
+  println("Local transition clauses:                              " +
           localTransitions.size)
 
 //  println(nonInterferenceTransitions)
-  println("Local non-interference clauses:        " +
+  println("Local non-interference clauses:                        " +
           nonInterferenceTransitions.size)
 
 //  println(sendReceiveTransitions)
-  println("Send/receive clauses:                  " +
+  println("Send/receive clauses:                                  " +
           sendReceiveTransitions.size)
 
 //  println(sendNonInterTransitions)
-  println("Send non-interference clauses:         " +
+  println("Send non-interference clauses:                         " +
           sendNonInterTransitions.size)
 
 //  println(receiveNonInterTransitions)
-  println("Receive non-interference clauses:      " +
+  println("Receive non-interference clauses:                      " +
           receiveNonInterTransitions.size)
 
 //  println(sendReceiveNonInterTransitions)
-  println("Send/receive non-interference clauses: " +
+  println("Send/receive non-interference clauses:                 " +
           sendReceiveNonInterTransitions.size)
 
 //  println(barrierTransitions)
-  println("Barrier clauses:                       " +
+  println("Barrier clauses:                                       " +
           barrierTransitions.size)
 
   //////////////////////////////////////////////////////////////////////////////

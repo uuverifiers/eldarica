@@ -35,16 +35,16 @@ p1: p1_1_0 != 4 | select(p1_2_0, 4) + -1*select(p1_2_0, 3) >= 0
 ................
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           6
-Final number of abstract states:            5
-Final number of matched abstract states:    12
-Final number of abstract edges:             18
-Number of generated predicates:             11
-Number of implication checks:               221
+CEGAR iterations:                                      6
+Final number of abstract states:                       5
+Final number of matched abstract states:               12
+Final number of abstract edges:                        18
+Number of generated predicates:                        11
+Number of implication checks:                          221
 
-Number of implication checks (setup):       62
-Number of implication checks (positive):    42
-Number of implication checks (negative):    117
+Number of implication checks (setup):                  62
+Number of implication checks (positive):               42
+Number of implication checks (negative):               117
 --------------------------------------------------------------------------------
 
 
@@ -77,16 +77,16 @@ p2: p2_0_0 = 0 & select(p2_1_0, 0) = 0, p2_0_0 = 1 & select(p2_1_0, 0) = 0, sele
 .......
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           4
-Final number of abstract states:            5
-Final number of matched abstract states:    9
-Final number of abstract edges:             10
-Number of generated predicates:             12
-Number of implication checks:               116
+CEGAR iterations:                                      4
+Final number of abstract states:                       5
+Final number of matched abstract states:               9
+Final number of abstract edges:                        10
+Number of generated predicates:                        12
+Number of implication checks:                          116
 
-Number of implication checks (setup):       29
-Number of implication checks (positive):    20
-Number of implication checks (negative):    67
+Number of implication checks (setup):                  29
+Number of implication checks (positive):               20
+Number of implication checks (negative):               67
 --------------------------------------------------------------------------------
 
 
@@ -135,16 +135,16 @@ i1: left(i1_0_0) >= 2
 .
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           3
-Final number of abstract states:            2
-Final number of matched abstract states:    2
-Final number of abstract edges:             3
-Number of generated predicates:             3
-Number of implication checks:               15
+CEGAR iterations:                                      3
+Final number of abstract states:                       2
+Final number of matched abstract states:               2
+Final number of abstract edges:                        3
+Number of generated predicates:                        3
+Number of implication checks:                          15
 
-Number of implication checks (setup):       6
-Number of implication checks (positive):    6
-Number of implication checks (negative):    3
+Number of implication checks (setup):                  6
+Number of implication checks (positive):               6
+Number of implication checks (negative):               3
 --------------------------------------------------------------------------------
 
 Left(
@@ -211,16 +211,16 @@ C: head(C_2_0) = head(C_0_0)
 ...
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           5
-Final number of abstract states:            3
-Final number of matched abstract states:    4
-Final number of abstract edges:             6
-Number of generated predicates:             5
-Number of implication checks:               36
+CEGAR iterations:                                      5
+Final number of abstract states:                       3
+Final number of matched abstract states:               4
+Final number of abstract edges:                        6
+Number of generated predicates:                        5
+Number of implication checks:                          36
 
-Number of implication checks (setup):       17
-Number of implication checks (positive):    12
-Number of implication checks (negative):    7
+Number of implication checks (setup):                  17
+Number of implication checks (positive):               12
+Number of implication checks (negative):               7
 --------------------------------------------------------------------------------
 
 Left(
@@ -249,16 +249,16 @@ Starting CEGAR ...
 ..
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           0
-Final number of abstract states:            1
-Final number of matched abstract states:    1
-Final number of abstract edges:             2
-Number of generated predicates:             0
-Number of implication checks:               2
+CEGAR iterations:                                      0
+Final number of abstract states:                       1
+Final number of matched abstract states:               1
+Final number of abstract edges:                        2
+Number of generated predicates:                        0
+Number of implication checks:                          2
 
-Number of implication checks (setup):       2
-Number of implication checks (positive):    0
-Number of implication checks (negative):    0
+Number of implication checks (setup):                  2
+Number of implication checks (positive):               0
+Number of implication checks (negative):               0
 
 --------------------------------------------------------------------------------
 
@@ -393,16 +393,16 @@ i1: 54 >= i1_0_0
 .
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           7
-Final number of abstract states:            4
-Final number of matched abstract states:    13
-Final number of abstract edges:             15
-Number of generated predicates:             15
-Number of implication checks:               165
+CEGAR iterations:                                      7
+Final number of abstract states:                       4
+Final number of matched abstract states:               13
+Final number of abstract edges:                        15
+Number of generated predicates:                        15
+Number of implication checks:                          165
 
-Number of implication checks (setup):       42
-Number of implication checks (positive):    68
-Number of implication checks (negative):    55
+Number of implication checks (setup):                  42
+Number of implication checks (positive):               68
+Number of implication checks (negative):               55
 
 --------------------------------------------------------------------------------
 
@@ -423,16 +423,16 @@ Unique satisfiable clauses: 3
    2 clauses with 1 body literals
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           4
-Final number of abstract states:            1
-Final number of matched abstract states:    5
-Final number of abstract edges:             6
-Number of generated predicates:             8
-Number of implication checks:               65
+CEGAR iterations:                                      4
+Final number of abstract states:                       1
+Final number of matched abstract states:               5
+Final number of abstract edges:                        6
+Number of generated predicates:                        8
+Number of implication checks:                          65
 
-Number of implication checks (setup):       16
-Number of implication checks (positive):    33
-Number of implication checks (negative):    16
+Number of implication checks (setup):                  16
+Number of implication checks (positive):               33
+Number of implication checks (negative):               16
 
 --------------------------------------------------------------------------------
 

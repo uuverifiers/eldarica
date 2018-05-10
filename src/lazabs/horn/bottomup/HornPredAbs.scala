@@ -1183,30 +1183,30 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println
     println(
          "--------------------------------- Statistics -----------------------------------")
-    println("CEGAR iterations:                           " + iterationNum)
-    println("Total CEGAR time (ms):                      " + (endTime - startTime))
-    println("Setup time (ms):                            " + (endSetupTime - startTime))
-    println("Final number of abstract states:            " +
+    println("CEGAR iterations:                                      " + iterationNum)
+    println("Total CEGAR time (ms):                                 " + (endTime - startTime))
+    println("Setup time (ms):                                       " + (endSetupTime - startTime))
+    println("Final number of abstract states:                       " +
             (for ((_, s) <- maxAbstractStates.iterator) yield s.size).sum)
-    println("Final number of matched abstract states:    " +
+    println("Final number of matched abstract states:               " +
             (for ((_, s) <- activeAbstractStates.iterator) yield s.size).sum)
-    println("Final number of abstract edges:             " + abstractEdges.size)
-    println("Number of generated predicates:             " +
+    println("Final number of abstract edges:                        " + abstractEdges.size)
+    println("Number of generated predicates:                        " +
             (for ((_, s) <- predicates.iterator) yield s.size).sum)
-    println("Predicate generation time (ms):             " + predicateGeneratorTime)
-    println("Number of implication checks:               " + implicationChecks)
+    println("Predicate generation time (ms):                        " + predicateGeneratorTime)
+    println("Number of implication checks:                          " + implicationChecks)
     println
-    println("Number of implication checks (setup):       " + implicationChecksSetup)
-    println("Number of implication checks (positive):    " + implicationChecksPos)
-    println("Number of implication checks (negative):    " + implicationChecksNeg)
-    println("Time for implication checks (setup, ms):    " + implicationChecksSetupTime)
-    println("Time for implication checks (positive, ms): " + implicationChecksPosTime)
-    println("Time for implication checks (negative, ms): " + implicationChecksNegTime)
+    println("Number of implication checks (setup):                  " + implicationChecksSetup)
+    println("Number of implication checks (positive):               " + implicationChecksPos)
+    println("Number of implication checks (negative):               " + implicationChecksNeg)
+    println("Time for implication checks (setup, ms):               " + implicationChecksSetupTime)
+    println("Time for implication checks (positive, ms):            " + implicationChecksPosTime)
+    println("Time for implication checks (negative, ms):            " + implicationChecksNegTime)
 
     if (hasher.isActive) {
 //      println
-//      println("Number of state/clause matchings:           " + matchCount)
-//      println("Time for state/clause matchings (ms):       " + matchTime)
+//      println("Number of state/clause matchings:                      " + matchCount)
+//      println("Time for state/clause matchings (ms):                  " + matchTime)
       println
       hasher.printStatistics
 
@@ -1216,13 +1216,13 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           0
         else
           hasherChecksHit * 100 / hasherChecksNum
-      println("Hasher hits/misses:                         " +
+      println("Hasher hits/misses:                                    " +
               hasherChecksHit + "/" + hasherChecksMiss + " (" +
               hasherChecksRate + "%)")
     }
 
 /*    println
-    println("Number of subsumed abstract states: " +
+    println("Number of subsumed abstract states:            " +
             (for ((_, s) <- activeAbstractStates.iterator;
                   t <- s.iterator;
                   if (s exists { r => r != t && subsumes(r, t) })) yield t).size) */
@@ -1296,7 +1296,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                val order =
                  c.order extend consts.reverse
                val cWithConsts =
-                 VariableSubst(0, consts, order)(c)
+                 TypeTheory.filterTypeConstraints(
+                   VariableSubst(0, consts, order)(c))
                implicit val context =
                  new Theory.DefaultDecoderContext(cWithConsts)
                val internal =

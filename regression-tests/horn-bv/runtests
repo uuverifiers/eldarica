@@ -3,14 +3,21 @@
 LAZABS=../../eld
 
 TESTS="nonlinear2.hcc \
-       loop.smt2 \
+       ../horn-hcc/loop1.hcc \
+       ../horn-hcc/loop2.hcc"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
+done
+
+TESTS="loop.smt2 \
        loop2.smt2 \
        mccarthy91_bv8.smt2 \
        mccarthy91_bv32.smt2 \
        test0.correct.pierre_bv8.smt2 \
-       test0.correct.pierre_bv32.smt2 \
-       ../horn-hcc/loop1.hcc \
-       ../horn-hcc/loop2.hcc"
+       test0.correct.pierre_bv32.smt2"
 
 for name in $TESTS; do
     echo

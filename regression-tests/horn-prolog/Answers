@@ -228,16 +228,16 @@ Starting CEGAR ...
 ......
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                           0
-Final number of abstract states:            3
-Final number of matched abstract states:    3
-Final number of abstract edges:             6
-Number of generated predicates:             3
-Number of implication checks:               12
+CEGAR iterations:                                      0
+Final number of abstract states:                       3
+Final number of matched abstract states:               3
+Final number of abstract edges:                        6
+Number of generated predicates:                        3
+Number of implication checks:                          12
 
-Number of implication checks (setup):       6
-Number of implication checks (positive):    6
-Number of implication checks (negative):    0
+Number of implication checks (setup):                  6
+Number of implication checks (positive):               6
+Number of implication checks (negative):               0
 --------------------------------------------------------------------------------
 
 SOLVABLE

@@ -323,9 +323,9 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
   def isActive : Boolean = true
 
   def printStatistics : Unit = {
-    println("Number of models in hasher:                 " + modelNum)
-    println("Number of hasher evals:                     " + evalNum)
-    println("Time for hasher eval:                       " + evalTime)
+    println("Number of models in hasher:                            " + modelNum)
+    println("Number of hasher evals:                                " + evalNum)
+    println("Time for hasher eval:                                  " + evalTime)
   }
 
   //////////////////////////////////////////////////////////////////////////////
