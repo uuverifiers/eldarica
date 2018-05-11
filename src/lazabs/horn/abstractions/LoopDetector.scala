@@ -433,6 +433,9 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
 
               val (bodyArgNum, bodyArg, offset) =
                 offsetCandidates(headArgNum).head
+              offsetCandidates(headArgNum) =
+                offsetCandidates(headArgNum).tail
+                
 
               for (f <- nonOverflowFors)
                 !! (f)
@@ -441,19 +444,16 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
               scope {
                 ?? (headArg === bodyArg + offset)
                 checkWithTO match {
-                  case ProverStatus.Valid => {
-                    offsetCandidates(headArgNum) =
-                      offsetCandidates(headArgNum).tail
+                  case ProverStatus.Valid =>
                     res = (bodyArgNum, offset) :: res
-                  }
                   
-                  case _ =>
+                  case _ => {
                     // use the new model to rule out or correct
                     // offset candidates
                     for (i <- headArgNum until headArgs.size)
                       for (headVal <- evalPartial(headArgs(i)))
                         offsetCandidates(i) =
-                          for(
+                          for (
                             (bodyArgNum, bodyArg, offset) <-
                               offsetCandidates(i);
                             otherOffset = for (v <- evalPartial(bodyArg))
@@ -465,6 +465,26 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
                             nonOverflowFors = constraints ::: nonOverflowFors
                             (bodyArgNum, bodyArg, chosenOffset)
                           }
+
+                    import Sort.:::
+
+                    headArg match {
+                      case _ ::: (_ : ModuloArithmetic.ModSort) =>
+                        // check whether the current offset candidate has to be
+                        // put back into the queue, due to overflows
+                        for ((chosenOffset, constraints) <-
+                               equalUpToMod(offset,
+                                            Some(eval(headArg - bodyArg)),
+                                            headArg, bodyArg)) {
+                          nonOverflowFors = constraints ::: nonOverflowFors
+                          offsetCandidates(headArgNum) =
+                            (bodyArgNum, bodyArg, chosenOffset) ::
+                            offsetCandidates(headArgNum)
+                        }
+                      case _ =>
+                        // nothing
+                    }
+                  }
                 }
               }
             }
