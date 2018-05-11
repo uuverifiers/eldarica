@@ -55,6 +55,7 @@ object HornSMTPrinter {
   def type2String(t: Type) = t match {
     case AdtType(s) => s.name
     case BooleanType() => "Bool"
+    case BVType(n) => "(_ BitVec " + n + ")"
     case _ => "Int"
   }
   
@@ -87,9 +88,13 @@ object HornSMTPrinter {
 
     def printExp(e: Expression): String = e match {
       case Existential(v, qe) =>
-        "(exists " + printExp(qe) + ")"
+        // TODO: this is not going to work for nested quantifiers
+        "(exists ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        ")) " + printExp(qe) + ")"
       case Universal(v, qe) =>
-        "(forall " + printExp(qe) + ")"
+        // TODO: this is not going to work for nested quantifiers
+        "(forall ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        ")) " + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(and " + printExp(e1) + " " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
       case Equality(e1, e2) => "(= " + printExp(e1) + " " + printExp(e2) + ")"
