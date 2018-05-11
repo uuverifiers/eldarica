@@ -12,6 +12,10 @@ for name in $TESTS; do
     $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
 done
 
+echo
+echo MonadicInv.hcc
+$LAZABS -arithMode:ilp32 "$@" MonadicInv.hcc 2>&1
+
 TESTS="loop.smt2 \
        loop2.smt2 \
        mccarthy91_bv8.smt2 \

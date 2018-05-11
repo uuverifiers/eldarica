@@ -74,6 +74,9 @@ SAFE
 Warning: entry function "main" not found
 SAFE
 
+MonadicInv.hcc
+SAFE
+
 loop.smt2
 Theories: ModuloArithmetic, GroebnerMultiplication
 sat

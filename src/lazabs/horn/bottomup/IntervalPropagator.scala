@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,6 +45,7 @@ object IntervalPropagator {
 
   val EMPTY_INTERVAL = (Some(IdealInt.ONE), Some(IdealInt.ZERO))
   val WIDENING_THRESHOLD = 5
+  val INTERVAL_PROP_THRESHOLD = 20
 
   def isConsistent(ints : Seq[(Option[IdealInt], Option[IdealInt])]) =
     ints forall {
@@ -285,39 +286,47 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause],
   // Constraint propagation, to narrow the ranges of predicate arguments
 
   {
+    val clauseUpdateCount = Array.fill(clauses.size)(0)
+
     while (!clauseQueue.isEmpty) {
       lazabs.GlobalParameters.get.timeoutChecker()
 
       val clauseNum = clauseQueue.head
       clauseQueue -= clauseNum
 
-      val oldConstr = extendedConstraints(clauseNum)
-      if (!oldConstr.isFalse) {
-        val clause@NormClause(_, body, (headRS, _)) = clauses(clauseNum)
+      val oldUpdateCount = clauseUpdateCount(clauseNum)
 
-        implicit val order = elimOrders(clauseNum)
-        import TerForConvenience._
+      if (oldUpdateCount < INTERVAL_PROP_THRESHOLD) {
+        clauseUpdateCount(clauseNum) = oldUpdateCount + 1
 
-        val newConstraints =
-          for ((rs, occ) <- body.iterator;
-               c <- extractIntervals(rs, occ, order)) yield c
-  
-        if (newConstraints.hasNext) {
-          val newConstr = reduce(
-            conj((Iterator single oldConstr) ++ newConstraints))
-  
-          if (oldConstr != newConstr) {
-/*            println
-            println("old: " + oldConstr)
-            println("new: " + newConstr) */
-            if (lazabs.GlobalParameters.get.log)
-              print("-")
-  
-            extendedConstraints(clauseNum) = newConstr
-            rsBoundCache remove headRS
+        val oldConstr = extendedConstraints(clauseNum)
+        if (!oldConstr.isFalse) {
+          val clause@NormClause(_, body, (headRS, _)) = clauses(clauseNum)
 
-            modifiedClauses += clauseNum
-            clauseQueue ++= clausesWithBodyRS.getOrElse(headRS, List())
+          implicit val order = elimOrders(clauseNum)
+          import TerForConvenience._
+
+          val newConstraints =
+            for ((rs, occ) <- body.iterator;
+                 c <- extractIntervals(rs, occ, order)) yield c
+  
+          if (newConstraints.hasNext) {
+            val newConstr = reduce(
+              conj((Iterator single oldConstr) ++ newConstraints))
+  
+            if (oldConstr != newConstr) {
+/*              println
+              println("old: " + oldConstr)
+              println("new: " + newConstr) */
+              if (lazabs.GlobalParameters.get.log)
+                print("-")
+  
+              extendedConstraints(clauseNum) = newConstr
+              rsBoundCache remove headRS
+
+              modifiedClauses += clauseNum
+              clauseQueue ++= clausesWithBodyRS.getOrElse(headRS, List())
+            }
           }
         }
       }
