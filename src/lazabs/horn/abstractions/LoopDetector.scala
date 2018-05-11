@@ -37,6 +37,10 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.basetypes.IdealInt
+import ap.terfor.ConstantTerm
+import ap.types.Sort
+import ap.theories.ModuloArithmetic
+import ap.theories.nia.GroebnerMultiplication
 import ap.parser._
 import ap.util.LRUCache
 
@@ -422,26 +426,45 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
 
           Some((for ((headArg, headArgNum) <- headArgs.iterator.zipWithIndex) yield {
             var res = List[(Int, IdealInt)]()
+            var nonOverflowFors = List[IFormula]()
+            
             while (!offsetCandidates(headArgNum).isEmpty) {
               lazabs.GlobalParameters.get.timeoutChecker()
 
-              val (bodyArgNum, bodyArg, offset) = offsetCandidates(headArgNum).head
-              offsetCandidates(headArgNum) = offsetCandidates(headArgNum).tail
+              val (bodyArgNum, bodyArg, offset) =
+                offsetCandidates(headArgNum).head
+
+              for (f <- nonOverflowFors)
+                !! (f)
+              nonOverflowFors = List()
+
               scope {
                 ?? (headArg === bodyArg + offset)
                 checkWithTO match {
-                  case ProverStatus.Valid =>
+                  case ProverStatus.Valid => {
+                    offsetCandidates(headArgNum) =
+                      offsetCandidates(headArgNum).tail
                     res = (bodyArgNum, offset) :: res
+                  }
+                  
                   case _ =>
-                    // use the new model to rule out other offset candidates
+                    // use the new model to rule out or correct
+                    // offset candidates
                     for (i <- headArgNum until headArgs.size)
                       for (headVal <- evalPartial(headArgs(i)))
                         offsetCandidates(i) =
-                          for(t@(_, bodyArg, offset) <- offsetCandidates(i);
-                              if (evalPartial(bodyArg) match {
-                                    case Some(bodyVal) => headVal == bodyVal + offset
-                                    case None => true
-                                  })) yield t
+                          for(
+                            (bodyArgNum, bodyArg, offset) <-
+                              offsetCandidates(i);
+                            otherOffset = for (v <- evalPartial(bodyArg))
+                                          yield (headVal - v);
+                            (chosenOffset, constraints) <-
+                              equalUpToMod(offset, otherOffset,
+                                           headArg, bodyArg))
+                          yield {
+                            nonOverflowFors = constraints ::: nonOverflowFors
+                            (bodyArgNum, bodyArg, chosenOffset)
+                          }
                 }
               }
             }
@@ -451,7 +474,9 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
       }
     } catch {
       case SimpleAPI.NoModelException => {
-        Console.err.println("Warning: could not fully compute clause offsets, probably due to quantifiers")
+        Console.err.println(
+          "Warning: could not fully compute clause offsets, " +
+          "probably due to quantifiers")
         None
       }
     }}
@@ -495,6 +520,31 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
       bottom(headArgs.size)
     }
   }
+
+  private def equalUpToMod(offset : IdealInt, newOffset : Option[IdealInt],
+                           headArg : ITerm, bodyArg : ITerm)
+                        : Option[(IdealInt, List[IFormula])] =
+    newOffset match {
+      case None =>
+        Some((offset, List()))
+      case Some(`offset`) =>
+        Some((offset, List()))
+      case Some(newOffset) =>
+      (Sort sortOf headArg, Sort sortOf bodyArg) match {
+        case (sort1 : ModuloArithmetic.ModSort, sort2) if sort1 == sort2 =>
+          if (sort1.modulus divides (offset - newOffset)) {
+            import IExpression._
+            if ((offset compareAbs newOffset) < 0)
+              Some((offset, List(headArg =/= bodyArg + newOffset)))
+            else
+              Some((newOffset, List(headArg =/= bodyArg + offset)))
+          } else {
+            None
+          }
+        case _ =>
+          None
+      }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -738,21 +788,22 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
       }
 
 /*
-      val offsetDiffCosts =
-        (for ((l1, i1) <- argOffsets.iterator.zipWithIndex;
-              o1 <- l1.iterator;
-              if (!o1.isZero);
-              (l2, i2) <- argOffsets.iterator.zipWithIndex;
-              o2 <- l2.iterator;
-              if (!o2.isZero /* && !(o1.isUnit && o2.isUnit) */ && i1 < i2))
-         yield ((v(i1)*o2 - v(i2)*o1) -> 2)).toList */
+      val modCosts = 
+        (for ((offsets, k) <- argOffsets.iterator.zipWithIndex;
+              if (offsets match {
+                case List(o) => !o.isZero && !o.isUnit
+                case _ => false
+              }))
+        yield (GroebnerMultiplication.eMod(v(k), offsets.head.abs) -> 2)).toList
+*/
 
       Console.err.println("   " + loopHead +
               " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
-              (unmodArgsCosts.size + modArgsCosts.size + // diffCosts.size +
-               offsetDiffCosts.size /* + sumCosts.size */) + " templates)")
+              (unmodArgsCosts.size + modArgsCosts.size +
+               offsetDiffCosts.size /* + modCosts.size */) + " templates)")
 
-      val allCosts = unmodArgsCosts ++ modArgsCosts /* ++ diffCosts ++ sumCosts */ ++ offsetDiffCosts
+      val allCosts =
+        unmodArgsCosts ++ modArgsCosts ++ offsetDiffCosts // ++ modCosts
 
       (loopHead,
        (loopDetector bodyPredicates loopHead,
