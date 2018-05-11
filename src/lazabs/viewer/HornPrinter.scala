@@ -78,9 +78,9 @@ object HornPrinter {
 
     def printExp(e: Expression): String = e match {
       case Existential(v, qe) =>
-        "EX (" + printExp(qe) + ")"
+        "EX " + getAlphbeticChar(0) + " (" + printExp(qe) + ")"
       case Universal(v, qe) =>
-        "ALL (" + printExp(qe) + ")"
+        "ALL " + getAlphbeticChar(0) + " (" + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(" + printExp(e1) + ", " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
       case Equality(e1, e2) => "(" + printExp(e1) + " = " + printExp(e2) + ")"
