@@ -206,32 +206,32 @@ class CCReader private (prog : Program,
         case _                                    => Sort.Integer
       }
       case ArithmeticMode.ILP32 => typ match {
-        case CCInt      => ModuloArithmetic.SignedBVSort(32)
-        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
-        case CCLong     => ModuloArithmetic.SignedBVSort(32)
-        case CCULong    => ModuloArithmetic.UnsignedBVSort(32)
-        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
-        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCInt      => SignedBVSort  (32)
+        case CCUInt     => UnsignedBVSort(32)
+        case CCLong     => SignedBVSort  (32)
+        case CCULong    => UnsignedBVSort(32)
+        case CCLongLong => SignedBVSort  (64)
+        case CCULongLong=> UnsignedBVSort(64)
         case CCDuration => Sort.Nat
         case _          => Sort.Integer
       }
       case ArithmeticMode.LP64 => typ match {
-        case CCInt      => ModuloArithmetic.SignedBVSort(32)
-        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
-        case CCLong     => ModuloArithmetic.SignedBVSort(64)
-        case CCULong    => ModuloArithmetic.UnsignedBVSort(64)
-        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
-        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCInt      => SignedBVSort  (32)
+        case CCUInt     => UnsignedBVSort(32)
+        case CCLong     => SignedBVSort  (64)
+        case CCULong    => UnsignedBVSort(64)
+        case CCLongLong => SignedBVSort  (64)
+        case CCULongLong=> UnsignedBVSort(64)
         case CCDuration => Sort.Nat
         case _          => Sort.Integer
       }
       case ArithmeticMode.LLP64 => typ match {
-        case CCInt      => ModuloArithmetic.SignedBVSort(32)
-        case CCUInt     => ModuloArithmetic.UnsignedBVSort(32)
-        case CCLong     => ModuloArithmetic.SignedBVSort(32)
-        case CCULong    => ModuloArithmetic.UnsignedBVSort(32)
-        case CCLongLong => ModuloArithmetic.SignedBVSort(64)
-        case CCULongLong=> ModuloArithmetic.UnsignedBVSort(64)
+        case CCInt      => SignedBVSort  (32)
+        case CCUInt     => UnsignedBVSort(32)
+        case CCLong     => SignedBVSort  (32)
+        case CCULong    => UnsignedBVSort(32)
+        case CCLongLong => SignedBVSort  (64)
+        case CCULongLong=> UnsignedBVSort(64)
         case CCDuration => Sort.Nat
         case _          => Sort.Integer
       }
@@ -245,6 +245,11 @@ class CCReader private (prog : Program,
 
     def cast(t : ITerm) : ITerm = toSort match {
       case s : ModSort => cast2Sort(s, t)
+      case _ => t
+    }
+
+    def cast2Unsigned(t : ITerm) : ITerm = toSort match {
+      case SignedBVSort(n) => cast2UnsignedBV(n, t)
       case _ => t
     }
 
@@ -1174,11 +1179,21 @@ class CCReader private (prog : Program,
             lhs + rhs
           case _ : AssignSub =>
             lhs - rhs
-//          case _ : AssignLeft.   Assignment_op ::= "<<=" ;
-//          case _ : AssignRight.  Assignment_op ::= ">>=" ;
-//          case _ : AssignAnd.    Assignment_op ::= "&=" ;
-//          case _ : AssignXor.    Assignment_op ::= "^=" ;
-//          case _ : AssignOr.     Assignment_op ::= "|=" ;
+          case _ : AssignLeft =>
+            ModuloArithmetic.bvshl(lhsE.typ cast2Unsigned lhs,
+                                   lhsE.typ cast2Unsigned rhs)
+          case _ : AssignRight =>
+            ModuloArithmetic.bvashr(lhsE.typ cast2Unsigned lhs,
+                                    lhsE.typ cast2Unsigned rhs)
+          case _ : AssignAnd =>
+            ModuloArithmetic.bvand(lhsE.typ cast2Unsigned lhs,
+                                   lhsE.typ cast2Unsigned rhs)
+          case _ : AssignXor =>
+            ModuloArithmetic.bvxor(lhsE.typ cast2Unsigned lhs,
+                                   lhsE.typ cast2Unsigned rhs)
+          case _ : AssignOr =>
+            ModuloArithmetic.bvand(lhsE.typ cast2Unsigned lhs,
+                                   lhsE.typ cast2Unsigned rhs)
         }), lhsE.typ)
         pushVal(newVal)
         setValue(asLValue(exp.exp_1), newVal)
@@ -1249,9 +1264,12 @@ class CCReader private (prog : Program,
           outputClause(intermediatePred)
         }
       }
-//      case exp : Ebitor.      Exp6  ::= Exp6 "|" Exp7;
-//      case exp : Ebitexor.    Exp7  ::= Exp7 "^" Exp8;
-//      case exp : Ebitand.     Exp8  ::= Exp8 "&" Exp9;
+      case exp : Ebitor =>
+        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvor(_, _))
+      case exp : Ebitexor =>
+        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvxor(_, _))
+      case exp : Ebitand =>
+        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvand(_, _))
       case exp : Eeq =>
         strictBinPred(exp.exp_1, exp.exp_2, _ === _)
       case exp : Eneq =>
@@ -1264,8 +1282,10 @@ class CCReader private (prog : Program,
         strictBinPred(exp.exp_1, exp.exp_2, _ <= _)
       case exp : Ege =>
         strictBinPred(exp.exp_1, exp.exp_2, _ >= _)
-//      case exp : Eleft.       Exp11 ::= Exp11 "<<" Exp12;
-//      case exp : Eright.      Exp11 ::= Exp11 ">>" Exp12;
+      case exp : Eleft =>
+        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvshl(_, _))
+      case exp : Eright =>
+        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvashr(_, _))
       case exp : Eplus =>
         strictBinFun(exp.exp_1, exp.exp_2, _ + _)
       case exp : Eminus =>
@@ -1439,6 +1459,21 @@ class CCReader private (prog : Program,
                      // TODO: correct type promotion
                      val typ = promLhs.typ
                      CCTerm(typ cast op(promLhs.toTerm, promRhs.toTerm), typ)
+                   })
+    }
+
+    private def strictUnsignedBinFun(left : Exp, right : Exp,
+                                     op : (ITerm, ITerm) => ITerm) : Unit = {
+      strictBinOp(left, right,
+                  (lhs : CCExpr, rhs : CCExpr) => {
+                     val (promLhs, promRhs) = unifyTypes(lhs, rhs)
+                     // TODO: correct type promotion
+                     val typ = promLhs.typ
+                     println(typ cast2Unsigned promLhs.toTerm)
+                     println(typ cast2Unsigned promRhs.toTerm)
+                     CCTerm(typ cast op(typ cast2Unsigned promLhs.toTerm,
+                                        typ cast2Unsigned promRhs.toTerm),
+                            typ)
                    })
     }
 
