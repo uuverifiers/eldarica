@@ -398,11 +398,11 @@ Final number of abstract states:                       4
 Final number of matched abstract states:               13
 Final number of abstract edges:                        15
 Number of generated predicates:                        15
-Number of implication checks:                          164
+Number of implication checks:                          165
 
 Number of implication checks (setup):                  42
 Number of implication checks (positive):               68
-Number of implication checks (negative):               54
+Number of implication checks (negative):               55
 
 --------------------------------------------------------------------------------
 
