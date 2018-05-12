@@ -1165,7 +1165,7 @@ class CCReader private (prog : Program,
           throw new TranslationException("unsupported assignment to clock")
         val newVal = CCTerm(lhsE.typ cast (exp.assignment_op_ match {
           case _ : AssignMul =>
-            lhs * rhs
+            ap.theories.nia.GroebnerMultiplication.mult(lhs, rhs)
           case _ : AssignDiv =>
             ap.theories.nia.GroebnerMultiplication.tDiv(lhs, rhs)
           case _ : AssignMod =>
