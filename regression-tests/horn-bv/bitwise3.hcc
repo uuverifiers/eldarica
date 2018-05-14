@@ -1,0 +1,12 @@
+#include <assert.h>
+
+void main() {
+  int i;
+  int cnt = 0;
+  while (i > 0) {
+    if (i & 1)
+      ++cnt;
+    i >>= 1;
+  }
+  assert(cnt >= 0);
+}

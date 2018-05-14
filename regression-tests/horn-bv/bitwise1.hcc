@@ -1,0 +1,36 @@
+
+void f1() {
+  unsigned int x;
+  unsigned int y = x | 255;
+  assert(y >= 255);
+}
+
+void f2() {
+  int i;
+  for (i = 0; !(i & 4); ++i);
+  assert(i == 4);
+}
+
+void f4() {
+  unsigned int i;
+  assert((i % 0x00010000) == (i & 0x0000FFFF));
+}
+
+void f5() {
+  unsigned int i;
+  assert(i == (i & 0x0000FFFF) + (i & 0xFFFF0000));
+}
+
+void f6() {
+  int i;
+  for (i = 0; i < 16; ++i)
+    assert((i & 8) == (i / 8) * 8);
+}
+
+void main() {
+  f1();
+  f2();
+  f4();
+  f5();
+  f6();
+}

@@ -867,11 +867,9 @@ class CCReader private (prog : Program,
         CCTerm(t, CCClock)
       case t if (expr.typ == CCDuration) =>
         CCTerm(GT - t, CCClock)
-      case t => {
-        println(t)
+      case t =>
         throw new TranslationException(
           "clocks can only be set to or compared with integers")
-      }
     }
   }
 
@@ -1469,8 +1467,6 @@ class CCReader private (prog : Program,
                      val (promLhs, promRhs) = unifyTypes(lhs, rhs)
                      // TODO: correct type promotion
                      val typ = promLhs.typ
-                     println(typ cast2Unsigned promLhs.toTerm)
-                     println(typ cast2Unsigned promRhs.toTerm)
                      CCTerm(typ cast op(typ cast2Unsigned promLhs.toTerm,
                                         typ cast2Unsigned promRhs.toTerm),
                             typ)

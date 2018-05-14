@@ -74,7 +74,16 @@ SAFE
 Warning: entry function "main" not found
 SAFE
 
+bitwise1.hcc
+SAFE
+
+bitwise2.hcc
+SAFE
+
 MonadicInv.hcc
+SAFE
+
+bitwise3.hcc
 SAFE
 
 loop.smt2
