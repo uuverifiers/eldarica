@@ -1,9 +1,9 @@
 (set-logic HORN)
 
-(declare-fun R1 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) (Int)) Bool)
-(declare-fun R2 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) (Int)) Bool)
-(declare-fun R3 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) (Int)) Bool)
-(declare-fun R4 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) (Int)) Bool)
+(declare-fun R1 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) Int) Bool)
+(declare-fun R2 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) Int) Bool)
+(declare-fun R3 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) Int) Bool)
+(declare-fun R4 ((_ BitVec 32) (_ BitVec 32) (_ BitVec 32) Int) Bool)
 
 (assert (forall ((x (_ BitVec 32)) (y (_ BitVec 32)) (z (_ BitVec 32)) (c Int))
    (=> (= c 32) (R1 x y z c))))
