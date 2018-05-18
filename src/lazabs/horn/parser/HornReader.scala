@@ -333,7 +333,7 @@ class SMTHornReader protected[parser] (
               Parameter(c.name, PrincessWrapper.sort2Type(tSort))
             case t => {
               val newC = newConstantTerm("T" + symMap.size, tSort)
-              litsTodo = (t =/= newC) :: litsTodo
+              litsTodo = (newC =/= t) :: litsTodo
               Parameter(newC.name, PrincessWrapper.sort2Type(tSort))
             }
           }).toList

@@ -40,6 +40,7 @@ import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
+import lazabs.prover.PrincessWrapper
 import lazabs.prover.PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
@@ -523,11 +524,8 @@ class HornTranslator {
           // nothing
       }
 
-      Clause(headAtom,relVarAtoms, interpFormulas.size match {
-        case 0 => true
-        case 1 => interpFormulas.head.asInstanceOf[IFormula]
-        case _ => interpFormulas.reduceLeft((a,b) => a.asInstanceOf[IFormula] & b.asInstanceOf[IFormula]).asInstanceOf[IFormula]      
-      })
+      Clause(headAtom,relVarAtoms,
+             and(interpFormulas map (PrincessWrapper expr2Formula _)))
     }
   
 }

@@ -78,6 +78,22 @@ object PrincessWrapper {
   def simplify(e : Expression) : Expression =
     localWrapper.value.simplify(e)
 
+  def expr2Term(ex : IExpression) : ITerm = ex match {
+    case t : ITerm       => t
+    case IBoolLit(true)  => 0
+    case IBoolLit(false) => 1
+    case f : IFormula    => ite(f, 0, 1)
+  }
+
+  def expr2Formula(ex : IExpression) : IFormula = ex match {
+    case f : IFormula           => f
+    case IIntLit(IdealInt.ZERO) => true
+    case IIntLit(IdealInt.ONE)  => false
+    case ADT.BoolADT.True       => true
+    case ADT.BoolADT.False      => false
+    case t : ITerm              => eqZero(t)
+  }
+
   def type2Sort(t : Type) : Sort = t match {
     case IntegerType() => Sort.Integer
     case BooleanType() => Sort.MultipleValueBool
@@ -118,83 +134,102 @@ class PrincessWrapper {
 
     def f2p(ex: Expression): IExpression = ex match {
       case lazabs.ast.ASTree.ArraySelect(array, ind) =>
-        select(f2p(array).asInstanceOf[ITerm],
-               f2p(ind).asInstanceOf[ITerm])
+        select(f2pterm(array), f2pterm(ind))
       case ArrayUpdate(array, index, value) =>
-        store(f2p(array).asInstanceOf[ITerm],
-              f2p(index).asInstanceOf[ITerm],
-              f2p(value).asInstanceOf[ITerm])
-      case ScArray(None, None) => 0
-      case ScArray(Some(aName), _) => f2p(aName)
+        store(f2pterm(array), f2pterm(index), f2pterm(value))
+      case ScArray(None, None) =>
+        0
+      case ScArray(Some(aName), _) =>
+        f2p(aName)
       case ScArray(None, Some(len)) =>
         // let's just store the size of the array at index -1
         // is this needed at all anywhere?
-        store(0, -1, f2p(len).asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.SetUnion(e1, e2) => union(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.SetIntersect(e1, e2) => intersection(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])      
-      case lazabs.ast.ASTree.SetSubset(e1, e2) => subsetof(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.SetDifference(e1, e2) => difference(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.SetContains(e1, e2) => in(f2p(e2).asInstanceOf[ITerm], f2p(e1).asInstanceOf[ITerm])  // note that Eldarica has "contains" and princess has "in". They are reverse
-      case lazabs.ast.ASTree.SetSize(e1) => size(f2p(e1).asInstanceOf[ITerm])
-      case lazabs.ast.ASTree.SetConst(elems) => elems.map(x => singleton(f2p(x).asInstanceOf[ITerm])).foldLeft[ITerm](emptyset)((a,b) => union(a,b))
-      case lazabs.ast.ASTree.Universal(v: BinderVariable, qe: Expression) => IQuantified(Quantifier.ALL, f2p(qe).asInstanceOf[IFormula])
-      case lazabs.ast.ASTree.Existential(v: BinderVariable, qe: Expression) => IQuantified(Quantifier.EX, f2p(qe).asInstanceOf[IFormula])
-      case lazabs.ast.ASTree.Conjunction(e1, e2) => f2p(e1).asInstanceOf[IFormula] & f2p(e2).asInstanceOf[IFormula]
-      case lazabs.ast.ASTree.Disjunction(e1, e2) => f2p(e1).asInstanceOf[IFormula] | f2p(e2).asInstanceOf[IFormula]
-      case lazabs.ast.ASTree.LessThan(e1, e2) => f2p(e1).asInstanceOf[ITerm] < f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.LessThanEqual(e1, e2) => f2p(e1).asInstanceOf[ITerm] <= f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.GreaterThan(e1, e2) => f2p(e1).asInstanceOf[ITerm] > f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.GreaterThanEqual(e1, e2) => f2p(e1).asInstanceOf[ITerm] >= f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.Addition(e1,e2) if (e1.stype == SetType(IntegerType()) && e2.stype == IntegerType()) =>
-        union(f2p(e1).asInstanceOf[ITerm], singleton(f2p(e2).asInstanceOf[ITerm]))
-      case lazabs.ast.ASTree.Addition(e1,e2) => f2p(e1).asInstanceOf[ITerm] + f2p(e2).asInstanceOf[ITerm]
-      case lazabs.ast.ASTree.Minus(e) => -f2p(e).asInstanceOf[ITerm]    
-      case lazabs.ast.ASTree.Subtraction(e1,e2) => f2p(e1).asInstanceOf[ITerm] - f2p(e2).asInstanceOf[ITerm]
+        store(0, -1, f2pterm(len))
+      case lazabs.ast.ASTree.SetUnion(e1, e2) =>
+        union(f2pterm(e1), f2pterm(e2))
+      case lazabs.ast.ASTree.SetIntersect(e1, e2) =>
+        intersection(f2pterm(e1), f2pterm(e2))      
+      case lazabs.ast.ASTree.SetSubset(e1, e2) =>
+        subsetof(f2pterm(e1), f2pterm(e2))
+      case lazabs.ast.ASTree.SetDifference(e1, e2) =>
+        difference(f2pterm(e1), f2pterm(e2))
+      case lazabs.ast.ASTree.SetContains(e1, e2) =>
+        in(f2pterm(e2), f2pterm(e1))  // note that Eldarica has "contains" and princess has "in". They are reverse
+      case lazabs.ast.ASTree.SetSize(e1) =>
+        size(f2pterm(e1))
+      case lazabs.ast.ASTree.SetConst(elems) =>
+        elems.map(x =>
+        singleton(f2pterm(x))).foldLeft[ITerm](emptyset)((a,b) => union(a,b))
+      case lazabs.ast.ASTree.Universal(v: BinderVariable, qe: Expression) =>
+        IQuantified(Quantifier.ALL, f2pformula(qe))
+      case lazabs.ast.ASTree.Existential(v: BinderVariable, qe: Expression) =>
+        IQuantified(Quantifier.EX, f2pformula(qe))
+      case lazabs.ast.ASTree.Conjunction(e1, e2) =>
+        f2pformula(e1) & f2pformula(e2)
+      case lazabs.ast.ASTree.Disjunction(e1, e2) =>
+        f2pformula(e1) | f2pformula(e2)
+      case lazabs.ast.ASTree.LessThan(e1, e2) =>
+        f2pterm(e1) < f2pterm(e2)
+      case lazabs.ast.ASTree.LessThanEqual(e1, e2) =>
+        f2pterm(e1) <= f2pterm(e2)
+      case lazabs.ast.ASTree.GreaterThan(e1, e2) =>
+        f2pterm(e1) > f2pterm(e2)
+      case lazabs.ast.ASTree.GreaterThanEqual(e1, e2) =>
+        f2pterm(e1) >= f2pterm(e2)
+      case lazabs.ast.ASTree.Addition(e1,e2)
+        if (e1.stype == SetType(IntegerType()) && e2.stype == IntegerType()) =>
+        union(f2pterm(e1), singleton(f2pterm(e2)))
+      case lazabs.ast.ASTree.Addition(e1,e2) =>
+        f2pterm(e1) + f2pterm(e2)
+      case lazabs.ast.ASTree.Minus(e) =>
+        -f2pterm(e)    
+      case lazabs.ast.ASTree.Subtraction(e1,e2) =>
+        f2pterm(e1) - f2pterm(e2)
       case lazabs.ast.ASTree.Multiplication(e1,e2) =>
-        GroebnerMultiplication.mult(f2p(e1).asInstanceOf[ITerm],
-                                    f2p(e2).asInstanceOf[ITerm])
+        GroebnerMultiplication.mult(f2pterm(e1), f2pterm(e2))
       case Division(e1,e2) =>
-        div(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
+        div(f2pterm(e1), f2pterm(e2))
       case Modulo(e1,e2) =>
-        mod(f2p(e1).asInstanceOf[ITerm], f2p(e2).asInstanceOf[ITerm])
+        mod(f2pterm(e1), f2pterm(e2))
 
-      case lazabs.ast.ASTree.Not(e) => !f2p(e).asInstanceOf[IFormula]
-      case lazabs.ast.ASTree.Inequality(e1, e2) => f2p(lazabs.ast.ASTree.Not(lazabs.ast.ASTree.Equality(e1, e2)))
+      case lazabs.ast.ASTree.Not(e) =>
+        !f2pformula(e)
+      case lazabs.ast.ASTree.Inequality(e1, e2) =>
+        f2p(lazabs.ast.ASTree.Not(lazabs.ast.ASTree.Equality(e1, e2)))
       case lazabs.ast.ASTree.Equality(e1, lazabs.ast.ASTree.ScSet(None)) =>
-        size(f2p(e1).asInstanceOf[ITerm]) === 0
+        size(f2pterm(e1)) === 0
       case lazabs.ast.ASTree.Equality(lazabs.ast.ASTree.ScSet(None), e1) =>
-        isEmpty(f2p(e1).asInstanceOf[ITerm])
+        isEmpty(f2pterm(e1))
       case lazabs.ast.ASTree.Equality(e1, e2) =>
-        val lhs = f2p(e1)
-        val rhs = f2p(e2)
-        //println("LHS :: \n" + e1 + " and the type: " + e1.stype)
-        //println("RHS :: \n" + e2 + " and the type: " + e2.stype)
-        if (lhs.isInstanceOf[IFormula])
-          (lhs.asInstanceOf[IFormula] <=> rhs.asInstanceOf[IFormula])
-        else if (e1.stype.isInstanceOf[SetType] && e2.stype.isInstanceOf[SetType])
-          setEqual(lhs.asInstanceOf[ITerm], rhs.asInstanceOf[ITerm])
-        else
-          (lhs.asInstanceOf[ITerm] === rhs.asInstanceOf[ITerm])
-      case s@lazabs.ast.ASTree.Variable(vname,None) => symbolMap.getOrElseUpdate(vname, {
-        PrincessWrapper.type2Sort(s.stype) newConstant vname
-      })
+        e1.stype match {
+          case BooleanType() =>
+            f2pformula(e1) <=> f2pformula(e2)
+          case SetType(_) =>        
+            setEqual(f2pterm(e1), f2pterm(e2))
+          case _ =>
+            f2pterm(e1) === f2pterm(e2)
+        }
+      case s@lazabs.ast.ASTree.Variable(vname,None) =>
+        symbolMap.getOrElseUpdate(vname, {
+          PrincessWrapper.type2Sort(s.stype) newConstant vname
+        })
 
       // ADT conversion to Princess
       case lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
         val Some(ctor) = adt.constructors.find(_.name == ctorName)
-        val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
+        val termArgs = exprList.map(f2pterm(_))
         ctor(termArgs : _*)
       }
       case lazabs.ast.ASTree.ADTsel(adt, selName, exprList) => {
         val Some(sel) = adt.selectors.flatten.find(_.name == selName)
-        val termArgs = exprList.map(f2p(_).asInstanceOf[ITerm])
+        val termArgs = exprList.map(f2pterm(_))
         sel(termArgs : _*)
       }
       case e1@lazabs.ast.ASTree.ADTtest(adt, sortNum, v) =>
         println("this is test: " + e1)
         IBoolLit(false)
       case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
-        adt.termSize(sortNum)(f2p(v).asInstanceOf[ITerm])
+        adt.termSize(sortNum)(f2pterm(v))
 
       // Bit-vectors
 
@@ -233,7 +268,11 @@ class PrincessWrapper {
         IBoolLit(false)
     }
 
-    def f2pterm(ex: Expression): ITerm = f2p(ex).asInstanceOf[ITerm]
+    import PrincessWrapper.{expr2Formula, expr2Term}
+
+    def f2pterm(ex: Expression): ITerm = expr2Term(f2p(ex))
+
+    def f2pformula(ex: Expression): IFormula = expr2Formula(f2p(ex))
 
     val res = ts.map(f2p)
     (res,symbolMap)
@@ -428,6 +467,9 @@ class PrincessWrapper {
     
     val Var0Extractor = SymbolSum(IVariable(0))
     def rvF(t: IFormula): Expression = t match {
+
+      // Set constraints (not used currently)
+
       case IIntFormula(IIntRelation.EqZero, IPlus(IFunApp(`difference`, Seq(left, right)), ITimes(IdealInt.MINUS_ONE, `emptyset`))) =>
         lazabs.ast.ASTree.SetSubset(rvT(left).stype(SetType(IntegerType())),
           rvT(right).stype(SetType(IntegerType())))
@@ -441,29 +483,39 @@ class PrincessWrapper {
       //case IIntFormula(IIntRelation.EqZero, IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2))) =>
         //lazabs.ast.ASTree.Equality(rvT(e1).stype(SetType(IntegerType())),rvT(e2).stype(SetType(IntegerType())))
 
-      case IIntFormula(IIntRelation.EqZero, IPlus(IIntLit(value), e)) =>
-        lazabs.ast.ASTree.Equality(rvT(e), NumericalConst((-value).bigIntValue))
-      case IIntFormula(IIntRelation.EqZero, IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2))) =>
-        lazabs.ast.ASTree.Equality(rvT(e1),rvT(e2))
-      case IIntFormula(IIntRelation.EqZero, IPlus(ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2), e1)) =>
-        lazabs.ast.ASTree.Equality(rvT(e2),rvT(e1))
-//      case IIntFormula(IIntRelation.EqZero, IPlus(e1, e2)) =>
-//        lazabs.ast.ASTree.Equality(rvT(e1),lazabs.ast.ASTree.Minus(rvT(e2)))
-      case IIntFormula(IIntRelation.EqZero, e) => lazabs.ast.ASTree.Equality(rvT(e).stype(IntegerType()), NumericalConst(0))
-      case IIntFormula(IIntRelation.GeqZero, IPlus(IIntLit(value), ITimes(ap.basetypes.IdealInt.MINUS_ONE, e))) =>
-        lazabs.ast.ASTree.LessThanEqual(rvT(e).stype(IntegerType()), NumericalConst(value.bigIntValue))
-      case IIntFormula(IIntRelation.GeqZero, IPlus(IIntLit(value), e)) =>
-        lazabs.ast.ASTree.GreaterThanEqual(rvT(e).stype(IntegerType()), NumericalConst((-value).bigIntValue))
-      case IIntFormula(IIntRelation.GeqZero, IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2))) =>
-        lazabs.ast.ASTree.GreaterThanEqual(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
-      case IIntFormula(IIntRelation.GeqZero, IPlus(ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2), e1)) =>
-        lazabs.ast.ASTree.LessThanEqual(rvT(e2).stype(IntegerType()), rvT(e1).stype(IntegerType()))
-      case IIntFormula(IIntRelation.GeqZero, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e)) =>
-        lazabs.ast.ASTree.LessThanEqual(rvT(e).stype(IntegerType()), NumericalConst(0))
-      case IIntFormula(IIntRelation.GeqZero, e) => lazabs.ast.ASTree.GreaterThanEqual(rvT(e).stype(IntegerType()), NumericalConst(0))
+      // Equality constraints
 
-      case IBinFormula(IBinJunctor.And, e1, e2) => lazabs.ast.ASTree.Conjunction(rvF(e1).stype(BooleanType()), rvF(e2).stype(BooleanType()))
-      case IBinFormula(IBinJunctor.Or, e1, e2) => lazabs.ast.ASTree.Disjunction(rvF(e1).stype(BooleanType()), rvF(e2).stype(BooleanType()))
+      case EqZ(e ::: (Sort.Bool | Sort.MultipleValueBool)) =>
+        rvT(e).stype(BooleanType())
+
+      case EqLit(e ::: (Sort.Bool | Sort.MultipleValueBool),
+                 IdealInt.ZERO) =>
+        rvT(e).stype(BooleanType())
+      case EqLit(e ::: (Sort.Bool | Sort.MultipleValueBool),
+                 IdealInt.ONE) =>
+        lazabs.ast.ASTree.Not(rvT(e).stype(BooleanType()))
+
+      case Eq(e1, e2) =>
+        lazabs.ast.ASTree.Equality(rvT(e1), rvT(e2))
+
+      // Inequality constraints
+
+      case Geq(e1 : IIntLit, e2) =>
+        lazabs.ast.ASTree.LessThanEqual(rvT(e2).stype(IntegerType()),
+                                        rvT(e1).stype(IntegerType()))
+      case Geq(e1, e2) =>
+        lazabs.ast.ASTree.GreaterThanEqual(rvT(e1).stype(IntegerType()),
+                                           rvT(e2).stype(IntegerType()))
+
+      case IBinFormula(IBinJunctor.And, e1, e2) =>
+        lazabs.ast.ASTree.Conjunction(rvF(e1).stype(BooleanType()),
+                                      rvF(e2).stype(BooleanType()))
+      case IBinFormula(IBinJunctor.Or, e1, e2) =>
+        lazabs.ast.ASTree.Disjunction(rvF(e1).stype(BooleanType()),
+                                      rvF(e2).stype(BooleanType()))
+      case IBinFormula(IBinJunctor.Eqv, e1, e2) =>
+        lazabs.ast.ASTree.Iff(rvF(e1).stype(BooleanType()),
+                              rvF(e2).stype(BooleanType()))
       
       case IQuantified(Quantifier.EX,IIntFormula(IIntRelation.EqZero,Var0Extractor(varCoeff, remainder))) => // EX (varCoeff * _0 + remainder = 0)
        lazabs.ast.ASTree.Equality(lazabs.ast.ASTree.Modulo(reduceDeBruijn(rvT(remainder)).stype(IntegerType()),rvT(varCoeff).stype(IntegerType())),NumericalConst(0)).stype(BooleanType())

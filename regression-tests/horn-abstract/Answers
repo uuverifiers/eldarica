@@ -49,8 +49,8 @@ sat
 palindrome.nts.smt2
 sat
 (define-fun main_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F C) (= E B)) (= D A)))
-(define-fun main_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (<= F E) (>= F 0)))
-(define-fun main_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (<= F E) (>= F 0)) (or (= D 1) (and (>= (- (+ E (* (- 2) D)) F) (- 3)) (>= D 2)))))
+(define-fun main_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (>= E F) (>= F 0)))
+(define-fun main_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (>= E F) (>= F 0)) (or (= D 1) (and (>= (- (+ E (* (- 2) D)) F) (- 3)) (>= D 2)))))
 (define-fun main_qf () Bool true)
 (define-fun palindrome_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (and (>= (+ B (- (- G F) C)) 0) (>= B 0)) (>= C 0)) (>= F 0)) (>= G 0)))
 (define-fun palindrome_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (>= (- F G) 1) (>= (+ G (- (- B C) F)) 0)) (>= G 0)) (>= C 0)))

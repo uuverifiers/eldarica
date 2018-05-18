@@ -170,7 +170,7 @@ object HornSMTPrinter {
           if (boundVars.isEmpty) {
             "(assert" + "(=> " + body + " " + head + "))"
           } else {
-            "(assert (forall (" + boundVars + ")" +
+            "(assert (forall (" + boundVars + ") " +
             "(=> " + body + " " + head + ")))"
           }
       }

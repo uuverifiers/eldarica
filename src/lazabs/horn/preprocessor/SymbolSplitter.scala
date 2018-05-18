@@ -175,7 +175,14 @@ object SymbolSplitter extends HornPreprocessor {
 
                 val newSol =
                   and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
-                      yield (v(ind) === arg)) &&& simpSol
+                      yield arg match {
+                        // don't introduce a simple equation in case of
+                        // False, this would be too strong
+                        case Sort.MultipleValueBool.False =>
+                          (v(ind) =/= Sort.MultipleValueBool.True)
+                        case arg =>
+                          (v(ind) === arg)
+                      }) &&& simpSol
                 aggregatedFormulas.put(
                   oldPred,
                   aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)

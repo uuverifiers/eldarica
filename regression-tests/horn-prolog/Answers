@@ -20,7 +20,7 @@ SOLVABLE
 r1(A,B) :- (A = 0).
 r2(A,B) :- \+((A = 0)).
 r3(A,B,C) :- ((C = A), (A >= 2)).
-r4(A,B,C) :- ((C = A), ((B =< A), (A >= 2))).
+r4(A,B,C) :- ((C = A), ((A >= B), (A >= 2))).
 r5(A,B,C) :- ((C = A), (((B - A) >= 1), (A >= 2))).
 rf(A,B,C) :- ((((A + (C - B)) >= 4), (A >= 0)); ((A >= 0), (C >= 0))).
 
@@ -49,8 +49,8 @@ main_sf(A,B,C,D,E,F) :- true.
 palindrome.nts.horn
 SOLVABLE
 main_q0(A,B,C,D,E,F) :- (((F = C), (E = B)), (D = A)).
-main_q1(A,B,C,D,E,F) :- ((F =< E), (F >= 0)).
-main_q2(A,B,C,D,E,F) :- (((F =< E), (F >= 0)), ((D = 1); ((((E + (-2 * D)) - F) >= -3), (D >= 2)))).
+main_q1(A,B,C,D,E,F) :- ((E >= F), (F >= 0)).
+main_q2(A,B,C,D,E,F) :- (((E >= F), (F >= 0)), ((D = 1); ((((E + (-2 * D)) - F) >= -3), (D >= 2)))).
 main_qf :- true.
 palindrome_q0(A,B,C,D,E,F,G,H) :- ((((((B + ((G - F) - C)) >= 0), (B >= 0)), (C >= 0)), (F >= 0)), (G >= 0)).
 palindrome_q1(A,B,C,D,E,F,G,H) :- (((((F - G) >= 1), ((G + ((B - C) - F)) >= 0)), (G >= 0)), (C >= 0)).

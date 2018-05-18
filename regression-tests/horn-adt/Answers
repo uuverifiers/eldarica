@@ -7,7 +7,7 @@ sat
 
 bool.smt2
 sat
-(define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A true) (= B true)) (and (= A false) (= B false))))
+(define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A true) (= B true)) (and (not (= A true)) (not (= B true)))))
 
 bool-unsat.smt2
 unsat
@@ -19,7 +19,7 @@ unsat
 list-synasc.smt2
 Theories: ADT(Nil, Cons)
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (= B C) (and (= (_size A) 1) (= (* (- 1) (_size A)) (- 1)))) (and (= (+ (_size C) (- (* (- 1) (_size B)) (_size A))) (- 1)) (= (head C) (head A)))))
+(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (= B C) (and (= (_size A) 1) (= 1 (_size A)))) (and (= (+ (_size C) (- (* (- 1) (_size B)) (_size A))) (- 1)) (= (head C) (head A)))))
 
 list-synasc-unsat.smt2
 Theories: ADT(Nil, Cons)
