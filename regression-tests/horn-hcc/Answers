@@ -238,10 +238,10 @@ atomic2.hcc
 SAFE
 
 atomic3.hcc
-Exception in thread "main" lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
+(error "cycles in atomic blocks are not supported yet")
 
 atomic3b.hcc
-Exception in thread "main" lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
+(error "cycles in atomic blocks are not supported yet")
 
 atomic3c.hcc
 SAFE

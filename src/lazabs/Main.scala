@@ -154,12 +154,14 @@ object Main {
     import params._
     in = new FileInputStream(fileName)
   }
+/*
   def checkInputFile {
     val params = GlobalParameters.parameters.value
     import params._
     if (in == null)
       throw new MainException("Input file missing")
   }
+*/
   /*
   def getASTree = {
     val params = GlobalParameters.parameters.value
@@ -407,7 +409,7 @@ object Main {
           format = InputFormat.ConcurrentC
           concurrentC = true
         } else
-          throw new Exception ("could not figure out the input format")
+          throw new MainException ("could not figure out the input format")
     }
 
     format match {
@@ -452,7 +454,7 @@ object Main {
       } catch {
         case t@(TimeoutException | StoppedException) => {
           println("unknown")
-          throw t
+          return
         }
       }
       
@@ -567,7 +569,15 @@ object Main {
     //if(drawRTree) DrawGraph(rTree, absInFile)
 
   } catch {
-    case TimeoutException | StoppedException => // nothing
+    case TimeoutException | StoppedException =>
+      // nothing
+    case t : Throwable =>
+      printError(t.getMessage, GlobalParameters.get.format)
+  }
+
+  private def printError(message : String,
+                         format : GlobalParameters.InputFormat.Value) : Unit = {
+    println("(error \"" + message.replace("\"", "\"\"\"") + "\")")
   }
   
 }

@@ -5,7 +5,7 @@ SAFE
 
 atomic3f.hcc
 Warning: enabling time
-Exception in thread "main" lazabs.horn.concurrency.CCReader$TranslationException: cycles in atomic blocks are not supported yet
+(error "cycles in atomic blocks are not supported yet")
 
 clocks1.hcc
 Warning: enabling time
@@ -88,7 +88,7 @@ Final:
 --------------------------
 
 channels-3.hcc
-Exception in thread "main" lazabs.horn.concurrency.CCReader$TranslationException: Cannot execute Receive(d) and Send(c) in one step
+(error "Cannot execute Receive(d) and Send(c) in one step")
 
 duration1.hcc
 Warning: enabling time
