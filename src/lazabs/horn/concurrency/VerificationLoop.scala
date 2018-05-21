@@ -33,6 +33,7 @@ import ap.parser._
 import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
+import lazabs.{ParallelComputation, GlobalParameters}
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
                              HornWrapper}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
@@ -153,8 +154,7 @@ object VerificationLoop {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class VerificationLoop(system : ParametricEncoder.System,
-                       templateBasedInterpolation : Boolean = false) {
+class VerificationLoop(system : ParametricEncoder.System) {
 
   import VerificationLoop._
   import ParametricEncoder._
@@ -181,8 +181,8 @@ class VerificationLoop(system : ParametricEncoder.System,
 
     ////////////////////////////////////////////////////////////////////////////
 
-    if (lazabs.GlobalParameters.get.printIntermediateClauseSets) {
-      val basename = lazabs.GlobalParameters.get.fileName
+    if (GlobalParameters.get.printIntermediateClauseSets) {
+      val basename = GlobalParameters.get.fileName
       val suffix =
         (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
       val filename = basename + "-" + suffix + ".smt2"
@@ -219,53 +219,60 @@ class VerificationLoop(system : ParametricEncoder.System,
         preprocessor.process(encoder.allClauses, encoder.globalHints)
       }
 
-    val interpolator = if (templateBasedInterpolation)
-                             Console.withErr(Console.out) {
-      val builder =
-        new StaticAbstractionBuilder(
-          simpClauses,
-          lazabs.GlobalParameters.get.templateBasedInterpolationType)
-      val autoAbstractionMap =
-        builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
+    val params =
+      if (GlobalParameters.get.templateBasedInterpolationPortfolio)
+        GlobalParameters.get.withAndWOTemplates
+      else
+        List()
+
+    val predAbsResult = ParallelComputation(params) {
+      val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
+                               Console.withErr(Console.out) {
+        val builder =
+          new StaticAbstractionBuilder(
+            simpClauses,
+            GlobalParameters.get.templateBasedInterpolationType)
+        val autoAbstractionMap =
+          builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
         
-      val abstractionMap =
-        if (encoder.globalPredicateTemplates.isEmpty) {
-          autoAbstractionMap
-        } else {
-          val loopDetector = builder.loopDetector
+        val abstractionMap =
+          if (encoder.globalPredicateTemplates.isEmpty) {
+            autoAbstractionMap
+          } else {
+            val loopDetector = builder.loopDetector
 
-          print("Using interpolation templates provided in program: ")
+            print("Using interpolation templates provided in program: ")
 
-          val hintsAbstractionMap =
-            loopDetector hints2AbstractionRecord simpHints
+            val hintsAbstractionMap =
+              loopDetector hints2AbstractionRecord simpHints
 
-          println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
+            println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
-          TemplateInterpolator.AbstractionRecord.mergeMaps(
-            autoAbstractionMap, hintsAbstractionMap)
-        }
+            TemplateInterpolator.AbstractionRecord.mergeMaps(
+              autoAbstractionMap, hintsAbstractionMap)
+          }
 
-      TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-        abstractionMap,
-        lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-    } else {
-      DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+          abstractionMap,
+          GlobalParameters.get.templateBasedInterpolationTimeout)
+      } else {
+        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+      }
+
+      println
+      println(
+         "----------------------------------- CEGAR --------------------------------------")
+
+      new HornPredAbs(simpClauses,
+                      simpHints.toInitialPredicates,
+                      interpolator).result
     }
 
     ////////////////////////////////////////////////////////////////////////////
 
-    println
-    println(
-       "----------------------------------- CEGAR --------------------------------------")
-
-    val predAbs = /* Console.withOut(HornWrapper.NullStream) */ (
-      new HornPredAbs(simpClauses, // encoder.allClauses,
-                      simpHints.toInitialPredicates, // encoder.globalInitialPredicates,
-                      interpolator))
-
-    predAbs.result match {
+    predAbsResult match {
       case Right(rawCEX) => {
-        if (lazabs.GlobalParameters.get.log)
+        if (GlobalParameters.get.log)
           println("Not solvable")
 
         val cex = backTranslator translate rawCEX
@@ -548,7 +555,7 @@ class VerificationLoop(system : ParametricEncoder.System,
              }).toList
 
         
-          if (lazabs.GlobalParameters.get.log) {
+          if (GlobalParameters.get.log) {
             println
             prettyPrint(cexTrace)
             println
@@ -571,7 +578,7 @@ class VerificationLoop(system : ParametricEncoder.System,
               }
              }).toSet
 
-          if (lazabs.GlobalParameters.get.log) {
+          if (GlobalParameters.get.log) {
             println
             println("Raw counterexample:")
             (cex map (_._1)).prettyPrint
@@ -628,7 +635,7 @@ class VerificationLoop(system : ParametricEncoder.System,
       }
 
       case Left(rawSol) => {
-        if (lazabs.GlobalParameters.get.log) {
+        if (GlobalParameters.get.log) {
           println("Solution:")
           val solution = backTranslator translate rawSol
           for ((p, f) <- solution)

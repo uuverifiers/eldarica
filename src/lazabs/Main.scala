@@ -60,7 +60,7 @@ object GlobalParameters {
   def get : GlobalParameters = parameters.value
 }
 
-class GlobalParameters {
+class GlobalParameters extends Cloneable {
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -88,8 +88,10 @@ class GlobalParameters {
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
   var templateBasedInterpolation = true
-  var templateBasedInterpolationType : AbstractionType.Value = AbstractionType.RelationalEqs
+  var templateBasedInterpolationType : AbstractionType.Value =
+    AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
+  var templateBasedInterpolationPortfolio = false
   var cegarHintsFile : String = ""
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
@@ -138,6 +140,71 @@ class GlobalParameters {
       logCEX = true
     }
   }
+
+  override def clone : GlobalParameters = {
+    val res = new GlobalParameters
+
+    res.in = this.in
+    res.fileName = this.fileName
+    res.funcName = this.funcName
+    res.solFileName = this.solFileName
+    res.timeout = this.timeout
+    res.spuriousness = this.spuriousness
+    res.searchMethod = this.searchMethod
+    res.drawRTree = this.drawRTree
+    res.absInFile = this.absInFile
+    res.lbe = this.lbe
+    res.slicing = this.slicing
+    res.prettyPrint = this.prettyPrint
+    res.smtPrettyPrint = this.smtPrettyPrint
+    res.ntsPrint = this.ntsPrint
+    res.printIntermediateClauseSets = this.printIntermediateClauseSets
+    res.horn = this.horn
+    res.concurrentC = this.concurrentC
+    res.global = this.global
+    res.disjunctive = this.disjunctive
+    res.splitClauses = this.splitClauses
+    res.displaySolutionProlog = this.displaySolutionProlog
+    res.displaySolutionSMT = this.displaySolutionSMT
+    res.format = this.format
+    res.didIncompleteTransformation = this.didIncompleteTransformation
+    res.templateBasedInterpolation = this.templateBasedInterpolation
+    res.templateBasedInterpolationType = this.templateBasedInterpolationType
+    res.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
+    res.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    res.cegarHintsFile = this.cegarHintsFile
+    res.arithmeticMode = this.arithmeticMode
+    res.arrayRemoval = this.arrayRemoval
+    res.princess = this.princess
+    res.staticAccelerate = this.staticAccelerate
+    res.dynamicAccelerate = this.dynamicAccelerate
+    res.underApproximate = this.underApproximate
+    res.template = this.template
+    res.dumpInterpolationQuery = this.dumpInterpolationQuery
+    res.babarew = this.babarew
+    res.log = this.log
+    res.logCEX = this.logCEX
+    res.logStat = this.logStat
+    res.printHornSimplified = this.printHornSimplified
+    res.dotSpec = this.dotSpec
+    res.dotFile = this.dotFile
+    res.pngNo = this.pngNo
+    res.eogCEX = this.eogCEX
+    res.plainCEX = this.plainCEX
+    res.assertions = this.assertions
+    res.timeoutChecker = this.timeoutChecker
+
+    res    
+  }
+
+  def withAndWOTemplates : Seq[GlobalParameters] =
+    List({
+           val p = this.clone
+           p.templateBasedInterpolation = false
+           p
+         },
+         this.clone)
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -221,6 +288,7 @@ object Main {
 //      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
+      case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
@@ -336,6 +404,7 @@ object Main {
           " -abstract:t\tInterp. abstraction: off, manual, term, oct,\n" +
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
+          " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
           
           "\n" +
@@ -514,9 +583,7 @@ object Main {
 
       val result = try {
         Console.withOut(outStream) {
-          new lazabs.horn.concurrency.VerificationLoop(
-            smallSystem,
-            templateBasedInterpolation).result
+          new lazabs.horn.concurrency.VerificationLoop(smallSystem).result
         }
       } catch {
         case TimeoutException => {
@@ -571,13 +638,19 @@ object Main {
   } catch {
     case TimeoutException | StoppedException =>
       // nothing
+    case _ : java.lang.OutOfMemoryError =>
+      printError("out of memory", GlobalParameters.get.format)
+    case _ : java.lang.StackOverflowError =>
+      printError("stack overflow", GlobalParameters.get.format)
     case t : Throwable =>
       printError(t.getMessage, GlobalParameters.get.format)
   }
 
   private def printError(message : String,
-                         format : GlobalParameters.InputFormat.Value) : Unit = {
-    println("(error \"" + message.replace("\"", "\"\"\"") + "\")")
-  }
+                         format : GlobalParameters.InputFormat.Value) : Unit =
+    if (message == null)
+      println("error")
+    else
+      println("(error \"" + message.replace("\"", "\"\"\"") + "\")")
   
 }

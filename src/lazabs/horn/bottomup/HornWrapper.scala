@@ -36,18 +36,24 @@ import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
 
+import lazabs.GlobalParameters
+import lazabs.ParallelComputation
+import lazabs.Main.{TimeoutException, StoppedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
+import HornPreprocessor.{VerifHintElement, VerificationHints,
+                         EmptyVerificationHints, BackTranslator}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
 import lazabs.prover.PrincessWrapper
-import lazabs.prover.PrincessWrapper._
+import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
 import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  StaticAbstractionBuilder}
+import StaticAbstractionBuilder.AbstractionType
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
@@ -68,10 +74,6 @@ class HornWrapper(constraints: Seq[HornClause],
                   lbe: Boolean,
                   disjunctive : Boolean) {
 
-  import HornWrapper._
-  import HornPreprocessor.{VerifHintElement, VerificationHints,
-                           EmptyVerificationHints}
-
   def printClauses(cs : Seq[Clause]) = {
     for (c <- cs) {
       println(c);
@@ -86,12 +88,15 @@ class HornWrapper(constraints: Seq[HornClause],
   ap.util.Debug enableAllAssertions lazabs.Main.assertions
 
   private val outStream =
-     if (lazabs.GlobalParameters.get.logStat) Console.err else NullStream
+     if (GlobalParameters.get.logStat)
+       Console.err
+     else
+       HornWrapper.NullStream
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))
 
-//    if (lazabs.GlobalParameters.get.printHornSimplified)
+//    if (GlobalParameters.get.printHornSimplified)
 //      printMonolithic(unsimplifiedClauses)
 
   private val name2Pred =
@@ -102,7 +107,7 @@ class HornWrapper(constraints: Seq[HornClause],
   //////////////////////////////////////////////////////////////////////////////
 
   private val hints : VerificationHints =
-    lazabs.GlobalParameters.get.cegarHintsFile match {
+    GlobalParameters.get.cegarHintsFile match {
       case "" =>
         EmptyVerificationHints
       case hintsFile => {
@@ -142,7 +147,7 @@ class HornWrapper(constraints: Seq[HornClause],
         preprocessor.process(unsimplifiedClauses, hints)
       }
 
-    if (lazabs.GlobalParameters.get.printHornSimplified) {
+    if (GlobalParameters.get.printHornSimplified) {
 //      println("-------------------------------")
 //      printClauses(simplifiedClauses)
 //      println("-------------------------------")
@@ -163,7 +168,103 @@ class HornWrapper(constraints: Seq[HornClause],
     (simplifiedClauses, simpHints, backTranslator)
   }
 
+  val params =
+    if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
+      lazabs.GlobalParameters.get.withAndWOTemplates
+    else
+      List()
+
+  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] =
+    ParallelComputation(params) {
+      new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+                           simpHints, preprocBackTranslator,
+                           disjunctive, outStream).result
+    }
+
   //////////////////////////////////////////////////////////////////////////////
+
+  def printMonolithic(converted : Seq[Clause]) : Unit =
+      if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
+        Console.err.println("Clauses are linear; printing monolithic form")
+        
+        val preds =
+          (for (Clause(head, body, _) <- converted.iterator;
+                IAtom(p, _) <- (Iterator single head) ++ body.iterator)
+           yield p).toList.distinct
+
+        val predNum = preds.iterator.zipWithIndex.toMap
+        val maxArity = (preds map (_.arity)).max
+
+        val p = new Predicate("p", maxArity + 1)
+        val preArgs =  for (i <- 0 until (maxArity + 1))
+                       yield new ConstantTerm("pre" + i)
+        val postArgs = for (i <- 0 until (maxArity + 1))
+                       yield new ConstantTerm("post" + i)
+
+        val initClause = {
+          val constraint = 
+            or(for (Clause(IAtom(pred, args), List(), constraint) <-
+                      converted.iterator;
+                    if (pred != FALSE))
+               yield ((postArgs.head === predNum(pred)) &
+                      (args === postArgs.tail) &
+                      constraint))
+          Clause(IAtom(p, postArgs), List(), constraint)
+        }
+
+        if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
+                               case _ => false })
+          Console.err.println("WARNING: ignoring clauses without relation symbols")
+          
+        val transitionClause = {
+          val constraint = 
+            or(for (Clause(IAtom(predH, argsH),
+                           List(IAtom(predB, argsB)), constraint) <-
+                      converted.iterator;
+                    if (predH != FALSE))
+               yield ((postArgs.head === predNum(predH)) &
+                      (preArgs.head === predNum(predB)) &
+                      (argsH === postArgs.tail) &
+                      (argsB === preArgs.tail) &
+                      constraint))
+          Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
+        }
+
+        val assertionClause = {
+          val constraint = 
+            or(for (Clause(IAtom(FALSE, _),
+                           List(IAtom(predB, argsB)), constraint) <-
+                      converted.iterator)
+               yield ((preArgs.head === predNum(predB)) &
+                      (argsB === preArgs.tail) &
+                      constraint))
+          Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
+        }
+
+        val clauses =
+          List(initClause, transitionClause, assertionClause)
+
+        println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
+
+        System.exit(0)
+
+      } else {
+
+        Console.err.println("Clauses are not linear")
+        System.exit(0)
+
+      }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
+                       simplifiedClauses : Seq[Clause],
+                       simpHints : VerificationHints,
+                       preprocBackTranslator : BackTranslator,
+                       disjunctive : Boolean,
+                       outStream : java.io.OutputStream) {
 
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
@@ -243,7 +344,7 @@ class HornWrapper(constraints: Seq[HornClause],
           Left(fullSol)
         } else {
           // only keep relation symbols that were also part of the orginal problem
-          Left(res filterKeys predPool.values.toSet)
+          Left(res filterKeys allPredicates(unsimplifiedClauses))
         }
         
       case Right(cex) =>
@@ -282,80 +383,6 @@ class HornWrapper(constraints: Seq[HornClause],
         }
     }
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def printMonolithic(converted : Seq[Clause]) : Unit =
-      if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
-        Console.err.println("Clauses are linear; printing monolithic form")
-        
-        val preds =
-          (for (Clause(head, body, _) <- converted.iterator;
-                IAtom(p, _) <- (Iterator single head) ++ body.iterator)
-           yield p).toList.distinct
-
-        val predNum = preds.iterator.zipWithIndex.toMap
-        val maxArity = (preds map (_.arity)).max
-
-        val p = new Predicate("p", maxArity + 1)
-        val preArgs =  for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("pre" + i)
-        val postArgs = for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("post" + i)
-
-        val initClause = {
-          val constraint = 
-            or(for (Clause(IAtom(pred, args), List(), constraint) <-
-                      converted.iterator;
-                    if (pred != FALSE))
-               yield ((postArgs.head === predNum(pred)) &
-                      (args === postArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(), constraint)
-        }
-
-        if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
-                               case _ => false })
-          Console.err.println("WARNING: ignoring clauses without relation symbols")
-          
-        val transitionClause = {
-          val constraint = 
-            or(for (Clause(IAtom(predH, argsH),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator;
-                    if (predH != FALSE))
-               yield ((postArgs.head === predNum(predH)) &
-                      (preArgs.head === predNum(predB)) &
-                      (argsH === postArgs.tail) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val assertionClause = {
-          val constraint = 
-            or(for (Clause(IAtom(FALSE, _),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator)
-               yield ((preArgs.head === predNum(predB)) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val clauses =
-          List(initClause, transitionClause, assertionClause)
-
-        println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
-
-        System.exit(0)
-
-      } else {
-
-        Console.err.println("Clauses are not linear")
-        System.exit(0)
-
-      }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
