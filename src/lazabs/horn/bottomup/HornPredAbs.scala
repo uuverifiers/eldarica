@@ -1191,9 +1191,18 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Final number of matched abstract states:               " +
             (for ((_, s) <- activeAbstractStates.iterator) yield s.size).sum)
     println("Final number of abstract edges:                        " + abstractEdges.size)
-    println("Number of generated predicates:                        " +
-            (for ((_, s) <- predicates.iterator) yield s.size).sum)
+
+    val predNum =
+      (for ((_, s) <- predicates.iterator) yield s.size).sum
+    val totalPredSize =
+      (for ((_, s) <- predicates.iterator; p <- s.iterator)
+       yield TreeInterpolator.nodeCount(p.positive)).sum
+    val averagePredSize =
+      if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
+    println("Number of generated predicates:                        " + predNum)
+    println(f"Average predicate size (# of sub-formulas):            $averagePredSize%.2f")
     println("Predicate generation time (ms):                        " + predicateGeneratorTime)
+
     println("Number of implication checks:                          " + implicationChecks)
     println
     println("Number of implication checks (setup):                  " + implicationChecksSetup)

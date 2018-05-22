@@ -60,6 +60,14 @@ object TreeInterpolator {
   val interpolator = LinTreeInterpolator
 //  val interpolator = BSTreeInterpolator
 
+  def size(t : Tree[Conjunction]) =
+    (for (c <- t.iterator) yield nodeCount(c)).sum
+
+  def nodeCount(c : Conjunction) : Int =
+    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
+      case (n,d) => n + nodeCount(d)
+    }
+
   def treeInterpolate(oriProblem : Tree[Conjunction],
                       order : TermOrder,
                       fullCEX : Boolean,
@@ -74,6 +82,8 @@ object TreeInterpolator {
  * Generic implementation of tree interpolation.
  */
 abstract class TreeInterpolator {
+
+  import TreeInterpolator.size
 
     def treeInterpolate(oriProblem : Tree[Conjunction],
                         order : TermOrder,
@@ -181,14 +191,6 @@ abstract class TreeInterpolator {
 
     (newProblem2, symbolTranslation, witnesses)
   }
-
-  def size(t : Tree[Conjunction]) =
-    (for (c <- t.iterator) yield nodeCount(c)).sum
-
-  def nodeCount(c : Conjunction) : Int =
-    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
-      case (n,d) => n + nodeCount(d)
-    }
 
   def propagateSymbols(problem : Tree[Conjunction], order : TermOrder)
                       : (Tree[Conjunction],
