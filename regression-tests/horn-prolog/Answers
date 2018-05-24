@@ -233,6 +233,7 @@ Final number of abstract states:                       3
 Final number of matched abstract states:               3
 Final number of abstract edges:                        6
 Number of generated predicates:                        3
+Average predicate size (# of sub-formulas):            1.00
 Number of implication checks:                          12
 
 Number of implication checks (setup):                  6

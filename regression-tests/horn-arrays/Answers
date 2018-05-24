@@ -40,6 +40,7 @@ Final number of abstract states:                       5
 Final number of matched abstract states:               12
 Final number of abstract edges:                        18
 Number of generated predicates:                        11
+Average predicate size (# of sub-formulas):            1.64
 
 --------------------------------------------------------------------------------
 
@@ -78,6 +79,7 @@ Final number of abstract states:                       5
 Final number of matched abstract states:               9
 Final number of abstract edges:                        10
 Number of generated predicates:                        12
+Average predicate size (# of sub-formulas):            1.92
 
 --------------------------------------------------------------------------------
 
@@ -132,6 +134,7 @@ Final number of abstract states:                       2
 Final number of matched abstract states:               2
 Final number of abstract edges:                        3
 Number of generated predicates:                        3
+Average predicate size (# of sub-formulas):            2.00
 
 --------------------------------------------------------------------------------
 
@@ -204,6 +207,7 @@ Final number of abstract states:                       3
 Final number of matched abstract states:               4
 Final number of abstract edges:                        6
 Number of generated predicates:                        5
+Average predicate size (# of sub-formulas):            3.80
 
 --------------------------------------------------------------------------------
 
@@ -238,6 +242,7 @@ Final number of abstract states:                       1
 Final number of matched abstract states:               1
 Final number of abstract edges:                        2
 Number of generated predicates:                        0
+Average predicate size (# of sub-formulas):            0.00
 
 
 --------------------------------------------------------------------------------
@@ -378,6 +383,7 @@ Final number of abstract states:                       4
 Final number of matched abstract states:               13
 Final number of abstract edges:                        15
 Number of generated predicates:                        15
+Average predicate size (# of sub-formulas):            1.27
 
 
 --------------------------------------------------------------------------------
@@ -404,6 +410,7 @@ Final number of abstract states:                       1
 Final number of matched abstract states:               5
 Final number of abstract edges:                        6
 Number of generated predicates:                        8
+Average predicate size (# of sub-formulas):            1.25
 
 
 --------------------------------------------------------------------------------
