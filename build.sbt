@@ -4,7 +4,7 @@ lazy val commonSettings = Seq(
     organization := "uuverifiers",
     version := "2.0-alpha1",
     scalaVersion := "2.11.8",
-    crossScalaVersions := Seq("2.11.8", "2.12.4"),
+    crossScalaVersions := Seq("2.11.8", "2.12.6"),
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
 )
 
@@ -122,7 +122,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.8" => "-optimise"
-      case "2.12.4" => "-opt:_"
+      case "2.12.6" => "-opt:_"
     }}).value,	
 //
     libraryDependencies +=
@@ -138,6 +138,7 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
 //
     resolvers += "uuverifiers" at "http://logicrunch.research.it.uu.se/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    libraryDependencies += "uuverifiers" %% "princess" % "2018-05-25"
+//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 //
