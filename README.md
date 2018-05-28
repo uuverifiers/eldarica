@@ -30,10 +30,10 @@ Documentation
 -------------
 
 You can either download a binary release of Eldarica, or compile the Scala
-code yourself. For the latter, you need a recent Scala compiler, and set
-the environment variable <code>SCALA_HOME</code> to point to the directory of the Scala
-distribution. After that you can simply call <code>ant</code> to start
-the build.
+code yourself. Since Eldarica uses <code>sbt</code>, compilation is quite
+simple: you just need <code>sbt</code> installed on your machine,
+and then type <code>sbt assembly</code> to download the compiler, all
+required libraries, and produce a binary of Eldarica.
 
 After compilation (or downloading a binary release), calling Eldarica
 is normally as easy as saying
@@ -42,7 +42,7 @@ is normally as easy as saying
 
 When using a binary release, one can instead also call
 
-  <code>java -jar dist/lazabs.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
+  <code>java -jar target/scala-2.*/Eldarica-assembly*.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
 
 A set of examples is provided on http://logicrunch.it.uu.se:4096/~wv/eldarica, and included
 in the distributions directory <code>regression-tests</code>.
