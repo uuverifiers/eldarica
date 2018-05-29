@@ -42,7 +42,7 @@ is normally as easy as saying
 
 When using a binary release, one can instead also call
 
-  <code>java -jar target/scala-2.*/Eldarica-assembly*.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
+  <code>java -jar target/scala-2.\*/Eldarica-assembly\*.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
 
 A set of examples is provided on http://logicrunch.it.uu.se:4096/~wv/eldarica, and included
 in the distributions directory <code>regression-tests</code>.
