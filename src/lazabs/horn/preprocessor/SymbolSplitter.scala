@@ -253,9 +253,9 @@ object SymbolSplitter extends HornPreprocessor {
       oldConstSize = constValue.size
       for (f <- literals) f match {
         case Eq(IConstant(c), ConcreteTerm(t)) =>
-          constValue.getOrElseUpdate(c, t)
+          constValue.getOrElseUpdate(c, wrapBool(t, Sort sortOf c))
         case Eq(ConcreteTerm(t), IConstant(c)) =>
-          constValue.getOrElseUpdate(c, t)
+          constValue.getOrElseUpdate(c, wrapBool(t, Sort sortOf c))
 
         // special handling of Boolean values
         case INot(EqZ(IConstant(c) ::: BoolSort())) =>
@@ -263,7 +263,7 @@ object SymbolSplitter extends HornPreprocessor {
 
         case INot(Eq(IConstant(c) ::: BoolSort(),
                      IIntLit(IdealInt.ONE) | False)) =>
-          constValue.getOrElseUpdate(c, False)
+          constValue.getOrElseUpdate(c, True)
         case INot(Eq(IIntLit(IdealInt.ONE) | False,
                      IConstant(c) ::: BoolSort())) =>
           constValue.getOrElseUpdate(c, True)
@@ -273,18 +273,11 @@ object SymbolSplitter extends HornPreprocessor {
       }
     }
 
-    // make sure that Booleans are not represented using numbers
-    constValue transform {
-      case (c, IIntLit(IdealInt.ZERO)) if BoolSort.unapply(Sort sortOf c) =>
-        True
-      case (c, IIntLit(IdealInt.ONE)) if BoolSort.unapply(Sort sortOf c) =>
-        False
-      case (_, t) =>
-        t
-    }
-
-    for (IAtom(_, args) <- clause.allAtoms)
-    yield (for (a <- args) yield (ConcreteTerm unapply a))
+    for (IAtom(p, args) <- clause.allAtoms)
+    yield (for (p <- args zip predArgumentSorts(p)) yield p match {
+             case (ConcreteTerm(t), s) => Some(wrapBool(t, s))
+             case _                    => None
+           })
   }
 
   private object BoolSort {
@@ -293,6 +286,16 @@ object SymbolSplitter extends HornPreprocessor {
       case Sort.MultipleValueBool => true
       case _                      => false
     }
+  }
+
+  // make sure that Booleans are not represented using numbers
+  private def wrapBool(t : ITerm, s : Sort) : ITerm = t match {
+    case IIntLit(IdealInt.ZERO) if BoolSort.unapply(s) =>
+      Sort.MultipleValueBool.True
+    case IIntLit(IdealInt.ONE)  if BoolSort.unapply(s) =>
+      Sort.MultipleValueBool.False
+    case _ =>
+      t
   }
 
 }

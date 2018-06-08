@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
 
+import ap.theories.ModuloArithmetic
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -92,35 +93,35 @@ object DefinitionInliner extends HornPreprocessor {
         case Eq(IConstant(c), IConstant(d))
           if c == d =>
             false
-        case eq@Eq(left, right)
-          if Seqs.disjoint(SymbolCollector constants eq, replacedConsts) =>
+        case eq@Eq(left, right) => {
+          val leftConsts = SymbolCollector constants left
+          val rightConsts = SymbolCollector constants right
+          val eqConsts = leftConsts ++ rightConsts
+
+          if (Seqs.disjoint(eqConsts, replacedConsts)) {
             (left, right) match {
-              case (IConstant(c), _) if !(headSyms contains c) => {
-                replacement.put(c, right)
-                replacedConsts ++= SymbolCollector constants eq
+              case (IConstant(c), _) if !(rightConsts contains c) => {
+                if (headSyms contains c)
+                  conjunctsToKeep += eq
+                replacement.put(c, simpleEval(right))
+                replacedConsts ++= eqConsts
                 false
               }
-              case (_, IConstant(c)) if !(headSyms contains c) => {
-                replacement.put(c, left)
-                replacedConsts ++= SymbolCollector constants eq
-                false
-              }
-              case (IConstant(c), _) => {
-                conjunctsToKeep += eq
-                replacement.put(c, right)
-                replacedConsts ++= SymbolCollector constants eq
-                false
-              }
-              case (_, IConstant(c)) => {
-                conjunctsToKeep += eq
-                replacement.put(c, left)
-                replacedConsts ++= SymbolCollector constants eq
+              case (_, IConstant(c)) if !(leftConsts contains c) => {
+                if (headSyms contains c)
+                  conjunctsToKeep += eq
+                replacement.put(c, simpleEval(left))
+                replacedConsts ++= eqConsts
                 false
               }
               case _ =>
                 // then keep this conjunct
                 true
             }
+          } else {
+            true
+          }
+        }
         case _ => true
       }
 
@@ -157,6 +158,13 @@ object DefinitionInliner extends HornPreprocessor {
       Clause(head, body, and(conjuncts))
     else
       clause
+  }
+
+  private def simpleEval(t : ITerm) : ITerm = t match {
+    case IFunApp(ModuloArithmetic.mod_cast,
+                 Seq(IIntLit(lower), IIntLit(upper), IIntLit(value)))
+      if (lower <= value && value <= upper) => value
+     case t => t
   }
 
 }
