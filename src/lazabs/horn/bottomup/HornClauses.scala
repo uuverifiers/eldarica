@@ -31,7 +31,7 @@ package lazabs.horn.bottomup
 
 import ap.PresburgerTools
 import ap.parser._
-import ap.theories.{TheoryCollector, TheoryRegistry}
+import ap.theories.{Theory, TheoryCollector, TheoryRegistry}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.TermOrder
 import ap.Signature
@@ -70,6 +70,15 @@ object HornClauses {
       (for (IAtom(p, _) <- body.iterator) yield p).toSet
     lazy val predicates =
       (for (IAtom(p, _) <- (Iterator single head) ++ body.iterator) yield p).toSet
+
+    lazy val theories : Seq[Theory] = {
+      val coll = new TheoryCollector
+      coll(head)
+      for (a <- body)
+        coll(a)
+      coll(constraint)
+      coll.theories
+    }
 
     def hasUnsatConstraint : Boolean = constraint.isFalse
 

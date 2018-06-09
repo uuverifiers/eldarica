@@ -395,6 +395,7 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
       import p._
       scope {
         
+        addTheories(clause.theories)
         addConstantsRaw(clause.constants)
 
         !! (constraint)

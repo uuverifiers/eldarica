@@ -171,6 +171,23 @@ sat
 (define-fun inv_JayhornGlobalsClassVar_2 ((A Int) (B Int) (C Int)) Bool true)
 (define-fun inv_javavutilvRandom_4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool true)
 
+loopDetectorBug2.smt2
+Warning: ignoring exit
+Theories: GroebnerMultiplication
+sat
+(define-fun bot$unknown:2 ((A Int) (B Int)) Bool false)
+(define-fun f_1035$unknown:8 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (and (= B 0) (= C 0)) (= E 0)) (= F 0)) (>= A 0)))
+(define-fun f_1035$unknown:9 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int)) Bool (and (and (and (and (= C 0) (= D 0)) (= F 0)) (= G 0)) (and (>= A 1) (>= B 0))))
+(define-fun fail$unknown:10 ((A Int)) Bool false)
+(define-fun fail$unknown:11 ((A Int) (B Int)) Bool false)
+(define-fun g_1032$unknown:19 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (and (and (and (and (= B 0) (= C 0)) (= D 0)) (= E 0)) (= F 0)) (= G 0)) (= H 0)) (>= A 0)))
+(define-fun g_1032$unknown:20 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= G 0)) (= H 0)) (= I 0)) (and (>= A 1) (>= B 0))))
+(define-fun g_1032$unknown:23 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (exists ((A Int)) (and (not (= A 0)) (= G (* 0 A)))) (>= A 0)) (and (and (and (and (and (= 0 B) (= 0 C)) (= 0 D)) (= 0 E)) (= 0 G)) (= 0 H))))
+(define-fun g_1032$unknown:24 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= G 0)) (= H 0)) (= I 0)) (and (>= A 1) (>= B 0))))
+(define-fun succ_1030$unknown:27 ((A Int) (B Int) (C Int)) Bool (and (and (= C 0) (= B 0)) (>= A 0)))
+(define-fun succ_1030$unknown:28 ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (and (= D 0) (= C 0)) (= (- B A) (- 1))) (>= A 1)))
+(define-fun succ_without_checking_1117$unknown:32 ((A Int) (B Int) (C Int) (D Int)) Bool (= (- B A) (- 1)))
+
 palindrome_bv32.smt2
 Theories: ModuloArithmetic, GroebnerMultiplication
 sat
