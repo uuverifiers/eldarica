@@ -96,6 +96,7 @@ class GlobalParameters extends Cloneable {
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
+  var arrayQuantification : Option[Int] = Some(1)
   var princess = false
   var staticAccelerate = false
   var dynamicAccelerate = false
@@ -345,6 +346,14 @@ object Main {
       case "-n" :: rest => spuriousness = false; arguments(rest)
 //      case "-i" :: rest => interpolation = true; arguments(rest)
       case "-lbe" :: rest => lbe = true; arguments(rest)
+
+      case arrayQuans :: rest if (arrayQuans.startsWith("-arrayQuans:")) =>
+        if (arrayQuans == "-arrayQuans:off")
+          arrayQuantification = None
+        else
+          arrayQuantification = Some(arrayQuans.drop(12).toInt)
+        arguments(rest)
+
       case "-noSlicing" :: rest => slicing = false; arguments(rest)
       //case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
@@ -396,6 +405,7 @@ object Main {
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
+          " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
@@ -642,7 +652,7 @@ object Main {
       printError("out of memory", GlobalParameters.get.format)
     case _ : java.lang.StackOverflowError =>
       printError("stack overflow", GlobalParameters.get.format)
-    case t : Throwable =>
+    case t : Exception =>
       printError(t.getMessage, GlobalParameters.get.format)
   }
 

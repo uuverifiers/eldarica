@@ -95,10 +95,11 @@ object PrincessWrapper {
   }
 
   def type2Sort(t : Type) : Sort = t match {
-    case IntegerType() => Sort.Integer
-    case BooleanType() => Sort.MultipleValueBool
-    case AdtType(s) => s //??? sorts are in ADT.sorts
-    case BVType(n) => ModuloArithmetic.UnsignedBVSort(n)
+    case IntegerType()            => Sort.Integer
+    case BooleanType()            => Sort.MultipleValueBool
+    case AdtType(s)               => s //??? sorts are in ADT.sorts
+    case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
+    case ArrayType(IntegerType()) => SimpleArray.ArraySort(1)
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -112,6 +113,8 @@ object PrincessWrapper {
       AdtType(s) // ??? s.adtTheory is the ADT
     case ModuloArithmetic.UnsignedBVSort(n) =>
       BVType(n)
+    case SimpleArray.ArraySort(1) =>
+      ArrayType(IntegerType())
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -134,17 +137,20 @@ class PrincessWrapper {
 
     def f2p(ex: Expression): IExpression = ex match {
       case lazabs.ast.ASTree.ArraySelect(array, ind) =>
-        select(f2pterm(array), f2pterm(ind))
+        SimpleArray(1).select(f2pterm(array), f2pterm(ind))
       case ArrayUpdate(array, index, value) =>
-        store(f2pterm(array), f2pterm(index), f2pterm(value))
-      case ScArray(None, None) =>
+        SimpleArray(1).store(f2pterm(array), f2pterm(index), f2pterm(value))
+
+/*      case ScArray(None, None) =>
         0
       case ScArray(Some(aName), _) =>
         f2p(aName)
       case ScArray(None, Some(len)) =>
         // let's just store the size of the array at index -1
         // is this needed at all anywhere?
-        store(0, -1, f2pterm(len))
+        store(0, -1, f2pterm(len)) */
+
+      // Theory of sets (not really supported anymore ...)
       case lazabs.ast.ASTree.SetUnion(e1, e2) =>
         union(f2pterm(e1), f2pterm(e2))
       case lazabs.ast.ASTree.SetIntersect(e1, e2) =>
@@ -160,6 +166,7 @@ class PrincessWrapper {
       case lazabs.ast.ASTree.SetConst(elems) =>
         elems.map(x =>
         singleton(f2pterm(x))).foldLeft[ITerm](emptyset)((a,b) => union(a,b))
+        
       case lazabs.ast.ASTree.Universal(v: BinderVariable, qe: Expression) =>
         IQuantified(Quantifier.ALL, f2pformula(qe))
       case lazabs.ast.ASTree.Existential(v: BinderVariable, qe: Expression) =>
@@ -368,6 +375,17 @@ class PrincessWrapper {
         lazabs.ast.ASTree.BoolConst(true)
       case ADT.BoolADT.False =>
         lazabs.ast.ASTree.BoolConst(false)
+
+      // Unary arrays of integers
+      case IFunApp(SimpleArray.Select(), Seq(ar, ind)) =>
+        lazabs.ast.ASTree.ArraySelect(
+          rvT(ar),
+          rvT(ind).stype(IntegerType())).stype(IntegerType())
+      case IFunApp(SimpleArray.Store(), Seq(ar, ind, value)) =>
+        lazabs.ast.ASTree.ArrayUpdate(
+          rvT(ar),
+          rvT(ind).stype(IntegerType()),
+          rvT(value).stype(IntegerType())).stype(ArrayType(IntegerType()))
 
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>

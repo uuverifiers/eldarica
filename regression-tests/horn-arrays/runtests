@@ -13,3 +13,13 @@ for mainClass in lazabs.horn.bottomup.MainArrays \
     echo $mainClass
     java $JAVA_OPTS $mainClass 2>&1 | grep -iv time | grep -v 'ms)' | grep -v 'Number of implication checks' | grep -iv 'hasher' | sed -e 's/Map(.*$//g'
 done
+
+LAZABS=../../eld
+
+TESTS="array-elim.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -ssol -abstract:off "$@" $name 2>&1 | grep -v 'at '
+done

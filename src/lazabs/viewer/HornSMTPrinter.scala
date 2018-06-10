@@ -56,6 +56,7 @@ object HornSMTPrinter {
     case AdtType(s) => s.name
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
+    case ArrayType(IntegerType()) => "(Array Int Int)"
     case _ => "Int"
   }
   
@@ -114,6 +115,10 @@ object HornSMTPrinter {
         "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsize(adt, _, v) =>
         "(_size " + printExp(v) + ")"
+      case ArraySelect(ar, ind) =>
+        "(select " + printExp(ar) + " " + printExp(ind) + ")"
+      case ArrayUpdate(ar, ind, value) =>
+        "(store " + printExp(ar) + " " + printExp(ind) + " " + printExp(value) + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {

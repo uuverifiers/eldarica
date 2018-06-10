@@ -36,6 +36,7 @@ import lazabs.horn.global._
 import lazabs.prover.PrincessWrapper
 import lazabs.ast.ASTree._
 import lazabs.types.IntegerType
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
@@ -48,9 +49,11 @@ import ap.proof.goal.Goal
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.{TerForConvenience, TermOrder}
-import ap.types.{SortedPredicate, SortedIFunction, TypeTheory}
+import ap.types.{SortedPredicate, MonoSortedPredicate, SortedIFunction,
+                 TypeTheory}
 import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 
+import scala.collection.{Map => CMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, LinkedHashSet}
 
@@ -188,6 +191,35 @@ object HornReader {
                   arg : Context[Unit],
                   subres : Seq[Unit]) : Unit = ()
   }
+
+  /**
+   * Check whether a clause contains quantified literals in the body
+   */
+  object QuantifiedBodyPredsVisitor
+         extends ContextAwareVisitor[Unit, Unit] {
+    private object FoundPredUnderQuantifier extends Exception
+
+    def apply(f : IExpression) : Boolean =
+      try {
+        visitWithoutResult(f, Context(()))
+        false
+      } catch {
+        case FoundPredUnderQuantifier => true
+      }
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = t match {
+      case _ : IAtom
+        if ctxt.polarity < 0 && (ctxt.binders contains Context.EX)  =>
+          throw FoundPredUnderQuantifier
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+   
+    def postVisit(t : IExpression,
+                  arg : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -199,14 +231,15 @@ class SMTHornReader protected[parser] (
          p : SimpleAPI) {
 
   import IExpression._
-  import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor}
+  import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor,
+                     QuantifiedBodyPredsVisitor}
 
   private val reader = new java.io.BufferedReader (
                  new java.io.FileReader(new java.io.File (fileName)))
   private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
                    ParserSettings.DEFAULT, true)
 
-  private val (f, _, signature) =
+  private val (oriF, _, oriSignature) =
     (new SMTParser2InputAbsy(new Environment, settings, null) {
       protected override def
         incrementalityMessage(thing : String, warnOnly : Boolean) : String =
@@ -217,13 +250,86 @@ class SMTHornReader protected[parser] (
 
   reader.close
 
-  private val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
-  
-  private val unintPredicates = new LinkedHashSet[Predicate]
+  //////////////////////////////////////////////////////////////////////////////
+  // if necessary, introduce quantifiers for array arguments
 
-  for (p <- signature.order.orderedPredicates.toSeq.sortBy(_.name))
-    if (!(TheoryRegistry lookupSymbol p).isDefined)
-      unintPredicates += p
+  private val (f, unintPredicates, signature) = {
+    val oriUnintPredicates = new LinkedHashSet[Predicate]
+
+    for (p <- oriSignature.order.orderedPredicates.toSeq.sortBy(_.name))
+      if (!(TheoryRegistry lookupSymbol p).isDefined)
+        oriUnintPredicates += p
+
+    lazabs.GlobalParameters.get.arrayQuantification match {
+      case None =>
+        (oriF, oriUnintPredicates, oriSignature)
+        
+      case Some(quanNum) => {
+        val unintPredMapping = new MHashMap[Predicate, IFormula]
+        val newPreds = new ArrayBuffer[Predicate]
+
+        val unintPredicates = for (p <- oriUnintPredicates) yield {
+          val sorts = predArgumentSorts(p)
+          var quanCnt = 0
+          val newSorts =
+            (for (s <- sorts;
+                  r <- s match {
+                    case SimpleArray.ArraySort(1) => {
+                      // replace every array argument with 2*quanNum arguments
+                      quanCnt = quanCnt + quanNum
+                      for (_ <- 0 until quanNum*2) yield Sort.Integer
+                    }
+                    case SimpleArray.ArraySort(_) =>
+                      throw new Exception (
+                        "Only unary arrays over integers are supported")
+                    case s => List(s)
+                  })
+             yield r).toList
+
+          if (quanCnt == 0) {
+            p
+          } else {
+            lazabs.GlobalParameters.get.didIncompleteTransformation = true
+            
+            val newP = MonoSortedPredicate(p.name, newSorts)
+            newPreds += newP
+            
+            var quanInd = 0
+            val newPArgs =
+              (for ((s, n) <- sorts.iterator.zipWithIndex;
+                    t <- s match {
+                      case SimpleArray.ArraySort(1) =>
+                        for (k <- 0 until quanNum;
+                             qi = { quanInd = quanInd + 1; quanInd - 1 };
+                             t <- List(v(qi),
+                                       SimpleArray(1).select(
+                                         v(n + quanCnt), v(qi))))
+                        yield t
+                      case _ =>
+                        Iterator single v(n + quanCnt)
+                    })
+               yield t).toList
+
+            val quanAtom =
+              quan(for (_ <- 0 until quanCnt) yield Quantifier.ALL,
+                   IAtom(newP, newPArgs))
+
+            unintPredMapping.put(p, quanAtom)
+            newP
+          }
+        }
+
+        val newOrder = oriSignature.order extendPred newPreds
+
+        (UniformSubstVisitorX(oriF, unintPredMapping),
+         unintPredicates, oriSignature updateOrder newOrder)
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
 
   if (!signature.theories.isEmpty)
     Console.err.println("Theories: " + (signature.theories mkString ", "))
@@ -244,8 +350,8 @@ class SMTHornReader protected[parser] (
           case _ => false
         }))
       throw new Exception ("Uninterpreted functions are not supported")
-    
-    clause = signature.theories match {
+
+    signature.theories match {
       case theories if (theories forall {
                           case _ : ADT          => true
                           case _ : MulTheory    => true
@@ -253,16 +359,20 @@ class SMTHornReader protected[parser] (
                           case ModuloArithmetic => true
                           case _                => false
                         }) =>
-        EquivExpander(PartialEvaluator(clause))
-      case theories if ((theories exists {
-                           case _ : SimpleArray => true
-                           case _               => false
-                         }) &&
-                        (theories forall {
-                           case _ : SimpleArray => true
-                           case TypeTheory      => true
-                           case _               => false
-                         })) => {
+        // ok
+      case theories if (theories forall {
+                          case _ : SimpleArray => true
+                          case TypeTheory      => true
+                          case _               => false
+                        }) => {
+        // ok
+      }
+      case _ =>
+        throw new Exception ("Combination of theories is not supported")
+    }
+
+    clause =
+      if (QuantifiedBodyPredsVisitor(clause)) {
         // need full preprocessing, in particular to introduce triggers
         val (List(INamedPart(_, processedClause_aux)), _, _) =
           Preprocessing(clause,
@@ -272,10 +382,9 @@ class SMTHornReader protected[parser] (
                           PreprocessingSettings.DEFAULT,
                           Param.TriggerStrategyOptions.AllMaximal))
         processedClause_aux
+      } else {
+        EquivExpander(PartialEvaluator(clause))
       }
-      case _ =>
-        throw new Exception ("Combination of theories is not supported")
-    }
 
 //    println
 //    println(clause)
@@ -433,17 +542,15 @@ class SMTHornReader protected[parser] (
                 unintPredicates : LinkedHashSet[Predicate],
                 allTheories : Seq[Theory]) : Seq[IFormula] = {
 
-    val quanNum = QuantifierCountVisitor(clause)
+    val containsArraySymbol =
+      ContainsSymbol(clause, (e : IExpression) => e match {
+        case IFunApp(SimpleArray.Select() | SimpleArray.Store(), _) => true
+        case _ => false
+      })
 
-    val keptTheories = allTheories filter {
-      case _ : ADT                => true
-      case _ : MulTheory          => true
-      case ModuloArithmetic       => true
-      case _                      => false
-    }
-
-    if (allTheories.size == keptTheories.size &&
-        (quanNum == 0 || !PredUnderQuantifierVisitor(clause)))
+    if (!PredUnderQuantifierVisitor(clause) &&
+        !(containsArraySymbol &&
+          lazabs.GlobalParameters.get.arrayQuantification.isDefined))
       return List(clause)
 
     lazabs.GlobalParameters.get.didIncompleteTransformation = true
@@ -589,4 +696,33 @@ class SMTHornReader protected[parser] (
 
     resClauses
   }
+
+////////////////////////////////////////////////////////////////////////////////
+
+object UniformSubstVisitorX {
+  def apply(t : IFormula, subst : CMap[Predicate, IFormula]) : IFormula = {
+    val visitor = new UniformSubstVisitorX(subst)
+    visitor.visit(t.asInstanceOf[IExpression], ()).asInstanceOf[IFormula]
+  }
+}
+
+class UniformSubstVisitorX(subst : CMap[Predicate, IFormula])
+      extends CollectingVisitor[Unit, IExpression] {
+
+  def postVisit(t : IExpression,
+                arg : Unit,
+                subres : Seq[IExpression]) : IExpression = t match {
+    case a@IAtom(p, _) => (subst get p) match {
+      case Some(replacement) =>
+        VariableSubstVisitor(
+          replacement,
+          ((for (e <- subres) yield e.asInstanceOf[ITerm]).toList, 0))
+      case None =>
+        a update subres
+    }
+    case _ =>
+      t update subres
+  }
+}
+
 }

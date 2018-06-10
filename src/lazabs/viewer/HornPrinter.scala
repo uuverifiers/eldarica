@@ -88,6 +88,10 @@ object HornPrinter {
       case LessThanEqual(e1, e2) => "(" + printExp(e1) + " =< " + printExp(e2) + ")"
       case Modulo(e1, e2) => 
         "(" + printExp(e1) + " mod " + printExp(e2) + ")"
+      case ArraySelect(ar, ind) =>
+        "select(" + printExp(ar) + ", " + printExp(ind) + ")"
+      case ArrayUpdate(ar, ind, value) =>
+        "store(" + printExp(ar) + ", " + printExp(ind) + ", " + printExp(value) + ")"
       case BinaryExpression(e1, op, e2) => "(" + printExp(e1) + " " + op.st + " " + printExp(e2) + ")"
       case ADTctor(adt, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
