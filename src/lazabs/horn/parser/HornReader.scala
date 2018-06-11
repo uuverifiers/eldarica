@@ -321,7 +321,7 @@ class SMTHornReader protected[parser] (
 
         val newOrder = oriSignature.order extendPred newPreds
 
-        (UniformSubstVisitorX(oriF, unintPredMapping),
+        (UniformSubstVisitor(oriF, unintPredMapping),
          unintPredicates, oriSignature updateOrder newOrder)
       }
     }
@@ -544,7 +544,14 @@ class SMTHornReader protected[parser] (
 
     val containsArraySymbol =
       ContainsSymbol(clause, (e : IExpression) => e match {
-        case IFunApp(SimpleArray.Select() | SimpleArray.Store(), _) => true
+        case IFunApp(f, _) => (TheoryRegistry lookupSymbol f) match {
+          case Some(_ : SimpleArray) => true
+          case _ => false
+        }
+        case IAtom(p, _) => (TheoryRegistry lookupSymbol p) match {
+          case Some(_ : SimpleArray) => true
+          case _ => false
+        }
         case _ => false
       })
 
@@ -696,33 +703,4 @@ class SMTHornReader protected[parser] (
 
     resClauses
   }
-
-////////////////////////////////////////////////////////////////////////////////
-
-object UniformSubstVisitorX {
-  def apply(t : IFormula, subst : CMap[Predicate, IFormula]) : IFormula = {
-    val visitor = new UniformSubstVisitorX(subst)
-    visitor.visit(t.asInstanceOf[IExpression], ()).asInstanceOf[IFormula]
-  }
-}
-
-class UniformSubstVisitorX(subst : CMap[Predicate, IFormula])
-      extends CollectingVisitor[Unit, IExpression] {
-
-  def postVisit(t : IExpression,
-                arg : Unit,
-                subres : Seq[IExpression]) : IExpression = t match {
-    case a@IAtom(p, _) => (subst get p) match {
-      case Some(replacement) =>
-        VariableSubstVisitor(
-          replacement,
-          ((for (e <- subres) yield e.asInstanceOf[ITerm]).toList, 0))
-      case None =>
-        a update subres
-    }
-    case _ =>
-      t update subres
-  }
-}
-
 }
