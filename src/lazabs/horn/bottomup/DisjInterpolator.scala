@@ -708,6 +708,11 @@ object DisjInterpolator {
 
           Right(fullDag.elimUnconnectedNodes)
         }
+
+        ////////////////////////////////////////////////////////////////////////
+        case ProverStatus.Inconclusive =>
+          throw new Exception ("Could not generate interpolants, likely " +
+                               "because of unsupported operators")
       }
     }
 
