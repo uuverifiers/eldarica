@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,37 +42,24 @@ import ap.util.Seqs
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
 
-/**
- * Split clauses with large bodies into multiple clauses.
- */
-class ClauseShortener extends HornPreprocessor {
+object ClauseShortener {
   import HornPreprocessor._
 
-  private val maxClauseBodySize = 3
-  private val tempPredicates = new MHashSet[Predicate]
-  private val clauseBackMapping = new MHashMap[Clause, Clause]
+  class BTranslator(tempPreds : Set[Predicate],
+                    backMapping : Map[Clause, Clause])
+        extends BackTranslator {
 
-  val name : String = "shortening of clauses"
+    def translate(solution : Solution) =
+      solution -- tempPreds
 
-  def process(clauses : Clauses, hints : VerificationHints)
-             : (Clauses, VerificationHints, BackTranslator) = {
-    val (newClauses, newHints) =
-      splitClauseBodies3(clauses, hints)
+    def translate(cex : CounterExample) =
+      if (tempPreds.isEmpty && backMapping.isEmpty)
+        cex
+      else
+        simplify(translateCEX(cex).elimUnconnectedNodes)
 
-    val translator = new BackTranslator {
-      private val tempPreds = tempPredicates.toSet
-      private val backMapping = clauseBackMapping.toMap
-
-      def translate(solution : Solution) =
-        solution -- tempPreds
-
-      def translate(cex : CounterExample) =
-        if (tempPreds.isEmpty)
-          cex
-        else
-          simplify(translateCEX(cex).elimUnconnectedNodes)
-
-      private def translateCEX(dag : CounterExample) : CounterExample = dag match {
+    private def translateCEX(dag : CounterExample) : CounterExample =
+      dag match {
         case DagNode(p@(a, clause), children, next) => {
           val newNext = translateCEX(next)
           (backMapping get clause) match {
@@ -90,14 +77,36 @@ class ClauseShortener extends HornPreprocessor {
           DagEmpty
       }
 
-      private def allProperChildren(dag : CounterExample) : List[Int] = {
-        val DagNode((IAtom(p, _), _), children, _) = dag
-        if (tempPreds contains p)
-          for (c <- children; d <- allProperChildren(dag drop c)) yield (d + c)
-        else
-          List(0)
-      }
+    private def allProperChildren(dag : CounterExample) : List[Int] = {
+      val DagNode((IAtom(p, _), _), children, _) = dag
+      if (tempPreds contains p)
+        for (c <- children; d <- allProperChildren(dag drop c)) yield (d + c)
+      else
+        List(0)
     }
+  }
+}
+
+/**
+ * Split clauses with large bodies into multiple clauses.
+ */
+class ClauseShortener extends HornPreprocessor {
+  import HornPreprocessor._
+  import ClauseShortener._
+
+  private val maxClauseBodySize = 3
+  private val tempPredicates = new MHashSet[Predicate]
+  private val clauseBackMapping = new MHashMap[Clause, Clause]
+
+  val name : String = "shortening of clauses"
+
+  def process(clauses : Clauses, hints : VerificationHints)
+             : (Clauses, VerificationHints, BackTranslator) = {
+    val (newClauses, newHints) =
+      splitClauseBodies3(clauses, hints)
+
+    val translator = new BTranslator(tempPredicates.toSet,
+                                     clauseBackMapping.toMap)
 
     tempPredicates.clear
     clauseBackMapping.clear

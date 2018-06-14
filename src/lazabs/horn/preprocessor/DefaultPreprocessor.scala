@@ -51,7 +51,8 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   val preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
-         BooleanClauseSplitter)
+         DefinitionInliner,
+         new BooleanClauseSplitter)
 
   val postStages : List[HornPreprocessor] =
     (if (lazabs.GlobalParameters.get.slicing)

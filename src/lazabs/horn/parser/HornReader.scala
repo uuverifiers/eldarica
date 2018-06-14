@@ -555,12 +555,15 @@ class SMTHornReader protected[parser] (
         case _ => false
       })
 
-    if (!PredUnderQuantifierVisitor(clause) &&
+    val quanNum = QuantifierCountVisitor(clause)
+
+    if (quanNum == 0 &&
         !(containsArraySymbol &&
           lazabs.GlobalParameters.get.arrayQuantification.isDefined))
       return List(clause)
 
-    lazabs.GlobalParameters.get.didIncompleteTransformation = true
+    if (containsArraySymbol || PredUnderQuantifierVisitor(clause))
+      lazabs.GlobalParameters.get.didIncompleteTransformation = true
 
     import p._
 
