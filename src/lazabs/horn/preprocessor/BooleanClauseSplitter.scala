@@ -242,6 +242,9 @@ class BooleanClauseSplitter extends HornPreprocessor {
   }
 
   private val SPLITTING_TO = 10000
+  private val GLOBAL_SPLITTING_TO = 120000
+
+  private val globalStartTime = System.currentTimeMillis
 
   private def cleverSplit(clause : Clause)
                          (implicit p : SimpleAPI) : Seq[Clause] = {
@@ -250,7 +253,9 @@ class BooleanClauseSplitter extends HornPreprocessor {
     val startTime = System.currentTimeMillis
     def checker() : Unit = {
       GlobalParameters.get.timeoutChecker
-      if (System.currentTimeMillis - startTime > SPLITTING_TO)
+      val currentTime = System.currentTimeMillis
+      if (currentTime - startTime > SPLITTING_TO ||
+          currentTime - globalStartTime > GLOBAL_SPLITTING_TO)
         Timeout.raise
     }
 
