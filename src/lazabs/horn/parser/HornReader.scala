@@ -59,7 +59,8 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
 
 object HornReader {
   def apply(fileName: String): Seq[HornClause] = {
-    val in: InputStream = new FileInputStream(fileName)
+    val in = new java.io.BufferedReader (
+                 new java.io.FileReader(fileName))
     val lexer = new HornLexer(in)
     val parser = new Parser(lexer)
     val tree = parser.parse()
