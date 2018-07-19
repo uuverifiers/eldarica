@@ -53,23 +53,33 @@ object IntervalPropagator {
       case _ => true
     }
 
+  private val smallConstant = new ConstantTerm ("smallConstant")
+
   def extractBounds(c : ConstantTerm,
                     constr : Conjunction,
-                    order : TermOrder) : (Option[IdealInt], Option[IdealInt]) =
+                    order : TermOrder)
+                 : (Option[IdealInt], Option[IdealInt]) =
+    extractBoundsHelp(c, constr, order) match {
+      case r@(Some(_), Some(_)) =>
+        r
+      case _ => {
+        // replace c with a minimal constant in the ordering to extract
+        // more information from the constraint
+        implicit val _ = order
+        import TerForConvenience._
+        val newConstr =
+          ReduceWithConjunction(c === smallConstant, order)(constr)
+        extractBoundsHelp(smallConstant, newConstr, order)
+      }
+    }
+
+  private def extractBoundsHelp(c : ConstantTerm, constr : Conjunction,
+                                order : TermOrder)
+                             : (Option[IdealInt], Option[IdealInt]) =
     (constr.arithConj.positiveEqs.toMap get c) match {
       case Some(lc) if (lc.constants.size == 1) =>
         // equation defining the value of the constant: c + offset = 0
         (Some(-lc.constant), Some(-lc.constant))
-      case Some(lc) if (lc.constants.size == 2 &&
-                        (lc getCoeff 0).isOne &&
-                        (lc getCoeff 1).isMinusOne) => {
-        // equation defining the value of the constant in terms of some
-        // other constant: c - d + offset = 0
-        val (lb, ub) = extractBounds((lc getTerm 1).asInstanceOf[ConstantTerm],
-                                     constr, order)
-        (for (v <- lb) yield (v - lc.constant),
-         for (v <- ub) yield (v - lc.constant))
-      }
       case _ => {
         val inEqs = constr.arithConj.inEqs
         (inEqs.findLowerBound(LinearCombination(c, order)),
@@ -113,7 +123,8 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause],
 
   val elimOrders = (for (clause <- clauses) yield {
     (clause.order restrict Set()) extend (
-      clause.headSyms ++ clause.bodySyms.flatten ++ clause.localSymbols)
+      List(smallConstant) ++ clause.headSyms ++
+      clause.bodySyms.flatten ++ clause.localSymbols)
   }).toIndexedSeq
 
   def reduce(c : Conjunction) =
@@ -229,7 +240,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause],
           rsBoundCache(headRS)
         val newHeadIntervals =
           for (c <- headRS arguments headOcc)
-          yield extractBounds(c, newConstr, newConstr.order)
+          yield extractBounds(c, newConstr, elimOrders(clauseNum))
 
         val oldBoundUpdateNum = rsBoundUpdateNum(headRS)
         val (newBoundUpdateNum, joinedIntervals) =

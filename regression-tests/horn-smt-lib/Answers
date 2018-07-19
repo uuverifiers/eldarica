@@ -283,3 +283,8 @@ nonlinear2.smt2
 Theories: GroebnerMultiplication
 sat
 (define-fun Inv ((A Int) (B Int)) Bool (and (and (<= A 5) (>= A 2)) (>= B 1)))
+
+multiple-pos.smt2
+Warning: ignoring exit
+sat
+(define-fun itp ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (and (>= A 0) (>= B 0)) (>= C 0)) (>= D 0)))

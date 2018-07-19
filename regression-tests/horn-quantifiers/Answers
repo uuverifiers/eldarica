@@ -16,7 +16,7 @@ Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (or (and (and (and (= B G) (= C H)) (= D I)) (= E J)) (and (and (and (= C H) (= D I)) (= E J)) (not (= A F)))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (or (and (and (and (and (= B G) (= C H)) (= D I)) (= E J)) (>= E 0)) (and (and (and (and (= C H) (= D I)) (= E J)) (not (= A F))) (>= E 0))))
 
 array_noloop_crash.smt2
 Warning: ignoring get-model
