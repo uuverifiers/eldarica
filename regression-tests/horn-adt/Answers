@@ -26,7 +26,7 @@ Theories: ADT(Nil, Cons)
 unsat
 
 0: FALSE -> 1
-1: Concat(Nil, Nil, Cons(0, Nil)) -> 2
+1: Concat(Nil, Nil, Cons(5, Nil)) -> 2
 2: Concat(Nil, Nil, Nil)
 
 unbounded-tree.smt2
