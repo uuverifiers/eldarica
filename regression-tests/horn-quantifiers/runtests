@@ -19,5 +19,5 @@ for name in $TESTS; do
     $LAZABS -abstract -splitClauses -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
-$LAZABS -abstract -splitClauses -pngNo -hints:fib.hints "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
+$LAZABS -abstract -abstractTO:5 -splitClauses -pngNo -hints:fib.hints "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
 
