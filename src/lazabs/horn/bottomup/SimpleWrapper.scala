@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,9 @@
 
 package lazabs.horn.bottomup
 
+import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
+import lazabs.horn.abstractions.StaticAbstractionBuilder
 
 import ap.parser._
 import ap.terfor.preds.Predicate
@@ -37,20 +39,29 @@ import Util._
 
 /**
  * Simple wrapper around the classes that can be used to
- * call the solver from Java
+ * call Eldarica from Java or Scala applications.
+ *
+ * 
  */
 object SimpleWrapper {
 
   import HornPreprocessor.InitPredicateVerificationHints
 
+  /**
+   * Solve the given set of clauses, but construct a full solution or a
+   * counterexample only lazily when needed.
+   */
   def solveLazily(clauses : Iterable[HornClauses.Clause],
                   initialPredicates : Map[Predicate, Seq[IFormula]],
                   useTemplates : Boolean,
-                  debuggingOutput : Boolean)
+                  debuggingOutput : Boolean,
+                  useAbstractPO : Boolean = false)
                 : Either[() => Map[Predicate, IFormula],
                          () => Dag[(IAtom, HornClauses.Clause)]] = {
     val errOutput =
       if (debuggingOutput) Console.err else HornWrapper.NullStream
+
+    GlobalParameters.get.templateBasedInterpolation = useTemplates
 
     Console.withErr(errOutput) { Console.withOut(Console.err) {
       var (newClauses, newInitialPredicates, backTranslator) = {
@@ -61,64 +72,94 @@ object SimpleWrapper {
         (newClauses, newHints.toInitialPredicates, backTranslator)
       }
   
-      val interpolator = if (useTemplates) {
-        val abstractionMap =
-          (new lazabs.horn.abstractions.StaticAbstractionBuilder(
-            newClauses,
-            lazabs.GlobalParameters.get.templateBasedInterpolationType)
-               .abstractions) mapValues (
-                 lazabs.horn.bottomup.TemplateInterpolator.AbstractionRecord(_))
-        lazabs.horn.bottomup.TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-          abstractionMap,
-          lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-      } else {
-        DagInterpolator.interpolatingPredicateGenCEXAndOr _
-      }
-      
-      val predAbs =
-        new HornPredAbs(newClauses, initialPredicates, interpolator)
+      val params =
+        if (GlobalParameters.get.templateBasedInterpolationPortfolio)
+          GlobalParameters.get.withAndWOTemplates
+        else
+          List()
 
-      predAbs.result match {
-        case Left(x) => Left(() => backTranslator translate x)
-        case Right(x) => Right(() => backTranslator translate x)
-      }
-    }}
+      ParallelComputation(params) {
+        val interpolator =
+          if (GlobalParameters.get.templateBasedInterpolation) {
+            val abstractionBuilder =
+              new StaticAbstractionBuilder(
+                newClauses,
+                GlobalParameters.get.templateBasedInterpolationType)
+            val abstractionMap =
+              abstractionBuilder.abstractions mapValues (
+                     TemplateInterpolator.AbstractionRecord(_))
+            TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+              abstractionMap,
+              GlobalParameters.get.templateBasedInterpolationTimeout)
+          } else {
+            DagInterpolator.interpolatingPredicateGenCEXAndOr _
+          }
+      
+        val predAbs =
+          new HornPredAbs(newClauses, initialPredicates, interpolator)
+
+        predAbs.result match {
+          case Left(x) => Left(() => backTranslator translate x)
+          case Right(x) => Right(() => backTranslator translate x)
+        }
+      }}}
   }
 
+  /**
+   * Solve the given set of clauses. It is optionally possible to provide
+   * an initial set of predicates used for predicate abstraction
+   * (<code>initialPredicates</code>),
+   * to switch on interpolation abstraction (<code>useTemplates</code>),
+   * to use normal interpolation and interpolation abstraction in a
+   * portfolio (<code>useAbstractPO</code>), 
+   * to enable debugging output on stderr (<code>debuggingOutput</code>),
+   * or to show counterexamples graphically using dot and eog
+   * (<code>showDot</code>).
+   */
   def solve(clauses : Iterable[HornClauses.Clause],
             initialPredicates : Map[Predicate, Seq[IFormula]] = Map(),
             useTemplates : Boolean = false,
             debuggingOutput : Boolean = false,
-            showDot : Boolean = false)
+            showDot : Boolean = false,
+            useAbstractPO : Boolean = false)
           : Either[Map[Predicate, IFormula],
                    Dag[(IAtom, HornClauses.Clause)]] =
     solveLazily(clauses, initialPredicates, useTemplates,
-                debuggingOutput) match {
+                debuggingOutput, useAbstractPO) match {
       case Left(x) => Left(x())
       case Right(x) => {
         val cex = x()
         if (showDot) {
-          val oldConf = lazabs.GlobalParameters.get.pngNo
-          lazabs.GlobalParameters.get.pngNo = false
+          val oldConf = GlobalParameters.get.pngNo
+          GlobalParameters.get.pngNo = false
           Util.show(cex map (_._1), "SimpleWrapper")
-          lazabs.GlobalParameters.get.pngNo = oldConf
+          GlobalParameters.get.pngNo = oldConf
         }
         Right(cex)
       }
     }
 
+  /**
+   * Check whether the given clauses are satisfiable.
+   */
   def isSat(clauses : Iterable[HornClauses.Clause],
             initialPredicates : Map[Predicate, Seq[IFormula]] = Map(),
             useTemplates : Boolean = false,
-            debuggingOutput : Boolean = false)
-          : Boolean =
+            debuggingOutput : Boolean = false,
+            useAbstractPO : Boolean = false) : Boolean =
     solveLazily(clauses, initialPredicates, useTemplates,
-                debuggingOutput).isLeft
+                debuggingOutput, useAbstractPO).isLeft
   
+  /**
+   * Construct a clause from the given components.
+   */
   def clause(head : IAtom, body : List[IAtom], constraint : IFormula)
             : HornClauses.Clause =
     HornClauses.Clause(head, body, constraint)
 
+  /**
+   * To be used as head of clauses without head.
+   */
   val FALSEAtom = IAtom(HornClauses.FALSE, List())
 
 }
