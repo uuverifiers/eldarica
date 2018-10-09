@@ -55,7 +55,7 @@ object SimpleWrapper {
                   initialPredicates : Map[Predicate, Seq[IFormula]],
                   useTemplates : Boolean,
                   debuggingOutput : Boolean,
-                  useAbstractPO : Boolean = false)
+                  useAbstractPO : Boolean)
                 : Either[() => Map[Predicate, IFormula],
                          () => Dag[(IAtom, HornClauses.Clause)]] = {
     val errOutput =
