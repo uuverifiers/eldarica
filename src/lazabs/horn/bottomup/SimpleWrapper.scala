@@ -62,6 +62,7 @@ object SimpleWrapper {
       if (debuggingOutput) Console.err else HornWrapper.NullStream
 
     GlobalParameters.get.templateBasedInterpolation = useTemplates
+    GlobalParameters.get.templateBasedInterpolationPortfolio = useAbstractPO
 
     Console.withErr(errOutput) { Console.withOut(Console.err) {
       var (newClauses, newInitialPredicates, backTranslator) = {
