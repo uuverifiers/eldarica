@@ -203,8 +203,8 @@ object Slicer extends HornPreprocessor {
         seenConsts ++= SymbolCollector constants constraint
 
         for (IAtom(pred, args) <- body.iterator;
-             (arg, argInd) <- args.iterator.zipWithIndex) {
-          val usedArgSet = usedArgs(pred)
+             usedArgSet = usedArgs(pred);
+             (arg, argInd) <- args.iterator.zipWithIndex)
           arg match {
             case IConstant(argC) =>
               if (seenConsts add argC) {
@@ -224,7 +224,6 @@ object Slicer extends HornPreprocessor {
               seenConsts ++= SymbolCollector constants arg
             }
           }
-        }
 
         argIndexes.clear
         seenConsts.clear
