@@ -81,6 +81,10 @@ object DefinitionInliner extends HornPreprocessor {
     var body = oriBody
 
     var conjuncts = LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
+
+    if (conjuncts exists (_.isFalse))
+      return null
+
     val replacement = new MHashMap[ConstantTerm, ITerm]
     val replacedConsts = new MHashSet[ConstantTerm]
     val conjunctsToKeep = new ArrayBuffer[IFormula]
@@ -100,16 +104,28 @@ object DefinitionInliner extends HornPreprocessor {
 
           if (Seqs.disjoint(eqConsts, replacedConsts)) {
             (left, right) match {
-              case (IConstant(c), _) if !(rightConsts contains c) => {
-                if (headSyms contains c)
-                  conjunctsToKeep += eq
+              case (IConstant(c), _)
+                  if !(rightConsts contains c) && !(headSyms contains c) => {
                 replacement.put(c, simpleEval(right))
                 replacedConsts ++= eqConsts
                 false
               }
-              case (_, IConstant(c)) if !(leftConsts contains c) => {
-                if (headSyms contains c)
-                  conjunctsToKeep += eq
+              case (_, IConstant(c))
+                  if !(leftConsts contains c) && !(headSyms contains c) => {
+                replacement.put(c, simpleEval(left))
+                replacedConsts ++= eqConsts
+                false
+              }
+              case (IConstant(c), _)
+                  if !(rightConsts contains c) => {
+                conjunctsToKeep += eq
+                replacement.put(c, simpleEval(right))
+                replacedConsts ++= eqConsts
+                false
+              }
+              case (_, IConstant(c))
+                  if !(leftConsts contains c) => {
+                conjunctsToKeep += eq
                 replacement.put(c, simpleEval(left))
                 replacedConsts ++= eqConsts
                 false

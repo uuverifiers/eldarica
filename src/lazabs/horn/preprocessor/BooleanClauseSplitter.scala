@@ -63,8 +63,7 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
     val newClauses = SimpleAPI.withProver { p =>
       for (clause <- clauses;
-           clause2 = simpConstraint(clause);
-           newClause <- cleverSplit(clause2)(p)) yield {
+           newClause <- cleverSplit(clause)(p)) yield {
         clauseMapping.put(newClause, clause)
         newClause
       }
@@ -80,78 +79,11 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def simpConstraint(clause : Clause) : Clause = {
-    val Clause(head@IAtom(headPred, headArgs), body, constraint) = clause
-
-    var newConstraint = constraint
-    val seenHeadArgs = new MHashSet[ConstantTerm]
-
-    def newConst(s : Sort) = {
-      val res = s newConstant ("arg" + symbolCounter)
-      symbolCounter = symbolCounter + 1
-      i(res)
-    }
-
-    val newHeadArgs =
-      for ((t, tSort) <- headArgs zip predArgumentSorts(headPred))
-      yield t match {
-        case IConstant(c) if !(seenHeadArgs contains c) => {
-          seenHeadArgs += c
-          t
-        }
-        case t => {
-          val newArg = newConst(tSort)
-          newConstraint = newConstraint & (t === newArg)
-          newArg
-        }
-      }
-
-    val newBody = for (IAtom(pred, args) <- body) yield {
-      val newArgs =
-        for ((t, tSort) <- args zip predArgumentSorts(pred)) yield {
-          if (needsProcessing(t)) {
-            val newArg = newConst(tSort)
-            newConstraint = newConstraint & (t === newArg)
-            newArg
-          } else {
-            t
-          }
-        }
-      IAtom(pred, newArgs)
-    }
-
-    val newHead = IAtom(headPred, newHeadArgs)
-
-    val processedConstraint =
-      EquivExpander(PartialEvaluator(~newConstraint))
-
-    var prenexConstraint =
-      Transform2Prenex(Transform2NNF(processedConstraint), Set(Quantifier.ALL))
-    var varSubst : List[ITerm] = List()
-    
-    var cont = true
-    while (cont) prenexConstraint match {
-      case IQuantified(Quantifier.ALL, d) => {
-        prenexConstraint = d
-        varSubst = newConst(Sort.Integer) :: varSubst
-      }
-      case _ =>
-        cont = false
-    }
-
-    val groundConstraint = subst(prenexConstraint, varSubst, 0)
-
-    Clause(newHead, newBody, ~groundConstraint)
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   private def splitWithIntPred(clause : Clause)
                               (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(headAtom, body, constraint) = clause
     val negConstraint = Transform2NNF(~constraint)
 
-    if (needsSplitting(negConstraint)) {
       val conjuncts =
         LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
       val (atomicConjs, compoundConjs) = conjuncts partition {
@@ -211,10 +143,6 @@ class BooleanClauseSplitter extends HornPreprocessor {
           fullDNF(clause)
         }
       }
-
-    } else {
-      List(clause)
-    }
   }
 
   private def fullDNF(clause : Clause)
@@ -230,7 +158,7 @@ class BooleanClauseSplitter extends HornPreprocessor {
           val disjuncts =
               PresburgerTools.nonDNFEnumDisjuncts(
                 asConjunction(constraint))
-          (for (d <- disjuncts) yield
+          (for (d <- disjuncts; if !d.isFalse) yield
            Clause(headAtom, body, asIFormula(d))).toIndexedSeq
         } else {
           // TODO: this might not be effective at all
@@ -247,50 +175,47 @@ class BooleanClauseSplitter extends HornPreprocessor {
   private val globalStartTime = System.currentTimeMillis
 
   private def cleverSplit(clause : Clause)
-                         (implicit p : SimpleAPI) : Seq[Clause] = {
-    // first try the full splitting, but this might sometimes explode
+                         (implicit p : SimpleAPI) : Seq[Clause] =
+    if (needsSplittingPos(clause.constraint)) {
+      // first try the full splitting, but this might sometimes explode
+      val startTime = System.currentTimeMillis
+      def checker() : Unit = {
+        GlobalParameters.get.timeoutChecker
+        val currentTime = System.currentTimeMillis
+        if (currentTime - startTime > SPLITTING_TO ||
+            currentTime - globalStartTime > GLOBAL_SPLITTING_TO)
+          Timeout.raise
+      }
 
-    val startTime = System.currentTimeMillis
-    def checker() : Unit = {
-      GlobalParameters.get.timeoutChecker
-      val currentTime = System.currentTimeMillis
-      if (currentTime - startTime > SPLITTING_TO ||
-          currentTime - globalStartTime > GLOBAL_SPLITTING_TO)
-        Timeout.raise
+      Timeout.catchTimeout {
+        Timeout.withChecker(checker _) { fullDNF(clause) }
+      } {
+        case _ => splitWithIntPred(clause)
+      }
+    } else {
+      List(clause)
     }
-
-    Timeout.catchTimeout {
-      Timeout.withChecker(checker _) { fullDNF(clause) }
-    } {
-      case _ => splitWithIntPred(clause)
-    }
-  }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def needsProcessing(t : ITerm) : Boolean = try {
-    NeedsProcessingVisitor.visitWithoutResult(t, ())
-    false
-  } catch {
-    case NeedsProcessingException => true
+  private def needsSplittingPos(f : IFormula) : Boolean = f match {
+    case IBinFormula(IBinJunctor.Or, _, _) =>
+      true
+    case IBinFormula(IBinJunctor.And, f1, f2) =>
+      needsSplittingPos(f1) || needsSplittingPos(f2)
+    case INot(f1) =>
+      needsSplittingNeg(f1)
+    case _ =>
+      false
   }
 
-  private object NeedsProcessingException extends Exception
-
-  private object NeedsProcessingVisitor extends CollectingVisitor[Unit, Unit] {
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
-      if (t.isInstanceOf[IFormula])
-        throw NeedsProcessingException
-      KeepArg
-    }
-    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
-  }
-
-  private def needsSplitting(f : IFormula) : Boolean = f match {
+  private def needsSplittingNeg(f : IFormula) : Boolean = f match {
     case IBinFormula(IBinJunctor.And, _, _) =>
       true
     case IBinFormula(IBinJunctor.Or, f1, f2) =>
-      needsSplitting(f1) || needsSplitting(f2)
+      needsSplittingNeg(f1) || needsSplittingNeg(f2)
+    case INot(f1) =>
+      needsSplittingPos(f1)
     case _ =>
       false
   }

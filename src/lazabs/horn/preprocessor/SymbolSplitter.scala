@@ -175,14 +175,7 @@ object SymbolSplitter extends HornPreprocessor {
 
                 val newSol =
                   and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
-                      yield arg match {
-                        // don't introduce a simple equation in case of
-                        // False, this would be too strong
-                        case Sort.MultipleValueBool.False =>
-                          (v(ind) =/= Sort.MultipleValueBool.True)
-                        case arg =>
-                          (v(ind) === arg)
-                      }) &&& simpSol
+                      yield solutionEquation(ind, arg)) &&& simpSol
                 aggregatedFormulas.put(
                   oldPred,
                   aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)
@@ -229,11 +222,43 @@ object SymbolSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def concreteArguments(clause : Clause) : Seq[Seq[Option[ITerm]]] = {
+  protected[preprocessor] def solutionEquation(argNum : Int,
+                                               t : ITerm) : IFormula =
+    t match {
+      // don't introduce a simple equation in case of
+      // False, this would be too strong
+      case Sort.MultipleValueBool.False =>
+        (v(argNum) =/= Sort.MultipleValueBool.True)
+      case arg =>
+        (v(argNum) === arg)
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected[preprocessor] object ClausePropagator {
+    object InconsistentAssignment extends Exception
+  }
+
+  protected[preprocessor] class ClausePropagator(clause : Clause) {
     import Sort.:::
     import Sort.MultipleValueBool.{True, False}
 
     val constValue = new MHashMap[ConstantTerm, ITerm]
+
+    /**
+     * Assign a term to a constant; this will raise a
+     * <code>InconsistentAssignment</code> exception if there is already
+     * an earlier, different assignment
+     */
+    def assign(c : ConstantTerm, t : ITerm) : Unit = (constValue get c) match {
+      case None =>
+        constValue.put(c, t)
+      case Some(other) =>
+        if (t != other)
+          throw ClausePropagator.InconsistentAssignment
+    }
+
+    def reset : Unit = constValue.clear
 
     // TODO: generalise to terms with constructors
     object ConcreteTerm {
@@ -245,39 +270,61 @@ object SymbolSplitter extends HornPreprocessor {
       }
     }
 
+    // we only use equations and negated equations for propagation
     val literals =
-      LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
+      for (f <- LineariseVisitor(Transform2NNF(clause.constraint),
+                                 IBinJunctor.And);
+           if (f match {
+             case IIntFormula(IIntRelation.EqZero, _)       => true
+             case INot(IIntFormula(IIntRelation.EqZero, _)) => true
+             case _                                         => false
+           }))
+      yield f
 
-    var oldConstSize = -1
-    while (constValue.size > oldConstSize) {
-      oldConstSize = constValue.size
-      for (f <- literals) f match {
-        case Eq(IConstant(c), ConcreteTerm(t)) =>
-          constValue.getOrElseUpdate(c, wrapBool(t, Sort sortOf c))
-        case Eq(ConcreteTerm(t), IConstant(c)) =>
-          constValue.getOrElseUpdate(c, wrapBool(t, Sort sortOf c))
+    def propagate : Unit = {
+      var oldConstSize = -1
+      while (constValue.size > oldConstSize) {
+        oldConstSize = constValue.size
+        for (f <- literals) f match {
+          case Eq(IConstant(c), ConcreteTerm(t)) =>
+            assign(c, wrapBool(t, Sort sortOf c))
+          case Eq(ConcreteTerm(t), IConstant(c)) =>
+            assign(c, wrapBool(t, Sort sortOf c))
 
-        // special handling of Boolean values
-        case INot(EqZ(IConstant(c) ::: BoolSort())) =>
-          constValue.getOrElseUpdate(c, False)
+          // special handling of Boolean values
+          case INot(EqZ(IConstant(c) ::: BoolSort())) =>
+            assign(c, False)
 
-        case INot(Eq(IConstant(c) ::: BoolSort(),
-                     IIntLit(IdealInt.ONE) | False)) =>
-          constValue.getOrElseUpdate(c, True)
-        case INot(Eq(IIntLit(IdealInt.ONE) | False,
-                     IConstant(c) ::: BoolSort())) =>
-          constValue.getOrElseUpdate(c, True)
+          case INot(Eq(IConstant(c) ::: BoolSort(),
+                       IIntLit(IdealInt.ONE) | False)) =>
+            assign(c, True)
+          case INot(Eq(IIntLit(IdealInt.ONE) | False,
+                       IConstant(c) ::: BoolSort())) =>
+            assign(c, True)
 
-        case _ =>
-          // nothing
+          case _ =>
+            // nothing
+        }
       }
     }
 
-    for (IAtom(p, args) <- clause.allAtoms)
-    yield (for (p <- args zip predArgumentSorts(p)) yield p match {
-             case (ConcreteTerm(t), s) => Some(wrapBool(t, s))
-             case _                    => None
-           })
+    def constantArgs(a : IAtom) : Seq[Option[ITerm]] =
+      for (p <- a.args zip predArgumentSorts(a.pred)) yield p match {
+        case (ConcreteTerm(t), s) => Some(wrapBool(t, s))
+        case _                    => None
+      }
+  }
+
+  private def concreteArguments(clause : Clause) : Seq[Seq[Option[ITerm]]] = {
+    val prop = new ClausePropagator(clause)
+    try {
+      prop.propagate
+    } catch {
+      case ClausePropagator.InconsistentAssignment =>
+        // in this case we simply take the assignment up to this point
+        // the clause should be dropped by the DefinitionInliner
+    }
+    for (a <- clause.allAtoms) yield prop.constantArgs(a)
   }
 
   private object BoolSort {

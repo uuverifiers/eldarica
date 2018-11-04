@@ -51,8 +51,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   val preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
-         DefinitionInliner,
-         new BooleanClauseSplitter)
+         PartialConstraintEvaluator)
 
   val postStages : List[HornPreprocessor] =
     (if (lazabs.GlobalParameters.get.slicing)
@@ -99,34 +98,49 @@ class DefaultPreprocessor extends HornPreprocessor {
       translators += translator
     }
 
+    // Apply clause simplification and inlining repeatedly, if necessary
+    def condenseClauses = {
+      applyStage(DefinitionInliner)
+      applyStage(new ClauseInliner)
+
+      var lastSize = -1
+      var curSize = curClauses.size
+      while (lastSize != curSize) {
+        lastSize = curSize
+        applyStage(ConstantPropagator)
+        applyStage(DefinitionInliner)
+        curSize = curClauses.size
+
+        if (curSize != lastSize) {
+          lastSize = curSize
+          applyStage(new ClauseInliner)
+          curSize = curClauses.size
+        }
+      }
+      
+      applyStage(ReachabilityChecker)
+    }
+
     // First set of processors
     for (stage <- preStages)
       applyStage(stage)
 
+    condenseClauses
+
+    // Possibly split disjunctive clause constraints, and the condense again
+    {
+      val oldClauses = curClauses
+      applyStage(new BooleanClauseSplitter)
+      if (curClauses != oldClauses)
+        condenseClauses
+    }
+    
     // Clone relation symbols with consistently concrete arguments
     {
       val oldClauses = curClauses
       applyStage(SymbolSplitter)
       if (!(curClauses eq oldClauses))
-        applyStage(ReachabilityChecker)
-    }
-
-    // Apply clause simplification and inlining repeatedly, if necessary
-    applyStage(DefinitionInliner)
-    applyStage(new ClauseInliner)
-
-    var lastSize = -1
-    var curSize = curClauses.size
-    while (lastSize != curSize) {
-      lastSize = curSize
-      applyStage(DefinitionInliner)
-      curSize = curClauses.size
-
-      if (curSize != lastSize) {
-        lastSize = curSize
-        applyStage(new ClauseInliner)
-        curSize = curClauses.size
-      }
+        condenseClauses
     }
 
     // Last set of processors
