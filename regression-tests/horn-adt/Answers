@@ -19,7 +19,7 @@ unsat
 list-synasc.smt2
 Theories: ADT(Nil, Cons)
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (= B C) (and (= (_size A) 1) (= 1 (_size A)))) (and (= (+ (_size C) (- (* (- 1) (_size B)) (_size A))) (- 1)) (= (head C) (head A)))))
+(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (= B C) (and (= (_size A) 1) (= (_size A) 1))) (and (= (+ (_size A) (- (_size B) (_size C))) 1) (= (head A) (head C)))))
 
 list-synasc-unsat.smt2
 Theories: ADT(Nil, Cons)

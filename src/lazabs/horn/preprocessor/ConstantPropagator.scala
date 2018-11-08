@@ -345,15 +345,32 @@ object AbstractAnalyser {
           // this clause can be deleted, it is not reachable
           (a, false)
         case Some(partitioning) => {
-          val IAtom(_, args) = a
-          
+          val IAtom(p, args) = a
+
+          // map equivalent arguments to the left-most argument of the
+          // equivalence class; anonymise all other arguments
+          val redundantArgs =
+            (for ((_, cl) <- partitioning.allClasses.iterator;
+                  if cl.size > 1;
+                  sortedCL = cl.toVector.sorted;
+                  n <- sortedCL.tail.iterator)
+             yield n).toSet
+
+          val newArgs =
+            (for ((arg, n) <- args.iterator.zipWithIndex) yield {
+               if (redundantArgs contains n)
+                 IConstant(new ConstantTerm (p.name + "_anon_" + n))
+               else
+                 arg
+             }).toVector
+
           val newConstraint = and(
             for ((arg, n) <- args.iterator.zipWithIndex;
                  parent = partitioning(n);
                  if parent != n)
             yield (arg === args(parent)))
 
-          (a, newConstraint)
+          (IAtom(p, newArgs), newConstraint)
         }
       }
 
@@ -426,7 +443,8 @@ class AbstractAnalyser(domain : AbstractAnalyser.AbstractDomain)
     val clausesTodo = new LinkedHashSet[Int]
 
     // start with the clauses with empty body
-    for ((Clause(_, Seq(), _), n) <- clauseSeq.iterator.zipWithIndex)
+    for ((Clause(IAtom(p, _), Seq(), _), n) <- clauseSeq.iterator.zipWithIndex;
+         if p != HornClauses.FALSE)
       clausesTodo += n
       
     while (!clausesTodo.isEmpty) {

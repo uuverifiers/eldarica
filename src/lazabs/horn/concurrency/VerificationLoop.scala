@@ -276,6 +276,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
           println("Not solvable")
 
         val cex = backTranslator translate rawCEX
+        HornWrapper.verifyCEX(cex, encoder.allClauses)
 
         // check whether the counterexample is good enough to
         // reconstruct a genuine counterexample to system correctness
@@ -638,6 +639,8 @@ class VerificationLoop(system : ParametricEncoder.System) {
         if (GlobalParameters.get.log) {
           println("Solution:")
           val solution = backTranslator translate rawSol
+          HornWrapper.verifySolution(solution, encoder.allClauses)
+
           for ((p, f) <- solution)
             println("" + p + ": " + f)
           println

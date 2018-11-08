@@ -65,6 +65,53 @@ object HornWrapper {
     def write(b : Int) = {}
   }
 
+  def verifySolution(fullSol : HornPreprocessor.Solution,
+                     unsimplifiedClauses : Seq[Clause]) : Unit = {
+          // verify correctness of the solution
+          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+            import p._
+            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
+                addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+                !! (constraint)
+                for (IAtom(pred, args) <- body)
+                  !! (subst(fullSol(pred), args.toList, 0))
+                ?? (if (head.pred == HornClauses.FALSE)
+                      i(false)
+                    else
+                      subst(fullSol(head.pred), head.args.toList, 0))
+                ??? == ProverStatus.Valid
+              }}})
+  }
+
+  def verifyCEX(fullCEX : HornPreprocessor.CounterExample,
+                unsimplifiedClauses : Seq[Clause]) : Unit = {
+          // verify correctness of the counterexample
+          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+            import p._
+            fullCEX.head._1.pred == HornClauses.FALSE &&
+            (fullCEX.subdagIterator forall {
+               case dag@DagNode((state, clause@Clause(head, body, constraint)),
+                                children, _) =>
+                 // syntactic check: do clauses fit together?
+                 state.pred == head.pred &&
+                 children.size == body.size &&
+                 (unsimplifiedClauses contains clause) &&
+                 ((children.iterator zip body.iterator) forall {
+                    case (c, IAtom(pred, _)) =>
+                      c > 0 && dag(c)._1.pred == pred }) &&
+                 // semantic check: are clause constraints satisfied?
+                 scope {
+                   addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+                   !! (state.args === head.args)
+                   for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
+                     !! (dag(c)._1.args === args)
+                   !! (constraint)
+                   ??? == ProverStatus.Sat
+                 }
+             })
+          })
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -325,22 +372,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       case Left(res) =>
         if (lazabs.GlobalParameters.get.needFullSolution) {
           val fullSol = preprocBackTranslator translate res
-
-          // verify correctness of the solution
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-            import p._
-            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
-                addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-                !! (constraint)
-                for (IAtom(pred, args) <- body)
-                  !! (subst(fullSol(pred), args.toList, 0))
-                ?? (if (head.pred == HornClauses.FALSE)
-                      i(false)
-                    else
-                      subst(fullSol(head.pred), head.args.toList, 0))
-                ??? == ProverStatus.Valid
-              }}})
-
+          HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
           Left(fullSol)
         } else {
           // only keep relation symbols that were also part of the orginal problem
@@ -350,33 +382,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       case Right(cex) =>
         if (lazabs.GlobalParameters.get.needFullCEX) {
           val fullCEX = preprocBackTranslator translate cex
-
-          // verify correctness of the counterexample
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-            import p._
-            fullCEX.head._1.pred == HornClauses.FALSE &&
-            (fullCEX.subdagIterator forall {
-               case dag@DagNode((state, clause@Clause(head, body, constraint)),
-                                children, _) =>
-                 // syntactic check: do clauses fit together?
-                 state.pred == head.pred &&
-                 children.size == body.size &&
-                 (unsimplifiedClauses contains clause) &&
-                 ((children.iterator zip body.iterator) forall {
-                    case (c, IAtom(pred, _)) =>
-                      c > 0 && dag(c)._1.pred == pred }) &&
-                 // semantic check: are clause constraints satisfied?
-                 scope {
-                   addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-                   !! (state.args === head.args)
-                   for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
-                     !! (dag(c)._1.args === args)
-                   !! (constraint)
-                   ??? == ProverStatus.Sat
-                 }
-             })
-          })
-
+          HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
           Right(for (p <- fullCEX) yield p._1)
         } else {
           Right(for (p <- cex) yield p._1)
