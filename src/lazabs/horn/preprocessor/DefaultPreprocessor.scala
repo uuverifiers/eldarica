@@ -51,7 +51,9 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   val preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
-         PartialConstraintEvaluator)
+         PartialConstraintEvaluator,
+         DefinitionInliner,
+         new ClauseInliner) 
 
   val postStages : List[HornPreprocessor] =
     (if (lazabs.GlobalParameters.get.slicing)
@@ -84,42 +86,37 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     val translators = new ArrayBuffer[BackTranslator]
 
-    def applyStage(stage : HornPreprocessor) = {
-      val startTime = System.currentTimeMillis
+    def applyStage(stage : HornPreprocessor) =
+      if (!curClauses.isEmpty) {
+        val startTime = System.currentTimeMillis
 
-      val (newClauses, newHints, translator) =
-        stage.process(curClauses, curHints)
-      curClauses = newClauses
-      curHints = newHints
+        val (newClauses, newHints, translator) =
+          stage.process(curClauses, curHints)
+        curClauses = newClauses
+        curHints = newHints
 
-      val time = "" + (System.currentTimeMillis - startTime) + "ms"
-      printStats("After " + stage.name + " (" + time + "):")
+        val time = "" + (System.currentTimeMillis - startTime) + "ms"
+        printStats("After " + stage.name + " (" + time + "):")
 
-      translators += translator
-    }
+        translators += translator
+      }
 
     // Apply clause simplification and inlining repeatedly, if necessary
     def condenseClauses = {
-      applyStage(DefinitionInliner)
-      applyStage(new ClauseInliner)
-
       var lastSize = -1
       var curSize = curClauses.size
       while (lastSize != curSize) {
         lastSize = curSize
+        applyStage(AbstractAnalyser.EqualityPropagator)
         applyStage(AbstractAnalyser.ConstantPropagator)
         applyStage(DefinitionInliner)
+        applyStage(new ClauseInliner)
+        applyStage(ReachabilityChecker)
         curSize = curClauses.size
-
-        if (curSize != lastSize) {
-          lastSize = curSize
-          applyStage(new ClauseInliner)
-          curSize = curClauses.size
-        }
       }
-      
-      applyStage(ReachabilityChecker)
     }
+
+    val startTime = System.currentTimeMillis
 
     // First set of processors
     for (stage <- preStages)
@@ -147,6 +144,9 @@ class DefaultPreprocessor extends HornPreprocessor {
     for (stage <- postStages)
       applyStage(stage)
 
+    Console.err.println
+    Console.err.println("Total preprocessing time (ms): " +
+                        (System.currentTimeMillis - startTime))
     Console.err.println
 
     (curClauses, curHints, new ComposedBackTranslator(translators.reverse))

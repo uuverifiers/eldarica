@@ -308,7 +308,7 @@ object Util {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  class UnionFind[D] {
+  class UnionFind[D] extends Cloneable {
     private val parent = new MHashMap[D, D]
     private val rank   = new MHashMap[D, Int]
 
@@ -344,6 +344,13 @@ object Util {
           rank.put(dp, dr + 1)
         }
       }
+    }
+
+    override def clone : UnionFind[D] = {
+      val res = new UnionFind[D]
+      res.parent ++= this.parent
+      res.rank ++= this.rank
+      res
     }
 
     override def toString : String = parent.toString

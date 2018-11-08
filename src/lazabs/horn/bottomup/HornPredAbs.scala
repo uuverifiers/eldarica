@@ -910,6 +910,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, sf.functionalPreds)
 //    gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, PluginSequence(plugins))
+    gs = Param.REDUCER_SETTINGS.set(gs, sf.reducerSettings)
     gs
   }
 
