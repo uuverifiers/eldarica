@@ -94,9 +94,35 @@ object DefinitionInliner extends HornPreprocessor {
     var cont = true
     while (cont) {
       val remConjuncts = conjuncts filter {
-        case Eq(IConstant(c), IConstant(d))
-          if c == d =>
+
+        // special case of equation between constants
+        case eq@Eq(left@IConstant(c), right@IConstant(d)) =>
+          if (c == d) {
+            // can be dropped
             false
+
+          } else if (!(replacedConsts contains c) &&
+                     !(replacedConsts contains d)) {
+
+            if (!(headSyms contains c)) {
+              replacement.put(c, right)
+            } else if (!(headSyms contains d)) {
+              replacement.put(d, left)
+            } else {
+              conjunctsToKeep += eq
+              replacement.put(c, right)
+            }
+
+            replacedConsts += c
+            replacedConsts += d
+            false
+
+          } else {
+            // keep this one
+            true
+          }
+
+        // case of general equations
         case eq@Eq(left, right) => {
           val leftConsts = SymbolCollector constants left
           val rightConsts = SymbolCollector constants right

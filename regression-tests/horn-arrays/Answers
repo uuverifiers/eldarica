@@ -1,6 +1,6 @@
 
 lazabs.horn.bottomup.MainArrays
-Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -1 * 4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),(((k + -1 * 3) = 0) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
+Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),(((k + -3) = 0) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
 Theories: Types, SimpleArray(1)
 Constant and interval propagation ++++++++++++++
 
@@ -29,9 +29,9 @@ p1: p1_1_0 = 3
 p2: p2_1_0 = 2
 ........
 Found counterexample #6, refining ... (13and/0or)  87 -> 82 ... adding predicates:
-p3: select(p3_2_0, 4) + -1*select(p3_2_0, 3) >= 0
-p0: select(p0_2_0, 4) + -1*select(p0_2_0, 3) >= 0
-p1: p1_1_0 != 4 | select(p1_2_0, 4) + -1*select(p1_2_0, 3) >= 0
+p3: -1*select(p3_2_0, 3) + select(p3_2_0, 4) >= 0
+p0: -1*select(p0_2_0, 3) + select(p0_2_0, 4) >= 0
+p1: p1_1_0 != 4 | -1*select(p1_2_0, 3) + select(p1_2_0, 4) >= 0
 ................
 
 --------------------------------- Statistics -----------------------------------
@@ -46,7 +46,7 @@ Average predicate size (# of sub-formulas):            1.64
 
 
 SOLVABLE: 
-Solving List(Clause(p0(x, a),List(),true), Clause(p1(0, a),List(p0(x, a)),true), Clause(p2(x, store(a, x, x)),List(p1(x, a)),(((3 + -1 * x) + -1) >= 0)), Clause(p1((x + 1), a),List(p2(x, a)),true), Clause(p3(x, a),List(p1(x, a)),((x + -1 * 3) >= 0)), Clause(FALSE,List(p3(x, a)),!(select(a, 0) = 0))) ...
+Solving List(Clause(p0(x, a),List(),true), Clause(p1(0, a),List(p0(x, a)),true), Clause(p2(x, store(a, x, x)),List(p1(x, a)),(((3 + -1 * x) + -1) >= 0)), Clause(p1((x + 1), a),List(p2(x, a)),true), Clause(p3(x, a),List(p1(x, a)),((x + -3) >= 0)), Clause(FALSE,List(p3(x, a)),!(select(a, 0) = 0))) ...
 Theories: Types, SimpleArray(1)
 Constant and interval propagation ++++++++++
 
@@ -99,6 +99,7 @@ Solving ...
                                                        #clauses  #relation syms
 Initially:                                             4         2
 
+
 Theories: Types, ADT(true, false), ADT(p)
 Constant and interval propagation ++
 
@@ -122,7 +123,7 @@ i1: right(i1_0_0) = 0
 .
 Found counterexample #3, refining ... 
 0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk4 + -1 >= 0 & -1*sk3 + 1 >= 0 & sk3 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk3) & left(i1_0_0, sk4) & p(sk4, sk3, i1_0_0))) -> 1
-1: AndNode(i1(i1_0_1) :- i1(i1_0_0) | (-1*sk0 + 1 >= 0 & sk0 >= 0 & pair_ctor(sk2, 0) & pair_ctor(i1_0_1, 0) & pair_ctor(i1_0_0, 0) & right(sk2, -1*sk0 + 1) & right(i1_0_1, sk0) & right(i1_0_0, sk0) & left(sk2, sk1 + 1) & left(i1_0_1, 2*sk1 + 2) & left(i1_0_0, sk1) & p(2*sk1 + 2, sk0, i1_0_1) & p(sk1 + 1, -1*sk0 + 1, sk2) & p(sk1, sk0, i1_0_0))) -> 2
+1: AndNode(i1(i1_0_1) :- i1(i1_0_0) | (-1*sk1 + 1 >= 0 & sk1 >= 0 & pair_ctor(sk0, 0) & pair_ctor(i1_0_1, 0) & pair_ctor(i1_0_0, 0) & right(sk0, -1*sk1 + 1) & right(i1_0_1, sk1) & right(i1_0_0, sk1) & left(sk0, sk2 + 1) & left(i1_0_1, 2*sk2 + 2) & left(i1_0_0, sk2) & p(2*sk2 + 2, sk1, i1_0_1) & p(sk2 + 1, -1*sk1 + 1, sk0) & p(sk2, sk1, i1_0_0))) -> 2
 2: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
 (3and/0or)  25 -> 25 ... adding predicates:
 i1: left(i1_0_0) >= 2
@@ -149,7 +150,7 @@ Clause(S(nil, 0),List(),true)
 Clause(S(cons(c, x), (n + 1)),List(S(x, n)),true)
 Clause(FALSE,List(S(x, n)),!(n >= 0))
 Clause(FALSE,List(C(x, y, r)),!(((clist_size(r) + -1 * 1) + -1 * (((clist_size(x) + -1 * 1) + clist_size(y)) + -1 * 1)) = 0))
-Clause(FALSE,List(C(x, y, r)),!((EPS EX EX EX ((((((_0 + -1 * (clist_size(r) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + -1 * (EPS EX EX EX ((((((_0 + -1 * (clist_size(x) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + EPS EX EX EX ((((((_0 + -1 * (clist_size(y) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -1 * 2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)))) = 0))
+Clause(FALSE,List(C(x, y, r)),!((EPS EX EX EX ((((((_0 + -1 * (clist_size(r) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + -1 * (EPS EX EX EX ((((((_0 + -1 * (clist_size(x) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + EPS EX EX EX ((((((_0 + -1 * (clist_size(y) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)))) = 0))
 Clause(FALSE,List(S(x, n)),!(((2 * n + 1) + -1 * clist_size(x)) = 0))
 Clause(FALSE,List(C(x, y, r)),((!((r + -1 * nil) = 0) & !((head(x) + -1 * head(r)) = 0)) & !((head(y) + -1 * head(r)) = 0)))
 
@@ -157,6 +158,7 @@ Solving ...
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             9         2
+
 
 Theories: Types, ADT(red, green, blue, nil, cons), BitShiftMultiplication
 Constant and interval propagation +++++++++
@@ -184,7 +186,7 @@ Found counterexample #3, refining ...
 1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
 2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
 (3and/0or)  31 -> 28 ... adding predicates:
-C: \forall int v0, v1, v2; (2*v2 + -1*\size(C_0_0) != -1 | 2*v1 + -1*\size(C_1_0) != -1 | 2*v0 + -1*\size(C_2_0) != -1 | v2 + v1 + v0 + -1*\size(C_2_0) = -1)
+C: \forall int v0, v1, v2; (2*v2 + -1*\size(C_2_0) != -1 | 2*v1 + -1*\size(C_1_0) != -1 | 2*v0 + -1*\size(C_0_0) != -1 | v2 + v1 + v0 + -1*\size(C_1_0) + -1*\size(C_0_0) = -2)
 .
 Found counterexample #4, refining ... 
 0: AndNode(FALSE() :- S(S_0_0, S_1_0) | (sk24 + -2*sk23 + -1 = 0 & sk23 + -1*S_1_0 != 0 & sk23 >= 0 & S_1_0 >= 0 & clist_size(S_0_0, 2*sk23 + 1))) -> 1
@@ -198,7 +200,7 @@ Found counterexample #5, refining ...
 1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
 2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
 (3and/0or)  62 -> 58 ... adding predicates:
-C: head(C_2_0) = head(C_0_0)
+C: head(C_0_0) = head(C_2_0)
 ...
 
 --------------------------------- Statistics -----------------------------------
@@ -224,6 +226,7 @@ Solving ...
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             4         2
+
 
 Theories: Types, ModuloArithmetic, GroebnerMultiplication
 State hashing enabled
@@ -258,6 +261,7 @@ Solving ...
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             5         2
+
 
 ------------------------------ Analysing loops ---------------------------------
 Loop heads:
@@ -395,6 +399,7 @@ lazabs.horn.bottomup.MainBV2
                                                        #clauses  #relation syms
 Initially:                                             4         2
 
+
 ------------------------------ Analysing loops ---------------------------------
 Loop heads:
    C/2 (1 clauses, 3 templates)
@@ -422,11 +427,11 @@ array-elim.smt2
 Theories: SimpleArray(1)
 sat
 (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
-(define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (or (or (and (and (= A 1) (= C E)) (and (<= F 1) (>= F 0))) (and (= A 1) (= F 0))) (and (and (= A 1) (not (= B 0))) (and (<= F 1) (>= F 0)))) (and (and (= A 1) (not (= D 0))) (and (<= F 1) (>= F 0)))))
-(define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (>= (- A F) 1) (and (and (or (not (= F 1)) (<= A 1)) (or (not (= F 0)) (<= A 1))) (or (or (= F 1) (= F 0)) (>= F A)))))
-(define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (and (and (= A 1) (= C 1)) (= F 0)) (and (and (= A 1) (= F 0)) (not (= B 0)))))
-(define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (or (and (and (= A 1) (= C E)) (= F 0)) (and (and (= A 1) (= F 0)) (not (= B 0)))) (and (and (= A 1) (= F 0)) (not (= D 0)))))
-(define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (or (not (= D 0)) (not (= B 0))) (not (= A 1))) (= E C))))
-(define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (or (and (and (= A 1) (= C E)) (and (<= F 1) (>= F 0))) (and (and (= A 1) (not (= B 0))) (and (<= F 1) (>= F 0)))) (and (and (= A 1) (not (= D 0))) (and (<= F 1) (>= F 0)))))
-(define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (>= (- A F) 1) (and (or (not (= A 1)) (and (>= F 0) (or (or (or (not (= F 0)) (not (= D 0))) (not (= B 0))) (= E C)))) (or (= A 1) (>= F A)))))
+(define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
+(define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= F 0) (= A 1)))
+(define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (and (= C 1) (= F 0)) (and (= F 0) (not (= B 0))))))
+(define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (= F 0)) (and (= F 0) (not (= B 0)))) (and (= F 0) (not (= D 0))))))
+(define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
+(define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (and (<= F 1) (>= F 0))) (and (not (= B 0)) (and (<= F 1) (>= F 0)))) (and (not (= D 0)) (and (<= F 1) (>= F 0))))))
+(define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= A 1) (and (<= F 0) (>= F 0))) (or (or (or (not (= F 0)) (not (= D 0))) (not (= B 0))) (= E C))))
 (define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)

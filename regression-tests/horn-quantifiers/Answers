@@ -9,14 +9,14 @@ Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (or (and (and (and (= B F) (= C G)) (= D H)) (>= D 0)) (and (and (and (= C G) (= D H)) (not (= A E))) (>= D 0))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= G C) (or (and (and (= B F) (= D H)) (>= D 0)) (and (and (= D H) (not (= A E))) (>= D 0)))))
 
 double-heap.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (or (and (and (and (and (= B G) (= C H)) (= D I)) (= E J)) (>= E 0)) (and (and (and (and (= C H) (= D I)) (= E J)) (not (= A F))) (>= E 0))))
+(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (= H C) (= I D)) (or (and (and (= B G) (= E J)) (>= E 0)) (and (and (= E J) (not (= A F))) (>= E 0)))))
 
 array_noloop_crash.smt2
 Warning: ignoring get-model
@@ -37,6 +37,8 @@ Theories: SimpleArray(1)
 sat
 (define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (or (or (and (= A 1) (>= D 1)) (and (= B E) (>= A 1))) (and (and (>= D A) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
 (define-fun inv2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (= B E) (>= A 0)) (and (>= A C) (>= A 0))) (and (>= (- A D) 1) (>= A 0))) (and (>= A 0) (>= D C))))
+
+fib.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
