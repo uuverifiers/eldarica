@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -354,6 +354,54 @@ object Util {
     }
 
     override def toString : String = parent.toString
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Union-find specialised for integers ranging over <code>[0, card)</code>
+   */
+  class IntUnionFind(card : Int) extends Cloneable {
+    private val parent : Array[Int] = (0 until card).toArray
+    private val rank   : Array[Int] = new Array[Int] (card)
+
+    def apply(d : Int) : Int = {
+      val p = parent(d)
+      if (p == d) {
+        p
+      } else {
+        val res = apply(p)
+        parent(d) = res
+        res
+      }
+    }
+
+    def union(d : Int, e : Int) : Unit = {
+      val dp = apply(d)
+      val ep = apply(e)
+      
+      if (dp != ep) {
+        val dr = rank(dp)
+        val er = rank(ep)
+        if (dr < er) {
+          parent(dp) = ep
+        } else if (dr > er) {
+          parent(ep) = dp
+        } else {
+          parent(ep) = dp
+          rank(dp) = dr + 1
+        }
+      }
+    }
+
+    override def clone : IntUnionFind = {
+      val res = new IntUnionFind(card)
+      Array.copy(this.parent, 0, res.parent, 0, card)
+      Array.copy(this.rank,   0, res.rank,   0, card)
+      res
+    }
+
+    override def toString : String = "[" + (parent mkString ", ") + "]"
   }
 
 }

@@ -33,7 +33,7 @@ import ap.parser._
 import ap.basetypes.IdealInt
 
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.bottomup.Util.UnionFind
+import lazabs.horn.bottomup.Util.{UnionFind, IntUnionFind}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashSet, ArrayBuffer, LinkedHashMap}
@@ -194,10 +194,7 @@ object AbstractAnalyser {
      * Class to represent a partitioning of the arguments of a predicate.
      */
     class Partitioning(val arity : Int) {
-      val eqvClass = new UnionFind[Int]
-
-      for (n <- 0 until arity)
-        eqvClass makeSet n
+      val eqvClass = new IntUnionFind (arity)
 
       override def toString =
         (for ((_, els) <- allClasses)
