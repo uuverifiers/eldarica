@@ -88,6 +88,8 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     def applyStage(stage : HornPreprocessor) =
       if (!curClauses.isEmpty) {
+        lazabs.GlobalParameters.get.timeoutChecker()
+
         val startTime = System.currentTimeMillis
 
         val (newClauses, newHints, translator) =
