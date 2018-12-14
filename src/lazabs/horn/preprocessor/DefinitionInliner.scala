@@ -132,27 +132,27 @@ object DefinitionInliner extends HornPreprocessor {
             (left, right) match {
               case (IConstant(c), _)
                   if !(rightConsts contains c) && !(headSyms contains c) => {
-                replacement.put(c, simpleEval(right))
+                replacement.put(c, right)
                 replacedConsts ++= eqConsts
                 false
               }
               case (_, IConstant(c))
                   if !(leftConsts contains c) && !(headSyms contains c) => {
-                replacement.put(c, simpleEval(left))
+                replacement.put(c, left)
                 replacedConsts ++= eqConsts
                 false
               }
               case (IConstant(c), _)
                   if !(rightConsts contains c) => {
                 conjunctsToKeep += eq
-                replacement.put(c, simpleEval(right))
+                replacement.put(c, right)
                 replacedConsts ++= eqConsts
                 false
               }
               case (_, IConstant(c))
                   if !(leftConsts contains c) => {
                 conjunctsToKeep += eq
-                replacement.put(c, simpleEval(left))
+                replacement.put(c, left)
                 replacedConsts ++= eqConsts
                 false
               }
@@ -200,13 +200,6 @@ object DefinitionInliner extends HornPreprocessor {
       Clause(head, body, and(conjuncts))
     else
       clause
-  }
-
-  private def simpleEval(t : ITerm) : ITerm = t match {
-    case IFunApp(ModuloArithmetic.mod_cast,
-                 Seq(IIntLit(lower), IIntLit(upper), IIntLit(value)))
-      if (lower <= value && value <= upper) => value
-     case t => t
   }
 
 }
