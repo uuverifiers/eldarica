@@ -56,8 +56,6 @@ class DefaultPreprocessor extends HornPreprocessor {
          new ClauseInliner) 
 
   val postStages : List[HornPreprocessor] =
-    (if (lazabs.GlobalParameters.get.slicing)
-      List(Slicer) else List()) ++
     List(new ClauseShortener) ++
     (if (lazabs.GlobalParameters.get.splitClauses)
       List(new ClauseSplitter) else List()) ++
@@ -114,6 +112,8 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(DefinitionInliner)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
+        if (lazabs.GlobalParameters.get.slicing)
+          applyStage(Slicer)
         curSize = curClauses.size
       }
     }

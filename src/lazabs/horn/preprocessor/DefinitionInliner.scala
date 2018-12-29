@@ -123,47 +123,51 @@ object DefinitionInliner extends HornPreprocessor {
           }
 
         // case of general equations
-        case eq@Eq(left, right) => {
-          val leftConsts = SymbolCollector constants left
-          val rightConsts = SymbolCollector constants right
-          val eqConsts = leftConsts ++ rightConsts
-
-          if (Seqs.disjoint(eqConsts, replacedConsts)) {
-            (left, right) match {
-              case (IConstant(c), _)
-                  if !(rightConsts contains c) && !(headSyms contains c) => {
-                replacement.put(c, right)
-                replacedConsts ++= eqConsts
-                false
-              }
-              case (_, IConstant(c))
-                  if !(leftConsts contains c) && !(headSyms contains c) => {
-                replacement.put(c, left)
-                replacedConsts ++= eqConsts
-                false
-              }
-              case (IConstant(c), _)
-                  if !(rightConsts contains c) => {
-                conjunctsToKeep += eq
-                replacement.put(c, right)
-                replacedConsts ++= eqConsts
-                false
-              }
-              case (_, IConstant(c))
-                  if !(leftConsts contains c) => {
-                conjunctsToKeep += eq
-                replacement.put(c, left)
-                replacedConsts ++= eqConsts
-                false
-              }
-              case _ =>
-                // then keep this conjunct
-                true
-            }
+        case eq@Eq(left, right) =>
+          if (left == right) {
+            // can be dropped
+            false
           } else {
-            true
+            val leftConsts = SymbolCollector constants left
+            val rightConsts = SymbolCollector constants right
+            val eqConsts = leftConsts ++ rightConsts
+
+            if (Seqs.disjoint(eqConsts, replacedConsts)) {
+              (left, right) match {
+                case (IConstant(c), _)
+                    if !(rightConsts contains c) && !(headSyms contains c) => {
+                  replacement.put(c, right)
+                  replacedConsts ++= eqConsts
+                  false
+                }
+                case (_, IConstant(c))
+                    if !(leftConsts contains c) && !(headSyms contains c) => {
+                  replacement.put(c, left)
+                  replacedConsts ++= eqConsts
+                  false
+                }
+                case (IConstant(c), _)
+                    if !(rightConsts contains c) => {
+                  conjunctsToKeep += eq
+                  replacement.put(c, right)
+                  replacedConsts ++= eqConsts
+                  false
+                }
+                case (_, IConstant(c))
+                    if !(leftConsts contains c) => {
+                  conjunctsToKeep += eq
+                  replacement.put(c, left)
+                  replacedConsts ++= eqConsts
+                  false
+                }
+                case _ =>
+                  // then keep this conjunct
+                  true
+              }
+            } else {
+              true
+            }
           }
-        }
         case _ => true
       }
 
