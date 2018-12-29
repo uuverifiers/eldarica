@@ -198,7 +198,16 @@ object Slicer extends HornPreprocessor {
     { // initially mark all arguments read in clauses
       val argIndexes = new MHashMap[ConstantTerm, (Predicate, Int)]
       val seenConsts = new MHashSet[ConstantTerm]
-    
+
+      def makeConstUsed(argC : ConstantTerm) : Unit =
+        (argIndexes get argC) match {
+          case Some((otherPred, otherArgInd)) => {
+            usedArgs(otherPred) += otherArgInd
+            argIndexes -= argC
+          }
+          case None => // nothing
+        }
+
       for (Clause(_, body, constraint) <- clauses) {
         seenConsts ++= SymbolCollector constants constraint
 
@@ -211,17 +220,13 @@ object Slicer extends HornPreprocessor {
                 argIndexes.put(argC, (pred, argInd))
               } else {
                 usedArgSet += argInd
-                (argIndexes get argC) match {
-                  case Some((otherPred, otherArgInd)) => {
-                    usedArgs(otherPred) += otherArgInd
-                    argIndexes -= argC
-                  }
-                  case None => // nothing
-                }
+                makeConstUsed(argC)
               }
             case _ => {
               usedArgSet += argInd
-              seenConsts ++= SymbolCollector constants arg
+              for (argC <- SymbolCollector constants arg)
+                if (!(seenConsts add argC))
+                  makeConstUsed(argC)
             }
           }
 
