@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -233,8 +233,7 @@ class PrincessWrapper {
         sel(termArgs : _*)
       }
       case e1@lazabs.ast.ASTree.ADTtest(adt, sortNum, v) =>
-        println("this is test: " + e1)
-        IBoolLit(false)
+        adt.ctorIds(sortNum)(f2pterm(v))
       case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
         adt.termSize(sortNum)(f2pterm(v))
 
@@ -393,7 +392,9 @@ class PrincessWrapper {
       case IFunApp(f@ADT.Constructor(adt, _), e) =>
         ADTctor(adt, f.name, e.map(rvT(_)))
       case IFunApp(f@ADT.Selector(adt, _, _), Seq(e)) =>
-        ADTsel(adt, f.name, Seq(rvT(e)))
+        ADTsel(adt, f.name, Seq(rvT(e))).stype(IntegerType())
+      case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
+        ADTtest(adt, sortNum, rvT(e))
 
       // Bit-vectors
 

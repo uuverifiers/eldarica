@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -155,7 +155,7 @@ object HornPredAbs {
                              clausifyPreprocSettings)
                              
     def preprocess(f : Conjunction) : Conjunction =
-      !Theory.preprocess(!f, theories, order)
+      if (theories.isEmpty) f else !Theory.preprocess(!f, theories, order)
   }
 
   def predArgumentSorts(pred : Predicate) : Seq[Sort] = pred match {
@@ -177,9 +177,9 @@ object HornPredAbs {
     implicit val order = sig.order
     val (fors, _, _) =
       if (functionEnc == null)
-        Preprocessing(!f, List(), sig, settings)
+        Preprocessing(~f, List(), sig, settings)
       else
-        Preprocessing(!f, List(), sig, settings, functionEnc)
+        Preprocessing(~f, List(), sig, settings, functionEnc)
     ReduceWithConjunction(Conjunction.TRUE, order)(conj(InputAbsy2Internal(
       IExpression.or(for (f <- fors) yield IExpression removePartName f), order)).negate)
   }
@@ -1009,8 +1009,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val rs = relationSymbols(p)
     for ((f, predIndex) <- preds.iterator.zipWithIndex) {
       val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
-      val posF = sf.toInternal(!intF).negate
-      val negF = sf.toInternal(intF)
+      val (posF, negF) = rsPredsToInternal(intF)
       val pred = RelationSymbolPred(posF, negF, rs, predIndex)
       addRelationSymbolPred(pred)
     }
@@ -1159,7 +1158,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
                        if (rs.pred != HornClauses.FALSE)) yield {
         val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
-          conj((for (f <- fors.iterator) yield f.posInstances.head) ++
+          conj((for (f <- fors.iterator) yield f.negInstances.head) ++
                (Iterator single relationSymbolBounds(rs)))
         })
         val simplified = //!QuantifierElimProver(!rawFor, true, order)
@@ -2017,6 +2016,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       newC
     }
 
+  def rsPredsToInternal(f : IFormula) : (Conjunction, Conjunction) = {
+    val posF = elimQuansIfNecessary(sf.preprocess(
+                                      sf.toInternalClausify(~f)).negate, true)
+    val negF = elimQuansIfNecessary(sf.preprocess(
+                                      sf.toInternalClausify(f)), false)
+    (posF, negF)
+  }
+
   def genSymbolPred(f : Conjunction,
                     rs : RelationSymbol) : RelationSymbolPred =
     if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
@@ -2034,8 +2041,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       val iabsy =
         (new Simplifier)(Internal2InputAbsy(f, sf.functionEnc.predTranslation))
 
-      val posF = elimQuansIfNecessary(sf.toInternalClausify(!iabsy).negate, true)
-      val negF = elimQuansIfNecessary(sf.toInternalClausify(iabsy), false)
+      val (posF, negF) = rsPredsToInternal(iabsy)
 
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)

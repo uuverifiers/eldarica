@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2019 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -98,6 +98,12 @@ object HornSMTPrinter {
         ")) " + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(and " + printExp(e1) + " " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
+
+      // special handling of the tester predicates of ADTs
+      case e@Equality(ADTtest(adt, sortNum, expr), NumericalConst(num)) =>
+        "(is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
+        " " + printExp(expr) + ")"
+
       case Equality(e1, e2) => "(= " + printExp(e1) + " " + printExp(e2) + ")"
       case Inequality(e1, e2) => printExp(Not(Equality(e1,e2)))
       case LessThan(e1, e2) => "(< " + printExp(e1) + " " + printExp(e2) + ")"
@@ -110,7 +116,10 @@ object HornSMTPrinter {
       case Multiplication(e1, e2) => "(* " + printExp(e1) + " " + printExp(e2) + ")"
       case Division(e1, e2) => "(div " + printExp(e1) + " " + printExp(e2) + ")"
       case ADTctor(adt, name, exprList) =>
-        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+        if (exprList.isEmpty)
+          name
+        else
+          "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsel(adt, name, exprList) =>
         "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsize(adt, _, v) =>

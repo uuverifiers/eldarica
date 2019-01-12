@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat. All rights reserved.
+ * Copyright (c) 2011-2019 Hossein Hojjat. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -83,6 +83,12 @@ object HornPrinter {
         "ALL " + getAlphbeticChar(0) + " (" + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(" + printExp(e1) + ", " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
+
+      // special handling of the tester predicates of ADTs
+      case e@Equality(ADTtest(adt, sortNum, expr), NumericalConst(num)) =>
+        "is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
+        "(" + printExp(expr) + ")"
+
       case Equality(e1, e2) => "(" + printExp(e1) + " = " + printExp(e2) + ")"
       case Inequality(e1, e2) => "\\" + "+(" + printExp(e1) + " = " + printExp(e2) + ")"
       case LessThanEqual(e1, e2) => "(" + printExp(e1) + " =< " + printExp(e2) + ")"
