@@ -1,0 +1,7 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+$LAZABS -pngNo -abstract:off -t:20 "$@" array-exception.smt2 2>&1 | grep -v "^Elapsed Time"
+
+

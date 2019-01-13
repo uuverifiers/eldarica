@@ -53,7 +53,8 @@ import DisjInterpolator._
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashSet, LinkedHashMap,
-                                 ArrayBuffer, Queue, PriorityQueue, ArrayBuilder}
+                                 ArrayBuffer, Queue, PriorityQueue,
+                                 ArrayBuilder, ArrayStack}
 import scala.util.{Random, Sorting}
 
 object HornPredAbs {
@@ -1900,9 +1901,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
   
   //////////////////////////////////////////////////////////////////////////////
-  
+
   def addPredicates(preds : Seq[(Predicate, Seq[Conjunction])]) = {
-    val newStates = new ArrayBuffer[AbstractState]
+    val predsToAdd =
+      new MHashMap[RelationSymbol, IndexedSeq[RelationSymbolPred]]
 
     for ((p, fors) <- preds) {
       val rs = relationSymbols(p)
@@ -1925,11 +1927,38 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           print(p.name + ": ")
           println(rsPreds mkString ", ")
         }
+        predsToAdd.put(rs, rsPreds)
+      }
+    }
 
-        // check whether any edges need to be updated
-        for (i <- 0 until abstractEdges.size) {
-          val AbstractEdge(from, to, clause, assumptions) = abstractEdges(i)
-          if (to.rs == rs) hasher.scope {
+    // update the edges of the reachability graph with the new predicates;
+    // but only consider the edges that will still be reachable afterwards
+
+    val edgesFromState =
+      (for (n <- 0 until abstractEdges.size;
+            AbstractEdge(from, _, _, _) = abstractEdges(n);
+            s <- from)
+       yield (s, n)) groupBy (_._1)
+
+    val newStates = new ArrayBuffer[AbstractState]
+    val reachable = new MHashSet[AbstractState]
+
+    val edgesDone = new MHashSet[Int]
+    val edgesTodo = new ArrayStack[Int]
+    
+    for (n <- 0 until abstractEdges.size)
+      if (abstractEdges(n).from.isEmpty)
+        edgesTodo += n
+
+    while (!edgesTodo.isEmpty) {
+      val n = edgesTodo.pop
+
+      if (!(edgesDone contains n)) {
+        val AbstractEdge(from, to, clause, assumptions) = abstractEdges(n)
+        if (from forall reachable) {
+          edgesDone += n
+
+          for (rsPreds <- predsToAdd get to.rs) hasher.scope {
             addHasherAssertions(clause, from)
             lazy val prover = emptyProver.assert(assumptions, clause.order)
             val reducer = sf reducer assumptions
@@ -1942,22 +1971,29 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
               yield pred
                 
             if (!additionalPreds.isEmpty) {
-              val newState = AbstractState(rs, to.preds ++ additionalPreds)
-              newStates += newState
-              abstractEdges(i) = AbstractEdge(from, newState, clause, assumptions)
+              val newS = AbstractState(to.rs, to.preds ++ additionalPreds)
+              newStates += newS
+              abstractEdges(n) = AbstractEdge(from, newS, clause, assumptions)
 //              print("/")
-//              println("Updating edge: " + abstractEdges(i))
+//              println("Updating edge: " + abstractEdges(n))
             }
           }
+        
+          val newTo = abstractEdges(n).to
+          reachable += newTo
+
+          for (outgoing <- edgesFromState get newTo)
+            for ((_, nextN) <- outgoing)
+              edgesTodo += nextN
         }
       }
     }
-    
+
     // Garbage collection; determine whether previously subsumed
     // states have become unsubsumed
 
-    val (reachableStates,
-         forwardUnsubsumedStates, backwardUnsubsumedStates) = removeGarbage
+    val (forwardUnsubsumedStates,
+         backwardUnsubsumedStates) = removeGarbage(reachable)
 
     for (s <- backwardUnsubsumedStates)
       (activeAbstractStates(s.rs) find { t => strictlySubsumes(t, s) }) match {
@@ -1970,7 +2006,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     for (s <- forwardUnsubsumedStates.toSeq sortBy (_.preds.size))
       addState(s)
     for (s <- newStates)
-      if (reachableStates contains s)
+      if (reachable contains s)
         addState(s)
 
     // Postponed expansions might have to be reactivated
@@ -2051,21 +2087,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def removeGarbage : (scala.collection.Set[AbstractState],
-                       Iterable[AbstractState], Iterable[AbstractState]) = {
-    val reachable = new MHashSet[AbstractState]
-
-    var changed = true
-    while (changed) {
-      changed = false
-      
-      for (AbstractEdge(from, to, _, _) <- abstractEdges)
-        if (!(reachable contains to) && (from forall reachable)) {
-          reachable add to
-          changed = true
-        }
-    }
-    
+  def removeGarbage(reachable : MHashSet[AbstractState])
+                 : (Iterable[AbstractState], Iterable[AbstractState]) = {
     val remainingEdges = for (e@AbstractEdge(from, to, _, _) <- abstractEdges;
                               if (from forall reachable))
                          yield e
@@ -2119,7 +2142,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     backwardSubsumedStates.clear
     backwardSubsumedStates ++= remainingSubsumedStates
 
-    (reachable, forwardUnsubsumedStates, backwardUnsubsumedStates)
+    (forwardUnsubsumedStates, backwardUnsubsumedStates)
   }
   
 }

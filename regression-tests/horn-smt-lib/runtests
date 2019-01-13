@@ -11,7 +11,6 @@ TESTS="mccarthy91.nts.smt2 \
        rate_limiter.c.nts.smt2 \
        a_1.source.smt2 \
        uninterpreted_fun.smt2 \
-       array-exception.smt2 \
        inconclusive.smt2 \
        quantifier.smt2 \
        nonlinear.smt2 \

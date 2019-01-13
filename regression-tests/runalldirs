@@ -12,5 +12,6 @@ set -e
 ./rundir horn-smt-lib "" -assert -t:60
 ./rundir horn-abstract "" -assert -t:60 -abstractTO:4
 ./rundir horn-arrays ""
+./rundir special "" -assert 
 
 # ./rundir horn-concurrency ""
