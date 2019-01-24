@@ -1,0 +1,17 @@
+// For this program, Eldarica previously computed an incorrect counterexample,
+// due to a bug in the Princess NIA solver
+
+int nondet();
+
+void main(void) {
+  int x = nondet();
+  assume(x >= 1);
+  assume(x <= 100);
+  int y = x * x;
+
+  if (y > x) {
+    assert(0);
+  }
+
+  return 0;
+}

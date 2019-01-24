@@ -207,6 +207,23 @@ nonlinear1.hcc
 Warning: no definition of function "nondet" available
 SAFE
 
+nonlinear2.hcc
+Warning: no definition of function "nondet" available
+UNSAFE
+
+--------------
+Init:
+    main2     
+--------------
+      |       
+      |       
+      V       
+ main10(2, 4) 
+--------------
+Final:
+ main10(2, 4) 
+--------------
+
 hints.hcc
 SAFE
 

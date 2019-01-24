@@ -8,7 +8,7 @@ TESTS="atomic3e.hcc atomic3f.hcc \
        channels.hcc channels-2.hcc channels-2b.hcc channels-3.hcc \
        duration1.hcc duration2.hcc \
        duration3.hcc duration3b.hcc duration3c.hcc duration3d.hcc \
-       nonlinear1.hcc"
+       nonlinear1.hcc nonlinear2.hcc"
 
 for name in $TESTS; do
     echo
