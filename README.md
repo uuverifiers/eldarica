@@ -59,7 +59,10 @@ predicate generation.
 Papers
 ------
 
-* The canonical reference to Eldarica:
+* The canonical Eldarica reference:
+  "The Eldarica Horn Solver"
+  http://uu.diva-portal.org/smash/get/diva2:1268767/FULLTEXT01.pdf
+* An older tool paper covering, among others, Eldarica:
   "A Verification Toolkit for Numerical Transition Systems - Tool Paper."
   http://link.springer.com/chapter/10.1007%2F978-3-642-32759-9_21
 * "Guiding Craig Interpolation with Domain-specific Abstractions"
