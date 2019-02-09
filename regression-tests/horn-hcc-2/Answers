@@ -224,6 +224,9 @@ Final:
  main10(2, 4) 
 --------------
 
+typedef1.hcc
+SAFE
+
 hints.hcc
 SAFE
 

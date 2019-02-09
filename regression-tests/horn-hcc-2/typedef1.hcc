@@ -1,0 +1,16 @@
+
+
+typedef int s32;
+typedef unsigned int u32;
+typedef s32 s32_2;
+
+void main() {
+
+  s32 x;
+  u32 y;
+  s32_2 z;
+
+  if (x == y)
+    assert(y >= 0);
+
+}

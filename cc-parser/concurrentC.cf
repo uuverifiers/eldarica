@@ -70,14 +70,14 @@ Tlong.        Type_specifier ::= "long";
 -- Tdouble.      Type_specifier ::= "double";
 Tsigned.      Type_specifier ::= "signed";
 Tunsigned.    Type_specifier ::= "unsigned";
--- Tstruct.      Type_specifier ::= Struct_or_union_spec;
--- Tenum.        Type_specifier ::= Enum_specifier;
+Tstruct.      Type_specifier ::= Struct_or_union_spec;
+Tenum.        Type_specifier ::= Enum_specifier;
 -- Tname.        Type_specifier ::= "Typedef_name";
 Tclock.       Type_specifier ::= "clock";
 Tduration.    Type_specifier ::= "duration";
 
 
--- MyType.         Storage_class_specifier ::= "typedef";
+MyType.         Storage_class_specifier ::= "typedef";
 GlobalPrograms. Storage_class_specifier ::= "extern" ;
 LocalProgram.   Storage_class_specifier ::= "static" ;
 LocalBlock.     Storage_class_specifier ::= "auto" ;
@@ -89,16 +89,16 @@ NoOptim.  Type_qualifier ::= "volatile";
 
 separator nonempty Type_qualifier "";
 
--- Tag.      Struct_or_union_spec ::= Struct_or_union CIdent "{" [Struct_dec] "}" ;
--- Unique.   Struct_or_union_spec ::= Struct_or_union "{" [Struct_dec] "}";
--- TagType.  Struct_or_union_spec ::= Struct_or_union CIdent ;
+Tag.      Struct_or_union_spec ::= Struct_or_union CIdent "{" [Struct_dec] "}" ;
+Unique.   Struct_or_union_spec ::= Struct_or_union "{" [Struct_dec] "}";
+TagType.  Struct_or_union_spec ::= Struct_or_union CIdent ;
 
--- Struct.   Struct_or_union ::= "struct";
--- Union.    Struct_or_union ::= "union";
+Struct.   Struct_or_union ::= "struct";
+Union.    Struct_or_union ::= "union";
 
--- Structen. Struct_dec ::= [Spec_qual] [Struct_declarator] ";" ;
+Structen. Struct_dec ::= [Spec_qual] [Struct_declarator] ";" ;
 
--- separator nonempty Struct_dec "";
+separator nonempty Struct_dec "";
 
 TypeSpec.  Spec_qual ::= Type_specifier;
 QualSpec.  Spec_qual ::= Type_qualifier;
@@ -112,14 +112,14 @@ DecField.  Struct_declarator ::= Declarator ":" Constant_expression ;
 separator nonempty Struct_declarator ",";
 
 
--- EnumDec.   Enum_specifier ::= "enum" "{" [Enumerator] "}" ;
--- EnumName.  Enum_specifier ::= "enum" CIdent "{" [Enumerator] "}" ;
--- EnumVar.   Enum_specifier ::= "enum" CIdent ;
+EnumDec.   Enum_specifier ::= "enum" "{" [Enumerator] "}" ;
+EnumName.  Enum_specifier ::= "enum" CIdent "{" [Enumerator] "}" ;
+EnumVar.   Enum_specifier ::= "enum" CIdent ;
 
--- Plain.     Enumerator ::= CIdent ;
+Plain.     Enumerator ::= CIdent ;
 -- EnumInit.  Enumerator ::= CIdent "=" Constant_expression ;
 
--- separator nonempty Enumerator ",";
+separator nonempty Enumerator ",";
 
 
 -- BeginPointer.   Declarator ::= Pointer Direct_declarator ;

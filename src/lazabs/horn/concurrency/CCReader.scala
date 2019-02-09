@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -75,7 +75,8 @@ object CCReader {
   private def parseWithEntry[T](input : java.io.Reader,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new ap.parser.Parser2InputAbsy.CRRemover2 (input))
-    val p = new parser(l)
+    val l2 = new TypedefReplacingLexer(l)
+    val p = new parser(l2)
     
     try { entry(p) } catch {
       case e : Exception =>
