@@ -636,7 +636,7 @@ class CCReader private (prog : Program,
   private def collectVarDecls(dec : Dec,
                               global : Boolean,
                               values : Symex) : Unit = dec match {
-    case decl : Declarators => {
+    case decl : Declarators if !isTypeDef(decl.listdeclaration_specifier_) => {
       val typ = getType(decl.listdeclaration_specifier_)
 
       for (initDecl <- decl.listinit_declarator_) {
@@ -731,7 +731,7 @@ class CCReader private (prog : Program,
         }
       }
     }
-    case _ : NoDeclarator =>
+    case _ =>
       // nothing
   }
 
@@ -795,6 +795,14 @@ class CCReader private (prog : Program,
 //    case dec : OldFuncDef => getName(dec.direct_declarator_)
     case dec : OldFuncDec => getName(dec.direct_declarator_)
   }
+
+  private def isTypeDef(specs : Seq[Declaration_specifier]) : Boolean =
+    specs exists {
+      case spec : Storage =>
+        spec.storage_class_specifier_.isInstanceOf[MyType]
+      case _ =>
+        false
+    }
 
   private def getType(specs : Seq[Declaration_specifier]) : CCType =
     getType(for (specifier <- specs.iterator;

@@ -58,6 +58,8 @@ class TypedefReplacingLexer(underlying : Yylex) extends Scanner {
 
   import TypedefReplacingLexer._
 
+  private var braceDepth = 0
+
   private var recording = false
   private val recordedSyms = new ArrayBuffer[Symbol]
 
@@ -80,24 +82,54 @@ class TypedefReplacingLexer(underlying : Yylex) extends Scanner {
  */
 
       s.sym match {
-        case Typedef_num => {
+        case Typedef_num if braceDepth == 0 => {
           recording = true
           s
         }
-        case Semicolon_num if recording => {
-          typedefs.put(recordedSyms.last.value.toString,
-                       recordedSyms.init.reverse.toList)
-//          println(typedefs)
+
+        case Semicolon_num if recording && braceDepth == 0 => {
           recording = false
+
+          val id = recordedSyms.last.value.toString
+
+          recordedSyms.head.sym match {
+            case Struct_num | Enum_num | Union_num =>
+              // typedefs S for struct, enum, or union are just turned into
+              // struct/enum/union S
+              typedefs.put(id,
+                           (if (recordedSyms(1).sym == LBrace_num)
+                              recordedSyms.last else recordedSyms(1)) ::
+                           List(recordedSyms.head))
+            case _ =>
+              typedefs.put(id, recordedSyms.init.reverse.toList)
+          }
+
+//          println(typedefs)
+
           recordedSyms.clear
           s
         }
+
         case CIdent_num if (typedefs contains s.value.asInstanceOf[String]) => {
           // suppress this token, replace it with its definition
           for (t <- typedefs(s.value.asInstanceOf[String]))
             replacementStack push (new Symbol(t.sym, t.value))
           next_token
         }
+
+        case LBrace_num => {
+          braceDepth = braceDepth + 1
+          if (recording)
+            recordedSyms += s
+          s
+        }
+        case RBrace_num => {
+          braceDepth = braceDepth - 1
+          if (recording)
+            recordedSyms += s
+          s
+        }
+
         case _ => {
           if (recording)
             recordedSyms += s
