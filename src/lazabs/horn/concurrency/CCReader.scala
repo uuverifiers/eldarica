@@ -898,6 +898,18 @@ class CCReader private (prog : Program,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def translateConstantExpr(expr : Constant_expression) : CCExpr = {
+    val symex = Symex(null)
+    symex.saveState
+    val res = symex eval expr.asInstanceOf[Especial].exp_
+    if (!symex.atomValuesUnchanged)
+      throw new TranslationException(
+        "constant expression is not side-effect free")
+    res
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private object Symex {
     def apply(initPred : Predicate) = {
       val values = new ArrayBuffer[CCExpr]
@@ -1046,6 +1058,11 @@ class CCReader private (prog : Program,
       restoreState
       addGuard(~cond)
       outputClause(elsePred)
+    }
+
+    def assertProperty(property : IFormula) : Unit = {
+      import HornClauses._
+      assertionClauses += (property :- (initAtom, guard))
     }
 
     def addValue(t : CCExpr) = {
@@ -1352,15 +1369,12 @@ class CCReader private (prog : Program,
 
       case exp : Efunkpar => (printer print exp.exp_) match {
         case "__VERIFIER_error" if (exp.listexp_.isEmpty) => {
-          import HornClauses._
-          assertionClauses += (false :- (initAtom, guard))
+          assertProperty(false)
           pushVal(CCFormula(true, CCInt))
         }
         case "assert" | "static_assert" | "__VERIFIER_assert"
                           if (exp.listexp_.size == 1) => {
-          import HornClauses._
-          val property = atomicEval(exp.listexp_.head).toFormula
-          assertionClauses += (property :- (initAtom, guard))
+          assertProperty(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
         case "assume" | "__VERIFIER_assume"
@@ -1808,8 +1822,15 @@ class CCReader private (prog : Program,
         labelledLocs.put(stm.cident_, (entry, allFormalVars))
         translate(stm.stm_, entry, exit)
       }
-      //-- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
-      //SlabelThree. Labeled_stm ::= "default" ":" Stm;
+      case stm : SlabelTwo => { // Labeled_stm ::= "case" Constant_expression ":" Stm ;
+        val caseVal = translateConstantExpr(stm.constant_expression_)
+        innermostSwitchCaseCollector += ((caseVal, entry))
+        translate(stm.stm_, entry, exit)
+      }
+      case stm : SlabelThree => { // . Labeled_stm ::= "default" ":" Stm;
+        innermostSwitchCaseCollector += ((null, entry))
+        translate(stm.stm_, entry, exit)
+      }
     }
 
     private def translateWithEntryClause(
@@ -1905,8 +1926,11 @@ class CCReader private (prog : Program,
         }
     }
 
+    type SwitchCaseCollector = ArrayBuffer[(CCExpr, Predicate)]
+
     var innermostLoopCont : Predicate = null
     var innermostLoopExit : Predicate = null
+    var innermostSwitchCaseCollector : SwitchCaseCollector = null
 
     private def withinLoop[A](
                      loopCont : Predicate, loopExit : Predicate)
@@ -1920,6 +1944,22 @@ class CCReader private (prog : Program,
       } finally {
         innermostLoopCont = oldCont
         innermostLoopExit = oldExit
+      }
+    }
+
+    private def withinSwitch[A](
+                     switchExit : Predicate,
+                     caseCollector : SwitchCaseCollector)
+                     (comp : => A) : A = {
+      val oldExit = innermostLoopExit
+      val oldCollector = innermostSwitchCaseCollector
+      innermostLoopExit = switchExit
+      innermostSwitchCaseCollector = caseCollector
+      try {
+        comp
+      } finally {
+        innermostLoopExit = oldExit
+        innermostSwitchCaseCollector = oldCollector
       }
     }
 
@@ -1993,7 +2033,7 @@ class CCReader private (prog : Program,
     private def translate(stm : Selection_stm,
                           entry : Predicate,
                           exit : Predicate) : Unit = stm match {
-      case _ : SselOne | _ : SselTwo => {
+      case _ : SselOne | _ : SselTwo => { // if
         val first, second = newPred
         val vars = allFormalVars
         val condSymex = Symex(entry)
@@ -2013,7 +2053,44 @@ class CCReader private (prog : Program,
           }
         }
       }
-//      case stm : SselThree.  Selection_stm ::= "switch" "(" Exp ")" Stm ;
+
+      case stm : SselThree => {  // switch
+        val selectorSymex = Symex(entry)
+        val selector = (selectorSymex eval stm.exp_).toTerm
+
+        val newEntry = newPred
+        val collector = new SwitchCaseCollector
+
+        withinSwitch(exit, collector) {
+          translate(stm.stm_, newEntry, exit)
+        }
+
+        // add clauses for the various cases of the switch
+        val (defaults, cases) = collector partition (_._1 == null)
+        val guards = for ((value, _) <- cases) yield (selector === value.toTerm)
+
+        for (((_, target), guard) <- cases.iterator zip guards.iterator) {
+          selectorSymex.saveState
+          selectorSymex addGuard guard
+          selectorSymex outputClause target
+          selectorSymex.restoreState
+        }
+
+        defaults match {
+          case Seq() =>
+            // add an assertion that we never try to jump to a case that
+            // does not exist. TODO: add a parameter for this?
+            selectorSymex assertProperty or(guards)
+          case Seq((_, target)) => {
+            selectorSymex.saveState
+            selectorSymex addGuard ~or(guards)
+            selectorSymex outputClause target
+            selectorSymex.restoreState
+          }
+          case _ =>
+            throw new TranslationException("multiple default cases in switch")
+        }
+      }
     }
 
     private def translate(jump : Jump_stm,

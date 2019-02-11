@@ -227,6 +227,29 @@ Final:
 typedef1.hcc
 SAFE
 
+switch1.hcc
+UNSAFE
+
+--------------
+Init:
+ main4(0, 10) 
+--------------
+      |       
+      |       
+      V       
+ main5(0, 0)  
+--------------
+Final:
+ main5(0, 0)  
+--------------
+
+switch2.hcc
+Warning: no definition of function "nondet" available
+Warning: no definition of function "nondet" available
+Warning: no definition of function "nondet" available
+Warning: no definition of function "nondet" available
+SAFE
+
 hints.hcc
 SAFE
 

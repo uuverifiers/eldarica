@@ -1,0 +1,26 @@
+
+int N = _;
+
+int nondet();
+
+void main() {
+  int x = 0, y = 0;
+  int s = 0;
+
+  loop : while (s != 3) {
+
+  switch(s) {
+                         s = 0; case 0: if (nondet()) goto loop;
+      while (x <= N) {
+                         s = 1; case 1: if (nondet()) goto loop;
+        x++;
+                         s = 2; case 2: if (nondet()) goto loop;
+        y++;
+      }
+                         s = 3; case 3: if (nondet()) goto loop;
+  }
+
+  }
+
+  assert(x == y);
+}

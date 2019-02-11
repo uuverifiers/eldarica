@@ -40,10 +40,10 @@ object TypedefReplacingLexer {
   //   cc-parser/lazabs/horn/concurrency/concurrentC/Yylex
   // ?
 
-  val Typedef_num   = sym._SYMB_76;
-  val Struct_num    = sym._SYMB_73;
-  val Enum_num      = sym._SYMB_60;
-  val Union_num     = sym._SYMB_77;
+  val Typedef_num   = sym._SYMB_77;
+  val Struct_num    = sym._SYMB_74;
+  val Enum_num      = sym._SYMB_61;
+  val Union_num     = sym._SYMB_78;
   val Semicolon_num = sym._SYMB_2;
   val LBrace_num    = sym._SYMB_7;
   val RBrace_num    = sym._SYMB_8;

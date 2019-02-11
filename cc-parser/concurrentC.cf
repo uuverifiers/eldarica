@@ -191,7 +191,7 @@ DecS.     Stm ::= Dec ; -- beyond ANSI-C
 AtomicS.  Stm ::= Atomic_stm ;
 
 SlabelOne.   Labeled_stm ::= CIdent ":" Stm ;
--- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
+SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
 SlabelThree. Labeled_stm ::= "default" ":" Stm;
 
 ScompOne.   Compound_stm ::= "{" "}" ;

@@ -1,0 +1,20 @@
+
+
+void main() {
+  int x;
+  int y = 10;
+
+  switch(x) {
+    case 1: case 2:
+      y = 42;
+      break;
+    case 3:
+      y = 43;
+      break;
+    default:
+      y = 0;
+      break;
+  }
+
+  assert(y >= 1);
+}
