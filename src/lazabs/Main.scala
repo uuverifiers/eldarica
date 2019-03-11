@@ -142,59 +142,61 @@ class GlobalParameters extends Cloneable {
     }
   }
 
+  protected def copyTo(that : GlobalParameters) = {
+    that.in = this.in
+    that.fileName = this.fileName
+    that.funcName = this.funcName
+    that.solFileName = this.solFileName
+    that.timeout = this.timeout
+    that.spuriousness = this.spuriousness
+    that.searchMethod = this.searchMethod
+    that.drawRTree = this.drawRTree
+    that.absInFile = this.absInFile
+    that.lbe = this.lbe
+    that.slicing = this.slicing
+    that.prettyPrint = this.prettyPrint
+    that.smtPrettyPrint = this.smtPrettyPrint
+    that.ntsPrint = this.ntsPrint
+    that.printIntermediateClauseSets = this.printIntermediateClauseSets
+    that.horn = this.horn
+    that.concurrentC = this.concurrentC
+    that.global = this.global
+    that.disjunctive = this.disjunctive
+    that.splitClauses = this.splitClauses
+    that.displaySolutionProlog = this.displaySolutionProlog
+    that.displaySolutionSMT = this.displaySolutionSMT
+    that.format = this.format
+    that.didIncompleteTransformation = this.didIncompleteTransformation
+    that.templateBasedInterpolation = this.templateBasedInterpolation
+    that.templateBasedInterpolationType = this.templateBasedInterpolationType
+    that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
+    that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    that.cegarHintsFile = this.cegarHintsFile
+    that.arithmeticMode = this.arithmeticMode
+    that.arrayRemoval = this.arrayRemoval
+    that.princess = this.princess
+    that.staticAccelerate = this.staticAccelerate
+    that.dynamicAccelerate = this.dynamicAccelerate
+    that.underApproximate = this.underApproximate
+    that.template = this.template
+    that.dumpInterpolationQuery = this.dumpInterpolationQuery
+    that.babarew = this.babarew
+    that.log = this.log
+    that.logCEX = this.logCEX
+    that.logStat = this.logStat
+    that.printHornSimplified = this.printHornSimplified
+    that.dotSpec = this.dotSpec
+    that.dotFile = this.dotFile
+    that.pngNo = this.pngNo
+    that.eogCEX = this.eogCEX
+    that.plainCEX = this.plainCEX
+    that.assertions = this.assertions
+    that.timeoutChecker = this.timeoutChecker
+  }
+
   override def clone : GlobalParameters = {
     val res = new GlobalParameters
-
-    res.in = this.in
-    res.fileName = this.fileName
-    res.funcName = this.funcName
-    res.solFileName = this.solFileName
-    res.timeout = this.timeout
-    res.spuriousness = this.spuriousness
-    res.searchMethod = this.searchMethod
-    res.drawRTree = this.drawRTree
-    res.absInFile = this.absInFile
-    res.lbe = this.lbe
-    res.slicing = this.slicing
-    res.prettyPrint = this.prettyPrint
-    res.smtPrettyPrint = this.smtPrettyPrint
-    res.ntsPrint = this.ntsPrint
-    res.printIntermediateClauseSets = this.printIntermediateClauseSets
-    res.horn = this.horn
-    res.concurrentC = this.concurrentC
-    res.global = this.global
-    res.disjunctive = this.disjunctive
-    res.splitClauses = this.splitClauses
-    res.displaySolutionProlog = this.displaySolutionProlog
-    res.displaySolutionSMT = this.displaySolutionSMT
-    res.format = this.format
-    res.didIncompleteTransformation = this.didIncompleteTransformation
-    res.templateBasedInterpolation = this.templateBasedInterpolation
-    res.templateBasedInterpolationType = this.templateBasedInterpolationType
-    res.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
-    res.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
-    res.cegarHintsFile = this.cegarHintsFile
-    res.arithmeticMode = this.arithmeticMode
-    res.arrayRemoval = this.arrayRemoval
-    res.princess = this.princess
-    res.staticAccelerate = this.staticAccelerate
-    res.dynamicAccelerate = this.dynamicAccelerate
-    res.underApproximate = this.underApproximate
-    res.template = this.template
-    res.dumpInterpolationQuery = this.dumpInterpolationQuery
-    res.babarew = this.babarew
-    res.log = this.log
-    res.logCEX = this.logCEX
-    res.logStat = this.logStat
-    res.printHornSimplified = this.printHornSimplified
-    res.dotSpec = this.dotSpec
-    res.dotFile = this.dotFile
-    res.pngNo = this.pngNo
-    res.eogCEX = this.eogCEX
-    res.plainCEX = this.plainCEX
-    res.assertions = this.assertions
-    res.timeoutChecker = this.timeoutChecker
-
+    this copyTo res
     res    
   }
 
