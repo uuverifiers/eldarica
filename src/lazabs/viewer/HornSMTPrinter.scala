@@ -35,13 +35,19 @@ import lazabs.ast.ASTree._
 import lazabs.horn.global._
 import lazabs.horn.parser.HornReader
 
+import ap.parser.SMTLineariser
+
 object HornSMTPrinter {
+
+  import SMTLineariser.quoteIdentifier
 
   def apply(system: Seq[HornClause]): String =
     "(set-info :origin \"Horn problem converted to SMT-LIB2 using Eldarica (https://github.com/uuverifiers/eldarica)\")\n" +
     "(set-logic HORN)\n" +
     system.map(Horn.getRelVarArities(_)).flatten.distinct
-      .map(rv => "(declare-fun " + rv._1 + " " + (0 until rv._2).map(_ => "Int").mkString("("," ",")") + " Bool)").mkString("\n") + "\n" +
+      .map(rv => "(declare-fun " + quoteIdentifier(rv._1) +
+                 " " + (0 until rv._2).map(_ => "Int").mkString("("," ",")") +
+                 " Bool)").mkString("\n") + "\n" +
       system.map(print).mkString("\n") + "\n(check-sat)"
 
   /**
@@ -75,8 +81,9 @@ object HornSMTPrinter {
     def printHornLiteral(hl: HornLiteral): String = hl match {
       case Interp(v) => printExp(v)
       case RelVar(varName, params) =>
-        if(params.isEmpty) varName else
-        "(" + varName + " " + (params.map(printParameter).mkString(" ") ) + ")"        
+        if(params.isEmpty) quoteIdentifier(varName) else
+        "(" + quoteIdentifier(varName) + " " +
+        (params.map(printParameter).mkString(" ") ) + ")"        
     }
 
     def printParameter(p: Parameter): String = varMap.get(p.name) match {
@@ -144,7 +151,7 @@ object HornSMTPrinter {
         } else {
           num.toString
         }
-      case BoolConst(v) => v.toString
+      case BoolConst(v) => quoteIdentifier(v.toString)
       case _ =>
         throw new Exception("Invalid expression " + e)
         ""
@@ -153,7 +160,12 @@ object HornSMTPrinter {
     val body = h.body.size match {
       case 0 => ""
       case 1 => printHornLiteral(h.body.head) 
-      case _ => h.body.map(printHornLiteral).reduceLeft((a,b) => ("(and " + a + " " + b + ")")) 
+      case _ => {
+        // print first the relation variables, then constraints
+        val (relVars, other) = h.body partition (_.isInstanceOf[RelVar])
+        val strings = (relVars ++ other) map (printHornLiteral _)
+        "(and " + (strings mkString " ") + ")"
+      }
     }
     
     if (asDefineFun) {
@@ -165,7 +177,8 @@ object HornSMTPrinter {
           type2String(varMap(p.name)._2) + ")"
       }) mkString " "
 
-      "(define-fun " + name + " (" + args + ") Bool " + body + ")"
+      "(define-fun " + quoteIdentifier(name) +
+      " (" + args + ") Bool " + body + ")"
     } else {
       val boundVars =
         varMap.values.toSeq.sortWith(_._1 < _._1)
@@ -176,9 +189,9 @@ object HornSMTPrinter {
       h.head match{
         case Interp(BoolConst(false)) =>
           if (boundVars.isEmpty) {
-            "(assert (not " + body + "))"
+            "(assert (=> " + body + " false))"
           } else {
-            "(assert (forall (" + boundVars + ") (not " + body + ")))"
+            "(assert (forall (" + boundVars + ") (=> " + body + " false)))"
           }
         case _ => 
           if (boundVars.isEmpty) {
