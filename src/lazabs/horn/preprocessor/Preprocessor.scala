@@ -49,8 +49,40 @@ object HornPreprocessor {
   trait VerificationHints {
     val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
 
-    def isEmpty = predicateHints.isEmpty
+    /////////////////DEBUG///////////
 
+    
+    def getValue(key:IExpression.Predicate)={
+      predicateHints(key)
+    }
+    
+    def printHints() = {
+      for((key,value)<-predicateHints){
+        println(key)
+        println(value)
+      }
+    }
+    
+    def pretyPrintHints() = {
+      for((key,value)<-predicateHints){
+        println(key)
+        for(v<-value){
+          println(v)
+          
+        }
+      }
+    }
+    
+    def getPredicateHints() = {
+      predicateHints
+    }
+    
+    def numberOfHeads():Int={
+      predicateHints.size
+    }
+    /////////////////DEBUG///////////
+    
+    def isEmpty = predicateHints.isEmpty
     def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {
       val remHints = predicateHints filterKeys remainingPreds
       VerificationHints(remHints)

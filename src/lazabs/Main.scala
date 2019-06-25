@@ -30,10 +30,12 @@
 
 package lazabs
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{FileInputStream, FileNotFoundException, InputStream}
+
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
+import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -61,6 +63,9 @@ object GlobalParameters {
 }
 
 class GlobalParameters extends Cloneable {
+  var printHints=VerificationHints(Map())
+  var totalHints=0 //DEBUG
+  var threadTimeout = 2000 //debug
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -87,6 +92,7 @@ class GlobalParameters extends Cloneable {
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
+  //var templateBasedInterpolation = false
   var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
@@ -194,7 +200,9 @@ class GlobalParameters extends Cloneable {
     res.plainCEX = this.plainCEX
     res.assertions = this.assertions
     res.timeoutChecker = this.timeoutChecker
-
+    //DEBUG
+    res.threadTimeout = this.threadTimeout //debug
+    res.printHints = this.printHints //DEBUG
     res    
   }
 
@@ -322,6 +330,10 @@ object Main {
       case tTimeout :: rest if (tTimeout.startsWith("-abstractTO:")) =>
         templateBasedInterpolationTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
+        arguments(rest)
+      case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>  //debug
+        threadTimeout =
+          (java.lang.Float.parseFloat(tTimeout.drop(12)) ).toInt;
         arguments(rest)
 
       case tFile :: rest if (tFile.startsWith("-hints:")) => {
@@ -578,6 +590,8 @@ object Main {
                    new java.io.FileReader(new java.io.File (fileName))),
                  funcName,
                  arithmeticMode)
+      //-----------debug-----------------------
+
 
       if (prettyPrint)
         lazabs.horn.concurrency.ReaderMain.printClauses(system)
@@ -590,7 +604,7 @@ object Main {
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
         return
       }
-
+      //-----------debug-----------------------
       val result = try {
         Console.withOut(outStream) {
           new lazabs.horn.concurrency.VerificationLoop(smallSystem).result
@@ -617,9 +631,15 @@ object Main {
           }
         }
       }
-
+      println
+      println("-----Optimized Hints------")
+      println("!@@@@")
+      printHints.pretyPrintHints()
+      println("@@@@!")
       return
     }
+
+
 
     val (cfg,m) = format match {
       case InputFormat.Nts =>
