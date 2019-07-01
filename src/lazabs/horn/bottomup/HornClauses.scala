@@ -228,38 +228,6 @@ object HornClauses {
       print(".")
     }
 
-    def toPrologStringNumeric : String = ap.DialogUtil.asString {
-      if (body.size == 1) {
-        val defs = body.head
-        val subst =
-          (for ((IConstant(c), n) <- defs.iterator.zipWithIndex)
-           yield (c -> IVariable(n))).toMap
-
-        def printExpr(e : IExpression) =
-          PrincessLineariser printExpression ConstantSubstVisitor(e, subst)
-
-        if (head.pred == FALSE)
-          print("false")
-        else
-          printExpr(head)
-
-        var sep = " :- "
-        for (a <- body) {
-          print(sep)
-          printExpr(a)
-          sep = ", "
-        }
-      if (constraint != i(true)) {
-        print(sep)
-        printExpr((new Simplifier)(constraint))
-      }
-      print(".")
-
-      } else {
-        print(toPrologString)
-      }
-    }
-
     def toFormula : IFormula = {
       import IExpression._
 

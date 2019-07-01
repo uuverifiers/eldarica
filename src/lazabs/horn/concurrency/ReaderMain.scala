@@ -29,7 +29,7 @@
 
 package lazabs.horn.concurrency
 
-import ap.parser.{PrincessLineariser, Simplifier}
+import ap.parser.PrincessLineariser
 
 import lazabs.horn.bottomup.HornClauses
 
@@ -45,7 +45,7 @@ object ReaderMain {
           println("  Replicated thread:")
       }
       for ((c, sync) <- p) {
-        val prefix = "    " + c.toPrologStringNumeric
+        val prefix = "    " + c.toPrologString
         print(prefix + (" " * ((50 - prefix.size) max 2)))
         sync match {
           case ParametricEncoder.Send(chan) =>
@@ -62,14 +62,14 @@ object ReaderMain {
       println
       println("Time invariants:")
       for (c <- system.timeInvariants)
-        println("  " + c.toPrologStringNumeric)
+        println("  " + c.toPrologString)
     }
 
     if (!system.assertions.isEmpty) {
       println
       println("Assertions:")
       for (c <- system.assertions)
-        println("  " + c.toPrologStringNumeric)
+        println("  " + c.toPrologString)
     }
 
     if (!system.hints.predicateHints.isEmpty) {
@@ -79,8 +79,7 @@ object ReaderMain {
              system.hints.predicateHints.toArray.sortBy(_._1.name)) {
         println("  " + p + ": ")
         for (x <- preds) {
-//          print("    ")
-//          PrincessLineariser printExpression (new Simplifier)(x)
+//          PrincessLineariser printExpression x
           println("    " + x)
         }
       }

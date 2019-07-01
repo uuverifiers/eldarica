@@ -28,7 +28,6 @@
  */
 
 package lazabs.horn.concurrency
-
 import ap.parser._
 import ap.util.Seqs
 import ap.SimpleAPI
@@ -161,6 +160,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
   import HornClauses.{Clause, FALSE}
   import Util._
 
+
   val result = {
     val processNum = system.processes.size
     var invariants : Seq[Seq[Int]] =
@@ -226,6 +226,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
       else
         List()
 
+
 //    for(s<-simpClauses){
 //      println(s)
 //    }
@@ -249,6 +250,10 @@ class VerificationLoop(system : ParametricEncoder.System) {
     import java.lang.System.currentTimeMillis
     //import java.util.concurrent.TimeoutException
     import lazabs.Main
+
+    import lazabs.horn.concurrency.GraphTranslator
+
+    val horngraph =  new GraphTranslator(encoder.allClauses)
 
 
     val timeOut=GlobalParameters.get.threadTimeout //timeout
