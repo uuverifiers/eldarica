@@ -287,3 +287,7 @@ sat
 slicing-bug.smt2
 sat
 (define-fun p ((A Int) (B Int)) Bool (>= A B))
+
+clause-shortener-bug.smt2
+Theories: ADT(parent), ADT(child)
+unsat
