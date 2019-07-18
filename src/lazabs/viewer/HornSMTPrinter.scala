@@ -152,6 +152,7 @@ object HornSMTPrinter {
           num.toString
         }
       case BoolConst(v) => quoteIdentifier(v.toString)
+      case BVconst(bits, v) => "(_ bv" + v + " " + bits + ")"
       case _ =>
         throw new Exception("Invalid expression " + e)
         ""

@@ -45,7 +45,7 @@ object HornPrinter {
   /**
    * gets the alphabetic character corresponding to an int 
    */
-  def getAlphbeticChar(i :Int): String = {
+  def getAlphabeticChar(i :Int): String = {
     val alpha = i / 26
     ((i % 26 + 65).toChar + (if(alpha > 0) alpha.toString else "")).toString
   }
@@ -68,19 +68,19 @@ object HornPrinter {
         removePrefix.toLowerCase + (if(params.isEmpty) "" else ("(" + params.map(printParameter).mkString(",") + ")"))
     }
     def printParameter(p: Parameter): String = varMap.get(p.name) match {
-      case Some(i) => getAlphbeticChar(i)
+      case Some(i) => getAlphabeticChar(i)
       case None => 
         val newIndex = getNewVarCounter
         varMap += (p.name -> newIndex)
-        getAlphbeticChar(newIndex)
+        getAlphabeticChar(newIndex)
     }
 
 
     def printExp(e: Expression): String = e match {
       case Existential(v, qe) =>
-        "EX " + getAlphbeticChar(0) + " (" + printExp(qe) + ")"
+        "EX " + getAlphabeticChar(0) + " (" + printExp(qe) + ")"
       case Universal(v, qe) =>
-        "ALL " + getAlphbeticChar(0) + " (" + printExp(qe) + ")"
+        "ALL " + getAlphabeticChar(0) + " (" + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(" + printExp(e1) + ", " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
 
@@ -108,18 +108,18 @@ object HornPrinter {
       case Not(e) => "\\" + "+(" + printExp(e) + ")"
       case UnaryExpression(op, e) => op.st + "(" + printExp(e) + ")"
       case Variable(name,None) => varMap.get(name) match {
-        case Some(i) => getAlphbeticChar(i)
+        case Some(i) => getAlphabeticChar(i)
         case None =>
           val newIndex = getNewVarCounter
           varMap += (name -> newIndex)
-          getAlphbeticChar(newIndex)
+          getAlphabeticChar(newIndex)
       }
       // TODO: ??
       case Variable(_,Some(index)) => 
-        getAlphbeticChar(index)  // variable from Princess
+        getAlphabeticChar(index)  // variable from Princess
       case NumericalConst(num) => num.toString
-      case BoolConst(v: Boolean) if (v == false) => "false"
-      case BoolConst(v: Boolean) if (v == true) => "true"
+      case BoolConst(v) => "" + v
+      case BVconst(bits, v) => "" + v
       case _ =>
         throw new Exception("Invalid expression")
         ""
