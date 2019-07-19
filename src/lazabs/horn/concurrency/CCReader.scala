@@ -1203,12 +1203,14 @@ class CCReader private (prog : Program,
             lhs + rhs
           case _ : AssignSub =>
             lhs - rhs
-          case _ : AssignLeft =>
-            ModuloArithmetic.bvshl(lhsE.typ cast2Unsigned lhs,
-                                   lhsE.typ cast2Unsigned rhs)
-          case _ : AssignRight =>
-            ModuloArithmetic.bvashr(lhsE.typ cast2Unsigned lhs,
-                                    lhsE.typ cast2Unsigned rhs)
+          case _ : AssignLeft => {
+            val (lower, upper) = getBVBounds("<<=", lhsE.typ)
+            ModuloArithmetic.l_shift_cast(lower, upper, lhs, rhs)
+          }
+          case _ : AssignRight => {
+            val (lower, upper) = getBVBounds(">>=", lhsE.typ)
+            ModuloArithmetic.r_shift_cast(lower, upper, lhs, rhs)
+          }
           case _ : AssignAnd =>
             ModuloArithmetic.bvand(lhsE.typ cast2Unsigned lhs,
                                    lhsE.typ cast2Unsigned rhs)
@@ -1307,9 +1309,13 @@ class CCReader private (prog : Program,
       case exp : Ege =>
         strictBinPred(exp.exp_1, exp.exp_2, _ >= _)
       case exp : Eleft =>
-        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvshl(_, _))
+        strictExplicitBVBinFun("<<", exp.exp_1, exp.exp_2,
+           (lower, upper, left, right) =>
+             ModuloArithmetic.l_shift_cast(lower, upper, left, right))
       case exp : Eright =>
-        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvashr(_, _))
+        strictExplicitBVBinFun(">>", exp.exp_1, exp.exp_2,
+           (lower, upper, left, right) =>
+             ModuloArithmetic.r_shift_cast(lower, upper, left, right))
       case exp : Eplus =>
         strictBinFun(exp.exp_1, exp.exp_2, _ + _)
       case exp : Eminus =>
@@ -1482,6 +1488,33 @@ class CCReader private (prog : Program,
                      CCTerm(typ cast op(promLhs.toTerm, promRhs.toTerm), typ)
                    })
     }
+
+    private def strictExplicitBVBinFun(name : String,
+                                       left : Exp, right : Exp,
+                                       op : (IdealInt, IdealInt,
+                                             ITerm, ITerm) => ITerm) : Unit = {
+      strictBinOp(left, right,
+           (lhs : CCExpr, rhs : CCExpr) => {
+             val (promLhs, promRhs) = unifyTypes(lhs, rhs)
+             // TODO: correct type promotion
+             val typ = promLhs.typ
+             val (lower, upper) = getBVBounds(name, typ)
+             CCTerm(op(lower, upper, promLhs.toTerm, promRhs.toTerm), typ)
+           })
+      
+    }
+
+    private def getBVBounds(name : String,
+                            typ : CCType) : (IdealInt, IdealInt) =
+      typ.toSort match {
+        case ModuloArithmetic.ModSort(lower, upper) =>
+          (lower, upper)
+        case _ =>
+          throw new TranslationException(
+            name +
+            " is only defined for machine arithmetic, use option " +
+            " -arithMode:<mode>")
+      }
 
     private def strictUnsignedBinFun(left : Exp, right : Exp,
                                      op : (ITerm, ITerm) => ITerm) : Unit = {
