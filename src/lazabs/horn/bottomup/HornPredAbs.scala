@@ -540,8 +540,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   
   import HornPredAbs._
 
-  ap.util.Debug enableAllAssertions lazabs.Main.assertions
-
+  lazabs.GlobalParameters.get.setupApUtilDebug
+  
   val startTime = System.currentTimeMillis
   var predicateGeneratorTime : Long = 0
   var implicationChecks = 0

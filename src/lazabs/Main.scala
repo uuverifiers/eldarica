@@ -46,6 +46,8 @@ import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.CCReader
 
+import ap.util.Debug
+
 object GlobalParameters {
   object InputFormat extends Enumeration {
     val //Scala,
@@ -114,6 +116,7 @@ class GlobalParameters extends Cloneable {
   var eogCEX = false;
   var plainCEX = false;
   var assertions = false
+  var verifyInterpolants = false
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
@@ -191,6 +194,7 @@ class GlobalParameters extends Cloneable {
     that.eogCEX = this.eogCEX
     that.plainCEX = this.plainCEX
     that.assertions = this.assertions
+    that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
   }
 
@@ -208,6 +212,15 @@ class GlobalParameters extends Cloneable {
          },
          this.clone)
 
+  def setupApUtilDebug = {
+    val vi = verifyInterpolants
+    val as = assertions
+    Debug.enabledAssertions.value_= {
+      case (_, Debug.AC_INTERPOLATION_IMPLICATION_CHECKS) => vi
+      case _ => as
+    }
+  }
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -385,6 +398,7 @@ object Main {
       case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
+      case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h\t\tShow this information\n" +
@@ -462,7 +476,7 @@ object Main {
       }
     }
     
-    ap.util.Debug enableAllAssertions lazabs.Main.assertions
+    GlobalParameters.get.setupApUtilDebug
 
     if(princess) Prover.setProver(lazabs.prover.TheoremProver.PRINCESS)
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -132,7 +132,7 @@ class HornWrapper(constraints: Seq[HornClause],
   
   //////////////////////////////////////////////////////////////////////////////
 
-  ap.util.Debug enableAllAssertions lazabs.Main.assertions
+  GlobalParameters.get.setupApUtilDebug
 
   private val outStream =
      if (GlobalParameters.get.logStat)
