@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0",
+    version := "2.0.1",
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.8"),
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
