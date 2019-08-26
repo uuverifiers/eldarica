@@ -35,6 +35,7 @@ import java.io.{FileInputStream, FileNotFoundException, InputStream}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
+import lazabs.horn.concurrency.GraphTranslator
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.prover._
 import lazabs.viewer._
@@ -602,13 +603,12 @@ object Main {
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
+        val systemResult=new lazabs.horn.concurrency.VerificationLoop(smallSystem).generateGraph // only run until generate graph
         return
       }
       //-----------debug-----------------------
       val result = try {
-        Console.withOut(outStream) {
-          new lazabs.horn.concurrency.VerificationLoop(smallSystem).result
-        }
+        Console.withOut(outStream)(new lazabs.horn.concurrency.VerificationLoop(smallSystem).result)
       } catch {
         case TimeoutException => {
           println("timeout")

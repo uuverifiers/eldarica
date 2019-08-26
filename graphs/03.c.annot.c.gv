@@ -1,0 +1,13 @@
+digraph dag {
+0 [label="inv_main12"];
+1 [label="inv_main17"];
+2 [label="inv_main3"];
+3 [label="inv_main9"];
+3 -> 0
+3 -> 3
+0 -> 1
+2 -> 3
+0 -> 3
+0 -> 0
+1 -> 0
+}
