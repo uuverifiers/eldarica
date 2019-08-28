@@ -151,6 +151,33 @@ object VerificationLoop {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class GraphGenerator(system : ParametricEncoder.System){
+  import VerificationLoop._
+  import ParametricEncoder._
+  import HornPreprocessor.{VerifHintTplElement, VerifHintTplPred,
+    VerifHintTplEqTerm}
+  import HornClauses.{Clause, FALSE}
+  import Util._
+  val processNum = system.processes.size
+  var invariants: Seq[Seq[Int]] =
+    for (i <- 0 until processNum)
+      yield ((List tabulate processNum) { j => if (i == j) 1 else 0 })
+
+  var res: Either[Unit, Counterexample] = null
+
+  println
+  println("Using invariants " + (invariants mkString ", "))
+  println
+
+  val encoder = new ParametricEncoder(system, invariants)
+
+
+  //Output graphs
+  //val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+
+  val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
+}
+
 class VerificationLoop(system : ParametricEncoder.System) {
 
   import VerificationLoop._
@@ -159,73 +186,6 @@ class VerificationLoop(system : ParametricEncoder.System) {
                            VerifHintTplEqTerm}
   import HornClauses.{Clause, FALSE}
   import Util._
-  val generateGraph= { // only run until generate graph
-    val processNum = system.processes.size
-    var invariants: Seq[Seq[Int]] =
-      for (i <- 0 until processNum)
-        yield ((List tabulate processNum) { j => if (i == j) 1 else 0 })
-
-    var res: Either[Unit, Counterexample] = null
-
-      println
-      println("Using invariants " + (invariants mkString ", "))
-      println
-
-      val encoder = new ParametricEncoder(system, invariants)
-
-      ////////////////////////////////////////////////////////////////////////////
-
-      if (GlobalParameters.get.printIntermediateClauseSets) {
-        val basename = GlobalParameters.get.fileName
-        val suffix =
-          (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
-        val filename = basename + "-" + suffix + ".smt2"
-
-        println
-        println("Writing Horn clauses to " + filename)
-
-        val out = new java.io.FileOutputStream(filename)
-        Console.withOut(out) {
-          val clauseFors =
-            for (c <- encoder.allClauses) yield {
-              val f = c.toFormula
-              // eliminate remaining operators like eps
-              Transform2Prenex(EquivExpander(PartialEvaluator(f)))
-            }
-
-          val allPredicates =
-            HornClauses allPredicates encoder.allClauses
-
-          SMTLineariser("C_VC", "HORN", "unknown",
-            List(), allPredicates.toSeq.sortBy(_.name),
-            clauseFors)
-        }
-        out.close
-      }
-
-      ////////////////////////////////////////////////////////////////////////////
-
-      println
-
-      val preprocessor = new DefaultPreprocessor
-      val (simpClauses, simpHints, backTranslator) =
-        Console.withErr(Console.out) {
-          preprocessor.process(encoder.allClauses, encoder.globalHints)
-          //DEBUG
-        }
-
-
-      val params =
-        if (GlobalParameters.get.templateBasedInterpolationPortfolio)
-          GlobalParameters.get.withAndWOTemplates
-        else
-          List()
-
-
-      //Output graphs
-      val horngraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName, simpHints)
-
-  }
 
 
   val result = {
@@ -295,7 +255,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
 
     //Output graphs
-    val horngraph =  new GraphTranslator(encoder.allClauses,GlobalParameters.get.fileName,simpHints)
+    //val horngraph =  new GraphTranslator(encoder.allClauses,GlobalParameters.get.fileName,simpHints)
 
 
 

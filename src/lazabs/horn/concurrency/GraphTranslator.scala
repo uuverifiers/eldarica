@@ -7,13 +7,13 @@ import ap.parser._
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 
-class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String,hints:VerificationHints) {
+class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 
   import HornClauses.Clause
 
   println(file.substring(file.lastIndexOf("/")+1))
   val fileName=file.substring(file.lastIndexOf("/")+1)
-  println(fileName)
+  //println(fileName)
   val writer = new PrintWriter(new File("graphs/"+fileName+".gv"))
 
   // println(hornClauses)
@@ -42,3 +42,22 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String,hints:Ve
   writer.write("}"+"\n")
   writer.close()
 }
+
+
+class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hints:VerificationHints) {
+
+  println("---debug---")
+  //println(hints.predicateHints) Map(head->template list)
+
+  for((head,templateList)<-hints.getPredicateHints()) { //loop for head
+    println(head)
+    //println(templateList)
+    for(oneHint <- templateList){
+      println(oneHint)
+      //parse the hint and build the syntax tree
+    }
+  }
+
+
+}
+

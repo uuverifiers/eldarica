@@ -603,7 +603,7 @@ object Main {
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
-        val systemResult=new lazabs.horn.concurrency.VerificationLoop(smallSystem).generateGraph // only run until generate graph
+        val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) // only run until generate graph
         return
       }
       //-----------debug-----------------------
@@ -638,7 +638,6 @@ object Main {
       println("@@@@!")
       return
     }
-
 
 
     val (cfg,m) = format match {
