@@ -51,10 +51,10 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
   for((head,templateList)<-hints.getPredicateHints()) { //loop for head
     println(head)
-    //println(templateList)
     for(oneHint <- templateList){
       println(oneHint)
-      //parse the hint and build the syntax tree
+      //parse the hint expression to binary tree
+      //build graphviz form from that tree
     }
   }
 
