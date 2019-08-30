@@ -1,8 +1,6 @@
 package lazabs.horn.concurrency
-
-import java.io.{File, PrintWriter}
+import java.io.{File, PrintWriter,FileWriter}
 import java.nio.file.Path
-
 import ap.parser._
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
@@ -47,14 +45,27 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hints:VerificationHints) {
 
   println("---debug---")
-  //println(hints.predicateHints) Map(head->template list)
 
   for((head,templateList)<-hints.getPredicateHints()) { //loop for head
     println(head)
-    for(oneHint <- templateList){
+    for(oneHint <- templateList){ //loop for every template in the head
       println(oneHint)
       //parse the hint expression to binary tree
       //build graphviz form from that tree
+
+
+
+      //write graphviz form to .gv file
+      val fileName=file.substring(file.lastIndexOf("/")+1)
+      val pathName= "graphs/"+fileName+".hints.graphs"+"/"
+      val hintFileName=head.toString().take(head.toString().indexOf("/"))+":"+oneHint.toString()+".gv"
+      val hintFile = new File(pathName)
+      hintFile.mkdir() //create fileName.hints.graphs directory
+      val writer = new PrintWriter(new FileWriter(pathName+hintFileName)) //create location:template.gv file
+      writer.println(head.toString())  //write some dummy content
+      writer.println(oneHint.toString())
+
+      writer.close()
     }
   }
 

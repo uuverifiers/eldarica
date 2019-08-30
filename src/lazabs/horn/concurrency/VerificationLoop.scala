@@ -173,7 +173,7 @@ class GraphGenerator(system : ParametricEncoder.System){
 
 
   //Output graphs
-  //val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+  val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
 
   val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
 }
