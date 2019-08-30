@@ -62,8 +62,13 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
       val hintFile = new File(pathName)
       hintFile.mkdir() //create fileName.hints.graphs directory
       val writer = new PrintWriter(new FileWriter(pathName+hintFileName)) //create location:template.gv file
-      writer.println(head.toString())  //write some dummy content
-      writer.println(oneHint.toString())
+      writer.write("digraph dag {"+"\n") //write some dummy content
+      writer.write("0 [label=\"inv_main15\"];"+"\n")
+      writer.write("1 [label=\"inv_main6\"];"+"\n")
+      writer.write("1->0"+"\n")
+      writer.write("0->1"+"\n")
+      writer.write("}"+"\n")
+
 
       writer.close()
     }
