@@ -265,7 +265,10 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
     //Select hints by Edarica
     import lazabs.horn.concurrency.HintsSelection
-    //val optimizedHints=HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses)
+      //Output graphs
+    //val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+
+    //val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
 
     //Select hints by NNs
 
