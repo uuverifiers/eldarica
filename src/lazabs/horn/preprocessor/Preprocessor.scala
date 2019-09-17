@@ -64,8 +64,10 @@ object HornPreprocessor {
     }
     
     def pretyPrintHints() = {
+      println("-----------------------------------")
       for((key,value)<-predicateHints){
-        println(key)
+        println("debug")
+        println(key.toString())
         for(v<-value){
           println(v)
           

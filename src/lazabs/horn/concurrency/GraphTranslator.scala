@@ -44,15 +44,10 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
   writer.close()
 }
 
-
-
-
-
-
 class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hints:VerificationHints) {
   var nodeCount:Int=0
   var root=new TreeNode
-  var logString:String=""
+  var logString:String="" //store node information
   println("---debug---")
   for((head,templateList)<-hints.getPredicateHints()) { //loop for head
     println(head)
@@ -60,10 +55,6 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
       println(oneHint)
       val category=oneHint.toString.take(oneHint.toString.indexOf("("))
-      //parse the hint expression to binary tree
-      //build graphviz form from that tree
-      //translateExpr()
-
 
 
 
@@ -82,11 +73,11 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
       //root=new TreeNode
       var rootMark=root
 
-      root.data=Map(nodeCount ->head.toString())
+      root.data=Map(nodeCount ->head.toString()) //first node is template head
       println(nodeCount + " [label=\""+ head.toString() +"\"];")
       logString=logString+(nodeCount + " [label=\""+ head.toString() +"\"];"+"\n")
       nodeCount=nodeCount+1
-      root.lchild = new TreeNode(Map(nodeCount->category.toString()))
+      root.lchild = new TreeNode(Map(nodeCount->category.toString())) //second node is template category
       println(nodeCount + " [label=\""+ category.toString() +"\"];")
       logString=logString+(nodeCount + " [label=\""+ category.toString() +"\"];"+"\n")
       nodeCount=nodeCount+1
@@ -245,8 +236,7 @@ class TreeNode{
 
 object BinarySearchTree {
 
-  var relationString:String=""
-  //递归先序遍历二叉搜索树
+  var relationString:String="" //store node relation information
   def preOrder(root: TreeNode): Unit = {
     if (root != null) {
 
@@ -276,7 +266,6 @@ object BinarySearchTree {
 
   }
 
-  //中序遍历二叉搜索树，则相当于排序输出
   def inOrder(root: TreeNode): Unit = {
     if (root != null) {
       inOrder(root.lchild)

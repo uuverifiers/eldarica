@@ -36,6 +36,7 @@ import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornWrapper, Util}
 import lazabs.horn.abstractions.{AbsLattice, LoopDetector, StaticAbstractionBuilder}
 import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
@@ -173,9 +174,19 @@ class GraphGenerator(system : ParametricEncoder.System){
 
 
   //Output graphs
-  val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+//  val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+//  val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
 
-  val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
+  //test JSON reading
+//  println("---debug---")
+//  HintsSelection.readHintsFromJSON("test")
+//  println("---debug---")
+
+  //Print horn clauses
+  HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
+
+  HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName)
+
 }
 
 class VerificationLoop(system : ParametricEncoder.System) {
@@ -254,21 +265,23 @@ class VerificationLoop(system : ParametricEncoder.System) {
         List()
 
 
-    //Output graphs
-    //val horngraph =  new GraphTranslator(encoder.allClauses,GlobalParameters.get.fileName,simpHints)
-
-
-
-
     //No hints selection
-    val optimizedHints=simpHints
+    //val optimizedHints=simpHints
 
     //Select hints by Edarica
     import lazabs.horn.concurrency.HintsSelection
-      //Output graphs
-    //val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+      //HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses)
 
-    //val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
+    //Read selected hints from JSON
+
+      val optimizedHints=HintsSelection.readHintsFromJSON(GlobalParameters.get.fileName)
+
+
+
+
+
+
+
 
     //Select hints by NNs
 
