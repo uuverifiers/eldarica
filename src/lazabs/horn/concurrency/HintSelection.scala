@@ -49,6 +49,9 @@ object HintsSelection{
     val emptyHints=VerificationHints(Map())
     var criticalHints = simpHints
     var optimizedHints=VerificationHints(Map()) // store final selected heads and hints
+    var InitialHintsWithID=initialIDForHints(simpHints)
+    var PositiveHintsWithID=Map("initialKey"->"")
+    var NegativeHintsWithID=Map("initialKey"->"")
 
 
     if(simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation==false) {
@@ -72,7 +75,7 @@ object HintsSelection{
 
           criticalHints=criticalHints.filterNotPredicates(GSet(oneHintKey)) //delete the head
           if(!currentHintsList.isEmpty){
-            criticalHints= criticalHints.addPredicateHints(Map(oneHintKey->currentHintsList)) //add head with one hint deleted
+            criticalHints= criticalHints.addPredicateHints(Map(oneHintKey->currentHintsList)) //add head with one hint back
           }
           println("After delete:\n")
           criticalHints.pretyPrintHints()
@@ -126,16 +129,32 @@ object HintsSelection{
                 criticalHints.toInitialPredicates, //emptyHints
                 interpolator).result
 
-              // no timeout ...
+              // not timeout ...
               println("Delete a redundant hint:\n"+oneHintKey+"\n"+oneHint)
               redundantHintsList=redundantHintsList ++ Seq(oneHint)
+
+              for((key,value)<-InitialHintsWithID){ //add useless hint to NegativeHintsWithID
+                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString().lastIndexOf(":"))
+                if(oneHintKey.toString()==tempkey && value.toString==oneHint.toString){
+                  NegativeHintsWithID++= Map(key->value)
+                }
+              }
+
+
             }
           } catch {// ,... Main.TimeoutException
+            //time out
             case lazabs.Main.TimeoutException =>
               println("Add a critical hint\n"+oneHintKey+"\n"+oneHint)
               criticalHintsList = criticalHintsList ++ Seq(oneHint)
               criticalHints=criticalHints.filterNotPredicates(GSet(oneHintKey))
               criticalHints=criticalHints.addPredicateHints(Map(oneHintKey->beforeDeleteHints))
+              for((key,value)<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
+                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString().lastIndexOf(":"))
+                if(oneHintKey.toString()==tempkey && value.toString==oneHint.toString){
+                  PositiveHintsWithID++= Map(key->value)
+                }
+              }
           }
 
           /*
@@ -237,66 +256,62 @@ object HintsSelection{
       println("!@@@@")
       optimizedHints.pretyPrintHints()
       println("@@@@!")
-      writeHintsToFileWithID(simpHints,optimizedHints,fileName) //write redundant and selected hints to file
       println("timeout:"+GlobalParameters.get.threadTimeout)
       GlobalParameters.get.printHints=optimizedHints
+
+
+      writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
+      writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
+      writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+
       return optimizedHints
 
     }
 
   }
+  def writeHintsWithIDToFile(hints:Map[String,String],fileName:String,hintType:String){
+    val tempHints=hints-"initialKey"
+    if(hintType=="initial"){
+      val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
+      for((key,value)<-tempHints){
+        writer.write(key+value+"\n")
+      }
+      writer.close()
+    }
+    if(hintType=="positive"){
+      val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
+      for((key,value)<-tempHints){
+        writer.write(key+value+"\n")
+      }
+      writer.close()
+    }
+    if(hintType=="negative"){
+      val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
+      for((key,value)<-tempHints){
+        writer.write(key+value+"\n")
+      }
+      writer.close()
+    }
 
-  def writeHintsToFileWithID(simpHints:VerificationHints,optimizedHints:VerificationHints,fileName:String): Unit ={
-    //write initial ID to .redundantHints file
-    var HintsIDMap=Map(""->"")
+  }
+
+  def initialIDForHints(simpHints:VerificationHints): Map[String,String] ={
+    var HintsIDMap=Map("initialKey"->"")
     var counter=0
-    val writer_simpHints = new PrintWriter(new File("horn/"+fileName+".redundantHints"))
+
     for((head,templateList)<-simpHints.getPredicateHints()) { //loop for head
-      writer_simpHints.write(head+"\n")
+      val temphead=head.toString().substring(0,head.toString().lastIndexOf("/")) //delete /number after main
+
       for(oneHint <- templateList) { //loop for every template in the head
-        HintsIDMap ++= Map(oneHint.toString->counter.toString) //map(hint->ID)
-        writer_simpHints.write(counter+":"+oneHint+"\n")
+        HintsIDMap ++= Map(counter.toString+":"+head.toString()+":"->oneHint.toString) //map(hint->ID)
         counter=counter+1
       }
     }
-    writer_simpHints.close()
-
-    //write positive hints and its ID to .hints file
-    var HintsIDMap_optimizedHints=Map(""->"")
-    val writer_optimizedHints = new PrintWriter(new File("horn/"+fileName+".hints"))
-    for((head,templateList)<-optimizedHints.getPredicateHints()) { //loop for head
-      writer_optimizedHints.write(head+"\n")
-      for(oneHint <- templateList) { //loop for every template in the head
-        if(HintsIDMap.exists(_._1 == oneHint.toString)){
-          val ID=HintsIDMap(oneHint.toString)
-          HintsIDMap_optimizedHints ++= Map(oneHint.toString->ID.toString)
-          writer_optimizedHints.write(ID.toString+":"+oneHint+"\n")
-        } //
-
-      }
-    }
-    writer_optimizedHints.close()
-
-    //write negative hints and its ID to .negativeHints file
-    var HintsIDMap_negativeHints=Map(""->"")
-    val writer_negativeHints = new PrintWriter(new File("horn/"+fileName+".negativeHints"))
-    for((head,templateList)<-simpHints.getPredicateHints()) { //loop for head
-      writer_negativeHints.write(head+"\n")
-      for(oneHint <- templateList) { //loop for every template in the head
-        if(HintsIDMap_optimizedHints.exists(_._1 == oneHint.toString)){ //if it is a useful hint
-
-        }else{// if it is a useless hint
-          val ID=HintsIDMap(oneHint.toString)
-          HintsIDMap_negativeHints ++= Map(oneHint.toString->ID.toString)
-          writer_negativeHints.write(ID.toString+":"+oneHint+"\n")
-        }
-      }
-    }
-    writer_negativeHints.close()
-
-
+    HintsIDMap=HintsIDMap-"initialKey"
+    return HintsIDMap
 
   }
+
 
   def neuralNetworkSelection(encoder:ParametricEncoder,simpHints:VerificationHints,simpClauses:Clauses):VerificationHints = {
     //write redundant hints to JSON
@@ -390,13 +405,10 @@ object HintsSelection{
     println("Write horn to file")
     println(file.substring(file.lastIndexOf("/")+1))
     val fileName=file.substring(file.lastIndexOf("/")+1)
-    val writer = new PrintWriter(new File("horn/"+fileName+".horn"))
-    writer.write("After simplification:\n")
-    writer.write("System transitions:\n")
+    val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
     for ((p, r) <- system.processes) {
       r match {
         case ParametricEncoder.Singleton =>
-          writer.write("  Singleton thread:\n")
         case ParametricEncoder.Infinite =>
           println("  Replicated thread:")
       }
@@ -426,8 +438,5 @@ object HintsSelection{
     writer.close()
   }
 
-  def printHints(system : ParametricEncoder.System,file:String): Unit ={
 
-
-  }
 }
