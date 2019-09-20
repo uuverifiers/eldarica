@@ -36,6 +36,7 @@ import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornWrapper, Util}
 import lazabs.horn.abstractions.{AbsLattice, LoopDetector, StaticAbstractionBuilder}
 import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -183,9 +184,15 @@ class GraphGenerator(system : ParametricEncoder.System){
 //  println("---debug---")
 
   //Print horn clauses
-  HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
+  //HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
+  //print selected hints with IDs
+  val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+  HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName,InitialHintsWithID)
 
-  HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName)
+  //read hints back from file selected by NNs
+  //val optimizedHintsByNNs=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints,InitialHintsWithID)
+
+
 
 }
 
@@ -272,18 +279,16 @@ class VerificationLoop(system : ParametricEncoder.System) {
     import lazabs.horn.concurrency.HintsSelection
       //HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses)
 
-    //Read selected hints from JSON
-
-      val optimizedHints=HintsSelection.readHintsFromJSON(GlobalParameters.get.fileName)
 
 
+    //Initial hints ID and store to file
+    val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+    //Call python to select hints
+
+    //Read selected hints from file (NNs)
+    val optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints,InitialHintsWithID)
 
 
-
-
-
-
-    //Select hints by NNs
 
 
 
