@@ -10,6 +10,7 @@ import lazabs.horn.bottomup.{HornPredAbs, TemplateInterpolator}
 import lazabs.horn.preprocessor.HornPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor._
 
+import scala.collection.immutable.ListMap
 import scala.io.Source
 import scala.collection.mutable.Seq
 
@@ -41,8 +42,8 @@ object HintsSelection{
 
     import lazabs.horn.concurrency.GraphTranslator
 
-    //val timeOut=GlobalParameters.get.threadTimeout //timeout
-    val timeOut=10
+    val timeOut=GlobalParameters.get.threadTimeout //timeout
+    //val timeOut=10
     val criticalHeads=simpHints
     //val criticalHeads = currentHeads
     //println("numberOfCriticalHeads:"+criticalHeads.numberOfHeads())
@@ -137,8 +138,9 @@ object HintsSelection{
               redundantHintsList=redundantHintsList ++ Seq(oneHint)
 
               for((key,value)<-InitialHintsWithID){ //add useless hint to NegativeHintsWithID
-                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString().lastIndexOf(":"))
-                if(oneHintKey.toString()==tempkey && value.toString==oneHint.toString){
+                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString.length)
+                val oneHintKeyTemp=oneHintKey.toString().substring(0,oneHintKey.toString().indexOf("/"))
+                if(oneHintKeyTemp==tempkey && value.toString==oneHint.toString){
                   NegativeHintsWithID++= Map(key->value)
                 }
               }
@@ -153,8 +155,9 @@ object HintsSelection{
               criticalHints=criticalHints.filterNotPredicates(GSet(oneHintKey))
               criticalHints=criticalHints.addPredicateHints(Map(oneHintKey->beforeDeleteHints))
               for((key,value)<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString().lastIndexOf(":"))
-                if(oneHintKey.toString()==tempkey && value.toString==oneHint.toString){
+                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString.length)
+                val oneHintKeyTemp=oneHintKey.toString().substring(0,oneHintKey.toString().indexOf("/"))
+                if(oneHintKeyTemp==tempkey && value.toString==oneHint.toString){
                   PositiveHintsWithID++= Map(key->value)
                 }
               }
@@ -253,8 +256,8 @@ object HintsSelection{
       //optimizedHints=criticalHints
 
       println("\n------------DEBUG-Select critical hints end-------------------------")
-      println("\nsimpHints Hints:")
-      simpHints.pretyPrintHints()
+      //println("\nsimpHints Hints:")
+      //simpHints.pretyPrintHints()
       println("\nOptimized Hints:")
       println("!@@@@")
       optimizedHints.pretyPrintHints()
@@ -263,9 +266,14 @@ object HintsSelection{
       GlobalParameters.get.printHints=optimizedHints
 
 
-      writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
-      writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
-      writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+      if(optimizedHints.isEmpty){
+
+      }else{//only write to file when optimized hint is not empty
+        writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
+        writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
+        writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+      }
+
 
       return optimizedHints
 
@@ -299,18 +307,21 @@ object HintsSelection{
   }
 
   def initialIDForHints(simpHints:VerificationHints): Map[String,String] ={
-    var HintsIDMap=Map("initialKey"->"")
+    //var HintsIDMap=Map("initialKey"->"")
+    var HintsIDMap:Map[String,String]=Map()
     var counter=0
 
-    for((head,templateList)<-simpHints.getPredicateHints()) { //loop for head
+    for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
       val temphead=head.toString().substring(0,head.toString().lastIndexOf("/")) //delete /number after main
 
-      for(oneHint <- templateList) { //loop for every template in the head
-        HintsIDMap ++= Map(counter.toString+":"+temphead.toString()->oneHint.toString) //map(hint->ID)
+
+      for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
+        HintsIDMap ++= Map(counter.toString+":"+temphead.toString()->oneHint.toString) //map(ID:head->hint)
         counter=counter+1
       }
     }
-    HintsIDMap=HintsIDMap-"initialKey"
+    //HintsIDMap=HintsIDMap-"initialKey"
+
     return HintsIDMap
 
   }
@@ -404,7 +415,7 @@ object HintsSelection{
     return readHints
   }
 
-  def readHintsIDFromFile(fileName:String,originalHints:VerificationHints,InitialHintsWithID:Map[String,String]):VerificationHints = {
+  def readHintsIDFromFile(fileName:String,originalHints:VerificationHints):VerificationHints = {
     val fileNameShorter=fileName.substring(fileName.lastIndexOf("/"),fileName.length) //get file name
     var parsedHintslist=Seq[Seq[String]]() //store parsed hints
 
@@ -425,22 +436,39 @@ object HintsSelection{
       //println(parsedHints)
       parsedHintslist=parsedHintslist:+parsedHints
     }
+    println("parsed hints count="+parsedHintslist.size)
 
-    println("---initialHints-----")
-    for ((key,value)<-InitialHintsWithID){
+    println("---readInitialHints-----")
+    var readInitialHintsWithID:Map[String,String]=Map()
+    val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
+    for (line <- Source.fromFile(fInitial).getLines) {
+      var parsedHints=Seq[String]() //store parsed hints
+      //parse read file
+      var lineTemp=line.toString
+      val ID=lineTemp.substring(0,lineTemp.indexOf(":"))
+      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
+      val head=lineTemp.substring(0,lineTemp.indexOf(":"))
+      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
+      val hint=lineTemp
+      readInitialHintsWithID=readInitialHintsWithID+(ID+":"+head->hint)
+    }
+    for ((key,value)<-readInitialHintsWithID){
       println(key,value)
     }
+    println("readInitialHints count="+readInitialHintsWithID.size)
 
-
+    //put read hints to VerificationHints
     var readHints=VerificationHints(Map())
     var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
     var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
 
+    println("---selected hints--")
+    var parsedHintsCount=0
     for(element<-parsedHintslist){
       //println(element)
-      if(element(3).toFloat.toInt==1){ //useful element(4) is score
-        val head=element(1).toString
-        val hint=InitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
+      if(element(3).toFloat.toInt==1){ //useful, element(4) is score
+        val head=element(1).toString//element(1) is head
+        val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
         for((key,value)<-originalHints.getPredicateHints()){
           val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
           if(head==keyTemp){
@@ -450,6 +478,7 @@ object HintsSelection{
                 usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
                 //println(element(0),usfulHintsList)
                 readHintsTempList=readHintsTempList:+Map(key->oneHint)
+                parsedHintsCount=parsedHintsCount+1
               }
             }
             //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
@@ -459,15 +488,17 @@ object HintsSelection{
 
     }
 
+    println("selected hint count="+parsedHintsCount)
 
     //store heads to set
     var heads:Set[IExpression.Predicate]=Set()
     for(value<-readHintsTempList){
       println(value)
       val tempValue=value.toSeq
-      tempValue.to
+      //tempValue.to
       heads=heads+tempValue(0)._1
     }
+
 
 
     for (head<-heads){

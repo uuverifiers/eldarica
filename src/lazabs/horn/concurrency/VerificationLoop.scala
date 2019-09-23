@@ -42,7 +42,6 @@ import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 import scala.concurrent.TimeoutException
-
 object VerificationLoop {
 
   import HornClauses.Clause
@@ -174,20 +173,42 @@ class GraphGenerator(system : ParametricEncoder.System){
   val encoder = new ParametricEncoder(system, invariants)
 
 
-  //Output graphs
-//  val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
-//  val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
+
 
   //test JSON reading
 //  println("---debug---")
 //  HintsSelection.readHintsFromJSON("test")
 //  println("---debug---")
 
-  //Print horn clauses
-  //HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
-  //print selected hints with IDs
-  val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
-  HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+
+  //output all training data
+
+
+  import scala.collection.immutable.ListMap
+
+  if(encoder.globalHints.isEmpty){}else{
+    //write selected hints with IDs to file
+    val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+    println("---initialHints-----")
+    for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
+      println(key,value)
+    }
+
+
+    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    if(selectedHint.isEmpty){ //when no hint available
+      //not write horn clauses to file
+    }else{
+      //write horn clauses to file
+      HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
+      //Output graphs
+      val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
+      val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
+    }
+
+  }
+
+
 
   //read hints back from file selected by NNs
   //val optimizedHintsByNNs=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints,InitialHintsWithID)
@@ -282,11 +303,11 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
 
     //Initial hints ID and store to file
-    val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+    //val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
     //Call python to select hints
 
     //Read selected hints from file (NNs)
-    val optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints,InitialHintsWithID)
+    val optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints)
 
 
 
