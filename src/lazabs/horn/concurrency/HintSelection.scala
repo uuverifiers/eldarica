@@ -284,6 +284,7 @@ object HintsSelection{
     val tempHints=hints-"initialKey"
     if(hintType=="initial"){
       val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
+      //val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
@@ -291,6 +292,7 @@ object HintsSelection{
     }
     if(hintType=="positive"){
       val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
+      //val writer = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
@@ -298,6 +300,7 @@ object HintsSelection{
     }
     if(hintType=="negative"){
       val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
+      // val writer = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
@@ -414,8 +417,115 @@ object HintsSelection{
 
     return readHints
   }
+  def storeHintsToVerificationHints_binary(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints) ={
+    //store read hints to VerificationHints
+    println("---selected hints--")
+    var readHints=VerificationHints(Map())
+    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
+    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
+    var parsedHintsCount=0
 
-  def readHintsIDFromFile(fileName:String,originalHints:VerificationHints):VerificationHints = {
+    for(element<-parsedHintslist){
+      //println(element)
+      if(element(3).toFloat.toInt==1){ //element(3)==1 means useful, element(4) is score
+        val head=element(1).toString//element(1) is head
+      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
+        for((key,value)<-originalHints.getPredicateHints()){
+          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
+          if(head==keyTemp){
+            var usfulHintsList:Seq[VerifHintElement]=Seq()
+            for(oneHint<-originalHints.getValue(key)){
+              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
+                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
+                //println(element(0),usfulHintsList)
+                readHintsTempList=readHintsTempList:+Map(key->oneHint)
+                parsedHintsCount=parsedHintsCount+1
+              }
+            }
+            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
+          }
+        }
+      }else{ }//useless hint
+
+    }
+
+    println("selected hint count="+parsedHintsCount)
+    (readHints,readHintsTempList)
+
+  }
+
+  def storeHintsToVerificationHints_score(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints,rankTreshold:Float) ={
+    //store read hints to VerificationHints
+    println("---selected hints--")
+    var readHints=VerificationHints(Map())
+    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
+    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
+    var parsedHintsCount=0
+
+    for(element<-parsedHintslist){
+      //println(element)
+      if(element(4).toFloat>rankTreshold){ //element(3)==1 means useful, element(4) is score
+        val head=element(1).toString//element(1) is head
+      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
+        for((key,value)<-originalHints.getPredicateHints()){
+          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
+          if(head==keyTemp){
+            var usfulHintsList:Seq[VerifHintElement]=Seq()
+            for(oneHint<-value){
+              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
+                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
+                //println(element(0),usfulHintsList)
+                readHintsTempList=readHintsTempList:+Map(key->oneHint)
+                parsedHintsCount=parsedHintsCount+1
+              }
+            }
+            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
+          }
+        }
+      }else{ }//useless hint
+
+    }
+
+    println("selected hint count="+parsedHintsCount)
+    (readHints,readHintsTempList)
+
+  }
+
+  def storeHintsToVerificationHints_topN(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints,N:Int) ={
+    //store read hints to VerificationHints
+    println("---selected hints--")
+    var readHints=VerificationHints(Map())
+    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
+    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
+    var parsedHintsCount=0
+      for(element<-parsedHintslist.take(N)){//take first N element
+      //println(element)
+      val head=element(1).toString//element(1) is head
+      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
+        for((key,value)<-originalHints.getPredicateHints()){
+          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
+          if(head==keyTemp){
+            var usfulHintsList:Seq[VerifHintElement]=Seq()
+            for(oneHint<-value){
+              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
+                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
+                //println(element(0),usfulHintsList)
+                readHintsTempList=readHintsTempList:+Map(key->oneHint)
+                parsedHintsCount=parsedHintsCount+1
+              }
+            }
+            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
+          }
+        }
+
+
+    }
+
+    println("selected hint count="+parsedHintsCount)
+    (readHints,readHintsTempList)
+
+  }
+  def readHintsIDFromFile(fileName:String,originalHints:VerificationHints,rank:String=""):VerificationHints = {
     val fileNameShorter=fileName.substring(fileName.lastIndexOf("/"),fileName.length) //get file name
     var parsedHintslist=Seq[Seq[String]]() //store parsed hints
 
@@ -452,43 +562,37 @@ object HintsSelection{
       val hint=lineTemp
       readInitialHintsWithID=readInitialHintsWithID+(ID+":"+head->hint)
     }
-    for ((key,value)<-readInitialHintsWithID){
+    for ((key,value)<-readInitialHintsWithID){ //print initial hints
       println(key,value)
     }
     println("readInitialHints count="+readInitialHintsWithID.size)
 
-    //put read hints to VerificationHints
+    //store read hints to VerificationHints
     var readHints=VerificationHints(Map())
-    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
     var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
+    if(rank.isEmpty){ //read rank option, no need for rank
+      val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_binary(parsedHintslist,readInitialHintsWithID,originalHints)
+      readHints=readHints_temp
+      readHintsTempList=readHintsTempList_temp
+    }else{ //need rank
+      //parse rank information
+      var lineTemp=rank.toString
+      val rankThreshold=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length).toFloat
 
-    println("---selected hints--")
-    var parsedHintsCount=0
-    for(element<-parsedHintslist){
-      //println(element)
-      if(element(3).toFloat.toInt==1){ //useful, element(4) is score
-        val head=element(1).toString//element(1) is head
-        val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
-        for((key,value)<-originalHints.getPredicateHints()){
-          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
-          if(head==keyTemp){
-            var usfulHintsList:Seq[VerifHintElement]=Seq()
-            for(oneHint<-value){
-              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
-                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
-                //println(element(0),usfulHintsList)
-                readHintsTempList=readHintsTempList:+Map(key->oneHint)
-                parsedHintsCount=parsedHintsCount+1
-              }
-            }
-            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
-          }
-        }
-      }else{ }//useless hint
+      if(rankThreshold>1){//rank by top n
+        println("use top "+ rankThreshold.toInt+" hints")
+        val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_topN(parsedHintslist,readInitialHintsWithID,originalHints,rankThreshold.toInt)
+        readHints=readHints_temp
+        readHintsTempList=readHintsTempList_temp
+      }
+      if(rankThreshold<1){//rank by score
+        println("use score threshold "+ rankThreshold)
+        val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_score(parsedHintslist,readInitialHintsWithID,originalHints,rankThreshold)
+        readHints=readHints_temp
+        readHintsTempList=readHintsTempList_temp
+      }
 
     }
-
-    println("selected hint count="+parsedHintsCount)
 
     //store heads to set
     var heads:Set[IExpression.Predicate]=Set()
@@ -532,6 +636,7 @@ object HintsSelection{
     println(file.substring(file.lastIndexOf("/")+1))
     val fileName=file.substring(file.lastIndexOf("/")+1)
     val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
+    //val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
     for ((p, r) <- system.processes) {
       r match {
         case ParametricEncoder.Singleton =>

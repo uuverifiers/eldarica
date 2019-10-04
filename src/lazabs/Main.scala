@@ -67,6 +67,7 @@ class GlobalParameters extends Cloneable {
   var printHints=VerificationHints(Map())
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
+  var rank=0.0
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -203,6 +204,7 @@ class GlobalParameters extends Cloneable {
     res.timeoutChecker = this.timeoutChecker
     //DEBUG
     res.threadTimeout = this.threadTimeout //debug
+    res.rank = this.rank //debug
     res.printHints = this.printHints //DEBUG
     res    
   }
@@ -335,6 +337,10 @@ object Main {
       case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>  //debug
         threadTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) ).toInt;
+        arguments(rest)
+      case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>  //debug
+        rank =
+          (java.lang.Float.parseFloat(tTimeout.drop(6))); //parse input string
         arguments(rest)
 
       case tFile :: rest if (tFile.startsWith("-hints:")) => {
