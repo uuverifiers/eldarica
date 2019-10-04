@@ -530,6 +530,7 @@ object HintsSelection{
     var parsedHintslist=Seq[Seq[String]]() //store parsed hints
 
     val f = "predictedHints/"+fileNameShorter+".optimizedHints" //read file
+    // val f = "../predictedHints/"+fileNameShorter+".optimizedHints" //python file
     for (line <- Source.fromFile(f).getLines) {
       var parsedHints=Seq[String]() //store parsed hints
       //parse read file
@@ -551,6 +552,7 @@ object HintsSelection{
     println("---readInitialHints-----")
     var readInitialHintsWithID:Map[String,String]=Map()
     val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
+    // val fInitial = "../predictedHints/"+fileNameShorter+".initialHints"//python file
     for (line <- Source.fromFile(fInitial).getLines) {
       var parsedHints=Seq[String]() //store parsed hints
       //parse read file

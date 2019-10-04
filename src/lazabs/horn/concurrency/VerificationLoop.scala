@@ -306,11 +306,18 @@ class VerificationLoop(system : ParametricEncoder.System) {
     //val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
     //Call python to select hints
 
-    //Read selected hints from file (NNs)
-    println("simpHints:")
-      simpHints.pretyPrintHints()
-    val optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,simpHints,rank="rank:"+GlobalParameters.get.rank.toString)
-    // inconsistency between encoder.globalHints and simpHints
+
+      var optimizedHints=simpHints
+      if(GlobalParameters.get.originalVersion==true){
+
+      }else{
+        //Read selected hints from file (NNs)
+        println("simpHints:")
+        simpHints.pretyPrintHints()
+        optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,simpHints,rank="rank:"+GlobalParameters.get.rank.toString)
+        // inconsistency between encoder.globalHints and simpHints
+      }
+
 
 
 

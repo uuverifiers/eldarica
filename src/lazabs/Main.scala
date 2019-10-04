@@ -65,6 +65,7 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   var printHints=VerificationHints(Map())
+  var originalVersion=false
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
   var rank=0.0
@@ -206,6 +207,7 @@ class GlobalParameters extends Cloneable {
     res.threadTimeout = this.threadTimeout //debug
     res.rank = this.rank //debug
     res.printHints = this.printHints //DEBUG
+    res.originalVersion = this.originalVersion //DEBUG
     res    
   }
 
@@ -301,6 +303,7 @@ object Main {
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
+      case "-originalVersion" :: rest => originalVersion = true; arguments(rest)
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
