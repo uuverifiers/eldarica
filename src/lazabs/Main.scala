@@ -68,6 +68,8 @@ class GlobalParameters extends Cloneable {
   var originalVersion=false
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
+  var generateTrainData=false
+  var readHints=false
   var rank=0.0
   var in: InputStream = null
   var fileName = ""
@@ -166,6 +168,8 @@ class GlobalParameters extends Cloneable {
     res.lbe = this.lbe
     res.slicing = this.slicing
     res.prettyPrint = this.prettyPrint
+    res.generateTrainData=this.generateTrainData
+    res.readHints=this.readHints
     res.smtPrettyPrint = this.smtPrettyPrint
     res.ntsPrint = this.ntsPrint
     res.printIntermediateClauseSets = this.printIntermediateClauseSets
@@ -283,6 +287,8 @@ object Main {
       //case "-r" :: rest => drawRTree = true; arguments(rest)
       case "-f" :: rest => absInFile = true; arguments(rest)
       case "-p" :: rest => prettyPrint = true; arguments(rest)
+      case "-generateTrainData" :: rest => generateTrainData = true; arguments(rest)
+      case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
@@ -603,16 +609,19 @@ object Main {
       //-----------debug-----------------------
 
 
+
       if (prettyPrint)
         lazabs.horn.concurrency.ReaderMain.printClauses(system)
 
       val smallSystem = system.mergeLocalTransitions
-
+      if(generateTrainData){
+        val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) //generate graph
+        return
+      }
       if (prettyPrint) {
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
-        val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) // only run until generate graph
         return
       }
       //-----------debug-----------------------

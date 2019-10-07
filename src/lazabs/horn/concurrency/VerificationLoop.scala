@@ -307,16 +307,15 @@ class VerificationLoop(system : ParametricEncoder.System) {
     //Call python to select hints
 
 
-      var optimizedHints=simpHints
-      if(GlobalParameters.get.originalVersion==true){
-
-      }else{
+      var optimizedHints=simpHints //if there is no readHints flag, use simpHints
+      if(GlobalParameters.get.readHints==true){
         //Read selected hints from file (NNs)
         println("simpHints:")
         simpHints.pretyPrintHints()
         optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,simpHints,rank="rank:"+GlobalParameters.get.rank.toString)
         // inconsistency between encoder.globalHints and simpHints
       }
+
 
 
 
