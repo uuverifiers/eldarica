@@ -233,7 +233,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
             simpClauses,
             GlobalParameters.get.templateBasedInterpolationType)
         val autoAbstractionMap =
-          builder.abstractions mapValues (AbstractionRecord(_))
+          builder.abstractionRecords
         
         val abstractionMap =
           if (encoder.globalPredicateTemplates.isEmpty) {

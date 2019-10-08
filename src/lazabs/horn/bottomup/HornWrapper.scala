@@ -322,7 +322,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
 
   private lazy val autoAbstraction : AbstractionMap =
-    absBuilder.abstractions mapValues (AbstractionRecord(_))
+    absBuilder.abstractionRecords
 
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction : AbstractionMap =

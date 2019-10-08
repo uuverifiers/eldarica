@@ -87,8 +87,7 @@ object SimpleWrapper {
                 newClauses,
                 GlobalParameters.get.templateBasedInterpolationType)
             val abstractionMap =
-              abstractionBuilder.abstractions mapValues (
-                     AbstractionRecord(_))
+              abstractionBuilder.abstractionRecords
             TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
               abstractionMap,
               GlobalParameters.get.templateBasedInterpolationTimeout)

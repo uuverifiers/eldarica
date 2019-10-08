@@ -217,7 +217,7 @@ class StaticAbstractionBuilder(
 
   import StaticAbstractionBuilder._
 
-  val abstractions : Map[Predicate, (Seq[Predicate], AbsLattice)] =
+  private val abstractions : Map[Predicate, (Seq[Predicate], AbsLattice)] =
     abstractionType match {
       case AbstractionType.Empty =>
         emptyAbstractions
@@ -230,5 +230,8 @@ class StaticAbstractionBuilder(
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
     }
+
+  val abstractionRecords : AbstractionRecord.AbstractionMap =
+    abstractions mapValues (AbstractionRecord(_))
 
 }
