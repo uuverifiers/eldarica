@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ import lazabs.{ParallelComputation, GlobalParameters}
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
                              HornWrapper}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-                                 LoopDetector}
+                                 LoopDetector, AbstractionRecord}
 import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.preprocessor.{HornPreprocessor, DefaultPreprocessor}
 
@@ -233,7 +233,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
             simpClauses,
             GlobalParameters.get.templateBasedInterpolationType)
         val autoAbstractionMap =
-          builder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
+          builder.abstractions mapValues (AbstractionRecord(_))
         
         val abstractionMap =
           if (encoder.globalPredicateTemplates.isEmpty) {
@@ -248,8 +248,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
             println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
-            TemplateInterpolator.AbstractionRecord.mergeMaps(
-              autoAbstractionMap, hintsAbstractionMap)
+            AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
           }
 
         TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(

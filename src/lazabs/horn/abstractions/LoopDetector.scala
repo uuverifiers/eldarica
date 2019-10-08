@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,6 @@
 package lazabs.horn.abstractions
 
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.bottomup.TemplateInterpolator.{AbstractionRecord,
-                                                  AbstractionMap}
 import lazabs.horn.preprocessor.HornPreprocessor
 
 import ap.SimpleAPI
@@ -159,6 +157,7 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
                            VerifHintTplEqTerm, VerifHintTplInEqTerm,
                            VerifHintTplInEqTermPosNeg,
                            VerifHintTplIterationThreshold}
+  import AbstractionRecord.AbstractionMap
 
   def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap =
     (for (head <- loopHeads.iterator;

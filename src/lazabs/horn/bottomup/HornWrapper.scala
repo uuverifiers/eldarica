@@ -52,7 +52,8 @@ import lazabs.types.Type
 import Util._
 import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-                                 StaticAbstractionBuilder}
+                                 StaticAbstractionBuilder, AbstractionRecord}
+import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
@@ -320,11 +321,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private lazy val absBuilder =
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
 
-  private lazy val autoAbstraction : TemplateInterpolator.AbstractionMap =
-    absBuilder.abstractions mapValues (TemplateInterpolator.AbstractionRecord(_))
+  private lazy val autoAbstraction : AbstractionMap =
+    absBuilder.abstractions mapValues (AbstractionRecord(_))
 
   /** Manually provided interpolation abstraction hints */
-  private lazy val hintsAbstraction : TemplateInterpolator.AbstractionMap =
+  private lazy val hintsAbstraction : AbstractionMap =
     if (simpHints.isEmpty)
       Map()
     else
@@ -335,8 +336,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private val predGenerator = Console.withErr(outStream) {
     if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
       val fullAbstractionMap =
-        TemplateInterpolator.AbstractionRecord
-          .mergeMaps(hintsAbstraction, autoAbstraction)
+        AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
 
       if (fullAbstractionMap.isEmpty)
         DagInterpolator.interpolatingPredicateGenCEXAndOr _

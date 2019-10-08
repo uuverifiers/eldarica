@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2019 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,9 @@ package lazabs.horn.bottomup
 
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
                                  TermExtendingLattice, MUXSearcher,
-                                 TermIneqLattice, PredicateLattice}
+                                 TermIneqLattice, PredicateLattice,
+                                 AbstractionRecord}
+import AbstractionRecord.AbstractionMap
 
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -60,53 +62,6 @@ object TemplateInterpolator {
 
   import HornPredAbs._
   import TerForConvenience._
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  object AbstractionRecord {
-    def apply(pair : (Iterable[Predicate], AbsLattice)) =
-      new AbstractionRecord {
-        val loopBody = pair._1.toSet
-        val lattice = pair._2
-        val loopIterationAbstractionThreshold = 3
-      }
-
-    def mergeMaps(a : AbstractionMap, b : AbstractionMap) : AbstractionMap = {
-      val res = new MHashMap[Predicate, AbstractionRecord]
-      res ++= a
-      for ((pred, record) <- b) (res get pred) match {
-        case Some(oldRecord) => res.put(pred, oldRecord merge record)
-        case None => res.put(pred, record)
-      }
-      res.toMap
-    }
-  }
-
-  abstract class AbstractionRecord {
-    val loopBody : Set[Predicate]
-    val lattice : AbsLattice
-    // how often does a predicate have to occur in a counterexample before
-    // interpolation abstraction is applied
-    val loopIterationAbstractionThreshold : Int
-
-    def merge(that : AbstractionRecord) : AbstractionRecord =
-      if (this.lattice.isUnit) {
-        that
-      } else if (that.lattice.isUnit) {
-        this
-      } else {
-        val x = this
-        new AbstractionRecord {
-          val loopBody = that.loopBody
-          val lattice = ProductLattice(x.lattice, that.lattice, true)
-          val loopIterationAbstractionThreshold =
-            x.loopIterationAbstractionThreshold min
-            that.loopIterationAbstractionThreshold
-        }
-      }
-  }
-
-  type AbstractionMap = Map[Predicate, AbstractionRecord]
 
   //////////////////////////////////////////////////////////////////////////////
 

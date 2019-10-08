@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@ package lazabs.horn.bottomup
 
 import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
-import lazabs.horn.abstractions.StaticAbstractionBuilder
+import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord}
 
 import ap.parser._
 import ap.terfor.preds.Predicate
@@ -88,7 +88,7 @@ object SimpleWrapper {
                 GlobalParameters.get.templateBasedInterpolationType)
             val abstractionMap =
               abstractionBuilder.abstractions mapValues (
-                     TemplateInterpolator.AbstractionRecord(_))
+                     AbstractionRecord(_))
             TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
               abstractionMap,
               GlobalParameters.get.templateBasedInterpolationTimeout)
