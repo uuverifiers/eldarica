@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package lazabs.horn.concurrency
 import ap.parser.PrincessLineariser
 
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.abstractions.VerificationHints
 
 object ReaderMain {
 
@@ -72,18 +73,21 @@ object ReaderMain {
         println("  " + c.toPrologString)
     }
 
-    if (!system.hints.predicateHints.isEmpty) {
+    if (!system.hints.predicateHints.isEmpty)
+      printHints(system.hints)
+  }
+
+  def printHints(hints : VerificationHints,
+                 name : String = "Verification hints:") = {
       println
-      println("Verification hints:")
-      for ((p, preds) <-
-             system.hints.predicateHints.toArray.sortBy(_._1.name)) {
+      println(name)
+      for ((p, preds) <- hints.predicateHints.toArray.sortBy(_._1.name)) {
         println("  " + p + ": ")
         for (x <- preds) {
 //          PrincessLineariser printExpression x
           println("    " + x)
         }
       }
-    }
   }
 
   def main(args: Array[String]) : Unit = {

@@ -94,6 +94,7 @@ class GlobalParameters extends Cloneable {
     AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
   var templateBasedInterpolationPortfolio = false
+  var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
@@ -174,6 +175,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
     that.cegarHintsFile = this.cegarHintsFile
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
@@ -344,6 +346,8 @@ object Main {
         arguments(rest)
       }
 
+      case "-pHints" :: rest => templateBasedInterpolationPrint = true; arguments(rest)
+
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 
       case arithMode :: rest if (arithMode startsWith "-arithMode:") => {
@@ -424,6 +428,7 @@ object Main {
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
+          " -pHints\tPrint initial predicates and abstraction templates\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +

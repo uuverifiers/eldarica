@@ -29,7 +29,9 @@
 
 package lazabs.horn.abstractions
 
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.concurrency.ReaderMain
 
 import ap.basetypes.IdealInt
 import ap.theories.nia.GroebnerMultiplication
@@ -51,6 +53,7 @@ class StaticAbstractionBuilder(
 
   import IExpression._
   import HornClauses.Clause
+  import VerificationHints._
 
   val loopDetector = new LoopDetector(clauses)
 
@@ -58,7 +61,7 @@ class StaticAbstractionBuilder(
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def octagonAbstractions =
+  def octagonAbstractions = VerificationHints(
     for ((loopHead, modifiedArgs) <-
            ModifiedLoopVarsDetector.simpleModifiedVars(loopDetector)) yield {
       val unmodArgsCosts =
@@ -95,14 +98,13 @@ class StaticAbstractionBuilder(
               (unmodArgsCosts.size + modArgsCosts.size + diffCosts.size + sumCosts.size) + " templates)")
 
       (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts,
-                          loopHead.name)))
-    }
+       for ((t, c) <- unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts)
+       yield VerifHintTplEqTerm(t, c))
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def termAbstractions =
+  def termAbstractions = VerificationHints(
     for ((loopHead, argOffsets) <-
            ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
       val counterArgs =
@@ -127,26 +129,23 @@ class StaticAbstractionBuilder(
               (unmodArgsCosts.size + modArgsCosts.size + counterArgsCosts.size) + " templates)")
 
       (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts,
-                          loopHead.name)))
-    }
+       for ((t, c) <- unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts)
+       yield VerifHintTplEqTerm(t, c))
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def emptyAbstractions =
+  def emptyAbstractions = VerificationHints(
     for ((head, _) <- loopDetector.loopBodies) yield {
       Console.err.println("   " + head +
               " (" + loopDetector.loopBodies(head).size + " clauses)")
       // just create some unit lattice (with exactly one element)
-      (head,
-       (loopDetector bodyPredicates head,
-        TermSubsetLattice(List()).asInstanceOf[AbsLattice]))
-    }
+      (head, List())
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def relationAbstractions(ineqs : Boolean) =
+  def relationAbstractions(ineqs : Boolean) = VerificationHints(
     for ((loopHead, argOffsets) <-
            ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
       val modifiedArgs =
@@ -204,20 +203,17 @@ class StaticAbstractionBuilder(
         unmodArgsCosts ++ modArgsCosts ++ offsetDiffCosts // ++ modCosts
 
       (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        if (ineqs)
-          TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c),
-                          loopHead.name)
-        else
-          TermSubsetLattice(allCosts, loopHead.name)
-       ))
-    }
+       if (ineqs)
+         for ((t, c) <- allCosts) yield VerifHintTplInEqTermPosNeg(t, c)
+       else
+         for ((t, c) <- allCosts) yield VerifHintTplEqTerm(t, c))
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
   import StaticAbstractionBuilder._
 
-  private val abstractions : Map[Predicate, (Seq[Predicate], AbsLattice)] =
+  val abstractionHints : VerificationHints =
     abstractionType match {
       case AbstractionType.Empty =>
         emptyAbstractions
@@ -231,7 +227,10 @@ class StaticAbstractionBuilder(
         relationAbstractions(true)
     }
 
+  if (GlobalParameters.get.templateBasedInterpolationPrint)
+    ReaderMain printHints abstractionHints
+
   val abstractionRecords : AbstractionRecord.AbstractionMap =
-    abstractions mapValues (AbstractionRecord(_))
+    loopDetector.hints2AbstractionRecord(abstractionHints)
 
 }

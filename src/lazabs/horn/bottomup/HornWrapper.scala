@@ -55,6 +55,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
+import lazabs.horn.concurrency.ReaderMain
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
@@ -348,6 +349,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
   }
+
+  if (GlobalParameters.get.templateBasedInterpolationPrint &&
+      !simpHints.isEmpty)
+    ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
   //////////////////////////////////////////////////////////////////////////////
 
