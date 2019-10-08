@@ -30,8 +30,9 @@
 package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
-import HornClauses._
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.abstractions.VerificationHints
+import HornClauses._
 
 import ap.theories.ADT
 import ap.basetypes.IdealInt

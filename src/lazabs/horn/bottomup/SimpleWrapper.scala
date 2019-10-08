@@ -30,8 +30,9 @@
 package lazabs.horn.bottomup
 
 import lazabs.{GlobalParameters, ParallelComputation}
-import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
-import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord}
+import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord,
+                                 InitPredicateVerificationHints}
 
 import ap.parser._
 import ap.terfor.preds.Predicate
@@ -44,8 +45,6 @@ import Util._
  * 
  */
 object SimpleWrapper {
-
-  import HornPreprocessor.InitPredicateVerificationHints
 
   /**
    * Solve the given set of clauses, but construct a full solution or a

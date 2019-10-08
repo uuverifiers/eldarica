@@ -40,7 +40,7 @@ import concurrentC._
 import concurrentC.Absyn._
 
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.abstractions.VerificationHints
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
                                  Stack, LinkedHashSet}
@@ -349,7 +349,7 @@ class CCReader private (prog : Program,
   }
 
   private val variableHints =
-    new ArrayBuffer[Seq[HornPreprocessor.VerifHintElement]]
+    new ArrayBuffer[Seq[VerificationHints.VerifHintElement]]
   private var usingInitialPredicates = false
 
   //////////////////////////////////////////////////////////////////////////////
@@ -470,7 +470,7 @@ class CCReader private (prog : Program,
   private def newPred : Predicate = newPred(0)
 
   private def newPred(extraArgs : Int) : Predicate = {
-    import HornPreprocessor.{VerifHintTplElement, VerifHintTplEqTerm}
+    import VerificationHints._
 
     val res = MonoSortedPredicate(prefix + locationCounter,
                                   (allFormalVarTypes map (_.toSort)) ++
@@ -497,7 +497,7 @@ class CCReader private (prog : Program,
   }
 
   private val predicateHints =
-    new MHashMap[Predicate, Seq[HornPreprocessor.VerifHintElement]]
+    new MHashMap[Predicate, Seq[VerificationHints.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -737,8 +737,7 @@ class CCReader private (prog : Program,
 
   private def processHints(hints : Seq[Abs_hint]) : Unit =
           if (!hints.isEmpty) {
-            import HornPreprocessor.{VerifHintInitPred,
-                                     VerifHintTplPred, VerifHintTplEqTerm}
+            import VerificationHints._
 
             val hintSymex = Symex(null)
             hintSymex.saveState
@@ -975,7 +974,7 @@ class CCReader private (prog : Program,
       addLocalVar(c, v.typ)
 
       if (usingInitialPredicates) {
-        import HornPreprocessor.VerifHintInitPred
+        import VerificationHints._
         
         // if the pushed value refers to other variables,
         // add initial predicates that relate the values of
@@ -2239,7 +2238,7 @@ class CCReader private (prog : Program,
                                ParametricEncoder.NoTime,
                              timeInvariants,
                              assertionClauses.toList,
-                             HornPreprocessor.VerificationHints(predHints))
+                             VerificationHints(predHints))
   }
 
 }

@@ -40,8 +40,7 @@ import lazabs.GlobalParameters
 import lazabs.ParallelComputation
 import lazabs.Main.{TimeoutException, StoppedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
-import HornPreprocessor.{VerifHintElement, VerificationHints,
-                         EmptyVerificationHints, BackTranslator}
+import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
@@ -52,7 +51,8 @@ import lazabs.types.Type
 import Util._
 import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-                                 StaticAbstractionBuilder, AbstractionRecord}
+                                 StaticAbstractionBuilder, AbstractionRecord,
+                                 VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 

@@ -37,9 +37,10 @@ import lazabs.{ParallelComputation, GlobalParameters}
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
                              HornWrapper}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-                                 LoopDetector, AbstractionRecord}
+                                 LoopDetector, AbstractionRecord,
+                                 VerificationHints}
 import lazabs.horn.bottomup.TemplateInterpolator
-import lazabs.horn.preprocessor.{HornPreprocessor, DefaultPreprocessor}
+import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer}
@@ -158,8 +159,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
   import VerificationLoop._
   import ParametricEncoder._
-  import HornPreprocessor.{VerifHintTplElement, VerifHintTplPred,
-                           VerifHintTplEqTerm}
+  import VerificationHints._
   import HornClauses.{Clause, FALSE}
   import Util._
 

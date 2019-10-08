@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,10 +32,10 @@ package lazabs.horn.concurrency
 import ap.parser._
 import ap.types.MonoSortedPredicate
 import ap.util.{Seqs, Combinatorics}
-import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.preprocessor.HornPreprocessor
 
+import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.abstractions.{VerificationHints, EmptyVerificationHints}
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer, HashMap => MHashMap}
@@ -103,10 +103,7 @@ object ParametricEncoder {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import HornPreprocessor.{VerificationHints, VerifHintElement,
-                           VerifHintTplElement, VerifHintTplPred,
-                           VerifHintTplEqTerm, EmptyVerificationHints,
-                           InitPredicateVerificationHints}
+  import VerificationHints._
 
   case class System(processes : ParametricEncoder.ProcessSet,
                     globalVarNum : Int,
@@ -449,10 +446,7 @@ class ParametricEncoder(system : ParametricEncoder.System,
                         invariants : Seq[Seq[Int]]) {
 
   import ParametricEncoder._
-  import HornPreprocessor.{VerificationHints, VerifHintElement,
-                           VerifHintTplElement, VerifHintTplPred,
-                           VerifHintTplEqTerm, EmptyVerificationHints,
-                           VerifHintInitPred}
+  import VerificationHints._
   import HornClauses.Clause
   import IExpression._
   import Combinatorics._

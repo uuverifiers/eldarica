@@ -151,11 +151,7 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import HornPreprocessor.{VerificationHints, VerifHintTplElement,
-                           VerifHintTplPred, VerifHintTplPredPosNeg,
-                           VerifHintTplEqTerm, VerifHintTplInEqTerm,
-                           VerifHintTplInEqTermPosNeg,
-                           VerifHintTplIterationThreshold}
+  import VerificationHints._
   import AbstractionRecord.AbstractionMap
 
   def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap =

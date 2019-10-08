@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,8 +36,6 @@ import ap.SimpleAPI
 
 import TplSpec._
 import TplSpec.Absyn._
-
-import lazabs.horn.preprocessor.HornPreprocessor
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -123,12 +121,7 @@ class AbsReader(input : java.io.Reader) {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    import HornPreprocessor.{VerifHintElement, VerifHintInitPred,
-                             VerifHintTplElement,
-                             VerifHintTplPred, VerifHintTplPredPosNeg,
-                             VerifHintTplEqTerm, VerifHintTplInEqTerm,
-                             VerifHintTplInEqTermPosNeg,
-                             VerifHintTplIterationThreshold}
+    import VerificationHints._
 
     val templateHints : List[(String, Seq[VerifHintElement])] =
     (for (predspec <-
