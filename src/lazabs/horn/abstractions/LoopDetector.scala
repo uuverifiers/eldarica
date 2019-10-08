@@ -825,7 +825,7 @@ class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
 
       val allCosts =
         unmodArgsCosts ++ modArgsCosts ++ offsetDiffCosts // ++ modCosts
-
+    //println(allCosts)//hints
       (loopHead,
        (loopDetector bodyPredicates loopHead,
         if (ineqs)

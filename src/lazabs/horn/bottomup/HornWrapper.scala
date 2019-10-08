@@ -183,7 +183,7 @@ class HornWrapper(constraints: Seq[HornClause],
     }
 
   //////////////////////////////////////////////////////////////////////////////
-
+hints.pretyPrintHints()
   private val (simplifiedClauses, simpHints, preprocBackTranslator) =
     Console.withErr(outStream) {
     val (simplifiedClauses, simpHints, backTranslator) =
@@ -193,7 +193,8 @@ class HornWrapper(constraints: Seq[HornClause],
         val preprocessor = new DefaultPreprocessor
         preprocessor.process(unsimplifiedClauses, hints)
       }
-
+      println("Hello world")
+println(simpHints)
     if (GlobalParameters.get.printHornSimplified) {
 //      println("-------------------------------")
 //      printClauses(simplifiedClauses)
@@ -337,7 +338,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       val fullAbstractionMap =
         TemplateInterpolator.AbstractionRecord
           .mergeMaps(hintsAbstraction, autoAbstraction)
-
+println(fullAbstractionMap)
       if (fullAbstractionMap.isEmpty)
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       else
@@ -360,6 +361,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
     val result = Console.withOut(outStream) {
       println
+
+
+      simpHints.pretyPrintHints()//print hints
+
       println(
          "----------------------------------- CEGAR --------------------------------------")
 

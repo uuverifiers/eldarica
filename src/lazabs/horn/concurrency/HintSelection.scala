@@ -6,7 +6,8 @@ import ap.terfor._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.StaticAbstractionBuilder
-import lazabs.horn.bottomup.{HornPredAbs, TemplateInterpolator}
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs, TemplateInterpolator}
+import lazabs.horn.concurrency.ParametricEncoder.{Infinite, Singleton}
 import lazabs.horn.preprocessor.HornPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor._
 
@@ -283,24 +284,24 @@ object HintsSelection{
   def writeHintsWithIDToFile(hints:Map[String,String],fileName:String,hintType:String){
     val tempHints=hints-"initialKey"
     if(hintType=="initial"){
-      val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
-      //val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
+      //val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
+      val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
       writer.close()
     }
     if(hintType=="positive"){
-      val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
-      //val writer = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
+      //val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
+      val writer = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
       writer.close()
     }
     if(hintType=="negative"){
-      val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
-      // val writer = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
+      //val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
+      val writer = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
       for((key,value)<-tempHints){
         writer.write(key+":"+value+"\n")
       }
@@ -529,8 +530,8 @@ object HintsSelection{
     val fileNameShorter=fileName.substring(fileName.lastIndexOf("/"),fileName.length) //get file name
     var parsedHintslist=Seq[Seq[String]]() //store parsed hints
 
-    val f = "predictedHints/"+fileNameShorter+".optimizedHints" //read file
-    // val f = "../predictedHints/"+fileNameShorter+".optimizedHints" //python file
+    //val f = "predictedHints/"+fileNameShorter+".optimizedHints" //read file
+    val f = "../predictedHints/"+fileNameShorter+".optimizedHints" //python file
     for (line <- Source.fromFile(f).getLines) {
       var parsedHints=Seq[String]() //store parsed hints
       //parse read file
@@ -551,8 +552,8 @@ object HintsSelection{
 
     println("---readInitialHints-----")
     var readInitialHintsWithID:Map[String,String]=Map()
-    val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
-    // val fInitial = "../predictedHints/"+fileNameShorter+".initialHints"//python file
+    //val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
+    val fInitial = "../predictedHints/"+fileNameShorter+".initialHints"//python file
     for (line <- Source.fromFile(fInitial).getLines) {
       var parsedHints=Seq[String]() //store parsed hints
       //parse read file
@@ -633,12 +634,12 @@ object HintsSelection{
     return readHints
   }
 
-  def printHornClauses(system : ParametricEncoder.System,file:String): Unit ={
+  def writeHornClausesToFile(system : ParametricEncoder.System,file:String): Unit ={
     println("Write horn to file")
     println(file.substring(file.lastIndexOf("/")+1))
     val fileName=file.substring(file.lastIndexOf("/")+1)
-    val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
-    //val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
+    //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
+    val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
     for ((p, r) <- system.processes) {
       r match {
         case ParametricEncoder.Singleton =>
@@ -671,5 +672,44 @@ object HintsSelection{
     writer.close()
   }
 
+  def writeSMTFormatToFile(encoder:ParametricEncoder): Unit ={
+
+
+      val basename = GlobalParameters.get.fileName
+//      val suffix =
+//        (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
+//      val filename = basename + "-" + suffix + ".smt2"
+    println(basename.substring(basename.lastIndexOf("/")+1))
+    val fileName=basename.substring(basename.lastIndexOf("/")+1)
+    //val filename = basename + ".smt2"
+
+      println
+      println("Writing Horn clauses to " + fileName)
+
+      //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")
+      val out = new java.io.FileOutputStream("../trainData/"+fileName+".smt2") //python path
+      Console.withOut(out) {
+        val clauseFors =
+          for (c <- encoder.allClauses) yield {
+            val f = c.toFormula
+            // eliminate remaining operators like eps
+            Transform2Prenex(EquivExpander(PartialEvaluator(f)))
+          }
+
+        val allPredicates =
+          HornClauses allPredicates encoder.allClauses
+
+        SMTLineariser("C_VC", "HORN", "unknown",
+          List(), allPredicates.toSeq.sortBy(_.name),
+          clauseFors)
+      }
+      out.close
+
+  }
+
 
 }
+
+
+
+

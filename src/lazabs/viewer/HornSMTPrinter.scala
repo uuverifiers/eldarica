@@ -51,6 +51,9 @@ object HornSMTPrinter {
     val alpha = i / 26
     /*"?" +*/ ((i % 26 + 65).toChar + (if(alpha > 0) alpha.toString else "")).toString
   }
+  def getVarChar(i:Int):String={
+    ("var"+i.toString)
+  }
   
   def type2String(t: Type) = t match {
     case AdtType(s) => s.name
@@ -80,21 +83,25 @@ object HornSMTPrinter {
     }
 
     def printParameter(p: Parameter): String = varMap.get(p.name) match {
-      case Some(i) => getAlphabeticChar(i._1)
+      //case Some(i) => getAlphabeticChar(i._1)
+      case Some(i) => getVarChar(i._1)
       case None => 
         val newIndex = getNewVarCounter
         varMap += (p.name -> (newIndex,p.typ))
-        getAlphabeticChar(newIndex)
+        //getAlphabeticChar(newIndex)
+        getVarChar(newIndex)
     }
 
     def printExp(e: Expression): String = e match {
       case Existential(v, qe) =>
         // TODO: this is not going to work for nested quantifiers
-        "(exists ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        //"(exists ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        "(exists ((" + getVarChar(0) + " " + type2String(v.stype) +
         ")) " + printExp(qe) + ")"
       case Universal(v, qe) =>
         // TODO: this is not going to work for nested quantifiers
-        "(forall ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        //"(forall ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
+        "(forall ((" + getVarChar(0) + " " + type2String(v.stype) +
         ")) " + printExp(qe) + ")"
       case Conjunction(e1, e2) => "(and " + printExp(e1) + " " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
@@ -131,13 +138,16 @@ object HornSMTPrinter {
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {
-        case Some(i) => getAlphabeticChar(i._1)
+        //case Some(i) => getAlphabeticChar(i._1)
+        case Some(i) => getVarChar(i._1)
         case None =>
           val newIndex = getNewVarCounter
           varMap += (name -> (newIndex,v.stype))
-          getAlphabeticChar(newIndex)
+          //getAlphabeticChar(newIndex)
+          getVarChar(newIndex)
       }
-      case Variable(_,Some(index)) => getAlphabeticChar(index)
+      //case Variable(_,Some(index)) => getAlphabeticChar(index)
+      case Variable(_,Some(index)) => getVarChar(index)
       case NumericalConst(num) =>
         if (num<0) {
           "(- "+(num.abs)+")"
@@ -161,7 +171,8 @@ object HornSMTPrinter {
 
       val args = (for (p <- params) yield {
         val (ind, t) = varMap(p.name)
-        "(" + getAlphabeticChar(ind) + " " +
+        //"(" + getAlphabeticChar(ind) + " " +
+        "(" + getVarChar(ind) + " " +
           type2String(varMap(p.name)._2) + ")"
       }) mkString " "
 
@@ -169,7 +180,8 @@ object HornSMTPrinter {
     } else {
       val boundVars =
         varMap.values.toSeq.sortWith(_._1 < _._1)
-              .map(v => "(" + getAlphabeticChar(v._1) + " " +
+              //.map(v => "(" + getAlphabeticChar(v._1) + " " +
+              .map(v => "(" + getVarChar(v._1) + " " +
                         type2String(v._2) + ")")
               .mkString(" ")
 

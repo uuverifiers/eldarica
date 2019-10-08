@@ -35,7 +35,7 @@ import java.io.{FileInputStream, FileNotFoundException, InputStream}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
-import lazabs.horn.concurrency.GraphTranslator
+import lazabs.horn.concurrency.{GraphTranslator, HintsSelection}
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.prover._
 import lazabs.viewer._
@@ -65,7 +65,6 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   var printHints=VerificationHints(Map())
-  var originalVersion=false
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
   var generateTrainData=false
@@ -211,7 +210,6 @@ class GlobalParameters extends Cloneable {
     res.threadTimeout = this.threadTimeout //debug
     res.rank = this.rank //debug
     res.printHints = this.printHints //DEBUG
-    res.originalVersion = this.originalVersion //DEBUG
     res    
   }
 
@@ -309,7 +307,6 @@ object Main {
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
-      case "-originalVersion" :: rest => originalVersion = true; arguments(rest)
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
@@ -585,6 +582,11 @@ object Main {
         case InputFormat.UppaalOG | InputFormat.UppaalRG => true
         case _ => false
       }*/
+      if(generateTrainData) {
+        //println(HornSMTPrinter(clauseSet))
+
+        return
+      }
 
       lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
                         drawRTree, lbe)
@@ -618,6 +620,7 @@ object Main {
         val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) //generate graph
         return
       }
+
       if (prettyPrint) {
         println
         println("After simplification:")

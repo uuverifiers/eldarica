@@ -15,8 +15,8 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
   println(file.substring(file.lastIndexOf("/")+1))
   val fileName=file.substring(file.lastIndexOf("/")+1)
   //println(fileName)
-  val writer = new PrintWriter(new File("graphs/"+fileName+".gv"))
-  //val writer = new PrintWriter(new File("../graphs/"+fileName+".gv")) //python path
+  //val writer = new PrintWriter(new File("graphs/"+fileName+".gv"))
+  val writer = new PrintWriter(new File("../graphs/"+fileName+".gv")) //python path
 
   // println(hornClauses)
 
@@ -61,8 +61,8 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
       //write graphviz form to .gv file
       val fileName=file.substring(file.lastIndexOf("/")+1)
-      val pathName= "graphs/"+fileName+".hints.graphs"+"/"
-      //val pathName= "../graphs/"+fileName+".hints.graphs"+"/" //python path
+      //val pathName= "graphs/"+fileName+".hints.graphs"+"/"
+      val pathName= "../graphs/"+fileName+".hints.graphs"+"/" //python path
       val hintFileName=head.toString().take(head.toString().indexOf("/"))+":"+oneHint.toString()+".gv"
       val hintFile = new File(pathName)
       hintFile.mkdir() //create fileName.hints.graphs directory

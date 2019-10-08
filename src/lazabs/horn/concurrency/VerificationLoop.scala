@@ -170,7 +170,8 @@ class GraphGenerator(system : ParametricEncoder.System){
   println("Using invariants " + (invariants mkString ", "))
   println
 
-  val encoder = new ParametricEncoder(system, invariants)
+
+  val encoder: ParametricEncoder = new ParametricEncoder(system, invariants)
 
 
 
@@ -183,6 +184,7 @@ class GraphGenerator(system : ParametricEncoder.System){
 
   //output all training data
 
+  HintsSelection.writeSMTFormatToFile(encoder)  //write smt2 format to file
 
   import scala.collection.immutable.ListMap
 
@@ -194,13 +196,22 @@ class GraphGenerator(system : ParametricEncoder.System){
       println(key,value)
     }
 
-
     val selectedHint=HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName,InitialHintsWithID)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
       //write horn clauses to file
-      HintsSelection.printHornClauses(system,GlobalParameters.get.fileName)
+      HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
+      //write smt2 format to file
+      if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
+        HintsSelection.writeSMTFormatToFile(encoder)  //write smt2 format to file
+      }
+      if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
+        //copy smt2 file
+      }
+
+
+
       //Output graphs
       val hornGraph = new GraphTranslator(encoder.allClauses, GlobalParameters.get.fileName)
       val hintGraph= new GraphTranslator_hint(encoder.allClauses, GlobalParameters.get.fileName, encoder.globalHints)
@@ -263,8 +274,8 @@ class VerificationLoop(system : ParametricEncoder.System) {
             Transform2Prenex(EquivExpander(PartialEvaluator(f)))
           }
 
-        val allPredicates =
-          HornClauses allPredicates encoder.allClauses
+        val allPredicates: _root_.scala.Predef.Set[_root_.ap.parser.IExpression.Predicate] =
+          HornClauses.allPredicates(encoder.allClauses)
 
         SMTLineariser("C_VC", "HORN", "unknown",
                       List(), allPredicates.toSeq.sortBy(_.name),
