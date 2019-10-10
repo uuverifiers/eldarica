@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,10 +110,9 @@ object ASTree {
   case class BVconcat(bits1 : Int, bits2 : Int)
        extends BinaryOperator ("concat")
 
-  // extract the middle <code>bits2</code> from a bit-vector of length
-  // <code>bits1 + bits2 + bits3</code>
-  case class BVextract(bits1 : Int, bits2 : Int, bits3 : Int)
-       extends UnaryOperator ("concat")
+  // extract bits from a bit-vector, semantics as in SMT-LIB
+  case class BVextract(begin : Int, end : Int)
+       extends UnaryOperator ("extract")
 
   case class BVnot(bits : Int) extends UnaryOperator ("bvnot")
   case class BVneg(bits : Int) extends UnaryOperator ("bvneg")

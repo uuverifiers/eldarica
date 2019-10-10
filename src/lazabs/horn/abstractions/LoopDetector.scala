@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,6 @@
 package lazabs.horn.abstractions
 
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.bottomup.TemplateInterpolator.{AbstractionRecord,
-                                                  AbstractionMap}
 import lazabs.horn.preprocessor.HornPreprocessor
 
 import ap.SimpleAPI
@@ -40,7 +38,6 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.types.Sort
 import ap.theories.ModuloArithmetic
-import ap.theories.nia.GroebnerMultiplication
 import ap.parser._
 import ap.util.LRUCache
 
@@ -154,11 +151,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import HornPreprocessor.{VerificationHints, VerifHintTplElement,
-                           VerifHintTplPred, VerifHintTplPredPosNeg,
-                           VerifHintTplEqTerm, VerifHintTplInEqTerm,
-                           VerifHintTplInEqTermPosNeg,
-                           VerifHintTplIterationThreshold}
+  import VerificationHints._
+  import AbstractionRecord.AbstractionMap
 
   def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap =
     (for (head <- loopHeads.iterator;
@@ -196,9 +190,12 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
        }
 
        val lattices : List[AbsLattice] =
-         (if (preds.isEmpty) List() else List(PredicateLattice(preds))) ++
-         (if (terms.isEmpty) List() else List(TermSubsetLattice(terms))) ++
-         (if (ineqs.isEmpty) List() else List(TermIneqLattice(ineqs)))
+         (if (preds.isEmpty) List()
+          else List(PredicateLattice(preds, head.name))) ++
+         (if (terms.isEmpty) List()
+          else List(TermSubsetLattice(terms, head.name))) ++
+         (if (ineqs.isEmpty) List()
+          else List(TermIneqLattice(ineqs, head.name)))
 
        val latt = lattices reduceLeft (ProductLattice(_, _, true))
 
@@ -657,201 +654,6 @@ class ModifiedLoopVarsDetector[Dom <: AbstractDomain]
       }
   
       (loopHead, abstractValues(loopHead))
-    }
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-object StaticAbstractionBuilder {
-  object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs = Value
-  }
-}
-
-class StaticAbstractionBuilder(clauses : Seq[HornClauses.Clause],
-                               abstractionType : StaticAbstractionBuilder.AbstractionType.Value) {
-
-  import IExpression._
-  import HornClauses.Clause
-
-  val loopDetector = new LoopDetector(clauses)
-
-  Console.err.println("Loop heads:")
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def octagonAbstractions =
-    for ((loopHead, modifiedArgs) <-
-           ModifiedLoopVarsDetector.simpleModifiedVars(loopDetector)) yield {
-      val unmodArgsCosts =
-        for (k <- 0 until loopHead.arity;
-             if (!(modifiedArgs contains k))) yield (v(k) -> 1)
-      val modArgsCosts =
-        for (k <- modifiedArgs) yield (v(k) -> 6)
-
-      val (diffCosts, sumCosts) =
-        if (modifiedArgs.isEmpty) {
-          (List(), List())
-        } else {
-          val modHead = modifiedArgs.head
-          val diffCosts = (for (k <- modifiedArgs.iterator;
-                                if (k != modHead)) yield ((v(modHead) - v(k)) -> 2)).toList
-          val sumCosts =  (for (k <- modifiedArgs.iterator;
-                                if (k != modHead)) yield ((v(modHead) + v(k)) -> 7)).toList
-          (diffCosts, sumCosts)
-        }
-
-/*
-      val diffCosts =
-        (for ((k1, i1) <- modifiedArgs.iterator.zipWithIndex;
-              (k2, i2) <- modifiedArgs.iterator.zipWithIndex;
-              if (i1 < i2)) yield ((v(k1) - v(k2)) -> 3)).toList
-      val sumCosts =
-        (for ((k1, i1) <- modifiedArgs.iterator.zipWithIndex;
-              (k2, i2) <- modifiedArgs.iterator.zipWithIndex;
-              if (i1 < i2)) yield ((v(k1) + v(k2)) -> 10)).toList
-*/
-
-      Console.err.println("   " + loopHead +
-              " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
-              (unmodArgsCosts.size + modArgsCosts.size + diffCosts.size + sumCosts.size) + " templates)")
-
-      (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ diffCosts ++ sumCosts,
-                          loopHead.name)))
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def termAbstractions =
-    for ((loopHead, argOffsets) <-
-           ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
-      val counterArgs =
-        (for ((v, k) <- argOffsets.iterator.zipWithIndex;
-              if (v == List(IdealInt.ONE))) yield k).toList
-      val modifiedArgs =
-        (for ((v, k) <- argOffsets.iterator.zipWithIndex;
-              if (v != List(IdealInt.ZERO))) yield k).toList
-
-      val unmodArgsCosts =
-        for (k <- 0 until loopHead.arity;
-             if (!(modifiedArgs contains k))) yield (v(k) -> 1)
-      val modArgsCosts =
-        for (k <- 0 until loopHead.arity;
-             if ((modifiedArgs contains k) &&
-                 !(counterArgs contains k))) yield (v(k) -> 4)
-      val counterArgsCosts =
-        for (k <- counterArgs) yield (v(k) -> 9)
-
-      Console.err.println("   " + loopHead +
-              " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
-              (unmodArgsCosts.size + modArgsCosts.size + counterArgsCosts.size) + " templates)")
-
-      (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        TermSubsetLattice(unmodArgsCosts ++ modArgsCosts ++ counterArgsCosts,
-                          loopHead.name)))
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def emptyAbstractions =
-    for ((head, _) <- loopDetector.loopBodies) yield {
-      Console.err.println("   " + head +
-              " (" + loopDetector.loopBodies(head).size + " clauses)")
-      // just create some unit lattice (with exactly one element)
-      (head,
-       (loopDetector bodyPredicates head,
-        TermSubsetLattice(List()).asInstanceOf[AbsLattice]))
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def relationAbstractions(ineqs : Boolean) =
-    for ((loopHead, argOffsets) <-
-           ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
-      val modifiedArgs =
-        (for ((v, k) <- argOffsets.iterator.zipWithIndex;
-              if (v != List(IdealInt.ZERO))) yield k).toList
-
-      val unmodArgsCosts =
-        for (k <- 0 until loopHead.arity;
-             if (!(modifiedArgs contains k))) yield (v(k) -> 1)
-      val modArgsCosts =
-        for (k <- modifiedArgs) yield (v(k) -> 6)
-
-      val counter = (
-         for ((List(o), k) <- argOffsets.iterator.zipWithIndex;
-              if (o.isUnit)) yield k).toSeq.headOption              orElse (
-         for ((l, k) <- argOffsets.iterator.zipWithIndex;
-              if (l exists (_.isUnit))) yield k).toSeq.headOption   orElse (
-         modifiedArgs.headOption)
-
-      def handleEmpty(l : List[IdealInt]) : List[IdealInt] = l match {
-        case List() => List(IdealInt.ONE, IdealInt.MINUS_ONE)
-        case l => l
-      }
-
-      val offsetDiffCosts = counter match {
-        case Some(counterInd) =>
-          (for (o1 <- handleEmpty(argOffsets(counterInd)).iterator;
-                if (!o1.isZero);
-                (l2, i2) <- argOffsets.iterator.zipWithIndex;
-                if (i2 != counterInd);
-                o2 <- handleEmpty(l2).iterator;
-                if (!o2.isZero);
-                (op1, op2) = if (o2.signum >= 0) (o1, o2) else (-o1, -o2))
-           yield ((v(counterInd)*op2 - v(i2)*op1) -> 2)).toList.distinct
-        case None =>
-          List()
-      }
-
-/*
-      val modCosts = 
-        (for ((offsets, k) <- argOffsets.iterator.zipWithIndex;
-              if (offsets match {
-                case List(o) => !o.isZero && !o.isUnit
-                case _ => false
-              }))
-        yield (GroebnerMultiplication.eMod(v(k), offsets.head.abs) -> 2)).toList
-*/
-
-      Console.err.println("   " + loopHead +
-              " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
-              (unmodArgsCosts.size + modArgsCosts.size +
-               offsetDiffCosts.size /* + modCosts.size */) + " templates)")
-
-      val allCosts =
-        unmodArgsCosts ++ modArgsCosts ++ offsetDiffCosts // ++ modCosts
-    //println(allCosts)//hints
-      (loopHead,
-       (loopDetector bodyPredicates loopHead,
-        if (ineqs)
-          TermIneqLattice(for ((t, c) <- allCosts; s <- List(t, -t)) yield (s, c),
-                          loopHead.name)
-        else
-          TermSubsetLattice(allCosts, loopHead.name)
-       ))
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  import StaticAbstractionBuilder._
-
-  val abstractions : Map[Predicate, (Seq[Predicate], AbsLattice)] =
-    abstractionType match {
-      case AbstractionType.Empty =>
-        emptyAbstractions
-      case AbstractionType.Term =>
-        termAbstractions
-      case AbstractionType.Octagon =>
-        octagonAbstractions
-      case AbstractionType.RelationalEqs =>
-        relationAbstractions(false)
-      case AbstractionType.RelationalIneqs =>
-        relationAbstractions(true)
     }
 
 }

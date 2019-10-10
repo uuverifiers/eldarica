@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, Leaf, Tree}
 import ap.parser._
 import IExpression._
 import ap.SimpleAPI
@@ -45,8 +45,30 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 object ClauseShortener {
   import HornPreprocessor._
 
-  class BTranslator(tempPreds : Set[Predicate],
-                    backMapping : Map[Clause, Clause])
+  object BTranslator {
+  
+    def apply(tempPreds : Set[Predicate],
+              backMapping : Map[Clause, Clause]) : BTranslator = {
+      val extendedMapping =
+        for ((newClause, oldClause) <- backMapping) yield {
+          assert(newClause.body.size == oldClause.body.size)
+          val indexTree =
+            Tree(-1,
+                 (for (n <- 0 until newClause.body.size) yield Leaf(n)).toList)
+          (newClause, (oldClause, indexTree))
+        }
+      new BTranslator(tempPreds, extendedMapping)
+    }
+
+    def withIndexes(tempPreds : Set[Predicate],
+                    backMapping : Map[Clause, (Clause, Tree[Int])])
+                  : BTranslator =
+      new BTranslator(tempPreds, backMapping)
+
+  }
+
+  class BTranslator private (tempPreds : Set[Predicate],
+                             backMapping : Map[Clause, (Clause, Tree[Int])])
         extends BackTranslator {
 
     def translate(solution : Solution) =
@@ -55,19 +77,34 @@ object ClauseShortener {
     def translate(cex : CounterExample) =
       if (tempPreds.isEmpty && backMapping.isEmpty)
         cex
-      else
-        simplify(translateCEX(cex).elimUnconnectedNodes)
+      else {
+        val res = simplify(translateCEX(cex).elimUnconnectedNodes)
+
+        assert(res.subdagIterator forall {
+          case dag@DagNode((state, clause@Clause(head, body, constraint)),
+                           children, _) =>
+            // syntactic check: do clauses fit together?
+            state.pred == head.pred &&
+            children.size == body.size &&
+            ((children.iterator zip body.iterator) forall {
+               case (c, IAtom(pred, _)) =>
+                 c > 0 && dag(c)._1.pred == pred })
+          })
+
+        res
+      }
 
     private def translateCEX(dag : CounterExample) : CounterExample =
       dag match {
         case DagNode(p@(a, clause), children, next) => {
           val newNext = translateCEX(next)
           (backMapping get clause) match {
-            case Some(oldClause) => {
-              val newChildren =
-                for (c <- children; d <- allProperChildren(dag drop c))
-                yield (d + c)
-              DagNode((a, oldClause), newChildren, newNext)
+            case Some((oldClause, indexTree)) => {
+              val newChildrenAr =
+                new Array[Int](oldClause.body.size)
+              for ((c, t) <- children.iterator zip indexTree.children.iterator)
+                allProperChildren(dag drop c, t, newChildrenAr, c)
+              DagNode((a, oldClause), newChildrenAr.toList, newNext)
             }
             case None =>
               DagNode(p, children, newNext)
@@ -77,12 +114,16 @@ object ClauseShortener {
           DagEmpty
       }
 
-    private def allProperChildren(dag : CounterExample) : List[Int] = {
+    private def allProperChildren(dag : CounterExample,
+                                  indexTree : Tree[Int],
+                                  newChildrenAr : Array[Int],
+                                  offset : Int) : Unit = {
       val DagNode((IAtom(p, _), _), children, _) = dag
       if (tempPreds contains p)
-        for (c <- children; d <- allProperChildren(dag drop c)) yield (d + c)
+        for ((c, t) <- children.iterator zip indexTree.children.iterator)
+          allProperChildren(dag drop c, t, newChildrenAr, offset + c)
       else
-        List(0)
+        newChildrenAr(indexTree.d) = offset
     }
   }
 }
@@ -96,7 +137,7 @@ class ClauseShortener extends HornPreprocessor {
 
   private val maxClauseBodySize = 3
   private val tempPredicates = new MHashSet[Predicate]
-  private val clauseBackMapping = new MHashMap[Clause, Clause]
+  private val clauseBackMapping = new MHashMap[Clause, (Clause, Tree[Int])]
 
   val name : String = "shortening of clauses"
 
@@ -105,8 +146,8 @@ class ClauseShortener extends HornPreprocessor {
     val (newClauses, newHints) =
       splitClauseBodies3(clauses, hints)
 
-    val translator = new BTranslator(tempPredicates.toSet,
-                                     clauseBackMapping.toMap)
+    val translator = BTranslator.withIndexes(tempPredicates.toSet,
+                                             clauseBackMapping.toMap)
 
     tempPredicates.clear
     clauseBackMapping.clear
@@ -412,23 +453,28 @@ class ClauseShortener extends HornPreprocessor {
             allPredicates += p
 
           var bodySize = body.size
-          val bodyLits = new MHashMap[Predicate, List[IAtom]]
-          for ((p, atoms) <- body groupBy (_.pred))
+          val bodyLits = new MHashMap[Predicate, List[(IAtom, Tree[Int])]]
+          val bodyWithIndexes =
+            for ((a, n) <- body.zipWithIndex) yield (a, Leaf(n))
+          for ((p, atoms) <- bodyWithIndexes groupBy (_._1.pred))
             bodyLits.put(p, atoms.toList)
 
           def combinePredicates(predCounts : List[(Predicate, Int)],
                                 newPred : Predicate) = {
-            val allArgs = (for ((pred, num) <- predCounts;
-                                _ <- 0 until num;
-                                oldAtom = {
-                                  val atom :: rest = bodyLits(pred)
-                                  bodyLits.put(pred, rest)
-                                  atom
-                                };
-                                a <- oldAtom.args)
-                           yield a).toList
+            val selAtoms =
+              (for ((pred, num) <- predCounts; _ <- 0 until num) yield {
+                 val atom :: rest = bodyLits(pred)
+                 bodyLits.put(pred, rest)
+                 atom
+               }).toList
+            val allArgs =
+              (for (oldAtom <- selAtoms; a <- oldAtom._1.args) yield a).toList
+            val indexTree =
+              Tree(-1, selAtoms map (_._2))
             bodyLits.put(newPred,
-              bodyLits.getOrElse(newPred, List()) ::: List(IAtom(newPred, allArgs)))
+              bodyLits.getOrElse(
+                newPred,
+                List()) ::: List((IAtom(newPred, allArgs), indexTree)))
           }
 
           while (bodySize > maxClauseBodySize) {
@@ -481,8 +527,9 @@ class ClauseShortener extends HornPreprocessor {
                   a <- bodyLits.getOrElse(p, List()).iterator)
              yield a).toList
 
-          val newClause = Clause(head, newBody, constraint)
-          clauseBackMapping.put(newClause, clause)
+          val newClause = Clause(head, newBody map (_._1), constraint)
+          clauseBackMapping.put(newClause,
+                                (clause, Tree(-1, newBody map (_._2))))
 
           newClause
         })

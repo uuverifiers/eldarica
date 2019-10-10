@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,8 @@
  */
 
 package lazabs.prover
+
+import lazabs.GlobalParameters
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -208,7 +210,7 @@ abstract class PrincessAPI {
 
 abstract class AbstractPrincessAPI extends PrincessAPI {
 
-  ap.util.Debug enableAllAssertions lazabs.Main.assertions
+  GlobalParameters.get.setupApUtilDebug
 
   //////////////////////////////////////////////////////////////////////////////
   // Some convenience operations for frequently needed operations expressed

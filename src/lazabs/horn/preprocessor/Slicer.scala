@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,9 +30,11 @@
 package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
-import HornClauses._
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.abstractions.VerificationHints
+import HornClauses._
 
+import ap.theories.ADT
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.types.MonoSortedPredicate
@@ -117,7 +119,7 @@ object Slicer extends HornPreprocessor {
                      argIt.next
                    else
                      SimplifyingConstantSubstVisitor(t, simpleMapping) match {
-                       case v : IIntLit => v
+                       case ConcreteTerm(t) => t
                        case _ => null
                      }
                  }).toList
@@ -331,6 +333,26 @@ object Slicer extends HornPreprocessor {
         }
 
        (clauseMapping map (_._1), clauseMapping.toMap, predMapping)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object ConcreteTerm {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case t : IIntLit =>
+        Some(t)
+      case Sort.MultipleValueBool.True | Sort.MultipleValueBool.False =>
+        Some(t)
+      case IFunApp(f@ADT.Constructor(_, _), args) => {
+        val argTerms = args map (unapply(_))
+        if (argTerms forall (_.isDefined))
+          Some(IFunApp(f, argTerms map (_.get)))
+        else
+          None
+      }
+      case _
+        => None
     }
   }
 

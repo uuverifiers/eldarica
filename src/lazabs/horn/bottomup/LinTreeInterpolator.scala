@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,8 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.util.Timeout
 
+import ap.proof.certificates.{CertificatePrettyPrinter, CertFormula}
+
 import lazabs.prover.Tree
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
@@ -59,6 +61,16 @@ object LinTreeInterpolator extends TreeInterpolator {
 //      print("Found proof (" + cert.inferenceCount + "), simplifying ")
       val simpCert = ProofSimplifier(cert) // simplify the proof if possible
 //      println("(" + simpCert.inferenceCount + ")")
+
+    /*
+      Some code for printing the generated proof:
+
+      val formulaParts = namedParts mapValues {
+        f => CertFormula(f.negate)
+      }
+      val printer = new ap.proof.certificates.CertificatePrettyPrinter (new CertificatePrettyPrinter.PrincessFormulaPrinter(Map()))
+      printer(List(cert), formulaParts)
+    */
 
       def computeInts(names : Tree[PartName],
                       fors  : Tree[Conjunction],

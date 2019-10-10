@@ -244,8 +244,8 @@ class PrincessWrapper {
 
       case BinaryExpression(left, BVconcat(bits1, bits2), right) =>
         ModuloArithmetic.bv_concat(bits1, bits2, f2pterm(left), f2pterm(right))
-      case UnaryExpression(BVextract(bits1, bits2, bits3), arg) =>
-        ModuloArithmetic.bv_extract(bits1, bits2, bits3, f2pterm(arg))
+      case UnaryExpression(BVextract(begin, end), arg) =>
+        ModuloArithmetic.bv_extract(begin, end, f2pterm(arg))
 
       case UnaryExpression(BVnot(bits), arg) =>
         ModuloArithmetic.bv_not(bits, f2pterm(arg))
@@ -451,12 +451,11 @@ class PrincessWrapper {
                          rvT(right)).stype(BVType(bits1 + bits2))
 
       case IFunApp(ModuloArithmetic.bv_extract,
-                   Seq(IIntLit(IdealInt(bits1)),
-                       IIntLit(IdealInt(bits2)),
-                       IIntLit(IdealInt(bits3)),
+                   Seq(IIntLit(IdealInt(begin)),
+                       IIntLit(IdealInt(end)),
                        arg)) =>
-        UnaryExpression(BVextract(bits1, bits2, bits3),
-                        rvT(arg)).stype(BVType(bits2))
+        UnaryExpression(BVextract(begin, end),
+                        rvT(arg)).stype(BVType(begin - end + 1))
 
       case IFunApp(ModuloArithmetic.bv_not,
                    Seq(IIntLit(IdealInt(bits)), arg)) =>

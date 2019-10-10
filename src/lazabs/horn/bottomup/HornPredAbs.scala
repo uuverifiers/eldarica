@@ -200,29 +200,42 @@ object HornPredAbs {
     def toString(occ : Int) = name + "(" + (arguments(occ) mkString ", ") + ")"
   }
 
-  case class RelationSymbolPred(positive : Conjunction,
+  case class RelationSymbolPred(rawPred : Conjunction,
+                                positive : Conjunction,
                                 negative : Conjunction,
                                 rs : RelationSymbol,
                                 predIndex : Int) {
-    val posInstances = for (cs <- rs.arguments) yield {
-      val sMap =
-        (for ((oriC, newC) <- rs.arguments.head.iterator zip cs.iterator)
-           yield (oriC -> l(newC)(rs.sf.order))).toMap
-      ConstantSubst(sMap, rs.sf.order)(positive)
-    }
-    val negInstances = for (cs <- rs.arguments) yield {
-      val sMap =
-        (for ((oriC, newC) <- rs.arguments.head.iterator zip cs.iterator)
-           yield (oriC -> l(newC)(rs.sf.order))).toMap
-      ConstantSubst(sMap, rs.sf.order)(negative)
-    }
+    private val sf = rs.sf
+    private val argConsts = rs.arguments.head
+
+    private def substMap(from : Seq[ConstantTerm],
+                         to : Seq[ConstantTerm])
+                       : Map[ConstantTerm, Term] =
+      (for ((oriC, newC) <- from.iterator zip to.iterator)
+       yield (oriC -> l(newC)(sf.order))).toMap
+
+    private def instanceStream(
+                  f : Conjunction) : Stream[Conjunction] =
+      f #:: {
+        for (cs <- rs.arguments.tail) yield {
+          ConstantSubst(substMap(argConsts, cs), sf.order)(f)
+        }
+      }
+
+    val posInstances = instanceStream(positive)
+    val negInstances = instanceStream(negative)
+
     override def toString = DialogUtil.asString {
-      PrincessLineariser.printExpression((new Simplifier)(Internal2InputAbsy(positive, rs.sf.functionEnc.predTranslation)))
+      PrincessLineariser.printExpression(
+        (new Simplifier)(Internal2InputAbsy(rawPred,
+                           rs.sf.functionEnc.predTranslation)))
  //     print(positive)
  //     print(" / ")
  //     print(negative)
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   case class AbstractState(rs : RelationSymbol, preds : Seq[RelationSymbolPred]) {
     val instances = toStream {
@@ -512,212 +525,6 @@ object HornPredAbs {
 
   val MaxNOr = 5
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Convert occurrences of functional predicates from
-   * \forall int v0; (v0 = 0 | !f(x, v0))
-   * to
-   * \exists int v0; (v0 = 0 & f(x, v0))
-   */
-  def convert2Ex(f : Conjunction,
-                 relevantPredicates : Set[Predicate]) : Conjunction = {
-
-    import TerForConvenience._
-    implicit val order = f.order
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    // add explicit quantifiers for negative occurrences of functional
-    // predicates
-    def addQuantifiers(f : Conjunction, polarity : Int) : Conjunction = {
-      // first do the recursive calls
-      val newNegConj =
-        f.negatedConjs.update(for (c <- f.negatedConjs)
-                                yield addQuantifiers(c, -polarity),
-                              order)
-
-      if (polarity == -1) {
-        val num = f.predConj.positiveLits count {
-                    a => relevantPredicates contains a.pred }
-
-        if (num > 0) {
-          val shifter = VariableShiftSubst(0, num, order)
-          val shiftedPredConj = shifter(f.predConj)
-
-          val usedVars = new MHashSet[VariableTerm]
-          val additionalEqs = new ArrayBuffer[Formula]
-          var varIndex = 0
-
-          val newLits =
-            for (a <- shiftedPredConj.positiveLits) yield {
-              if ((relevantPredicates contains a.pred) &&
-                  (a.last match {
-                     case Seq((IdealInt.ONE, t : VariableTerm))
-                       if (!(usedVars contains t)) => {
-                         usedVars += t
-                         false
-                       }
-                     case _ => true
-                  })) {
-                val newVar = v(varIndex)
-                varIndex = varIndex + 1
-                additionalEqs += (a.last === newVar)
-                a updateArgs a.updated(a.size - 1, l(newVar))
-              } else {
-                a
-              }
-            }
-
-          val body =
-            conj(additionalEqs ++ List(
-                   shifter(f.arithConj),
-                   shiftedPredConj.updateLits(newLits,
-                                              shiftedPredConj.negativeLits),
-                   shifter(newNegConj)
-                 ))
-
-          Conjunction(List.fill(num)(Quantifier.EX) ++ f.quans,
-                      Iterator single body,
-                      order)
-        } else {
-          f updateNegatedConjs newNegConj
-        }
-
-      } else {
-
-        val newF = f updateNegatedConjs newNegConj
-
-        val quantifiedFors =
-          conj(for (a <- newF.predConj.negativeLits.iterator;
-                    if (relevantPredicates contains a.pred)) yield {
-                 val shiftedA = VariableShiftSubst(0, 1, order)(a)
-                 val varA = shiftedA updateArgs shiftedA.updated(a.size - 1, l(v(0)))
-                 exists(varA & (v(0) =/= shiftedA.last))
-               })
-
-        if (!quantifiedFors.isTrue) {
-          val remLits =
-            for (a <- newF.predConj.negativeLits;
-                 if (!(relevantPredicates contains a.pred))) yield a
-
-          newF.updatePredConj(newF.predConj.updateLits(
-             f.predConj.positiveLits, remLits)) & quantifiedFors
-        } else {
-          newF
-        }
-
-      }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    // turn negative occurrences of functional predicates into
-    // positive occurrences
-    def convert(f : Conjunction, polarity : Int) : Conjunction = {
-      // first do the recursive calls
-      val newNegConj =
-        f.negatedConjs.update(for (c <- f.negatedConjs)
-                                yield convert(c, -polarity),
-                              order)
-      val newF = f updateNegatedConjs newNegConj      
-
-      if (if (polarity == 1)
-            newF.size == 1 && newF.negatedConjs.size == 1 &&
-            newF.quans.headOption == Some(Quantifier.ALL)
-          else
-            newF.quans.headOption == Some(Quantifier.EX)) {
-
-        val quan = newF.quans.head
-        val numQuans = (newF.quans takeWhile (_ == quan)).size
-
-        val allAtoms =
-          if (polarity == 1)
-            newF.negatedConjs(0).predConj.positiveLits
-          else
-            newF.predConj.positiveLits
-
-        var atomCandidates =
-          for (a <- allAtoms;
-               if ((relevantPredicates contains a.pred) &&
-                   (a.last match {
-                     case Seq((IdealInt.ONE, VariableTerm(ind))) =>
-                       ind < numQuans
-                     case _ => false
-                   })))
-          yield a
-
-        val chosenAtoms = new ArrayBuffer[Atom]
-
-        while (!atomCandidates.isEmpty) {
-          val elimVarCandidates =
-            (for (a <- atomCandidates.iterator)
-             yield a.last.leadingTerm.asInstanceOf[VariableTerm]).toSet
-          val chosenAtom =
-            atomCandidates find { a =>
-              Seqs.disjointSeq(elimVarCandidates,
-                               for (lc <- a.init.iterator;
-                                    v <- lc.variables.iterator) yield v) }
-
-          chosenAtom match {
-            case Some(a) => {
-              val elimVar = a.last.leadingTerm
-              chosenAtoms += a
-              atomCandidates =
-                atomCandidates filter { b => b.last.leadingTerm != elimVar }
-            }
-            case None => {
-              // no atom could be removed, so there is some cyclic dependency
-              atomCandidates = atomCandidates.init
-            }
-          }
-        }
-
-        if (chosenAtoms.isEmpty) {
-          newF
-        } else {
-          val elimVars =
-            (for (a <- chosenAtoms.iterator)
-             yield a.last.leadingTerm.asInstanceOf[VariableTerm].index).toSet
-          assert(elimVars.size == chosenAtoms.size)
-
-          var curExVar = 0
-          var curAllVar = chosenAtoms.size
-          val shift =
-            (for (i <- 0 until numQuans) yield
-               if (elimVars contains i) {
-                 curExVar = curExVar + 1
-                 curExVar - i - 1
-               } else {
-                 curAllVar = curAllVar + 1
-                 curAllVar - i - 1
-               }
-             ).toSeq
-
-          val defs = conj(chosenAtoms)
-          val newQuans =
-            List.fill(chosenAtoms.size)(quan.dual) ++
-            List.fill(numQuans - chosenAtoms.size)(quan) ++
-            (newF.quans drop numQuans)
-
-          val body = VariableShiftSubst(shift, 0, order)(
-                       if (polarity == 1)
-                         defs & newF.negatedConjs
-                       else
-                         defs ==> (newF unquantify newF.quans.size))
-          Conjunction(newQuans, Iterator single body, order)
-        }
-      } else {
-        newF
-      }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    val withQuans = addQuantifiers(f, 1)
-    ReduceWithConjunction(Conjunction.TRUE, order)(convert(withQuans, 1))
-  }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -733,8 +540,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   
   import HornPredAbs._
 
-  ap.util.Debug enableAllAssertions lazabs.Main.assertions
-
+  lazabs.GlobalParameters.get.setupApUtilDebug
+  
   val startTime = System.currentTimeMillis
   var predicateGeneratorTime : Long = 0
   var implicationChecks = 0
@@ -828,56 +635,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       val bounds = relationSymbolBounds.getOrElse(rs, Conjunction.TRUE)
       (rs, sf reducer (if (bounds.isFalse) Conjunction.TRUE else bounds))
      }).toMap
-
-   /* {
-     // Some code for eliminating unused arguments. Does not seem
-     // to make a lot of difference, so commented
-
-    val clauseConstraints =
-      (for (NormClause(c, _, _) <- rawNormClauses.iterator) yield c).toArray
-    val usedArguments = new MHashMap[Predicate, Set[Int]]
-
-    var changed = true
-    while (changed) {
-      changed = false
-      usedArguments.clear
-
-      for (i <- 0 until clauseConstraints.size) {
-        val c = rawNormClauses(i)
-        val constraint = clauseConstraints(i)
-  
-        for (((rs, _), syms) <- c.body.iterator zip c.bodySyms.iterator)
-          usedArguments.put(rs.pred, usedArguments.getOrElse(rs.pred, Set()) ++ (
-                              for ((d, j) <- syms.iterator.zipWithIndex;
-                                   if (constraint.constants contains d)) yield j
-                            ))
-      }
-  
-      // any arguments that are not needed and can be eliminated?
-      for (i <- 0 until clauseConstraints.size) {
-        val c = rawNormClauses(i)
-        val oldConstraint = clauseConstraints(i)
-
-        val usedArgs = usedArguments.getOrElse(c.head._1.pred, Set())
-        val unusedArgs =
-          (for ((s, j) <- c.headSyms.iterator.zipWithIndex;
-                if (!(usedArgs contains j) &&
-                    (oldConstraint.constants contains s))) yield s).toSeq
-        
-        if (!unusedArgs.isEmpty) {
-          clauseConstraints(i) =
-            sf.reduce(
-              Conjunction.quantify(Quantifier.EX, unusedArgs, oldConstraint, c.order))
-          changed = true
-        }
-      }
-      println((for ((_, args) <- usedArguments.iterator) yield args.size).sum)
-    }
-
-    (for ((NormClause(_, body, head), i) <- rawNormClauses.iterator.zipWithIndex)
-       yield NormClause(clauseConstraints(i), body, head)).toIndexedSeq
-  }
-*/
 
   println("Unique satisfiable clauses: " + normClauses.size)
 
@@ -1010,8 +767,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val rs = relationSymbols(p)
     for ((f, predIndex) <- preds.iterator.zipWithIndex) {
       val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
-      val (posF, negF) = rsPredsToInternal(intF)
-      val pred = RelationSymbolPred(posF, negF, rs, predIndex)
+      val (rawF, posF, negF) = rsPredsToInternal(intF)
+      val pred = RelationSymbolPred(rawF, posF, negF, rs, predIndex)
       addRelationSymbolPred(pred)
     }
   }
@@ -1159,7 +916,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
                        if (rs.pred != HornClauses.FALSE)) yield {
         val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
-          conj((for (f <- fors.iterator) yield f.negInstances.head) ++
+          conj((for (f <- fors.iterator) yield f.rawPred) ++
                (Iterator single relationSymbolBounds(rs)))
         })
         val simplified = //!QuantifierElimProver(!rawFor, true, order)
@@ -1197,7 +954,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       (for ((_, s) <- predicates.iterator) yield s.size).sum
     val totalPredSize =
       (for ((_, s) <- predicates.iterator; p <- s.iterator)
-       yield TreeInterpolator.nodeCount(p.positive)).sum
+       yield TreeInterpolator.nodeCount(p.rawPred)).sum
     val averagePredSize =
       if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
     println("Number of generated predicates:                        " + predNum)
@@ -1917,7 +1674,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
               if (reallyAddPredicate(substF, rs));
               pred = genSymbolPred(substF, rs);
               if (!(predicates(rs) exists
-                      (_.positive == pred.positive)))) yield {
+                      (_.rawPred == pred.rawPred)))) yield {
            addRelationSymbolPred(pred)
            pred
          }).toVector
@@ -2025,11 +1782,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   def reallyAddPredicate(f : Conjunction,
                          rs : RelationSymbol) : Boolean =
     !f.isFalse && !f.isTrue &&
-    !(predicates(rs) exists (_.positive == f)) && {
+    !(predicates(rs) exists (_.rawPred == f)) && {
       // check whether the predicate is subsumed by older predicates
       val reducer = sf reducer f
       val impliedPreds =
-        for (p <- predicates(rs); if (reducer(p.positive).isTrue))
+        for (p <- predicates(rs); if (reducer(p.rawPred).isTrue))
         yield p.positive
 
       impliedPreds.isEmpty || {
@@ -2052,18 +1809,20 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       newC
     }
 
-  def rsPredsToInternal(f : IFormula) : (Conjunction, Conjunction) = {
+  def rsPredsToInternal(f : IFormula)
+                     : (Conjunction, Conjunction, Conjunction) = {
+    val rawF = sf.toInternalClausify(f)
     val posF = elimQuansIfNecessary(sf.preprocess(
                                       sf.toInternalClausify(~f)).negate, true)
     val negF = elimQuansIfNecessary(sf.preprocess(
-                                      sf.toInternalClausify(f)), false)
-    (posF, negF)
+                                      rawF), false)
+    (rawF, posF, negF)
   }
 
   def genSymbolPred(f : Conjunction,
                     rs : RelationSymbol) : RelationSymbolPred =
     if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
-      RelationSymbolPred(f, f, rs, predicates(rs).size)
+      RelationSymbolPred(f, f, f, rs, predicates(rs).size)
     } else {
       // some simplification, to avoid quantifiers in predicates
       // as far as possible, or at least provide good triggers
@@ -2077,12 +1836,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       val iabsy =
         (new Simplifier)(Internal2InputAbsy(f, sf.functionEnc.predTranslation))
 
-      val (posF, negF) = rsPredsToInternal(iabsy)
+      val (rawF, posF, negF) = rsPredsToInternal(iabsy)
 
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)
 
-      RelationSymbolPred(posF, negF, rs, predicates(rs).size)
+      RelationSymbolPred(rawF, posF, negF, rs, predicates(rs).size)
     }
 
   //////////////////////////////////////////////////////////////////////////////

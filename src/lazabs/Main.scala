@@ -30,13 +30,10 @@
 
 package lazabs
 
-import java.io.{FileInputStream, FileNotFoundException, InputStream}
-
+import java.io.{FileInputStream,InputStream,FileNotFoundException}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
-import lazabs.horn.concurrency.{GraphTranslator, HintsSelection}
-import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -48,6 +45,10 @@ import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.CCReader
+import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.concurrency.VerificationLoop
+
+import ap.util.Debug
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
@@ -64,7 +65,7 @@ object GlobalParameters {
 }
 
 class GlobalParameters extends Cloneable {
-  var printHints=VerificationHints(Map())
+  //var printHints=VerificationHints(Map())
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
   var generateTrainData=false
@@ -96,12 +97,12 @@ class GlobalParameters extends Cloneable {
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
-  //var templateBasedInterpolation = false
   var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
   var templateBasedInterpolationPortfolio = false
+  var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
@@ -124,6 +125,7 @@ class GlobalParameters extends Cloneable {
   var eogCEX = false;
   var plainCEX = false;
   var assertions = false
+  var verifyInterpolants = false
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
@@ -152,64 +154,69 @@ class GlobalParameters extends Cloneable {
     }
   }
 
+  protected def copyTo(that : GlobalParameters) = {
+    that.in = this.in
+    that.fileName = this.fileName
+    that.funcName = this.funcName
+    that.solFileName = this.solFileName
+    that.timeout = this.timeout
+    that.spuriousness = this.spuriousness
+    that.searchMethod = this.searchMethod
+    that.drawRTree = this.drawRTree
+    that.absInFile = this.absInFile
+    that.lbe = this.lbe
+    that.slicing = this.slicing
+    that.prettyPrint = this.prettyPrint
+    that.smtPrettyPrint = this.smtPrettyPrint
+    that.ntsPrint = this.ntsPrint
+    that.printIntermediateClauseSets = this.printIntermediateClauseSets
+    that.horn = this.horn
+    that.concurrentC = this.concurrentC
+    that.global = this.global
+    that.disjunctive = this.disjunctive
+    that.splitClauses = this.splitClauses
+    that.displaySolutionProlog = this.displaySolutionProlog
+    that.displaySolutionSMT = this.displaySolutionSMT
+    that.format = this.format
+    that.didIncompleteTransformation = this.didIncompleteTransformation
+    that.templateBasedInterpolation = this.templateBasedInterpolation
+    that.templateBasedInterpolationType = this.templateBasedInterpolationType
+    that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
+    that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
+    that.cegarHintsFile = this.cegarHintsFile
+    that.arithmeticMode = this.arithmeticMode
+    that.arrayRemoval = this.arrayRemoval
+    that.princess = this.princess
+    that.staticAccelerate = this.staticAccelerate
+    that.dynamicAccelerate = this.dynamicAccelerate
+    that.underApproximate = this.underApproximate
+    that.template = this.template
+    that.dumpInterpolationQuery = this.dumpInterpolationQuery
+    that.babarew = this.babarew
+    that.log = this.log
+    that.logCEX = this.logCEX
+    that.logStat = this.logStat
+    that.printHornSimplified = this.printHornSimplified
+    that.dotSpec = this.dotSpec
+    that.dotFile = this.dotFile
+    that.pngNo = this.pngNo
+    that.eogCEX = this.eogCEX
+    that.plainCEX = this.plainCEX
+    that.assertions = this.assertions
+    that.verifyInterpolants = this.verifyInterpolants
+    that.timeoutChecker = this.timeoutChecker
+    //DEBUG
+    that.threadTimeout = this.threadTimeout //debug
+    that.rank = this.rank //debug
+    //that.printHints = this.printHints //DEBUG
+    that.generateTrainData=this.generateTrainData//debug
+    that.readHints=this.readHints
+  }
+
   override def clone : GlobalParameters = {
     val res = new GlobalParameters
-
-    res.in = this.in
-    res.fileName = this.fileName
-    res.funcName = this.funcName
-    res.solFileName = this.solFileName
-    res.timeout = this.timeout
-    res.spuriousness = this.spuriousness
-    res.searchMethod = this.searchMethod
-    res.drawRTree = this.drawRTree
-    res.absInFile = this.absInFile
-    res.lbe = this.lbe
-    res.slicing = this.slicing
-    res.prettyPrint = this.prettyPrint
-    res.generateTrainData=this.generateTrainData
-    res.readHints=this.readHints
-    res.smtPrettyPrint = this.smtPrettyPrint
-    res.ntsPrint = this.ntsPrint
-    res.printIntermediateClauseSets = this.printIntermediateClauseSets
-    res.horn = this.horn
-    res.concurrentC = this.concurrentC
-    res.global = this.global
-    res.disjunctive = this.disjunctive
-    res.splitClauses = this.splitClauses
-    res.displaySolutionProlog = this.displaySolutionProlog
-    res.displaySolutionSMT = this.displaySolutionSMT
-    res.format = this.format
-    res.didIncompleteTransformation = this.didIncompleteTransformation
-    res.templateBasedInterpolation = this.templateBasedInterpolation
-    res.templateBasedInterpolationType = this.templateBasedInterpolationType
-    res.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
-    res.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
-    res.cegarHintsFile = this.cegarHintsFile
-    res.arithmeticMode = this.arithmeticMode
-    res.arrayRemoval = this.arrayRemoval
-    res.princess = this.princess
-    res.staticAccelerate = this.staticAccelerate
-    res.dynamicAccelerate = this.dynamicAccelerate
-    res.underApproximate = this.underApproximate
-    res.template = this.template
-    res.dumpInterpolationQuery = this.dumpInterpolationQuery
-    res.babarew = this.babarew
-    res.log = this.log
-    res.logCEX = this.logCEX
-    res.logStat = this.logStat
-    res.printHornSimplified = this.printHornSimplified
-    res.dotSpec = this.dotSpec
-    res.dotFile = this.dotFile
-    res.pngNo = this.pngNo
-    res.eogCEX = this.eogCEX
-    res.plainCEX = this.plainCEX
-    res.assertions = this.assertions
-    res.timeoutChecker = this.timeoutChecker
-    //DEBUG
-    res.threadTimeout = this.threadTimeout //debug
-    res.rank = this.rank //debug
-    res.printHints = this.printHints //DEBUG
+    this copyTo res
     res    
   }
 
@@ -221,6 +228,15 @@ class GlobalParameters extends Cloneable {
          },
          this.clone)
 
+  def setupApUtilDebug = {
+    val vi = verifyInterpolants
+    val as = assertions
+    Debug.enabledAssertions.value_= {
+      case (_, Debug.AC_INTERPOLATION_IMPLICATION_CHECKS) => vi
+      case _ => as
+    }
+  }
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -266,7 +282,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0-alpha, 2019-X.\n(C) Copyright 2012-2019 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.1.\n(C) Copyright 2012-2019 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -354,6 +370,8 @@ object Main {
         arguments(rest)
       }
 
+      case "-pHints" :: rest => templateBasedInterpolationPrint = true; arguments(rest)
+
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 
       case arithMode :: rest if (arithMode startsWith "-arithMode:") => {
@@ -408,6 +426,7 @@ object Main {
       case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
+      case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h\t\tShow this information\n" +
@@ -433,6 +452,7 @@ object Main {
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
+          " -pHints\tPrint initial predicates and abstraction templates\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
@@ -454,7 +474,10 @@ object Main {
           "\n" +
           "C/C++/TA front-end:\n" +
           " -arithMode:t\tInteger semantics: math (default), ilp32, lp64, llp64\n" +
-          " -pIntermediate\tDump Horn clauses encoding concurrent programs\n"
+          " -pIntermediate\tDump Horn clauses encoding concurrent programs\n"+
+          " -generateTrainData\toutput training data\n"+
+          " -absTimeout:time\tset timeout for labeling hints\n"+
+          " -rank:n\tuse top n or score above n ranked hints read from file\n"
           )
           false
       case fn :: rest => fileName = fn;  openInputFile; arguments(rest)
@@ -485,7 +508,7 @@ object Main {
       }
     }
     
-    ap.util.Debug enableAllAssertions lazabs.Main.assertions
+    GlobalParameters.get.setupApUtilDebug
 
     if(princess) Prover.setProver(lazabs.prover.TheoremProver.PRINCESS)
 
@@ -582,11 +605,6 @@ object Main {
         case InputFormat.UppaalOG | InputFormat.UppaalRG => true
         case _ => false
       }*/
-      if(generateTrainData) {
-        //println(HornSMTPrinter(clauseSet))
-
-        return
-      }
 
       lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
                         drawRTree, lbe)
@@ -608,9 +626,6 @@ object Main {
                    new java.io.FileReader(new java.io.File (fileName))),
                  funcName,
                  arithmeticMode)
-      //-----------debug-----------------------
-
-
 
       if (prettyPrint)
         lazabs.horn.concurrency.ReaderMain.printClauses(system)
@@ -618,18 +633,20 @@ object Main {
       val smallSystem = system.mergeLocalTransitions
       if(generateTrainData){
         val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) //generate graph
+
         return
       }
-
       if (prettyPrint) {
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
         return
       }
-      //-----------debug-----------------------
+
       val result = try {
-        Console.withOut(outStream)(new lazabs.horn.concurrency.VerificationLoop(smallSystem).result)
+        Console.withOut(outStream) {
+          new lazabs.horn.concurrency.VerificationLoop(smallSystem).result
+        }
       } catch {
         case TimeoutException => {
           println("timeout")
@@ -652,14 +669,13 @@ object Main {
           }
         }
       }
-      println
-      println("-----Optimized Hints------")
-      println("!@@@@")
-      printHints.pretyPrintHints()
-      println("@@@@!")
+//      println
+//      println("-----Optimized Hints------")
+//      println("!@@@@")
+//      printHints.pretyPrintHints()
+//      println("@@@@!")
       return
     }
-
 
     val (cfg,m) = format match {
       case InputFormat.Nts =>

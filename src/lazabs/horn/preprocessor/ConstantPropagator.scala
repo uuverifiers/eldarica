@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,7 +86,7 @@ object AbstractAnalyser {
   /**
    * Abstract domain for constant propagation
    */
-  object ConstantPropDomain extends AbstractDomain {
+  class ConstantPropDomain extends AbstractDomain {
     type Element = Option[Seq[Option[ITerm]]]
 
     val name = "constant"
@@ -137,6 +137,8 @@ object AbstractAnalyser {
 
     import IExpression._
 
+    private var symCounter = 0
+
     def inline(a : IAtom, value : Element) : (IAtom, IFormula) =
       value match {
         case None =>
@@ -155,7 +157,9 @@ object AbstractAnalyser {
                  newConstraint = newConstraint &&& (a === t)
                  // in this case we can replace the old argument with a fresh
                  // constant, its value is determined anyway
-                 IConstant(new ConstantTerm (p.name + "_anon_" + n))
+                 val name = p.name + "_anon_" + symCounter
+                 symCounter = symCounter + 1
+                 IConstant(new ConstantTerm (name))
                }
              }).toVector
 
@@ -185,7 +189,7 @@ object AbstractAnalyser {
   /**
    * Abstract domain for constant propagation
    */
-  object EqualityPropDomain extends AbstractDomain {
+  class EqualityPropDomain extends AbstractDomain {
     type Element = Option[Partitioning]
 
     val name = "equality"
@@ -336,6 +340,8 @@ object AbstractAnalyser {
 
     import IExpression._
 
+    private var symCounter = 0
+
     def inline(a : IAtom, value : Element) : (IAtom, IFormula) =
       value match {
         case None =>
@@ -355,10 +361,13 @@ object AbstractAnalyser {
 
           val newArgs =
             (for ((arg, n) <- args.iterator.zipWithIndex) yield {
-               if (redundantArgs contains n)
-                 IConstant(new ConstantTerm (p.name + "_anon_" + n))
-               else
+               if (redundantArgs contains n) {
+                 val name = p.name + "_anon_" + symCounter
+                 symCounter = symCounter + 1
+                 IConstant(new ConstantTerm (name))
+               } else {
                  arg
+               }
              }).toVector
 
           val newConstraint = and(
@@ -397,12 +406,12 @@ object AbstractAnalyser {
   /**
    * Abstract analyser instantiated to perform constant propagation.
    */
-  val ConstantPropagator = new AbstractAnalyser(ConstantPropDomain)
+  def ConstantPropagator = new AbstractAnalyser(new ConstantPropDomain)
 
   /**
    * Abstract analyser instantiated to perform equality propagation.
    */
-  val EqualityPropagator = new AbstractAnalyser(EqualityPropDomain)
+  def EqualityPropagator = new AbstractAnalyser(new EqualityPropDomain)
 
 }
 

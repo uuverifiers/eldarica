@@ -152,4 +152,4 @@ EndOfLineComment     = "//" {InputCharacter}* {LineTerminator}
 }
 
 
-. | \n          { System.err.println("Illegal character '" + yytext() + "'" + " Scala Lexial Analyzer in " + yyline + " " + yycolumn); }
+[^] | \n          { System.err.println("Illegal character '" + yytext() + "'" + " Scala Lexial Analyzer in " + yyline + " " + yycolumn); }

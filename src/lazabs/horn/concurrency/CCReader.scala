@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2019 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import concurrentC._
 import concurrentC.Absyn._
 
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.abstractions.VerificationHints
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Buffer,
                                  Stack, LinkedHashSet}
@@ -52,8 +52,7 @@ object CCReader {
            : ParametricEncoder.System = {
     def entry(parser : concurrentC.parser) = parser.pProgram
     val prog = parseWithEntry(input, entry _)
-    //val printer = new PrettyPrinterNonStatic //debug
-    //println(printer print prog) //print raw program
+//    println(printer print prog)
 
     var useTime = false
     var reader : CCReader = null
@@ -76,7 +75,9 @@ object CCReader {
   private def parseWithEntry[T](input : java.io.Reader,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new ap.parser.Parser2InputAbsy.CRRemover2 (input))
-    val p = new parser(l)
+    val l2 = new TypedefReplacingLexer(l)
+    val p = new parser(l2)
+    
     try { entry(p) } catch {
       case e : Exception =>
         throw new ParseException(
@@ -191,7 +192,6 @@ class CCReader private (prog : Program,
   import CCReader._
 
   private val printer = new PrettyPrinterNonStatic
-  println(printer print prog)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -349,7 +349,7 @@ class CCReader private (prog : Program,
   }
 
   private val variableHints =
-    new ArrayBuffer[Seq[HornPreprocessor.VerifHintElement]]
+    new ArrayBuffer[Seq[VerificationHints.VerifHintElement]]
   private var usingInitialPredicates = false
 
   //////////////////////////////////////////////////////////////////////////////
@@ -382,7 +382,7 @@ class CCReader private (prog : Program,
   private def output(c : Clause,
                      sync : ParametricEncoder.Synchronisation =
                        ParametricEncoder.NoSync) : Unit = {
-    //println(c)
+//println(c)
     clauses += ((c, sync))
   }
 
@@ -470,7 +470,7 @@ class CCReader private (prog : Program,
   private def newPred : Predicate = newPred(0)
 
   private def newPred(extraArgs : Int) : Predicate = {
-    import HornPreprocessor.{VerifHintTplElement, VerifHintTplEqTerm}
+    import VerificationHints._
 
     val res = MonoSortedPredicate(prefix + locationCounter,
                                   (allFormalVarTypes map (_.toSort)) ++
@@ -497,7 +497,7 @@ class CCReader private (prog : Program,
   }
 
   private val predicateHints =
-    new MHashMap[Predicate, Seq[HornPreprocessor.VerifHintElement]]
+    new MHashMap[Predicate, Seq[VerificationHints.VerifHintElement]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -583,8 +583,8 @@ class CCReader private (prog : Program,
               setPrefix(thread.cident_2)
               pushLocalFrame
               addLocalVar(CCInt newConstant thread.cident_1, CCInt)
-              val translator: CCReader.this.FunctionTranslator = FunctionTranslator.apply
-              translator.translateNoReturn(thread.compound_stm_)
+              val translator = FunctionTranslator.apply
+              translator translateNoReturn thread.compound_stm_
               processes += ((clauses.toList, ParametricEncoder.Infinite))
               clauses.clear
               popLocalFrame
@@ -636,7 +636,7 @@ class CCReader private (prog : Program,
   private def collectVarDecls(dec : Dec,
                               global : Boolean,
                               values : Symex) : Unit = dec match {
-    case decl : Declarators => {
+    case decl : Declarators if !isTypeDef(decl.listdeclaration_specifier_) => {
       val typ = getType(decl.listdeclaration_specifier_)
 
       for (initDecl <- decl.listinit_declarator_) {
@@ -651,7 +651,7 @@ class CCReader private (prog : Program,
             val name = getName(declarator)
             val directDecl =
               declarator.asInstanceOf[NoPointer].direct_declarator_
-
+  
             directDecl match {
               case _ : NewFuncDec /* | _ : OldFuncDef */ | _ : OldFuncDec =>
                 functionDecls.put(name, (directDecl, typ))
@@ -679,7 +679,7 @@ class CCReader private (prog : Program,
               }
             }
           }
-
+  
           case _ : InitDecl | _ : HintInitDecl => {
             val (declarator, initializer) = initDecl match {
               case initDecl : InitDecl =>
@@ -697,7 +697,7 @@ class CCReader private (prog : Program,
                 else
                   (values eval init.exp_, i(true))
             }
-
+  
             if (global) {
               globalVars += c
               globalVarTypes += typ
@@ -705,7 +705,7 @@ class CCReader private (prog : Program,
             } else {
               addLocalVar(c, typ)
             }
-
+  
             typ match {
               case CCClock =>
                 values addValue translateClockValue(initValue)
@@ -714,7 +714,7 @@ class CCReader private (prog : Program,
               case typ =>
                 values addValue (typ cast initValue)
             }
-
+  
             values addGuard initGuard
           }
         }
@@ -731,14 +731,13 @@ class CCReader private (prog : Program,
         }
       }
     }
-    case _ : NoDeclarator =>
+    case _ =>
       // nothing
   }
 
   private def processHints(hints : Seq[Abs_hint]) : Unit =
           if (!hints.isEmpty) {
-            import HornPreprocessor.{VerifHintInitPred,
-                                     VerifHintTplPred, VerifHintTplEqTerm}
+            import VerificationHints._
 
             val hintSymex = Symex(null)
             hintSymex.saveState
@@ -795,6 +794,14 @@ class CCReader private (prog : Program,
 //    case dec : OldFuncDef => getName(dec.direct_declarator_)
     case dec : OldFuncDec => getName(dec.direct_declarator_)
   }
+
+  private def isTypeDef(specs : Seq[Declaration_specifier]) : Boolean =
+    specs exists {
+      case spec : Storage =>
+        spec.storage_class_specifier_.isInstanceOf[MyType]
+      case _ =>
+        false
+    }
 
   private def getType(specs : Seq[Declaration_specifier]) : CCType =
     getType(for (specifier <- specs.iterator;
@@ -890,6 +897,18 @@ class CCReader private (prog : Program,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def translateConstantExpr(expr : Constant_expression) : CCExpr = {
+    val symex = Symex(null)
+    symex.saveState
+    val res = symex eval expr.asInstanceOf[Especial].exp_
+    if (!symex.atomValuesUnchanged)
+      throw new TranslationException(
+        "constant expression is not side-effect free")
+    res
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private object Symex {
     def apply(initPred : Predicate) = {
       val values = new ArrayBuffer[CCExpr]
@@ -955,7 +974,7 @@ class CCReader private (prog : Program,
       addLocalVar(c, v.typ)
 
       if (usingInitialPredicates) {
-        import HornPreprocessor.VerifHintInitPred
+        import VerificationHints._
         
         // if the pushed value refers to other variables,
         // add initial predicates that relate the values of
@@ -1038,6 +1057,11 @@ class CCReader private (prog : Program,
       restoreState
       addGuard(~cond)
       outputClause(elsePred)
+    }
+
+    def assertProperty(property : IFormula) : Unit = {
+      import HornClauses._
+      assertionClauses += (property :- (initAtom, guard))
     }
 
     def addValue(t : CCExpr) = {
@@ -1178,12 +1202,14 @@ class CCReader private (prog : Program,
             lhs + rhs
           case _ : AssignSub =>
             lhs - rhs
-          case _ : AssignLeft =>
-            ModuloArithmetic.bvshl(lhsE.typ cast2Unsigned lhs,
-                                   lhsE.typ cast2Unsigned rhs)
-          case _ : AssignRight =>
-            ModuloArithmetic.bvashr(lhsE.typ cast2Unsigned lhs,
-                                    lhsE.typ cast2Unsigned rhs)
+          case _ : AssignLeft => {
+            val (lower, upper) = getBVBounds("<<=", lhsE.typ)
+            ModuloArithmetic.l_shift_cast(lower, upper, lhs, rhs)
+          }
+          case _ : AssignRight => {
+            val (lower, upper) = getBVBounds(">>=", lhsE.typ)
+            ModuloArithmetic.r_shift_cast(lower, upper, lhs, rhs)
+          }
           case _ : AssignAnd =>
             ModuloArithmetic.bvand(lhsE.typ cast2Unsigned lhs,
                                    lhsE.typ cast2Unsigned rhs)
@@ -1282,9 +1308,13 @@ class CCReader private (prog : Program,
       case exp : Ege =>
         strictBinPred(exp.exp_1, exp.exp_2, _ >= _)
       case exp : Eleft =>
-        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvshl(_, _))
+        strictExplicitBVBinFun("<<", exp.exp_1, exp.exp_2,
+           (lower, upper, left, right) =>
+             ModuloArithmetic.l_shift_cast(lower, upper, left, right))
       case exp : Eright =>
-        strictUnsignedBinFun(exp.exp_1, exp.exp_2, ModuloArithmetic.bvashr(_, _))
+        strictExplicitBVBinFun(">>", exp.exp_1, exp.exp_2,
+           (lower, upper, left, right) =>
+             ModuloArithmetic.r_shift_cast(lower, upper, left, right))
       case exp : Eplus =>
         strictBinFun(exp.exp_1, exp.exp_2, _ + _)
       case exp : Eminus =>
@@ -1344,15 +1374,12 @@ class CCReader private (prog : Program,
 
       case exp : Efunkpar => (printer print exp.exp_) match {
         case "__VERIFIER_error" if (exp.listexp_.isEmpty) => {
-          import HornClauses._
-          assertionClauses += (false :- (initAtom, guard))
+          assertProperty(false)
           pushVal(CCFormula(true, CCInt))
         }
         case "assert" | "static_assert" | "__VERIFIER_assert"
                           if (exp.listexp_.size == 1) => {
-          import HornClauses._
-          val property = atomicEval(exp.listexp_.head).toFormula
-          assertionClauses += (property :- (initAtom, guard))
+          assertProperty(atomicEval(exp.listexp_.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
         case "assume" | "__VERIFIER_assume"
@@ -1460,6 +1487,33 @@ class CCReader private (prog : Program,
                      CCTerm(typ cast op(promLhs.toTerm, promRhs.toTerm), typ)
                    })
     }
+
+    private def strictExplicitBVBinFun(name : String,
+                                       left : Exp, right : Exp,
+                                       op : (IdealInt, IdealInt,
+                                             ITerm, ITerm) => ITerm) : Unit = {
+      strictBinOp(left, right,
+           (lhs : CCExpr, rhs : CCExpr) => {
+             val (promLhs, promRhs) = unifyTypes(lhs, rhs)
+             // TODO: correct type promotion
+             val typ = promLhs.typ
+             val (lower, upper) = getBVBounds(name, typ)
+             CCTerm(op(lower, upper, promLhs.toTerm, promRhs.toTerm), typ)
+           })
+      
+    }
+
+    private def getBVBounds(name : String,
+                            typ : CCType) : (IdealInt, IdealInt) =
+      typ.toSort match {
+        case ModuloArithmetic.ModSort(lower, upper) =>
+          (lower, upper)
+        case _ =>
+          throw new TranslationException(
+            name +
+            " is only defined for machine arithmetic, use option " +
+            " -arithMode:<mode>")
+      }
 
     private def strictUnsignedBinFun(left : Exp, right : Exp,
                                      op : (ITerm, ITerm) => ITerm) : Unit = {
@@ -1800,8 +1854,15 @@ class CCReader private (prog : Program,
         labelledLocs.put(stm.cident_, (entry, allFormalVars))
         translate(stm.stm_, entry, exit)
       }
-      //-- SlabelTwo.   Labeled_stm ::= "case" Constant_expression ":" Stm ;
-      //SlabelThree. Labeled_stm ::= "default" ":" Stm;
+      case stm : SlabelTwo => { // Labeled_stm ::= "case" Constant_expression ":" Stm ;
+        val caseVal = translateConstantExpr(stm.constant_expression_)
+        innermostSwitchCaseCollector += ((caseVal, entry))
+        translate(stm.stm_, entry, exit)
+      }
+      case stm : SlabelThree => { // . Labeled_stm ::= "default" ":" Stm;
+        innermostSwitchCaseCollector += ((null, entry))
+        translate(stm.stm_, entry, exit)
+      }
     }
 
     private def translateWithEntryClause(
@@ -1897,8 +1958,11 @@ class CCReader private (prog : Program,
         }
     }
 
+    type SwitchCaseCollector = ArrayBuffer[(CCExpr, Predicate)]
+
     var innermostLoopCont : Predicate = null
     var innermostLoopExit : Predicate = null
+    var innermostSwitchCaseCollector : SwitchCaseCollector = null
 
     private def withinLoop[A](
                      loopCont : Predicate, loopExit : Predicate)
@@ -1912,6 +1976,22 @@ class CCReader private (prog : Program,
       } finally {
         innermostLoopCont = oldCont
         innermostLoopExit = oldExit
+      }
+    }
+
+    private def withinSwitch[A](
+                     switchExit : Predicate,
+                     caseCollector : SwitchCaseCollector)
+                     (comp : => A) : A = {
+      val oldExit = innermostLoopExit
+      val oldCollector = innermostSwitchCaseCollector
+      innermostLoopExit = switchExit
+      innermostSwitchCaseCollector = caseCollector
+      try {
+        comp
+      } finally {
+        innermostLoopExit = oldExit
+        innermostSwitchCaseCollector = oldCollector
       }
     }
 
@@ -1985,7 +2065,7 @@ class CCReader private (prog : Program,
     private def translate(stm : Selection_stm,
                           entry : Predicate,
                           exit : Predicate) : Unit = stm match {
-      case _ : SselOne | _ : SselTwo => {
+      case _ : SselOne | _ : SselTwo => { // if
         val first, second = newPred
         val vars = allFormalVars
         val condSymex = Symex(entry)
@@ -2005,7 +2085,44 @@ class CCReader private (prog : Program,
           }
         }
       }
-//      case stm : SselThree.  Selection_stm ::= "switch" "(" Exp ")" Stm ;
+
+      case stm : SselThree => {  // switch
+        val selectorSymex = Symex(entry)
+        val selector = (selectorSymex eval stm.exp_).toTerm
+
+        val newEntry = newPred
+        val collector = new SwitchCaseCollector
+
+        withinSwitch(exit, collector) {
+          translate(stm.stm_, newEntry, exit)
+        }
+
+        // add clauses for the various cases of the switch
+        val (defaults, cases) = collector partition (_._1 == null)
+        val guards = for ((value, _) <- cases) yield (selector === value.toTerm)
+
+        for (((_, target), guard) <- cases.iterator zip guards.iterator) {
+          selectorSymex.saveState
+          selectorSymex addGuard guard
+          selectorSymex outputClause target
+          selectorSymex.restoreState
+        }
+
+        defaults match {
+          case Seq() =>
+            // add an assertion that we never try to jump to a case that
+            // does not exist. TODO: add a parameter for this?
+            selectorSymex assertProperty or(guards)
+          case Seq((_, target)) => {
+            selectorSymex.saveState
+            selectorSymex addGuard ~or(guards)
+            selectorSymex outputClause target
+            selectorSymex.restoreState
+          }
+          case _ =>
+            throw new TranslationException("multiple default cases in switch")
+        }
+      }
     }
 
     private def translate(jump : Jump_stm,
@@ -2121,7 +2238,7 @@ class CCReader private (prog : Program,
                                ParametricEncoder.NoTime,
                              timeInvariants,
                              assertionClauses.toList,
-                             HornPreprocessor.VerificationHints(predHints))
+                             VerificationHints(predHints))
   }
 
 }

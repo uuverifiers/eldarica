@@ -1,12 +1,10 @@
 package lazabs.horn.concurrency
 import java.io.{File, FileWriter, PrintWriter}
-import java.nio.file.Path
 
-import ap.parser.{IFormula, _}
+import ap.parser._
+import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.preprocessor.HornPreprocessor.{VerifHintInitPred, VerifHintTplEqTerm, VerifHintTplPred, VerificationHints}
-
-import scala.collection.mutable
+import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 
 class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 
@@ -118,8 +116,6 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
     }
   }
-
-  import lazabs.horn.preprocessor.HornPreprocessor._
 
   def translateHint(h:VerifHintElement):Unit= h match{
     case VerifHintInitPred(p) => translateExpr(p)
