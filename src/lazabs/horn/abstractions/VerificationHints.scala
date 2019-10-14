@@ -179,6 +179,7 @@ object VerificationHints {
       predicateHints.size
     }
     /////////////////DEBUG///////////
+
     def isEmpty = predicateHints.isEmpty
 
     def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {

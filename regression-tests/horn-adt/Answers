@@ -2,8 +2,8 @@
 simple-adt-horn.smt2
 Theories: ADT(P)
 sat
-(define-fun I1 ((A Pair)) Bool (or (and (and (and (and (= (_size A) 1) (is-P A)) (= (right A) true)) (= (left A) 0)) (and (= (P 0 (right A)) A) (= (P (left A) true) A))) (and (and (and (= (_size A) 1) (is-P A)) (= (right A) true)) (and (and (>= (left A) 2) (= (P (left A) (right A)) A)) (= (P (left A) true) A)))))
-(define-fun I2 ((A Pair)) Bool (and (and (= (_size A) 1) (is-P A)) (and (and (not (= (right A) true)) (= (P (left A) (right A)) A)) (and (>= (left A) 1) (= (P (left A) (right A)) A)))))
+(define-fun I1 ((A Pair)) Bool (or (and (= (right A) true) (= (left A) 0)) (and (= (right A) true) (>= (left A) 2))))
+(define-fun I2 ((A Pair)) Bool (and (not (= (right A) true)) (>= (left A) 1)))
 
 bool.smt2
 sat
@@ -19,7 +19,7 @@ unsat
 list-synasc.smt2
 Theories: ADT(Nil, Cons)
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= B C) (= (_size A) 1)) (and (and (>= (_size A) 1) (>= (_size C) (_size A))) (= (_size A) 1))) (and (and (and (>= (_size A) 1) (>= (_size C) (_size A))) (= (+ (_size B) (- (_size A) (_size C))) 1)) (and (= (head C) (head A)) (and (or (and (and (= (_size A) 1) (is-Nil A)) (= Nil A)) (and (is-Cons A) (and (= (Cons (head A) (tail A)) A) (and (>= (_size (tail A)) 1) (= (- (_size A) (_size (tail A))) 1))))) (or (and (and (= (_size C) 1) (is-Nil C)) (= Nil C)) (and (is-Cons C) (and (= (Cons (head A) (tail C)) C) (and (>= (_size (tail C)) 1) (= (- (_size C) (_size (tail C))) 1))))))))))
+(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= B C) (= (_size A) 1)) (= (_size A) 1)) (and (= (+ (_size B) (- (_size A) (_size C))) 1) (= (head C) (head A)))))
 
 list-synasc-unsat.smt2
 Theories: ADT(Nil, Cons)

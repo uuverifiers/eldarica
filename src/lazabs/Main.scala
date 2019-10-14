@@ -50,6 +50,8 @@ import lazabs.horn.concurrency.VerificationLoop
 
 import ap.util.Debug
 
+import ap.util.Debug
+
 object GlobalParameters {
   object InputFormat extends Enumeration {
     val //Scala,

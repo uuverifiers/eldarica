@@ -39,10 +39,12 @@ import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
                                  LoopDetector, AbstractionRecord,
                                  VerificationHints}
+
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.preprocessor.DefaultPreprocessor
 import scala.concurrent.TimeoutException
+
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
                                  ArrayBuffer}
 
@@ -285,6 +287,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
             println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
             AbstractionRecord.mergeMaps(Map(), hintsAbstractionMap)//autoAbstractionMap
+
           }
 
         TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(

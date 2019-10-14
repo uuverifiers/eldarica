@@ -79,7 +79,7 @@ Final number of abstract states:                       5
 Final number of matched abstract states:               9
 Final number of abstract edges:                        10
 Number of generated predicates:                        12
-Average predicate size (# of sub-formulas):            1.92
+Average predicate size (# of sub-formulas):            1.33
 
 --------------------------------------------------------------------------------
 
@@ -110,23 +110,23 @@ Unique satisfiable clauses: 4
 Starting CEGAR ...
 .
 Found counterexample #1, refining ... 
-0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk4 + -1 >= 0 & -1*sk3 + 1 >= 0 & sk3 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk3) & left(i1_0_0, sk4) & p(sk4, sk3, i1_0_0))) -> 1
+0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk3 + -1 >= 0 & -1*sk2 + 1 >= 0 & sk2 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk2) & left(i1_0_0, sk3) & p(sk3, sk2, i1_0_0))) -> 1
 1: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
 (2and/0or)  11 -> 11 ... adding predicates:
-i1: left(i1_0_0) = 0 | right(i1_0_0) >= 2 | -1*right(i1_0_0).\as[int] >= 1 | !is_p(i1_0_0) | p(left(i1_0_0), right(i1_0_0)) != i1_0_0
+i1: left(i1_0_0) = 0
 
 Found counterexample #2, refining ... 
-0: AndNode(FALSE() :- i1(i1_0_0) | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 1) & left(i1_0_0, sk5) & p(sk5, 1, i1_0_0))) -> 1
+0: AndNode(FALSE() :- i1(i1_0_0) | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 1) & left(i1_0_0, sk4) & p(sk4, 1, i1_0_0))) -> 1
 1: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
 (2and/0or)  8 -> 8 ... adding predicates:
-i1: !is_p(i1_0_0) | right(i1_0_0) != 1 | p(left(i1_0_0), 1) != i1_0_0
+i1: right(i1_0_0) = 0
 .
 Found counterexample #3, refining ... 
-0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk4 + -1 >= 0 & -1*sk3 + 1 >= 0 & sk3 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk3) & left(i1_0_0, sk4) & p(sk4, sk3, i1_0_0))) -> 1
-1: AndNode(i1(i1_0_1) :- i1(i1_0_0) | (-1*sk1 + 1 >= 0 & sk1 >= 0 & pair_ctor(sk0, 0) & pair_ctor(i1_0_1, 0) & pair_ctor(i1_0_0, 0) & right(sk0, -1*sk1 + 1) & right(i1_0_1, sk1) & right(i1_0_0, sk1) & left(sk0, sk2 + 1) & left(i1_0_1, 2*sk2 + 2) & left(i1_0_0, sk2) & p(2*sk2 + 2, sk1, i1_0_1) & p(sk2 + 1, -1*sk1 + 1, sk0) & p(sk2, sk1, i1_0_0))) -> 2
+0: AndNode(FALSE() :- i1(i1_0_0) | (-1*sk3 + -1 >= 0 & -1*sk2 + 1 >= 0 & sk2 >= 0 & pair_ctor(i1_0_0, 0) & right(i1_0_0, sk2) & left(i1_0_0, sk3) & p(sk3, sk2, i1_0_0))) -> 1
+1: AndNode(i1(i1_0_1) :- i1(i1_0_0) | (-1*sk0 + 1 >= 0 & sk0 >= 0 & pair_ctor(i1_0_1, 0) & pair_ctor(i1_0_0, 0) & right(i1_0_1, sk0) & right(i1_0_0, sk0) & left(i1_0_1, 2*sk1 + 2) & left(i1_0_0, sk1) & p(2*sk1 + 2, sk0, i1_0_1) & p(sk1, sk0, i1_0_0))) -> 2
 2: AndNode(i1(i1_0_0) :-  | (pair_ctor(i1_0_0, 0) & right(i1_0_0, 0) & left(i1_0_0, 0) & p(0, 0, i1_0_0)))
-(3and/0or)  25 -> 25 ... adding predicates:
-i1: right(i1_0_0) >= 2 | -1*right(i1_0_0).\as[int] >= 1 | left(i1_0_0) >= 2 | !is_p(i1_0_0) | p(left(i1_0_0), right(i1_0_0)) != i1_0_0
+(3and/0or)  21 -> 21 ... adding predicates:
+i1: left(i1_0_0) >= 2
 .
 
 --------------------------------- Statistics -----------------------------------
@@ -135,7 +135,7 @@ Final number of abstract states:                       2
 Final number of matched abstract states:               2
 Final number of abstract edges:                        3
 Number of generated predicates:                        3
-Average predicate size (# of sub-formulas):            6.00
+Average predicate size (# of sub-formulas):            1.33
 
 --------------------------------------------------------------------------------
 
@@ -173,34 +173,34 @@ Found counterexample #1, refining ...
 0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk10 + -2*sk7 + -1 = 0 & sk9 + -2*sk6 + -1 = 0 & sk8 + -2*sk5 + -1 = 0 & sk7 + -1*sk6 + -1*sk5 != 0 & sk7 >= 0 & sk6 >= 0 & sk5 >= 0 & clist_size(C_2_0, 2*sk7 + 1) & clist_size(C_1_0, 2*sk5 + 1) & clist_size(C_0_0, 2*sk6 + 1))) -> 1
 1: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
 (2and/0or)  14 -> 11 ... adding predicates:
-C: C_2_0 = C_1_0 & (\forall int v0; 2*v0 + -1*\size(C_0_0) != -1 | -1*\size(C_0_0) >= -2)
+C: C_2_0 = C_1_0 & \size(C_0_0) = 1
 .
 Found counterexample #2, refining ... 
 0: AndNode(FALSE() :- S(S_0_0, S_1_0) | (sk24 + -2*sk23 + -1 = 0 & sk23 + -1*S_1_0 != 0 & sk23 >= 0 & S_1_0 >= 0 & clist_size(S_0_0, 2*sk23 + 1))) -> 1
 1: AndNode(S(S_0_0, S_1_0) :-  | (S_1_0 = 0 & clist_size(S_0_0, 1) & clist_ctor(S_0_0, 0) & nil(S_0_0)))
 (2and/0or)  9 -> 8 ... adding predicates:
-S: S_1_0 = 0 & (\forall int v0; 2*v0 + -1*\size(S_0_0) != -1 | -1*\size(S_0_0) >= -2)
+S: S_1_0 = 0 & \size(S_0_0) = 1
 .
 Found counterexample #3, refining ... 
 0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk10 + -2*sk7 + -1 = 0 & sk9 + -2*sk6 + -1 = 0 & sk8 + -2*sk5 + -1 = 0 & sk7 + -1*sk6 + -1*sk5 != 0 & sk7 >= 0 & sk6 >= 0 & sk5 >= 0 & clist_size(C_2_0, 2*sk7 + 1) & clist_size(C_1_0, 2*sk5 + 1) & clist_size(C_0_0, 2*sk6 + 1))) -> 1
 1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
 2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
 (3and/0or)  31 -> 28 ... adding predicates:
-C: \forall int v0, v1, v2; (\forall int v3; 2*v3 + -1*\size(C_2_0) != -1 | \forall int v3; 2*v3 + -1*\size(C_1_0) != -1 | \forall int v3; 2*v3 + -1*\size(C_0_0) != -1 | 2*v2 + -1*\size(C_2_0) != -1 | 2*v1 + -1*\size(C_1_0) != -1 | 2*v0 + -1*\size(C_0_0) != -1 | v2 + v1 + v0 + -1*\size(C_1_0) + -1*\size(C_0_0) = -2) | (\size(C_2_0) != 1 & -1*\size(C_2_0) >= -2) | (\size(C_1_0) != 1 & -1*\size(C_1_0) >= -2) | (\size(C_0_0) != 1 & -1*\size(C_0_0) >= -2)
+C: \forall int v0, v1, v2; (2*v2 + -1*\size(C_2_0) != -1 | 2*v1 + -1*\size(C_1_0) != -1 | 2*v0 + -1*\size(C_0_0) != -1 | v2 + v1 + v0 + -1*\size(C_1_0) + -1*\size(C_0_0) = -2)
 .
 Found counterexample #4, refining ... 
 0: AndNode(FALSE() :- S(S_0_0, S_1_0) | (sk24 + -2*sk23 + -1 = 0 & sk23 + -1*S_1_0 != 0 & sk23 >= 0 & S_1_0 >= 0 & clist_size(S_0_0, 2*sk23 + 1))) -> 1
 1: AndNode(S(S_0_1, S_1_1) :- S(S_0_0, S_1_0) | (S_1_1 + -1*S_1_0 + -1 = 0 & -1*sk4 + 2 >= 0 & sk4 >= 0 & sk3 + -1 >= 0 & S_1_0 >= 0 & clist_size(S_0_1, sk3 + 2) & clist_size(S_0_0, sk3) & clist_ctor(S_0_1, 1) & tail(S_0_1, S_0_0) & head(S_0_1, sk4) & cons(sk4, S_0_0, S_0_1))) -> 2
 2: AndNode(S(S_0_0, S_1_0) :-  | (S_1_0 = 0 & clist_size(S_0_0, 1) & clist_ctor(S_0_0, 0) & nil(S_0_0)))
 (3and/0or)  20 -> 19 ... adding predicates:
-S: \forall int v0; (\forall int v1; 2*v1 + -1*\size(S_0_0) != -1 | 2*v0 + -1*\size(S_0_0) != -1 | v0 = S_1_0) | (\size(S_0_0) != 1 & -1*\size(S_0_0) >= -2)
+S: \forall int v0; (2*v0 + -1*\size(S_0_0) != -1 | v0 = S_1_0)
 .
 Found counterexample #5, refining ... 
 0: AndNode(FALSE() :- C(C_0_0, C_1_0, C_2_0) | (sk36 + -1*sk35 != 0 & sk35 + -1*sk34 != 0 & sk25 + -1*C_2_0 != 0 & -1*sk36 + 2 >= 0 & sk36 >= 0 & -1*sk35 + 2 >= 0 & sk35 >= 0 & -1*sk34 + 2 >= 0 & sk34 >= 0 & sk26 + -1 >= 0 & clist_size(sk27, sk26) & clist_size(sk25, 1) & clist_size(C_2_0, sk26 + 2) & clist_ctor(sk25, 0) & clist_ctor(C_2_0, 1) & tail(C_2_0, sk27) & head(C_2_0, sk35) & head(C_1_0, sk34) & head(C_0_0, sk36) & cons(sk35, sk27, C_2_0) & nil(sk25) & ! (! (sk36 + -1*sk32 = 0 & sk31 + -1 >= 0 & clist_size(sk33, sk31) & clist_size(C_0_0, sk31 + 2) & clist_ctor(C_0_0, 1) & tail(C_0_0, sk33) & cons(sk32, sk33, C_0_0)) & ! (sk25 + -1*C_0_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0))) & ! (! (sk34 + -1*sk29 = 0 & sk28 + -1 >= 0 & clist_size(sk30, sk28) & clist_size(C_1_0, sk28 + 2) & clist_ctor(C_1_0, 1) & tail(C_1_0, sk30) & cons(sk29, sk30, C_1_0)) & ! (sk25 + -1*C_1_0 = 0 & clist_size(C_1_0, 1) & clist_ctor(C_1_0, 0))))) -> 1
 1: AndNode(C(C_0_1, C_1_1, C_2_1) :- C(C_0_0, C_1_0, C_2_0) | (C_1_1 + -1*C_1_0 = 0 & -1*sk2 + 2 >= 0 & sk2 >= 0 & sk1 + -1 >= 0 & sk0 + -1 >= 0 & clist_size(C_2_1, sk0 + 2) & clist_size(C_0_1, sk1 + 2) & clist_size(C_2_0, sk0) & clist_size(C_0_0, sk1) & clist_ctor(C_2_1, 1) & clist_ctor(C_0_1, 1) & tail(C_2_1, C_2_0) & tail(C_0_1, C_0_0) & head(C_2_1, sk2) & head(C_0_1, sk2) & cons(sk2, C_2_0, C_2_1) & cons(sk2, C_0_0, C_0_1))) -> 2
 2: AndNode(C(C_0_0, C_1_0, C_2_0) :-  | (C_2_0 + -1*C_1_0 = 0 & clist_size(C_0_0, 1) & clist_ctor(C_0_0, 0) & nil(C_0_0)))
 (3and/0or)  62 -> 58 ... adding predicates:
-C: head(C_0_0) = head(C_2_0) | head(C_0_0) >= 3 | -1*head(C_0_0).\as[int] >= 1 | head(C_2_0) >= 3 | -1*head(C_2_0).\as[int] >= 1 | ((0 >= \size(tail(C_2_0)) | \size(C_2_0) + -1*\size(tail(C_2_0)) != 2 | !is_cons(C_2_0) | cons(head(C_2_0), tail(C_2_0)) != C_2_0) & (\size(C_2_0) != 1 | !is_nil(C_2_0) | nil != C_2_0)) | ((0 >= \size(tail(C_0_0)) | \size(C_0_0) + -1*\size(tail(C_0_0)) != 2 | !is_cons(C_0_0) | cons(head(C_0_0), tail(C_0_0)) != C_0_0) & (\size(C_0_0) != 1 | !is_nil(C_0_0) | nil != C_0_0))
+C: head(C_0_0) = head(C_2_0)
 ...
 
 --------------------------------- Statistics -----------------------------------
@@ -209,7 +209,7 @@ Final number of abstract states:                       3
 Final number of matched abstract states:               4
 Final number of abstract edges:                        6
 Number of generated predicates:                        5
-Average predicate size (# of sub-formulas):            11.40
+Average predicate size (# of sub-formulas):            3.20
 
 --------------------------------------------------------------------------------
 
