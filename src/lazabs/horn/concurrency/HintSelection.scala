@@ -677,7 +677,7 @@ object HintsSelection{
     writer.close()
   }
 
-  def writeSMTFormatToFile(encoder:ParametricEncoder): Unit ={
+  def writeSMTFormatToFile(simpClauses:Clauses): Unit ={
 
 
       val basename = GlobalParameters.get.fileName
@@ -695,14 +695,14 @@ object HintsSelection{
       val out = new java.io.FileOutputStream("../trainData/"+fileName+".smt2") //python path
       Console.withOut(out) {
         val clauseFors =
-          for (c <- encoder.allClauses) yield {
+          for (c <- simpClauses) yield {
             val f = c.toFormula
             // eliminate remaining operators like eps
             Transform2Prenex(EquivExpander(PartialEvaluator(f)))
           }
 
         val allPredicates =
-          HornClauses allPredicates encoder.allClauses
+          HornClauses allPredicates simpClauses
 
         SMTLineariser("C_VC", "HORN", "unknown",
           List(), allPredicates.toSeq.sortBy(_.name),

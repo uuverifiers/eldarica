@@ -43,7 +43,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 /////debug/////
-class GraphGenerator(system : ParametricEncoder.System){
+class TrainDataGenerator(system : ParametricEncoder.System){
   import VerificationLoop._
   val processNum = system.processes.size
   var invariants: Seq[Seq[Int]] =
@@ -60,7 +60,11 @@ class GraphGenerator(system : ParametricEncoder.System){
   val encoder: ParametricEncoder = new ParametricEncoder(system, invariants)
 
 
-
+  val preprocessor = new DefaultPreprocessor
+  val (simpClauses, simpHints, backTranslator) =
+    Console.withErr(Console.out) {
+      preprocessor.process(encoder.allClauses, encoder.globalHints)
+    }
 
   //test JSON reading
   //  println("---debug---")
@@ -70,19 +74,19 @@ class GraphGenerator(system : ParametricEncoder.System){
 
   //output all training data
 
-  HintsSelection.writeSMTFormatToFile(encoder)  //write smt2 format to file
+  //HintsSelection.writeSMTFormatToFile(simpClauses)  //write smt2 format to file
 
   import scala.collection.immutable.ListMap
 
-  if(encoder.globalHints.isEmpty){}else{
+  if(simpHints.isEmpty){}else{
     //write selected hints with IDs to file
-    val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+    val InitialHintsWithID=initialIDForHints(simpHints) //ID:head->hint
     println("---initialHints-----")
     for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
       println(key,value)
     }
 
-    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,encoder.globalHints,encoder.allClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
@@ -90,7 +94,7 @@ class GraphGenerator(system : ParametricEncoder.System){
       HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(encoder)  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simpClauses)  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file

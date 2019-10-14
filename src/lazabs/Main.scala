@@ -634,7 +634,7 @@ object Main {
 
       val smallSystem = system.mergeLocalTransitions
       if(generateTrainData){
-        val systemGraphs=new lazabs.horn.concurrency.GraphGenerator(smallSystem) //generate graph
+        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem) //generate graph
 
         return
       }
