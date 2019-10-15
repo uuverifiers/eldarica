@@ -44,9 +44,10 @@ import lazabs.horn.parser.HornReader
 import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
+import lazabs.horn.abstractions.StaticAbstractionBuilderSmtHintsSelection
 import lazabs.horn.concurrency.CCReader
 import lazabs.horn.abstractions.VerificationHints
-import lazabs.horn.concurrency.VerificationLoop
+import lazabs.horn.concurrency.{VerificationLoop}
 
 import ap.util.Debug
 
@@ -597,6 +598,13 @@ object Main {
         println(HornSMTPrinter(clauseSet))
         return
       }
+      if(generateTrainData){
+        //do selection
+        lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
+          drawRTree, lbe) //generate train data
+
+        return
+      }
 
       if(solFileName != "") {
         val solution = lazabs.horn.parser.HornReader.apply(solFileName)
@@ -634,7 +642,7 @@ object Main {
 
       val smallSystem = system.mergeLocalTransitions
       if(generateTrainData){
-        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem) //generate graph
+        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem) //generate train data
 
         return
       }

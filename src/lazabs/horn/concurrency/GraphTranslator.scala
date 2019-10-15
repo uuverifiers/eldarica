@@ -10,7 +10,7 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 
   import HornClauses.Clause
 
-  println(file.substring(file.lastIndexOf("/")+1))
+  //println(file.substring(file.lastIndexOf("/")+1))
   val fileName=file.substring(file.lastIndexOf("/")+1)
   //println(fileName)
   //val writer = new PrintWriter(new File("graphs/"+fileName+".gv"))
@@ -18,7 +18,7 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 
   // println(hornClauses)
 
-  println("digraph dag {")
+  //println("digraph dag {")
   writer.write("digraph dag {"+"\n")
 
   val predicates =
@@ -27,18 +27,18 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
     (for ((p, n) <- predicates.iterator.zipWithIndex) yield (p -> n)).toMap
 
   for (p <- predicates){
-    println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
+    //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
     writer.write("" + predIndex(p) + " [label=\"" + p.name + "\"];"+"\n")
   }
 
   for (Clause(IAtom(phead, _), body, _) <- hornClauses;
        if phead != HornClauses.FALSE;
        IAtom(pbody, _) <- body) {
-    println(predIndex(pbody) + " -> " + predIndex(phead))
+    //println(predIndex(pbody) + " -> " + predIndex(phead))
     writer.write(predIndex(pbody) + " -> " + predIndex(phead)+"\n")
   }
 
-  println("}")
+  //println("}")
   writer.write("}"+"\n")
   writer.close()
 }
@@ -47,12 +47,12 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
   var nodeCount:Int=0
   var root=new TreeNode
   var logString:String="" //store node information
-  println("---debug---")
+  println("---graph translator---")
   for((head,templateList)<-hints.getPredicateHints()) { //loop for head
-    println(head)
+    //println(head)
     for(oneHint <- templateList){ //loop for every template in the head
 
-      println(oneHint)
+      //println(oneHint)
       val category=oneHint.toString.take(oneHint.toString.indexOf("("))
 
 
@@ -74,11 +74,11 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
       var rootMark=root
 
       root.data=Map(nodeCount ->head.toString()) //first node is template head
-      println(nodeCount + " [label=\""+ head.toString() +"\"];")
+      //println(nodeCount + " [label=\""+ head.toString() +"\"];")
       logString=logString+(nodeCount + " [label=\""+ head.toString() +"\"];"+"\n")
       nodeCount=nodeCount+1
       root.lchild = new TreeNode(Map(nodeCount->category.toString())) //second node is template category
-      println(nodeCount + " [label=\""+ category.toString() +"\"];")
+      //println(nodeCount + " [label=\""+ category.toString() +"\"];")
       logString=logString+(nodeCount + " [label=\""+ category.toString() +"\"];"+"\n")
       nodeCount=nodeCount+1
       root=root.lchild
@@ -102,7 +102,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
 
 
-      println("Tree:")
+      //println("Tree:")
       BinarySearchTree.preOrder(rootMark)
       logString=logString+BinarySearchTree.relationString
       BinarySearchTree.relationString=""
@@ -135,7 +135,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
         root.lchild = new TreeNode(Map(nodeCount->"+"))
         root=root.lchild
-        println(nodeCount + " [label=\""+ "+" +"\"];")
+        //println(nodeCount + " [label=\""+ "+" +"\"];")
         logString=logString+(nodeCount + " [label=\""+ "+" +"\"];"+"\n")
         nodeCount=nodeCount+1
 
@@ -146,11 +146,11 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
         root.lchild = new TreeNode(Map(nodeCount->"*"))
         root=root.lchild
-        println(nodeCount + " [label=\""+ "*" +"\"];")
+        //println(nodeCount + " [label=\""+ "*" +"\"];")
         logString=logString+(nodeCount + " [label=\""+ "*" +"\"];"+"\n")
         nodeCount=nodeCount+1
         root.rchild = new TreeNode(Map(nodeCount->coeff.toString()))
-        println(nodeCount + " [label=\""+ coeff +"\"];")
+        //println(nodeCount + " [label=\""+ coeff +"\"];")
         logString=logString+(nodeCount + " [label=\""+ coeff +"\"];"+"\n")
         nodeCount=nodeCount+1
       }
@@ -159,22 +159,22 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
         if(rel.toString=="EqZero"){
           root.lchild = new TreeNode(Map(nodeCount->"="))
           root=root.lchild
-          println(nodeCount + " [label=\""+ "=" +"\"];")
+          //println(nodeCount + " [label=\""+ "=" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "=" +"\"];"+"\n")
           nodeCount=nodeCount+1
           root.rchild = new TreeNode(Map(nodeCount->"0"))
-          println(nodeCount + " [label=\""+ "0" +"\"];")
+          //println(nodeCount + " [label=\""+ "0" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "0" +"\"];"+"\n")
           nodeCount=nodeCount+1
         }
         if(rel.toString=="GeqZero"){
           root.lchild = new TreeNode(Map(nodeCount->">="))
           root=root.lchild
-          println(nodeCount + " [label=\""+ ">=" +"\"];")
+          //println(nodeCount + " [label=\""+ ">=" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
           nodeCount=nodeCount+1
           root.rchild = new TreeNode(Map(nodeCount->"0"))
-          println(nodeCount + " [label=\""+ "0" +"\"];")
+          //println(nodeCount + " [label=\""+ "0" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "0" +"\"];"+"\n")
           nodeCount=nodeCount+1
         }
@@ -189,7 +189,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
           //root=root.rchild
         }
 
-        println(nodeCount + " [label=\""+ "_"+index +"\"];")
+        //println(nodeCount + " [label=\""+ "_"+index +"\"];")
         logString=logString+(nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
         nodeCount=nodeCount+1
       }
@@ -243,12 +243,12 @@ object BinarySearchTree {
 
       if(root.lchild!=null){
         val (l_key,l_value)=root.lchild.data.head
-        println(k+"->"+l_key)
+        //println(k+"->"+l_key)
         relationString=relationString+(k+"->"+l_key+"\n")
       }
       if(root.rchild!=null){
         val (r_key,r_value)=root.rchild.data.head
-        println(k+"->"+r_key)
+        //println(k+"->"+r_key)
         relationString=relationString+(k+"->"+r_key+"\n")
       }
 
