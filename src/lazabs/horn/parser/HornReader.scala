@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2019 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -460,13 +460,10 @@ class SMTHornReader protected[parser] (
           case INot(a@IAtom(p, _)) if (TheoryRegistry lookupSymbol p).isEmpty =>
             body = translateAtom(a) :: body
           case a@IAtom(p, _) if (TheoryRegistry lookupSymbol p).isEmpty => {
-            //assert(head == null)
-            if (head != null) {
-              System.err.println(conjunct)
+            if (head != null)
               throw new Exception (
-                "Negated uninterpreted predicates in the body of a clause " +
-                "are not supported.")
-            }
+                "Multiple positive literals in a clause: " +
+                head + ", " + translateAtom(a))
             head = translateAtom(a)
           }
 
@@ -664,12 +661,15 @@ class SMTHornReader protected[parser] (
       val (unintHeadLits, theoryHeadLits) =
         c.predConj.negativeLits partition (unintPredicates contains _.pred)
 
+      if (unintHeadLits.size > 1)
+        throw new Exception (
+          "Multiple positive literals in a clause: " +
+          (unintHeadLits mkString ", "))
+
       addAssertion(
         c.updatePredConj(
           c.predConj.updateLits(theoryBodyLits,
                                 theoryHeadLits)(c.order))(c.order))
-
-      assert(unintHeadLits.size <= 1)
 
       // Create new existential constants for the arguments of the
       // individual atoms
