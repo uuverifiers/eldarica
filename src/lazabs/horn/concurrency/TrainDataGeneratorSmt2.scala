@@ -262,6 +262,7 @@ object TrainDataGeneratorSmt2{
         lazy val absBuilder =
         new StaticAbstractionBuilderSmtHintsSelection(simplifiedClauses, abstractionType,counterexampleMethod,simpHints)
 
+
         lazy val autoAbstraction : AbstractionMap =
         absBuilder.abstractionRecords
 
@@ -277,7 +278,7 @@ object TrainDataGeneratorSmt2{
         val predGenerator = Console.withErr(outStream) {
           if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
             val fullAbstractionMap =
-              AbstractionRecord.mergeMaps(Map(), autoAbstraction)//hintsAbstraction,autoAbstraction are replaced by Map()
+              AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)//hintsAbstraction,autoAbstraction are replaced by Map()
 
             if (fullAbstractionMap.isEmpty){
               DagInterpolator.interpolatingPredicateGenCEXAndOr _
@@ -292,8 +293,6 @@ object TrainDataGeneratorSmt2{
           }
         }
 
-        println("simpHints.isEmpty",simpHints.isEmpty)
-        println("absBuilder.abstractionHints.isEmpty",absBuilder.abstractionHints.isEmpty)
 
 //        if (GlobalParameters.get.templateBasedInterpolationPrint &&
 //          !simpHints.isEmpty){

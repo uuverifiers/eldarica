@@ -47,7 +47,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
   var nodeCount:Int=0
   var root=new TreeNode
   var logString:String="" //store node information
-  println("---graph translator---")
+  println("---graph translator (hints)---")
   for((head,templateList)<-hints.getPredicateHints()) { //loop for head
     //println(head)
     for(oneHint <- templateList){ //loop for every template in the head
@@ -85,21 +85,14 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 
 
 
-
-
-
 //      writer.write("digraph dag {"+"\n") //write some dummy content
 //      writer.write("0 [label=\""+head+"\"];"+"\n") //root node is locaton/head
 //      writer.write("1 [label=\""+category+"\"];"+"\n")//second node is hint's category
 //      writer.write("0->1"+"\n")
 //      writer.write("}"+"\n")
-      translateHint(oneHint)
+      translateHint(oneHint,root)
       nodeCount=0
       root=new TreeNode
-
-
-
-
 
 
       //println("Tree:")
@@ -117,81 +110,114 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
     }
   }
 
-  def translateHint(h:VerifHintElement):Unit= h match{
-    case VerifHintInitPred(p) => translateExpr(p)
-    case VerifHintTplPred(p,_) => translateExpr(p)
-    case VerifHintTplPredPosNeg(p,_) => translateExpr(p)
-    case VerifHintTplEqTerm(t,_) => translateExpr(t)
-    case VerifHintTplInEqTerm(t,_) => translateExpr(t)
-    case VerifHintTplInEqTermPosNeg(t,_) => translateExpr(t)
+  def translateHint(h:VerifHintElement,root:TreeNode):Unit= h match{
+    case VerifHintInitPred(p) => translateExpr(p,root)
+    case VerifHintTplPred(p,_) => translateExpr(p,root)
+    case VerifHintTplPredPosNeg(p,_) => translateExpr(p,root)
+    case VerifHintTplEqTerm(t,_) => translateExpr(t,root)
+    case VerifHintTplInEqTerm(t,_) => translateExpr(t,root)
+    case VerifHintTplInEqTermPosNeg(t,_) => translateExpr(t,root)
 
   }
 
-  def translateExpr(e:IExpression):Unit= {
+  def translateExpr(e:IExpression,root:TreeNode):Unit= {
     //println(e)
 
     e match{
       case IPlus(t1,t2)=> {
+        if(root.lchild==null){
+          root.lchild = new TreeNode(Map(nodeCount->"+"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "+" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "+" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(t1,root.lchild)
+          translateExpr(t2,root.lchild)
 
-        root.lchild = new TreeNode(Map(nodeCount->"+"))
-        root=root.lchild
-        //println(nodeCount + " [label=\""+ "+" +"\"];")
-        logString=logString+(nodeCount + " [label=\""+ "+" +"\"];"+"\n")
-        nodeCount=nodeCount+1
+        }else{
+          root.rchild = new TreeNode(Map(nodeCount->"+"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "+" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "+" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(t1,root.rchild)
+          translateExpr(t2,root.rchild)
+
+        }
 
 
 
       }
       case ITimes(coeff,t)=> {
+        if(root.lchild==null){
+          root.lchild = new TreeNode(Map(nodeCount->"*"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "*" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "*" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          root.lchild.rchild = new TreeNode(Map(nodeCount->coeff.toString()))
+          //println(nodeCount + " [label=\""+ coeff +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ coeff +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(t,root.lchild)
+        }else{
+          root.rchild = new TreeNode(Map(nodeCount->"*"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "*" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "*" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          root.rchild.rchild = new TreeNode(Map(nodeCount->coeff.toString()))
+          //println(nodeCount + " [label=\""+ coeff +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ coeff +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(t,root.rchild)
+        }
 
-        root.lchild = new TreeNode(Map(nodeCount->"*"))
-        root=root.lchild
-        //println(nodeCount + " [label=\""+ "*" +"\"];")
-        logString=logString+(nodeCount + " [label=\""+ "*" +"\"];"+"\n")
-        nodeCount=nodeCount+1
-        root.rchild = new TreeNode(Map(nodeCount->coeff.toString()))
-        //println(nodeCount + " [label=\""+ coeff +"\"];")
-        logString=logString+(nodeCount + " [label=\""+ coeff +"\"];"+"\n")
-        nodeCount=nodeCount+1
       }
 
       case IIntFormula(rel,t)=> {
         if(rel.toString=="EqZero"){
           root.lchild = new TreeNode(Map(nodeCount->"="))
-          root=root.lchild
           //println(nodeCount + " [label=\""+ "=" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "=" +"\"];"+"\n")
           nodeCount=nodeCount+1
-          root.rchild = new TreeNode(Map(nodeCount->"0"))
+          root.lchild.rchild = new TreeNode(Map(nodeCount->"0"))
           //println(nodeCount + " [label=\""+ "0" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "0" +"\"];"+"\n")
           nodeCount=nodeCount+1
+          //root=root.lchild
+          translateExpr(t,root.lchild)
+
         }
         if(rel.toString=="GeqZero"){
           root.lchild = new TreeNode(Map(nodeCount->">="))
-          root=root.lchild
-          //println(nodeCount + " [label=\""+ ">=" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
           nodeCount=nodeCount+1
-          root.rchild = new TreeNode(Map(nodeCount->"0"))
+          root.lchild.rchild = new TreeNode(Map(nodeCount->"0"))
           //println(nodeCount + " [label=\""+ "0" +"\"];")
           logString=logString+(nodeCount + " [label=\""+ "0" +"\"];"+"\n")
           nodeCount=nodeCount+1
+          //root=root.lchild
+          translateExpr(t,root.lchild)
+          //println(nodeCount + " [label=\""+ ">=" +"\"];")
+
         }
+
 
       }
       case IVariable(index)=> {
         if(root.rchild==null){
           root.rchild = new TreeNode(Map(nodeCount->("_"+index.toString)))
           //root=root.lchild
+          logString=logString+(nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
+          nodeCount=nodeCount+1
         }else if(root.lchild==null){
           root.lchild = new TreeNode(Map(nodeCount->("_"+index.toString)))
           //root=root.rchild
+          logString=logString+(nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
+          nodeCount=nodeCount+1
         }
 
-        //println(nodeCount + " [label=\""+ "_"+index +"\"];")
-        logString=logString+(nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
-        nodeCount=nodeCount+1
       }
       case IBoolLit(value)=>println("IBoolLit")
       case IBinFormula(j,f1,f2)=>println("IBinFormula")
@@ -204,16 +230,26 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
       case ITrigger(patterns,subformula)=>println("ITrigger");
       case ITermITE(cond,left,right)=>println("ITermITE")
       case INamedPart(name,subformula)=>println("INamedPart")
-      case IIntLit(value)=>println("IIntLit")
+      case IIntLit(value)=>{
+        if(root.rchild==null){
+          root.rchild = new TreeNode(Map(nodeCount->(value.toString)))
+          //root=root.lchild
+        }else if(root.lchild==null){
+          root.lchild = new TreeNode(Map(nodeCount->(value.toString)))
+          //root=root.rchild
+        }
+
+        //println(nodeCount + " [label=\""+ "_"+index +"\"];")
+        logString=logString+(nodeCount + " [label=\""+value +"\"];"+"\n")
+        nodeCount=nodeCount+1
+      }
       case _=>println("?")
     }
-    for (subExpr <- e.subExpressions) {
-
-
-
-      translateExpr(subExpr)
-
-    }
+//    for (subExpr <- e.subExpressions) {
+//
+//      translateExpr(subExpr)
+//
+//    }
 
 
 

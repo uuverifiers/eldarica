@@ -77,16 +77,16 @@ class TrainDataGenerator(system : ParametricEncoder.System){
   //HintsSelection.writeSMTFormatToFile(simpClauses)  //write smt2 format to file
 
   import scala.collection.immutable.ListMap
-
-  if(simpHints.isEmpty){}else{
+  val sortedHints=HintsSelection.sortHints(simpHints)
+  if(sortedHints.isEmpty){}else{
     //write selected hints with IDs to file
-    val InitialHintsWithID=initialIDForHints(simpHints) //ID:head->hint
+    val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
     println("---initialHints-----")
     for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
       println(key,value)
     }
 
-    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
@@ -104,7 +104,7 @@ class TrainDataGenerator(system : ParametricEncoder.System){
 
       //Output graphs
       val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, simpHints)
+      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints)
     }
 
   }

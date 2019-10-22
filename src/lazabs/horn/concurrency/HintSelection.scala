@@ -16,14 +16,28 @@ import java.io.{File, FileWriter, PrintWriter}
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
-import lazabs.horn.abstractions.VerificationHints._
+import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
+import java.nio.file.{Files, Paths, StandardCopyOption}
+
 object HintsSelection{
+  def sortHints(hints:VerificationHints): VerificationHints ={
+    var tempHints=VerificationHints(Map()) //sort the hints
+    for((oneHintKey,oneHintValue)<-hints.getPredicateHints()){
+      val tempSeq=oneHintValue.sortBy(oneHintValue =>(oneHintValue.toString,oneHintValue.toString))
+      tempHints=tempHints.addPredicateHints(Map(oneHintKey->tempSeq))
+    }
+//    println("tempHints")
+//    tempHints.pretyPrintHints()
+    return tempHints
+  }
 
   def tryAndTestSelecton(encoder:ParametricEncoder,simpHints:VerificationHints,simpClauses:Clauses,file:String,InitialHintsWithID:Map[String,String]):VerificationHints = {
+  val sortedHints=sortHints(simpHints)
+
     val fileName=file.substring(file.lastIndexOf("/")+1)
 
     //println("\n------ DEBUG-Select critical hints begin -------------")
@@ -48,14 +62,9 @@ object HintsSelection{
 
     val timeOut=GlobalParameters.get.threadTimeout //timeout
     //val timeOut=10
-    val criticalHeads=simpHints
-    //val criticalHeads = currentHeads
-    //println("numberOfCriticalHeads:"+criticalHeads.numberOfHeads())
-    //println("Current heads:")
-    //criticalHeads.printHints()
-    //println("-----------------------------------Heads selection end ------------------------------------")
-    val emptyHints=VerificationHints(Map())
+    val criticalHeads=simpHints //use sorted hints
     var criticalHints = simpHints
+    val emptyHints=VerificationHints(Map())
     var optimizedHints=VerificationHints(Map()) // store final selected heads and hints
     //val InitialHintsWithID=initialIDForHints(simpHints)
     var PositiveHintsWithID=Map("initialKey"->"")
@@ -68,13 +77,20 @@ object HintsSelection{
     else{
       println("-------------------------Hints selection begins------------------------------------------")
       for((oneHintKey,oneHintValue)<-criticalHeads.getPredicateHints()){ //loop for head
-        println("Head:"+oneHintKey)
-        println(oneHintValue)
+//        println("Head:"+oneHintKey)
+//        println(oneHintValue)
         var criticalHintsList:Seq[VerifHintElement]=Seq()
         var redundantHintsList:Seq[VerifHintElement]=Seq()
         var currentHintsList = criticalHeads.getValue(oneHintKey) //extract hints in this head
 
         for(oneHint<-criticalHeads.getValue(oneHintKey)){ //loop for every hint in one head
+          // memory info
+          val mb = 1024*1024
+          val runtime = Runtime.getRuntime
+          println("** Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb)
+          println("** Free Memory:  " + runtime.freeMemory / mb)
+          println("** Total Memory: " + runtime.totalMemory / mb)
+          println("** Max Memory:   " + runtime.maxMemory / mb)
           println("Current hints:")
           criticalHints.pretyPrintHints()
           val beforeDeleteHints = currentHintsList //record hint list before the hint is deleted
@@ -98,7 +114,7 @@ object HintsSelection{
 
           try {
             GlobalParameters.parameters.withValue(toParams) {
-                  val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
+              val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
                     Console.withErr(Console.out) {
                       val builder =
                         new StaticAbstractionBuilder(
@@ -299,7 +315,6 @@ object HintsSelection{
                            ):VerificationHints = {
 
 
-
 //    if (GlobalParameters.get.templateBasedInterpolationPrint &&
 //      !simpHints.isEmpty)
 //      ReaderMain.printHints(simpHints, name = "Manual verification hints:")
@@ -330,17 +345,12 @@ object HintsSelection{
     val timeOut=GlobalParameters.get.threadTimeout //timeout
     //val timeOut=10
     val criticalHeads=simpHints
-    //val criticalHeads = currentHeads
-    //println("numberOfCriticalHeads:"+criticalHeads.numberOfHeads())
-    //println("Current heads:")
-    //criticalHeads.printHints()
-    //println("-----------------------------------Heads selection end ------------------------------------")
-    val emptyHints=VerificationHints(Map())
     var criticalHints = simpHints
     var optimizedHints=VerificationHints(Map()) // store final selected heads and hints
     //val InitialHintsWithID=initialIDForHints(simpHints)
     var PositiveHintsWithID=Map("initialKey"->"")
     var NegativeHintsWithID=Map("initialKey"->"")
+    val emptyHints=VerificationHints(Map())
 
 
     if(simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation==false) {
@@ -915,6 +925,15 @@ object HintsSelection{
       }
       out.close
 
+  }
+
+  def moveRenameFile(source: String, destination: String): Unit = {
+    val path = Files.move(
+      Paths.get(source),
+      Paths.get(destination),
+      StandardCopyOption.REPLACE_EXISTING
+    )
+    // could return `path`
   }
 
 

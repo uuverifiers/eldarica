@@ -242,24 +242,29 @@ class StaticAbstractionBuilderSmtHintsSelection(
       Map()
     else
       loopDetector hints2AbstractionRecord simpHints
-  var optimizedHints=abstractionHints
-  if(abstractionHints.isEmpty){
+  val sortedHints=HintsSelection.sortHints(abstractionHints)
+  var optimizedHints=sortedHints
+  if(sortedHints.isEmpty){
     println("No hints generated")
   }else{
     //write selected hints with IDs to file
-    val InitialHintsWithID=initialIDForHints(abstractionHints) //ID:head->hint
+    val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
     println("---initialHints-----")
     for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
       println(key,value)
     }
 
-    val selectedHint=HintsSelection.tryAndTestSelectonSmt(abstractionHints,
+    val selectedHint=HintsSelection.tryAndTestSelectonSmt(sortedHints,
       clauses,GlobalParameters.get.fileName,InitialHintsWithID,counterexampleMethod,hintsAbstraction)
     optimizedHints=selectedHint
     if(selectedHint.isEmpty){ //when no hint available
       println("No hints selected (no need for hints)")
       //not write horn clauses to file
     }else{
+      //Output graphs
+      val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
+      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints)
+
       //write horn clauses to file
       //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
       //write smt2 format to file
@@ -268,13 +273,11 @@ class StaticAbstractionBuilderSmtHintsSelection(
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
+        val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../trainData/"+fileName)
       }
 
 
-
-      //Output graphs
-      val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, abstractionHints)
     }
 
   }
