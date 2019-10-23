@@ -230,6 +230,25 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
       case ITrigger(patterns,subformula)=>println("ITrigger");
       case ITermITE(cond,left,right)=>println("ITermITE")
       case INamedPart(name,subformula)=>println("INamedPart")
+      case INot(subformula)=>{
+        if(root.lchild==null){
+          root.lchild = new TreeNode(Map(nodeCount->"!"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "+" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "!" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(subformula,root.lchild)
+
+        }else{
+          root.rchild = new TreeNode(Map(nodeCount->"!"))
+          //root=root.lchild
+          //println(nodeCount + " [label=\""+ "+" +"\"];")
+          logString=logString+(nodeCount + " [label=\""+ "!" +"\"];"+"\n")
+          nodeCount=nodeCount+1
+          translateExpr(subformula,root.rchild)
+
+        }
+      }
       case IIntLit(value)=>{
         if(root.rchild==null){
           root.rchild = new TreeNode(Map(nodeCount->(value.toString)))
