@@ -30,7 +30,8 @@
 
 package lazabs
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{File, FileInputStream, FileNotFoundException, InputStream, PrintWriter}
+
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
@@ -74,6 +75,7 @@ class GlobalParameters extends Cloneable {
   var generateTrainData=false
   var readHints=false
   var rank=0.0
+  var getSMT2=false
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -215,6 +217,7 @@ class GlobalParameters extends Cloneable {
     //that.printHints = this.printHints //DEBUG
     that.generateTrainData=this.generateTrainData//debug
     that.readHints=this.readHints
+    that.getSMT2=this.getSMT2
   }
 
   override def clone : GlobalParameters = {
@@ -306,6 +309,7 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-generateTrainData" :: rest => generateTrainData = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
+      case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
@@ -590,6 +594,7 @@ object Main {
       
       if(prettyPrint) {
         println(HornPrinter(clauseSet))
+
         //println(clauseSet.map(lazabs.viewer.HornPrinter.printDebug(_)).mkString("\n\n"))
         return
       }
@@ -642,7 +647,7 @@ object Main {
 
       val smallSystem = system.mergeLocalTransitions
       if(generateTrainData){
-        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem) //generate train data
+        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data
 
         return
       }

@@ -260,7 +260,7 @@ object TrainDataGeneratorSmt2{
         ///hints selection begin
 
         lazy val absBuilder =
-        new StaticAbstractionBuilderSmtHintsSelection(simplifiedClauses, abstractionType,counterexampleMethod,simpHints)
+        new StaticAbstractionBuilderSmtHintsSelection(simplifiedClauses, abstractionType,counterexampleMethod,simpHints,clauseSet)
 
 
         lazy val autoAbstraction : AbstractionMap =

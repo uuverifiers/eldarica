@@ -84,13 +84,13 @@ object HintsSelection{
         var currentHintsList = criticalHeads.getValue(oneHintKey) //extract hints in this head
 
         for(oneHint<-criticalHeads.getValue(oneHintKey)){ //loop for every hint in one head
-          // memory info
-          val mb = 1024*1024
-          val runtime = Runtime.getRuntime
-          println("** Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb)
-          println("** Free Memory:  " + runtime.freeMemory / mb)
-          println("** Total Memory: " + runtime.totalMemory / mb)
-          println("** Max Memory:   " + runtime.maxMemory / mb)
+//          // memory info
+//          val mb = 1024*1024
+//          val runtime = Runtime.getRuntime
+//          println("** Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb)
+//          println("** Free Memory:  " + runtime.freeMemory / mb)
+//          println("** Total Memory: " + runtime.totalMemory / mb)
+//          println("** Max Memory:   " + runtime.maxMemory / mb)
           println("Current hints:")
           criticalHints.pretyPrintHints()
           val beforeDeleteHints = currentHintsList //record hint list before the hint is deleted
@@ -892,7 +892,7 @@ object HintsSelection{
     writer.close()
   }
 
-  def writeSMTFormatToFile(simpClauses:Clauses): Unit ={
+  def writeSMTFormatToFile(simpClauses:Clauses,path:String): Unit ={
 
 
       val basename = GlobalParameters.get.fileName
@@ -907,7 +907,7 @@ object HintsSelection{
       println("Writing Horn clauses to " + fileName)
 
       //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")
-      val out = new java.io.FileOutputStream("../trainData/"+fileName+".smt2") //python path
+      val out = new java.io.FileOutputStream(path+fileName+".smt2") //python path
       Console.withOut(out) {
         val clauseFors =
           for (c <- simpClauses) yield {
@@ -928,7 +928,7 @@ object HintsSelection{
   }
 
   def moveRenameFile(source: String, destination: String): Unit = {
-    val path = Files.move(
+    val path = Files.copy(
       Paths.get(source),
       Paths.get(destination),
       StandardCopyOption.REPLACE_EXISTING

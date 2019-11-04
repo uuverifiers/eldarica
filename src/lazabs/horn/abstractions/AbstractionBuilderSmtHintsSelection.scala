@@ -29,6 +29,8 @@
 
 package lazabs.horn.abstractions
 
+import java.io.{File, PrintWriter}
+
 import ap.basetypes.IdealInt
 import ap.parser._
 import lazabs.GlobalParameters
@@ -36,7 +38,9 @@ import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.concurrency.{GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
+import lazabs.horn.global.HornClause
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import lazabs.viewer.HornPrinter
 
 import scala.collection.immutable.ListMap
 
@@ -55,7 +59,8 @@ class StaticAbstractionBuilderSmtHintsSelection(
          abstractionType : StaticAbstractionBuilder.AbstractionType.Value,
          counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
          HornPredAbs.CounterexampleMethod.FirstBestShortest,
-         simpHints:VerificationHints) {
+         simpHints:VerificationHints,
+         clauseSet: Seq[HornClause]) {
 
   import IExpression._
   import VerificationHints._
@@ -261,15 +266,20 @@ class StaticAbstractionBuilderSmtHintsSelection(
       println("No hints selected (no need for hints)")
       //not write horn clauses to file
     }else{
+
       //Output graphs
       val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
       val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints)
 
       //write horn clauses to file
+      val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
+      val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
+      writer.write(HornPrinter(clauseSet))
+      writer.close()
       //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(clauses)  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(clauses,"../trainData/")  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file

@@ -43,9 +43,9 @@ import scala.collection.mutable.ArrayBuffer
 
 
 /////debug/////
-class TrainDataGenerator(system : ParametricEncoder.System){
+class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : ParametricEncoder.System){
   import VerificationLoop._
-  val processNum = system.processes.size
+  val processNum = smallSystem.processes.size
   var invariants: Seq[Seq[Int]] =
     for (i <- 0 until processNum)
       yield ((List tabulate processNum) { j => if (i == j) 1 else 0 })
@@ -57,7 +57,7 @@ class TrainDataGenerator(system : ParametricEncoder.System){
   println
 
 
-  val encoder: ParametricEncoder = new ParametricEncoder(system, invariants)
+  val encoder: ParametricEncoder = new ParametricEncoder(smallSystem, invariants)
 
 
   val preprocessor = new DefaultPreprocessor
@@ -73,8 +73,11 @@ class TrainDataGenerator(system : ParametricEncoder.System){
 
 
   //output all training data
+  if(GlobalParameters.get.getSMT2==true){
+    HintsSelection.writeSMTFormatToFile(encoder.allClauses,"regression-tests/smt-graph/")  //write smt2 format to file
+    println(encoder.allClauses)
+  }
 
-  //HintsSelection.writeSMTFormatToFile(simpClauses)  //write smt2 format to file
 
   import scala.collection.immutable.ListMap
   val sortedHints=HintsSelection.sortHints(simpHints)
@@ -91,10 +94,10 @@ class TrainDataGenerator(system : ParametricEncoder.System){
       //not write horn clauses to file
     }else{
       //write horn clauses to file
-      HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
+      HintsSelection.writeHornClausesToFile(smallSystem,GlobalParameters.get.fileName)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(simpClauses)  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simpClauses,"../trainData/")  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
