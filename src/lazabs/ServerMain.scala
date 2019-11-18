@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,9 +92,7 @@ object ServerMain {
           val inputReader =
             new java.io.BufferedReader(
             new java.io.InputStreamReader(clientSocket.getInputStream))
-          val outStream =
-            clientSocket.getOutputStream
-
+    
           val receivedTicket = inputReader.readLine
           if (ticket == receivedTicket) {
             val arguments = new ArrayBuffer[String]
@@ -106,9 +104,9 @@ object ServerMain {
               str.trim match {
                 case "PROVE_AND_EXIT" => {
                   done = true
-                  Console.withOut(outStream) {
+                  Console.withOut(clientSocket.getOutputStream) {
                   Console.withErr(if (showErrOutput)
-                                    outStream
+                                    clientSocket.getOutputStream
                                   else
                                     lazabs.horn.bottomup.HornWrapper.NullStream) {
                     var lastPing = System.currentTimeMillis
@@ -180,8 +178,6 @@ object ServerMain {
           }
     
           inputReader.close
-          outStream.flush
-          clientSocket.close
   
           // Put back the token
           lastActiveTime = System.currentTimeMillis

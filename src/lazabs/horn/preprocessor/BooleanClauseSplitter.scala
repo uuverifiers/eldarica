@@ -37,7 +37,7 @@ import lazabs.horn.parser.HornReader
 
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
-import ap.basetypes.{IdealInt, Leaf, Tree}
+import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
 import ap.util.{Seqs, Timeout}
@@ -56,40 +56,31 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
   private var symbolCounter = 0
   private val tempPredicates = new MHashSet[Predicate]
-  private val clauseBackMapping = new MHashMap[Clause, (Clause, Tree[Int])]
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
+    val clauseMapping = new MHashMap[Clause, Clause]
 
     val newClauses = SimpleAPI.withProver { p =>
       for (clause <- clauses;
            newClause <- cleverSplit(clause)(p)) yield {
+        clauseMapping.put(newClause, clause)
         newClause
       }
     }
 
     val translator =
-      ClauseShortener.BTranslator.withIndexes(tempPredicates.toSet,
-                                              clauseBackMapping.toMap)
+      ClauseShortener.BTranslator(tempPredicates.toSet, clauseMapping.toMap)
 
     tempPredicates.clear
-    clauseBackMapping.clear
 
     (newClauses, hints, translator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Split disjunctions in a clause body by introducing additional predicates,
-   * to avoid combinatorial explosion. The method returns the new clauses,
-   * as well as the number of temporary predicates that were needed.
-   */
-  private def splitWithIntPred(clause : Clause,
-                               initialClause : Clause,
-                               indexTree : Option[Tree[Int]])
-                              (implicit p : SimpleAPI)
-                            : (Seq[Clause], Int) = {
+  private def splitWithIntPred(clause : Clause)
+                              (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(headAtom, body, constraint) = clause
     val negConstraint = Transform2NNF(~constraint)
 
@@ -144,39 +135,23 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
         val intLit = IAtom(intPred, interfaceConstants)
 
-        val (newClauses1, preds1) = 
-          splitWithIntPred(Clause(intLit, body, constraint1),
-                           initialClause, None)
-        val (newClauses2, preds2) = 
-          splitWithIntPred(Clause(headAtom, List(intLit), constraint2),
-                           initialClause,
-                           for (it <- indexTree)
-                           yield ((0 until (preds1 + 1)) :\ it) {
-                                    (n:Int, t:Tree[Int]) => Tree(-1, List(t))
-                                  })
-
-        (newClauses1 ++ newClauses2, preds1 + preds2 + 1)
+        splitWithIntPred(Clause(intLit, body, constraint1)) ++
+        splitWithIntPred(Clause(headAtom, List(intLit), constraint2))
 
       } else {
         Timeout.withChecker(GlobalParameters.get.timeoutChecker) {
-          val newClauses = fullDNF(clause, false)
-          for (it <- indexTree) {
-            for (newClause <- newClauses)
-              clauseBackMapping.put(newClause, (initialClause, it))
-          }
-          (newClauses, 0)
+          fullDNF(clause)
         }
       }
   }
 
-  private def fullDNF(clause : Clause, addBackMapping : Boolean = true)
+  private def fullDNF(clause : Clause)
                      (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(headAtom, body, constraint) = clause
 
         // transform the clause constraint to DNF, and create a separate
         // clause for each disjunct
 
-    val newClauses =
         if (ContainsSymbol isPresburger constraint) p.scope {
           import p._
           addConstantsRaw(SymbolCollector constantsSorted constraint)
@@ -192,19 +167,10 @@ class BooleanClauseSplitter extends HornPreprocessor {
             Clause(headAtom, body, ~conjunct)
           }
         }
-
-    if (addBackMapping) {
-      val indexTree =
-        Tree(-1, (for (n <- 0 until body.size) yield Leaf(n)).toList)
-      for (newClause <- newClauses)
-        clauseBackMapping.put(newClause, (clause, indexTree))
-    }
-
-    newClauses
   }
 
-  private val SPLITTING_TO = 3000
-  private val GLOBAL_SPLITTING_TO = 30000
+  private val SPLITTING_TO = 10000
+  private val GLOBAL_SPLITTING_TO = 120000
 
   private val globalStartTime = System.currentTimeMillis
 
@@ -224,11 +190,7 @@ class BooleanClauseSplitter extends HornPreprocessor {
       Timeout.catchTimeout {
         Timeout.withChecker(checker _) { fullDNF(clause) }
       } {
-        case _ => {
-          val indexTree =
-            Tree(-1, (for (n <- 0 until clause.body.size) yield Leaf(n)).toList)
-          splitWithIntPred(clause, clause, Some(indexTree))._1
-        }
+        case _ => splitWithIntPred(clause)
       }
     } else {
       List(clause)

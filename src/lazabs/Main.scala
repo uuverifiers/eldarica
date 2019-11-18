@@ -72,7 +72,8 @@ class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
-  var generateTrainData=false
+  var extractTemplates=false
+  var extractPredicates=false
   var readHints=false
   var rank=0.0
   var getSMT2=false
@@ -215,7 +216,8 @@ class GlobalParameters extends Cloneable {
     that.threadTimeout = this.threadTimeout //debug
     that.rank = this.rank //debug
     //that.printHints = this.printHints //DEBUG
-    that.generateTrainData=this.generateTrainData//debug
+    that.extractTemplates=this.extractTemplates//debug
+    that.extractPredicates=this.extractPredicates//debug
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
   }
@@ -307,7 +309,8 @@ object Main {
       //case "-r" :: rest => drawRTree = true; arguments(rest)
       case "-f" :: rest => absInFile = true; arguments(rest)
       case "-p" :: rest => prettyPrint = true; arguments(rest)
-      case "-generateTrainData" :: rest => generateTrainData = true; arguments(rest)
+      case "-extractTemplates" :: rest => extractTemplates = true; arguments(rest)
+      case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
@@ -482,7 +485,8 @@ object Main {
           "C/C++/TA front-end:\n" +
           " -arithMode:t\tInteger semantics: math (default), ilp32, lp64, llp64\n" +
           " -pIntermediate\tDump Horn clauses encoding concurrent programs\n"+
-          " -generateTrainData\toutput training data\n"+
+          " -extractTemplates\textract templates training data\n"+
+          " -extractPredicates\textract predicates training data\n"+
           " -absTimeout:time\tset timeout for labeling hints\n"+
           " -rank:n\tuse top n or score above n ranked hints read from file\n"
           )
@@ -603,7 +607,7 @@ object Main {
         println(HornSMTPrinter(clauseSet))
         return
       }
-      if(generateTrainData){
+      if(extractTemplates){
         //do selection
         lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data
@@ -646,17 +650,23 @@ object Main {
         lazabs.horn.concurrency.ReaderMain.printClauses(system)
 
       val smallSystem = system.mergeLocalTransitions
-      if(generateTrainData){
-        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data
-
-        return
-      }
       if (prettyPrint) {
         println
         println("After simplification:")
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
         return
       }
+
+
+      if(extractTemplates){
+        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data by templates
+        return
+      }
+      if(extractPredicates){
+        val predicateGenerator=new lazabs.horn.concurrency.TrainDataGeneratorPredicate(smallSystem,system) //generate train data by predicates
+        return
+      }
+
 
       val result = try {
         Console.withOut(outStream) {

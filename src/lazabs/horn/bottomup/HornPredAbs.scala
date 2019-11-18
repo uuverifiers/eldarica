@@ -30,31 +30,24 @@
 package lazabs.horn.bottomup
 
 import ap.basetypes.IdealInt
-import ap.{Signature, DialogUtil, SimpleAPI, PresburgerTools}
+import ap.{DialogUtil, PresburgerTools, Signature, SimpleAPI}
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
-                      ReducerSettings}
-import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience,
-                  Term, Formula}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
-                               SeqReducerPluginFactory}
-import ap.terfor.preds.{Predicate, Atom}
-import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
+import ap.parameters.{GoalSettings, Param, PreprocessingSettings, ReducerSettings}
+import ap.terfor.{ConstantTerm, Formula, TerForConvenience, Term, TermOrder, VariableTerm}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction, SeqReducerPluginFactory}
+import ap.terfor.preds.{Atom, Predicate}
+import ap.terfor.substitutions.{ConstantSubst, VariableShiftSubst, VariableSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.util.{Seqs, Timeout}
 import ap.theories.{Theory, TheoryCollector}
-import ap.types.{TypeTheory, Sort, MonoSortedPredicate, IntToTermTranslator}
+import ap.types.{IntToTermTranslator, MonoSortedPredicate, Sort, TypeTheory}
 import SimpleAPI.ProverStatus
-
-import lazabs.prover.{Tree, Leaf}
+import lazabs.prover.{Leaf, Tree}
 import Util._
 import DisjInterpolator._
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 LinkedHashSet, LinkedHashMap,
-                                 ArrayBuffer, Queue, PriorityQueue,
-                                 ArrayBuilder, ArrayStack}
+import scala.collection.mutable.{ArrayBuffer, ArrayBuilder, ArrayStack, LinkedHashMap, LinkedHashSet, PriorityQueue, Queue, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.{Random, Sorting}
 
 object HornPredAbs {
@@ -525,6 +518,7 @@ object HornPredAbs {
 
   val MaxNOr = 5
 
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -536,7 +530,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                                        Either[Seq[(Predicate, Seq[Conjunction])],
                                               Dag[(IAtom, HornPredAbs.NormClause)]],
                   counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
-                                           HornPredAbs.CounterexampleMethod.FirstBestShortest) {
+                                           HornPredAbs.CounterexampleMethod.FirstBestShortest,
+                 predicateFlag:Boolean =true) {
   
   import HornPredAbs._
 
@@ -595,13 +590,13 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     (for (c <- iClauses.iterator;
           lit <- (Iterator single c.head) ++ c.body.iterator;
           p = lit.predicate)
-     yield (p -> RelationSymbol(p))).toMap
+     yield (p -> RelationSymbol(p))).toMap //relationSymbols:Map[Predicate]
 
   // make sure that arguments constants have been instantiated
   for (c <- iClauses) {
     val preds = for (lit <- c.head :: c.body.toList) yield lit.predicate
     for (p <- preds.distinct) {
-      val rs = relationSymbols(p)
+      val rs: RelationSymbol = relationSymbols.apply(p)
       for (i <- 0 until (preds count (_ == p)))
         rs arguments i
     }
@@ -641,7 +636,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   for ((num, clauses) <-
         (normClauses groupBy { c => c._1.body.size }).toList sortBy (_._1))
     println("   " + clauses.size + " clauses with " + num + " body literals")
-
   val relationSymbolOccurrences = {
     val relationSymbolOccurrences =
       (for (rs <- relationSymbols.values)
@@ -654,9 +648,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
 
   val predicates =
-    (for (rs <- relationSymbols.values)
+    (for (rs <- relationSymbols.values) //relationSymbols = Map[Predicate -> RelationSymbol(p)]
        yield (rs -> new ArrayBuffer[RelationSymbolPred])).toMap
-  
+
+
   //////////////////////////////////////////////////////////////////////////////
 
   val goalSettings = {
@@ -762,12 +757,19 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   //////////////////////////////////////////////////////////////////////////////
 
   // Initialise with given initial predicates
-  
+
   for ((p, preds) <- initialPredicates) {
-    val rs = relationSymbols(p)
+//    println("p:"+p+" class:"+p.getClass)  //debug
+//    for((key,value)<-relationSymbols){
+//      println("key:"+key+" class:"+key.getClass)
+//      println("value:"+value+" class:"+value.getClass)
+//    }
+    val rs: RelationSymbol = relationSymbols.apply(p) //key not found
+    //println("debug")
+
     for ((f, predIndex) <- preds.iterator.zipWithIndex) {
       val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
-      val (rawF, posF, negF) = rsPredsToInternal(intF)
+      val (rawF, posF, negF) = rsPredsToInternal(intF) // key not found
       val pred = RelationSymbolPred(rawF, posF, negF, rs, predIndex)
       addRelationSymbolPred(pred)
     }
@@ -883,31 +885,38 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                 clauseDag.prettyPrint
               }
             }
-        
             {
               val predStartTime = System.currentTimeMillis
-              val preds = predicateGenerator(clauseDag)
+              val preds = predicateGenerator(clauseDag) //catch exception
               predicateGeneratorTime =
                 predicateGeneratorTime + System.currentTimeMillis - predStartTime
-              preds
-            } match {
-              case Right(trace) => {
-                if (lazabs.GlobalParameters.get.log)
-                  print(" ... failed, counterexample is genuine")
-                val clauseMapping = normClauses.toMap
-                res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
+              preds match {
+                case Right(trace) => {
+                  if (lazabs.GlobalParameters.get.log)
+                    print(" ... failed, counterexample is genuine")
+                  val clauseMapping = normClauses.toMap
+                  res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
+                }
+                case Left(newPredicates) => {
+//                  if (lazabs.GlobalParameters.get.log)
+//                    println(" ... adding predicates:")
+                  if(predicateFlag==true){
+                    println("adding predicates:")
+                    println(preds)
+                    addPredicates(newPredicates)
+                  }else{
+
+                  }
+                }
               }
-              case Left(newPredicates) => {
-                if (lazabs.GlobalParameters.get.log)
-                  println(" ... adding predicates:")
-                addPredicates(newPredicates)
-              }
+
             }
+
           }
         }
       }
     }
-  
+
     if (res == null) {
       assert(nextToProcess.isEmpty)
 
@@ -1664,7 +1673,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       new MHashMap[RelationSymbol, IndexedSeq[RelationSymbolPred]]
 
     for ((p, fors) <- preds) {
-      val rs = relationSymbols(p)
+      val rs: RelationSymbol = relationSymbols.apply(p)
       val subst = VariableSubst(0, rs.arguments.head, sf.order)
       val rsReducer = relationSymbolReducers(rs)
 

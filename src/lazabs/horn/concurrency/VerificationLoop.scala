@@ -33,20 +33,18 @@ import ap.parser._
 import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
-import lazabs.{ParallelComputation, GlobalParameters}
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
-                             HornWrapper}
-import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-                                 LoopDetector, AbstractionRecord,
-                                 VerificationHints}
-
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Predicate
+import lazabs.{GlobalParameters, ParallelComputation}
+import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornWrapper, Util}
+import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.preprocessor.DefaultPreprocessor
-import scala.concurrent.TimeoutException
 
-import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
-                                 ArrayBuffer}
+import scala.concurrent.TimeoutException
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 
 object VerificationLoop {
 
@@ -254,14 +252,6 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
 
 
-
-
-
-
-      println("-------------------Test optimized hints---------------------------------")
-      println("Use hints:")
-      optimizedHints.pretyPrintHints()
-
       ////debug/////
     val predAbsResult = ParallelComputation(params) {
       val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
@@ -272,7 +262,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
             GlobalParameters.get.templateBasedInterpolationType)
         val autoAbstractionMap =
           builder.abstractionRecords
-        
+
         val abstractionMap =
           if (encoder.globalPredicateTemplates.isEmpty) {
             autoAbstractionMap
@@ -297,13 +287,29 @@ class VerificationLoop(system : ParametricEncoder.System) {
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }
 
+      println("-------------------Test optimized hints---------------------------------")
       println
       println(
          "----------------------------------- CEGAR --------------------------------------")
+      if(GlobalParameters.get.templateBasedInterpolation==false){
+//        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+//          Either[Seq[(Predicate, Seq[Conjunction])],
+//            Dag[(IAtom, HornPredAbs.NormClause)]] =
+//          (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+//            throw new RuntimeException("interpolator exception")
 
-      new HornPredAbs(simpClauses,
-        optimizedHints.toInitialPredicates,
-                      interpolator).result
+        new HornPredAbs(simpClauses,
+          Map(),//need Map[Predicate, Seq[IFormula]]
+          interpolator,predicateFlag = false).result
+      }else{
+        println("Use hints:")
+        optimizedHints.pretyPrintHints()
+
+        new HornPredAbs(simpClauses,
+          optimizedHints.toInitialPredicates,//need Map[Predicate, Seq[IFormula]]
+          interpolator).result
+      }
+
     }
 
     ////////////////////////////////////////////////////////////////////////////
