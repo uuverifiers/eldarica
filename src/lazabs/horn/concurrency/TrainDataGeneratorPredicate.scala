@@ -69,6 +69,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     HintsSelection.writeSMTFormatToFile(encoder.allClauses,"regression-tests/smt-graph/")  //write smt2 format to file
     println(encoder.allClauses)
   }
+  //transform initial predicates from CEGAR to initial templates
   val initialPredicates=HintsSelection.getInitialPredicates(encoder,simpHints,simpClauses)
 
   val sortedHints=HintsSelection.sortHints(initialPredicates)
@@ -79,8 +80,71 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
       println(key,value)
     }
-    val selectedHint=HintsSelection.tryAndTestSelectionPredicate(encoder,HintsSelection.sortHints(simpHints),simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    val selectedHint=HintsSelection.tryAndTestSelectionPredicate(encoder,simpHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+//    inv_main8/4
+//    VerifHintInitPred(((_1 + -1 * _0) >= 0))
+//    VerifHintInitPred(((-1 * _2 + _0) >= 0))
+//    VerifHintInitPred(((-1 * _2 + _1) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _0) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _1) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _2) >= 0))
+//    VerifHintInitPred(((-1 + (2 * _2 + (4 * _1 + _0))) = 0))
+//    VerifHintInitPred(((-1 + (2 * _3 + (2 * _2 + (2 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-1 + (4 * _2 + (2 * _1 + _0))) = 0))
+//    VerifHintInitPred(((-1 + (4 * _3 + (4 * _2 + (4 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-13 + (3 * _3 + (3 * _2 + (3 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-21 + (2 * _3 + (2 * _2 + (2 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-25 + (_3 + (_2 + (_1 + _0)))) = 0))
+//    VerifHintInitPred(((-5 + (_3 + (_2 + (_1 + _0)))) = 0))
+//    VerifHintInitPred(((1 + (2 * _3 + (-2 * _1 + -1 * _0))) = 0))
+//    VerifHintInitPred(((1 + (2 * _3 + (-2 * _2 + -1 * _0))) = 0))
+//    VerifHintInitPred(((3 + (_3 + (-1 * _2 + (-3 * _1 + -1 * _0)))) = 0))
+//    VerifHintInitPred(((3 + (_3 + (-3 * _2 + (-1 * _1 + -1 * _0)))) = 0))
+//    VerifHintInitPred(((_2 + -1 * _0) >= 0))
+//    VerifHintInitPred(((_2 + -1 * _1) >= 0))
+//    VerifHintInitPred(((_3 + (-1 * _2 + -1 * _1)) = 0))
+//    VerifHintInitPred(((_3 + -1 * _0) >= 0))
+//    VerifHintInitPred(((_3 + -1 * _1) >= 0))
+//    VerifHintInitPred(((_3 + -1 * _2) >= 0))
+//    VerifHintInitPred(EX ((-3 + (4 * _0 + (3 * _4 + (-1 * _3 + (_2 + -3 * _1))))) = 0))
+//    VerifHintInitPred(EX ((-3 + (4 * _0 + (3 * _4 + (_3 + (-1 * _2 + -3 * _1))))) = 0))
+//    VerifHintInitPred(EX ((1 + (2 * _0 + (-1 * _4 + (_3 + (-1 * _2 + _1))))) = 0))
+
+
     //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID,predicateFlag =false)
+
+//    inv_main8/4
+//    VerifHintInitPred(((-1 * _1 + _0) >= 0))
+//    VerifHintInitPred(((-1 * _2 + _0) >= 0))
+//    VerifHintInitPred(((-1 * _2 + _1) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _0) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _1) >= 0))
+//    VerifHintInitPred(((-1 * _3 + _2) >= 0))
+//    VerifHintInitPred(((-1 + (2 * _2 + (4 * _1 + _0))) = 0))
+//    VerifHintInitPred(((-1 + (2 * _3 + (2 * _2 + (2 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-1 + (4 * _2 + (2 * _1 + _0))) = 0))
+//    VerifHintInitPred(((-1 + (4 * _3 + (4 * _2 + (4 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-13 + (3 * _3 + (3 * _2 + (3 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-21 + (2 * _3 + (2 * _2 + (2 * _1 + _0)))) = 0))
+//    VerifHintInitPred(((-25 + (_3 + (_2 + (_1 + _0)))) = 0))
+//    VerifHintInitPred(((-5 + (_3 + (_2 + (_1 + _0)))) = 0))
+//    VerifHintInitPred(((1 + (2 * _3 + (-2 * _1 + -1 * _0))) = 0))
+//    VerifHintInitPred(((1 + (2 * _3 + (-2 * _2 + -1 * _0))) = 0))
+//    VerifHintInitPred(((3 + (_3 + (-1 * _2 + (-3 * _1 + -1 * _0)))) = 0))
+//    VerifHintInitPred(((3 + (_3 + (-3 * _2 + (-1 * _1 + -1 * _0)))) = 0))
+//    VerifHintInitPred(((_1 + -1 * _0) >= 0))
+//    VerifHintInitPred(((_2 + -1 * _0) >= 0))
+//    VerifHintInitPred(((_2 + -1 * _1) >= 0))
+//    VerifHintInitPred(((_3 + (-1 * _2 + -1 * _1)) = 0))
+//    VerifHintInitPred(((_3 + -1 * _0) >= 0))
+//    VerifHintInitPred(((_3 + -1 * _1) >= 0))
+//    VerifHintInitPred(((_3 + -1 * _2) >= 0))
+//    VerifHintInitPred(EX ((-3 + (4 * _0 + (3 * _4 + (-1 * _3 + (_2 + -3 * _1))))) = 0))
+//    VerifHintInitPred(EX ((-3 + (4 * _0 + (3 * _4 + (_3 + (-1 * _2 + -3 * _1))))) = 0))
+//    VerifHintInitPred(EX ((1 + (2 * _0 + (-1 * _4 + (_3 + (-1 * _2 + _1))))) = 0))
+
+
+
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{

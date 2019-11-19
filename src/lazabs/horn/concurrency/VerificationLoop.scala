@@ -282,7 +282,7 @@ class VerificationLoop(system : ParametricEncoder.System) {
 
         TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
           abstractionMap,
-          GlobalParameters.get.templateBasedInterpolationTimeout)
+          GlobalParameters.get.templateBasedInterpolationTimeout) //if abstract:off still generate hints?
       } else {
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }

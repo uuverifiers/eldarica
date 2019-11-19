@@ -35,10 +35,9 @@ import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
-
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException}
+import lazabs.Main.{StoppedException, TimeoutException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -49,16 +48,13 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.{RelationSymbol}
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-                                 StaticAbstractionBuilder, AbstractionRecord,
-                                 VerificationHints, EmptyVerificationHints}
+import HornPredAbs.RelationSymbol
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.concurrency.ReaderMain
+import lazabs.horn.concurrency.{HintsSelection, ReaderMain}
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashMap}
+import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
 
 object HornWrapper {
@@ -356,6 +352,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
+
+
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
@@ -366,12 +364,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val result = Console.withOut(outStream) {
       println
       println(
-         "----------------------------------- CEGAR --------------------------------------")
+        "----------------------------------- CEGAR --------------------------------------")
 
-       (new HornPredAbs(simplifiedClauses,
-                        simpHints.toInitialPredicates, predGenerator,
-                        counterexampleMethod)).result
+      (new HornPredAbs(simplifiedClauses,
+        simpHints.toInitialPredicates, predGenerator,
+        counterexampleMethod)).result
     }
+
+
 
     result match {
       case Left(res) =>

@@ -35,6 +35,7 @@ import java.io.{File, FileInputStream, FileNotFoundException, InputStream, Print
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
+import lazabs.horn.global.HornClause
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -608,8 +609,18 @@ object Main {
         return
       }
       if(extractTemplates){
+
         //do selection
         lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
+          drawRTree, lbe) //generate train data
+
+
+        return
+      }
+      if(extractPredicates){
+        //do selection
+
+        lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data
 
         return
