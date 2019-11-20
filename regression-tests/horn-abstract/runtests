@@ -8,8 +8,7 @@ TESTS="cousot.correct.nts.smt2 \
        eq.smt2 \
        monniaux-loop1.smt2 monniaux-loop2.smt2 \
        loopDetectorBug.smt2 \
-       loopDetectorBug2.smt2 \
-       palindrome_bv32.smt2"
+       loopDetectorBug2.smt2"
 
 for name in $TESTS; do
     echo
@@ -17,7 +16,7 @@ for name in $TESTS; do
     $LAZABS -abstract -ssol -pngNo "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
-TESTS="listcounter.correct.nts.smt2"
+TESTS="palindrome_bv32.smt2 listcounter.correct.nts.smt2"
 
 for name in $TESTS; do
     echo
