@@ -32,22 +32,139 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
+import ap.parser._
+import ap.theories.ADT
 
-/**
- * Preprocessor that adds explicit size arguments for each predicate
- * argument for a recursive ADT
- */
-object SizeArgumentExtender extends HornPreprocessor {
+import scala.collection.mutable.{HashMap => MHashMap}
+
+
+// Under development ...
+
+
+
+object ADTExpander {
+
+  /**
+   * Interface for adding auxiliary predicate arguments for ADT types
+   */
+  trait Expansion {
+
+    /**
+     * Decide whether to expand an ADT sort should be expanded. In
+     * this case, the method returns sorts of new terms to be added as
+     * arguments, as well as a function that maps the ADT term to the
+     * auxiliary terms.
+     */
+    def expand(sort : ADT.ADTProxySort)
+             : Option[(Seq[IExpression.Sort], ITerm => (Seq[ITerm], IFormula))]
+
+
+//    def expand(argument : ITerm, sort : ADT.ADTProxySort)
+//             : Option[(Seq[(ITerm, IExpression.Sort)], IFormula)]
+
+    protected def getNewSymNumber : Int = {
+      val res = symbolCounter
+      symbolCounter = symbolCounter + 1
+      res
+    }
+
+    private var symbolCounter = 0
+
+  }
+
+  /**
+   * Preprocessor that adds explicit size arguments for each predicate
+   * argument for a recursive ADT
+   */
+  class SizeArgumentAdder extends Expansion {
+
+    import IExpression._
+
+    def expand(sort : ADT.ADTProxySort)
+             : Option[(Seq[IExpression.Sort],
+                       ITerm => (Seq[ITerm], IFormula))] =
+      if (recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
+        val sizefun = sort.adtTheory.termSize(sort.sortNum)
+        def termgen(t : ITerm) : (Seq[ITerm], IFormula) = {
+          val sizeConst = new ConstantTerm ("adt_size_" + getNewSymNumber)
+          val sizeTerm = IConstant(sizeConst)
+          (List(sizeTerm), sizeTerm === sizefun(t))
+        }
+        Some((List(Sort.Integer), termgen _))
+      } else {
+        None
+      }
+
+    private val recursiveADTSorts = new MHashMap[ADT.ADTProxySort, Boolean]
+
+    private def isRecursive(sort : ADT.ADTProxySort) : Boolean =
+      isRecursive(sort.sortNum, List(), sort.adtTheory)
+
+    private def isRecursive(sortNum : Int,
+                            seenSorts : List[Int],
+                            adt : ADT)  : Boolean =
+      if (seenSorts contains sortNum) {
+        true
+      } else {
+        val newSeen = sortNum :: seenSorts
+        (for (ctor <- adt.constructors.iterator;
+              sort <- ctor.argSorts.iterator)
+         yield sort) exists {
+           case sort : ADT.ADTProxySort if sort.adtTheory == adt =>
+             isRecursive(sort.sortNum, newSeen, adt)
+           case _ =>
+             false
+         }
+      }
+
+  }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class ADTExpander(val name : String,
+                  expansion : ADTExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
-
-  val name : String = "adding size arguments"
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
     val predicates = HornClauses allPredicates clauses
     println(predicates)
 
+    for (pred <- predicates) {
+      val sorts = predArgumentSorts(pred)
+      println(pred)
+      println(sorts)
+      val newSorts =
+        for (sort <- sorts;
+             s <-
+               if (sort.isInstanceOf[ADT.ADTProxySort])
+                 (expansion expand sort.asInstanceOf[ADT.ADTProxySort]) match {
+                   case Some((addSorts, arggen)) =>
+                     List(sort) ++ addSorts
+                   case None =>
+                     List(sort)
+                 }
+               else
+                 List(sort))
+        yield s
+      println(newSorts)
+    }
+
     (clauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
   }
+
+//  private def expand(sort : Sort) : List
+
+}
+
+
+/**
+ * Preprocessor that adds explicit size arguments for each predicate
+ * argument for a recursive ADT
+ */
+class SizeArgumentExtender extends ADTExpander("adding size arguments",
+                                               new ADTExpander.SizeArgumentAdder) {
 
 }
