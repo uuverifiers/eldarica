@@ -89,7 +89,8 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       println(key,value)
     }
 
-    val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
+    val selectedHint=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID,true)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{

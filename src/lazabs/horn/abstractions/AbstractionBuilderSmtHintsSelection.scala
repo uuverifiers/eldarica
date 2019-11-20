@@ -259,7 +259,7 @@ class StaticAbstractionBuilderSmtHintsSelection(
       println(key,value)
     }
 
-    val selectedHint=HintsSelection.tryAndTestSelectonSmt(sortedHints,
+    val selectedHint=HintsSelection.tryAndTestSelectionTemplatesSmt(sortedHints,
       clauses,GlobalParameters.get.fileName,InitialHintsWithID,counterexampleMethod,hintsAbstraction)
     optimizedHints=selectedHint
     if(selectedHint.isEmpty){ //when no hint available

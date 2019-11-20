@@ -609,7 +609,6 @@ object Main {
         return
       }
       if(extractTemplates){
-
         //do selection
         lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data
@@ -619,7 +618,6 @@ object Main {
       }
       if(extractPredicates){
         //do selection
-
         lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data
 
