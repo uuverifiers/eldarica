@@ -77,8 +77,8 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     //write selected hints with IDs to file
     val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
     println("---initialHints-----")
-    for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
-      println(key,value)
+    for (wrappedHint<-InitialHintsWithID){
+      println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
     }
     //select predicates directly
     val selectedHint=HintsSelection.tryAndTestSelectionPredicate(encoder,simpHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
@@ -106,7 +106,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
 
       //Output graphs
       val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints)
+      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
     }
 
   }

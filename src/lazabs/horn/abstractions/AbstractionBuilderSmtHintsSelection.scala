@@ -255,8 +255,8 @@ class StaticAbstractionBuilderSmtHintsSelection(
     //write selected hints with IDs to file
     val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
     println("---initialHints-----")
-    for ((key,value)<-ListMap(InitialHintsWithID.toSeq.sortBy(_._1):_*)){
-      println(key,value)
+    for (wrappedHint<-InitialHintsWithID){
+      println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
     }
 
     val selectedHint=HintsSelection.tryAndTestSelectionTemplatesSmt(sortedHints,
@@ -269,7 +269,7 @@ class StaticAbstractionBuilderSmtHintsSelection(
 
       //Output graphs
       val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints)
+      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
 
       //write horn clauses to file
       val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)

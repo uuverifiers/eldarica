@@ -619,7 +619,7 @@ object Main {
       if(extractPredicates){
         //do selection
         lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
-          drawRTree, lbe) //generate train data
+          drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
 
         return
       }

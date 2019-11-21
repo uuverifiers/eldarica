@@ -67,15 +67,15 @@ import lazabs.prover.Tree
 import lazabs.types.Type
 import lazabs.horn.bottomup.Util._
 import HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, StaticAbstractionBuilderSmtHintsSelection, VerificationHints}
+import lazabs.horn.abstractions._
 import AbstractionRecord.AbstractionMap
-import lazabs.horn.abstractions.VerificationHints.VerifHintElement
-import lazabs.horn.concurrency.{GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
-import lazabs.viewer.HornPrinter
+import lazabs.horn.concurrency.HintsSelection.initialIDForHints
+import lazabs.horn.concurrency._
 
 import scala.collection.immutable.ListMap
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
-
+import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
+import lazabs.viewer.HornPrinter
 
 object TrainDataGeneratorPredicatesSmt2 {
   def apply(clauseSet: Seq[HornClause],
@@ -351,8 +351,8 @@ object TrainDataGeneratorPredicatesSmt2 {
           //write selected hints with IDs to file
           val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
           println("---initialHints-----")
-          for ((key, value) <- ListMap(InitialHintsWithID.toSeq.sortBy(_._1): _*)) {
-            println(key, value)
+          for (wrappedHint <- InitialHintsWithID) {
+            println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
           }
 
 //          println("------------test original predicates-------")
@@ -362,8 +362,8 @@ object TrainDataGeneratorPredicatesSmt2 {
 
           //Predicate selection begin
           println("------Predicates selection begin----")
-          var PositiveHintsWithID = Map("initialKey" -> "")
-          var NegativeHintsWithID = Map("initialKey" -> "")
+          var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
+          var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
           var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
           var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
           for ((head, preds) <- originalPredicates) {
@@ -401,11 +401,11 @@ object TrainDataGeneratorPredicatesSmt2 {
                     predGenerator, predicateFlag = false).result
                   //not timeout
                   redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
-                  for ((key, value) <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
-                    val tempkey = key.toString.substring(key.toString.indexOf(":") + 1, key.toString.length)
-                    val pVerifHintInitPred = "VerifHintInitPred(" + p.toString + ")"
-                    if (head.name.toString == tempkey && value.toString == pVerifHintInitPred) {
-                      NegativeHintsWithID ++= Map(key -> value)
+                  //add useless hint to NegativeHintsWithID   //ID:head->hint
+                  for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
+                    val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+                    if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                      NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                     }
                   }
                 }
@@ -416,12 +416,11 @@ object TrainDataGeneratorPredicatesSmt2 {
                   //add deleted predicate back to curren predicate
                   currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
                   currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq ++ Seq(p))) //add the head with deleted predicate
-                  //
-                  for ((key, value) <- InitialHintsWithID) { //add useful hint to PositiveHintsWithID
-                    val tempkey = key.toString.substring(key.toString.indexOf(":") + 1, key.toString.length)
-                    val pVerifHintInitPred = "VerifHintInitPred(" + p.toString + ")"
-                    if (head.name.toString() == tempkey && value.toString == pVerifHintInitPred) {
-                      PositiveHintsWithID ++= Map(key -> value)
+                  //add useful hint to PositiveHintsWithID
+                  for(wrappedHint<-InitialHintsWithID){
+                    val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+                    if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                      PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                     }
                   }
                 }
@@ -465,8 +464,20 @@ object TrainDataGeneratorPredicatesSmt2 {
           } else {
             //only write to file when optimized hint is not empty
             HintsSelection.writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
-            HintsSelection.writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
-            HintsSelection.writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
+
+            val writerPositive = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
+            for(wrappedHint<-PositiveHintsWithID){
+              writerPositive.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+            }
+            writerPositive.close()
+
+            val writerNegative = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
+            for(wrappedHint<-NegativeHintsWithID){
+              writerNegative.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+            }
+            writerNegative.close()
+//            HintsSelection.writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
+//            HintsSelection.writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
           }
 
           //clauses:Seq[HornClauses.Clause],clauseSet: Seq[HornClause]
@@ -480,7 +491,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
             //Output graphs
             val hornGraph = new GraphTranslator(simplifiedClauses, GlobalParameters.get.fileName)
-            val hintGraph= new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints)
+            val hintGraph= new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
 
             //write horn clauses to file
             val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)

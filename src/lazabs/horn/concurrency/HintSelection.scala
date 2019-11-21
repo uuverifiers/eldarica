@@ -44,6 +44,17 @@ import java.lang.System.currentTimeMillis
 import lazabs.Main
 
 import lazabs.horn.concurrency.GraphTranslator
+class wrappedHintWithID{
+  var ID:Int=0
+  var head:String=""
+  var hint:String=""
+  def this(ID : Int,head:String,hint:String) = {
+    this();
+    this.ID = ID;
+    this.head = head;
+    this.hint = hint;
+  }
+}
 
 object HintsSelection{
   def sortHints(hints:VerificationHints): VerificationHints ={
@@ -57,7 +68,10 @@ object HintsSelection{
     return tempHints
   }
 
-  def writeHornAndGraphToFiles(selectedHints:VerificationHints, sortedHints:VerificationHints, clauses:HornPreprocessor.Clauses, clauseSet: Seq[HornClause])={
+  def writeHornAndGraphToFiles(selectedHints:VerificationHints,
+                               sortedHints:VerificationHints,
+                               clauses:HornPreprocessor.Clauses,
+                               clauseSet: Seq[HornClause],wrappedHintList:Seq[wrappedHintWithID])={
     if(selectedHints.isEmpty){ //when no hint available
       println("No hints selected (no need for hints)")
       //not write horn clauses to file
@@ -65,7 +79,7 @@ object HintsSelection{
 
       //Output graphs
       val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints)
+      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints,wrappedHintList)
 
       //write horn clauses to file
       val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
@@ -173,7 +187,7 @@ object HintsSelection{
 
 
   def tryAndTestSelectionPredicate(encoder:ParametricEncoder,simpHints:VerificationHints,
-                                   simpClauses:Clauses,file:String,InitialHintsWithID:Map[String,String]):VerificationHints = {
+                                   simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID]):VerificationHints = {
 
     val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
       Console.withErr(Console.out) {
@@ -256,8 +270,8 @@ object HintsSelection{
 
       //Predicate selection begin
       println("------Predicates selection begin----")
-      var PositiveHintsWithID=Map("initialKey"->"")
-      var NegativeHintsWithID=Map("initialKey"->"")
+      var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
+      var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
       var optimizedPredicate:Map[Predicate, Seq[IFormula]]=Map()
       var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
       for ((head, preds) <- originalPredicates) {
@@ -325,11 +339,10 @@ object HintsSelection{
               //not timeout
               println("add redundant predicate",p.toString)
               redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
-              for ((key, value) <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
-                val tempkey = key.toString.substring(key.toString.indexOf(":") + 1, key.toString.length)
+              for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if (head.name.toString == tempkey && value.toString == pVerifHintInitPred) {
-                  NegativeHintsWithID ++= Map(key -> value)
+                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                 }
               }
             }
@@ -342,11 +355,10 @@ object HintsSelection{
               currentPredicate = currentPredicate.filterKeys(_!=head) //delete original head
               currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq++Seq(p))) //add the head with deleted predicate
               //
-              for((key,value)<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString.length)
+              for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if(head.name.toString()==tempkey && value.toString==pVerifHintInitPred){
-                  PositiveHintsWithID++= Map(key->value)
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
             }
@@ -401,7 +413,7 @@ object HintsSelection{
 
 
   def tryAndTestSelectionTemplates(encoder:ParametricEncoder,simpHints:VerificationHints,
-                         simpClauses:Clauses,file:String,InitialHintsWithID:Map[String,String],
+                         simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID],
                          predicateFlag:Boolean =true):VerificationHints = {
 
 
@@ -409,8 +421,8 @@ object HintsSelection{
     val timeOut=GlobalParameters.get.threadTimeout //timeout
     var currentTemplates = simpHints
     var optimizedTemplates=VerificationHints(Map())
-    var PositiveHintsWithID=Map("initialKey"->"")
-    var NegativeHintsWithID=Map("initialKey"->"")
+    var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
+    var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
 
     println("-------------------------Hints selection begins------------------------------------------")
     if(simpHints.isEmpty){return simpHints}else{
@@ -482,10 +494,10 @@ object HintsSelection{
               println("Delete a redundant hint:\n" + head + "\n" + p)
               redundantTemplatesSeq = redundantTemplatesSeq ++ Seq(p)
 
-              for ((key, value) <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID
-                val tempkey = key.toString.substring(key.toString.indexOf(":") + 1, key.toString.length)
-                if (head.name.toString == tempkey && value.toString == p.toString) {
-                  NegativeHintsWithID ++= Map(key -> value)
+              for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
+                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                 }
               }
 
@@ -500,10 +512,11 @@ object HintsSelection{
               currentTemplates=currentTemplates.filterNotPredicates(Set(head))
               //currentTemplates=currentTemplates.filterPredicates(GSet(oneHintKey))
               currentTemplates=currentTemplates.addPredicateHints(Map(head->(currentTemplatesList++Seq(p)))) //beforeDeleteHints
-              for((key,value)<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString.length)
-                if(head.name.toString()==tempkey && value.toString==p.toString){
-                  PositiveHintsWithID++= Map(key->value)
+
+              for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
+                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
 
@@ -549,7 +562,7 @@ object HintsSelection{
 
 
 
-  def tryAndTestSelectionTemplatesSmt(simpHints:VerificationHints,simpClauses:Clauses,file:String,InitialHintsWithID:Map[String,String],
+  def tryAndTestSelectionTemplatesSmt(simpHints:VerificationHints,simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID],
                             counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
                             HornPredAbs.CounterexampleMethod.FirstBestShortest,
                             hintsAbstraction : AbstractionMap
@@ -561,8 +574,8 @@ object HintsSelection{
     var currentTemplates = simpHints
     var optimizedHints=VerificationHints(Map()) // store final selected heads and hints
     //val InitialHintsWithID=initialIDForHints(simpHints)
-    var PositiveHintsWithID=Map("initialKey"->"")
-    var NegativeHintsWithID=Map("initialKey"->"")
+    var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
+    var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
 
     if(simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation==false) {
       println("simpHints is empty or abstract:off")
@@ -634,11 +647,11 @@ object HintsSelection{
               // not timeout ...
               println("Delete a redundant hint:\n" + head + "\n" + oneHint)
               redundantHintsList = redundantHintsList ++ Seq(oneHint)
-
-              for ((key, value) <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID
-                val tempkey = key.toString.substring(key.toString.indexOf(":") + 1, key.toString.length)
-                if (head.name.toString == tempkey && value.toString == oneHint.toString) {
-                  NegativeHintsWithID ++= Map(key -> value)
+              //add useless hint to NegativeHintsWithID   //ID:head->hint
+              for (wrappedHint <- InitialHintsWithID) {
+                val pVerifHintInitPred="VerifHintInitPred("+oneHint.toString+")"
+                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                 }
               }
 
@@ -652,10 +665,11 @@ object HintsSelection{
               currentHintsList=currentHintsList++Seq(oneHint)
               currentTemplates=currentTemplates.filterNotPredicates(Set(head))
               currentTemplates=currentTemplates.addPredicateHints(Map(head->currentHintsList))
-              for((key,value)<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val tempkey=key.toString.substring(key.toString.indexOf(":")+1,key.toString.length)
-                if(head.name.toString()==tempkey && value.toString==oneHint.toString){
-                  PositiveHintsWithID++= Map(key->value)
+              //add useful hint to PositiveHintsWithID
+              for(wrappedHint<-InitialHintsWithID){
+                val pVerifHintInitPred="VerifHintInitPred("+oneHint.toString+")"
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
           }
@@ -700,52 +714,54 @@ object HintsSelection{
   }
 
 
-  def writeHintsWithIDToFile(hints:Map[String,String],fileName:String,hintType:String){
-    val tempHints=hints-"initialKey"
+  def writeHintsWithIDToFile(wrappedHintList:Seq[wrappedHintWithID],fileName:String,hintType:String){
     if(hintType=="initial"){
       //val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
       val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
-      for((key,value)<-tempHints){
-        writer.write(key+":"+value+"\n")
+      for(wrappedHint<-wrappedHintList){
+        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
       }
       writer.close()
     }
     if(hintType=="positive"){
       //val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
       val writer = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
-      for((key,value)<-tempHints){
-        writer.write(key+":"+value+"\n")
+      for(wrappedHint<-wrappedHintList){
+        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
       }
       writer.close()
     }
     if(hintType=="negative"){
       //val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
       val writer = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
-      for((key,value)<-tempHints){
-        writer.write(key+":"+value+"\n")
+      for(wrappedHint<-wrappedHintList){
+        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
       }
+//      for((key,value)<-tempHints){
+//        writer.write(key+":"+value+"\n")
+//      }
       writer.close()
     }
 
   }
 
-  def initialIDForHints(simpHints:VerificationHints): Map[String,String] ={
+  def initialIDForHints(simpHints:VerificationHints): Seq[wrappedHintWithID] ={
     //var HintsIDMap=Map("initialKey"->"")
+    var wrappedHintsList:Seq[wrappedHintWithID]=Seq()
     var HintsIDMap:Map[String,String]=Map()
     var counter=0
 
     for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
-      val temphead=head.toString().substring(0,head.toString().lastIndexOf("/")) //delete /number after main
-
-
       for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
-        HintsIDMap ++= Map(counter.toString+":"+temphead.toString()->oneHint.toString) //map(ID:head->hint)
+        HintsIDMap ++= Map(counter.toString+":"+head.name.toString()->oneHint.toString) //map(ID:head->hint)
         counter=counter+1
+        val oneWrappedHint=new wrappedHintWithID(counter,head.name.toString,oneHint.toString)
+        wrappedHintsList=wrappedHintsList++Seq(oneWrappedHint)
       }
     }
     //HintsIDMap=HintsIDMap-"initialKey"
 
-    return HintsIDMap
+    return wrappedHintsList
 
   }
 

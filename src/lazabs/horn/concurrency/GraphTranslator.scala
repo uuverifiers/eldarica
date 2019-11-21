@@ -43,45 +43,45 @@ class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
   writer.close()
 }
 
-class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hints:VerificationHints) {
+class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
+                           file:String,hints:VerificationHints,
+                           InitialHintsWithID:Seq[wrappedHintWithID]) {
   var nodeCount:Int=0
   var root=new TreeNode
   var logString:String="" //store node information
+
+  //create fileName.hints.graphs directory
+  val fileName=file.substring(file.lastIndexOf("/")+1)
+  //val pathName= "graphs/"+fileName+".hints.graphs"+"/"
+  val pathName= "../graphs/"+fileName+".hints.graphs"+"/" //python path
+  //val hintFileName=head.name.toString()+":"+oneHint.toString()+".gv"
+  val hintFile = new File(pathName)
+  hintFile.mkdir() //create fileName.hints.graphs directory
+
   println("---graph translator (hints)---")
-  for((head,templateList)<-hints.getPredicateHints()) { //loop for head
-    //println(head)
-    for(oneHint <- templateList){ //loop for every template in the head
+  for(wrappedHint<-InitialHintsWithID) {
 
-      //println(oneHint)
-      val category=oneHint.toString.take(oneHint.toString.indexOf("("))
+    val category=wrappedHint.hint.take(wrappedHint.hint.indexOf("("))
 
-
-
-      //write graphviz form to .gv file
-      val fileName=file.substring(file.lastIndexOf("/")+1)
-      //val pathName= "graphs/"+fileName+".hints.graphs"+"/"
-      val pathName= "../graphs/"+fileName+".hints.graphs"+"/" //python path
-      val hintFileName=head.name.toString()+":"+oneHint.toString()+".gv"
-      val hintFile = new File(pathName)
-      hintFile.mkdir() //create fileName.hints.graphs directory
+    //write graphviz form to .gv file
+    val writer = new PrintWriter(new FileWriter(pathName+wrappedHint.ID.toString+".gv")) //create ID.gv file
+//    writer.write(wrappedHint.head+":"+wrappedHint.hint+"\n")
+//    writer.write("@@@"+"\n")
+    writer.write("digraph dag {"+"\n")
 
 
-      val writer = new PrintWriter(new FileWriter(pathName+hintFileName)) //create location:template.gv file
-      writer.write("digraph dag {"+"\n")
+    //root=new TreeNode
+    var rootMark=root
 
-
-      //root=new TreeNode
-      var rootMark=root
-
-      root.data=Map(nodeCount ->head.toString()) //first node is template head
-      //println(nodeCount + " [label=\""+ head.toString() +"\"];")
-      logString=logString+(nodeCount + " [label=\""+ head.name.toString() +"\"];"+"\n")
-      nodeCount=nodeCount+1
-      root.lchild = new TreeNode(Map(nodeCount->category.toString())) //second node is template category
-      //println(nodeCount + " [label=\""+ category.toString() +"\"];")
-      logString=logString+(nodeCount + " [label=\""+ category.toString() +"\"];"+"\n")
-      nodeCount=nodeCount+1
-      root=root.lchild
+    root.data=Map(nodeCount ->wrappedHint.head) //first node is template head
+    //println(nodeCount + " [label=\""+ head.toString() +"\"];")
+    logString=logString+(nodeCount + " [label=\""+ wrappedHint.head +"\"];"+"\n")
+    nodeCount=nodeCount+1
+    root.lchild = new TreeNode(Map(nodeCount->category.toString())) //second node is template category
+    //println(nodeCount + " [label=\""+ category.toString() +"\"];")
+    logString=logString+(nodeCount + " [label=\""+ category.toString() +"\"];"+"\n")
+    nodeCount=nodeCount+1
+    root=root.lchild
 
 
 
@@ -90,24 +90,31 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],file:String,hin
 //      writer.write("1 [label=\""+category+"\"];"+"\n")//second node is hint's category
 //      writer.write("0->1"+"\n")
 //      writer.write("}"+"\n")
-      translateHint(oneHint,root)
-      nodeCount=0
-      root=new TreeNode
-
-
-      //println("Tree:")
-      BinarySearchTree.preOrder(rootMark)
-      logString=logString+BinarySearchTree.relationString
-      BinarySearchTree.relationString=""
-
-      writer.write(logString)
-      writer.write("}"+"\n")
-      logString=""
-
-      writer.close()
-
-
+    for((head,hintList)<-hints.getPredicateHints()){
+      for(oneHint<-hintList){
+        if(head.name.toString==wrappedHint.head && oneHint.toString==wrappedHint.hint){
+          translateHint(oneHint,root)
+        }
+      }
     }
+    //translateHint(oneHint,root)
+    nodeCount=0
+    root=new TreeNode
+
+
+    //println("Tree:")
+    BinarySearchTree.preOrder(rootMark)
+    logString=logString+BinarySearchTree.relationString
+    BinarySearchTree.relationString=""
+
+    writer.write(logString)
+    writer.write("}"+"\n")
+    logString=""
+
+    writer.close()
+
+
+
   }
 
   def translateHint(h:VerifHintElement,root:TreeNode):Unit= h match{
