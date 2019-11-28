@@ -292,15 +292,16 @@ class VerificationLoop(system : ParametricEncoder.System) {
       println(
          "----------------------------------- CEGAR --------------------------------------")
       if(GlobalParameters.get.templateBasedInterpolation==false){
-//        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
-//          Either[Seq[(Predicate, Seq[Conjunction])],
-//            Dag[(IAtom, HornPredAbs.NormClause)]] =
-//          (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
-//            throw new RuntimeException("interpolator exception")
+        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+          Either[Seq[(Predicate, Seq[Conjunction])],
+            Dag[(IAtom, HornPredAbs.NormClause)]] =
+          (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+            //throw new RuntimeException("interpolator exception")
+            throw lazabs.Main.TimeoutException
 
         new HornPredAbs(simpClauses,
           Map(),//need Map[Predicate, Seq[IFormula]]
-          interpolator,predicateFlag = false).result
+          exceptionalPredGen).result
       }else{
         println("Use hints:")
         optimizedHints.pretyPrintHints()

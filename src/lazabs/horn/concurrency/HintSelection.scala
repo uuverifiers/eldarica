@@ -162,7 +162,7 @@ object HintsSelection{
         numberOfpredicates = numberOfpredicates + 1
         varPred
       }
-      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence)
+      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
     }
     //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
     var initialPredicates = VerificationHints(Map())
@@ -227,11 +227,12 @@ object HintsSelection{
     val fileName=file.substring(file.lastIndexOf("/")+1)
     val timeOut = GlobalParameters.get.threadTimeout //timeout
 
-//    val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
-//      Either[Seq[(Predicate, Seq[Conjunction])],
-//        Dag[(IAtom, HornPredAbs.NormClause)]] =
-//      (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
-//        throw new RuntimeException("interpolator exception")
+    val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+      Either[Seq[(Predicate, Seq[Conjunction])],
+        Dag[(IAtom, HornPredAbs.NormClause)]] =
+      (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+        //throw new RuntimeException("interpolator exception")
+        throw lazabs.Main.TimeoutException
 
     println("extract original predicates")
     val cegar = new HornPredAbs(simpClauses,
@@ -244,12 +245,10 @@ object HintsSelection{
     }else{
       var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
 
-      //show original predicates
-      var numberOfpredicates = 0
+      //show LastPredicate
       println("Original predicates:")
       for ((head, preds) <- LastPredicate) {
         // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-        println("key:" + head.pred)
         val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
         //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
         val predicateSequence = for (p <- preds) yield {
@@ -257,16 +256,10 @@ object HintsSelection{
           //println("value:"+simplifiedPredicate)
           val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
           println("value:" + varPred)
-          numberOfpredicates = numberOfpredicates + 1
           varPred
         }
-        originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence)
+        originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
       }
-
-      //    println("------------test original predicates-------")
-      //    new HornPredAbs(simpClauses,
-      //      originalPredicates,//need Map[Predicate, Seq[IFormula]]
-      //      interpolator,predicateFlag=false).result
 
       //Predicate selection begin
       println("------Predicates selection begin----")
@@ -335,14 +328,15 @@ object HintsSelection{
 
               new HornPredAbs(simpClauses, // loop
                 currentPredicate, //emptyHints currentPredicate CurrentTemplates
-                interpolator, predicateFlag = false).result
+                exceptionalPredGen).result
               //not timeout
               println("add redundant predicate",p.toString)
               redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
-              for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
+              //add useless hint to NegativeHintsWithID   //ID:head->hint
+              for (wrappedHint <- InitialHintsWithID) {
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
-                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
+                if (wrappedHint.head==head.name.toString && wrappedHint.hint.contains(p.toString)) {
+                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint) //some redundancy
                 }
               }
             }
@@ -357,7 +351,7 @@ object HintsSelection{
               //
               for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint.contains(p.toString)){
                   PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -372,6 +366,8 @@ object HintsSelection{
         println("critical predicates:", criticalPredicatesSeq.toString())
         println("redundant predicates", redundantPredicatesSeq.toString())
       }
+
+
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       var selectedTemplates=VerificationHints(Map())
       for ((head,preds)<-optimizedPredicate) {
@@ -394,7 +390,7 @@ object HintsSelection{
       println("\n------------test selected predicates-------------------------")
       val test=new HornPredAbs(simpClauses, // loop
         selectedTemplates.toInitialPredicates, //emptyHints
-        interpolator, predicateFlag = false).result
+        exceptionalPredGen).result
       println("-----------------test finished-----------------------")
 
       if(selectedTemplates.isEmpty){
@@ -488,15 +484,14 @@ object HintsSelection{
 
               new HornPredAbs(simpClauses, // loop
                 currentTemplates.toInitialPredicates, //emptyHints
-                interpolator,predicateFlag=predicateFlag).result
+                interpolator).result
 
               // not timeout ...
               println("Delete a redundant hint:\n" + head + "\n" + p)
               redundantTemplatesSeq = redundantTemplatesSeq ++ Seq(p)
 
               for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
-                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                if (head.name.toString == wrappedHint.head && wrappedHint.hint == p.toString) {
                   NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -514,8 +509,7 @@ object HintsSelection{
               currentTemplates=currentTemplates.addPredicateHints(Map(head->(currentTemplatesList++Seq(p)))) //beforeDeleteHints
 
               for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==p.toString){
                   PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -649,8 +643,7 @@ object HintsSelection{
               redundantHintsList = redundantHintsList ++ Seq(oneHint)
               //add useless hint to NegativeHintsWithID   //ID:head->hint
               for (wrappedHint <- InitialHintsWithID) {
-                val pVerifHintInitPred="VerifHintInitPred("+oneHint.toString+")"
-                if (head.name.toString == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                if (head.name.toString == wrappedHint.head && wrappedHint.hint == oneHint.toString) {
                   NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -667,8 +660,7 @@ object HintsSelection{
               currentTemplates=currentTemplates.addPredicateHints(Map(head->currentHintsList))
               //add useful hint to PositiveHintsWithID
               for(wrappedHint<-InitialHintsWithID){
-                val pVerifHintInitPred="VerifHintInitPred("+oneHint.toString+")"
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==oneHint.toString){
                   PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -715,6 +707,7 @@ object HintsSelection{
 
 
   def writeHintsWithIDToFile(wrappedHintList:Seq[wrappedHintWithID],fileName:String,hintType:String){
+    val distinctWrappedHintList=wrappedHintList.distinct
     if(hintType=="initial"){
       //val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
       val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
@@ -737,9 +730,6 @@ object HintsSelection{
       for(wrappedHint<-wrappedHintList){
         writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
       }
-//      for((key,value)<-tempHints){
-//        writer.write(key+":"+value+"\n")
-//      }
       writer.close()
     }
 

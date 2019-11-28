@@ -530,8 +530,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                                        Either[Seq[(Predicate, Seq[Conjunction])],
                                               Dag[(IAtom, HornPredAbs.NormClause)]],
                   counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
-                                           HornPredAbs.CounterexampleMethod.FirstBestShortest,
-                 predicateFlag:Boolean =true) {
+                                           HornPredAbs.CounterexampleMethod.FirstBestShortest) {
   
   import HornPredAbs._
 
@@ -877,7 +876,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
             iterationNum = iterationNum + 1
 
             if (lazabs.GlobalParameters.get.log) {
-    	      println
+              println
               print("Found counterexample #" + iterationNum + ", refining ... ")
 
               if (lazabs.GlobalParameters.get.logCEX) {
@@ -885,33 +884,26 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                 clauseDag.prettyPrint
               }
             }
+
             {
               val predStartTime = System.currentTimeMillis
-              val preds = predicateGenerator(clauseDag) //catch exception
+              val preds = predicateGenerator(clauseDag)
               predicateGeneratorTime =
                 predicateGeneratorTime + System.currentTimeMillis - predStartTime
-              preds match {
-                case Right(trace) => {
-                  if (lazabs.GlobalParameters.get.log)
-                    print(" ... failed, counterexample is genuine")
-                  val clauseMapping = normClauses.toMap
-                  res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
-                }
-                case Left(newPredicates) => {
-//                  if (lazabs.GlobalParameters.get.log)
-//                    println(" ... adding predicates:")
-                  if(predicateFlag==true){
-                    println("adding predicates:")
-                    println(preds)
-                    addPredicates(newPredicates)
-                  }else{
-
-                  }
-                }
+              preds
+            } match {
+              case Right(trace) => {
+                if (lazabs.GlobalParameters.get.log)
+                  print(" ... failed, counterexample is genuine")
+                val clauseMapping = normClauses.toMap
+                res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
               }
-
+              case Left(newPredicates) => {
+                if (lazabs.GlobalParameters.get.log)
+                  println(" ... adding predicates:")
+                addPredicates(newPredicates)
+              }
             }
-
           }
         }
       }

@@ -69,12 +69,14 @@ import lazabs.horn.bottomup.Util._
 import HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions._
 import AbstractionRecord.AbstractionMap
+import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.concurrency._
 
 import scala.collection.immutable.ListMap
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.viewer.HornPrinter
 
 object TrainDataGeneratorPredicatesSmt2 {
@@ -332,7 +334,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             numberOfpredicates = numberOfpredicates + 1
             varPred
           }
-          originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence)
+          originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
         }
 
 
@@ -362,6 +364,13 @@ object TrainDataGeneratorPredicatesSmt2 {
 
           //Predicate selection begin
           println("------Predicates selection begin----")
+          val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+            Either[Seq[(Predicate, Seq[Conjunction])],
+              Dag[(IAtom, HornPredAbs.NormClause)]] =
+            (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+              //throw new RuntimeException("interpolator exception")
+              throw lazabs.Main.TimeoutException
+
           var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
           var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
           var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
@@ -398,7 +407,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
                   new HornPredAbs(simplifiedClauses, // loop
                     currentPredicate, //emptyHints
-                    predGenerator, predicateFlag = false).result
+                    exceptionalPredGen).result
                   //not timeout
                   redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
                   //add useless hint to NegativeHintsWithID   //ID:head->hint
@@ -456,7 +465,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("\n------------test selected predicates-------------------------")
           val test = new HornPredAbs(simplifiedClauses, // loop
             selectedPredicates.toInitialPredicates, //emptyHints
-            predGenerator, predicateFlag = false).result
+            exceptionalPredGen).result
           println("-----------------test finished-----------------------")
 
           if (selectedPredicates.isEmpty) {
