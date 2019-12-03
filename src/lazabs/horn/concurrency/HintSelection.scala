@@ -261,6 +261,24 @@ object HintsSelection{
         originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
       }
 
+//      var initialPredicates = VerificationHints(Map())
+//      for ((head, preds) <- originalPredicates) {
+//        var x: Seq[VerifHintElement] = Seq()
+//        for (p <- preds) {
+//          x = x ++ Seq(VerificationHints.VerifHintInitPred(p))
+//        }
+//        initialPredicates = initialPredicates.addPredicateHints(Map(head -> x))
+//      }
+//
+//      val sortedHints=HintsSelection.sortHints(initialPredicates)
+////      if(sortedHints.isEmpty){}else{
+//        //write selected hints with IDs to file
+//        val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
+//        println("---initialHints-----")
+//        for (wrappedHint<-InitialHintsWithID){
+//          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
+//        }
+
       //Predicate selection begin
       println("------Predicates selection begin----")
       var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
@@ -335,7 +353,7 @@ object HintsSelection{
               //add useless hint to NegativeHintsWithID   //ID:head->hint
               for (wrappedHint <- InitialHintsWithID) {
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if (wrappedHint.head==head.name.toString && wrappedHint.hint.contains(p.toString)) {
+                if (wrappedHint.head==head.name.toString && wrappedHint.hint==pVerifHintInitPred) {
                   NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint) //some redundancy
                 }
               }
@@ -351,7 +369,7 @@ object HintsSelection{
               //
               for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
                 val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint.contains(p.toString)){
+                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
                   PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
                 }
               }
@@ -405,6 +423,7 @@ object HintsSelection{
     }
 
   }
+
 
 
 
@@ -735,25 +754,7 @@ object HintsSelection{
 
   }
 
-  def initialIDForHints(simpHints:VerificationHints): Seq[wrappedHintWithID] ={
-    //var HintsIDMap=Map("initialKey"->"")
-    var wrappedHintsList:Seq[wrappedHintWithID]=Seq()
-    var HintsIDMap:Map[String,String]=Map()
-    var counter=0
 
-    for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
-      for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
-        HintsIDMap ++= Map(counter.toString+":"+head.name.toString()->oneHint.toString) //map(ID:head->hint)
-        counter=counter+1
-        val oneWrappedHint=new wrappedHintWithID(counter,head.name.toString,oneHint.toString)
-        wrappedHintsList=wrappedHintsList++Seq(oneWrappedHint)
-      }
-    }
-    //HintsIDMap=HintsIDMap-"initialKey"
-
-    return wrappedHintsList
-
-  }
 
 
   def neuralNetworkSelection(encoder:ParametricEncoder,simpHints:VerificationHints,simpClauses:Clauses):VerificationHints = {
@@ -1053,10 +1054,28 @@ object HintsSelection{
       }
     }
 
-
-
-
     return readHints
+  }
+
+
+  def initialIDForHints(simpHints:VerificationHints): Seq[wrappedHintWithID] ={
+    //var HintsIDMap=Map("initialKey"->"")
+    var wrappedHintsList:Seq[wrappedHintWithID]=Seq()
+    var HintsIDMap:Map[String,String]=Map()
+    var counter=0
+
+    for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
+      for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
+        HintsIDMap ++= Map(counter.toString+":"+head.name.toString()->oneHint.toString) //map(ID:head->hint)
+        counter=counter+1
+        val oneWrappedHint=new wrappedHintWithID(counter,head.name.toString,oneHint.toString)
+        wrappedHintsList=wrappedHintsList++Seq(oneWrappedHint)
+      }
+    }
+    //HintsIDMap=HintsIDMap-"initialKey"
+
+    return wrappedHintsList
+
   }
 
   def writeHornClausesToFile(system : ParametricEncoder.System,file:String): Unit ={
