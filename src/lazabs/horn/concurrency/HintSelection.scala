@@ -1203,8 +1203,20 @@ object HintsSelection{
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
       writer.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
     }
+    writer.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n")
+    writer.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n")
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
     var ControlFowHyperEdgeIndex=0
+    var edgeNameMap:Map[String,String]=Map()
+    edgeNameMap+= ("controlFlowIn"->"control flow in")
+    edgeNameMap+= ("controlFlowOut"->"control flow out")
+    var edgeNameSwitch=false
+    if(edgeNameSwitch==false){
+      for(key<-edgeNameMap.keys){
+        edgeNameMap+= (key->"")
+        //edgeNameMap updated (key, " ")
+      }
+    }
     for (Clause(IAtom(phead, _), body, _) <- simpClauses;
          //if phead != HornClauses.FALSE;
          IAtom(pbody, _) <- body) {
@@ -1215,16 +1227,16 @@ object HintsSelection{
         ControlFowHyperEdgeList+=currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
         writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
-        writer.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n")
-        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + "False" +"\n")
+
+        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + "False" +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
       }else{//normal control flow
         val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,phead.name,ControlFowHyperEdgeIndex)
         ControlFowHyperEdgeList+=currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
         writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
-        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name+"\n")
+        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name+"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
       }
     }
     for (Clause(IAtom(phead, _), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow
@@ -1233,9 +1245,9 @@ object HintsSelection{
         ControlFowHyperEdgeList += currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
         writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
-        writer.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n")
-        writer.write("Initial" + " -> " + currentControlFowHyperEdge.name + "\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name + "\n")
+
+        writer.write("Initial" + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]" +"\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name + "[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
       }
     }
     writer.write("}"+"\n")
