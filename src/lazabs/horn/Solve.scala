@@ -33,8 +33,10 @@ package lazabs.horn
 import lazabs.ast.ASTree._
 import global._
 import bottomup._
-import bottomup.HornPredAbs.{RelationSymbol}
-import abstractions.{AbsLattice}
+import bottomup.HornPredAbs.RelationSymbol
+import abstractions.AbsLattice
+import lazabs.GlobalParameters
+import lazabs.horn.concurrency.HintsSelection
 
 object Solve {
   def apply(clauseSet: Seq[HornClause], 
@@ -43,6 +45,7 @@ object Solve {
             disjunctive : Boolean, 
             drawRTree: Boolean, 
             lbe: Boolean) = {
+
 
     val log = lazabs.GlobalParameters.get.log
 

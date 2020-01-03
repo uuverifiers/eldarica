@@ -10,7 +10,7 @@ import lazabs.horn.concurrency.ParametricEncoder.{Infinite, Singleton}
 
 import scala.collection.immutable.ListMap
 import scala.io.Source
-import scala.collection.mutable.{ArrayBuffer, Seq}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, ListBuffer, Seq, HashMap => MHashMap, HashSet => MHashSet}
 import java.io.{File, FileWriter, PrintWriter}
 import java.lang.System.currentTimeMillis
 
@@ -29,9 +29,8 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import lazabs.viewer.HornPrinter
 import ap.parser._
 import IExpression._
+
 import scala.collection.{Set => GSet}
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-  LinkedHashSet, ArrayBuffer}
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
 
@@ -41,8 +40,9 @@ import scala.util.control.Breaks._
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.lang.System.currentTimeMillis
 
+import ap.basetypes.IdealInt
 import lazabs.Main
-
+import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.GraphTranslator
 class wrappedHintWithID{
   var ID:Int=0
@@ -1077,41 +1077,200 @@ object HintsSelection{
     return wrappedHintsList
 
   }
-
-  def writeHornClausesToFile(system : ParametricEncoder.System,file:String): Unit ={
+  //import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+  def writeHornClausesToFile(file:String, simpClauses:Clauses): Unit ={
     println("Write horn to file")
     //println(file.substring(file.lastIndexOf("/")+1))
     val fileName=file.substring(file.lastIndexOf("/")+1)
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
     val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
-    for ((p, r) <- system.processes) {
-      r match {
-        case ParametricEncoder.Singleton =>
-        case ParametricEncoder.Infinite =>
-          println("  Replicated thread:")
+
+    //write dataflow
+
+    import IExpression._
+
+
+
+    for (clause<-simpClauses){
+      writer.write("-------------"+"\n")
+      writer.write(clause.toPrologString+"\n")
+
+      //args in head
+      val argsInHead=for (arg<-clause.head.args)yield {
+        arg.toString}
+      //args in body
+      var argsInBodyTemp= new ListBuffer[String]
+      if(!clause.body.isEmpty){
+        for(arg<-clause.body.head.args){
+          argsInBodyTemp += arg.toString()
+        }
       }
-      for ((c, sync) <- p) {
-        val prefix = "    " + c.toPrologString
-        //print(prefix + (" " * ((50 - prefix.size) max 2)))
-        writer.write(prefix + (" " * ((50 - prefix.size) max 2))+"\n")
-//        sync match {
-//          case ParametricEncoder.Send(chan) =>
-//            println("chan_send(" + chan + ")")
-//          case ParametricEncoder.Receive(chan) =>
-//            println("chan_receive(" + chan + ")")
-//          case ParametricEncoder.NoSync =>
-//            println
-//        }
+
+      val argsInBody=for(arg<-argsInBodyTemp) yield arg.toString
+
+
+      //clause.constants.toList.filterNot(arg => argsInHead.toList.contains(arg.toString()))
+        //for (constant<-clause.constants)yield {
+        //if(!argsInHead.exists(arg=>constant.toString.contains(arg))){constant.toString()}}
+
+      writer.write("Head arguments: "+argsInHead.toString()+"\n")
+      writer.write("Body arguments: "+argsInBody.toString()+"\n")
+      val commonArg =argsInHead.toList.filter(arg => argsInBody.toList.contains(arg))
+      //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
+      writer.write("Common Arguments:"+commonArg.toString()+"\n")
+
+      //argsInHead-commonArg
+      val relativeComplimentOfHeadArg=argsInHead.toList.filterNot(arg => commonArg.toString().contains(arg.toString))
+
+      writer.write("relativeComplimentOfHeadArg:"+relativeComplimentOfHeadArg.toString()+"\n")
+
+      //dataflow
+      //todo:add dataflow: if common head not in data flow coomon head -> common head
+      writer.write("Data flow:\n")
+      for(headArg<-clause.head.args){
+        //val Iconstant = IConstant(constant)
+        val SumExtract = SymbolSum(headArg)
+
+        for (conjunct <- LineariseVisitor(
+          clause.constraint, IBinJunctor.And)) conjunct match {
+          case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+          otherTerms),
+          rhs) => {
+            if(!relativeComplimentOfHeadArg.exists(arg=>rhs.toString.concat(otherTerms.toString).contains(arg))){
+              writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+            }
+            //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+          }
+          // data flow: rhs - otherTerms -> c
+          case Eq(lhs,
+          SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+          otherTerms)) => {
+            if(!relativeComplimentOfHeadArg.exists(arg=>lhs.toString.contains(arg))){
+              writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+            }
+            //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
+          }
+          case _=> //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
+        }
+
+      }
+
+
+      //guard
+      writer.write("Guard:\n")
+      for (conjunct <- LineariseVisitor(
+        clause.constraint, IBinJunctor.And)) {
+        //clause.head.args.exists(conjunct.toString.contains(_))
+        if (!argsInHead.exists(arg=>conjunct.toString.contains(arg))) {
+          writer.write( conjunct + "\n")
+        }
+      }
+      //todo:if arguments are constant, add data flow constant -> arguments
+      for(arg<-argsInBody){//determine if argument is a constant number
+        if(arg.toString.exists(_.isDigit)){
+          writer.write("newArg=="+arg+"\n")
+        }
+      }
+
+
+    }
+
+    writer.write("-----------\n")
+    writer.write("Control flow:\n")
+
+    val predicates =
+      (HornClauses allPredicates simpClauses).toList sortBy (_.name)
+    val predIndex =
+      (for ((p, n) <- predicates.iterator.zipWithIndex) yield (p -> n)).toMap
+
+    for (p <- predicates){
+      //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
+      writer.write("" + predIndex(p) + " [label=\"" + p.name + "\"];"+"\n")
+    }
+
+    for (Clause(IAtom(phead, _), body, _) <- simpClauses;
+         if phead != HornClauses.FALSE;
+         IAtom(pbody, _) <- body) {
+      //println(predIndex(pbody) + " -> " + predIndex(phead))
+      writer.write(predIndex(pbody) + " -> " + predIndex(phead)+"\n")
+    }
+
+    writer.write("-----------\n")
+    writer.write("graph:\n")
+    writer.write("digraph dag {"+"\n")
+    //control flow node
+    for (p <- predicates){
+      //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
+      writer.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
+    }
+    var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
+    var ControlFowHyperEdgeIndex=0
+    for (Clause(IAtom(phead, _), body, _) <- simpClauses;
+         //if phead != HornClauses.FALSE;
+         IAtom(pbody, _) <- body) {
+      //println(predIndex(pbody) + " -> " + predIndex(phead))
+      //create a control flow hyper edge node
+      if(phead == HornClauses.FALSE){//assertion: control flow to false
+        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,"False",ControlFowHyperEdgeIndex)
+        ControlFowHyperEdgeList+=currentControlFowHyperEdge
+        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        writer.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n")
+        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + "False" +"\n")
+      }else{//normal control flow
+        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,phead.name,ControlFowHyperEdgeIndex)
+        ControlFowHyperEdgeList+=currentControlFowHyperEdge
+        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name+"\n")
       }
     }
-    if (!system.assertions.isEmpty) {
-      println
-      //println("Assertions:")
-      writer.write("Assertions:\n")
-      for (c <- system.assertions)
-        //println("  " + c.toPrologString)
-        writer.write("  " + c.toPrologString + "\n")
+    for (Clause(IAtom(phead, _), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow
+      if (body.isEmpty) { //initial state
+        val currentControlFowHyperEdge = new ControlFowHyperEdge("Initial", phead.name, ControlFowHyperEdgeIndex)
+        ControlFowHyperEdgeList += currentControlFowHyperEdge
+        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+        writer.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n")
+        writer.write("Initial" + " -> " + currentControlFowHyperEdge.name + "\n")
+        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name + "\n")
+      }
     }
+    writer.write("}"+"\n")
+
+
+//    //write horn clauses by pretty pring
+//    for ((p, r) <- system.processes) {
+//      r match {
+//        case ParametricEncoder.Singleton =>
+//        case ParametricEncoder.Infinite =>
+//          println("  Replicated thread:")
+//      }
+//      for ((c, sync) <- p) {
+//        val prefix = "    " + c.toPrologString
+//        //print(prefix + (" " * ((50 - prefix.size) max 2)))
+//        writer.write(prefix + (" " * ((50 - prefix.size) max 2))+"\n")
+////        sync match {
+////          case ParametricEncoder.Send(chan) =>
+////            println("chan_send(" + chan + ")")
+////          case ParametricEncoder.Receive(chan) =>
+////            println("chan_receive(" + chan + ")")
+////          case ParametricEncoder.NoSync =>
+////            println
+////        }
+//      }
+//    }
+//    //write assertions
+//    if (!system.assertions.isEmpty) {
+//      println
+//      //println("Assertions:")
+//      writer.write("Assertions:\n")
+//      for (c <- system.assertions)
+//        //println("  " + c.toPrologString)
+//        writer.write("  " + c.toPrologString + "\n")
+//    }
 
     writer.close()
   }

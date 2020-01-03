@@ -213,6 +213,14 @@ class HornWrapper(constraints: Seq[HornClause],
     (simplifiedClauses, simpHints, backTranslator)
   }
 
+  //print horn graph in smt format
+  if(GlobalParameters.get.getHorn==true){
+    HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simplifiedClauses) //write horn format to file
+    //println(simplifiedClauses)
+    //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
+  }
+
+
   val params =
     if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
       lazabs.GlobalParameters.get.withAndWOTemplates

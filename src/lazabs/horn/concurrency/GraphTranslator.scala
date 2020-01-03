@@ -425,3 +425,11 @@ object BinarySearchTree {
 
 
 }
+
+class ControlFowHyperEdge(body:String,head:String,ind:Int) {
+  val from=body
+  val to=head
+  val index=ind
+  val name="ControlFowHyperEdge_"+ind.toString
+
+}

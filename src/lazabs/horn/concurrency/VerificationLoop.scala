@@ -250,6 +250,18 @@ class VerificationLoop(system : ParametricEncoder.System) {
         // inconsistency between encoder.globalHints and simpHints
       }
 
+      //get smt
+      if(GlobalParameters.get.getSMT2==true){
+        HintsSelection.writeSMTFormatToFile(encoder.allClauses,"regression-tests/smt-graph/")  //write smt2 format to file
+        println(encoder.allClauses)
+      }
+      //get horn clauses
+      if(GlobalParameters.get.getHorn==true){
+        HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses) //write horn format to file
+        println(simpClauses)
+        //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
+      }
+
 
 
       ////debug/////
