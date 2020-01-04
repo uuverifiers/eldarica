@@ -6,6 +6,8 @@ import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 
+import scala.collection.mutable.ListBuffer
+
 class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
 
   import HornClauses.Clause
@@ -432,4 +434,28 @@ class ControlFowHyperEdge(body:String,head:String,ind:Int) {
   val index=ind
   val name="ControlFowHyperEdge_"+ind.toString
 
+}
+
+class ArgumentNode(location:String,ind:Int) {
+  val InList=ListBuffer
+  val OutList=ListBuffer
+  val index=ind
+  val name=location+"_argument"+ind.toString
+  var argumentEdgeFlag=false
+
+}
+
+class DataFowHyperEdge(body:String,head:String,argument:String) {
+  val from=body
+  val to=head
+  val name="DataFowHyperEdge_"+argument
+
+}
+
+class ControlFlowNode(){
+  var argumentList=new ListBuffer[ArgumentNode]()
+}
+class ClauseTransitionInformation(head:ControlFlowNode,body:ControlFlowNode,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]){
+  //head node
+  //body node
 }

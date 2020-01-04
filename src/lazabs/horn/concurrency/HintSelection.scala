@@ -1197,19 +1197,35 @@ object HintsSelection{
 
     writer.write("-----------\n")
     writer.write("graph:\n")
-    writer.write("digraph dag {"+"\n")
+
+
+    writer.close()
+
+
+
+
+    println("Write horn to file")
+    val writerGraph = new PrintWriter(new File("../trainData/"+fileName+".gv")) //python path
+
+
+
+    writerGraph.write("digraph dag {"+"\n")
     //control flow node
     for (p <- predicates){
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
-      writer.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
+      writerGraph.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
     }
-    writer.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n")
-    writer.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n")
+    writerGraph.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
+    writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
     var ControlFowHyperEdgeIndex=0
     var edgeNameMap:Map[String,String]=Map()
     edgeNameMap+= ("controlFlowIn"->"control flow in")
     edgeNameMap+= ("controlFlowOut"->"control flow out")
+    edgeNameMap+= ("argument"->"argument")
+    edgeNameMap+= ("dataFlowIn"->"data flow in")
+    edgeNameMap+= ("dataFlowOut"->"data flow out")
+    //turn on/off edge's label
     var edgeNameSwitch=false
     if(edgeNameSwitch==false){
       for(key<-edgeNameMap.keys){
@@ -1217,40 +1233,94 @@ object HintsSelection{
         //edgeNameMap updated (key, " ")
       }
     }
-    for (Clause(IAtom(phead, _), body, _) <- simpClauses;
+
+    var headArgumentList=new ListBuffer[ArgumentNode]()
+    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
          //if phead != HornClauses.FALSE;
-         IAtom(pbody, _) <- body) {
+         IAtom(pbody, _) <- body) {  //non-initial control flow iteration
       //println(predIndex(pbody) + " -> " + predIndex(phead))
       //create a control flow hyper edge node
       if(phead == HornClauses.FALSE){//assertion: control flow to false
         val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,"False",ControlFowHyperEdgeIndex)
         ControlFowHyperEdgeList+=currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
 
-        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + "False" +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+        //control flow edges
+        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " -> " + "False" +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+        //argument edges
+
+
       }else{//normal control flow
         val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,phead.name,ControlFowHyperEdgeIndex)
         ControlFowHyperEdgeList+=currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
-        writer.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name+"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name+"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+
+        //create head argument nodes
+        var headArgumentIndex=0
+        for(arg<-headArgs){//argument nodes
+        val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
+            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+            headArgumentList+=currentHeadArgument
+            headArgumentIndex=headArgumentIndex+1
+            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
+            //connect arguments to location
+            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
+              " style=\"dashed\""+"]"+"\n")
+
+          }
+
+        }
+        //todo: create body argument nodes
+//        if(){}
+//        body.head.args
+
+
       }
     }
-    for (Clause(IAtom(phead, _), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow
+    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow interation
       if (body.isEmpty) { //initial state
         val currentControlFowHyperEdge = new ControlFowHyperEdge("Initial", phead.name, ControlFowHyperEdgeIndex)
         ControlFowHyperEdgeList += currentControlFowHyperEdge
         ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writer.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+        writerGraph.write("Initial" + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]" +"\n")
+        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name + "[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
 
-        writer.write("Initial" + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]" +"\n")
-        writer.write(currentControlFowHyperEdge.name + " -> " + phead.name + "[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+        //create argument nodes
+        var headArgumentIndex=0
+        for(arg<-headArgs){//argument nodes
+          val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
+            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+            headArgumentList+=currentHeadArgument
+            headArgumentIndex=headArgumentIndex+1
+            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
+            //connect arguments to location
+            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
+              " style=\"dashed\""+"]"+"\n")
+
+          }
+
+        }
       }
     }
-    writer.write("}"+"\n")
+
+
+
+//    //create guarded data flow node for this cluse
+//    val currentDataFowHyperEdge = new ControlFowHyperEdge("Initial", phead.name, ControlFowHyperEdgeIndex)
+//    writerGraph.write(currentDataFowHyperEdge.name + " [label=\"Guarded DataFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+
+
+
+
+    writerGraph.write("}"+"\n")
 
 
 //    //write horn clauses by pretty pring
@@ -1284,7 +1354,7 @@ object HintsSelection{
 //        writer.write("  " + c.toPrologString + "\n")
 //    }
 
-    writer.close()
+    writerGraph.close()
   }
 
   def writeSMTFormatToFile(simpClauses:Clauses,path:String): Unit ={
