@@ -1089,24 +1089,64 @@ object HintsSelection{
 
     import IExpression._
 
-
+    var controlFLowNodeList=ListBuffer[ControlFlowNode] ()
 
     for (clause<-simpClauses){
       writer.write("-------------"+"\n")
       writer.write(clause.toPrologString+"\n")
 
       //args in head
-      val argsInHead=for (arg<-clause.head.args)yield {
-        arg.toString}
+      var argsInHead=ListBuffer[String]()
+      if(!clause.head.args.isEmpty){
+        for (arg<-clause.head.args) {
+          argsInHead+=arg.toString}
+      }
+
       //args in body
-      var argsInBodyTemp= new ListBuffer[String]
+
+      var argsInBody=ListBuffer[String]()
       if(!clause.body.isEmpty){
-        for(arg<-clause.body.head.args){
-          argsInBodyTemp += arg.toString()
+        for (arg<-clause.body.head.args) {
+          argsInBody+=arg.toString}
+      }
+
+
+
+      //val argsInBody=for(arg<-clause.body.head.args) yield arg.toString
+
+      //store head and body to controlFLowNodeList data structure
+
+      var currentControlFlowNodeArgumentListHead=new ListBuffer[ArgumentNode]()
+      if(!clause.head.args.isEmpty){
+        for ((arg,index)<-clause.head.args.zipWithIndex){
+          currentControlFlowNodeArgumentListHead+=new ArgumentNode(clause.head.pred.name,index,arg.toString)
         }
       }
 
-      val argsInBody=for(arg<-argsInBodyTemp) yield arg.toString
+      val currentControlFlowNodeHead=new ControlFlowNode(clause.head.pred.name,currentControlFlowNodeArgumentListHead)
+      if(!controlFLowNodeList.exists(_.name==clause.head.pred.name)){ //if head is not in controlFLowNodeList
+        controlFLowNodeList+=currentControlFlowNodeHead
+      }
+
+
+
+      var currentControlFlowNodeArgumentListBody=new ListBuffer[ArgumentNode]()
+      var bodyName=""
+      if(!clause.body.isEmpty){
+        bodyName=clause.body.head.pred.name
+        for ((arg,index)<-clause.body.head.args.zipWithIndex){
+          currentControlFlowNodeArgumentListBody+=new ArgumentNode(clause.body.head.pred.name,index,arg.toString)
+        }
+      }
+
+      val currentControlFlowNodeBody=new ControlFlowNode(bodyName,currentControlFlowNodeArgumentListBody)
+      if(!controlFLowNodeList.exists(_.name==bodyName)){ //if body is not in controlFLowNodeList
+        controlFLowNodeList+=currentControlFlowNodeBody
+      }
+
+
+
+
 
 
       //clause.constants.toList.filterNot(arg => argsInHead.toList.contains(arg.toString()))
@@ -1150,9 +1190,36 @@ object HintsSelection{
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
-          case _=> //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
+          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          case _=> writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
         }
 
+      }
+
+
+      //if arguments in body are constant, add data flow constant -> arguments
+      //body constan dataflow
+      if(!argsInBody.isEmpty){
+        for((arg,i)<-argsInBody.zipWithIndex){
+          if(arg.forall(_.isDigit)){//determine if argument is a constant number
+            for(argument<-currentControlFlowNodeBody.argumentList)
+              if(argument.originalContent==arg.toString)
+                writer.write(argument.name+"=="+arg+"\n")
+          }
+        }
+      }
+      //if arguments in body are constant, add data flow constant -> arguments
+      //head constan dataflow
+      if(!argsInHead.isEmpty){
+        for((arg,i)<-argsInHead.zipWithIndex){
+          if(arg.forall(_.isDigit)){//determine if argument is a constant number
+            for(argument<-currentControlFlowNodeHead.argumentList)
+              if(argument.originalContent==arg.toString)
+                writer.write(argument.name+"<-"+arg+"\n")
+          }
+        }
       }
 
 
@@ -1161,19 +1228,15 @@ object HintsSelection{
       for (conjunct <- LineariseVisitor(
         clause.constraint, IBinJunctor.And)) {
         //clause.head.args.exists(conjunct.toString.contains(_))
-        if (!argsInHead.exists(arg=>conjunct.toString.contains(arg))) {
+        if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) { //if head's argumen not in the formula,then it is a guard
           writer.write( conjunct + "\n")
         }
       }
-      //todo:if arguments are constant, add data flow constant -> arguments
-      for(arg<-argsInBody){//determine if argument is a constant number
-        if(arg.toString.exists(_.isDigit)){
-          writer.write("newArg=="+arg+"\n")
-        }
-      }
+
 
 
     }
+
 
     writer.write("-----------\n")
     writer.write("Control flow:\n")
@@ -1196,15 +1259,20 @@ object HintsSelection{
     }
 
     writer.write("-----------\n")
-    writer.write("graph:\n")
-
+    //
+    for(cfn<-controlFLowNodeList){
+      writer.write(cfn.name+"\n")
+      for(arg<-cfn.argumentList){
+        writer.write(arg.name+"\n")
+      }
+    }
 
     writer.close()
 
 
 
 
-    println("Write horn to file")
+    println("Write horn to graph")
     val writerGraph = new PrintWriter(new File("../trainData/"+fileName+".gv")) //python path
 
 
@@ -1263,7 +1331,7 @@ object HintsSelection{
         //create head argument nodes
         var headArgumentIndex=0
         for(arg<-headArgs){//argument nodes
-        val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+        val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
           if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
             //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
             headArgumentList+=currentHeadArgument
@@ -1295,7 +1363,7 @@ object HintsSelection{
         //create argument nodes
         var headArgumentIndex=0
         for(arg<-headArgs){//argument nodes
-          val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+          val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
           if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
             //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
             headArgumentList+=currentHeadArgument

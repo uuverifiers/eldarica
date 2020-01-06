@@ -436,13 +436,14 @@ class ControlFowHyperEdge(body:String,head:String,ind:Int) {
 
 }
 
-class ArgumentNode(location:String,ind:Int) {
+class ArgumentNode(location:String,ind:Int,arg:String) {
   val InList=ListBuffer
   val OutList=ListBuffer
   val index=ind
   val name=location+"_argument"+ind.toString
   var argumentEdgeFlag=false
-
+  val position =index
+  val originalContent=arg
 }
 
 class DataFowHyperEdge(body:String,head:String,argument:String) {
@@ -452,8 +453,9 @@ class DataFowHyperEdge(body:String,head:String,argument:String) {
 
 }
 
-class ControlFlowNode(){
-  var argumentList=new ListBuffer[ArgumentNode]()
+class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode]){
+  val name=nodeName
+  var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
 }
 class ClauseTransitionInformation(head:ControlFlowNode,body:ControlFlowNode,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]){
   //head node
