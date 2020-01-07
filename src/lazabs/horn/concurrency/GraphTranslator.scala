@@ -514,12 +514,17 @@ class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode])
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
 }
-class ClauseTransitionInformation(head:ControlFlowNode,body:ControlFlowNode
+class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBody:ControlFlowNode,id:Int
                                   //,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]
                                  ){
   //head node
+  val head=controlFlowHead
+  val body=controlFLowBody
+  val clauseID=id
+  var controlFlowHyperEdge=new ControlFowHyperEdge(body.name,head.name,clauseID) //todo:well define ControlFowHyperEdge
   var guardASTGraph=Map[String,String]()
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""
+  val trueCondition="true_"+id.toString
   //body node
 }

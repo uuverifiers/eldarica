@@ -1091,6 +1091,7 @@ object HintsSelection{
 
     var controlFLowNodeList=ListBuffer[ControlFlowNode] ()
     var clauseList=ListBuffer[ClauseTransitionInformation]()
+    var clauseID=0
 
     for (clause<-simpClauses){
       writer.write("-------------"+"\n")
@@ -1132,7 +1133,7 @@ object HintsSelection{
 
 
       var currentControlFlowNodeArgumentListBody=new ListBuffer[ArgumentNode]()
-      var bodyName=""
+      var bodyName="Initial"
       if(!clause.body.isEmpty){
         bodyName=clause.body.head.pred.name
         for ((arg,index)<-clause.body.head.args.zipWithIndex){
@@ -1238,12 +1239,12 @@ object HintsSelection{
       }
 
 
+      //parse guard to AST tree
+//      writer.write("-----------\n")
+//      writer.write("guard graphs:\n")
 
-      writer.write("-----------\n")
-      writer.write("guard graphs:\n")
-
-      val currentClause=new ClauseTransitionInformation(currentControlFlowNodeHead,currentControlFlowNodeBody)
-
+      val currentClause=new ClauseTransitionInformation(currentControlFlowNodeHead,currentControlFlowNodeBody,clauseID)
+      clauseID=clauseID+1
       var nodeCount:Int=0
       var guardCount:Int=0
       var astNodeNamePrefix=currentClause.name+"_guard_"+guardCount+"_node_"
@@ -1253,21 +1254,20 @@ object HintsSelection{
       var rootName=""
 
 
+      //parse guard to AST tree
       for (conjunct <- LineariseVisitor(
         clause.constraint, IBinJunctor.And)) {
 
         if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) {
-          writer.write(conjunct.toString+"\n")
-          writer.write("digraph dag {"+"\n")
-          //astNodeNamePrefix=currentClause.name+"_guard_"+guardCount+"_node_"
-
+          //writer.write(conjunct.toString+"\n")
+          //writer.write("digraph dag {"+"\n")
           translateConstraint(conjunct,root) //define nodes in graph, information is stored in logString
           BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
           logString=logString+BinarySearchTreeForGraph.relationString
           BinarySearchTreeForGraph.relationString=""
-          writer.write(logString)
+          //writer.write(logString)
           currentClause.guardASTGraph=currentClause.guardASTGraph++Map(rootName->logString) //record graph as string
-          writer.write("}"+"\n")
+          //writer.write("}"+"\n")
           logString=""
           nodeCount=0
           guardCount=guardCount+1
@@ -1285,14 +1285,6 @@ object HintsSelection{
 
 
       def translateConstraint(e:IExpression,root:TreeNodeForGraph):Unit= {
-        //println(e)
-//        0 [label="!"];
-//        1 [label="=="];
-//        2 [label="constant_0"];
-//        3 [label="x"];
-//        0->1
-//        1->3
-//        1->2
 
         e match{
           case IAtom(pred,args)=> println("IAtom");
@@ -1619,26 +1611,6 @@ object HintsSelection{
     val predIndex =
       (for ((p, n) <- predicates.iterator.zipWithIndex) yield (p -> n)).toMap
 
-    for (p <- predicates){
-      //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
-      writer.write("" + predIndex(p) + " [label=\"" + p.name + "\"];"+"\n")
-    }
-
-    for (Clause(IAtom(phead, _), body, _) <- simpClauses;
-         if phead != HornClauses.FALSE;
-         IAtom(pbody, _) <- body) {
-      //println(predIndex(pbody) + " -> " + predIndex(phead))
-      writer.write(predIndex(pbody) + " -> " + predIndex(phead)+"\n")
-    }
-
-    writer.write("-----------\n")
-    //
-    for(cfn<-controlFLowNodeList){
-      writer.write(cfn.name+"\n")
-      for(arg<-cfn.argumentList){
-        writer.write(arg.name+"\n")
-      }
-    }
 
     writer.close()
 
@@ -1656,7 +1628,7 @@ object HintsSelection{
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
       writerGraph.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
     }
-    writerGraph.write("False" + " [label=\"" + "False" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
+    writerGraph.write("FALSE" + " [label=\"" + "FALSE" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
     var ControlFowHyperEdgeIndex=0
@@ -1667,6 +1639,7 @@ object HintsSelection{
     edgeNameMap+= ("dataFlowIn"->"data flow in")
     edgeNameMap+= ("dataFlowOut"->"data flow out")
     edgeNameMap+= ("astAnd"->"AST &")
+    edgeNameMap+= ("condition"->"condition")
     //turn on/off edge's label
     var edgeNameSwitch=false
     if(edgeNameSwitch==false){
@@ -1676,113 +1649,136 @@ object HintsSelection{
       }
     }
 
+    //create control flow hyper edges and connections to control flow nodes
+    for(clauseInfo<-clauseList){
+
+        //create control flow hyper edge nodes
+        writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        //create edges of control flow hyper edge
+        writerGraph.write(clauseInfo.body.name + " -> " + clauseInfo.controlFlowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+        writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " -> " + clauseInfo.head.name +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+
+    }
+
+
+
     var headArgumentList=new ListBuffer[ArgumentNode]()
     for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
          //if phead != HornClauses.FALSE;
          IAtom(pbody, _) <- body) {  //non-initial control flow iteration
       //println(predIndex(pbody) + " -> " + predIndex(phead))
       //create a control flow hyper edge node
-      if(phead == HornClauses.FALSE){//assertion: control flow to false
-        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,"False",ControlFowHyperEdgeIndex)
-        ControlFowHyperEdgeList+=currentControlFowHyperEdge
-        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
-
-        //control flow edges
-        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
-        writerGraph.write(currentControlFowHyperEdge.name + " -> " + "False" +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
-        //argument edges
 
 
-      }else{//normal control flow
-        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,phead.name,ControlFowHyperEdgeIndex)
-        ControlFowHyperEdgeList+=currentControlFowHyperEdge
-        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
-        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
-        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name+"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
-
-        //create head argument nodes
-        var headArgumentIndex=0
-        for(arg<-headArgs){//argument nodes
-        val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
-          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
-            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
-            headArgumentList+=currentHeadArgument
-            headArgumentIndex=headArgumentIndex+1
-            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
-            //connect arguments to location
-            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
-              " style=\"dashed\""+"]"+"\n")
-
-          }
-
-        }
-        //todo: create body argument nodes
-//        if(){}
-//        body.head.args
 
 
-      }
+
+//      if(phead == HornClauses.FALSE){//assertion: control flow to false
+//        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,"False",ControlFowHyperEdgeIndex)
+//        ControlFowHyperEdgeList+=currentControlFowHyperEdge
+//        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+//        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+//
+//        //control flow edges
+//        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+//        writerGraph.write(currentControlFowHyperEdge.name + " -> " + "False" +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+//        //argument edges
+//
+//
+//      }else{//normal control flow
+//        val currentControlFowHyperEdge=new ControlFowHyperEdge(pbody.name,phead.name,ControlFowHyperEdgeIndex)
+//        ControlFowHyperEdgeList+=currentControlFowHyperEdge
+//        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+//        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+//        writerGraph.write(pbody.name + " -> " + currentControlFowHyperEdge.name+"[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
+//        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name+"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+//
+//        //create head argument nodes
+//        var headArgumentIndex=0
+//        for(arg<-headArgs){//argument nodes
+//        val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
+//          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
+//            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+//            headArgumentList+=currentHeadArgument
+//            headArgumentIndex=headArgumentIndex+1
+//            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
+//            //connect arguments to location
+//            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
+//              " style=\"dashed\""+"]"+"\n")
+//
+//          }
+//
+//        }
+//        //todo: create body argument nodes
+////        if(){}
+////        body.head.args
+//
+//
+//      }
     }
-    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow interation
-      if (body.isEmpty) { //initial state
-        val currentControlFowHyperEdge = new ControlFowHyperEdge("Initial", phead.name, ControlFowHyperEdgeIndex)
-        ControlFowHyperEdgeList += currentControlFowHyperEdge
-        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
-        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
-        writerGraph.write("Initial" + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]" +"\n")
-        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name + "[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
-
-        //create argument nodes
-        var headArgumentIndex=0
-        for(arg<-headArgs){//argument nodes
-          val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
-          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
-            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
-            headArgumentList+=currentHeadArgument
-            headArgumentIndex=headArgumentIndex+1
-            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
-            //connect arguments to location
-            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
-              " style=\"dashed\""+"]"+"\n")
-
-          }
-
-        }
-      }
-    }
+//    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;if phead != HornClauses.FALSE) {//initial control flow interation
+//      if (body.isEmpty) { //initial state
+//        val currentControlFowHyperEdge = new ControlFowHyperEdge("Initial", phead.name, ControlFowHyperEdgeIndex)
+//        ControlFowHyperEdgeList += currentControlFowHyperEdge
+//        ControlFowHyperEdgeIndex=ControlFowHyperEdgeIndex+1;
+//        writerGraph.write(currentControlFowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+//        writerGraph.write("Initial" + " -> " + currentControlFowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]" +"\n")
+//        writerGraph.write(currentControlFowHyperEdge.name + " -> " + phead.name + "[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+//
+//        //create argument nodes
+//        var headArgumentIndex=0
+//        for(arg<-headArgs){//argument nodes
+//          val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex,arg.toString)
+//          if(!headArgumentList.exists(_.name==currentHeadArgument.name)){ //if the argument is not existed create one and build connection
+//            //val currentHeadArgument= new ArgumentNode(phead.name,headArgumentIndex)
+//            headArgumentList+=currentHeadArgument
+//            headArgumentIndex=headArgumentIndex+1
+//            writerGraph.write(currentHeadArgument.name + " [label=\""+currentHeadArgument.name+"\"" + " shape=\"oval\"" +"];"+"\n")
+//            //connect arguments to location
+//            writerGraph.write(currentHeadArgument.name + " -> " + phead.name+"[label="+"\""+edgeNameMap("argument")+"\""+
+//              " style=\"dashed\""+"]"+"\n")
+//
+//          }
+//
+//        }
+//      }
+//    }
 
 
 
     //create guarded data flow node for this cluse
     writerGraph.write("\n")
-    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
-         //if phead != HornClauses.FALSE;
-         IAtom(pbody, _) <- body) {
-      for(clauseInfo<-clauseList){
-        if(clauseInfo.name==(phead.name+"___"+pbody.name)){
+
+    for(clauseInfo<-clauseList){
+
+        if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
+          writerGraph.write(clauseInfo.name + "_and" + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
+          clauseInfo.guardASTRootName=clauseInfo.name + "_and"//store this node to clauses's guardASTRootName
+        }
+        for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw ast
+          writerGraph.write(ast+"\n")
           if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
-            writerGraph.write(clauseInfo.name + "_and" + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
-            clauseInfo.guardASTRootName=clauseInfo.name + "_and"//store this node to clauses's guardASTRootName
+            writerGraph.write(clauseInfo.name + "_and"+"->"+ast.substring(0,ast.indexOf("[")-1)
+              + " [label=\""+edgeNameMap("astAnd")+"\""  +"];"+"\n")
+          }else{
+            clauseInfo.guardASTRootName=rootName
           }
-          for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw ast
-            writerGraph.write(ast+"\n")
-            if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
-              writerGraph.write(clauseInfo.name + "_and"+"->"+ast.substring(0,ast.indexOf("[")-1)
-                + " [label=\""+edgeNameMap("astAnd")+"\"" + " shape=\"oval\"" +"];"+"\n")
-            }else{
-              clauseInfo.guardASTRootName=rootName
-
-            }
 
 
-          }
-          println(clauseInfo.guardASTRootName)
+        }
+        //AST root point to control flow hyperedge
+        writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
+          + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
+        if(clauseInfo.guardASTGraph.isEmpty){//if there is no guard add true condition
+          writerGraph.write(clauseInfo.trueCondition + " [label=\""+"true"+"\"" +"];"+"\n")//add true node
+          writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
+            + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
         }
 
-      }
+
+
     }
+
 
     //connect this
 
