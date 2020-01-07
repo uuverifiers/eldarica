@@ -491,9 +491,8 @@ class ArgumentNode(location:String,ind:Int,arg:String) {
   val InList=ListBuffer
   val OutList=ListBuffer
   val index=ind
-  val name=location+"_argument"+ind.toString
+  val name=location+"_argument_"+index.toString
   var argumentEdgeFlag=false
-  val position =index
   val originalContent=arg
 }
 class ControlFowHyperEdge(body:String,head:String,ind:Int) {
