@@ -374,7 +374,8 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
 }
 
 class TreeNode{
-  var data:Map[Int,String]=Map(0->"0")
+  var data:Map[Int,String]=Map(0->"new")
+  //var data:Map[Int,String]=Map()
   var lchild:TreeNode = null
   var rchild:TreeNode = null
   var parent:TreeNode = null
@@ -392,12 +393,16 @@ object BinarySearchTree {
     if (root != null) {
 
       //println(root.data)
+
       val (k,v) = root.data.head
 
       if(root.lchild!=null){
         val (l_key,l_value)=root.lchild.data.head
         //println(k+"->"+l_key)
-        relationString=relationString+(k+"->"+l_key+"\n")
+        if(k!=l_key){
+          relationString=relationString+(k+"->"+l_key+"\n")
+        }
+
       }
       if(root.rchild!=null){
         val (r_key,r_value)=root.rchild.data.head
@@ -424,17 +429,63 @@ object BinarySearchTree {
       inOrder(root.rchild)
     }
   }
+}
+
+class TreeNodeForGraph{
+  var data:Map[String,String]=Map("0"->"new")
+  //var data:Map[Int,String]=Map()
+  var lchild:TreeNodeForGraph = null
+  var rchild:TreeNodeForGraph = null
+  var parent:TreeNodeForGraph = null
+
+  def this(data:Map[String,String]){
+    this()
+    this.data = data
+  }
+}
+
+  object BinarySearchTreeForGraph {
+
+    var relationString:String="" //store node relation information
+    def preOrder(root: TreeNodeForGraph): Unit = {
+      if (root != null) {
+
+        //println(root.data)
+
+        val (k,v) = root.data.head
+
+        if(root.lchild!=null){
+          val (l_key,l_value)=root.lchild.data.head
+          //println(k+"->"+l_key)
+          if(k!=l_key){
+            relationString=relationString+(k+"->"+l_key+"\n")
+          }
+
+        }
+        if(root.rchild!=null){
+          val (r_key,r_value)=root.rchild.data.head
+          //println(k+"->"+r_key)
+          relationString=relationString+(k+"->"+r_key+"\n")
+        }
+
+
+
+
+        preOrder(root.lchild)
+        //print(root.data.keys + "\n")
+        preOrder(root.rchild)
+        //print(root.data.keys + "\n")
+
+      }
+
+    }
+
+
 
 
 }
 
-class ControlFowHyperEdge(body:String,head:String,ind:Int) {
-  val from=body
-  val to=head
-  val index=ind
-  val name="ControlFowHyperEdge_"+ind.toString
 
-}
 
 class ArgumentNode(location:String,ind:Int,arg:String) {
   val InList=ListBuffer
@@ -445,7 +496,13 @@ class ArgumentNode(location:String,ind:Int,arg:String) {
   val position =index
   val originalContent=arg
 }
+class ControlFowHyperEdge(body:String,head:String,ind:Int) {
+  val from=body
+  val to=head
+  val index=ind
+  val name="ControlFowHyperEdge_"+ind.toString
 
+}
 class DataFowHyperEdge(body:String,head:String,argument:String) {
   val from=body
   val to=head
@@ -457,7 +514,12 @@ class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode])
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
 }
-class ClauseTransitionInformation(head:ControlFlowNode,body:ControlFlowNode,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]){
+class ClauseTransitionInformation(head:ControlFlowNode,body:ControlFlowNode
+                                  //,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]
+                                 ){
   //head node
+  var guardASTGraph=Map[String,String]()
+  val name:String=head.name+"___"+body.name
+  var guardASTRootName=""
   //body node
 }
