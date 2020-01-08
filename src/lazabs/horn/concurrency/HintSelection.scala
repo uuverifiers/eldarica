@@ -1168,8 +1168,8 @@ object HintsSelection{
       writer.write("relativeComplimentOfHeadArg:"+relativeComplimentOfHeadArg.toString()+"\n")
 
       //dataflow
-      //todo:add dataflow: if common head not in data flow coomon head -> common head
       writer.write("Data flow:\n")
+      var dataFlowList=ListBuffer[IFormula]()
       for(headArg<-clause.head.args){
         //val Iconstant = IConstant(constant)
         val SumExtract = SymbolSum(headArg)
@@ -1180,7 +1180,8 @@ object HintsSelection{
           otherTerms),
           rhs) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>rhs.toString.concat(otherTerms.toString).contains(arg))){
-              writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+              writer.write(headArg+"<-"+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+              dataFlowList+=conjunct
             }
             //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
           }
@@ -1189,7 +1190,8 @@ object HintsSelection{
           SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
           otherTerms)) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>lhs.toString.contains(arg))){
-              writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+              writer.write(headArg+"<-"+lhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+              dataFlowList+=conjunct
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
@@ -1201,7 +1203,96 @@ object HintsSelection{
 
       }
 
+      //todo:add dataflow: if common head not in data flow coomon head -> common head
+      def getElementsFromIFomula(e:IExpression,elementList:ListBuffer[String]): Unit ={
 
+        e match{
+          case IAtom(pred,args)=> {
+            elementList+=pred.toString();
+            for(a<-args if !args.isEmpty){
+              getElementsFromIFomula(a,elementList);
+            }
+          }
+          case IBinFormula(j,f1,f2)=>{
+            getElementsFromIFomula(f1,elementList)
+            getElementsFromIFomula(f2,elementList)
+          }
+          case IBoolLit(v)=>{
+            elementList+=v.toString();
+          }
+          case IFormulaITE(cond,left,right)=>{
+            getElementsFromIFomula(cond,elementList)
+            getElementsFromIFomula(left,elementList)
+            getElementsFromIFomula(right,elementList)
+          }
+          case IIntFormula(rel,term)=>{
+            //elementList+=rel.toString();
+            getElementsFromIFomula(term,elementList)
+          }
+          case INamedPart(pname,subformula)=>{
+            elementList+=pname.toString;
+            getElementsFromIFomula(subformula,elementList)
+          }
+          case INot(subformula)=>{
+            getElementsFromIFomula(subformula,elementList)
+          }
+          case IQuantified(quan,subformula)=>{
+            getElementsFromIFomula(subformula,elementList)
+          }
+          case ITrigger(patterns,subformula)=>{
+            for(p<-patterns if !patterns.isEmpty){
+              getElementsFromIFomula(p,elementList);
+            }
+            getElementsFromIFomula(subformula,elementList)
+          }
+          case IConstant(c)=>{
+            elementList+=c.toString();
+          }
+          case IEpsilon(cond)=>{
+            getElementsFromIFomula(cond,elementList)
+          }
+          case IFunApp(fun,args)=>{
+            elementList+=fun.toString();
+            for(a<-args if !args.isEmpty){
+              getElementsFromIFomula(a,elementList);
+            }
+          }
+          case IIntLit(v)=>{
+            elementList+=v.toString();
+          }
+          case IPlus(t1,t2)=>{
+            getElementsFromIFomula(t1,elementList);
+            getElementsFromIFomula(t2,elementList);
+          }
+          case ITermITE(cond,left,right)=>{
+            getElementsFromIFomula(cond,elementList);
+            getElementsFromIFomula(left,elementList);
+            getElementsFromIFomula(right,elementList);
+          }
+          case ITimes(coeff,subterm)=>{
+            elementList+=coeff.toString();
+            getElementsFromIFomula(subterm,elementList);
+          }
+          case IVariable(index)=>{
+            elementList+=index.toString();
+          }
+          case _=>{}
+        }
+        //IFormula:IAtom, IBinFormula, IBoolLit, IFormulaITE, IIntFormula, INamedPart, INot, IQuantified, ITrigger
+        //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
+
+      }
+      for(dataFlow<-dataFlowList){
+        //println(dataFlow+","+dataFlow.getClass.getName+":")
+        var elementList=ListBuffer[String]()
+        getElementsFromIFomula(dataFlow,elementList)
+        for(el<-elementList){
+          println(el)
+        }
+//        for(arg<-commonArg){
+//          dataFlow.subExpressions
+//        }
+      }
 
       //if arguments in head are constant, add data flow constant ->arguments
       //head constan dataflow
@@ -1214,7 +1305,7 @@ object HintsSelection{
                 //add constant data flow in to clause data structure
                 argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeHead.name+"_"+
                   argument.name+"_constant_"+arg
-                println(argument.constantFlowInNode)
+                //println(argument.constantFlowInNode)
               }
 
           }
@@ -1232,7 +1323,7 @@ object HintsSelection{
                 //add constant data flow in to clause data structure
                 argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeBody.name+"_"+
                   argument.name+"_constant_"+arg
-                println(argument.constantFlowInNode)
+                //println(argument.constantFlowInNode)
               }
 
 
