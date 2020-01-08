@@ -523,9 +523,12 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   val body=controlFLowBody
   val clauseID=id
   var controlFlowHyperEdge=new ControlFowHyperEdge(body.name,head.name,clauseID)
+  var dataFlowHyperEdgeList=ListBuffer[DataFlowHyperEdge]()
   var guardASTGraph=Map[String,String]()
+  var simpleDataFlowConnection=Map[String,String]()//map:hyperedge->connectiongraph
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""
   val trueCondition="true_"+id.toString
+  var commonArg=ListBuffer[ArgumentNode]()
   //body node
 }

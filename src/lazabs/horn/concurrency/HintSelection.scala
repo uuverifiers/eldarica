@@ -1080,6 +1080,25 @@ object HintsSelection{
   //import lazabs.horn.preprocessor.HornPreprocessor.Clauses
   def writeHornClausesToFile(file:String, simpClauses:Clauses): Unit ={
     println("Write horn to file")
+    var edgeNameMap:Map[String,String]=Map()
+    edgeNameMap+= ("controlFlowIn"->"control flow in")
+    edgeNameMap+= ("controlFlowOut"->"control flow out")
+    edgeNameMap+= ("dataFlowIn"->"data flow in")
+    edgeNameMap+= ("dataFlowOut"->"data flow out")
+    edgeNameMap+= ("argument"->"argument")
+    edgeNameMap+= ("dataFlowIn"->"data flow in")
+    edgeNameMap+= ("dataFlowOut"->"data flow out")
+    edgeNameMap+= ("astAnd"->"AST &")
+    edgeNameMap+= ("condition"->"condition")
+    edgeNameMap+= ("constantDataFlow"->"constant data flow")
+    //turn on/off edge's label
+    var edgeNameSwitch=false
+    if(edgeNameSwitch==false){
+      for(key<-edgeNameMap.keys){
+        edgeNameMap+= (key->"")
+        //edgeNameMap updated (key, " ")
+      }
+    }
     //println(file.substring(file.lastIndexOf("/")+1))
     val fileName=file.substring(file.lastIndexOf("/")+1)
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
@@ -1159,6 +1178,7 @@ object HintsSelection{
       writer.write("Head arguments: "+argsInHead.toString()+"\n")
       writer.write("Body arguments: "+argsInBody.toString()+"\n")
       val commonArg =argsInHead.toList.filter(arg => argsInBody.toList.contains(arg))
+      //todo:add commonArg to clauseInfo data structure
       //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
       writer.write("Common Arguments:"+commonArg.toString()+"\n")
 
@@ -1282,16 +1302,31 @@ object HintsSelection{
         //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
 
       }
+      var elementList=ListBuffer[String]()//get elements from data flow formula
       for(dataFlow<-dataFlowList){
         //println(dataFlow+","+dataFlow.getClass.getName+":")
-        var elementList=ListBuffer[String]()
+        //var elementList=ListBuffer[String]()//get elements from data flow formula
         getElementsFromIFomula(dataFlow,elementList)
-        for(el<-elementList){
-          println(el)
+      }
+      for(comArg<-commonArg){
+        if(!elementList.contains(comArg)){
+          writer.write(comArg+"\n")
+
+          for(bodyArg<-currentClause.body.argumentList;headArg<-currentClause.head.argumentList
+              if headArg.originalContent==comArg && bodyArg.originalContent==comArg){
+            currentClause.simpleDataFlowConnection=currentClause.simpleDataFlowConnection++
+              Map(headArg.dataFLowHyperEdge.name->
+                (bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
+                  "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"+
+                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
+                  "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"))
+            //              bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
+            //                "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"
+            //              headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
+            //                "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"
+
+          }
         }
-//        for(arg<-commonArg){
-//          dataFlow.subExpressions
-//        }
       }
 
       //if arguments in head are constant, add data flow constant ->arguments
@@ -1331,7 +1366,7 @@ object HintsSelection{
         }
       }
 
-
+      //todo:further separate guards and data flow
       //guard
       writer.write("Guard:\n")
       for (conjunct <- LineariseVisitor(
@@ -1735,25 +1770,7 @@ object HintsSelection{
     writerGraph.write("FALSE" + " [label=\"" + "FALSE" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
-    var edgeNameMap:Map[String,String]=Map()
-    edgeNameMap+= ("controlFlowIn"->"control flow in")
-    edgeNameMap+= ("controlFlowOut"->"control flow out")
-    edgeNameMap+= ("dataFlowIn"->"data flow in")
-    edgeNameMap+= ("dataFlowOut"->"data flow out")
-    edgeNameMap+= ("argument"->"argument")
-    edgeNameMap+= ("dataFlowIn"->"data flow in")
-    edgeNameMap+= ("dataFlowOut"->"data flow out")
-    edgeNameMap+= ("astAnd"->"AST &")
-    edgeNameMap+= ("condition"->"condition")
-    edgeNameMap+= ("constantDataFlow"->"constant data flow")
-    //turn on/off edge's label
-    var edgeNameSwitch=false
-    if(edgeNameSwitch==false){
-      for(key<-edgeNameMap.keys){
-        edgeNameMap+= (key->"")
-        //edgeNameMap updated (key, " ")
-      }
-    }
+
 
     //create control flow hyper edges, connections to control flow nodes, catch unique control flow node list
     var uniqueControlFLowNodeList=ListBuffer[ControlFlowNode]()
@@ -1815,12 +1832,16 @@ object HintsSelection{
 
         }
         //AST root point to control flow hyperedge
-        writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
-          + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
+        if(!clauseInfo.guardASTRootName.isEmpty){
+          writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
+            + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
+        }
+
         if(clauseInfo.guardASTGraph.isEmpty){//if there is no guard add true condition
           writerGraph.write(clauseInfo.trueCondition + " [label=\""+"true"+"\"" +"];"+"\n")//add true node
           writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
             + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
+
         }
     }
 
@@ -1837,7 +1858,7 @@ object HintsSelection{
       }
       //draw constant data flow for body
       for(bodyArg<-clauseInfo.body.argumentList;if !clauseInfo.body.argumentList.isEmpty){
-        if(bodyArg.constantFlowInNode!=""){
+        if(!bodyArg.constantFlowInNode.isEmpty){
           writerGraph.write(bodyArg.constantFlowInNode
             + " [label=\""+bodyArg.originalContent+"\""  +"];"+"\n")//create constant node
           writerGraph.write(bodyArg.constantFlowInNode+"->"+bodyArg.name //add edge to argument
@@ -1853,10 +1874,31 @@ object HintsSelection{
       //create data flow hyperedge node coonections
       writerGraph.write(headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
         "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n")
-      //guards connection
-      writerGraph.write(clauseInfo.guardASTRootName + " -> " + headArg.dataFLowHyperEdge.name +
-        "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n")
+      //AST root point to data flow hyperedge
+      if(!clauseInfo.guardASTRootName.isEmpty){
+        writerGraph.write(clauseInfo.guardASTRootName + " -> " + headArg.dataFLowHyperEdge.name +
+          "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n")
+      }
+      //if there is no guard add true condition to data flow hyperedge
+      if(clauseInfo.guardASTGraph.isEmpty){
+        writerGraph.write(clauseInfo.trueCondition+"->"+headArg.dataFLowHyperEdge.name //add edge to data flow hyper edges
+          + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
+        //todo:add true condition to data flow hyperedge (check)
+      }
 
+    }
+
+    //draw simple data flow connection
+    for(clauseInfo<-clauseList){
+
+      if(!clauseInfo.simpleDataFlowConnection.isEmpty){
+        for((hyperedge,connection)<-clauseInfo.simpleDataFlowConnection){
+          println(clauseInfo.name+":")
+          println(hyperedge)
+          writerGraph.write(connection)
+        }
+
+      }
     }
 
 
