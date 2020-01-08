@@ -485,27 +485,28 @@ class TreeNodeForGraph{
 
 }
 
-
-
-class ArgumentNode(location:String,ind:Int,arg:String) {
+class ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:String,argIndex:Int) {
   val InList=ListBuffer
   val OutList=ListBuffer
-  val index=ind
+  val index=argIndex
   val name=location+"_argument_"+index.toString
   var argumentEdgeFlag=false
   val originalContent=arg
+  var constantFlowInNode:String=""
+  val dataFLowHyperEdge=new DataFlowHyperEdge(bodyName,headName,name,clauseID)
 }
+
 class ControlFowHyperEdge(body:String,head:String,ind:Int) {
   val from=body
   val to=head
   val index=ind
-  val name="ControlFowHyperEdge_"+ind.toString
+  val name="ControlFowHyperEdge_"+ind.toString//index is clauses's ID
 
 }
-class DataFowHyperEdge(body:String,head:String,argument:String) {
+class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) {
   val from=body
   val to=head
-  val name="DataFowHyperEdge_"+argument
+  val name="DataFowHyperEdge_"+ind.toString+"_"+guardedArgument
 
 }
 
@@ -513,6 +514,7 @@ class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode])
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
 }
+
 class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBody:ControlFlowNode,id:Int
                                   //,controlFlowHyperEdge:ControlFowHyperEdge,dataFlowHyperedge:ListBuffer[DataFowHyperEdge]
                                  ){
@@ -520,7 +522,7 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   val head=controlFlowHead
   val body=controlFLowBody
   val clauseID=id
-  var controlFlowHyperEdge=new ControlFowHyperEdge(body.name,head.name,clauseID) //todo:well define ControlFowHyperEdge
+  var controlFlowHyperEdge=new ControlFowHyperEdge(body.name,head.name,clauseID)
   var guardASTGraph=Map[String,String]()
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""

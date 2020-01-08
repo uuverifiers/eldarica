@@ -1118,26 +1118,14 @@ object HintsSelection{
 
       //store head and body to controlFLowNodeList data structure
 
-      var currentControlFlowNodeArgumentListHead=new ListBuffer[ArgumentNode]()
-      if(!clause.head.args.isEmpty){
-        for ((arg,index)<-clause.head.args.zipWithIndex){
-          currentControlFlowNodeArgumentListHead+=new ArgumentNode(clause.head.pred.name,index,arg.toString)
-        }
-      }
 
-      val currentControlFlowNodeHead=new ControlFlowNode(clause.head.pred.name,currentControlFlowNodeArgumentListHead)
-      if(!controlFLowNodeList.exists(_.name==clause.head.pred.name)){ //if head is not in controlFLowNodeList
-        controlFLowNodeList+=currentControlFlowNodeHead
-      }
-
-
-
-      var currentControlFlowNodeArgumentListBody=new ListBuffer[ArgumentNode]()
       var bodyName="Initial"
+      var currentControlFlowNodeArgumentListBody=new ListBuffer[ArgumentNode]()
       if(!clause.body.isEmpty){
         bodyName=clause.body.head.pred.name
         for ((arg,index)<-clause.body.head.args.zipWithIndex){
-          currentControlFlowNodeArgumentListBody+=new ArgumentNode(clause.body.head.pred.name,index,arg.toString)
+          currentControlFlowNodeArgumentListBody+=new ArgumentNode(clause.head.pred.name,
+            clause.body.head.pred.name,clause.body.head.pred.name,clauseID,arg.toString,index)
         }
       }
 
@@ -1146,8 +1134,21 @@ object HintsSelection{
         controlFLowNodeList+=currentControlFlowNodeBody
       }
 
+      var currentControlFlowNodeArgumentListHead=new ListBuffer[ArgumentNode]()
+      if(!clause.head.args.isEmpty){
+        for ((arg,index)<-clause.head.args.zipWithIndex){
+          currentControlFlowNodeArgumentListHead+=new ArgumentNode(clause.head.pred.name,
+            bodyName,clause.head.pred.name,clauseID,arg.toString,index)
+          //ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:String,argIndex:Int)
+        }
+      }
+      val currentControlFlowNodeHead=new ControlFlowNode(clause.head.pred.name,currentControlFlowNodeArgumentListHead)
+      if(!controlFLowNodeList.exists(_.name==clause.head.pred.name)){ //if head is not in controlFLowNodeList
+        controlFLowNodeList+=currentControlFlowNodeHead
+      }
 
-
+      val currentClause=new ClauseTransitionInformation(currentControlFlowNodeHead,currentControlFlowNodeBody,clauseID)
+      clauseID=clauseID+1
 
 
 
@@ -1208,13 +1209,36 @@ object HintsSelection{
         for((arg,i)<-argsInHead.zipWithIndex){
           if(arg.forall(_.isDigit)){//determine if argument is a constant number
             for(argument<-currentControlFlowNodeHead.argumentList)
-              if(argument.originalContent==arg.toString)
+              if(argument.originalContent==arg.toString){
                 writer.write(argument.name+"<-"+arg+"\n")
+                //add constant data flow in to clause data structure
+                argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeHead.name+"_"+
+                  argument.name+"_constant_"+arg
+                println(argument.constantFlowInNode)
+              }
+
           }
         }
       }
 
+      //if arguments in body are constant, add guard constant == arguments
+      //body constant dataflow
+      if(!argsInBody.isEmpty){
+        for((arg,i)<-argsInBody.zipWithIndex){
+          if(arg.forall(_.isDigit)){//determine if argument is a constant number
+            for(argument<-currentControlFlowNodeBody.argumentList)
+              if(argument.originalContent==arg.toString){
+                writer.write(argument.name+"<-"+arg+"\n")
+                //add constant data flow in to clause data structure
+                argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeBody.name+"_"+
+                  argument.name+"_constant_"+arg
+                println(argument.constantFlowInNode)
+              }
 
+
+          }
+        }
+      }
 
 
       //guard
@@ -1226,25 +1250,14 @@ object HintsSelection{
           writer.write( conjunct + "\n")
         }
       }
-      //if arguments in body are constant, add guard constant == arguments
-      //body constan dataflow
-      if(!argsInBody.isEmpty){
-        for((arg,i)<-argsInBody.zipWithIndex){
-          if(arg.forall(_.isDigit)){//determine if argument is a constant number
-            for(argument<-currentControlFlowNodeBody.argumentList)
-              if(argument.originalContent==arg.toString)
-                writer.write(argument.name+"=="+arg+"\n")
-          }
-        }
-      }
+
 
 
       //parse guard to AST tree
 //      writer.write("-----------\n")
 //      writer.write("guard graphs:\n")
 
-      val currentClause=new ClauseTransitionInformation(currentControlFlowNodeHead,currentControlFlowNodeBody,clauseID)
-      clauseID=clauseID+1
+
       var nodeCount:Int=0
       var guardCount:Int=0
       var astNodeNamePrefix=currentClause.name+"_guard_"+guardCount+"_node_"
@@ -1363,7 +1376,7 @@ object HintsSelection{
                 nodeCount=nodeCount+1
                 root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
                 //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "constant_0" +"\"];"+"\n")
+                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
                 if(nodeCount==0){
                   rootName=astNodeNamePrefix+nodeCount
                 }
@@ -1381,7 +1394,7 @@ object HintsSelection{
                 nodeCount=nodeCount+1
                 root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
                 //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "constant_0" +"\"];"+"\n")
+                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
                 if(nodeCount==0){
                   rootName=astNodeNamePrefix+nodeCount
                 }
@@ -1402,7 +1415,7 @@ object HintsSelection{
                 nodeCount=nodeCount+1
                 root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
                 //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "constant_0" +"\"];"+"\n")
+                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
                 if(nodeCount==0){
                   rootName=astNodeNamePrefix+nodeCount
                 }
@@ -1420,7 +1433,7 @@ object HintsSelection{
                 nodeCount=nodeCount+1
                 root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
                 //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "constant_0" +"\"];"+"\n")
+                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
                 if(nodeCount==0){
                   rootName=astNodeNamePrefix+nodeCount
                 }
@@ -1631,15 +1644,17 @@ object HintsSelection{
     writerGraph.write("FALSE" + " [label=\"" + "FALSE" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
-    var ControlFowHyperEdgeIndex=0
     var edgeNameMap:Map[String,String]=Map()
     edgeNameMap+= ("controlFlowIn"->"control flow in")
     edgeNameMap+= ("controlFlowOut"->"control flow out")
+    edgeNameMap+= ("dataFlowIn"->"data flow in")
+    edgeNameMap+= ("dataFlowOut"->"data flow out")
     edgeNameMap+= ("argument"->"argument")
     edgeNameMap+= ("dataFlowIn"->"data flow in")
     edgeNameMap+= ("dataFlowOut"->"data flow out")
     edgeNameMap+= ("astAnd"->"AST &")
     edgeNameMap+= ("condition"->"condition")
+    edgeNameMap+= ("constantDataFlow"->"constant data flow")
     //turn on/off edge's label
     var edgeNameSwitch=false
     if(edgeNameSwitch==false){
@@ -1707,7 +1722,6 @@ object HintsSelection{
             clauseInfo.guardASTRootName=rootName
           }
 
-
         }
         //AST root point to control flow hyperedge
         writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
@@ -1717,10 +1731,43 @@ object HintsSelection{
           writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
             + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
         }
+    }
 
-
+    //draw data flow
+    //draw constant data flow for head
+    for(clauseInfo<-clauseList){
+      for(headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
+        if(headArg.constantFlowInNode!=""){
+          writerGraph.write(headArg.constantFlowInNode
+            + " [label=\""+headArg.originalContent+"\""  +"];"+"\n") //create constant node
+          writerGraph.write(headArg.constantFlowInNode+"->"+headArg.name //add edge to argument
+            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+        }
+      }
+      //draw constant data flow for body
+      for(bodyArg<-clauseInfo.body.argumentList;if !clauseInfo.body.argumentList.isEmpty){
+        if(bodyArg.constantFlowInNode!=""){
+          writerGraph.write(bodyArg.constantFlowInNode
+            + " [label=\""+bodyArg.originalContent+"\""  +"];"+"\n")//create constant node
+          writerGraph.write(bodyArg.constantFlowInNode+"->"+bodyArg.name //add edge to argument
+            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+        }
+      }
+    }
+    //draw guarded data flow hyperedge
+    for(clauseInfo<-clauseList;headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
+      //create data flow hyperedge node
+      writerGraph.write(headArg.dataFLowHyperEdge.name +
+        " [label=\"Guarded DataFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+      //create data flow hyperedge node coonections
+      writerGraph.write(headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
+        "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n")
+      //guards connection
+      writerGraph.write(clauseInfo.guardASTRootName + " -> " + headArg.dataFLowHyperEdge.name +
+        "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n")
 
     }
+
 
 
     //connect this
