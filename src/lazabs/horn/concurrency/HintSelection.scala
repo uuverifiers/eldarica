@@ -1091,6 +1091,8 @@ object HintsSelection{
     edgeNameMap+= ("astAnd"->"AST &")
     edgeNameMap+= ("condition"->"condition")
     edgeNameMap+= ("constantDataFlow"->"constant data flow")
+    edgeNameMap+= ("dataFlow"->"data flow")
+
     //turn on/off edge's label
     var edgeNameSwitch=false
     if(edgeNameSwitch==false){
@@ -1189,8 +1191,8 @@ object HintsSelection{
 
       //dataflow
       writer.write("Data flow:\n")
-      var dataFlowList=ListBuffer[IFormula]()
-      for(headArg<-clause.head.args){
+      var dataFlowMap=Map[String,IFormula]()//argument->dataflow
+      for(headArg<-clause.head.args;headArgName<-currentClause.head.argumentList;if(headArg.toString==headArgName.originalContent)){
         //val Iconstant = IConstant(constant)
         val SumExtract = SymbolSum(headArg)
 
@@ -1200,8 +1202,9 @@ object HintsSelection{
           otherTerms),
           rhs) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>rhs.toString.concat(otherTerms.toString).contains(arg))){
+              //todo:transform this to IFormula
               writer.write(headArg+"<-"+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
-              dataFlowList+=conjunct
+              dataFlowMap=dataFlowMap++Map(headArgName.name->conjunct)
             }
             //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
           }
@@ -1211,7 +1214,7 @@ object HintsSelection{
           otherTerms)) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>lhs.toString.contains(arg))){
               writer.write(headArg+"<-"+lhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
-              dataFlowList+=conjunct
+              dataFlowMap=dataFlowMap++Map(headArgName.name->conjunct)
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
@@ -1223,7 +1226,7 @@ object HintsSelection{
 
       }
 
-      //todo:add dataflow: if common head not in data flow coomon head -> common head
+      //todo:add dataflow: if common head not in data flow coomon head -> common head (check)
       def getElementsFromIFomula(e:IExpression,elementList:ListBuffer[String]): Unit ={
 
         e match{
@@ -1302,12 +1305,15 @@ object HintsSelection{
         //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
 
       }
+      var dataFlowList=ListBuffer[IFormula]()
+      for((arg,df)<-dataFlowMap){dataFlowList+=df}
       var elementList=ListBuffer[String]()//get elements from data flow formula
-      for(dataFlow<-dataFlowList){
-        //println(dataFlow+","+dataFlow.getClass.getName+":")
-        //var elementList=ListBuffer[String]()//get elements from data flow formula
+      for(dataFlow<-dataFlowList){ //get dataflow's element list and parse data flow to AST
+
         getElementsFromIFomula(dataFlow,elementList)
       }
+      //drawAST(clauseName:String,ASTType:String,conatraintList:ListBuffer[IFormula]): Map[String,String]
+      currentClause.dataFlowASTGraph=drawAST(currentClause.name,"dataFLow",dataFlowMap)
       for(comArg<-commonArg){
         if(!elementList.contains(comArg)){
           writer.write(comArg+"\n")
@@ -1369,368 +1375,21 @@ object HintsSelection{
       //todo:further separate guards and data flow
       //guard
       writer.write("Guard:\n")
-      for (conjunct <- LineariseVisitor(
-        clause.constraint, IBinJunctor.And)) {
+      var guardMap=Map[String,IFormula]()
+      for ((conjunct,i) <- LineariseVisitor(
+        clause.constraint, IBinJunctor.And).zipWithIndex) {
         //clause.head.args.exists(conjunct.toString.contains(_))
-        if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) { //if head's argumen not in the formula,then it is a guard
+        if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) { //if head's argument not in the formula,then it is a guard
           writer.write( conjunct + "\n")
+          guardMap=guardMap++Map(("guard_"+i.toString)->conjunct)
         }
+      }
+      val guardASTList=drawAST(currentClause.name,"guard",guardMap)
+      for(ast<-guardASTList if !guardASTList.isEmpty){
+        currentClause.guardASTGraph=currentClause.guardASTGraph++Map( ast.astRootName->ast.graphText)
       }
 
 
-
-      //parse guard to AST tree
-//      writer.write("-----------\n")
-//      writer.write("guard graphs:\n")
-
-
-      var nodeCount:Int=0
-      var guardCount:Int=0
-      var astNodeNamePrefix=currentClause.name+"_guard_"+guardCount+"_node_"
-      var root=new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"root"))
-      var logString:String="" //store node information
-      var rootMark=root
-      var rootName=""
-
-
-      //parse guard to AST tree
-      for (conjunct <- LineariseVisitor(
-        clause.constraint, IBinJunctor.And)) {
-
-        if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) {
-          //writer.write(conjunct.toString+"\n")
-          //writer.write("digraph dag {"+"\n")
-          translateConstraint(conjunct,root) //define nodes in graph, information is stored in logString
-          BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
-          logString=logString+BinarySearchTreeForGraph.relationString
-          BinarySearchTreeForGraph.relationString=""
-          //writer.write(logString)
-          currentClause.guardASTGraph=currentClause.guardASTGraph++Map(rootName->logString) //record graph as string
-          //writer.write("}"+"\n")
-          logString=""
-          nodeCount=0
-          guardCount=guardCount+1
-          astNodeNamePrefix=currentClause.name+"_guard_"+guardCount+"_node_"
-          root=new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"root"))
-          rootMark=root
-
-        }
-
-      }
-
-
-
-
-
-
-      def translateConstraint(e:IExpression,root:TreeNodeForGraph):Unit= {
-
-        e match{
-          case IAtom(pred,args)=> println("IAtom");
-          case IBinFormula(j,f1,f2)=>{
-            if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j.toString))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j.toString +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(f1,root.lchild)
-              translateConstraint(f2,root.lchild)
-
-            }else if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j.toString))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j.toString +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(f1,root.rchild)
-              translateConstraint(f2,root.rchild)
-            }
-
-
-          }
-          case IBoolLit(value)=>{
-            if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
-              //root=root.lchild
-            }else if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
-              //root=root.rchild
-            }
-            //println(nodeCount + " [label=\""+ "_"+index +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+value.toString() +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-          }
-          case IConstant(c)=> {
-            if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
-              //root=root.lchild
-            }else if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
-              //root=root.rchild
-            }
-
-            //println(nodeCount + " [label=\""+ "_"+index +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+c.toString() +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-          }
-          case IEpsilon(cond)=> println("IEpsilon");
-          //case IFormula()=>println("IFormula")
-          case IFormulaITE(cond,left,right)=>println("IFormulaITE")
-          case IFunApp(fun,args)=>println("IFunApp");
-          case IIntFormula(rel,t)=> {
-            if(root.lchild==null){
-              if(rel.toString=="EqZero"){
-                root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"="))
-                //println(nodeCount + " [label=\""+ "=" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "==" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-                //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                //root=root.lchild
-                translateConstraint(t,root.lchild)
-
-              }
-              if(rel.toString=="GeqZero"){
-                root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-                //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                //root=root.lchild
-                translateConstraint(t,root.lchild)
-                //println(nodeCount + " [label=\""+ ">=" +"\"];")
-
-              }
-            }else if(root.rchild==null){
-              if(rel.toString=="EqZero"){
-                root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"="))
-                //println(nodeCount + " [label=\""+ "=" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "==" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-                //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                //root=root.lchild
-                translateConstraint(t,root.rchild)
-
-              }
-              if(rel.toString=="GeqZero"){
-                root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-                //println(nodeCount + " [label=\""+ "0" +"\"];")
-                logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-                if(nodeCount==0){
-                  rootName=astNodeNamePrefix+nodeCount
-                }
-                nodeCount=nodeCount+1
-                //root=root.lchild
-                translateConstraint(t,root.rchild)
-                //println(nodeCount + " [label=\""+ ">=" +"\"];")
-
-              }
-            }
-
-
-
-          }
-          case IIntLit(value)=>{
-            if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
-              //root=root.lchild
-            }else if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
-              //root=root.rchild
-            }
-            //println(nodeCount + " [label=\""+ "_"+index +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+value.toString() +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-          }
-          case INamedPart(name,subformula)=>println("INamedPart")
-          case INot(subformula)=>{
-            if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(subformula,root.lchild)
-
-            }else if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(subformula,root.rchild)
-            }
-          }
-          case IPlus(t1,t2)=> {
-            if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"+"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "+" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(t1,root.lchild)
-              translateConstraint(t2,root.lchild)
-
-            }else if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"+"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "+" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(t1,root.rchild)
-              translateConstraint(t2,root.rchild)
-
-            }
-
-          }
-          case IQuantified(quan, subformula)=>{
-            if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->quan.toString))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ quan.toString +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(subformula,root.lchild)
-
-            }else if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->quan.toString))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "+" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ quan.toString +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(subformula,root.rchild)
-            }
-          }
-          //case ITerm()=>println("ITerm")
-          case ITermITE(cond,left,right)=>println("ITermITE")
-          case ITimes(coeff,t)=> {
-            if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "*" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "*" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->coeff.toString()))
-              //println(nodeCount + " [label=\""+ coeff +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ coeff +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(t,root.lchild)
-            }else if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
-              //root=root.lchild
-              //println(nodeCount + " [label=\""+ "*" +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "*" +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->coeff.toString()))
-              //println(nodeCount + " [label=\""+ coeff +"\"];")
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ coeff +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-              translateConstraint(t,root.rchild)
-            }
-
-          }
-          case ITrigger(patterns,subformula)=>println("ITrigger");
-          case IVariable(index)=> {
-            if(root.rchild==null){
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->("_"+index.toString)))
-              //root=root.lchild
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-            }else if(root.lchild==null){
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->("_"+index.toString)))
-              //root=root.rchild
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
-              }
-              nodeCount=nodeCount+1
-            }
-
-          }
-
-          case _=>println("?")
-        }
-      }
 
 
 
@@ -1740,6 +1399,7 @@ object HintsSelection{
       clauseList+=currentClause
 
     }
+
 
 
     writer.write("-----------\n")
@@ -1821,7 +1481,8 @@ object HintsSelection{
           writerGraph.write(clauseInfo.name + "_and" + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
           clauseInfo.guardASTRootName=clauseInfo.name + "_and"//store this node to clauses's guardASTRootName
         }
-        for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw ast
+      //draw guard ast
+        for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw guard ast
           writerGraph.write(ast+"\n")
           if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
             writerGraph.write(clauseInfo.name + "_and"+"->"+ast.substring(0,ast.indexOf("[")-1)
@@ -1831,42 +1492,32 @@ object HintsSelection{
           }
 
         }
-        //AST root point to control flow hyperedge
-        if(!clauseInfo.guardASTRootName.isEmpty){
-          writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
-            + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
-        }
+      //guard AST root point to control flow hyperedge
+      if(!clauseInfo.guardASTRootName.isEmpty){
+        writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
+          + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
+      }
+      //if there is no guard add true condition
+      if(clauseInfo.guardASTGraph.isEmpty){
+        writerGraph.write(clauseInfo.trueCondition + " [label=\""+"true"+"\"" +"];"+"\n")//add true node
+        writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
+          + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
 
-        if(clauseInfo.guardASTGraph.isEmpty){//if there is no guard add true condition
-          writerGraph.write(clauseInfo.trueCondition + " [label=\""+"true"+"\"" +"];"+"\n")//add true node
-          writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
-            + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
+      }
+      //draw data flow ast
+      for(graphInfo<-clauseInfo.dataFlowASTGraph;argNode<-clauseInfo.head.argumentList if(graphInfo.argumentName==argNode.name)){
+        writerGraph.write(graphInfo.graphText+"\n")//draw AST
+        writerGraph.write(graphInfo.astRootName + "->"+argNode.dataFLowHyperEdge.name //connect to data flow hyper edge
+          + " [label=\""+edgeNameMap("dataFlow")+"\"" +"];"+"\n")
 
-        }
+      }
+
+
     }
 
     //draw data flow
-    //draw constant data flow for head
-    for(clauseInfo<-clauseList){
-      for(headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
-        if(headArg.constantFlowInNode!=""){
-          writerGraph.write(headArg.constantFlowInNode
-            + " [label=\""+headArg.originalContent+"\""  +"];"+"\n") //create constant node
-          writerGraph.write(headArg.constantFlowInNode+"->"+headArg.name //add edge to argument
-            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
-        }
-      }
-      //draw constant data flow for body
-      for(bodyArg<-clauseInfo.body.argumentList;if !clauseInfo.body.argumentList.isEmpty){
-        if(!bodyArg.constantFlowInNode.isEmpty){
-          writerGraph.write(bodyArg.constantFlowInNode
-            + " [label=\""+bodyArg.originalContent+"\""  +"];"+"\n")//create constant node
-          writerGraph.write(bodyArg.constantFlowInNode+"->"+bodyArg.name //add edge to argument
-            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
-        }
-      }
-    }
-    //draw guarded data flow hyperedge
+
+    //draw guarded data flow hyperedge for head
     for(clauseInfo<-clauseList;headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
       //create data flow hyperedge node
       writerGraph.write(headArg.dataFLowHyperEdge.name +
@@ -1874,7 +1525,7 @@ object HintsSelection{
       //create data flow hyperedge node coonections
       writerGraph.write(headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
         "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n")
-      //AST root point to data flow hyperedge
+      //guard AST root point to data flow hyperedge
       if(!clauseInfo.guardASTRootName.isEmpty){
         writerGraph.write(clauseInfo.guardASTRootName + " -> " + headArg.dataFLowHyperEdge.name +
           "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n")
@@ -1885,8 +1536,32 @@ object HintsSelection{
           + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
         //todo:add true condition to data flow hyperedge (check)
       }
+      //data flow AST root point to data flow hyperedge
+
 
     }
+    //draw constant data flow for head
+    for(clauseInfo<-clauseList){
+      for(headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
+        if(headArg.constantFlowInNode!=""){
+          writerGraph.write(headArg.constantFlowInNode
+            + " [label=\""+headArg.originalContent+"\""  +"];"+"\n") //create constant node
+          writerGraph.write(headArg.constantFlowInNode+"->"+headArg.dataFLowHyperEdge.name //add edge to argument
+            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+        }
+      }
+      //draw constant data flow for body
+      for(bodyArg<-clauseInfo.body.argumentList;if !clauseInfo.body.argumentList.isEmpty){
+        if(!bodyArg.constantFlowInNode.isEmpty){
+          writerGraph.write(bodyArg.constantFlowInNode
+            + " [label=\""+bodyArg.originalContent+"\""  +"];"+"\n")//create constant node
+          //todo: find where this body be head, and find that dataflow hyper edge
+          writerGraph.write(bodyArg.constantFlowInNode+"->"+bodyArg.name //add edge to argument
+            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+        }
+      }
+    }
+
 
     //draw simple data flow connection
     for(clauseInfo<-clauseList){
@@ -1946,6 +1621,343 @@ object HintsSelection{
 //    }
 
     writerGraph.close()
+  }
+
+  def drawAST(clauseName:String,ASTType:String,conatraintMap:Map[String,IFormula]): ListBuffer[DataFlowASTGraphInfo] ={
+    var ASTGraph=ListBuffer[DataFlowASTGraphInfo]()
+    var nodeCount:Int=0
+    var dataFlowCount:Int=0
+    var astNodeNamePrefix=clauseName+ASTType+dataFlowCount+"_node_"
+    var root=new TreeNodeForGraph(Map((astNodeNamePrefix+nodeCount)->"root"))
+    var logString:String="" //store node information
+    var rootMark=root
+    var rootName=""
+    def translateConstraint(e:IExpression,root:TreeNodeForGraph):Unit= {
+
+      e match{
+        case IAtom(pred,args)=> println("IAtom");
+        case IBinFormula(j,f1,f2)=>{
+          if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j.toString))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j.toString +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(f1,root.lchild)
+            translateConstraint(f2,root.lchild)
+
+          }else if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j.toString))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j.toString +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(f1,root.rchild)
+            translateConstraint(f2,root.rchild)
+          }
+
+
+        }
+        case IBoolLit(value)=>{
+          if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
+            //root=root.lchild
+          }else if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
+            //root=root.rchild
+          }
+          //println(nodeCount + " [label=\""+ "_"+index +"\"];")
+          logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+value.toString() +"\"];"+"\n")
+          if(nodeCount==0){
+            rootName=astNodeNamePrefix+nodeCount
+          }
+          nodeCount=nodeCount+1
+        }
+        case IConstant(c)=> {
+          if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
+            //root=root.lchild
+          }else if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
+            //root=root.rchild
+          }
+
+          //println(nodeCount + " [label=\""+ "_"+index +"\"];")
+          logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+c.toString() +"\"];"+"\n")
+          if(nodeCount==0){
+            rootName=astNodeNamePrefix+nodeCount
+          }
+          nodeCount=nodeCount+1
+        }
+        case IEpsilon(cond)=> println("IEpsilon");
+        //case IFormula()=>println("IFormula")
+        case IFormulaITE(cond,left,right)=>println("IFormulaITE")
+        case IFunApp(fun,args)=>println("IFunApp");
+        case IIntFormula(rel,t)=> {
+          if(root.lchild==null){
+            if(rel.toString=="EqZero"){
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"="))
+              //println(nodeCount + " [label=\""+ "=" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "==" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
+              //println(nodeCount + " [label=\""+ "0" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              //root=root.lchild
+              translateConstraint(t,root.lchild)
+
+            }
+            if(rel.toString=="GeqZero"){
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
+              //println(nodeCount + " [label=\""+ "0" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              //root=root.lchild
+              translateConstraint(t,root.lchild)
+              //println(nodeCount + " [label=\""+ ">=" +"\"];")
+
+            }
+          }else if(root.rchild==null){
+            if(rel.toString=="EqZero"){
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"="))
+              //println(nodeCount + " [label=\""+ "=" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "==" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
+              //println(nodeCount + " [label=\""+ "0" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              //root=root.lchild
+              translateConstraint(t,root.rchild)
+
+            }
+            if(rel.toString=="GeqZero"){
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
+              //println(nodeCount + " [label=\""+ "0" +"\"];")
+              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
+              if(nodeCount==0){
+                rootName=astNodeNamePrefix+nodeCount
+              }
+              nodeCount=nodeCount+1
+              //root=root.lchild
+              translateConstraint(t,root.rchild)
+              //println(nodeCount + " [label=\""+ ">=" +"\"];")
+
+            }
+          }
+
+
+
+        }
+        case IIntLit(value)=>{
+          if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
+            //root=root.lchild
+          }else if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(value.toString)))
+            //root=root.rchild
+          }
+          //println(nodeCount + " [label=\""+ "_"+index +"\"];")
+          logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+value.toString() +"\"];"+"\n")
+          if(nodeCount==0){
+            rootName=astNodeNamePrefix+nodeCount
+          }
+          nodeCount=nodeCount+1
+        }
+        case INamedPart(name,subformula)=>println("INamedPart")
+        case INot(subformula)=>{
+          if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(subformula,root.lchild)
+
+          }else if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(subformula,root.rchild)
+          }
+        }
+        case IPlus(t1,t2)=> {
+          if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"+"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "+" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(t1,root.lchild)
+            translateConstraint(t2,root.lchild)
+
+          }else if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"+"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "+" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(t1,root.rchild)
+            translateConstraint(t2,root.rchild)
+
+          }
+
+        }
+        case IQuantified(quan, subformula)=>{
+          if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->quan.toString))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ quan.toString +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(subformula,root.lchild)
+
+          }else if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->quan.toString))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "+" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ quan.toString +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(subformula,root.rchild)
+          }
+        }
+        //case ITerm()=>println("ITerm")
+        case ITermITE(cond,left,right)=>println("ITermITE")
+        case ITimes(coeff,t)=> {
+          if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "*" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "*" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->coeff.toString()))
+            //println(nodeCount + " [label=\""+ coeff +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ coeff +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(t,root.lchild)
+          }else if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
+            //root=root.lchild
+            //println(nodeCount + " [label=\""+ "*" +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "*" +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->coeff.toString()))
+            //println(nodeCount + " [label=\""+ coeff +"\"];")
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ coeff +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+            translateConstraint(t,root.rchild)
+          }
+
+        }
+        case ITrigger(patterns,subformula)=>println("ITrigger");
+        case IVariable(index)=> {
+          if(root.rchild==null){
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->("_"+index.toString)))
+            //root=root.lchild
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+          }else if(root.lchild==null){
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->("_"+index.toString)))
+            //root=root.rchild
+            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "_"+index +"\"];"+"\n")
+            if(nodeCount==0){
+              rootName=astNodeNamePrefix+nodeCount
+            }
+            nodeCount=nodeCount+1
+          }
+
+        }
+
+        case _=>println("?")
+      }
+    }
+    for((argumentName,conatraint)<-conatraintMap){ //get dataflow's element list and parse data flow to AST
+
+      translateConstraint(conatraint,root) //define nodes in graph, information is stored in logString
+      BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
+      logString=logString+BinarySearchTreeForGraph.relationString
+      BinarySearchTreeForGraph.relationString=""
+      //writer.write(logString)
+      val currentASTGraph=new DataFlowASTGraphInfo(rootName,argumentName,logString)
+      ASTGraph+=currentASTGraph //record graph as string
+      //writer.write("}"+"\n")
+      logString=""
+      nodeCount=0
+      dataFlowCount=dataFlowCount+1
+      astNodeNamePrefix=clauseName+ASTType+dataFlowCount+"_node_"
+      root=new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"root"))
+      rootMark=root
+    }
+    ASTGraph
   }
 
   def writeSMTFormatToFile(simpClauses:Clauses,path:String): Unit ={

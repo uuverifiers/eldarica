@@ -458,14 +458,14 @@ class TreeNodeForGraph{
           val (l_key,l_value)=root.lchild.data.head
           //println(k+"->"+l_key)
           if(k!=l_key){
-            relationString=relationString+(k+"->"+l_key+"\n")
+            relationString=relationString+(l_key+"->"+k+"\n")
           }
 
         }
         if(root.rchild!=null){
           val (r_key,r_value)=root.rchild.data.head
           //println(k+"->"+r_key)
-          relationString=relationString+(k+"->"+r_key+"\n")
+          relationString=relationString+(r_key+"->"+k+"\n")
         }
 
 
@@ -484,6 +484,9 @@ class TreeNodeForGraph{
 
 
 }
+
+
+
 
 class ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:String,argIndex:Int) {
   val InList=ListBuffer
@@ -524,11 +527,20 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   val clauseID=id
   var controlFlowHyperEdge=new ControlFowHyperEdge(body.name,head.name,clauseID)
   var dataFlowHyperEdgeList=ListBuffer[DataFlowHyperEdge]()
-  var guardASTGraph=Map[String,String]()
+  var guardASTGraph=Map[String,String]()//rootName->graph
+  var dataFlowASTGraph=ListBuffer[DataFlowASTGraphInfo]()
   var simpleDataFlowConnection=Map[String,String]()//map:hyperedge->connectiongraph
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""
+  //var dataFlowASTRootNameList=ListBuffer[String]()
   val trueCondition="true_"+id.toString
   var commonArg=ListBuffer[ArgumentNode]()
   //body node
+}
+
+class DataFlowASTGraphInfo(rootName:String,argName:String,graphInfo:String){
+  val astRootName=rootName
+  val argumentName=argName
+  val graphText=graphInfo
+
 }
