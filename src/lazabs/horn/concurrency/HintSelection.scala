@@ -1191,7 +1191,7 @@ object HintsSelection{
 
       //dataflow
       writer.write("Data flow:\n")
-      var dataFlowMap=Map[String,IFormula]()//argument->dataflow
+      var dataFlowMap=Map[String,IExpression]()//argument->dataflow
       for(headArg<-clause.head.args;headArgName<-currentClause.head.argumentList;if(headArg.toString==headArgName.originalContent)){
         //val Iconstant = IConstant(constant)
         val SumExtract = SymbolSum(headArg)
@@ -1202,9 +1202,9 @@ object HintsSelection{
           otherTerms),
           rhs) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>rhs.toString.concat(otherTerms.toString).contains(arg))){
-              //todo:transform this to IFormula
               writer.write(headArg+"<-"+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
-              dataFlowMap=dataFlowMap++Map(headArgName.name->conjunct)
+              val df=rhs-otherTerms //record data flow IExpression
+              dataFlowMap=dataFlowMap++Map(headArgName.name->df)
             }
             //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
           }
@@ -1214,7 +1214,8 @@ object HintsSelection{
           otherTerms)) => {
             if(!relativeComplimentOfHeadArg.exists(arg=>lhs.toString.contains(arg))){
               writer.write(headArg+"<-"+lhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
-              dataFlowMap=dataFlowMap++Map(headArgName.name->conjunct)
+              val df=lhs-otherTerms //record data flow IExpression
+              dataFlowMap=dataFlowMap++Map(headArgName.name->df)
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
@@ -1305,7 +1306,7 @@ object HintsSelection{
         //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
 
       }
-      var dataFlowList=ListBuffer[IFormula]()
+      var dataFlowList=ListBuffer[IExpression]()
       for((arg,df)<-dataFlowMap){dataFlowList+=df}
       var elementList=ListBuffer[String]()//get elements from data flow formula
       for(dataFlow<-dataFlowList){ //get dataflow's element list and parse data flow to AST
@@ -1313,7 +1314,7 @@ object HintsSelection{
         getElementsFromIFomula(dataFlow,elementList)
       }
       //drawAST(clauseName:String,ASTType:String,conatraintList:ListBuffer[IFormula]): Map[String,String]
-      currentClause.dataFlowASTGraph=drawAST(currentClause.name,"dataFLow",dataFlowMap)
+      currentClause.dataFlowASTGraph=drawAST(currentClause,"dataFlow",dataFlowMap)
       for(comArg<-commonArg){
         if(!elementList.contains(comArg)){
           writer.write(comArg+"\n")
@@ -1323,13 +1324,11 @@ object HintsSelection{
             currentClause.simpleDataFlowConnection=currentClause.simpleDataFlowConnection++
               Map(headArg.dataFLowHyperEdge.name->
                 (bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
-                  "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"+
-                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
-                  "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"))
-            //              bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
-            //                "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"
-            //              headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
-            //                "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"
+                  "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"))
+
+//                  + //data flow hyper edge already been drew when create this hyperedge
+//                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
+//                  "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"))
 
           }
         }
@@ -1384,16 +1383,10 @@ object HintsSelection{
           guardMap=guardMap++Map(("guard_"+i.toString)->conjunct)
         }
       }
-      val guardASTList=drawAST(currentClause.name,"guard",guardMap)
+      val guardASTList=drawAST(currentClause,"guard",guardMap)
       for(ast<-guardASTList if !guardASTList.isEmpty){
         currentClause.guardASTGraph=currentClause.guardASTGraph++Map( ast.astRootName->ast.graphText)
       }
-
-
-
-
-
-
 
       //add currentClause to ClauseTransitionInformationList
       clauseList+=currentClause
@@ -1476,16 +1469,20 @@ object HintsSelection{
     writerGraph.write("\n")
 
     for(clauseInfo<-clauseList){
-
-        if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
-          writerGraph.write(clauseInfo.name + "_and" + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
+      var andName="xxx"+clauseInfo.name+"_"+clauseInfo.clauseID +"xxx"+ "_and"
+        if(clauseInfo.guardNumber>1){ //connect constraints by &
+          writerGraph.write(andName + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
           clauseInfo.guardASTRootName=clauseInfo.name + "_and"//store this node to clauses's guardASTRootName
         }
       //draw guard ast
         for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw guard ast
           writerGraph.write(ast+"\n")
-          if(clauseInfo.guardASTGraph.size>1){ //connect constraints by &
-            writerGraph.write(clauseInfo.name + "_and"+"->"+ast.substring(0,ast.indexOf("[")-1)
+          if(clauseInfo.guardNumber>1){ //connect constraints by &
+            println("debug")
+            println(rootName)
+            println(clauseInfo.guardNumber)
+            //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
+            writerGraph.write(rootName+"->"+andName//ast.substring(0,ast.indexOf("[label")-1)
               + " [label=\""+edgeNameMap("astAnd")+"\""  +"];"+"\n")
           }else{
             clauseInfo.guardASTRootName=rootName
@@ -1623,15 +1620,17 @@ object HintsSelection{
     writerGraph.close()
   }
 
-  def drawAST(clauseName:String,ASTType:String,conatraintMap:Map[String,IFormula]): ListBuffer[DataFlowASTGraphInfo] ={
+  def drawAST(clause:ClauseTransitionInformation,ASTType:String,conatraintMap:Map[String,IExpression]): ListBuffer[DataFlowASTGraphInfo] ={
     var ASTGraph=ListBuffer[DataFlowASTGraphInfo]()
     var nodeCount:Int=0
     var dataFlowCount:Int=0
-    var astNodeNamePrefix=clauseName+ASTType+dataFlowCount+"_node_"
+    var astNodeNamePrefix="xxx"+clause.name+"_"+clause.clauseID+"xxx"+ASTType+dataFlowCount+"_node_"
     var root=new TreeNodeForGraph(Map((astNodeNamePrefix+nodeCount)->"root"))
     var logString:String="" //store node information
     var rootMark=root
     var rootName=""
+
+    //todo:fill more cases
     def translateConstraint(e:IExpression,root:TreeNodeForGraph):Unit= {
 
       e match{
@@ -1940,20 +1939,35 @@ object HintsSelection{
         case _=>println("?")
       }
     }
-    for((argumentName,conatraint)<-conatraintMap){ //get dataflow's element list and parse data flow to AST
-
+    for((argumentName,conatraint)<-conatraintMap){ //get dataflow or guard element list and parse data flow to AST
+      if(ASTType=="guard"){
+        clause.guardNumber=clause.guardNumber+1
+      }else{
+        clause.dataFlowNumber=clause.dataFlowNumber+1
+      }
       translateConstraint(conatraint,root) //define nodes in graph, information is stored in logString
+      BinarySearchTreeForGraph.headArgList=clause.head.argumentList
+      BinarySearchTreeForGraph.bodyArgList=clause.body.argumentList
+      BinarySearchTreeForGraph.ASTtype=ASTType
+      BinarySearchTreeForGraph.nodeString=logString
+      println("node string")
+      println(logString)
+      println(conatraintMap)
       BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
-      logString=logString+BinarySearchTreeForGraph.relationString
+      logString=BinarySearchTreeForGraph.nodeString+BinarySearchTreeForGraph.relationString
+      println(logString)
       BinarySearchTreeForGraph.relationString=""
-      //writer.write(logString)
+      BinarySearchTreeForGraph.nodeString=""
+      BinarySearchTreeForGraph.bodyArgList=new ListBuffer[ArgumentNode]()
+      BinarySearchTreeForGraph.headArgList=new ListBuffer[ArgumentNode]()
+
       val currentASTGraph=new DataFlowASTGraphInfo(rootName,argumentName,logString)
       ASTGraph+=currentASTGraph //record graph as string
       //writer.write("}"+"\n")
       logString=""
       nodeCount=0
       dataFlowCount=dataFlowCount+1
-      astNodeNamePrefix=clauseName+ASTType+dataFlowCount+"_node_"
+      astNodeNamePrefix="xxx"+clause.name+"_"+clause.clauseID+"xxx"+ASTType+dataFlowCount+"_node_"
       root=new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"root"))
       rootMark=root
     }
@@ -1999,14 +2013,6 @@ object HintsSelection{
     )
     // could return `path`
   }
-
-
-
-
-
-
-
-
 
 
 
