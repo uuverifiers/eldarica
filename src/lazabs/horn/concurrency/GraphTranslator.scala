@@ -376,7 +376,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
 class TreeNode{
   var data:Map[Int,String]=Map(0->"new")
   //var data:Map[Int,String]=Map()
-  var lchild:TreeNode = null
+  var lchild:TreeNode = null//val
   var rchild:TreeNode = null
   var parent:TreeNode = null
 
@@ -409,10 +409,6 @@ object BinarySearchTree {
         //println(k+"->"+r_key)
         relationString=relationString+(k+"->"+r_key+"\n")
       }
-
-
-
-
       preOrder(root.lchild)
       //print(root.data.keys + "\n")
       preOrder(root.rchild)
@@ -434,7 +430,7 @@ object BinarySearchTree {
 class TreeNodeForGraph{
   var data:Map[String,String]=Map("0"->"new")
   //var data:Map[Int,String]=Map()
-  var lchild:TreeNodeForGraph = null
+  var lchild:TreeNodeForGraph = null//val
   var rchild:TreeNodeForGraph = null
   var parent:TreeNodeForGraph = null
 
@@ -445,7 +441,6 @@ class TreeNodeForGraph{
 }
 
   object BinarySearchTreeForGraph {
-    import scala.util.control._
     var headArgList=ListBuffer[ArgumentNode]()
     var bodyArgList=ListBuffer[ArgumentNode]()
     var ASTtype=""
@@ -453,76 +448,76 @@ class TreeNodeForGraph{
     var nodeString:String="" //store node information
     def preOrder(root: TreeNodeForGraph): Unit = {
       if (root != null) {
-
         //println(root.data)
-
         val (k,v) = root.data.head
 
         if(root.lchild!=null){
           val (l_key,l_value)=root.lchild.data.head
           //println(k+"->"+l_key)
-          if(k!=l_key && !bodyArgList.isEmpty){
-            if(headArgList.isEmpty){//no data flow needed
-              relationString=relationString+(l_key+"->"+k+"\n")
-            }else{
-              var tempFlag=false
-
-              for(arg<-bodyArgList if tempFlag==false){
-                if(arg.originalContent==l_value){
-                  //println(arg.name+"->"+k+"\n")
-                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
-                  deleteANode(l_key)//delete original node
-                  tempFlag=true
-
-                }else{
-                  //println(l_key+"->"+k+"\n")
-                }
-              }
-              if(tempFlag==false){
-                relationString=relationString+(l_key+"->"+k+"\n")
-              }
-
-            }
-
-          }
-          if(k!=l_key && bodyArgList.isEmpty){
+//          if(k!=l_key && !bodyArgList.isEmpty){
+//            if(headArgList.isEmpty){//no data flow needed
+//              relationString=relationString+(l_key+"->"+k+"\n")
+//            }else{
+//              var tempFlag=false
+//
+//              for(arg<-bodyArgList if tempFlag==false){
+//                if(arg.originalContent==l_value){
+//                  //println(arg.name+"->"+k+"\n")
+//                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
+//                  deleteANode(l_key)//delete original node
+//                  tempFlag=true
+//
+//                }else{
+//                  //println(l_key+"->"+k+"\n")
+//                }
+//              }
+//              if(tempFlag==false){
+//                relationString=relationString+(l_key+"->"+k+"\n")
+//              }
+//
+//            }
+//
+//          }
+//          if(k!=l_key && bodyArgList.isEmpty){
+//            relationString=relationString+(l_key+"->"+k+"\n")
+//          }
+          if(k!=l_key){
             relationString=relationString+(l_key+"->"+k+"\n")
           }
-
         }
 
         if(root.rchild!=null){
           val (r_key,r_value)=root.rchild.data.head
           //println(k+"->"+r_key)
-          if(k!=r_key && !bodyArgList.isEmpty){
-            if(headArgList.isEmpty){//no data flow needed
-              relationString=relationString+(r_key+"->"+k+"\n")
-            }else{
-              var tempFlag=false
-              for(arg<-bodyArgList if tempFlag==false){
-                if(arg.originalContent==r_value){
-                  //println(arg.name+"->"+k+"\n")
-                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
-                  deleteANode(r_key)//delete original node
-                  tempFlag=true
-                }else{
-                  //println(r_key+"->"+k+"\n")
-                }
-              }
-              if(tempFlag==false){
-                relationString=relationString+(r_key+"->"+k+"\n")
-              }
-
-            }
-          }
-          if(k!=r_key && bodyArgList.isEmpty){
+//          if(k!=r_key && !bodyArgList.isEmpty){
+//            if(headArgList.isEmpty){//no data flow needed
+//              relationString=relationString+(r_key+"->"+k+"\n")
+//            }else{
+//              var tempFlag=false
+//              for(arg<-bodyArgList if tempFlag==false){
+//                if(arg.originalContent==r_value){
+//                  //println(arg.name+"->"+k+"\n")
+//                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
+//                  deleteANode(r_key)//delete original node
+//                  tempFlag=true
+//                }else{
+//                  //println(r_key+"->"+k+"\n")
+//                }
+//              }
+//              if(tempFlag==false){
+//                relationString=relationString+(r_key+"->"+k+"\n")
+//              }
+//
+//            }
+//          }
+//          if(k!=r_key && bodyArgList.isEmpty){
+//            relationString=relationString+(r_key+"->"+k+"\n")
+//          }
+          if(k!=r_key){
             relationString=relationString+(r_key+"->"+k+"\n")
           }
-          //relationString=relationString+(r_key+"->"+k+"\n")
+
         }
-
-
-
 
         preOrder(root.lchild)
         //print(root.data.keys + "\n")
@@ -536,12 +531,20 @@ class TreeNodeForGraph{
 
     def deleteANode(node:String): Unit ={
       var tempRelation=""
-      val sList=nodeString.split("\n")
-      var resultList=Array[String]()
+      var sList:Array[String]=nodeString.split("\n")
+      var deleteList=ListBuffer[String]()
       for(line<-sList if line.contains(node)){
-        resultList=sList.filter(! _.contains(line))
+        deleteList+=line
       }
-      for(line<-resultList){
+      var nodeList=ListBuffer[String]()
+      for(line<-sList){
+        nodeList+=line
+      }
+      for(line<-deleteList){
+        nodeList-=line
+      }
+      //sList.filter(! _.contains(line))
+      for(line<-nodeList){
         tempRelation=tempRelation+line
       }
       nodeString=tempRelation
@@ -580,6 +583,17 @@ class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) 
 class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode]){
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
+
+  def getArgNameByContent(c:String): String ={
+    var name=""
+    for(arg<-argumentList){
+      if(arg.originalContent==c){
+        name=arg.name
+      }
+    }
+    name
+  }
+
 }
 
 class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBody:ControlFlowNode,id:Int
