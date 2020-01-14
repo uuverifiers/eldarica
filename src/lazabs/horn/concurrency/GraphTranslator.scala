@@ -441,8 +441,6 @@ class TreeNodeForGraph{
 }
 
   object BinarySearchTreeForGraph {
-    var headArgList=ListBuffer[ArgumentNode]()
-    var bodyArgList=ListBuffer[ArgumentNode]()
     var ASTtype=""
     var relationString:String="" //store node relation information
     var nodeString:String="" //store node information
@@ -453,67 +451,14 @@ class TreeNodeForGraph{
 
         if(root.lchild!=null){
           val (l_key,l_value)=root.lchild.data.head
-          //println(k+"->"+l_key)
-//          if(k!=l_key && !bodyArgList.isEmpty){
-//            if(headArgList.isEmpty){//no data flow needed
-//              relationString=relationString+(l_key+"->"+k+"\n")
-//            }else{
-//              var tempFlag=false
-//
-//              for(arg<-bodyArgList if tempFlag==false){
-//                if(arg.originalContent==l_value){
-//                  //println(arg.name+"->"+k+"\n")
-//                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
-//                  deleteANode(l_key)//delete original node
-//                  tempFlag=true
-//
-//                }else{
-//                  //println(l_key+"->"+k+"\n")
-//                }
-//              }
-//              if(tempFlag==false){
-//                relationString=relationString+(l_key+"->"+k+"\n")
-//              }
-//
-//            }
-//
-//          }
-//          if(k!=l_key && bodyArgList.isEmpty){
-//            relationString=relationString+(l_key+"->"+k+"\n")
-//          }
-          if(k!=l_key){
+          if(k!=l_key && v!="root"){
             relationString=relationString+(l_key+"->"+k+"\n")
           }
         }
 
         if(root.rchild!=null){
           val (r_key,r_value)=root.rchild.data.head
-          //println(k+"->"+r_key)
-//          if(k!=r_key && !bodyArgList.isEmpty){
-//            if(headArgList.isEmpty){//no data flow needed
-//              relationString=relationString+(r_key+"->"+k+"\n")
-//            }else{
-//              var tempFlag=false
-//              for(arg<-bodyArgList if tempFlag==false){
-//                if(arg.originalContent==r_value){
-//                  //println(arg.name+"->"+k+"\n")
-//                  relationString=relationString+(arg.name+"->"+k+"\n") //use argument to replace original node
-//                  deleteANode(r_key)//delete original node
-//                  tempFlag=true
-//                }else{
-//                  //println(r_key+"->"+k+"\n")
-//                }
-//              }
-//              if(tempFlag==false){
-//                relationString=relationString+(r_key+"->"+k+"\n")
-//              }
-//
-//            }
-//          }
-//          if(k!=r_key && bodyArgList.isEmpty){
-//            relationString=relationString+(r_key+"->"+k+"\n")
-//          }
-          if(k!=r_key){
+          if(k!=r_key && v!="root"){
             relationString=relationString+(r_key+"->"+k+"\n")
           }
 
