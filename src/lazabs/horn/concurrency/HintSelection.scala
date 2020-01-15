@@ -44,11 +44,13 @@ import ap.basetypes.IdealInt
 import lazabs.Main
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.GraphTranslator
-class wrappedHintWithID{
-  var ID:Int=0
-  var head:String=""
-  var hint:String=""
-  def this(ID : Int,head:String,hint:String) = {
+
+class wrappedHintWithID {
+  var ID: Int = 0
+  var head: String = ""
+  var hint: String = ""
+
+  def this(ID: Int, head: String, hint: String) = {
     this();
     this.ID = ID;
     this.head = head;
@@ -56,51 +58,52 @@ class wrappedHintWithID{
   }
 }
 
-object HintsSelection{
-  def sortHints(hints:VerificationHints): VerificationHints ={
-    var tempHints=VerificationHints(Map()) //sort the hints
-    for((oneHintKey,oneHintValue)<-hints.getPredicateHints()){
-      val tempSeq=oneHintValue.sortBy(oneHintValue =>(oneHintValue.toString,oneHintValue.toString))
-      tempHints=tempHints.addPredicateHints(Map(oneHintKey->tempSeq))
+object HintsSelection {
+  def sortHints(hints: VerificationHints): VerificationHints = {
+    var tempHints = VerificationHints(Map()) //sort the hints
+    for ((oneHintKey, oneHintValue) <- hints.getPredicateHints()) {
+      val tempSeq = oneHintValue.sortBy(oneHintValue => (oneHintValue.toString, oneHintValue.toString))
+      tempHints = tempHints.addPredicateHints(Map(oneHintKey -> tempSeq))
     }
-//    println("tempHints")
-//    tempHints.pretyPrintHints()
+    //    println("tempHints")
+    //    tempHints.pretyPrintHints()
     return tempHints
   }
 
-  def writeHornAndGraphToFiles(selectedHints:VerificationHints,
-                               sortedHints:VerificationHints,
-                               clauses:HornPreprocessor.Clauses,
-                               clauseSet: Seq[HornClause],wrappedHintList:Seq[wrappedHintWithID])={
-    if(selectedHints.isEmpty){ //when no hint available
+  def writeHornAndGraphToFiles(selectedHints: VerificationHints,
+                               sortedHints: VerificationHints,
+                               clauses: HornPreprocessor.Clauses,
+                               clauseSet: Seq[HornClause], wrappedHintList: Seq[wrappedHintWithID]) = {
+    if (selectedHints.isEmpty) { //when no hint available
       println("No hints selected (no need for hints)")
       //not write horn clauses to file
-    }else{
+    } else {
 
       //Output graphs
       val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints,wrappedHintList)
+      val hintGraph = new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints, wrappedHintList)
 
       //write horn clauses to file
-      val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
-      val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
+      val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+      val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
       writer.write(HornPrinter(clauseSet))
       writer.close()
       //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
       //write smt2 format to file
-      if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(clauses,"../trainData/")  //write smt2 format to file
+      if (GlobalParameters.get.fileName.endsWith(".c")) { //if it is a c file
+        HintsSelection.writeSMTFormatToFile(clauses, "../trainData/") //write smt2 format to file
       }
-      if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
+      if (GlobalParameters.get.fileName.endsWith(".smt2")) { //if it is a smt2 file
         //copy smt2 file
-        val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../trainData/"+fileName)
+        val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../trainData/" + fileName)
       }
 
 
     }
   }
-  def getInitialPredicates(encoder:ParametricEncoder,simpHints:VerificationHints,simpClauses:Clauses):VerificationHints = {
+
+  def getInitialPredicates(encoder: ParametricEncoder, simpHints: VerificationHints, simpClauses: Clauses): VerificationHints = {
     val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
       Console.withErr(Console.out) {
         val builder =
@@ -173,21 +176,20 @@ object HintsSelection{
       }
       initialPredicates = initialPredicates.addPredicateHints(Map(head -> x))
     }
-//    var initialPredicates:VerificationHints=VerificationHints(Map())
-//    for((head,preds)<-originalPredicates){
-//      val predicateSeq=
-//      for (p<-preds)yield {
-//        VerificationHints.VerifHintInitPred(p)
-//      }
-//      initialPredicates=initialPredicates.addPredicateHints(Map(head->predicateSeq))
-//    }
+    //    var initialPredicates:VerificationHints=VerificationHints(Map())
+    //    for((head,preds)<-originalPredicates){
+    //      val predicateSeq=
+    //      for (p<-preds)yield {
+    //        VerificationHints.VerifHintInitPred(p)
+    //      }
+    //      initialPredicates=initialPredicates.addPredicateHints(Map(head->predicateSeq))
+    //    }
     return initialPredicates
   }
 
 
-
-  def tryAndTestSelectionPredicate(encoder:ParametricEncoder,simpHints:VerificationHints,
-                                   simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID]):VerificationHints = {
+  def tryAndTestSelectionPredicate(encoder: ParametricEncoder, simpHints: VerificationHints,
+                                   simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID]): VerificationHints = {
 
     val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
       Console.withErr(Console.out) {
@@ -224,7 +226,7 @@ object HintsSelection{
       } else {
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
-    val fileName=file.substring(file.lastIndexOf("/")+1)
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
     val timeOut = GlobalParameters.get.threadTimeout //timeout
 
     val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
@@ -240,9 +242,9 @@ object HintsSelection{
       interpolator)
 
     val LastPredicate = cegar.predicates //Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]]
-    if(LastPredicate.isEmpty){
+    if (LastPredicate.isEmpty) {
       return VerificationHints(Map())
-    }else{
+    } else {
       var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
 
       //show LastPredicate
@@ -261,73 +263,73 @@ object HintsSelection{
         originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
       }
 
-//      var initialPredicates = VerificationHints(Map())
-//      for ((head, preds) <- originalPredicates) {
-//        var x: Seq[VerifHintElement] = Seq()
-//        for (p <- preds) {
-//          x = x ++ Seq(VerificationHints.VerifHintInitPred(p))
-//        }
-//        initialPredicates = initialPredicates.addPredicateHints(Map(head -> x))
-//      }
-//
-//      val sortedHints=HintsSelection.sortHints(initialPredicates)
-////      if(sortedHints.isEmpty){}else{
-//        //write selected hints with IDs to file
-//        val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
-//        println("---initialHints-----")
-//        for (wrappedHint<-InitialHintsWithID){
-//          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
-//        }
+      //      var initialPredicates = VerificationHints(Map())
+      //      for ((head, preds) <- originalPredicates) {
+      //        var x: Seq[VerifHintElement] = Seq()
+      //        for (p <- preds) {
+      //          x = x ++ Seq(VerificationHints.VerifHintInitPred(p))
+      //        }
+      //        initialPredicates = initialPredicates.addPredicateHints(Map(head -> x))
+      //      }
+      //
+      //      val sortedHints=HintsSelection.sortHints(initialPredicates)
+      ////      if(sortedHints.isEmpty){}else{
+      //        //write selected hints with IDs to file
+      //        val InitialHintsWithID=initialIDForHints(sortedHints) //ID:head->hint
+      //        println("---initialHints-----")
+      //        for (wrappedHint<-InitialHintsWithID){
+      //          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
+      //        }
 
       //Predicate selection begin
       println("------Predicates selection begin----")
-      var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
-      var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
-      var optimizedPredicate:Map[Predicate, Seq[IFormula]]=Map()
+      var PositiveHintsWithID: Seq[wrappedHintWithID] = Seq()
+      var NegativeHintsWithID: Seq[wrappedHintWithID] = Seq()
+      var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
       var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
       for ((head, preds) <- originalPredicates) {
         // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-        var criticalPredicatesSeq:  Seq[IFormula] = Seq()
+        var criticalPredicatesSeq: Seq[IFormula] = Seq()
         var redundantPredicatesSeq: Seq[IFormula] = Seq()
-        var CurrentTemplates=VerificationHints(Map())
+        var CurrentTemplates = VerificationHints(Map())
 
         for (p <- preds) {
           //println("before delete")
-//          println("head",head)
-//          println("predicates",currentPredicate(head))
-//          //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-//          for ((head,preds)<-currentPredicate) {
-//            val x:Seq[VerifHintElement]=
-//            for (p<-preds)yield{
-//              VerificationHints.VerifHintInitPred(p)
-//            }
-//            CurrentTemplates=CurrentTemplates.addPredicateHints(Map(head->x))
-//          }
-//          CurrentTemplates=HintsSelection.sortHints(CurrentTemplates)
-//          CurrentTemplates.pretyPrintHints()
+          //          println("head",head)
+          //          println("predicates",currentPredicate(head))
+          //          //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
+          //          for ((head,preds)<-currentPredicate) {
+          //            val x:Seq[VerifHintElement]=
+          //            for (p<-preds)yield{
+          //              VerificationHints.VerifHintInitPred(p)
+          //            }
+          //            CurrentTemplates=CurrentTemplates.addPredicateHints(Map(head->x))
+          //          }
+          //          CurrentTemplates=HintsSelection.sortHints(CurrentTemplates)
+          //          CurrentTemplates.pretyPrintHints()
 
           //delete one predicate
-          println("delete predicate",p)
+          println("delete predicate", p)
           val currentPredicateSeq = currentPredicate(head).filter(_ != p) //delete one predicate
-          currentPredicate = currentPredicate.filterKeys(_!=head) //delete original head
-          if(!currentPredicateSeq.isEmpty){
+          currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
+          if (!currentPredicateSeq.isEmpty) {
             currentPredicate = currentPredicate ++ Map(head -> currentPredicateSeq) //add the head with deleted predicate
           }
 
           //println("after delete")
-//          println("head",head)
-//          println("predicates",currentPredicate(head))
+          //          println("head",head)
+          //          println("predicates",currentPredicate(head))
 
-//          //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-//          for ((head,preds)<-currentPredicate) {
-//            var x:Seq[VerifHintElement]=Seq()
-//            for (p<-preds){
-//              x=x++Seq(VerificationHints.VerifHintInitPred(p))
-//            }
-//            CurrentTemplates=CurrentTemplates.addPredicateHints(Map(head->x))
-//          }
-//          CurrentTemplates=HintsSelection.sortHints(CurrentTemplates)
-//          CurrentTemplates.pretyPrintHints()
+          //          //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
+          //          for ((head,preds)<-currentPredicate) {
+          //            var x:Seq[VerifHintElement]=Seq()
+          //            for (p<-preds){
+          //              x=x++Seq(VerificationHints.VerifHintInitPred(p))
+          //            }
+          //            CurrentTemplates=CurrentTemplates.addPredicateHints(Map(head->x))
+          //          }
+          //          CurrentTemplates=HintsSelection.sortHints(CurrentTemplates)
+          //          CurrentTemplates.pretyPrintHints()
 
 
           //try cegar
@@ -348,29 +350,29 @@ object HintsSelection{
                 currentPredicate, //emptyHints currentPredicate CurrentTemplates
                 exceptionalPredGen).result
               //not timeout
-              println("add redundant predicate",p.toString)
+              println("add redundant predicate", p.toString)
               redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
               //add useless hint to NegativeHintsWithID   //ID:head->hint
               for (wrappedHint <- InitialHintsWithID) {
-                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if (wrappedHint.head==head.name.toString && wrappedHint.hint==pVerifHintInitPred) {
-                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint) //some redundancy
+                val pVerifHintInitPred = "VerifHintInitPred(" + p.toString + ")"
+                if (wrappedHint.head == head.name.toString && wrappedHint.hint == pVerifHintInitPred) {
+                  NegativeHintsWithID = NegativeHintsWithID ++ Seq(wrappedHint) //some redundancy
                 }
               }
             }
           } catch {
             case lazabs.Main.TimeoutException => {
               //catch timeout
-              println("add critical predicate",p.toString)
+              println("add critical predicate", p.toString)
               criticalPredicatesSeq = criticalPredicatesSeq ++ Seq(p)
               //add deleted predicate back to curren predicate
-              currentPredicate = currentPredicate.filterKeys(_!=head) //delete original head
-              currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq++Seq(p))) //add the head with deleted predicate
+              currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
+              currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq ++ Seq(p))) //add the head with deleted predicate
               //
-              for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
-                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
+              for (wrappedHint <- InitialHintsWithID) { //add useful hint to PositiveHintsWithID
+                val pVerifHintInitPred = "VerifHintInitPred(" + p.toString + ")"
+                if (head.name.toString() == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+                  PositiveHintsWithID = PositiveHintsWithID ++ Seq(wrappedHint)
                 }
               }
             }
@@ -378,7 +380,7 @@ object HintsSelection{
         }
         //store selected predicate
         if (!criticalPredicatesSeq.isEmpty) {
-          optimizedPredicate = optimizedPredicate++Map(head->criticalPredicatesSeq)
+          optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
         }
         println("current head:", head.toString())
         println("critical predicates:", criticalPredicatesSeq.toString())
@@ -387,13 +389,13 @@ object HintsSelection{
 
 
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-      var selectedTemplates=VerificationHints(Map())
-      for ((head,preds)<-optimizedPredicate) {
-        var x:Seq[VerifHintElement]=Seq()
-        for (p<-preds){
-          x=x++Seq(VerificationHints.VerifHintInitPred(p))
+      var selectedTemplates = VerificationHints(Map())
+      for ((head, preds) <- optimizedPredicate) {
+        var x: Seq[VerifHintElement] = Seq()
+        for (p <- preds) {
+          x = x ++ Seq(VerificationHints.VerifHintInitPred(p))
         }
-        selectedTemplates=selectedTemplates.addPredicateHints(Map(head->x))
+        selectedTemplates = selectedTemplates.addPredicateHints(Map(head -> x))
       }
 
       println("\n------------predicates selection end-------------------------")
@@ -403,20 +405,21 @@ object HintsSelection{
       println("!@@@@")
       selectedTemplates.pretyPrintHints()
       println("@@@@!")
-      println("timeout:"+GlobalParameters.get.threadTimeout)
+      println("timeout:" + GlobalParameters.get.threadTimeout)
 
       println("\n------------test selected predicates-------------------------")
-      val test=new HornPredAbs(simpClauses, // loop
+      val test = new HornPredAbs(simpClauses, // loop
         selectedTemplates.toInitialPredicates, //emptyHints
         exceptionalPredGen).result
       println("-----------------test finished-----------------------")
 
-      if(selectedTemplates.isEmpty){
+      if (selectedTemplates.isEmpty) {
 
-      }else{//only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
-        writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
-        writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+      } else {
+        //only write to file when optimized hint is not empty
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+        writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
+        writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
 
       return selectedTemplates
@@ -425,38 +428,38 @@ object HintsSelection{
   }
 
 
+  def tryAndTestSelectionTemplates(encoder: ParametricEncoder, simpHints: VerificationHints,
+                                   simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID],
+                                   predicateFlag: Boolean = true): VerificationHints = {
 
 
-  def tryAndTestSelectionTemplates(encoder:ParametricEncoder,simpHints:VerificationHints,
-                         simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID],
-                         predicateFlag:Boolean =true):VerificationHints = {
-
-
-    val fileName=file.substring(file.lastIndexOf("/")+1)
-    val timeOut=GlobalParameters.get.threadTimeout //timeout
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val timeOut = GlobalParameters.get.threadTimeout //timeout
     var currentTemplates = simpHints
-    var optimizedTemplates=VerificationHints(Map())
-    var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
-    var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
+    var optimizedTemplates = VerificationHints(Map())
+    var PositiveHintsWithID: Seq[wrappedHintWithID] = Seq()
+    var NegativeHintsWithID: Seq[wrappedHintWithID] = Seq()
 
     println("-------------------------Hints selection begins------------------------------------------")
-    if(simpHints.isEmpty){return simpHints}else{
-      for((head,preds)<-simpHints.predicateHints){
-        var criticalTemplatesSeq:Seq[VerifHintElement]=Seq()
-        var redundantTemplatesSeq:Seq[VerifHintElement]=Seq()
-        for(p<-preds){
+    if (simpHints.isEmpty) {
+      return simpHints
+    } else {
+      for ((head, preds) <- simpHints.predicateHints) {
+        var criticalTemplatesSeq: Seq[VerifHintElement] = Seq()
+        var redundantTemplatesSeq: Seq[VerifHintElement] = Seq()
+        for (p <- preds) {
           //delete on template in a head
-          val currentTemplatesList=currentTemplates.getValue(head).filter(_!=p)
-          currentTemplates=currentTemplates.filterNotPredicates(Set(head))
+          val currentTemplatesList = currentTemplates.getValue(head).filter(_ != p)
+          currentTemplates = currentTemplates.filterNotPredicates(Set(head))
 
-          currentTemplates=currentTemplates.addPredicateHints(Map(head->currentTemplatesList))
+          currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentTemplatesList))
 
           //try cegar
 
           val startTime = currentTimeMillis
           val toParams = GlobalParameters.get.clone
           toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime)> timeOut*1000) //timeout milliseconds
+            if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
           try {
@@ -494,7 +497,7 @@ object HintsSelection{
                   TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
                     abstractionMap,
                     GlobalParameters.get.templateBasedInterpolationTimeout)
-                }else {
+                } else {
                 DagInterpolator.interpolatingPredicateGenCEXAndOr _
               }
 
@@ -511,39 +514,39 @@ object HintsSelection{
 
               for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
                 if (head.name.toString == wrappedHint.head && wrappedHint.hint == p.toString) {
-                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
+                  NegativeHintsWithID = NegativeHintsWithID ++ Seq(wrappedHint)
                 }
               }
 
 
             }
 
-          } catch {// ,... Main.TimeoutException
+          } catch {
+            // ,... Main.TimeoutException
             //time out
-            case lazabs.Main.TimeoutException =>{
-              println("Add a critical hint\n"+head+"\n"+p)
+            case lazabs.Main.TimeoutException => {
+              println("Add a critical hint\n" + head + "\n" + p)
               criticalTemplatesSeq = criticalTemplatesSeq ++ Seq(p)
-              currentTemplates=currentTemplates.filterNotPredicates(Set(head))
+              currentTemplates = currentTemplates.filterNotPredicates(Set(head))
               //currentTemplates=currentTemplates.filterPredicates(GSet(oneHintKey))
-              currentTemplates=currentTemplates.addPredicateHints(Map(head->(currentTemplatesList++Seq(p)))) //beforeDeleteHints
+              currentTemplates = currentTemplates.addPredicateHints(Map(head -> (currentTemplatesList ++ Seq(p)))) //beforeDeleteHints
 
-              for(wrappedHint<-InitialHintsWithID){ //add useful hint to PositiveHintsWithID
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==p.toString){
-                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
+              for (wrappedHint <- InitialHintsWithID) { //add useful hint to PositiveHintsWithID
+                if (head.name.toString() == wrappedHint.head && wrappedHint.hint == p.toString) {
+                  PositiveHintsWithID = PositiveHintsWithID ++ Seq(wrappedHint)
                 }
               }
 
             }
 
-          }//catch end
+          } //catch end
 
-        }// second for end
-        if(!criticalTemplatesSeq.isEmpty){
-          optimizedTemplates=optimizedTemplates.addPredicateHints(Map(head->criticalTemplatesSeq))
+        } // second for end
+        if (!criticalTemplatesSeq.isEmpty) {
+          optimizedTemplates = optimizedTemplates.addPredicateHints(Map(head -> criticalTemplatesSeq))
         }
 
-      }// first for end
-
+      } // first for end
 
 
       println("\n------------DEBUG-Select critical hints end-------------------------")
@@ -553,16 +556,17 @@ object HintsSelection{
       println("!@@@@")
       optimizedTemplates.pretyPrintHints()
       println("@@@@!")
-      println("timeout:"+GlobalParameters.get.threadTimeout)
+      println("timeout:" + GlobalParameters.get.threadTimeout)
       //GlobalParameters.get.printHints=optimizedHints
 
 
-      if(optimizedTemplates.isEmpty){
+      if (optimizedTemplates.isEmpty) {
 
-      }else{//only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
-        writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
-        writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+      } else {
+        //only write to file when optimized hint is not empty
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+        writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
+        writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
 
 
@@ -573,44 +577,43 @@ object HintsSelection{
   }
 
 
+  def tryAndTestSelectionTemplatesSmt(simpHints: VerificationHints, simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID],
+                                      counterexampleMethod: HornPredAbs.CounterexampleMethod.Value =
+                                      HornPredAbs.CounterexampleMethod.FirstBestShortest,
+                                      hintsAbstraction: AbstractionMap
+                                     ): VerificationHints = {
 
-
-  def tryAndTestSelectionTemplatesSmt(simpHints:VerificationHints,simpClauses:Clauses,file:String,InitialHintsWithID:Seq[wrappedHintWithID],
-                            counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
-                            HornPredAbs.CounterexampleMethod.FirstBestShortest,
-                            hintsAbstraction : AbstractionMap
-                           ):VerificationHints = {
-
-    val fileName=file.substring(file.lastIndexOf("/")+1)
-    val timeOut=GlobalParameters.get.threadTimeout //timeout
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val timeOut = GlobalParameters.get.threadTimeout //timeout
     //val timeOut=10
     var currentTemplates = simpHints
-    var optimizedHints=VerificationHints(Map()) // store final selected heads and hints
+    var optimizedHints = VerificationHints(Map()) // store final selected heads and hints
     //val InitialHintsWithID=initialIDForHints(simpHints)
-    var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
-    var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
+    var PositiveHintsWithID: Seq[wrappedHintWithID] = Seq()
+    var NegativeHintsWithID: Seq[wrappedHintWithID] = Seq()
 
-    if(simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation==false) {
+    if (simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation == false) {
       println("simpHints is empty or abstract:off")
-      return simpHints}
-    else{
+      return simpHints
+    }
+    else {
       println("-------------------------Hints selection begins------------------------------------------")
-      for((head,oneHintValue)<-simpHints.getPredicateHints()){ //loop for head
-        println("Head:"+head)
+      for ((head, oneHintValue) <- simpHints.getPredicateHints()) { //loop for head
+        println("Head:" + head)
         println(oneHintValue)
-        var criticalHintsList:Seq[VerifHintElement]=Seq()
-        var redundantHintsList:Seq[VerifHintElement]=Seq()
+        var criticalHintsList: Seq[VerifHintElement] = Seq()
+        var redundantHintsList: Seq[VerifHintElement] = Seq()
         var currentHintsList = simpHints.getValue(head) //extract hints in this head
 
-        for(oneHint<-simpHints.getValue(head)){ //loop for every hint in one head
+        for (oneHint <- simpHints.getValue(head)) { //loop for every hint in one head
           println("Current hints:")
           currentTemplates.pretyPrintHints()
 
-          println("delete: \n" + head+" \n"+ oneHint)
+          println("delete: \n" + head + " \n" + oneHint)
           currentHintsList = currentHintsList.filter(_ != oneHint) //delete one hint from hint list
-          currentTemplates=currentTemplates.filterNotPredicates(Set(head)) //delete the head
+          currentTemplates = currentTemplates.filterNotPredicates(Set(head)) //delete the head
 
-          currentTemplates= currentTemplates.addPredicateHints(Map(head->currentHintsList)) //add head with one hint back
+          currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentHintsList)) //add head with one hint back
 
           println("After delete:\n")
           currentTemplates.pretyPrintHints()
@@ -618,7 +621,7 @@ object HintsSelection{
           val startTime = currentTimeMillis
           val toParams = GlobalParameters.get.clone
           toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime)> timeOut*1000) //timeout milliseconds
+            if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
 
@@ -630,17 +633,17 @@ object HintsSelection{
                 else
                   HornWrapper.NullStream
               val loopDetector = new LoopDetector(simpClauses)
-              val autoAbstraction=loopDetector.hints2AbstractionRecord(currentTemplates)
+              val autoAbstraction = loopDetector.hints2AbstractionRecord(currentTemplates)
               val predGenerator = Console.withErr(outStream) {
                 if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
                   val fullAbstractionMap =
-                    AbstractionRecord.mergeMaps(Map(), autoAbstraction)//hintsAbstraction,autoAbstraction replaced by Map()
+                    AbstractionRecord.mergeMaps(Map(), autoAbstraction) //hintsAbstraction,autoAbstraction replaced by Map()
 
-                  if (fullAbstractionMap.isEmpty){
+                  if (fullAbstractionMap.isEmpty) {
                     DagInterpolator.interpolatingPredicateGenCEXAndOr _
                   }
 
-                  else{
+                  else {
                     TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
                       fullAbstractionMap,
                       lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
@@ -663,41 +666,42 @@ object HintsSelection{
               //add useless hint to NegativeHintsWithID   //ID:head->hint
               for (wrappedHint <- InitialHintsWithID) {
                 if (head.name.toString == wrappedHint.head && wrappedHint.hint == oneHint.toString) {
-                  NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
+                  NegativeHintsWithID = NegativeHintsWithID ++ Seq(wrappedHint)
                 }
               }
 
             }
 
-          } catch {// ,... Main.TimeoutException
+          } catch {
+            // ,... Main.TimeoutException
             //time out
             case lazabs.Main.TimeoutException =>
-              println("Add a critical hint\n"+head+"\n"+oneHint)
+              println("Add a critical hint\n" + head + "\n" + oneHint)
               criticalHintsList = criticalHintsList ++ Seq(oneHint)
-              currentHintsList=currentHintsList++Seq(oneHint)
-              currentTemplates=currentTemplates.filterNotPredicates(Set(head))
-              currentTemplates=currentTemplates.addPredicateHints(Map(head->currentHintsList))
+              currentHintsList = currentHintsList ++ Seq(oneHint)
+              currentTemplates = currentTemplates.filterNotPredicates(Set(head))
+              currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentHintsList))
               //add useful hint to PositiveHintsWithID
-              for(wrappedHint<-InitialHintsWithID){
-                if(head.name.toString()==wrappedHint.head && wrappedHint.hint==oneHint.toString){
-                  PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
+              for (wrappedHint <- InitialHintsWithID) {
+                if (head.name.toString() == wrappedHint.head && wrappedHint.hint == oneHint.toString) {
+                  PositiveHintsWithID = PositiveHintsWithID ++ Seq(wrappedHint)
                 }
               }
           }
 
-          println("Current head:"+head)
+          println("Current head:" + head)
           println
-          println("criticalHintsList"+criticalHintsList)
+          println("criticalHintsList" + criticalHintsList)
           println
-          println("redundantHintsList"+redundantHintsList)
+          println("redundantHintsList" + redundantHintsList)
           println("---------------------------------------------------------------")
           //optimizedHints=optimizedHints.addPredicateHints(Map(oneHintKey->criticalHintsList))
 
-        }//second for end
-        if(!criticalHintsList.isEmpty){ //add critical hints in one head to optimizedHints map
-          optimizedHints=optimizedHints.addPredicateHints(Map(head->criticalHintsList))
+        } //second for end
+        if (!criticalHintsList.isEmpty) { //add critical hints in one head to optimizedHints map
+          optimizedHints = optimizedHints.addPredicateHints(Map(head -> criticalHintsList))
         }
-      }//first for end
+      } //first for end
 
       println("\n------------DEBUG-Select critical hints end-------------------------")
       println("\noriginal Hints:")
@@ -706,15 +710,16 @@ object HintsSelection{
       println("!@@@@")
       optimizedHints.pretyPrintHints()
       println("@@@@!")
-      println("timeout:"+GlobalParameters.get.threadTimeout)
+      println("timeout:" + GlobalParameters.get.threadTimeout)
       //GlobalParameters.get.printHints=optimizedHints
 
-      if(optimizedHints.isEmpty){
+      if (optimizedHints.isEmpty) {
 
-      }else{//only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
-        writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
-        writeHintsWithIDToFile(NegativeHintsWithID,fileName,"negative")
+      } else {
+        //only write to file when optimized hint is not empty
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+        writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
+        writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
 
 
@@ -725,29 +730,29 @@ object HintsSelection{
   }
 
 
-  def writeHintsWithIDToFile(wrappedHintList:Seq[wrappedHintWithID],fileName:String,hintType:String){
-    val distinctWrappedHintList=wrappedHintList.distinct
-    if(hintType=="initial"){
+  def writeHintsWithIDToFile(wrappedHintList: Seq[wrappedHintWithID], fileName: String, hintType: String) {
+    val distinctWrappedHintList = wrappedHintList.distinct
+    if (hintType == "initial") {
       //val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
-      val writer = new PrintWriter(new File("../trainData/"+fileName+".initialHints")) //python path
-      for(wrappedHint<-wrappedHintList){
-        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+      val writer = new PrintWriter(new File("../trainData/" + fileName + ".initialHints")) //python path
+      for (wrappedHint <- wrappedHintList) {
+        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
       writer.close()
     }
-    if(hintType=="positive"){
+    if (hintType == "positive") {
       //val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
-      val writer = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
-      for(wrappedHint<-wrappedHintList){
-        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+      val writer = new PrintWriter(new File("../trainData/" + fileName + ".positiveHints")) //python path
+      for (wrappedHint <- wrappedHintList) {
+        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
       writer.close()
     }
-    if(hintType=="negative"){
+    if (hintType == "negative") {
       //val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
-      val writer = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
-      for(wrappedHint<-wrappedHintList){
-        writer.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+      val writer = new PrintWriter(new File("../trainData/" + fileName + ".negativeHints")) //python path
+      for (wrappedHint <- wrappedHintList) {
+        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
       writer.close()
     }
@@ -755,9 +760,7 @@ object HintsSelection{
   }
 
 
-
-
-  def neuralNetworkSelection(encoder:ParametricEncoder,simpHints:VerificationHints,simpClauses:Clauses):VerificationHints = {
+  def neuralNetworkSelection(encoder: ParametricEncoder, simpHints: VerificationHints, simpClauses: Clauses): VerificationHints = {
     //write redundant hints to JSON
 
     //call NNs
@@ -766,15 +769,16 @@ object HintsSelection{
 
     //write to optimized Hints
 
-    val optimizedHints=simpHints
+    val optimizedHints = simpHints
     return optimizedHints
   }
-  def readHintsFromJSON(fileName:String):VerificationHints = {
+
+  def readHintsFromJSON(fileName: String): VerificationHints = {
 
     //Read JSON
     import scala.io.Source
     import scala.util.parsing.json._
-    val fname = "JSON/"+fileName+".json"
+    val fname = "JSON/" + fileName + ".json"
 
     // Read the JSON file into json variable.
     var json: String = ""
@@ -789,13 +793,13 @@ object HintsSelection{
 
     // Print parsed JSON
     option match {
-      case None           => println("observations JSON invalid")
-      case Some(elements:Map[String,List[String]]) => {
+      case None => println("observations JSON invalid")
+      case Some(elements: Map[String, List[String]]) => {
         //println(elements)
-        for((key,list)<-elements){
-          println(key+"/"+list.length)
-          for(value<-list){
-            println(" " +value)
+        for ((key, list) <- elements) {
+          println(key + "/" + list.length)
+          for (value <- list) {
+            println(" " + value)
           }
 
         }
@@ -808,248 +812,256 @@ object HintsSelection{
     //VerifHintInitPred
     //VerifHintTplPred
     //VerifHintTplEqTerm
-    var optimizedHints=VerificationHints(Map())
-    val head="main1"
-    val arity=1
-    val h=new IExpression.Predicate(head,arity)
-    val h1=new IExpression.Predicate("main2",2)
+    var optimizedHints = VerificationHints(Map())
+    val head = "main1"
+    val arity = 1
+    val h = new IExpression.Predicate(head, arity)
+    val h1 = new IExpression.Predicate("main2", 2)
 
 
-    val Term="_0,10000"
-    val predicate="_3 + -1 * _4) >= 0"
-    val element=VerifHintTplEqTerm(new IConstant(new ConstantTerm("sss")),10000)
-//    val element1=VerifHintInitPred(IFomula())
-    var hintList:Seq[VerifHintElement]=Seq()
-    hintList= hintList ++ Seq(element)
-    hintList= hintList ++ Seq(element)
+    val Term = "_0,10000"
+    val predicate = "_3 + -1 * _4) >= 0"
+    val element = VerifHintTplEqTerm(new IConstant(new ConstantTerm("sss")), 10000)
+    //    val element1=VerifHintInitPred(IFomula())
+    var hintList: Seq[VerifHintElement] = Seq()
+    hintList = hintList ++ Seq(element)
+    hintList = hintList ++ Seq(element)
 
 
-
-    optimizedHints=optimizedHints.addPredicateHints(Map(h->hintList))
-    optimizedHints=optimizedHints.addPredicateHints(Map(h1->hintList))
+    optimizedHints = optimizedHints.addPredicateHints(Map(h -> hintList))
+    optimizedHints = optimizedHints.addPredicateHints(Map(h1 -> hintList))
     println("input template:")
     optimizedHints.pretyPrintHints()
 
 
     return optimizedHints
   }
-  def readHintsIDFromJSON(fileName:String,originalHints:VerificationHints):VerificationHints = {
-//    for((key,value)<-originalHints){
-//      for(v<-value){
-//      }
-//    }
+
+  def readHintsIDFromJSON(fileName: String, originalHints: VerificationHints): VerificationHints = {
+    //    for((key,value)<-originalHints){
+    //      for(v<-value){
+    //      }
+    //    }
 
 
-    var readHints=VerificationHints(Map())
+    var readHints = VerificationHints(Map())
 
     return readHints
   }
-  def storeHintsToVerificationHints_binary(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints) ={
+
+  def storeHintsToVerificationHints_binary(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints) = {
     //store read hints to VerificationHints
     println("---selected hints--")
-    var readHints=VerificationHints(Map())
-    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
-    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
-    var parsedHintsCount=0
+    var readHints = VerificationHints(Map())
+    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
+    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
+    var parsedHintsCount = 0
 
-    for(element<-parsedHintslist){
+    for (element <- parsedHintslist) {
       //println(element)
-      if(element(3).toFloat.toInt==1){ //element(3)==1 means useful, element(4) is score
-      val head=element(1).toString//element(1) is head
-      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
-        for((key,value)<-originalHints.getPredicateHints()){
-          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
-          if(head==keyTemp){
-            var usfulHintsList:Seq[VerifHintElement]=Seq()
-            for(oneHint<-originalHints.getValue(key)){
-              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
-                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
+      if (element(3).toFloat.toInt == 1) { //element(3)==1 means useful, element(4) is score
+        val head = element(1).toString
+        //element(1) is head
+        val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
+        for ((key, value) <- originalHints.getPredicateHints()) {
+          val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
+          if (head == keyTemp) {
+            var usfulHintsList: Seq[VerifHintElement] = Seq()
+            for (oneHint <- originalHints.getValue(key)) {
+              if (keyTemp == head && oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
+                usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
                 //println(element(0),usfulHintsList)
-                readHintsTempList=readHintsTempList:+Map(key->oneHint)
-                parsedHintsCount=parsedHintsCount+1
+                readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
+                parsedHintsCount = parsedHintsCount + 1
               }
             }
             //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
           }
         }
-      }else{ }//useless hint
+      } else {} //useless hint
 
     }
 
-    println("selected hint count="+parsedHintsCount)
-    (readHints,readHintsTempList)
+    println("selected hint count=" + parsedHintsCount)
+    (readHints, readHintsTempList)
 
   }
 
-  def storeHintsToVerificationHints_score(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints,rankTreshold:Float) ={
+  def storeHintsToVerificationHints_score(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints, rankTreshold: Float) = {
     //store read hints to VerificationHints
     println("---selected hints--")
-    var readHints=VerificationHints(Map())
-    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
-    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
-    var parsedHintsCount=0
+    var readHints = VerificationHints(Map())
+    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
+    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
+    var parsedHintsCount = 0
 
-    for(element<-parsedHintslist){
+    for (element <- parsedHintslist) {
       //println(element)
-      if(element(4).toFloat>rankTreshold){ //element(3)==1 means useful, element(4) is score
-        val head=element(1).toString//element(1) is head
-      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
-        for((key,value)<-originalHints.getPredicateHints()){
-          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
-          if(head==keyTemp){
-            var usfulHintsList:Seq[VerifHintElement]=Seq()
-            for(oneHint<-value){
-              if(keyTemp==head && oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
-                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
+      if (element(4).toFloat > rankTreshold) { //element(3)==1 means useful, element(4) is score
+        val head = element(1).toString
+        //element(1) is head
+        val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
+        for ((key, value) <- originalHints.getPredicateHints()) {
+          val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
+          if (head == keyTemp) {
+            var usfulHintsList: Seq[VerifHintElement] = Seq()
+            for (oneHint <- value) {
+              if (keyTemp == head && oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
+                usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
                 //println(element(0),usfulHintsList)
-                readHintsTempList=readHintsTempList:+Map(key->oneHint)
-                parsedHintsCount=parsedHintsCount+1
+                readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
+                parsedHintsCount = parsedHintsCount + 1
               }
             }
             //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
           }
         }
-      }else{ }//useless hint
+      } else {} //useless hint
 
     }
 
-    println("selected hint count="+parsedHintsCount)
-    (readHints,readHintsTempList)
+    println("selected hint count=" + parsedHintsCount)
+    (readHints, readHintsTempList)
 
   }
 
-  def storeHintsToVerificationHints_topN(parsedHintslist:Seq[Seq[String]],readInitialHintsWithID:Map[String,String],originalHints:VerificationHints,N:Int) ={
+  def storeHintsToVerificationHints_topN(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints, N: Int) = {
     //store read hints to VerificationHints
     println("---selected hints--")
-    var readHints=VerificationHints(Map())
-    var readHintsTemp:Map[IExpression.Predicate,VerifHintElement]=Map()
-    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
-    var parsedHintsCount=0
-      for(element<-parsedHintslist.take(N)){//take first N element
+    var readHints = VerificationHints(Map())
+    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
+    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
+    var parsedHintsCount = 0
+    for (element <- parsedHintslist.take(N)) {
+      //take first N element
       //println(element)
-      val head=element(1).toString//element(1) is head
-      val hint=readInitialHintsWithID(element(0).toString+":"+element(1)).toString //InitialHintsWithID ID:head->hint
-        for((key,value)<-originalHints.getPredicateHints()){
-          val keyTemp=key.toString().substring(0,key.toString().indexOf("/"))
-          if(head==keyTemp){
-            var usfulHintsList:Seq[VerifHintElement]=Seq()
-            for(oneHint<-value){
-              if(oneHint.toString()==hint){ //match initial hints and hints from file to tell usefulness
-                usfulHintsList=usfulHintsList ++ Seq(oneHint)//add this hint to usfulHintsList
-                //println(element(0),usfulHintsList)
-                readHintsTempList=readHintsTempList:+Map(key->oneHint)
-                parsedHintsCount=parsedHintsCount+1
-              }
+      val head = element(1).toString
+      //element(1) is head
+      val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
+      for ((key, value) <- originalHints.getPredicateHints()) {
+        val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
+        if (head == keyTemp) {
+          var usfulHintsList: Seq[VerifHintElement] = Seq()
+          for (oneHint <- value) {
+            if (oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
+              usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
+              //println(element(0),usfulHintsList)
+              readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
+              parsedHintsCount = parsedHintsCount + 1
             }
-            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
           }
+          //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
         }
+      }
 
 
     }
 
-    println("selected hint count="+parsedHintsCount)
-    (readHints,readHintsTempList)
+    println("selected hint count=" + parsedHintsCount)
+    (readHints, readHintsTempList)
 
   }
-  def readHintsIDFromFile(fileName:String,originalHints:VerificationHints,rank:String=""):VerificationHints = {
-    val fileNameShorter=fileName.substring(fileName.lastIndexOf("/"),fileName.length) //get file name
-    var parsedHintslist=Seq[Seq[String]]() //store parsed hints
+
+  def readHintsIDFromFile(fileName: String, originalHints: VerificationHints, rank: String = ""): VerificationHints = {
+    val fileNameShorter = fileName.substring(fileName.lastIndexOf("/"), fileName.length) //get file name
+    var parsedHintslist = Seq[Seq[String]]() //store parsed hints
 
     //val f = "predictedHints/"+fileNameShorter+".optimizedHints" //read file
-    val f = "../predictedHints/"+fileNameShorter+".optimizedHints" //python file
+    val f = "../predictedHints/" + fileNameShorter + ".optimizedHints" //python file
     for (line <- Source.fromFile(f).getLines) {
-      var parsedHints=Seq[String]() //store parsed hints
+      var parsedHints = Seq[String]() //store parsed hints
       //parse read file
-      var lineTemp=line.toString
-      val ID=lineTemp.substring(0,lineTemp.indexOf(":"))
-      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
-      val head=lineTemp.substring(0,lineTemp.indexOf(":"))
-      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
-      val hint=lineTemp.substring(0,lineTemp.indexOf(":"))
-      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
-      val usefulness=lineTemp.substring(0,lineTemp.indexOf(":")) //1=useful,0=useless
-      val score=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length) //1=useful,0=useless
-      parsedHints= parsedHints:+ID:+head:+hint:+usefulness:+score //ID,head,hint,usefulness,score
+      var lineTemp = line.toString
+      val ID = lineTemp.substring(0, lineTemp.indexOf(":"))
+      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
+      val head = lineTemp.substring(0, lineTemp.indexOf(":"))
+      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
+      val hint = lineTemp.substring(0, lineTemp.indexOf(":"))
+      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
+      val usefulness = lineTemp.substring(0, lineTemp.indexOf(":")) //1=useful,0=useless
+      val score = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length) //1=useful,0=useless
+      parsedHints = parsedHints :+ ID :+ head :+ hint :+ usefulness :+ score //ID,head,hint,usefulness,score
       //println(parsedHints)
-      parsedHintslist=parsedHintslist:+parsedHints
+      parsedHintslist = parsedHintslist :+ parsedHints
     }
-    println("parsed hints count="+parsedHintslist.size)
+    println("parsed hints count=" + parsedHintslist.size)
 
     println("---readInitialHints-----")
-    var readInitialHintsWithID:Map[String,String]=Map()
+    var readInitialHintsWithID: Map[String, String] = Map()
     //val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
-    val fInitial = "../predictedHints/"+fileNameShorter+".initialHints"//python file
+    val fInitial = "../predictedHints/" + fileNameShorter + ".initialHints" //python file
     for (line <- Source.fromFile(fInitial).getLines) {
-      var parsedHints=Seq[String]() //store parsed hints
+      var parsedHints = Seq[String]() //store parsed hints
       //parse read file
-      var lineTemp=line.toString
-      val ID=lineTemp.substring(0,lineTemp.indexOf(":"))
-      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
-      val head=lineTemp.substring(0,lineTemp.indexOf(":"))
-      lineTemp=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length)
-      val hint=lineTemp
-      readInitialHintsWithID=readInitialHintsWithID+(ID+":"+head->hint)
+      var lineTemp = line.toString
+      val ID = lineTemp.substring(0, lineTemp.indexOf(":"))
+      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
+      val head = lineTemp.substring(0, lineTemp.indexOf(":"))
+      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
+      val hint = lineTemp
+      readInitialHintsWithID = readInitialHintsWithID + (ID + ":" + head -> hint)
     }
-    for ((key,value)<-readInitialHintsWithID){ //print initial hints
-      println(key,value)
+    for ((key, value) <- readInitialHintsWithID) { //print initial hints
+      println(key, value)
     }
-    println("readInitialHints count="+readInitialHintsWithID.size)
+    println("readInitialHints count=" + readInitialHintsWithID.size)
 
     //store read hints to VerificationHints
-    var readHints=VerificationHints(Map())
-    var readHintsTempList:Seq[Map[IExpression.Predicate,VerifHintElement]]=Seq()
-    if(rank.isEmpty){ //read rank option, no need for rank
-      val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_binary(parsedHintslist,readInitialHintsWithID,originalHints)
-      readHints=readHints_temp
-      readHintsTempList=readHintsTempList_temp
-    }else{ //need rank
+    var readHints = VerificationHints(Map())
+    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
+    if (rank.isEmpty) { //read rank option, no need for rank
+      val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_binary(parsedHintslist, readInitialHintsWithID, originalHints)
+      readHints = readHints_temp
+      readHintsTempList = readHintsTempList_temp
+    } else { //need rank
       //parse rank information
-      var lineTemp=rank.toString
-      val rankThreshold=lineTemp.substring(lineTemp.indexOf(":")+1,lineTemp.length).toFloat
+      var lineTemp = rank.toString
+      val rankThreshold = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length).toFloat
 
-      if(rankThreshold>1){//rank by top n
-        println("use top "+ rankThreshold.toInt+" hints")
-        val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_topN(parsedHintslist,readInitialHintsWithID,originalHints,rankThreshold.toInt)
-        readHints=readHints_temp
-        readHintsTempList=readHintsTempList_temp
+      if (rankThreshold > 1) {
+        //rank by top n
+        println("use top " + rankThreshold.toInt + " hints")
+        val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_topN(parsedHintslist, readInitialHintsWithID, originalHints, rankThreshold.toInt)
+        readHints = readHints_temp
+        readHintsTempList = readHintsTempList_temp
       }
-      if(rankThreshold<1){//rank by score
-        println("use score threshold "+ rankThreshold)
-        val (readHints_temp,readHintsTempList_temp)=storeHintsToVerificationHints_score(parsedHintslist,readInitialHintsWithID,originalHints,rankThreshold)
-        readHints=readHints_temp
-        readHintsTempList=readHintsTempList_temp
+      if (rankThreshold < 1) {
+        //rank by score
+        println("use score threshold " + rankThreshold)
+        val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_score(parsedHintslist, readInitialHintsWithID, originalHints, rankThreshold)
+        readHints = readHints_temp
+        readHintsTempList = readHintsTempList_temp
       }
 
     }
 
     //store heads to set
-    var heads:Set[IExpression.Predicate]=Set()
-    for(value<-readHintsTempList){
+    var heads: Set[IExpression.Predicate] = Set()
+    for (value <- readHintsTempList) {
       println(value)
-      val tempValue=value.toSeq
+      val tempValue = value.toSeq
       //tempValue.to
-      heads=heads+tempValue(0)._1
+      heads = heads + tempValue(0)._1
     }
 
 
-
-    for (head<-heads){
-      var hintList:Seq[VerifHintElement]=Seq()
-      for(value<-readHintsTempList){//value=Map(head->hint)
-        val tempValue=value.toSeq
-        if(tempValue(0)._1==head){
+    for (head <- heads) {
+      var hintList: Seq[VerifHintElement] = Seq()
+      for (value <- readHintsTempList) {
+        //value=Map(head->hint)
+        val tempValue = value.toSeq
+        if (tempValue(0)._1 == head) {
           //println(hintList)
-          hintList=hintList:+tempValue(0)._2
+          hintList = hintList :+ tempValue(0)._2
         }
       }
-      readHints=readHints.addPredicateHints(Map(head->hintList))
+      readHints = readHints.addPredicateHints(Map(head -> hintList))
     }
 
     println("----readHints-----")
-    for ((key,value)<-readHints.getPredicateHints()){
+    for ((key, value) <- readHints.getPredicateHints()) {
       println(key)
-      for(v<-value){
+      for (v <- value) {
         println(v)
       }
     }
@@ -1058,18 +1070,18 @@ object HintsSelection{
   }
 
 
-  def initialIDForHints(simpHints:VerificationHints): Seq[wrappedHintWithID] ={
+  def initialIDForHints(simpHints: VerificationHints): Seq[wrappedHintWithID] = {
     //var HintsIDMap=Map("initialKey"->"")
-    var wrappedHintsList:Seq[wrappedHintWithID]=Seq()
-    var HintsIDMap:Map[String,String]=Map()
-    var counter=0
+    var wrappedHintsList: Seq[wrappedHintWithID] = Seq()
+    var HintsIDMap: Map[String, String] = Map()
+    var counter = 0
 
-    for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
-      for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
-        HintsIDMap ++= Map(counter.toString+":"+head.name.toString()->oneHint.toString) //map(ID:head->hint)
-        counter=counter+1
-        val oneWrappedHint=new wrappedHintWithID(counter,head.name.toString,oneHint.toString)
-        wrappedHintsList=wrappedHintsList++Seq(oneWrappedHint)
+    for ((head) <- simpHints.getPredicateHints().keys.toList) { //loop for head
+      for (oneHint <- simpHints.getValue(head)) { //loop for every template in the head
+        HintsIDMap ++= Map(counter.toString + ":" + head.name.toString() -> oneHint.toString) //map(ID:head->hint)
+        counter = counter + 1
+        val oneWrappedHint = new wrappedHintWithID(counter, head.name.toString, oneHint.toString)
+        wrappedHintsList = wrappedHintsList ++ Seq(oneWrappedHint)
       }
     }
     //HintsIDMap=HintsIDMap-"initialKey"
@@ -1077,60 +1089,63 @@ object HintsSelection{
     return wrappedHintsList
 
   }
+
   //import lazabs.horn.preprocessor.HornPreprocessor.Clauses
-  def writeHornClausesToFile(file:String, simpClauses:Clauses): Unit ={
+  def writeHornClausesToFile(file: String, simpClauses: Clauses): Unit = {
     println("Write horn to file")
-    var edgeNameMap:Map[String,String]=Map()
-    edgeNameMap+= ("controlFlowIn"->"control flow in")
-    edgeNameMap+= ("controlFlowOut"->"control flow out")
-    edgeNameMap+= ("dataFlowIn"->"data flow in")
-    edgeNameMap+= ("dataFlowOut"->"data flow out")
-    edgeNameMap+= ("argument"->"argument")
-    edgeNameMap+= ("dataFlowIn"->"data flow in")
-    edgeNameMap+= ("dataFlowOut"->"data flow out")
-    edgeNameMap+= ("astAnd"->"AST &")
-    edgeNameMap+= ("condition"->"condition")
-    edgeNameMap+= ("constantDataFlow"->"constant data flow")
-    edgeNameMap+= ("dataFlow"->"data flow")
+    var edgeNameMap: Map[String, String] = Map()
+    edgeNameMap += ("controlFlowIn" -> "control flow in")
+    edgeNameMap += ("controlFlowOut" -> "control flow out")
+    edgeNameMap += ("dataFlowIn" -> "data flow in")
+    edgeNameMap += ("dataFlowOut" -> "data flow out")
+    edgeNameMap += ("argument" -> "argument")
+    edgeNameMap += ("dataFlowIn" -> "data flow in")
+    edgeNameMap += ("dataFlowOut" -> "data flow out")
+    edgeNameMap += ("astAnd" -> "AST &")
+    edgeNameMap += ("condition" -> "condition")
+    edgeNameMap += ("constantDataFlow" -> "constant data flow")
+    edgeNameMap += ("dataFlow" -> "data flow")
 
     //turn on/off edge's label
-    var edgeNameSwitch=false
-    if(edgeNameSwitch==false){
-      for(key<-edgeNameMap.keys){
-        edgeNameMap+= (key->"")
+    var edgeNameSwitch = false
+    if (edgeNameSwitch == false) {
+      for (key <- edgeNameMap.keys) {
+        edgeNameMap += (key -> "")
         //edgeNameMap updated (key, " ")
       }
     }
     //println(file.substring(file.lastIndexOf("/")+1))
-    val fileName=file.substring(file.lastIndexOf("/")+1)
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
-    val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
+    val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
 
     //write dataflow
 
     import IExpression._
 
-    var controlFLowNodeList=ListBuffer[ControlFlowNode] ()
-    var clauseList=ListBuffer[ClauseTransitionInformation]()
-    var clauseID=0
+    var controlFLowNodeList = ListBuffer[ControlFlowNode]()
+    var clauseList = ListBuffer[ClauseTransitionInformation]()
+    var clauseID = 0
 
-    for (clause<-simpClauses){
-      writer.write("-------------"+"\n")
-      writer.write(clause.toPrologString+"\n")
+    for (clause <- simpClauses) {
+      writer.write("-------------" + "\n")
+      writer.write(clause.toPrologString + "\n")
 
       //args in head
-      var argsInHead=ListBuffer[String]()
-      if(!clause.head.args.isEmpty){
-        for (arg<-clause.head.args) {
-          argsInHead+=arg.toString}
+      var argsInHead = ListBuffer[String]()
+      if (!clause.head.args.isEmpty) {
+        for (arg <- clause.head.args) {
+          argsInHead += arg.toString
+        }
       }
 
       //args in body
 
-      var argsInBody=ListBuffer[String]()
-      if(!clause.body.isEmpty){
-        for (arg<-clause.body.head.args) {
-          argsInBody+=arg.toString}
+      var argsInBody = ListBuffer[String]()
+      if (!clause.body.isEmpty) {
+        for (arg <- clause.body.head.args) {
+          argsInBody += arg.toString
+        }
       }
 
 
@@ -1140,71 +1155,74 @@ object HintsSelection{
       //store head and body to controlFLowNodeList data structure
 
 
-      var bodyName="Initial"
-      var currentControlFlowNodeArgumentListBody=new ListBuffer[ArgumentNode]()
-      if(!clause.body.isEmpty){
-        bodyName=clause.body.head.pred.name
-        for ((arg,index)<-clause.body.head.args.zipWithIndex){
-          currentControlFlowNodeArgumentListBody+=new ArgumentNode(clause.head.pred.name,
-            clause.body.head.pred.name,clause.body.head.pred.name,clauseID,arg.toString,index)
+      var bodyName = "Initial"
+      var currentControlFlowNodeArgumentListBody = new ListBuffer[ArgumentNode]()
+      if (!clause.body.isEmpty) {
+        bodyName = clause.body.head.pred.name
+        for ((arg, index) <- clause.body.head.args.zipWithIndex) {
+          currentControlFlowNodeArgumentListBody += new ArgumentNode(clause.head.pred.name,
+            clause.body.head.pred.name, clause.body.head.pred.name, clauseID, arg, index)
         }
       }
 
-      val currentControlFlowNodeBody=new ControlFlowNode(bodyName,currentControlFlowNodeArgumentListBody)
-      if(!controlFLowNodeList.exists(_.name==bodyName)){ //if body is not in controlFLowNodeList
-        controlFLowNodeList+=currentControlFlowNodeBody
+      val currentControlFlowNodeBody = new ControlFlowNode(bodyName, currentControlFlowNodeArgumentListBody)
+      if (!controlFLowNodeList.exists(_.name == bodyName)) { //if body is not in controlFLowNodeList
+        controlFLowNodeList += currentControlFlowNodeBody
       }
 
-      var currentControlFlowNodeArgumentListHead=new ListBuffer[ArgumentNode]()
-      if(!clause.head.args.isEmpty){
-        for ((arg,index)<-clause.head.args.zipWithIndex){
-          currentControlFlowNodeArgumentListHead+=new ArgumentNode(clause.head.pred.name,
-            bodyName,clause.head.pred.name,clauseID,arg.toString,index)
+      var currentControlFlowNodeArgumentListHead = new ListBuffer[ArgumentNode]()
+      if (!clause.head.args.isEmpty) {
+        for ((arg, index) <- clause.head.args.zipWithIndex) {
+          currentControlFlowNodeArgumentListHead += new ArgumentNode(clause.head.pred.name,
+            bodyName, clause.head.pred.name, clauseID, arg, index)
           //ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:String,argIndex:Int)
         }
       }
-      val currentControlFlowNodeHead=new ControlFlowNode(clause.head.pred.name,currentControlFlowNodeArgumentListHead)
-      if(!controlFLowNodeList.exists(_.name==clause.head.pred.name)){ //if head is not in controlFLowNodeList
-        controlFLowNodeList+=currentControlFlowNodeHead
+      val currentControlFlowNodeHead = new ControlFlowNode(clause.head.pred.name, currentControlFlowNodeArgumentListHead)
+      if (!controlFLowNodeList.exists(_.name == clause.head.pred.name)) { //if head is not in controlFLowNodeList
+        controlFLowNodeList += currentControlFlowNodeHead
       }
 
-      val currentClause=new ClauseTransitionInformation(currentControlFlowNodeHead,currentControlFlowNodeBody,clauseID)
-      clauseID=clauseID+1
+      val currentClause = new ClauseTransitionInformation(currentControlFlowNodeHead, currentControlFlowNodeBody, clauseID)
+      clauseID = clauseID + 1
 
 
 
       //clause.constants.toList.filterNot(arg => argsInHead.toList.contains(arg.toString()))
-        //for (constant<-clause.constants)yield {
-        //if(!argsInHead.exists(arg=>constant.toString.contains(arg))){constant.toString()}}
+      //for (constant<-clause.constants)yield {
+      //if(!argsInHead.exists(arg=>constant.toString.contains(arg))){constant.toString()}}
 
-      writer.write("Head arguments: "+argsInHead.toString()+"\n")
-      writer.write("Body arguments: "+argsInBody.toString()+"\n")
-      val commonArg =argsInHead.toList.filter(arg => argsInBody.toList.contains(arg))
+      writer.write("Head arguments: " + argsInHead.toString() + "\n")
+      writer.write("Body arguments: " + argsInBody.toString() + "\n")
+      val commonArg = argsInHead.toList.filter(arg => argsInBody.toList.contains(arg))
       //todo:add commonArg to clauseInfo data structure
       //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
-      writer.write("Common Arguments:"+commonArg.toString()+"\n")
+      writer.write("Common Arguments:" + commonArg.toString() + "\n")
 
       //argsInHead-commonArg
-      val relativeComplimentOfHeadArg=argsInHead.toList.filterNot(arg => commonArg.toString().contains(arg.toString))
+      val relativeComplimentOfHeadArg = argsInHead.toList.filterNot(arg => commonArg.toString().contains(arg.toString))
 
-      writer.write("relativeComplimentOfHeadArg:"+relativeComplimentOfHeadArg.toString()+"\n")
+      writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
 
       //dataflow
+      //if it is a equation and one element in the conjunct is in the head argument
       writer.write("Data flow:\n")
-      var dataFlowMap=Map[String,IExpression]()//argument->dataflow
-      for(headArg<-clause.head.args;headArgName<-currentClause.head.argumentList;if(headArg.toString==headArgName.originalContent)){
+      var dataFlowMap = Map[String, IExpression]() //argument->dataflow
+      for (headArg <- currentClause.head.argumentList) {
         //val Iconstant = IConstant(constant)
-        val SumExtract = SymbolSum(headArg)
+        val SumExtract = SymbolSum(headArg.originalContentInITerm)
 
         for (conjunct <- LineariseVisitor(
           clause.constraint, IBinJunctor.And)) conjunct match {
           case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
           otherTerms),
           rhs) => {
-            if(!relativeComplimentOfHeadArg.exists(arg=>rhs.toString.concat(otherTerms.toString).contains(arg))){
-              writer.write(headArg+"<-"+(rhs---otherTerms).toString+"\n")// eq: c = rhs - otherTerms
-              val df=rhs---otherTerms //record data flow IExpression
-              dataFlowMap=dataFlowMap++Map(headArgName.name->df)
+            //if lhs and rhs both have the element in head argument
+            if (!relativeComplimentOfHeadArg.exists(arg => rhs.toString.concat(otherTerms.toString).contains(arg))) {
+              writer.write(headArg.originalContentInITerm + "<-" + (rhs --- otherTerms).toString + "\n")
+              // eq: c = rhs - otherTerms
+              val df = rhs --- otherTerms //record data flow IExpression
+              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
             }
             //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
           }
@@ -1212,125 +1230,129 @@ object HintsSelection{
           case Eq(lhs,
           SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
           otherTerms)) => {
-            if(!relativeComplimentOfHeadArg.exists(arg=>lhs.toString.contains(arg))){
-              writer.write(headArg+"<-"+(lhs---otherTerms).toString+"\n")// eq: c = rhs - otherTerms
-              val df=lhs---otherTerms
+            if (!relativeComplimentOfHeadArg.exists(arg => lhs.toString.contains(arg))) {
+              writer.write(headArg.originalContentInITerm + "<-" + (lhs --- otherTerms).toString + "\n")
+              // eq: c = rhs - otherTerms
+              val df = lhs --- otherTerms
               //val sp=new ap.parser.Simplifier
               //sp.apply(lhs)
-              dataFlowMap=dataFlowMap++Map(headArgName.name->df)
+              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
-//          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-//          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-//          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-          case _=> {}//writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
+          //          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          //          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          //          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          case _ => {} //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
         }
 
       }
 
-      //todo:add dataflow: if common head not in data flow coomon head -> common head (check)
-      def getElementsFromIFomula(e:IExpression,elementList:ListBuffer[String]): Unit ={
+      //add dataflow: if common head not in data flow coomon head -> common head (check)
+      def getElementsFromIFomula(e: IExpression, elementList: ListBuffer[String]): Unit = {
 
-        e match{
-          case IAtom(pred,args)=> {
-            elementList+=pred.toString();
-            for(a<-args if !args.isEmpty){
-              getElementsFromIFomula(a,elementList);
+        e match {
+          case IAtom(pred, args) => {
+            elementList += pred.toString();
+            for (a <- args if !args.isEmpty) {
+              getElementsFromIFomula(a, elementList);
             }
           }
-          case IBinFormula(j,f1,f2)=>{
-            getElementsFromIFomula(f1,elementList)
-            getElementsFromIFomula(f2,elementList)
+          case IBinFormula(j, f1, f2) => {
+            getElementsFromIFomula(f1, elementList)
+            getElementsFromIFomula(f2, elementList)
           }
-          case IBoolLit(v)=>{
-            elementList+=v.toString();
+          case IBoolLit(v) => {
+            elementList += v.toString();
           }
-          case IFormulaITE(cond,left,right)=>{
-            getElementsFromIFomula(cond,elementList)
-            getElementsFromIFomula(left,elementList)
-            getElementsFromIFomula(right,elementList)
+          case IFormulaITE(cond, left, right) => {
+            getElementsFromIFomula(cond, elementList)
+            getElementsFromIFomula(left, elementList)
+            getElementsFromIFomula(right, elementList)
           }
-          case IIntFormula(rel,term)=>{
+          case IIntFormula(rel, term) => {
             //elementList+=rel.toString();
-            getElementsFromIFomula(term,elementList)
+            getElementsFromIFomula(term, elementList)
           }
-          case INamedPart(pname,subformula)=>{
-            elementList+=pname.toString;
-            getElementsFromIFomula(subformula,elementList)
+          case INamedPart(pname, subformula) => {
+            elementList += pname.toString;
+            getElementsFromIFomula(subformula, elementList)
           }
-          case INot(subformula)=>{
-            getElementsFromIFomula(subformula,elementList)
+          case INot(subformula) => {
+            getElementsFromIFomula(subformula, elementList)
           }
-          case IQuantified(quan,subformula)=>{
-            getElementsFromIFomula(subformula,elementList)
+          case IQuantified(quan, subformula) => {
+            getElementsFromIFomula(subformula, elementList)
           }
-          case ITrigger(patterns,subformula)=>{
-            for(p<-patterns if !patterns.isEmpty){
-              getElementsFromIFomula(p,elementList);
+          case ITrigger(patterns, subformula) => {
+            for (p <- patterns if !patterns.isEmpty) {
+              getElementsFromIFomula(p, elementList);
             }
-            getElementsFromIFomula(subformula,elementList)
+            getElementsFromIFomula(subformula, elementList)
           }
-          case IConstant(c)=>{
-            elementList+=c.toString();
+          case IConstant(c) => {
+            elementList += c.toString();
           }
-          case IEpsilon(cond)=>{
-            getElementsFromIFomula(cond,elementList)
+          case IEpsilon(cond) => {
+            getElementsFromIFomula(cond, elementList)
           }
-          case IFunApp(fun,args)=>{
-            elementList+=fun.toString();
-            for(a<-args if !args.isEmpty){
-              getElementsFromIFomula(a,elementList);
+          case IFunApp(fun, args) => {
+            elementList += fun.toString();
+            for (a <- args if !args.isEmpty) {
+              getElementsFromIFomula(a, elementList);
             }
           }
-          case IIntLit(v)=>{
-            elementList+=v.toString();
+          case IIntLit(v) => {
+            elementList += v.toString();
           }
-          case IPlus(t1,t2)=>{
-            getElementsFromIFomula(t1,elementList);
-            getElementsFromIFomula(t2,elementList);
+          case IPlus(t1, t2) => {
+            getElementsFromIFomula(t1, elementList);
+            getElementsFromIFomula(t2, elementList);
           }
-          case ITermITE(cond,left,right)=>{
-            getElementsFromIFomula(cond,elementList);
-            getElementsFromIFomula(left,elementList);
-            getElementsFromIFomula(right,elementList);
+          case ITermITE(cond, left, right) => {
+            getElementsFromIFomula(cond, elementList);
+            getElementsFromIFomula(left, elementList);
+            getElementsFromIFomula(right, elementList);
           }
-          case ITimes(coeff,subterm)=>{
-            elementList+=coeff.toString();
-            getElementsFromIFomula(subterm,elementList);
+          case ITimes(coeff, subterm) => {
+            elementList += coeff.toString();
+            getElementsFromIFomula(subterm, elementList);
           }
-          case IVariable(index)=>{
-            elementList+=index.toString();
+          case IVariable(index) => {
+            elementList += index.toString();
           }
-          case _=>{}
+          case _ => {}
         }
         //IFormula:IAtom, IBinFormula, IBoolLit, IFormulaITE, IIntFormula, INamedPart, INot, IQuantified, ITrigger
         //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
 
       }
-      var dataFlowList=ListBuffer[IExpression]()
-      for((arg,df)<-dataFlowMap){dataFlowList+=df}
-      var elementList=ListBuffer[String]()//get elements from data flow formula
-      for(dataFlow<-dataFlowList){ //get dataflow's element list and parse data flow to AST
 
-        getElementsFromIFomula(dataFlow,elementList)
+      var dataFlowList = ListBuffer[IExpression]()
+      for ((arg, df) <- dataFlowMap) {
+        dataFlowList += df
+      }
+      var elementList = ListBuffer[String]() //get elements from data flow formula
+      for (dataFlow <- dataFlowList) { //get dataflow's element list and parse data flow to AST
+
+        getElementsFromIFomula(dataFlow, elementList)
       }
       //drawAST(clauseName:String,ASTType:String,conatraintList:ListBuffer[IFormula]): Map[String,String]
-      currentClause.dataFlowASTGraph=drawAST(currentClause,"dataFlow",dataFlowMap)
-      for(comArg<-commonArg){
-        if(!elementList.contains(comArg)){
-          writer.write(comArg+"\n")
+      currentClause.dataFlowASTGraph = drawAST(currentClause, "dataFlow", dataFlowMap)
+      for (comArg <- commonArg) {
+        if (!elementList.contains(comArg)) {
+          writer.write(comArg + "<-" + comArg + "\n")
 
-          for(bodyArg<-currentClause.body.argumentList;headArg<-currentClause.head.argumentList
-              if headArg.originalContent==comArg && bodyArg.originalContent==comArg){
-            currentClause.simpleDataFlowConnection=currentClause.simpleDataFlowConnection++
-              Map(headArg.dataFLowHyperEdge.name->
+          for (bodyArg <- currentClause.body.argumentList; headArg <- currentClause.head.argumentList
+               if headArg.originalContent == comArg && bodyArg.originalContent == comArg) {
+            currentClause.simpleDataFlowConnection = currentClause.simpleDataFlowConnection ++
+              Map(headArg.dataFLowHyperEdge.name ->
                 (bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
-                  "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n"))
+                  "[label=\"" + edgeNameMap("dataFlowIn") + "\"]" + "\n"))
 
-//                  + //data flow hyper edge already been drew when create this hyperedge
-//                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
-//                  "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"))
+            //                  + //data flow hyper edge already been drew when create this hyperedge
+            //                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
+            //                  "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n"))
 
           }
         }
@@ -1338,15 +1360,16 @@ object HintsSelection{
 
       //if arguments in head are constant, add data flow constant ->arguments
       //head constan dataflow
-      if(!argsInHead.isEmpty){
-        for((arg,i)<-argsInHead.zipWithIndex){
-          if(arg.forall(_.isDigit)){//determine if argument is a constant number
-            for(argument<-currentControlFlowNodeHead.argumentList)
-              if(argument.originalContent==arg.toString){
-                writer.write(argument.name+"<-"+arg+"\n")
+      if (!argsInHead.isEmpty) {
+        for ((arg, i) <- argsInHead.zipWithIndex) {
+          if (arg.forall(_.isDigit)) {
+            //determine if argument is a constant number
+            for (argument <- currentControlFlowNodeHead.argumentList)
+              if (argument.originalContent == arg.toString) {
+                writer.write(argument.name + "<-" + arg + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeHead.name+"_"+
-                  argument.name+"_constant_"+arg
+                argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeHead.name + "_" +
+                  argument.name + "_constant_" + arg
                 //println(argument.constantFlowInNode)
               }
 
@@ -1356,15 +1379,16 @@ object HintsSelection{
 
       //if arguments in body are constant, add guard constant == arguments
       //body constant dataflow
-      if(!argsInBody.isEmpty){
-        for((arg,i)<-argsInBody.zipWithIndex){
-          if(arg.forall(_.isDigit)){//determine if argument is a constant number
-            for(argument<-currentControlFlowNodeBody.argumentList)
-              if(argument.originalContent==arg.toString){
-                writer.write(argument.name+"<-"+arg+"\n")
+      if (!argsInBody.isEmpty) {
+        for ((arg, i) <- argsInBody.zipWithIndex) {
+          if (arg.forall(_.isDigit)) {
+            //determine if argument is a constant number
+            for (argument <- currentControlFlowNodeBody.argumentList)
+              if (argument.originalContent == arg.toString) {
+                writer.write(argument.name + "<-" + arg + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode=currentClause.name+"_"+currentClause.clauseID+"_"+currentControlFlowNodeBody.name+"_"+
-                  argument.name+"_constant_"+arg
+                argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeBody.name + "_" +
+                  argument.name + "_constant_" + arg
                 //println(argument.constantFlowInNode)
               }
 
@@ -1375,30 +1399,45 @@ object HintsSelection{
 
       //todo:further separate guards and data flow
       //guard
-      writer.write("Guard:\n")
-      var guardMap=Map[String,IFormula]()
-      for ((conjunct,i) <- LineariseVisitor(
-        clause.constraint, IBinJunctor.And).zipWithIndex) {
-        //clause.head.args.exists(conjunct.toString.contains(_))
-        if ( !argsInHead.exists(arg=>conjunct.toString.contains(arg))) { //if head's argument not in the formula,then it is a guard
-          writer.write( conjunct + "\n")
-          guardMap=guardMap++Map(("guard_"+i.toString)->conjunct)
+      //if the expression is not a equation, then it is a guard
+      //if head's argument not in the formula,then it is a guard
+      def matchEquationOrInequality(conjunct:IFormula,guardMap:Map[String, IFormula],i:Int): Map[String, IFormula] ={
+        conjunct match{
+          case Eq(t1,t2)=>{
+            if (!argsInHead.exists(arg => conjunct.toString.contains(arg))) { //if head's argument not in the formula,then it is a guard
+              writer.write(conjunct + "\n")
+              guardMap ++ Map(("guard_" + i.toString) -> conjunct)
+            }else{
+              guardMap
+            }
+          }
+          case _=>{ //if it is not a equation
+            writer.write(conjunct + "\n")
+            guardMap ++ Map(("guard_" + i.toString) -> conjunct)
+          }
         }
       }
-      val guardASTList=drawAST(currentClause,"guard",guardMap)
-      for(ast<-guardASTList if !guardASTList.isEmpty){
-        currentClause.guardASTGraph=currentClause.guardASTGraph++Map( ast.astRootName->ast.graphText)
+      writer.write("Guard:\n")
+      var guardMap = Map[String, IFormula]()
+      var totalConjunct=0
+      for ((conjunct, i) <- LineariseVisitor(
+        clause.constraint, IBinJunctor.And).zipWithIndex) {
+        guardMap=guardMap++matchEquationOrInequality(conjunct,guardMap,i)
+        totalConjunct=totalConjunct+1
       }
 
-      //add currentClause to ClauseTransitionInformationList
-      clauseList+=currentClause
 
+      val guardASTList = drawAST(currentClause, "guard", guardMap)
+      for (ast <- guardASTList if !guardASTList.isEmpty) {
+        currentClause.guardASTGraph = currentClause.guardASTGraph ++ Map(ast.astRootName -> ast.graphText)
+      }
+      //add currentClause to ClauseTransitionInformationList
+      clauseList += currentClause
+      writer.write("dataflow number:"+dataFlowMap.size+"\nguard number:"+guardMap.size+"\ntotal conjunct:"+totalConjunct+"\n")
     }
 
 
-
     writer.write("-----------\n")
-    writer.write("Control flow:\n")
 
     val predicates =
       (HornClauses allPredicates simpClauses).toList sortBy (_.name)
@@ -1409,106 +1448,102 @@ object HintsSelection{
     writer.close()
 
 
-
-
     println("Write horn to graph")
-    val writerGraph = new PrintWriter(new File("../trainData/"+fileName+".gv")) //python path
+    val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
 
 
-
-    writerGraph.write("digraph dag {"+"\n")
+    writerGraph.write("digraph dag {" + "\n")
     //control flow node
-    for (p <- predicates){
+    for (p <- predicates) {
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
-      writerGraph.write("" + p.name + " [label=\"" + p.name +"\"" + " shape=\"rect\"" +"];"+"\n")
+      writerGraph.write("" + p.name + " [label=\"" + p.name + "\"" + " shape=\"rect\"" + "];" + "\n")
     }
-    writerGraph.write("FALSE" + " [label=\"" + "FALSE" +"\"" + " shape=\"rect\"" +"];"+"\n") //false node
+    writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\"" + " shape=\"rect\"" + "];" + "\n") //false node
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
 
 
     //create control flow hyper edges, connections to control flow nodes, catch unique control flow node list
-    var uniqueControlFLowNodeList=ListBuffer[ControlFlowNode]()
-    for(clauseInfo<-clauseList){
+    var uniqueControlFLowNodeList = ListBuffer[ControlFlowNode]()
+    for (clauseInfo <- clauseList) {
       //create control flow hyper edges and connections to control flow nodes
       //create control flow hyper edge nodes
-      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
       //create edges of control flow hyper edge
-      writerGraph.write(clauseInfo.body.name + " -> " + clauseInfo.controlFlowHyperEdge.name + "[label=\""+edgeNameMap("controlFlowIn")+"\"]"+"\n")
-      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " -> " + clauseInfo.head.name +"[label=\""+edgeNameMap("controlFlowOut")+"\"]"+"\n")
+      writerGraph.write(clauseInfo.body.name + " -> " + clauseInfo.controlFlowHyperEdge.name + "[label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
+      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " -> " + clauseInfo.head.name + "[label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
 
 
       //get unique control flow nodes
-      if(!uniqueControlFLowNodeList.exists(_.name==clauseInfo.head.name)){
-        uniqueControlFLowNodeList+=clauseInfo.head
+      if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.head.name)) {
+        uniqueControlFLowNodeList += clauseInfo.head
       }
-      if(!uniqueControlFLowNodeList.exists(_.name==clauseInfo.body.name)){
-        uniqueControlFLowNodeList+=clauseInfo.body
+      if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.body.name)) {
+        uniqueControlFLowNodeList += clauseInfo.body
       }
 
 
     }
     //create and connect to argument nodes
-    for(controlFLowNode<-uniqueControlFLowNodeList;arg<-controlFLowNode.argumentList){
+    for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
 
-      writerGraph.write(arg.name + " [label=\""+arg.name+"\"" + " shape=\"oval\"" +"];"+"\n")
+      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" + " shape=\"oval\"" + "];" + "\n")
       //connect arguments to location
-      writerGraph.write(arg.name + " -> " + controlFLowNode.name+"[label="+"\""+edgeNameMap("argument")+"\""+
-        " style=\"dashed\""+"]"+"\n")
+      writerGraph.write(arg.name + " -> " + controlFLowNode.name + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
+        " style=\"dashed\"" + "]" + "\n")
     }
 
 
 
-//    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
-//         //if phead != HornClauses.FALSE;
-//         IAtom(pbody, _) <- body) {  //non-initial control flow iteration
-//
-//    }
-
+    //    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
+    //         //if phead != HornClauses.FALSE;
+    //         IAtom(pbody, _) <- body) {  //non-initial control flow iteration
+    //
+    //    }
 
 
     //create guarded data flow node for this cluse
     writerGraph.write("\n")
 
-    for(clauseInfo<-clauseList){
-      var andName=""
-        if(clauseInfo.guardNumber>1){ //connect constraints by &
-          andName="xxx"+clauseInfo.name+"_"+clauseInfo.clauseID +"xxx"+ "_and"
-          writerGraph.write(andName + " [label=\""+"&"+"\"" + " shape=\"rect\"" +"];"+"\n")
-          clauseInfo.guardASTRootName=andName//store this node to clauses's guardASTRootName
-        }
+    for (clauseInfo <- clauseList) {
+      var andName = ""
+      if (clauseInfo.guardNumber > 1) { //connect constraints by &
+        andName = "xxx" + clauseInfo.name + "_" + clauseInfo.clauseID + "xxx" + "_and"
+        writerGraph.write(andName + " [label=\"" + "&" + "\"" + " shape=\"rect\"" + "];" + "\n")
+        clauseInfo.guardASTRootName = andName //store this node to clauses's guardASTRootName
+      }
       //draw guard ast
-        for((rootName,ast)<-clauseInfo.guardASTGraph){ //draw guard ast
-          writerGraph.write(ast+"\n")
-          if(clauseInfo.guardNumber>1){ //connect constraints by &
-            //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
-            writerGraph.write(rootName+"->"+andName//ast.substring(0,ast.indexOf("[label")-1)
-              + " [label=\""+edgeNameMap("astAnd")+"\""  +"];"+"\n")
-          }else{
-            clauseInfo.guardASTRootName=rootName
-          }
-
+      for ((rootName, ast) <- clauseInfo.guardASTGraph) { //draw guard ast
+        writerGraph.write(ast + "\n")
+        if (clauseInfo.guardNumber > 1) { //connect constraints by &
+          //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
+          writerGraph.write(rootName + "->" + andName //ast.substring(0,ast.indexOf("[label")-1)
+            + " [label=\"" + edgeNameMap("astAnd") + "\"" + "];" + "\n")
+        } else {
+          clauseInfo.guardASTRootName = rootName
         }
+
+      }
       //guard AST root point to control flow hyperedge
-      if(!clauseInfo.guardASTRootName.isEmpty){
-        writerGraph.write(clauseInfo.guardASTRootName + "->"+clauseInfo.controlFlowHyperEdge.name
-          + " [label=\""+edgeNameMap("condition")+"\"" +"];"+"\n")
+      if (!clauseInfo.guardASTRootName.isEmpty) {
+        writerGraph.write(clauseInfo.guardASTRootName + "->" + clauseInfo.controlFlowHyperEdge.name
+          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
       }
       //if there is no guard add true condition
-      if(clauseInfo.guardASTGraph.isEmpty){
-        writerGraph.write(clauseInfo.trueCondition + " [label=\""+"true"+"\"" +" shape=\"rect\""+"];"+"\n")//add true node
-        writerGraph.write(clauseInfo.trueCondition+"->"+clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
-          + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
+      if (clauseInfo.guardASTGraph.isEmpty) {
+        writerGraph.write(clauseInfo.trueCondition + " [label=\"" + "true" + "\"" + " shape=\"rect\"" + "];" + "\n") //add true node
+        writerGraph.write(clauseInfo.trueCondition + "->" + clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
+          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
 
       }
       //draw data flow ast
 
-      for(graphInfo<-clauseInfo.dataFlowASTGraph;argNode<-clauseInfo.head.argumentList if(graphInfo.argumentName==argNode.name)){
-        writerGraph.write("// graphtext begin \n")//draw AST
-        writerGraph.write(graphInfo.graphText+"\n")//draw AST
-        writerGraph.write("// graphtext end \n")//draw AST
-        writerGraph.write(graphInfo.astRootName + "->"+argNode.dataFLowHyperEdge.name //connect to data flow hyper edge
-          + " [label=\""+edgeNameMap("dataFlow")+"\"" +"];"+"\n")
+      for (graphInfo <- clauseInfo.dataFlowASTGraph; argNode <- clauseInfo.head.argumentList if (graphInfo.argumentName == argNode.name)) {
+        writerGraph.write("// graphtext begin \n") //draw AST
+        writerGraph.write(graphInfo.graphText + "\n") //draw AST
+        writerGraph.write("// graphtext end \n") //draw AST
+        writerGraph.write(graphInfo.astRootName + "->" + argNode.dataFLowHyperEdge.name //connect to data flow hyper edge
+          + " [label=\"" + edgeNameMap("dataFlow") + "\"" + "];" + "\n")
 
       }
 
@@ -1518,22 +1553,22 @@ object HintsSelection{
     //draw data flow
 
     //draw guarded data flow hyperedge for head
-    for(clauseInfo<-clauseList;headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
+    for (clauseInfo <- clauseList; headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
       //create data flow hyperedge node
       writerGraph.write(headArg.dataFLowHyperEdge.name +
-        " [label=\"Guarded DataFlow Hyperedge\"" + " shape=\"diamond\"" +"];"+"\n")
+        " [label=\"Guarded DataFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
       //create data flow hyperedge node coonections
       writerGraph.write(headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
-        "[label=\""+edgeNameMap("dataFlowOut")+"\"]"+"\n")
+        "[label=\"" + edgeNameMap("dataFlowOut") + "\"]" + "\n")
       //guard AST root point to data flow hyperedge
-      if(!clauseInfo.guardASTRootName.isEmpty){
+      if (!clauseInfo.guardASTRootName.isEmpty) {
         writerGraph.write(clauseInfo.guardASTRootName + " -> " + headArg.dataFLowHyperEdge.name +
-          "[label=\""+edgeNameMap("dataFlowIn")+"\"]"+"\n")
+          "[label=\"" + edgeNameMap("dataFlowIn") + "\"]" + "\n")
       }
       //if there is no guard add true condition to data flow hyperedge
-      if(clauseInfo.guardASTGraph.isEmpty){
-        writerGraph.write(clauseInfo.trueCondition+"->"+headArg.dataFLowHyperEdge.name //add edge to data flow hyper edges
-          + " [label=\""+edgeNameMap("condition")+"\""  +"];"+"\n")
+      if (clauseInfo.guardASTGraph.isEmpty) {
+        writerGraph.write(clauseInfo.trueCondition + "->" + headArg.dataFLowHyperEdge.name //add edge to data flow hyper edges
+          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
         //todo:add true condition to data flow hyperedge (check)
       }
       //data flow AST root point to data flow hyperedge
@@ -1541,23 +1576,23 @@ object HintsSelection{
 
     }
     //draw constant data flow for head
-    for(clauseInfo<-clauseList){
-      for(headArg<-clauseInfo.head.argumentList;if !clauseInfo.head.argumentList.isEmpty){
-        if(headArg.constantFlowInNode!=""){
+    for (clauseInfo <- clauseList) {
+      for (headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
+        if (headArg.constantFlowInNode != "") {
           writerGraph.write(headArg.constantFlowInNode
-            + " [label=\""+headArg.originalContent+"\""  +"];"+"\n") //create constant node
-          writerGraph.write(headArg.constantFlowInNode+"->"+headArg.dataFLowHyperEdge.name //add edge to argument
-            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+            + " [label=\"" + headArg.originalContent + "\"" + "];" + "\n") //create constant node
+          writerGraph.write(headArg.constantFlowInNode + "->" + headArg.dataFLowHyperEdge.name //add edge to argument
+            + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
         }
       }
       //draw constant data flow for body
-      for(bodyArg<-clauseInfo.body.argumentList;if !clauseInfo.body.argumentList.isEmpty){
-        if(!bodyArg.constantFlowInNode.isEmpty){
+      for (bodyArg <- clauseInfo.body.argumentList; if !clauseInfo.body.argumentList.isEmpty) {
+        if (!bodyArg.constantFlowInNode.isEmpty) {
           writerGraph.write(bodyArg.constantFlowInNode
-            + " [label=\""+bodyArg.originalContent+"\""  +"];"+"\n")//create constant node
+            + " [label=\"" + bodyArg.originalContent + "\"" + "];" + "\n") //create constant node
           //todo: find where this body be head, and find that dataflow hyper edge
-          writerGraph.write(bodyArg.constantFlowInNode+"->"+bodyArg.name //add edge to argument
-            + " [label=\""+edgeNameMap("constantDataFlow")+"\""  +"];"+"\n")
+          writerGraph.write(bodyArg.constantFlowInNode + "->" + bodyArg.name //add edge to argument
+            + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
         }
       }
     }
@@ -1565,10 +1600,10 @@ object HintsSelection{
 
 
     //draw simple data flow connection
-    for(clauseInfo<-clauseList){
+    for (clauseInfo <- clauseList) {
 
-      if(!clauseInfo.simpleDataFlowConnection.isEmpty){
-        for((hyperedge,connection)<-clauseInfo.simpleDataFlowConnection){
+      if (!clauseInfo.simpleDataFlowConnection.isEmpty) {
+        for ((hyperedge, connection) <- clauseInfo.simpleDataFlowConnection) {
           writerGraph.write(connection)
         }
 
@@ -1576,275 +1611,242 @@ object HintsSelection{
     }
 
 
-
-    writerGraph.write("}"+"\n")
-
-
-//    //write horn clauses by pretty print
-//    for ((p, r) <- system.processes) {
-//      r match {
-//        case ParametricEncoder.Singleton =>
-//        case ParametricEncoder.Infinite =>
-//          println("  Replicated thread:")
-//      }
-//      for ((c, sync) <- p) {
-//        val prefix = "    " + c.toPrologString
-//        //print(prefix + (" " * ((50 - prefix.size) max 2)))
-//        writer.write(prefix + (" " * ((50 - prefix.size) max 2))+"\n")
-////        sync match {
-////          case ParametricEncoder.Send(chan) =>
-////            println("chan_send(" + chan + ")")
-////          case ParametricEncoder.Receive(chan) =>
-////            println("chan_receive(" + chan + ")")
-////          case ParametricEncoder.NoSync =>
-////            println
-////        }
-//      }
-//    }
-//    //write assertions
-//    if (!system.assertions.isEmpty) {
-//      println
-//      //println("Assertions:")
-//      writer.write("Assertions:\n")
-//      for (c <- system.assertions)
-//        //println("  " + c.toPrologString)
-//        writer.write("  " + c.toPrologString + "\n")
-//    }
+    writerGraph.write("}" + "\n")
 
     writerGraph.close()
   }
 
-  def drawAST(clause:ClauseTransitionInformation,ASTType:String,conatraintMap:Map[String,IExpression]): ListBuffer[DataFlowASTGraphInfo] ={
-    var ASTGraph=ListBuffer[DataFlowASTGraphInfo]()
-    var nodeCount:Int=0
-    var dataFlowCount:Int=0
-    var astNodeNamePrefix="xxx"+clause.name+"_"+clause.clauseID+"xxx"+ASTType+dataFlowCount+"_node_"
-    var root=new TreeNodeForGraph(Map((astNodeNamePrefix+nodeCount)->"root"))
-    var logString:String="" //store node information
-    var rootMark=root
-    var rootName=""
+  def drawAST(clause: ClauseTransitionInformation, ASTType: String, conatraintMap: Map[String, IExpression]): ListBuffer[DataFlowASTGraphInfo] = {
+    var ASTGraph = ListBuffer[DataFlowASTGraphInfo]()
+    var nodeCount: Int = 0
+    var dataFlowCount: Int = 0
+    var astNodeNamePrefix = "xxx" + clause.name + "_" + clause.clauseID + "xxx" + ASTType + dataFlowCount + "_node_"
+    var root = new TreeNodeForGraph(Map((astNodeNamePrefix + nodeCount) -> "root"))
+    var logString: String = "" //store node information
+    var rootMark = root
+    var rootName = ""
 
 
-    def translateConstraint(e:IExpression,root:TreeNodeForGraph):Unit= {
+    def translateConstraint(e: IExpression, root: TreeNodeForGraph): Unit = {
 
-      e match{
-        case INot(subformula)=>{
+      e match {
+        case INot(subformula) => {
           //println("INOT")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "!"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "!" + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"!"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "!"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "!" +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "!" + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.rchild)
           }
         }
-        case IAtom(pred,args)=> {
-          val p=pred.name
+        case IAtom(pred, args) => {
+          val p = pred.name
           //println("IAtom")
-          if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==p)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p)->(p)))
-              logString=logString+(clause.body.getArgNameByContent(p) +
-                " [label=\""+clause.body.getArgNameByContent(p) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(p)
+          if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == p)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p) -> (p)))
+              logString = logString + (clause.body.getArgNameByContent(p) +
+                " [label=\"" + clause.body.getArgNameByContent(p) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(p)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==p)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p)->(p)))
-              logString=logString+(clause.head.getArgNameByContent(p) +
-                " [label=\""+clause.head.getArgNameByContent(p) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(p)
+            } else if (clause.head.argumentList.exists(_.originalContent == p)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p) -> (p)))
+              logString = logString + (clause.head.getArgNameByContent(p) +
+                " [label=\"" + clause.head.getArgNameByContent(p) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(p)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(p)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+p +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (p)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + p + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->p))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ p +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            for(arg<-args){
-              translateConstraint(arg,root.lchild)
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            for (arg <- args) {
+              translateConstraint(arg, root.lchild)
             }
 
-          }else if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==p)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p)->(p)))
-              logString=logString+(clause.body.getArgNameByContent(p) +
-                " [label=\""+clause.body.getArgNameByContent(p) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(p)
+          } else if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == p)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p) -> (p)))
+              logString = logString + (clause.body.getArgNameByContent(p) +
+                " [label=\"" + clause.body.getArgNameByContent(p) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(p)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==p)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p)->(p)))
-              logString=logString+(clause.head.getArgNameByContent(p) +
-                " [label=\""+clause.head.getArgNameByContent(p) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(p)
+            } else if (clause.head.argumentList.exists(_.originalContent == p)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p) -> (p)))
+              logString = logString + (clause.head.getArgNameByContent(p) +
+                " [label=\"" + clause.head.getArgNameByContent(p) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(p)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(p)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+p +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (p)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + p + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->p))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ p +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            for(arg<-args){
-              translateConstraint(arg,root.rchild)
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            for (arg <- args) {
+              translateConstraint(arg, root.rchild)
             }
           }
 
         }
-        case IBinFormula(junctor,f1,f2)=>{
+        case IBinFormula(junctor, f1, f2) => {
           //println("IBinFormula")
           //println(j.toString)
-          val j=junctor.toString
-          if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==j)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j)->(j)))
-              logString=logString+(clause.body.getArgNameByContent(j) +
-                " [label=\""+clause.body.getArgNameByContent(j) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(j)
+          val j = junctor.toString
+          if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == j)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j) -> (j)))
+              logString = logString + (clause.body.getArgNameByContent(j) +
+                " [label=\"" + clause.body.getArgNameByContent(j) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(j)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==j)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j)->(j)))
-              logString=logString+(clause.head.getArgNameByContent(j) +
-                " [label=\""+clause.head.getArgNameByContent(j) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(j)
+            } else if (clause.head.argumentList.exists(_.originalContent == j)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j) -> (j)))
+              logString = logString + (clause.head.getArgNameByContent(j) +
+                " [label=\"" + clause.head.getArgNameByContent(j) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(j)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(j)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+j +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (j)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + j + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            translateConstraint(f1,root.lchild)
-            translateConstraint(f2,root.lchild)
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            translateConstraint(f1, root.lchild)
+            translateConstraint(f2, root.lchild)
 
-          }else if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==j)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j)->(j)))
-              logString=logString+(clause.body.getArgNameByContent(j) +
-                " [label=\""+j +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(j)
+          } else if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == j)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j) -> (j)))
+              logString = logString + (clause.body.getArgNameByContent(j) +
+                " [label=\"" + j + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(j)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==j)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j)->(j)))
-              logString=logString+(clause.head.getArgNameByContent(j) +
-                " [label=\""+clause.head.getArgNameByContent(j) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(j)
+            } else if (clause.head.argumentList.exists(_.originalContent == j)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j) -> (j)))
+              logString = logString + (clause.head.getArgNameByContent(j) +
+                " [label=\"" + clause.head.getArgNameByContent(j) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(j)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(j)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+j +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (j)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + j + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->j))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ j +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            translateConstraint(f1,root.rchild)
-            translateConstraint(f2,root.rchild)
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            translateConstraint(f1, root.rchild)
+            translateConstraint(f2, root.rchild)
           }
 
 
         }
-        case IBoolLit(value)=>{
+        case IBoolLit(value) => {
           //println("IBoolLit")
           //println(value)
-          val v=value.toString
-          if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+          val v = value.toString
+          if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) + " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) + " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
             //root=root.lchild
-          }else if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+          } else if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) + " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) + " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
@@ -1852,63 +1854,63 @@ object HintsSelection{
           }
           //println(nodeCount + " [label=\""+ "_"+index +"\"];")
           //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-//          if(nodeCount==0){
-//            rootName=astNodeNamePrefix+nodeCount
-//          }
-          nodeCount=nodeCount+1
+          //          if(nodeCount==0){
+          //            rootName=astNodeNamePrefix+nodeCount
+          //          }
+          nodeCount = nodeCount + 1
         }
-        case IConstant(constantTerm)=> {
-          val c=constantTerm.toString()
+        case IConstant(constantTerm) => {
+          val c = constantTerm.toString()
           //println("IConstant")
           //println(c)
-          if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==c)){
-//              println(clause.body.getArgNameByContent(c))
-//              println(c)
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c)->(c)))
-              logString=logString+(clause.body.getArgNameByContent(c) +
-                " [label=\""+clause.body.getArgNameByContent(c) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(c)
+          if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == c)) {
+              //              println(clause.body.getArgNameByContent(c))
+              //              println(c)
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
+              logString = logString + (clause.body.getArgNameByContent(c) +
+                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(c)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==c)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c)->(c)))
-              logString=logString+(clause.head.getArgNameByContent(c) +
-                " [label=\""+clause.head.getArgNameByContent(c) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(c)
+            } else if (clause.head.argumentList.exists(_.originalContent == c)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
+              logString = logString + (clause.head.getArgNameByContent(c) +
+                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(c)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+c +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (c)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + c + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
             //root=root.lchild
-          }else if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==c)){
-//              println(clause.body.getArgNameByContent(c))
-//              println(c)
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c)->(c)))
-              logString=logString+(clause.body.getArgNameByContent(c) +
-                " [label=\""+clause.body.getArgNameByContent(c) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(c)
+          } else if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == c)) {
+              //              println(clause.body.getArgNameByContent(c))
+              //              println(c)
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
+              logString = logString + (clause.body.getArgNameByContent(c) +
+                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(c)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==c)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c)->(c)))
-              logString=logString+(clause.head.getArgNameByContent(c) +
-                " [label=\""+clause.head.getArgNameByContent(c) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(c)
+            } else if (clause.head.argumentList.exists(_.originalContent == c)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
+              logString = logString + (clause.head.getArgNameByContent(c) +
+                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(c)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+c +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (c)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + c + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
@@ -1916,643 +1918,643 @@ object HintsSelection{
           }
           //println(nodeCount + " [label=\""+ "_"+index +"\"];")
           //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+c.toString() +"\"];"+"\n")
-//          if(nodeCount==0){
-//            rootName=astNodeNamePrefix+nodeCount
-//          }
-          nodeCount=nodeCount+1
+          //          if(nodeCount==0){
+          //            rootName=astNodeNamePrefix+nodeCount
+          //          }
+          nodeCount = nodeCount + 1
         }
-        case IEpsilon(cond)=> {
+        case IEpsilon(cond) => {
           //println("IEpsilon")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IEpsilon"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IEpsilon"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IEpsilon" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IEpsilon" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IEpsilon"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IEpsilon"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IEpsilon" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IEpsilon" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.rchild)
           }
         }
         //case IFormula()=>println("IFormula")
-        case IFormulaITE(cond,left,right)=>{
+        case IFormulaITE(cond, left, right) => {
           //println("IFormulaITE")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IFormulaITE"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IFormulaITE"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IFormulaITE" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IFormulaITE" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.lchild)
-            translateConstraint(left,root.lchild)
-            translateConstraint(right,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.lchild)
+            translateConstraint(left, root.lchild)
+            translateConstraint(right, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IFormulaITE"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IFormulaITE"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IFormulaITE" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IFormulaITE" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.rchild)
-            translateConstraint(left,root.rchild)
-            translateConstraint(right,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.rchild)
+            translateConstraint(left, root.rchild)
+            translateConstraint(right, root.rchild)
 
           }
         }
-        case IFunApp(fun,args)=>{
+        case IFunApp(fun, args) => {
           //println("IFunApp");
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IFunApp"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IFunApp"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IFunApp" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IFunApp" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            for(arg<-args){
-              translateConstraint(arg,root.lchild)
+            nodeCount = nodeCount + 1
+            for (arg <- args) {
+              translateConstraint(arg, root.lchild)
             }
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"IFunApp"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IFunApp"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "IFunApp" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "IFunApp" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            for(arg<-args){
-              translateConstraint(arg,root.rchild)
+            nodeCount = nodeCount + 1
+            for (arg <- args) {
+              translateConstraint(arg, root.rchild)
             }
 
           }
         }
-        case Eq(t1, t2) =>{
-          val eq="="
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->eq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ eq +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+        case Eq(t1, t2) => {
+          val eq = "="
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> eq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.lchild)
-            translateConstraint(t2,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.lchild)
+            translateConstraint(t2, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->eq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ eq +"\"" +" shape=\"rect\"" +"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> eq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.rchild)
-            translateConstraint(t2,root.rchild)
-
-          }
-        }
-        case GeqZ(t)=>{
-          val geq=">="
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->geq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ geq +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-
-            root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-            nodeCount=nodeCount+1
-            translateConstraint(t,root.lchild)
-
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->geq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ geq +"\"" +" shape=\"rect\"" +"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-
-            root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-            nodeCount=nodeCount+1
-            translateConstraint(t,root.rchild)
-          }
-        }
-        case Geq(t1,t2)=>{
-          val geq=">="
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->geq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ geq +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.lchild)
-            translateConstraint(t2,root.lchild)
-
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->geq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ geq +"\"" +" shape=\"rect\"" +"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
-            }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.rchild)
-            translateConstraint(t2,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.rchild)
+            translateConstraint(t2, root.rchild)
 
           }
         }
-        case EqLit(term,lit)=>{
-          val v=lit.toString()
-          val eq="="
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->eq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ eq +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+        case GeqZ(t) => {
+          val geq = ">="
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.lchild.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) + " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            nodeCount = nodeCount + 1
+
+            root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "constant_0"))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "0" + "\"];" + "\n")
+            nodeCount = nodeCount + 1
+            translateConstraint(t, root.lchild)
+
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+
+            root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "constant_0"))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "0" + "\"];" + "\n")
+            nodeCount = nodeCount + 1
+            translateConstraint(t, root.rchild)
+          }
+        }
+        case Geq(t1, t2) => {
+          val geq = ">="
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.lchild)
+            translateConstraint(t2, root.lchild)
+
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.rchild)
+            translateConstraint(t2, root.rchild)
+
+          }
+        }
+        case EqLit(term, lit) => {
+          val v = lit.toString()
+          val eq = "="
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> eq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.lchild.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) + " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
+            } else {
+              root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
             }
             //root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->v))
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ v +"\"];"+"\n")
-            nodeCount=nodeCount+1
-            translateConstraint(term,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(term, root.lchild)
 
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->eq))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ eq +"\"" +" shape=\"rect\"" +"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> eq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
+            nodeCount = nodeCount + 1
 
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.rchild.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) + " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.rchild.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) + " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
+            } else {
+              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
             }
             //root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->v))
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ v +"\"];"+"\n")
-            nodeCount=nodeCount+1
-            translateConstraint(term,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(term, root.rchild)
 
           }
         }
-        case IIntLit(value)=>{
-          val v=value.toString()
-//          println("IIntLit")
-//          println(v)
-          if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+        case IIntLit(value) => {
+          val v = value.toString()
+          //          println("IIntLit")
+          //          println(v)
+          if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) +
-                " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) +
+                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-          }else if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+          } else if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) +
-                " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) +
+                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
           }
           //println(nodeCount + " [label=\""+ "_"+index +"\"];")
           //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-          nodeCount=nodeCount+1
+          nodeCount = nodeCount + 1
         }
-        case INamedPart(name,subformula)=>{
+        case INamedPart(name, subformula) => {
           //println("INamedPart")
-          val n=name.toString
-          if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==n)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n)->(n)))
-              logString=logString+(clause.body.getArgNameByContent(n) +
-                " [label=\""+clause.body.getArgNameByContent(n) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(n)
+          val n = name.toString
+          if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == n)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n) -> (n)))
+              logString = logString + (clause.body.getArgNameByContent(n) +
+                " [label=\"" + clause.body.getArgNameByContent(n) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(n)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==n)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n)->(n)))
-              logString=logString+(clause.head.getArgNameByContent(n) +
-                " [label=\""+clause.head.getArgNameByContent(n) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(n)
+            } else if (clause.head.argumentList.exists(_.originalContent == n)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n) -> (n)))
+              logString = logString + (clause.head.getArgNameByContent(n) +
+                " [label=\"" + clause.head.getArgNameByContent(n) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(n)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(n)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+n +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (n)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + n + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->n))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ n +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.lchild)
 
 
-          }else if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==n)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n)->(n)))
-              logString=logString+(clause.body.getArgNameByContent(n) +
-                " [label=\""+clause.body.getArgNameByContent(n) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(n)
+          } else if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == n)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n) -> (n)))
+              logString = logString + (clause.body.getArgNameByContent(n) +
+                " [label=\"" + clause.body.getArgNameByContent(n) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(n)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==n)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n)->(n)))
-              logString=logString+(clause.head.getArgNameByContent(n) +
-                " [label=\""+clause.head.getArgNameByContent(n) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(n)
+            } else if (clause.head.argumentList.exists(_.originalContent == n)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n) -> (n)))
+              logString = logString + (clause.head.getArgNameByContent(n) +
+                " [label=\"" + clause.head.getArgNameByContent(n) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(n)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(n)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+n +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (n)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + n + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->n))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ n +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.lchild)
           }
         }
-        case Difference(t1,t2)=>{
-          val d="-"
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->d))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ d +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+        case Difference(t1, t2) => {
+          val d = "-"
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> d))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + d + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.lchild)
-            translateConstraint(t2,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.lchild)
+            translateConstraint(t2, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->d))
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ d +"\"" +" shape=\"rect\"" +"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> d))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + d + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.rchild)
-            translateConstraint(t2,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.rchild)
+            translateConstraint(t2, root.rchild)
 
           }
         }
-        case IPlus(t1,t2)=> {
-          val p="+"
+        case IPlus(t1, t2) => {
+          val p = "+"
           //println("IPLUS")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->p))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> p))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ p +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + p + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.lchild)
-            translateConstraint(t2,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.lchild)
+            translateConstraint(t2, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->p))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> p))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ p +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + p + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(t1,root.rchild)
-            translateConstraint(t2,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.rchild)
+            translateConstraint(t2, root.rchild)
 
           }
 
         }
-        case IQuantified(quan, subformula)=>{
-          val q=quan.toString
+        case IQuantified(quan, subformula) => {
+          val q = quan.toString
           //println("IQuantified")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->q))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> q))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ q +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + q + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->q))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> q))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ q +"\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + q + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.rchild)
           }
         }
         //case ITerm()=>println("ITerm")
-        case ITermITE(cond,left,right)=>{
+        case ITermITE(cond, left, right) => {
           //println("ITermITE")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"ITermITE"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITermITE"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "ITermITE" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "ITermITE" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.lchild)
-            translateConstraint(left,root.lchild)
-            translateConstraint(right,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.lchild)
+            translateConstraint(left, root.lchild)
+            translateConstraint(right, root.lchild)
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"ITermITE"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITermITE"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "ITermITE" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "ITermITE" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(cond,root.rchild)
-            translateConstraint(left,root.rchild)
-            translateConstraint(right,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(cond, root.rchild)
+            translateConstraint(left, root.rchild)
+            translateConstraint(right, root.rchild)
 
           }
         }
-        case ITimes(coeff,t)=> {
-          val v=coeff.toString()
+        case ITimes(coeff, t) => {
+          val v = coeff.toString()
           //println("ITimes")
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "*"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "*" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\"*\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"*\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
+            nodeCount = nodeCount + 1
 
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) +
-                " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) +
+                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
-//            root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->v))
-//            //println(nodeCount + " [label=\""+ coeff +"\"];")
-//            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ v +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            translateConstraint(t,root.lchild)
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"*"))
+            //            root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->v))
+            //            //println(nodeCount + " [label=\""+ coeff +"\"];")
+            //            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ v +"\"];"+"\n")
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t, root.lchild)
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "*"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "*" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\"*\""+" shape=\"rect\""+"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"*\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
+            nodeCount = nodeCount + 1
 
-            if(clause.body.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.body.getArgNameByContent(v) +
-                " [label=\""+clause.body.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(v)
+            if (clause.body.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.body.getArgNameByContent(v) +
+                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(v)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==v)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v)->(v)))
-              logString=logString+(clause.head.getArgNameByContent(v) +
-                " [label=\""+clause.head.getArgNameByContent(v) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(v)
+            } else if (clause.head.argumentList.exists(_.originalContent == v)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
+              logString = logString + (clause.head.getArgNameByContent(v) +
+                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(v)
               }
-            }else{
-              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+v +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->coeff.toString()))
             //println(nodeCount + " [label=\""+ coeff +"\"];")
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ coeff +"\"];"+"\n")
-//            if(nodeCount==0){
-//              rootName=astNodeNamePrefix+nodeCount
-//            }
-            nodeCount=nodeCount+1
-            translateConstraint(t,root.rchild)
+            //            if(nodeCount==0){
+            //              rootName=astNodeNamePrefix+nodeCount
+            //            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t, root.rchild)
           }
 
         }
-        case ITrigger(patterns,subformula)=>{
+        case ITrigger(patterns, subformula) => {
           //println("ITrigger");
-          if(root.lchild==null){
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"ITrigger"))
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITrigger"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "ITrigger" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "ITrigger" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.lchild)
-            for(p<-patterns){
-              translateConstraint(p,root.lchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.lchild)
+            for (p <- patterns) {
+              translateConstraint(p, root.lchild)
             }
 
-          }else if(root.rchild==null){
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"ITrigger"))
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITrigger"))
             //root=root.lchild
             //println(nodeCount + " [label=\""+ "+" +"\"];")
-            logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "ITrigger" +"\"];"+"\n")
-            if(nodeCount==0){
-              rootName=astNodeNamePrefix+nodeCount
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "ITrigger" + "\"];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
             }
-            nodeCount=nodeCount+1
-            translateConstraint(subformula,root.rchild)
-            for(p<-patterns){
-              translateConstraint(p,root.rchild)
+            nodeCount = nodeCount + 1
+            translateConstraint(subformula, root.rchild)
+            for (p <- patterns) {
+              translateConstraint(p, root.rchild)
             }
 
           }
         }
-        case IVariable(index)=> {
+        case IVariable(index) => {
           println("IVariable")
-          val i =index.toString
+          val i = index.toString
           println(i)
-          if(root.rchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==i)){
-              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i)->(i)))
-              logString=logString+(clause.body.getArgNameByContent(i) +
-                " [label=\""+clause.body.getArgNameByContent(i) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(i)
+          if (root.rchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == i)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i) -> (i)))
+              logString = logString + (clause.body.getArgNameByContent(i) +
+                " [label=\"" + clause.body.getArgNameByContent(i) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(i)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==i)){
-              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i)->(i)))
-              logString=logString+(clause.head.getArgNameByContent(i) + " [label=\""+clause.head.getArgNameByContent(i) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(i)
+            } else if (clause.head.argumentList.exists(_.originalContent == i)) {
+              root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i) -> (i)))
+              logString = logString + (clause.head.getArgNameByContent(i) + " [label=\"" + clause.head.getArgNameByContent(i) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(i)
               }
-            }else{
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(i)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+i +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (i)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + i + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(i)))
             //root=root.lchild
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ i +"\"];"+"\n")
 
-            nodeCount=nodeCount+1
-          }else if(root.lchild==null){
-            if(clause.body.argumentList.exists(_.originalContent==i)){
-              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i)->(i)))
-              logString=logString+(clause.body.getArgNameByContent(i) +
-                " [label=\""+clause.body.getArgNameByContent(i) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.body.getArgNameByContent(i)
+            nodeCount = nodeCount + 1
+          } else if (root.lchild == null) {
+            if (clause.body.argumentList.exists(_.originalContent == i)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i) -> (i)))
+              logString = logString + (clause.body.getArgNameByContent(i) +
+                " [label=\"" + clause.body.getArgNameByContent(i) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.body.getArgNameByContent(i)
               }
-            }else if(clause.head.argumentList.exists(_.originalContent==i)){
-              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i)->(i)))
-              logString=logString+(clause.head.getArgNameByContent(i) + " [label=\""+clause.head.getArgNameByContent(i) +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=clause.head.getArgNameByContent(i)
+            } else if (clause.head.argumentList.exists(_.originalContent == i)) {
+              root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i) -> (i)))
+              logString = logString + (clause.head.getArgNameByContent(i) + " [label=\"" + clause.head.getArgNameByContent(i) + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = clause.head.getArgNameByContent(i)
               }
-            }else{
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(i)))
-              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+i +"\"];"+"\n")
-              if(nodeCount==0){
-                rootName=astNodeNamePrefix+nodeCount
+            } else {
+              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (i)))
+              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + i + "\"];" + "\n")
+              if (nodeCount == 0) {
+                rootName = astNodeNamePrefix + nodeCount
               }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(i)))
             //root=root.rchild
             //logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ i +"\"];"+"\n")
-            nodeCount=nodeCount+1
+            nodeCount = nodeCount + 1
           }
 
         }
-        case IIntFormula(rel,t)=> {
+        case IIntFormula(rel, t) => {
           println("IIntFormula")
           //          if(root.lchild==null){
           //            if(rel.toString=="GeqZero"){
@@ -2596,65 +2598,66 @@ object HintsSelection{
           //            }
           //          }
         }
-        case _=>println("?")
+        case _ => println("?")
       }
     }
-    for((argumentName,conatraint)<-conatraintMap){ //get dataflow or guard element list and parse data flow to AST
-      if(ASTType=="guard"){
-        clause.guardNumber=clause.guardNumber+1
-      }else{
-        clause.dataFlowNumber=clause.dataFlowNumber+1
+
+    for ((argumentName, conatraint) <- conatraintMap) { //get dataflow or guard element list and parse data flow to AST
+      if (ASTType == "guard") {
+        clause.guardNumber = clause.guardNumber + 1
+      } else {
+        clause.dataFlowNumber = clause.dataFlowNumber + 1
       }
-      translateConstraint(conatraint,root) //define nodes in graph, information is stored in logString
-      BinarySearchTreeForGraph.ASTtype=ASTType
-      BinarySearchTreeForGraph.nodeString=logString
+      translateConstraint(conatraint, root) //define nodes in graph, information is stored in logString
+      BinarySearchTreeForGraph.ASTtype = ASTType
+      BinarySearchTreeForGraph.nodeString = logString
       BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
-      logString=BinarySearchTreeForGraph.nodeString+BinarySearchTreeForGraph.relationString
-      BinarySearchTreeForGraph.relationString=""
-      BinarySearchTreeForGraph.nodeString=""
+      logString = BinarySearchTreeForGraph.nodeString + BinarySearchTreeForGraph.relationString
+      BinarySearchTreeForGraph.relationString = ""
+      BinarySearchTreeForGraph.nodeString = ""
 
 
-      val currentASTGraph=new DataFlowASTGraphInfo(rootName,argumentName,logString)
-      ASTGraph+=currentASTGraph //record graph as string
+      val currentASTGraph = new DataFlowASTGraphInfo(rootName, argumentName, logString)
+      ASTGraph += currentASTGraph //record graph as string
       //writer.write("}"+"\n")
-      logString=""
-      nodeCount=0
-      dataFlowCount=dataFlowCount+1
-      astNodeNamePrefix="xxx"+clause.name+"_"+clause.clauseID+"xxx"+ASTType+dataFlowCount+"_node_"
-      root=new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"root"))
-      rootMark=root
+      logString = ""
+      nodeCount = 0
+      dataFlowCount = dataFlowCount + 1
+      astNodeNamePrefix = "xxx" + clause.name + "_" + clause.clauseID + "xxx" + ASTType + dataFlowCount + "_node_"
+      root = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "root"))
+      rootMark = root
     }
     ASTGraph
   }
 
-  def writeSMTFormatToFile(simpClauses:Clauses,path:String): Unit ={
+  def writeSMTFormatToFile(simpClauses: Clauses, path: String): Unit = {
 
-      val basename = GlobalParameters.get.fileName
-//      val suffix =
-//        (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
-//      val filename = basename + "-" + suffix + ".smt2"
+    val basename = GlobalParameters.get.fileName
+    //      val suffix =
+    //        (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
+    //      val filename = basename + "-" + suffix + ".smt2"
     //println(basename.substring(basename.lastIndexOf("/")+1))
-    val fileName=basename.substring(basename.lastIndexOf("/")+1)
+    val fileName = basename.substring(basename.lastIndexOf("/") + 1)
     //val filename = basename + ".smt2"
-    println("write "+fileName+" to smt format file")
-      //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")
-      val out = new java.io.FileOutputStream(path+fileName+".smt2") //python path
-      Console.withOut(out) {
-        val clauseFors =
-          for (c <- simpClauses) yield {
-            val f = c.toFormula
-            // eliminate remaining operators like eps
-            Transform2Prenex(EquivExpander(PartialEvaluator(f)))
-          }
+    println("write " + fileName + " to smt format file")
+    //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")
+    val out = new java.io.FileOutputStream(path + fileName + ".smt2") //python path
+    Console.withOut(out) {
+      val clauseFors =
+        for (c <- simpClauses) yield {
+          val f = c.toFormula
+          // eliminate remaining operators like eps
+          Transform2Prenex(EquivExpander(PartialEvaluator(f)))
+        }
 
-        val allPredicates =
-          HornClauses allPredicates simpClauses
+      val allPredicates =
+        HornClauses allPredicates simpClauses
 
-        SMTLineariser("C_VC", "HORN", "unknown",
-          List(), allPredicates.toSeq.sortBy(_.name),
-          clauseFors)
-      }
-      out.close
+      SMTLineariser("C_VC", "HORN", "unknown",
+        List(), allPredicates.toSeq.sortBy(_.name),
+        clauseFors)
+    }
+    out.close
 
   }
 
@@ -2666,8 +2669,6 @@ object HintsSelection{
     )
     // could return `path`
   }
-
-
 
 
 }

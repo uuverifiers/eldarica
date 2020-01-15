@@ -500,15 +500,16 @@ class TreeNodeForGraph{
 
 
 
-class ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:String,argIndex:Int) {
+class ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:ITerm,argIndex:Int) {
   val InList=ListBuffer
   val OutList=ListBuffer
   val index=argIndex
   val name=location+"_argument_"+index.toString
   var argumentEdgeFlag=false
-  val originalContent=arg
+  val originalContent=arg.toString
   var constantFlowInNode:String=""
   val dataFLowHyperEdge=new DataFlowHyperEdge(bodyName,headName,name,clauseID)
+  val originalContentInITerm=arg
 }
 
 class ControlFowHyperEdge(body:String,head:String,ind:Int) {
