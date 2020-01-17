@@ -1132,19 +1132,19 @@ object HintsSelection {
       writer.write(clause.toPrologString + "\n")
 
       //args in head
-      var argsInHead = ListBuffer[String]()
+      var argsInHead = ListBuffer[Pair[String,ITerm]]()
       if (!clause.head.args.isEmpty) {
         for (arg <- clause.head.args) {
-          argsInHead += arg.toString
+          argsInHead += Pair(arg.toString,arg)
         }
       }
 
       //args in body
 
-      var argsInBody = ListBuffer[String]()
+      var argsInBody = ListBuffer[Pair[String,ITerm]]()
       if (!clause.body.isEmpty) {
         for (arg <- clause.body.head.args) {
-          argsInBody += arg.toString
+          argsInBody += Pair(arg.toString,arg)
         }
       }
 
@@ -1194,61 +1194,28 @@ object HintsSelection {
 
       writer.write("Head arguments: " + argsInHead.toString() + "\n")
       writer.write("Body arguments: " + argsInBody.toString() + "\n")
-      val commonArg = argsInHead.toList.filter(arg => argsInBody.toList.contains(arg))
+      val commonArg = argsInHead.filter(arg => argsInBody.contains(arg))
       //todo:add commonArg to clauseInfo data structure
       //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
       writer.write("Common Arguments:" + commonArg.toString() + "\n")
 
-      //argsInHead-commonArg
-      val relativeComplimentOfHeadArg = argsInHead.toList.filterNot(arg => commonArg.toString().contains(arg.toString))
-
-      writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
-
-      //dataflow
-      //if it is a equation and one element in the conjunct is in the head argument
-      writer.write("Data flow:\n")
-      var dataFlowMap = Map[String, IExpression]() //argument->dataflow
-      for (headArg <- currentClause.head.argumentList) {
-        //val Iconstant = IConstant(constant)
-        val SumExtract = SymbolSum(headArg.originalContentInITerm)
-
-        for (conjunct <- LineariseVisitor(
-          clause.constraint, IBinJunctor.And)) conjunct match {
-          case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
-          otherTerms),
-          rhs) => {
-            //if lhs and rhs both have the element in head argument
-            if (!relativeComplimentOfHeadArg.exists(arg => rhs.toString.concat(otherTerms.toString).contains(arg))) {
-              writer.write(headArg.originalContentInITerm + "<-" + (rhs --- otherTerms).toString + "\n")
-              // eq: c = rhs - otherTerms
-              val df = rhs --- otherTerms //record data flow IExpression
-              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
-            }
-            //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+      //separate guard and data flow conjunct
+      var guardConjunct=ListBuffer[IFormula]()
+      var dataFlowConjunct=ListBuffer[IFormula]()
+      for (conjunct <- LineariseVisitor(
+        clause.constraint, IBinJunctor.And)) conjunct match {
+        case Eq(t1,t2)=>{
+          if (!argsInHead.exists(a => ContainsSymbol.apply(conjunct,a._2))) { //if the conjunct has no head arguments
+            guardConjunct+=conjunct
+          }else{
+            dataFlowConjunct+=conjunct
           }
-          // data flow: rhs - otherTerms -> c
-          case Eq(lhs,
-          SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
-          otherTerms)) => {
-            if (!relativeComplimentOfHeadArg.exists(arg => lhs.toString.contains(arg))) {
-              writer.write(headArg.originalContentInITerm + "<-" + (lhs --- otherTerms).toString + "\n")
-              // eq: c = rhs - otherTerms
-              val df = lhs --- otherTerms
-              //val sp=new ap.parser.Simplifier
-              //sp.apply(lhs)
-              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
-            }
-            //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
-          }
-          //          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-          //          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-          //          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-          case _ => {} //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
         }
-
+        case _=>{guardConjunct+=conjunct} //not a equation
       }
 
-      //add dataflow: if common head not in data flow coomon head -> common head (check)
+
+
       def getElementsFromIFomula(e: IExpression, elementList: ListBuffer[String]): Unit = {
 
         e match {
@@ -1325,8 +1292,149 @@ object HintsSelection {
         }
         //IFormula:IAtom, IBinFormula, IBoolLit, IFormulaITE, IIntFormula, INamedPart, INot, IQuantified, ITrigger
         //ITerm:IConstant, IEpsilon, IFunApp, IIntLit, IPlus, ITermITE, ITimes, IVariable
+      }
+      //extract all variable from guard
+      var elementsInGuard=ListBuffer[String]()
+      for(conjunct<-guardConjunct){
+        getElementsFromIFomula(conjunct,elementsInGuard)
+      }
+      elementsInGuard=elementsInGuard.distinct //delete reapeatative element
+      for(e<-elementsInGuard){ //delete integers
+        try {
+          e.toInt
+          elementsInGuard-=e
+        } catch {
+          case e: Exception => {}
+        }
+      }
+      writer.write("variables in guard: " + elementsInGuard.toString() + "\n")
+      //todo:identify free variable
+//      var freeVariables=ListBuffer[String]()
+//      for(e<-elementsInGuard;headArg<-currentClause.head.argumentList if e==headArg.originalContent){
+//        freeVariables+=e
+//      }
+//      writer.write("free variables: " + freeVariables.toString() + "\n")
+
+
+      //head argument -common argument
+      val relativeComplimentOfHeadArg = argsInHead.filterNot(arg => commonArg.contains(arg))
+      // store relativeComplimentOfHeadArg to clause
+      currentClause.relativeComplimentOfHeadArg=relativeComplimentOfHeadArg
+
+      writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
+
+      //todo: parse conjuncts onece
+
+      var tempGuardConjunct=for (gc<-guardConjunct) yield gc
+      for(gc<-guardConjunct){
+        for((arg,argITerm)<-currentClause.relativeComplimentOfHeadArg if !currentClause.relativeComplimentOfHeadArg.isEmpty){
+          if(gc.toString.contains(arg)){
+            println("gc:"+gc)
+            var oldArg=new ConstantTerm(arg)
+            argITerm match{
+              case IConstant(c)=>{
+                println("IConstant:"+argITerm)
+                oldArg=c
+              }
+              case _=>{}
+            }
+            val newArg=new IConstant(new ConstantTerm(("_"+arg)))
+            val modifiedConjunct=  SimplifyingConstantSubstVisitor(gc,Map(oldArg->newArg)) //replace arg to _arg
+            println("arg:"+arg)
+            println("modifiedConjunct:"+modifiedConjunct)
+            tempGuardConjunct-=gc
+            tempGuardConjunct+=modifiedConjunct //update guard
+            dataFlowConjunct+=Eq(argITerm,newArg)
+            println("new data flow conjunct:"+(new Simplifier).apply(Eq(argITerm,newArg)))
+          }
+        }
 
       }
+      guardConjunct=tempGuardConjunct
+
+      //if guard has headArgument-BodyArgument elements, replace element in the conjunct, add data flow
+      //if data flow has more than one head elements, replace element in conjunct, add data flow
+      //do normal parse the replaced conjuncts
+
+
+      //dataflow
+      //if it is a equation and one element in the conjunct is in the head argument
+      writer.write("Data flow:\n")
+      var dataFlowMap = Map[String, IExpression]() //argument->dataflow
+      for (conjunct <- dataFlowConjunct) conjunct match {
+        case Eq(lhs,rhs)=>{
+          var dataFlowInfo=new EqConjunctInfo(lhs,rhs,currentClause.relativeComplimentOfHeadArg)
+          if(dataFlowInfo.lhsContrainsHeadElement() && dataFlowInfo.rhsContrainsHeadElement()){
+            //shift one element to lhs
+            //replace element in rhs one by one
+            new IConstant(new ConstantTerm("_d"))
+            //build connection (new Expression)
+
+
+            writer.write("debug:"+lhs + "<-" + rhs+ "\n")
+
+          }else if(dataFlowInfo.lhsContrainsHeadElement()){
+            writer.write(lhs + "<-" + rhs + "\n")
+            val df = rhs  //record data flow IExpression
+            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
+          }else if(dataFlowInfo.rhsContrainsHeadElement()){
+            writer.write(rhs + "<-" + lhs + "\n")
+            val df = lhs  //record data flow IExpression
+            dataFlowMap = dataFlowMap ++ Map(rhs.toString-> df)
+          }
+          //if lhs and rhs both have the element in head argument
+          //if lhs is in  relativeComplimentOfHeadArg
+
+        }
+        case _=>{}
+      }
+//      for (headArg <- currentClause.head.argumentList) {
+//        //val Iconstant = IConstant(constant)
+//        val SumExtract = SymbolSum(headArg.originalContentInITerm)
+//
+//        for (conjunct <- dataFlowConjunct) conjunct match {
+////          case Eq(lhs,rhs)=>{
+////            //if lhs and rhs both have the element in head argument
+////            writer.write(lhs + "<-" + (rhs) + "\n")
+////            // eq: c = rhs - otherTerms
+////            val df = rhs  //record data flow IExpression
+////            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
+////          }
+//          case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+//          otherTerms),
+//          rhs) => {
+//            if (!relativeComplimentOfHeadArg.exists(arg => rhs.toString.concat(otherTerms.toString).contains(arg))) {
+//              writer.write(headArg.originalContentInITerm + "<-" + (rhs --- otherTerms).toString + "\n")
+//              // eq: c = rhs - otherTerms
+//              val df = rhs --- otherTerms //record data flow IExpression
+//              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
+//            }
+//            //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+//          }
+//          // data flow: rhs - otherTerms -> c
+//          case Eq(lhs,
+//          SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+//          otherTerms)) => {
+//            if (!relativeComplimentOfHeadArg.exists(arg => lhs.toString.contains(arg))) {
+//              writer.write(headArg.originalContentInITerm + "<-" + (lhs --- otherTerms).toString + "\n")
+//              // eq: c = rhs - otherTerms
+//              val df = lhs --- otherTerms
+//              //val sp=new ap.parser.Simplifier
+//              //sp.apply(lhs)
+//              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
+//            }
+//            //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
+//          }
+//          //          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+//          //          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+//          //          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+//          case _ => {} //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
+//        }
+//
+//      }
+
+      //add dataflow: if common head not in data flow coomon head -> common head (check)
+
 
       var dataFlowList = ListBuffer[IExpression]()
       for ((arg, df) <- dataFlowMap) {
@@ -1340,11 +1448,11 @@ object HintsSelection {
       //drawAST(clauseName:String,ASTType:String,conatraintList:ListBuffer[IFormula]): Map[String,String]
       currentClause.dataFlowASTGraph = drawAST(currentClause, "dataFlow", dataFlowMap)
       for (comArg <- commonArg) {
-        if (!elementList.contains(comArg)) {
-          writer.write(comArg + "<-" + comArg + "\n")
+        if (!elementList.contains(comArg._1)) {
+          writer.write(comArg._1 + "<-" + comArg._1 + "\n")
 
           for (bodyArg <- currentClause.body.argumentList; headArg <- currentClause.head.argumentList
-               if headArg.originalContent == comArg && bodyArg.originalContent == comArg) {
+               if headArg.originalContent == comArg._1 && bodyArg.originalContent == comArg._1) {
             currentClause.simpleDataFlowConnection = currentClause.simpleDataFlowConnection ++
               Map(headArg.dataFLowHyperEdge.name ->
                 (bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
@@ -1362,17 +1470,20 @@ object HintsSelection {
       //head constan dataflow
       if (!argsInHead.isEmpty) {
         for ((arg, i) <- argsInHead.zipWithIndex) {
-          if (arg.forall(_.isDigit)) {
+          try {
+            arg._1.toInt
             //determine if argument is a constant number
             for (argument <- currentControlFlowNodeHead.argumentList)
-              if (argument.originalContent == arg.toString) {
-                writer.write(argument.name + "<-" + arg + "\n")
+              if (argument.originalContent == arg._1) {
+                writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
                 argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeHead.name + "_" +
-                  argument.name + "_constant_" + arg
+                  argument.name + "_constant_" + arg._1
                 //println(argument.constantFlowInNode)
               }
-
+          }
+          catch {
+            case ex: Exception => {}
           }
         }
       }
@@ -1381,59 +1492,42 @@ object HintsSelection {
       //body constant dataflow
       if (!argsInBody.isEmpty) {
         for ((arg, i) <- argsInBody.zipWithIndex) {
-          if (arg.forall(_.isDigit)) {
+          try {
+            arg._1.toInt
             //determine if argument is a constant number
             for (argument <- currentControlFlowNodeBody.argumentList)
-              if (argument.originalContent == arg.toString) {
-                writer.write(argument.name + "<-" + arg + "\n")
+              if (argument.originalContent == arg._1) {
+                writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
                 argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeBody.name + "_" +
-                  argument.name + "_constant_" + arg
+                  argument.name + "_constant_" + arg._1
                 //println(argument.constantFlowInNode)
               }
-
-
+          }catch {
+            case ex: Exception => {}
           }
         }
       }
 
-      //todo:further separate guards and data flow
+
       //guard
       //if the expression is not a equation, then it is a guard
       //if head's argument not in the formula,then it is a guard
-      def matchEquationOrInequality(conjunct:IFormula,guardMap:Map[String, IFormula],i:Int): Map[String, IFormula] ={
-        conjunct match{
-          case Eq(t1,t2)=>{
-            if (!argsInHead.exists(arg => conjunct.toString.contains(arg))) { //if head's argument not in the formula,then it is a guard
-              writer.write(conjunct + "\n")
-              guardMap ++ Map(("guard_" + i.toString) -> conjunct)
-            }else{
-              guardMap
-            }
-          }
-          case _=>{ //if it is not a equation
-            writer.write(conjunct + "\n")
-            guardMap ++ Map(("guard_" + i.toString) -> conjunct)
-          }
-        }
-      }
       writer.write("Guard:\n")
       var guardMap = Map[String, IFormula]()
-      var totalConjunct=0
-      for ((conjunct, i) <- LineariseVisitor(
-        clause.constraint, IBinJunctor.And).zipWithIndex) {
-        guardMap=guardMap++matchEquationOrInequality(conjunct,guardMap,i)
-        totalConjunct=totalConjunct+1
+
+      for ((conjunct, i) <- guardConjunct.zipWithIndex) {
+
+        writer.write(conjunct + "\n")
+        guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
-
-
       val guardASTList = drawAST(currentClause, "guard", guardMap)
       for (ast <- guardASTList if !guardASTList.isEmpty) {
         currentClause.guardASTGraph = currentClause.guardASTGraph ++ Map(ast.astRootName -> ast.graphText)
       }
       //add currentClause to ClauseTransitionInformationList
       clauseList += currentClause
-      writer.write("dataflow number:"+dataFlowMap.size+"\nguard number:"+guardMap.size+"\ntotal conjunct:"+totalConjunct+"\n")
+      writer.write("dataflow number:"+dataFlowMap.size+"\nguard number:"+guardMap.size+"\n")
     }
 
 

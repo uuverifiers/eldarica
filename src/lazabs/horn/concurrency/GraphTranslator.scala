@@ -562,6 +562,9 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   val trueCondition="true_"+id.toString
   var commonArg=ListBuffer[ArgumentNode]()
   //body node
+  var relativeComplimentOfHeadArg=ListBuffer[Pair[String,ITerm]]()
+
+
 }
 
 class DataFlowASTGraphInfo(rootName:String,argName:String,graphInfo:String){
@@ -569,4 +572,35 @@ class DataFlowASTGraphInfo(rootName:String,argName:String,graphInfo:String){
   val argumentName=argName
   val graphText=graphInfo
 
+}
+
+class EqConjunctInfo(l:ITerm,r:ITerm,headList:ListBuffer[Pair[String,ITerm]]){
+  val lhs:ITerm=l
+  val rhs:ITerm=r
+  def lhsContrainsHeadElement(): Boolean ={
+    var result=false
+    if(!headList.isEmpty){
+      for((arg,argIterm)<-headList){
+        if(ContainsSymbol.apply(lhs,argIterm)){
+          result=true
+        }
+      }
+      result
+    }else{
+      false
+    }
+  }
+  def rhsContrainsHeadElement(): Boolean ={
+    var result=false
+    if(!headList.isEmpty){
+      for((arg,argIterm)<-headList){
+        if(ContainsSymbol.apply(rhs,argIterm)){
+          result=true
+        }
+      }
+      result
+    }else{
+      false
+    }
+  }
 }
