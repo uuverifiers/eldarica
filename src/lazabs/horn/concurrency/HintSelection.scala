@@ -1195,7 +1195,7 @@ object HintsSelection {
       writer.write("Head arguments: " + argsInHead.toString() + "\n")
       writer.write("Body arguments: " + argsInBody.toString() + "\n")
       val commonArg = argsInHead.filter(arg => argsInBody.contains(arg))
-      //todo:add commonArg to clauseInfo data structure
+      currentClause.commonArg=commonArg
       //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
       writer.write("Common Arguments:" + commonArg.toString() + "\n")
 
@@ -1323,14 +1323,20 @@ object HintsSelection {
 
       writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
 
-      //todo: parse conjuncts onece
 
-      var tempGuardConjunct=for (gc<-guardConjunct) yield gc
-      for(gc<-guardConjunct){
-        for((arg,argITerm)<-currentClause.relativeComplimentOfHeadArg if !currentClause.relativeComplimentOfHeadArg.isEmpty){
-          if(gc.toString.contains(arg)){
-            println("gc:"+gc)
-            var oldArg=new ConstantTerm(arg)
+
+      //todo: parse conjuncts onece
+      def replaceArgument(args:ListBuffer[Pair[String,ITerm]],targetConjunct:IFormula,
+                          guardConjunct:ListBuffer[IFormula],daraFlowConjunct:ListBuffer[IFormula],flowType:String) ={
+        var tempGuardConjunct=for (gc<-guardConjunct) yield gc
+        var tempDataFlowConjunct=for (gc<-daraFlowConjunct) yield gc
+        var modifiedConjunct=targetConjunct
+        val sp=new Simplifier()
+        for((arg,argITerm)<-args if !args.isEmpty){
+          if(ContainsSymbol(targetConjunct,argITerm)){
+            println("targetConjunct:"+targetConjunct)
+            println("args:"+args)
+            var oldArg=new ConstantTerm("_")
             argITerm match{
               case IConstant(c)=>{
                 println("IConstant:"+argITerm)
@@ -1339,99 +1345,125 @@ object HintsSelection {
               case _=>{}
             }
             val newArg=new IConstant(new ConstantTerm(("_"+arg)))
-            val modifiedConjunct=  SimplifyingConstantSubstVisitor(gc,Map(oldArg->newArg)) //replace arg to _arg
+            modifiedConjunct= sp(SimplifyingConstantSubstVisitor(modifiedConjunct,Map(oldArg->newArg)))  //replace arg to _arg
             println("arg:"+arg)
             println("modifiedConjunct:"+modifiedConjunct)
-            tempGuardConjunct-=gc
-            tempGuardConjunct+=modifiedConjunct //update guard
-            dataFlowConjunct+=Eq(argITerm,newArg)
-            println("new data flow conjunct:"+(new Simplifier).apply(Eq(argITerm,newArg)))
+            if(!tempDataFlowConjunct.iterator.exists(p=>p.toString==sp(Eq(argITerm,newArg)).toString)){
+              tempDataFlowConjunct+=sp(Eq(argITerm,newArg))
+            }
+            println("new data flow conjunct:"+sp(Eq(argITerm,newArg)))
+            //val Eq(a,b) = sp(Eq(argITerm,newArg))
           }
         }
-
+        if(flowType=="guard"){
+          tempGuardConjunct-=targetConjunct
+          tempGuardConjunct+=modifiedConjunct //update guard
+          //tempDataFlowConjunct+=sp(Eq(argITerm,newArg))
+          //println("new data flow conjunct:"+sp(Eq(argITerm,newArg)))
+        }else{
+          tempGuardConjunct+=modifiedConjunct
+          tempDataFlowConjunct-=targetConjunct
+          //tempDataFlowConjunct+=sp(Eq(argITerm,newArg))
+        }
+        (tempGuardConjunct,tempDataFlowConjunct)
       }
-      guardConjunct=tempGuardConjunct
 
       //if guard has headArgument-BodyArgument elements, replace element in the conjunct, add data flow
-      //if data flow has more than one head elements, replace element in conjunct, add data flow
-      //do normal parse the replaced conjuncts
+      for(gc<-guardConjunct){
+        val (guardConjunctTemp,dataFlowConjunctTemp)=replaceArgument(currentClause.relativeComplimentOfHeadArg,
+          gc,guardConjunct,dataFlowConjunct,"guard")
+        guardConjunct=guardConjunctTemp
+        dataFlowConjunct=dataFlowConjunctTemp
+      }
+
+
 
 
       //dataflow
-      //if it is a equation and one element in the conjunct is in the head argument
+      //if data flow has more than one head elements, replace element in conjunct to be a guard, add data flow
       writer.write("Data flow:\n")
       var dataFlowMap = Map[String, IExpression]() //argument->dataflow
       for (conjunct <- dataFlowConjunct) conjunct match {
         case Eq(lhs,rhs)=>{
-          var dataFlowInfo=new EqConjunctInfo(lhs,rhs,currentClause.relativeComplimentOfHeadArg)
-          if(dataFlowInfo.lhsContrainsHeadElement() && dataFlowInfo.rhsContrainsHeadElement()){
-            //shift one element to lhs
-            //replace element in rhs one by one
-            new IConstant(new ConstantTerm("_d"))
-            //build connection (new Expression)
+          var dataFlowInfo=new EqConjunctInfo(conjunct,lhs,rhs,currentClause.relativeComplimentOfHeadArg)
+          if(dataFlowInfo.moreThanOneHeadElement()){
 
+            val (guardConjunctTemp,dataFlowConjunctTemp)=replaceArgument(currentClause.relativeComplimentOfHeadArg,
+              conjunct,guardConjunct,dataFlowConjunct,"dataFlow")
+            guardConjunct=guardConjunctTemp
+            dataFlowConjunct=dataFlowConjunctTemp
 
-            writer.write("debug:"+lhs + "<-" + rhs+ "\n")
-
-          }else if(dataFlowInfo.lhsContrainsHeadElement()){
-            writer.write(lhs + "<-" + rhs + "\n")
-            val df = rhs  //record data flow IExpression
-            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
-          }else if(dataFlowInfo.rhsContrainsHeadElement()){
-            writer.write(rhs + "<-" + lhs + "\n")
-            val df = lhs  //record data flow IExpression
-            dataFlowMap = dataFlowMap ++ Map(rhs.toString-> df)
+            //writer.write("debug:"+lhs + "<-" + rhs+ "\n")
           }
-          //if lhs and rhs both have the element in head argument
-          //if lhs is in  relativeComplimentOfHeadArg
+//          else if(dataFlowInfo.lhsContrainsHeadElement()){
+//            //writer.write(lhs + "<-" + rhs + "\n")
+//            val df = rhs  //record data flow IExpression
+//            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
+//
+//          }else if(dataFlowInfo.rhsContrainsHeadElement()){
+//            //writer.write(rhs + "<-" + lhs + "\n")
+//            val df = lhs  //record data flow IExpression
+//            dataFlowMap = dataFlowMap ++ Map(rhs.toString-> df)
+//
+//          }
 
         }
         case _=>{}
       }
-//      for (headArg <- currentClause.head.argumentList) {
-//        //val Iconstant = IConstant(constant)
-//        val SumExtract = SymbolSum(headArg.originalContentInITerm)
-//
-//        for (conjunct <- dataFlowConjunct) conjunct match {
-////          case Eq(lhs,rhs)=>{
-////            //if lhs and rhs both have the element in head argument
-////            writer.write(lhs + "<-" + (rhs) + "\n")
-////            // eq: c = rhs - otherTerms
-////            val df = rhs  //record data flow IExpression
-////            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
-////          }
-//          case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
-//          otherTerms),
-//          rhs) => {
-//            if (!relativeComplimentOfHeadArg.exists(arg => rhs.toString.concat(otherTerms.toString).contains(arg))) {
-//              writer.write(headArg.originalContentInITerm + "<-" + (rhs --- otherTerms).toString + "\n")
-//              // eq: c = rhs - otherTerms
-//              val df = rhs --- otherTerms //record data flow IExpression
-//              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
-//            }
-//            //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+
+      for(conjunct<-dataFlowConjunct){
+        val Eq(a,b)=conjunct
+        writer.write(a+"="+b + "\n")
+        PrincessLineariser.printExpression(conjunct)
+        println()
+      }
+
+      //todo: do normal parse the replaced conjuncts for data flow
+
+      for (headArg <- currentClause.head.argumentList) {
+        //val Iconstant = IConstant(constant)
+        val SumExtract = SymbolSum(headArg.originalContentInITerm)
+
+        for (conjunct <- dataFlowConjunct) conjunct match {
+//          case Eq(lhs,rhs)=>{
+//            //if lhs and rhs both have the element in head argument
+//            writer.write(lhs + "<-" + (rhs) + "\n")
+//            // eq: c = rhs - otherTerms
+//            val df = rhs  //record data flow IExpression
+//            dataFlowMap = dataFlowMap ++ Map(lhs.toString-> df)
 //          }
-//          // data flow: rhs - otherTerms -> c
-//          case Eq(lhs,
-//          SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
-//          otherTerms)) => {
-//            if (!relativeComplimentOfHeadArg.exists(arg => lhs.toString.contains(arg))) {
-//              writer.write(headArg.originalContentInITerm + "<-" + (lhs --- otherTerms).toString + "\n")
-//              // eq: c = rhs - otherTerms
-//              val df = lhs --- otherTerms
-//              //val sp=new ap.parser.Simplifier
-//              //sp.apply(lhs)
-//              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
-//            }
-//            //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
-//          }
-//          //          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-//          //          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-//          //          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
-//          case _ => {} //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
-//        }
-//
-//      }
+          case Eq(SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+          otherTerms),
+          rhs) => {
+            if (!relativeComplimentOfHeadArg.exists(arg => rhs.toString.concat(otherTerms.toString).contains(arg))) {
+              writer.write(headArg.originalContentInITerm + "<-" + (rhs --- otherTerms).toString + "\n")
+              // eq: c = rhs - otherTerms
+              val df = rhs --- otherTerms //record data flow IExpression
+              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
+            }
+            //writer.write(headArg+"="+rhs+"-"+otherTerms+"\n")// eq: c = rhs - otherTerms
+          }
+          // data flow: rhs - otherTerms -> c
+          case Eq(lhs,
+          SumExtract(IdealInt.ONE | IdealInt.MINUS_ONE,
+          otherTerms)) => {
+            if (!relativeComplimentOfHeadArg.exists(arg => lhs.toString.contains(arg))) {
+              writer.write(headArg.originalContentInITerm + "<-" + (lhs --- otherTerms).toString + "\n")
+              // eq: c = rhs - otherTerms
+              val df = lhs --- otherTerms
+              //val sp=new ap.parser.Simplifier
+              //sp.apply(lhs)
+              dataFlowMap = dataFlowMap ++ Map(headArg.name -> df)
+            }
+            //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
+          }
+          //          case EqLit(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          //          case GeqZ(lhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          //          case Geq(lhs,rhs)=>{writer.write(conjunct.getClass.getName+":"+conjunct+"\n")}
+          case _ => {} //writer.write(conjunct.getClass.getName+":"+conjunct+"\n")
+        }
+
+      }
 
       //add dataflow: if common head not in data flow coomon head -> common head (check)
 
@@ -1517,7 +1549,9 @@ object HintsSelection {
       var guardMap = Map[String, IFormula]()
 
       for ((conjunct, i) <- guardConjunct.zipWithIndex) {
-
+        PrincessLineariser.printExpression(conjunct)
+        //(new PrettyScalaLineariser
+        println()
         writer.write(conjunct + "\n")
         guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
@@ -2127,6 +2161,30 @@ object HintsSelection {
 
           }
         }
+        case Geq(t1, t2) => {
+          val geq = ">="
+          if (root.lchild == null) {
+            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.lchild)
+            translateConstraint(t2, root.lchild)
+
+          } else if (root.rchild == null) {
+            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
+            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            if (nodeCount == 0) {
+              rootName = astNodeNamePrefix + nodeCount
+            }
+            nodeCount = nodeCount + 1
+            translateConstraint(t1, root.rchild)
+            translateConstraint(t2, root.rchild)
+
+          }
+        }
         case GeqZ(t) => {
           val geq = ">="
           if (root.lchild == null) {
@@ -2154,30 +2212,6 @@ object HintsSelection {
             logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + "0" + "\"];" + "\n")
             nodeCount = nodeCount + 1
             translateConstraint(t, root.rchild)
-          }
-        }
-        case Geq(t1, t2) => {
-          val geq = ">="
-          if (root.lchild == null) {
-            root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
-            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
-            if (nodeCount == 0) {
-              rootName = astNodeNamePrefix + nodeCount
-            }
-            nodeCount = nodeCount + 1
-            translateConstraint(t1, root.lchild)
-            translateConstraint(t2, root.lchild)
-
-          } else if (root.rchild == null) {
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
-            logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + geq + "\"" + " shape=\"rect\"" + "];" + "\n")
-            if (nodeCount == 0) {
-              rootName = astNodeNamePrefix + nodeCount
-            }
-            nodeCount = nodeCount + 1
-            translateConstraint(t1, root.rchild)
-            translateConstraint(t2, root.rchild)
-
           }
         }
         case EqLit(term, lit) => {
