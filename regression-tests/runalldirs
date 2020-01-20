@@ -6,12 +6,12 @@ set -e
 ./rundir horn-hcc "" -assert -t:60
 ./rundir horn-hcc-2 "" -assert -t:60
 ./rundir nts "" -assert -t:60
-./rundir horn-quantifiers "" -assert -t:120
+./rundir horn-quantifiers "" -assert -t:60
 ./rundir horn-prolog "" -assert -t:60
 ./rundir horn-smt-lib "" -assert -cex -t:60
 ./rundir horn-abstract "" -assert -t:60 -abstractTO:4
 ./rundir horn-arrays ""
-./rundir special "" -assert 
 ./rundir horn-bv "" -assert -t:60
+./rundir special "" 
 
 # ./rundir horn-concurrency ""

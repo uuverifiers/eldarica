@@ -67,7 +67,7 @@ Warning: ignoring exit
 sat
 (define-fun REC__g ((A Int) (B Int) (C Int)) Bool true)
 (define-fun REC_g_ ((A Int) (B Int)) Bool (>= B 0))
-(define-fun REC_g_g ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (and (= A C) (= (+ B (- D E)) 0)) (>= B 0)) (and (and (= (+ B (- D E)) 0) (>= B 0)) (and (or (<= A (- 1)) (or (and (= A 0) (= C 0)) (and (= A 0) (<= C (- 1))))) (or (<= C (- 1)) (or (and (= A 0) (= C 0)) (and (= C 0) (<= A (- 1)))))))) (and (>= (- C A) 1) (>= B 0))) (and (>= (- A C) 1) (>= B 0))))
+(define-fun REC_g_g ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (and (= A C) (= (+ B (- D E)) 0)) (>= B 0)) (and (and (= (+ B (- D E)) 0) (>= B 0)) (and (or (>= (- (* (- 2) A) C) 1) (and (= A 0) (= C 0))) (or (<= A (- 1)) (or (and (= A 0) (= C 0)) (and (= A 0) (<= C (- 1)))))))) (and (>= (- C A) 1) (>= B 0))) (and (>= (- A C) 1) (>= B 0))))
 
 monniaux-loop1.smt2
 Warning: ignoring get-model
@@ -189,7 +189,7 @@ sat
 (define-fun |succ_without_checking_1117$unknown:32| ((A Int) (B Int) (C Int) (D Int)) Bool (= (- B A) (- 1)))
 
 palindrome_bv32.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 listcounter.correct.nts.smt2

@@ -92,11 +92,11 @@ Theories: SimpleArray(1)
 sat
 
 loop.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 loop2.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -113,19 +113,19 @@ unsat
 11: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 0))
 
 mccarthy91_bv8.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 mccarthy91_bv32.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 multiplication.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 nonlinear.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -148,7 +148,7 @@ unsat
 17: Inv(mod_cast(0, 4294967295, 5), mod_cast(0, 4294967295, 1))
 
 quantifier.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 unknown
 
 0: FALSE -> 1
@@ -156,7 +156,7 @@ unknown
 2: inv_main4(mod_cast(0, 4294967295, 0), mod_cast(0, 4294967295, 4294967295))
 
 substring.error.nts.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -182,9 +182,9 @@ unsat
 20: main_sinit(mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295), mod_cast(0, 4294967295, 4294967295))
 
 test0.correct.pierre_bv8.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 test0.correct.pierre_bv32.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 sat

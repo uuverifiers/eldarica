@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,9 +33,10 @@ import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
+import IExpression.{Predicate, Sort}
 import ap.theories.ADT
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
 
 // Under development ...
@@ -55,8 +56,10 @@ object ADTExpander {
      * arguments, as well as a function that maps the ADT term to the
      * auxiliary terms.
      */
-    def expand(sort : ADT.ADTProxySort)
-             : Option[(Seq[IExpression.Sort], ITerm => (Seq[ITerm], IFormula))]
+    def expand(pred : Predicate,
+               argNum : Int,
+               sort : ADT.ADTProxySort)
+             : Option[(Seq[IExpression.Sort], ArgGenerator)]
 
 
 //    def expand(argument : ITerm, sort : ADT.ADTProxySort)
@@ -72,6 +75,8 @@ object ADTExpander {
 
   }
 
+  type ArgGenerator = ITerm => (Seq[ITerm], IFormula)
+
   /**
    * Preprocessor that adds explicit size arguments for each predicate
    * argument for a recursive ADT
@@ -80,9 +85,10 @@ object ADTExpander {
 
     import IExpression._
 
-    def expand(sort : ADT.ADTProxySort)
-             : Option[(Seq[IExpression.Sort],
-                       ITerm => (Seq[ITerm], IFormula))] =
+    def expand(pred : Predicate,
+               argNum : Int,
+               sort : ADT.ADTProxySort)
+             : Option[(Seq[IExpression.Sort], ArgGenerator)] =
       if (recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
         val sizefun = sort.adtTheory.termSize(sort.sortNum)
         def termgen(t : ITerm) : (Seq[ITerm], IFormula) = {
@@ -126,6 +132,7 @@ object ADTExpander {
 class ADTExpander(val name : String,
                   expansion : ADTExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
+  import ADTExpander._
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
@@ -133,23 +140,31 @@ class ADTExpander(val name : String,
     println(predicates)
 
     for (pred <- predicates) {
-      val sorts = predArgumentSorts(pred)
+      val oldSorts = predArgumentSorts(pred)
+      val newSorts = new ArrayBuffer[Sort]
+      val argGens  = new ArrayBuffer[Option[ArgGenerator]]
+      var changed = false
       println(pred)
-      println(sorts)
-      val newSorts =
-        for (sort <- sorts;
-             s <-
-               if (sort.isInstanceOf[ADT.ADTProxySort])
-                 (expansion expand sort.asInstanceOf[ADT.ADTProxySort]) match {
-                   case Some((addSorts, arggen)) =>
-                     List(sort) ++ addSorts
-                   case None =>
-                     List(sort)
-                 }
-               else
-                 List(sort))
-        yield s
+      println(oldSorts)
+
+      for ((sort, argNum) <- oldSorts.iterator.zipWithIndex) {
+        newSorts += sort
+        argGens  += None
+        sort match {
+          case sort : ADT.ADTProxySort =>
+            for ((addSorts, arggen) <-
+                   expansion.expand(pred, argNum,
+                                    sort.asInstanceOf[ADT.ADTProxySort])) {
+              newSorts ++= addSorts
+              argGens(argGens.size - 1) = Some(arggen)
+              changed = true
+            }
+          case _ => // nothing
+        }
+      }
+
       println(newSorts)
+      println(argGens)
     }
 
     (clauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)

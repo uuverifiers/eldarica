@@ -2,6 +2,13 @@
 
 LAZABS=../../eld
 
-$LAZABS -pngNo -abstract:off -t:20 "$@" array-exception.smt2 2>&1 | grep -v "^Elapsed Time"
+echo array-exception.smt2
+$LAZABS -assert -pngNo -abstract:off -t:20 "$@" array-exception.smt2 2>&1 | grep -v "^Elapsed Time"
 
+
+# Test case that takes a while ...
+
+echo
+echo fib.smt2
+$LAZABS -abstract -splitClauses -pngNo -hints:fib.hints -abstractTO:6 -t:120 "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
 
