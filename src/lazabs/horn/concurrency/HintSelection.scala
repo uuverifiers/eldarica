@@ -1193,18 +1193,26 @@ object HintsSelection {
       //val x =argsInHead.toList.filterNot(arg=>argsInBody.toString().contains(arg.toString))
       writer.write("Common Arguments:" + commonArg.toString() + "\n")
 
+
+      //head argument -common argument
+      val relativeComplimentOfHeadArg = argsInHead.filterNot(arg => commonArg.contains(arg))
+      // store relativeComplimentOfHeadArg to clause
+      currentClause.relativeComplimentOfHeadArg=relativeComplimentOfHeadArg
+      writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
+
+
       //separate guard and data flow conjunct
       //if the expression is not a equation, then it is a guard
-      //if the expression is a equation and head's argument not in the formula,then it is a guard
-      //if the expression is a equation and there are element in the head's argument set, then it is a data flow
+      //if the expression is a equation and head's argument -common argument not in the formula,then it is a guard
+      //if the expression is a equation and there are element in the head's argument - common argument set, then it is a data flow
       var guardConjunct=ListBuffer[IFormula]()
       var dataFlowConjunct=ListBuffer[IFormula]()
       for (conjunct <- LineariseVisitor(
         clause.constraint, IBinJunctor.And)) conjunct match {
         case Eq(t1,t2)=>{
-          if (!argsInHead.exists(a => ContainsSymbol.apply(conjunct,a._2))) { //if the conjunct has no head arguments
+          if (!relativeComplimentOfHeadArg.exists(a => ContainsSymbol.apply(conjunct,a._2))) { //if the conjunct has no head arguments -common argument set
             guardConjunct+=conjunct
-          }else{// if the equation has one or more head elements
+          }else{// if the equation has one or more head argument -common argument elements
             dataFlowConjunct+=conjunct
           }
         }
@@ -1310,13 +1318,6 @@ object HintsSelection {
 //        freeVariables+=e
 //      }
 //      writer.write("free variables: " + freeVariables.toString() + "\n")
-
-
-      //head argument -common argument
-      val relativeComplimentOfHeadArg = argsInHead.filterNot(arg => commonArg.contains(arg))
-      // store relativeComplimentOfHeadArg to clause
-      currentClause.relativeComplimentOfHeadArg=relativeComplimentOfHeadArg
-      writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
 
 
 
