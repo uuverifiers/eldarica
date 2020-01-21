@@ -1445,7 +1445,8 @@ object HintsSelection {
       }
 
       //parse normal dataflow
-      currentClause.dataFlowASTGraph = drawAST(currentClause, "dataFlow", dataFlowMap)
+      val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,MHashMap.empty[String,ITerm])
+      currentClause.dataFlowASTGraph=dataFLowAST
       //draw simple data flow
       for (comArg <- commonArg) {
         if (!dataFlowElementList.contains(comArg._1)) {
@@ -1520,7 +1521,7 @@ object HintsSelection {
         guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
       //draw guard
-      val guardASTList = drawAST(currentClause, "guard", guardMap)
+      val (guardASTList,guardNodeHashMap) = drawAST(currentClause, "guard", guardMap,dataFlowNodeHashMap)
       for (ast <- guardASTList if !guardASTList.isEmpty) {
         currentClause.guardASTGraph = currentClause.guardASTGraph ++ Map(ast.astRootName -> ast.graphText)
       }
@@ -1709,7 +1710,9 @@ object HintsSelection {
     writerGraph.close()
   }
 
-  def drawAST(clause: ClauseTransitionInformation, ASTType: String, conatraintMap: Map[String, IExpression]): ListBuffer[DataFlowASTGraphInfo] = {
+  def drawAST(clause: ClauseTransitionInformation, ASTType: String,
+              conatraintMap: Map[String, IExpression],
+              freeVariableMap:MHashMap[String,ITerm]) = {
     var ASTGraph = ListBuffer[DataFlowASTGraphInfo]()
     var nodeCount: Int = 0
     var dataFlowCount: Int = 0
@@ -1718,7 +1721,9 @@ object HintsSelection {
     var logString: String = "" //store node information
     var rootMark = root
     var rootName = ""
-
+    //todo:dataflow and guard share free variable
+    //var nodeHashMap:MHashMap[String,ITerm]=MHashMap.empty[String,ITerm]
+    var nodeHashMap:MHashMap[String,ITerm]=freeVariableMap
 
     def translateConstraint(e: IExpression, root: TreeNodeForGraph): Unit = {
 
@@ -1974,11 +1979,21 @@ object HintsSelection {
                 rootName = clause.head.getArgNameByContent(c)
               }
             } else {
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (c)))
-              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + c + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = astNodeNamePrefix + nodeCount
+              var nodeName=astNodeNamePrefix + nodeCount
+              for((nName,nContent)<-nodeHashMap if !nodeHashMap.isEmpty){
+                if(nContent.toString==c){ //if the node existed in hash map
+                  nodeName=nName
+                }else{
+                  nodeHashMap+=(nodeName->new IConstant(constantTerm))
+                }
               }
+              if(nodeHashMap.isEmpty){
+                nodeHashMap+=(nodeName->new IConstant(constantTerm))
+              }
+
+              root.lchild = new TreeNodeForGraph(Map(nodeName -> (c)))
+              logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+              rootName = checkASTRoot(nodeCount,nodeName,rootName)
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
             //root=root.lchild
@@ -1989,22 +2004,28 @@ object HintsSelection {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
               logString = logString + (clause.body.getArgNameByContent(c) +
                 " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = clause.body.getArgNameByContent(c)
-              }
+              rootName = checkASTRoot(nodeCount,clause.body.getArgNameByContent(c),rootName)
             } else if (clause.head.argumentList.exists(_.originalContent == c)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
               logString = logString + (clause.head.getArgNameByContent(c) +
                 " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = clause.head.getArgNameByContent(c)
-              }
+              rootName = checkASTRoot(nodeCount,clause.head.getArgNameByContent(c),rootName)
             } else {
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (c)))
-              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + c + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = astNodeNamePrefix + nodeCount
+              var nodeName=astNodeNamePrefix + nodeCount
+              for((nName,nContent)<-nodeHashMap if !nodeHashMap.isEmpty){
+                if(nContent.toString==c){ //if the node existed in hash map
+                  nodeName=nName
+                }else{
+                  nodeHashMap+=(nodeName->new IConstant(constantTerm))
+                }
               }
+              if(nodeHashMap.isEmpty){
+                nodeHashMap+=(nodeName->new IConstant(constantTerm))
+              }
+              root.rchild = new TreeNodeForGraph(Map(nodeName -> (c)))
+              logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+              rootName = checkASTRoot(nodeCount,nodeName,rootName)
+
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
             //root=root.rchild
@@ -2258,11 +2279,25 @@ object HintsSelection {
                 rootName = clause.head.getArgNameByContent(v)
               }
             } else {
-              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
-              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = astNodeNamePrefix + nodeCount
+              var nodeName=astNodeNamePrefix + nodeCount
+              for((nName,nContent)<-nodeHashMap if !nodeHashMap.isEmpty){
+                if(nContent.toString==v){ //if the node existed in hash map
+                  nodeName=nName
+                }else{
+                  nodeHashMap+=(nodeName->new IIntLit(value))
+                }
               }
+              if(nodeHashMap.isEmpty){
+                nodeHashMap+=(nodeName->new IIntLit(value))
+              }
+              root.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
+              logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+              rootName = checkASTRoot(nodeCount,nodeName,rootName)
+//              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+//              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+//              if (nodeCount == 0) {
+//                rootName = astNodeNamePrefix + nodeCount
+//              }
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
           } else if (root.rchild == null) {
@@ -2281,11 +2316,26 @@ object HintsSelection {
                 rootName = clause.head.getArgNameByContent(v)
               }
             } else {
-              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
-              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
-              if (nodeCount == 0) {
-                rootName = astNodeNamePrefix + nodeCount
+              var nodeName=astNodeNamePrefix + nodeCount
+              for((nName,nContent)<-nodeHashMap if !nodeHashMap.isEmpty){
+                if(nContent.toString==v){ //if the node existed in hash map
+                  nodeName=nName
+                }else{
+                  nodeHashMap+=(nodeName->new IIntLit(value))
+                }
               }
+              if(nodeHashMap.isEmpty){
+                nodeHashMap+=(nodeName->new IIntLit(value))
+              }
+              root.rchild = new TreeNodeForGraph(Map(nodeName -> (v)))
+              logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+              rootName = checkASTRoot(nodeCount,nodeName,rootName)
+
+//              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
+//              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
+//              if (nodeCount == 0) {
+//                rootName = astNodeNamePrefix + nodeCount
+//              }
             }
             //root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(v)))
           }
@@ -2720,9 +2770,16 @@ object HintsSelection {
       root = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "root"))
       rootMark = root
     }
-    ASTGraph
+    (ASTGraph,nodeHashMap)
   }
 
+  def checkASTRoot(nodeCount:Int,nodeName:String,currentRoot:String): String ={
+    if(nodeCount==0){
+      nodeName
+    }else{
+      currentRoot
+    }
+  }
   def writeSMTFormatToFile(simpClauses: Clauses, path: String): Unit = {
 
     val basename = GlobalParameters.get.fileName
