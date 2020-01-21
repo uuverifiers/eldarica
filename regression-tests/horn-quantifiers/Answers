@@ -37,10 +37,3 @@ Theories: SimpleArray(1)
 sat
 (define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (or (or (and (= A 1) (>= D 1)) (and (= B E) (>= A 1))) (and (and (>= D A) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
 (define-fun inv2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (= B E) (>= A 0)) (and (>= A C) (>= A 0))) (and (>= (- A D) 1) (>= A 0))) (and (>= A 0) (>= D C))))
-
-fib.smt2
-Warning: ignoring get-model
-Warning: ignoring exit
-Theories: SimpleArray(1)
-Loading CEGAR hints ...
-sat

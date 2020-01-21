@@ -1,3 +1,11 @@
+array-exception.smt2
 Warning: ignoring get-model
 Theories: SimpleArray(1)
 unknown
+
+fib.smt2
+Warning: ignoring get-model
+Warning: ignoring exit
+Theories: SimpleArray(1)
+Loading CEGAR hints ...
+sat

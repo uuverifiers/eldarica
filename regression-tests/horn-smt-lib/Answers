@@ -332,7 +332,7 @@ unsat
 14: inv_main2(1)
 
 extract.smt2
-Theories: ModuloArithmetic, GroebnerMultiplication
+Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
