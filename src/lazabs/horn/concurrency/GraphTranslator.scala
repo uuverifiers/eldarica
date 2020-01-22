@@ -558,6 +558,7 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   var simpleDataFlowConnection=Map[String,String]()//map:hyperedge->connectiongraph
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""
+  var nodeList=ListBuffer[Pair[String,String]]()
   //var dataFlowASTRootNameList=ListBuffer[String]()
   val trueCondition="true_"+id.toString
   //body node

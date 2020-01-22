@@ -1140,7 +1140,6 @@ object HintsSelection {
       }
 
       //args in body
-
       var argsInBody = ListBuffer[Pair[String,ITerm]]()
       if (!clause.body.isEmpty) {
         for (arg <- clause.body.head.args) {
@@ -1149,8 +1148,6 @@ object HintsSelection {
       }
 
 
-
-      //val argsInBody=for(arg<-clause.body.head.args) yield arg.toString
 
       //store head and body to controlFLowNodeList data structure
       var bodyName = "Initial"
@@ -1184,6 +1181,18 @@ object HintsSelection {
       val currentClause = new ClauseTransitionInformation(currentControlFlowNodeHead, currentControlFlowNodeBody, clauseID)
       clauseID = clauseID + 1
 
+      //add head argument to node list
+      for(arg<-currentClause.head.argumentList if !currentClause.head.argumentList.isEmpty){
+        if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
+          currentClause.nodeList+=Pair(arg.name,arg.originalContent)
+        }
+      }
+      //add body argument to node list
+      for(arg<-currentClause.body.argumentList if !currentClause.body.argumentList.isEmpty){
+        if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
+          currentClause.nodeList+=Pair(arg.name,arg.originalContent)
+        }
+      }
 
 
       writer.write("Head arguments: " + argsInHead.toString() + "\n")
@@ -1477,7 +1486,7 @@ object HintsSelection {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeHead.name + "_" +
+                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
                   argument.name + "_constant_" + arg._1
                 //println(argument.constantFlowInNode)
               }
@@ -1499,7 +1508,7 @@ object HintsSelection {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = currentClause.name + "_" + currentClause.clauseID + "_" + currentControlFlowNodeBody.name + "_" +
+                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID  + "xxx" +
                   argument.name + "_constant_" + arg._1
                 //println(argument.constantFlowInNode)
               }
@@ -1580,7 +1589,7 @@ object HintsSelection {
     }
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
-
+      //create argument nodes
       writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" + " shape=\"oval\"" + "];" + "\n")
       //connect arguments to location
       writerGraph.write(arg.name + " -> " + controlFLowNode.name + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
@@ -1716,13 +1725,11 @@ object HintsSelection {
     var ASTGraph = ListBuffer[DataFlowASTGraphInfo]()
     var nodeCount: Int = 0
     var dataFlowCount: Int = 0
-    var astNodeNamePrefix = "xxx" + clause.name + "_" + clause.clauseID + "xxx" + ASTType + dataFlowCount + "_node_"
+    var astNodeNamePrefix = "xxx" + clause.name + "_" + clause.clauseID + "xxx" + ASTType +"_"+ dataFlowCount + "_node_"
     var root = new TreeNodeForGraph(Map((astNodeNamePrefix + nodeCount) -> "root"))
     var logString: String = "" //store node information
     var rootMark = root
     var rootName = ""
-    //todo:dataflow and guard share free variable
-    //var nodeHashMap:MHashMap[String,ITerm]=MHashMap.empty[String,ITerm]
     var nodeHashMap:MHashMap[String,ITerm]=freeVariableMap
 
     def translateConstraint(e: IExpression, root: TreeNodeForGraph): Unit = {
@@ -1966,15 +1973,25 @@ object HintsSelection {
               //              println(clause.body.getArgNameByContent(c))
               //              println(c)
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
-              logString = logString + (clause.body.getArgNameByContent(c) +
-                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(c))){
+                logString = logString + (clause.body.getArgNameByContent(c) +
+                  " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.body.getArgNameByContent(c),clause.body.getArgNameByContent(c))
+              }
+//              logString = logString + (clause.body.getArgNameByContent(c) +
+//                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(c)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == c)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
-              logString = logString + (clause.head.getArgNameByContent(c) +
-                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(c))){
+                logString = logString + (clause.head.getArgNameByContent(c) +
+                  " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.head.getArgNameByContent(c),clause.head.getArgNameByContent(c))
+              }
+//              logString = logString + (clause.head.getArgNameByContent(c) +
+//                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(c)
               }
@@ -1982,9 +1999,12 @@ object HintsSelection {
               val (nodeHashMapOut,nodeNameOut)=mergeFreeVariables(astNodeNamePrefix,nodeCount,c,nodeHashMap, constantTerm)
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
-
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (c)))
-              logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==nodeName)){
+                logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+                clause.nodeList+=Pair(nodeName,c)
+              }
+              //logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
             }
             //root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->(c.toString)))
@@ -1994,20 +2014,34 @@ object HintsSelection {
               //              println(clause.body.getArgNameByContent(c))
               //              println(c)
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
-              logString = logString + (clause.body.getArgNameByContent(c) +
-                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(c))){
+                logString = logString + (clause.body.getArgNameByContent(c) +
+                  " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.body.getArgNameByContent(c),clause.body.getArgNameByContent(c))
+              }
+//              logString = logString + (clause.body.getArgNameByContent(c) +
+//                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,clause.body.getArgNameByContent(c),rootName)
             } else if (clause.head.argumentList.exists(_.originalContent == c)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
-              logString = logString + (clause.head.getArgNameByContent(c) +
-                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(c))){
+                logString = logString + (clause.head.getArgNameByContent(c) +
+                  " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.head.getArgNameByContent(c),clause.head.getArgNameByContent(c))
+              }
+//              logString = logString + (clause.head.getArgNameByContent(c) +
+//                " [label=\"" + clause.head.getArgNameByContent(c) + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,clause.head.getArgNameByContent(c),rootName)
             } else {
               val (nodeHashMapOut,nodeNameOut)=mergeFreeVariables(astNodeNamePrefix,nodeCount,c,nodeHashMap, constantTerm)
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (c)))
-              logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==nodeName)){
+                logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
+                clause.nodeList+=Pair(nodeName,c)
+              }
+              //logString = logString + (nodeName + " [label=\"" + c + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
 
             }
@@ -2278,15 +2312,25 @@ object HintsSelection {
           if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + (clause.body.getArgNameByContent(v) +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(v))){
+                logString = logString + (clause.body.getArgNameByContent(v) +
+                  " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.body.getArgNameByContent(v),clause.body.getArgNameByContent(v))
+              }
+//              logString = logString + (clause.body.getArgNameByContent(v) +
+//                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + (clause.head.getArgNameByContent(v) +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(v))){
+                logString = logString + (clause.head.getArgNameByContent(v) +
+                  " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.head.getArgNameByContent(v),clause.head.getArgNameByContent(v))
+              }
+//              logString = logString + (clause.head.getArgNameByContent(v) +
+//                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2296,7 +2340,11 @@ object HintsSelection {
               val nodeName:String=nodeNameOut
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
               //todo: remove node declare redundancy
-              logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==nodeName)){
+                logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+                clause.nodeList+=Pair(nodeName,v)
+              }
+              //logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
 //              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
 //              logString = logString + (astNodeNamePrefix + nodeCount + " [label=\"" + v + "\"];" + "\n")
@@ -2308,15 +2356,25 @@ object HintsSelection {
           } else if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + (clause.body.getArgNameByContent(v) +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(v))){
+                logString = logString + (clause.body.getArgNameByContent(v) +
+                  " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.body.getArgNameByContent(v),clause.body.getArgNameByContent(v))
+              }
+//              logString = logString + (clause.body.getArgNameByContent(v) +
+//                " [label=\"" + clause.body.getArgNameByContent(v) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + (clause.head.getArgNameByContent(v) +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(v))){
+                logString = logString + (clause.head.getArgNameByContent(v) +
+                  " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
+                clause.nodeList+=Pair(clause.head.getArgNameByContent(v),clause.head.getArgNameByContent(v))
+              }
+//              logString = logString + (clause.head.getArgNameByContent(v) +
+//                " [label=\"" + clause.head.getArgNameByContent(v) + "\"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2325,7 +2383,11 @@ object HintsSelection {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+              if(!clause.nodeList.exists(x=>x._1==nodeName)){
+                logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
+                clause.nodeList+=Pair(nodeName,v)
+              }
+              //logString = logString + (nodeName + " [label=\"" + v + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
 
 //              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> (v)))
