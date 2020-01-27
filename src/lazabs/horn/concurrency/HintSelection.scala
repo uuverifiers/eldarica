@@ -1499,8 +1499,8 @@ object HintsSelection {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
-                  argument.name + "_constant_" + arg._1
+                argument.constantFlowInNode = "\""+"xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
+                  argument.name + "_constant_" + "\""+arg._1+"\""
                 //println(argument.constantFlowInNode)
               }
           }
@@ -1521,8 +1521,8 @@ object HintsSelection {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID  + "xxx" +
-                  argument.name + "_constant_" + arg._1
+                argument.constantFlowInNode = "\""+"xxx"+currentClause.name + "_" + currentClause.clauseID  + "xxx" +
+                  argument.name + "_constant_" +arg._1+"\""
                 //println(argument.constantFlowInNode)
               }
           }catch {

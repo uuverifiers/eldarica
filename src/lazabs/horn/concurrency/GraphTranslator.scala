@@ -407,7 +407,7 @@ object BinarySearchTree {
       if(root.rchild!=null){
         val (r_key,r_value)=root.rchild.data.head
         //println(k+"->"+r_key)
-        relationString=relationString+(k+"->"+r_key+"\n")
+        relationString=relationString+(k+" -> "+r_key+"\n")
       }
       preOrder(root.lchild)
       //print(root.data.keys + "\n")
