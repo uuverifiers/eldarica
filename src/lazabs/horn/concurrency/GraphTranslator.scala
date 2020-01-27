@@ -55,7 +55,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
   //create fileName.hints.graphs directory
   val fileName=file.substring(file.lastIndexOf("/")+1)
   //val pathName= "graphs/"+fileName+".hints.graphs"+"/"
-  val pathName= "../graphs/"+fileName+".hints.graphs"+"/" //python path
+  val pathName= "../trainData/"+fileName+".hints.graphs"+"/" //python path
   //val hintFileName=head.name.toString()+":"+oneHint.toString()+".gv"
   val hintFile = new File(pathName)
   hintFile.mkdir() //create fileName.hints.graphs directory

@@ -80,7 +80,8 @@ object HintsSelection {
     } else {
 
       //Output graphs
-      val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
+      //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
+      writeHornClausesGraphToFile(GlobalParameters.get.fileName,clauses)
       val hintGraph = new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints, wrappedHintList)
 
       //write horn clauses to file
@@ -1090,6 +1091,18 @@ object HintsSelection {
 
   }
 
+
+  def writeHornClausesToFile(file: String, simpClauses: Clauses): Unit = {
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
+    val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
+    for (clause <- simpClauses) {
+      writer.write(clause.toPrologString + "\n")
+    }
+    writer.close()
+
+  }
+
   //import lazabs.horn.preprocessor.HornPreprocessor.Clauses
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses): Unit = {
     println("Write horn to file")
@@ -1117,7 +1130,7 @@ object HintsSelection {
     //println(file.substring(file.lastIndexOf("/")+1))
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
-    val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
+    val writer = new PrintWriter(new File("../trainData/" + fileName + ".HornGraph")) //python path
 
     //write dataflow
 

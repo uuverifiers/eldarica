@@ -95,7 +95,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       //not write horn clauses to file
     }else{
       //write horn clauses to file
-
+      HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
         HintsSelection.writeSMTFormatToFile(simpClauses,"../trainData/")  //write smt2 format to file
