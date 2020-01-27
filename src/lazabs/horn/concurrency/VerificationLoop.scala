@@ -256,8 +256,8 @@ class VerificationLoop(system : ParametricEncoder.System) {
         println(encoder.allClauses)
       }
       //get horn clauses
-      if(GlobalParameters.get.getHorn==true){
-        HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses) //write horn format to file
+      if(GlobalParameters.get.getHornGraph==true){
+        HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses) //write horn format to file
         println(simpClauses)
         //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
       }

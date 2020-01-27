@@ -1091,7 +1091,7 @@ object HintsSelection {
   }
 
   //import lazabs.horn.preprocessor.HornPreprocessor.Clauses
-  def writeHornClausesToFile(file: String, simpClauses: Clauses): Unit = {
+  def writeHornClausesGraphToFile(file: String, simpClauses: Clauses): Unit = {
     println("Write horn to file")
     var edgeNameMap: Map[String, String] = Map()
     edgeNameMap += ("controlFlowIn" -> "control flow in")
