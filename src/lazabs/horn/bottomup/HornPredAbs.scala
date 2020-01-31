@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -575,15 +575,15 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   val useHashing =
     (theories forall {
-       case ap.types.TypeTheory                    => true
-       case ap.theories.nia.GroebnerMultiplication => true
-       case ap.theories.ModuloArithmetic           => true
-       case _                                      => false
+       case ap.types.TypeTheory                 => true
+       case ap.theories.GroebnerMultiplication  => true
+       case ap.theories.ModuloArithmetic        => true
+       case _                                   => false
      }) &&
     (theories exists {
-       case ap.theories.nia.GroebnerMultiplication => true
-       case ap.theories.ModuloArithmetic           => true
-       case _                                      => false
+       case ap.theories.GroebnerMultiplication  => true
+       case ap.theories.ModuloArithmetic        => true
+       case _                                   => false
      })
 
   if (useHashing)
@@ -1670,7 +1670,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
       val rsPreds =
         (for (f <- fors.iterator;
-              substF = rsReducer(subst(f));
+              substF2 = rsReducer(subst(f));
+              substF <- splitPredicate(substF2);
               if (reallyAddPredicate(substF, rs));
               pred = genSymbolPred(substF, rs);
               if (!(predicates(rs) exists
@@ -1778,6 +1779,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Split a new predicate into conjuncts, which can be treated
+   * then as separate predicates.
+   */
+  def splitPredicate(f : Conjunction) : Iterator[Conjunction] =
+    if (f.quans.isEmpty)
+      f.iterator
+    else
+      Iterator single f
 
   def reallyAddPredicate(f : Conjunction,
                          rs : RelationSymbol) : Boolean =
