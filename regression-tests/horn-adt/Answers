@@ -19,15 +19,15 @@ unsat
 list-synasc.smt2
 Theories: ADT(Nil, Cons)
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= B C) (= (_size A) 1)) (= (_size A) 1)) (and (= (+ (_size B) (- (_size A) (_size C))) 1) (= (head C) (head A)))))
+(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= (+ (_size A) (- (_size B) (_size C))) 1) (and (>= (_size C) (_size B)) (>= (_size B) 1))) (= (head C) (head A))) (and (and (and (= (_size A) 1) (= B C)) (= (_size B) (_size C))) (>= (_size C) 1))))
 
 list-synasc-unsat.smt2
 Theories: ADT(Nil, Cons)
 unsat
 
 0: FALSE -> 1
-1: Concat(Nil, Nil, Cons(5, Nil)) -> 2
-2: Concat(Nil, Nil, Nil)
+1: Concat(Nil, Cons(6, Nil), Cons(8, Cons(6, Nil))) -> 2
+2: Concat(Nil, Cons(6, Nil), Cons(6, Nil))
 
 unbounded-tree.smt2
 Theories: ADT(node, nil, cons)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,9 +41,9 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 
 object HornPreprocessor {
 
-  type Solution = Map[Predicate, IFormula]
-  type CounterExample = Dag[(IAtom, HornClauses.Clause)]
-  type Clauses = Seq[HornClauses.Clause]
+  type Solution          = Map[Predicate, IFormula]
+  type CounterExample    = Dag[(IAtom, HornClauses.Clause)]
+  type Clauses           = Seq[HornClauses.Clause]
   type VerificationHints = lazabs.horn.abstractions.VerificationHints
 
   import lazabs.horn.abstractions.VerificationHints._
@@ -135,5 +135,7 @@ trait HornPreprocessor {
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator)
+
+  def isApplicable(clauses : Clauses) : Boolean = true
 
 }
