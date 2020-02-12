@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,6 +52,12 @@ object HornClauses {
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 
+  def allTermsSimple(terms : Iterable[ITerm]) : Boolean =
+    terms forall {
+      case SimpleTerm(_) => true
+      case _             => false
+    }
+
   case class Clause(head : IAtom, body : List[IAtom], constraint : IFormula) {
     lazy val constants =
       SymbolCollector constants (and(body) & constraint & head)
@@ -87,7 +93,7 @@ object HornClauses {
      * literals, and the new constraint.
      */
     def inline(args : Seq[ITerm]) : (Seq[IAtom], IFormula) =
-      if (headCanDirectlyBeInlined) {
+      if (headCanDirectlyBeInlined && allTermsSimple(args)) {
         val replacement =
           new MHashMap[ConstantTerm, ITerm]
         for (c <- localConstants)
@@ -118,7 +124,8 @@ object HornClauses {
       assert(thisBodyPred == thatHeadPred)
 
       if ((thisBodyArgs forall (_.isInstanceOf[IConstant])) &&
-          (thisBodyArgs.toSet.size == thisBodyArgs.size)) {
+          (thisBodyArgs.toSet.size == thisBodyArgs.size) &&
+          allTermsSimple(thatHeadArgs)) {
         // can directly inline
 
         val replacement =
