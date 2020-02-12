@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,42 +29,218 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.HornClauses
+import HornClauses._
 
-import ap.theories.ModuloArithmetic
+import ap.theories.{ModuloArithmetic, ADT}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
 import ap.util.Seqs
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, ArrayBuffer}
+                                 LinkedHashSet, LinkedHashMap, ArrayBuffer}
+
+object ConstraintSimplifier {
+
+  def rewriteConstraint(constraint : IFormula,
+                        replacements : GMap[ITerm, ITerm]) =
+    (new ConstraintRewriter(replacements)).visit(constraint, ())
+                                          .asInstanceOf[IFormula]
+
+  class ConstraintRewriter(replacements : GMap[ITerm, ITerm])
+        extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (t update subres) match {
+        case updatedT : ITerm =>
+          (replacements get updatedT) match {
+            case Some(c) => c
+            case None    => updatedT
+          }
+        case updatedT =>
+          updatedT
+      }
+  }
+
+  /**
+   * Extractor to identify equations or inequalities involving two
+   * symbols with unit coefficients. The class should be used in
+   * conjunction with the <code>*Tuple</code> classes below.
+   */
+  class BinaryIntFormula(opPred : IIntRelation.Value => Boolean) {
+    def unapply(f : IFormula)
+              : Option[(IIntRelation.Value, ITerm, ITerm, IdealInt)] = f match {
+      case IIntFormula(op, t) if opPred(op) =>
+        extractSyms(t) match {
+          case null =>
+            None
+          case (a, b, offset) =>
+            Some((op, a, b, offset))
+        }
+      case _ =>
+        None
+    }
+  }
+
+  object EqBinaryIntFormula extends BinaryIntFormula(_ == IIntRelation.EqZero)
+
+  /**
+   * Identify literals equivalent to <code>a == lit</code>.
+   */
+  object EqLitTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[(ITerm, IdealInt)] =
+      t match {
+        case (_, null, null, _) =>
+          None
+        case (IIntRelation.EqZero, a, null, offset) =>
+          Some((a, offset))
+        case (IIntRelation.EqZero, null, b, offset) =>
+          Some((b, -offset))
+        case _ =>
+          None
+      }
+  }
+
+  /**
+   * Identify literals equivalent to <code>a >= bound</code>.
+   */
+  object LowerBoundTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[(ITerm, IdealInt)] =
+      t match {
+        case (_, null, _, _) =>
+          None
+        case (IIntRelation.GeqZero, a, null, offset) =>
+          Some((a, offset))
+        case _ =>
+          None
+      }
+  }
+
+  /**
+   * Identify literals equivalent to <code>bound >= a</code>.
+   */
+  object UpperBoundTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[(ITerm, IdealInt)] =
+      t match {
+        case (_, _, null, _) =>
+          None
+        case (IIntRelation.GeqZero, null, b, offset) =>
+          Some((b, -offset))
+        case _ =>
+          None
+      }
+  }
+
+  /**
+   * Identify literals equivalent to <code>a == b + offset</code>.
+   */
+  object EqOffsetTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[(ITerm, ITerm, IdealInt)] =
+      t match {
+        case (_, null, _, _) =>
+          None
+        case (_, _, null, _) =>
+          None
+        case (IIntRelation.EqZero, a, b, offset) =>
+          Some((a, b, offset))
+        case _ =>
+          None
+      }
+  }
+
+    private def extractSyms(t : ITerm) : (ITerm, ITerm, IdealInt) = t match {
+      case IPlus(t1, t2) =>
+        extractSyms(t1) match {
+          case null =>
+            null
+          case res1 =>
+            extractSyms(t2) match {
+              case null =>
+                null
+              case res2 => (res1, res2) match {
+                case ((a,    b,    offset1), (null, null, offset2)) =>
+                  (a, b, offset1 + offset2)
+                case ((a,    null, offset1), (null, b,    offset2)) =>
+                  (a, b, offset1 + offset2)
+                case ((null, b,    offset1), (a,    null, offset2)) =>
+                  (a, b, offset1 + offset2)
+                case ((null, null, offset1), (a,    b,    offset2)) =>
+                  (a, b, offset1 + offset2)
+                case _ =>
+                  null
+              }
+            }
+        }
+      case ITimes(IdealInt.ZERO, s) =>
+        (null, null, IdealInt.ZERO)
+      case ITimes(IdealInt.ONE, s) =>
+        extractSyms(s)
+      case ITimes(IdealInt.MINUS_ONE, s) =>
+        extractSyms(s) match {
+          case null =>
+            null
+          case (a, b, offset) =>
+            (b, a, -offset)
+        }
+      case IIntLit(offset) =>
+        (null, null, -offset)
+      case t =>
+        (t, null, IdealInt.ZERO)
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Inline simple definitions found in the clause constraints
  */
-object DefinitionInliner extends HornPreprocessor {
+class ConstraintSimplifier extends HornPreprocessor {
   import HornPreprocessor._
+  import ConstraintSimplifier._
 
   val name : String = "constraint simplification"
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
-    val clauseMapping = new MHashMap[Clause, Clause]
+    val clauseMapping        = new MHashMap[Clause, Clause]
+    val maybeEliminatedPreds = new MHashSet[Predicate]
 
     val newClauses =
       for (clause <- clauses;
-           newClause = simpClause(clause);
+           newClause =
+             try {
+               equationalRewriting(clause)
+             } catch {
+               case InconsistencyException => {
+                 maybeEliminatedPreds ++= clause.predicates
+                 null
+               }
+             };
            if newClause != null)
       yield {
         clauseMapping.put(newClause, clause)
         newClause
       }
 
+    maybeEliminatedPreds -= HornClauses.FALSE
+
     val translator = new BackTranslator {
-      def translate(solution : Solution) =
-        solution
+      def translate(solution : Solution) = {
+        // if some predicates completely disappeared as the result of
+        // eliminating clauses, those can be set to false
+        solution ++ (for (p <- maybeEliminatedPreds.iterator;
+                          if !(solution contains p))
+                     yield (p -> i(false)))
+      }
       def translate(cex : CounterExample) =
         for (p <- cex) yield (p._1, clauseMapping(p._2))
     }
@@ -72,45 +248,106 @@ object DefinitionInliner extends HornPreprocessor {
     (newClauses, hints, translator)
   }
 
+  private var symbolCounter = 0
+  private def newConst(s : Sort) : IConstant = {
+    val res = s newConstant ("app" + symbolCounter)
+    symbolCounter = symbolCounter + 1
+    IConstant(res)
+  }
+
+  private object InconsistencyException extends Exception
+
   //////////////////////////////////////////////////////////////////////////////
 
-  private def simpClause(clause : Clause) : Clause = {
-    val Clause(head, oriBody, constraint) = clause
-    
-    val headSyms = SymbolCollector constants head
-    var body = oriBody
+  /**
+   * Flatten nested function applications in the constraint by introducing
+   * additional symbols.
+   */
+  private def flattenConstraint(constraint : IFormula) : Seq[IFormula] = {
+    val flattener = new Flattener
+    val conjuncts =
+      LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
+    val newConjuncts =
+      for (f <- conjuncts)
+      yield flattener.visit(f, false).asInstanceOf[IFormula]
+    newConjuncts ++
+      (for ((s, t) <- flattener.extractedFuns.iterator) yield s === t)
+  }
 
-    var conjuncts = LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
+  private class Flattener extends CollectingVisitor[Boolean, IExpression] {
+    val extractedFuns = new LinkedHashMap[IFunApp, IConstant]
 
-    if (conjuncts exists (_.isFalse))
-      return null
+    override def preVisit(t : IExpression,
+                          extractFun : Boolean) : PreVisitResult = t match {
+      case Eq(_ : IFunApp, SimpleTerm(_)) =>
+        KeepArg
+      case Conj(_, _) =>
+        KeepArg
+      case _ =>
+        UniSubArgs(true)
+    }
 
-    val replacement = new MHashMap[ConstantTerm, ITerm]
-    val replacedConsts = new MHashSet[ConstantTerm]
-    val conjunctsToKeep = new ArrayBuffer[IFormula]
+    def postVisit(t : IExpression, extractFun : Boolean,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case t : IFunApp if extractFun && ContainsSymbol.isClosed(t) => {
+        val s = t update subres
+        extractedFuns.getOrElseUpdate(s, newConst(Sort sortOf s))
+      }
+      case t =>
+        t update subres
+    }
+  }
 
-    var changed = false
+  //////////////////////////////////////////////////////////////////////////////
 
-    var cont = true
-    while (cont) {
-      val remConjuncts = conjuncts filter {
+  /**
+   * Detect linear equations that can be inlined, possibly eliminating
+   * constant symbols.
+   */
+  private def inlineEquations(headSyms : scala.collection.Set[ConstantTerm],
+                              body : List[IAtom],
+                              conjuncts : Seq[IFormula],
+                              persistentEqs : Seq[IFormula])
+                            : Option[(List[IAtom],
+                                      Seq[IFormula], Seq[IFormula])] = {
+    val replacement      = new MHashMap[ConstantTerm, ITerm]
+    val replacedConsts   = new MHashSet[ConstantTerm]
+    val addPersistentEqs = new ArrayBuffer[IFormula]
 
-        // special case of equation between constants
-        case eq@Eq(left@IConstant(c), right@IConstant(d)) =>
+    val remConjuncts = conjuncts filter {
+
+      case eq@EqBinaryIntFormula(tuple) => tuple match {
+        case EqLitTuple(IConstant(c), offset)
+              if !(replacedConsts contains c)  => {
+          replacement.put(c, offset)
+          replacedConsts += c
+          if (headSyms contains c)
+            addPersistentEqs += eq
+          false
+        }
+
+        case EqOffsetTuple(left@IConstant(c), right@IConstant(d), offset) =>
           if (c == d) {
-            // can be dropped
-            false
+
+            offset match {
+              case IdealInt.ZERO =>
+                // equation can be dropped
+                false
+              case _ =>
+                // contradiction
+                throw InconsistencyException
+            }
 
           } else if (!(replacedConsts contains c) &&
                      !(replacedConsts contains d)) {
 
             if (!(headSyms contains c)) {
-              replacement.put(c, right)
+              replacement.put(c, right +++ offset)
             } else if (!(headSyms contains d)) {
-              replacement.put(d, left)
+              replacement.put(d, left --- offset)
             } else {
-              conjunctsToKeep += eq
-              replacement.put(c, right)
+              addPersistentEqs += eq
+              replacement.put(c, right +++ offset)
             }
 
             replacedConsts += c
@@ -122,88 +359,225 @@ object DefinitionInliner extends HornPreprocessor {
             true
           }
 
-        // case of general equations
-        case eq@Eq(left, right) =>
-          if (left == right) {
-            // can be dropped
-            false
-          } else {
-            val leftConsts = SymbolCollector constants left
-            val rightConsts = SymbolCollector constants right
-            val eqConsts = leftConsts ++ rightConsts
-
-            if (Seqs.disjoint(eqConsts, replacedConsts)) {
-              (left, right) match {
-                case (IConstant(c), _)
-                    if !(rightConsts contains c) && !(headSyms contains c) => {
-                  replacement.put(c, right)
-                  replacedConsts ++= eqConsts
-                  false
-                }
-                case (_, IConstant(c))
-                    if !(leftConsts contains c) && !(headSyms contains c) => {
-                  replacement.put(c, left)
-                  replacedConsts ++= eqConsts
-                  false
-                }
-                case (IConstant(c), _)
-                    if !(rightConsts contains c) => {
-                  conjunctsToKeep += eq
-                  replacement.put(c, right)
-                  replacedConsts ++= eqConsts
-                  false
-                }
-                case (_, IConstant(c))
-                    if !(leftConsts contains c) => {
-                  conjunctsToKeep += eq
-                  replacement.put(c, left)
-                  replacedConsts ++= eqConsts
-                  false
-                }
-                case _ =>
-                  // then keep this conjunct
-                  true
-              }
-            } else {
-              true
-            }
-          }
-        case _ => true
+        case _ =>
+          true
       }
 
-      if (replacement.isEmpty) {
-        cont = false
-      } else {
+      case _ =>
+        true
+    }
+
+    if (replacement.isEmpty)
+      return None
+
+    val newConjuncts =
+      for (f <- remConjuncts;
+           newF = SimplifyingConstantSubstVisitor(f, replacement);
+           if !newF.isTrue)
+      yield newF
+
+    val newPersistentEqs =
+      (for (f <- persistentEqs;
+            newF = SimplifyingConstantSubstVisitor(f, replacement);
+            if !newF.isTrue)
+       yield newF) ++ addPersistentEqs
+
+    if ((newPersistentEqs exists (_.isFalse)) ||
+        (newConjuncts exists (_.isFalse)))
+      throw InconsistencyException
+
+    val newBody =
+      for (a <- body)
+      yield SimplifyingConstantSubstVisitor(a, replacement)
+            .asInstanceOf[IAtom]
+
+    Some((newBody, newConjuncts, newPersistentEqs))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Apply congruence closure to function applications.
+   */
+  private def congruenceClosure(conjuncts : Seq[IFormula])
+                               : Option[Seq[IFormula]] = {
+    val funApps        = new MHashMap[ITerm, ITerm]
+    val newConjuncts   = new ArrayBuffer[IFormula]
+    val otherConjuncts = new ArrayBuffer[IFormula]
+    var changed        = false
+
+    for (f <- conjuncts) f match {
+      case Eq(fa : IFunApp, t : ITerm) =>
+        (funApps get fa) match {
+          case Some(s) => {
+            changed = true
+            newConjuncts += (s === t)
+          }
+          case None => {
+            funApps.put(fa, t)
+            newConjuncts += f
+          }
+        }
+      case f =>
+        otherConjuncts += f
+    }
+
+    for (f <- otherConjuncts) {
+      val newF = rewriteConstraint(f, funApps)
+      if (!(newF eq f)) {
         changed = true
+        if (newF.isFalse)
+          throw InconsistencyException
+      }
+      newConjuncts += newF
+    }
 
-        val lastSize = conjuncts.size
+    if (changed)
+      Some(newConjuncts)
+    else
+      None
+  }
 
-        conjuncts =
-          (for (f <- remConjuncts;
-                newF = SimplifyingConstantSubstVisitor(f, replacement);
-                if !newF.isTrue)
-           yield newF) ++ conjunctsToKeep
+  //////////////////////////////////////////////////////////////////////////////
 
-        if (conjuncts exists (_.isFalse))
-          return null
+  /**
+   * Rewrite some cases of ADT expressions.
+   */
+  private def adtRewriting(conjuncts : Seq[IFormula])
+                         : Option[Seq[IFormula]] = {
+    val ctors =
+      (for (Eq(IFunApp(ADT.Constructor(adt, num), args),
+               c : IConstant) <- conjuncts)
+       yield (c -> (adt, num, args))).toMap
 
-        body =
-          for (a <- body)
-          yield SimplifyingConstantSubstVisitor(a, replacement)
-                  .asInstanceOf[IAtom]
+    val simp = new ADTSimplifier(ctors)
+    var changed = false
 
-        replacement.clear
-        replacedConsts.clear
-        conjunctsToKeep.clear
+    val newConjuncts =
+      for (f <- conjuncts) yield {
+        val newF = simp.visit(f, ()).asInstanceOf[IFormula]
+        if (!(newF eq f))
+          changed = true
+        newF
+      }
 
-        cont = (conjuncts.size < lastSize)
+    if (changed)
+      Some(newConjuncts ++
+            (for ((s, t) <- simp.sizeExpressions.iterator) yield s === t))
+    else
+      None
+  }
+
+  private class ADTSimplifier(ctors : GMap[IConstant, (ADT, Int, Seq[ITerm])])
+          extends CollectingVisitor[Unit, IExpression] {
+    val sizeExpressions = new LinkedHashMap[ITerm, ITerm]
+
+    private def evalCtorTermSize(c : IConstant,
+                                 adt : ADT, sortNum : Int,
+                                 entry : Boolean) : ITerm =
+      (ctors get c) match {
+        case Some((`adt`, ctorNum, args))
+             if adt.sortOfCtor(ctorNum) == sortNum => {
+          val ctor =
+            adt constructors ctorNum
+          sum(for ((s : ADT.ADTProxySort, t) <-
+                     ctor.argSorts.iterator zip args.iterator;
+                   if s.adtTheory == adt)
+              yield evalCtorTermSize(t.asInstanceOf[IConstant],
+                                     adt, s.sortNum, false)) +++ 1
+        }
+        case _ =>
+          if (entry) {
+            null
+          } else {
+            val se = adt.termSize(sortNum)(c)
+            sizeExpressions.getOrElseUpdate(se, newConst(Sort.Integer))
+          }
+      }
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = (t, subres) match {
+
+      case (IFunApp(ADT.Selector(adt, ctorNum, selNum), _),
+            Seq(c : IConstant)) =>
+        (ctors get c) match {
+          case Some((`adt`, `ctorNum`, args)) =>
+            args(selNum)
+          case _ =>
+            t update subres
+        }
+
+      case (IFunApp(ADT.TermSize(adt, sortNum), _),
+            Seq(c : IConstant)) =>
+        evalCtorTermSize(c, adt, sortNum, true) match {
+          case null =>
+            t update subres
+          case s =>
+            s
+        }
+
+      case _ =>
+        t update subres
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Simplify equations of the clause
+   */
+  private def equationalRewriting(clause : Clause) : Clause = {
+    val Clause(head, oriBody, constraint) = clause
+
+    val headSyms  = SymbolCollector constants head
+    var body      = oriBody
+    var conjuncts = flattenConstraint(constraint)
+
+    if (conjuncts exists (_.isFalse))
+      throw InconsistencyException
+    val containsFunctions =
+      !ContainsSymbol.isPresburger(constraint)
+
+    var persistentEqs : Seq[IFormula] = List()
+
+    var changed = false
+    var cont    = true
+    while (cont) {
+      cont = false
+
+      for ((newBody, newConjuncts, newPersistentEqs) <-
+             inlineEquations(headSyms, body, conjuncts, persistentEqs)) {
+        body          = newBody
+        conjuncts     = newConjuncts
+        persistentEqs = newPersistentEqs
+        changed       = true
+        cont          = true
+      }
+
+      if (!cont && containsFunctions) {
+        // check whether congruence closure is applicable
+
+        for (newConjuncts <- congruenceClosure(conjuncts)) {
+          conjuncts = newConjuncts
+          changed   = true
+          cont      = true
+        }
+      }
+
+      if (!cont && containsFunctions) {
+        // check whether ADT simplifications are possible
+
+        for (newConjuncts <- adtRewriting(conjuncts)) {
+          conjuncts = newConjuncts
+          changed   = true
+          cont      = true
+        }
       }
     }
 
     if (changed)
-      Clause(head, body, and(conjuncts))
+      Clause(head, body, and(conjuncts ++ persistentEqs))
     else
       clause
   }
-
 }

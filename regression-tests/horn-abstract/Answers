@@ -50,13 +50,13 @@ palindrome.nts.smt2
 sat
 (define-fun main_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F C) (= E B)) (= D A)))
 (define-fun main_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (>= E F) (>= F 0)))
-(define-fun main_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (>= E F) (>= F 0)) (or (= D 1) (and (>= (- (+ E (* (- 2) D)) F) (- 3)) (>= D 2)))))
+(define-fun main_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (>= F 0) (and (and (and (or (or (not (= F E)) (= D 1)) (<= E (- 1))) (or (or (>= F E) (>= (- (+ E (* (- 2) D)) F) (- 3))) (<= F (- 1)))) (or (or (>= F E) (<= F (- 1))) (>= D 1))) (or (>= E F) (<= F (- 1))))))
 (define-fun main_qf () Bool true)
-(define-fun palindrome_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= E A) (and (and (and (and (>= (+ B (- (- G F) C)) 0) (>= B 0)) (>= C 0)) (>= F 0)) (>= G 0))))
-(define-fun palindrome_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= E A) (and (and (and (>= (- F G) 1) (>= (+ G (- (- B C) F)) 0)) (>= G 0)) (>= C 0))))
-(define-fun palindrome_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= E A) (and (and (>= (+ B (- (* (- 2) H) C)) (- 1)) (>= C 0)) (>= H 1))))
-(define-fun palindrome_q3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= E A) (and (and (and (and (and (>= (+ G (- (- B C) F)) 0) (>= G F)) (>= G 0)) (>= F 0)) (>= C 0)) (>= B 0))))
-(define-fun palindrome_q4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (or (and (= D 1) (and (>= B 0) (>= C 0))) (and (and (and (>= (- (+ C (* (- 2) D)) B) (- 3)) (>= B 0)) (>= C 0)) (>= D 1))))
+(define-fun palindrome_q0 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= E A) (= F B)) (= G C)) (and (>= B 0) (>= C 0))))
+(define-fun palindrome_q1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= G C) (= F B)) (= E A)) (and (>= (- B C) 1) (>= C 0))))
+(define-fun palindrome_q2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= E A) (= F B)) (= G C)) (and (and (>= (+ B (- (* (- 2) H) C)) (- 1)) (>= C 0)) (>= H 1))))
+(define-fun palindrome_q3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= G C) (= F B)) (= E A)) (and (and (>= C B) (>= C 0)) (>= B 0))))
+(define-fun palindrome_q4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= E B) (= F C)) (or (and (= D 1) (and (>= B C) (>= C 0))) (and (and (and (>= (- (+ C (* (- 2) D)) B) (- 3)) (>= B 0)) (>= C 0)) (>= D 1)))))
 
 inf1.error.nts.smt2
 unsat
@@ -182,7 +182,7 @@ sat
 (define-fun |fail$unknown:11| ((A Int) (B Int)) Bool false)
 (define-fun |g_1032$unknown:19| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (= G D) (= H E)) (and (and (and (and (and (= B 0) (= C 0)) (= D 0)) (= E 0)) (= D 0)) (= E 0))))
 (define-fun |g_1032$unknown:20| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (= H E) (= I F)) (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= E 0)) (= F 0))))
-(define-fun |g_1032$unknown:23| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (exists ((A Int)) (and (not (= A 0)) (= G (* 0 A)))) (and (and (and (and (and (= 0 B) (= 0 C)) (= 0 D)) (= 0 E)) (= 0 G)) (= 0 H))))
+(define-fun |g_1032$unknown:23| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (exists ((A Int)) (and (not (= A 0)) (= (* 0 A) G))) (and (and (and (and (and (= 0 B) (= 0 C)) (= 0 D)) (= 0 E)) (= 0 G)) (= 0 H))))
 (define-fun |g_1032$unknown:24| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (= H E) (= I F)) (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= E 0)) (= F 0))))
 (define-fun |succ_1030$unknown:27| ((A Int) (B Int) (C Int)) Bool (and (= C 0) (= B 0)))
 (define-fun |succ_1030$unknown:28| ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (= D 0) (= C 0)) (= (- B A) (- 1))))

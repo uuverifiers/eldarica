@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 /**
  * Elimination of remaining Boolean structure in clauses.
  */
-object PartialConstraintEvaluator extends HornPreprocessor {
+class PartialConstraintEvaluator extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String = "partial evaluation"
@@ -147,10 +147,12 @@ object PartialConstraintEvaluator extends HornPreprocessor {
   private object NeedsProcessingException extends Exception
 
   private object NeedsProcessingVisitor extends CollectingVisitor[Unit, Unit] {
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
-      if (t.isInstanceOf[IFormula])
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = t match {
+      case _ : IFormula | _ : IFunApp =>
         throw NeedsProcessingException
-      KeepArg
+      case _ =>
+        KeepArg
     }
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
