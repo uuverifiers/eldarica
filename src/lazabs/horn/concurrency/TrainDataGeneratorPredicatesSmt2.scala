@@ -500,7 +500,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
             //Output graphs
             //val hornGraph = new GraphTranslator(simplifiedClauses, GlobalParameters.get.fileName)
-            HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses)
+            HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses,sortedHints)
             val hintGraph= new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
 
             //write horn clauses to file

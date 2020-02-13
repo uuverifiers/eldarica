@@ -214,8 +214,9 @@ class HornWrapper(constraints: Seq[HornClause],
   }
 
   //print horn graph in smt format
+  val sortedHints=HintsSelection.sortHints(simpHints)
   if(GlobalParameters.get.getHornGraph==true){
-    HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses) //write horn format to file
+    HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses,sortedHints) //write horn format to file
     //println(simplifiedClauses)
     //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
   }

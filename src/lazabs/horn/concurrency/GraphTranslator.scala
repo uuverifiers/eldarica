@@ -126,6 +126,7 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
     case VerifHintTplEqTerm(t,_) => translateExpr(t,root)
     case VerifHintTplInEqTerm(t,_) => translateExpr(t,root)
     case VerifHintTplInEqTermPosNeg(t,_) => translateExpr(t,root)
+    case _=>{}
 
   }
 
@@ -362,12 +363,6 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
 
       case _=>println("?")
     }
-//    for (subExpr <- e.subExpressions) {
-//
-//      translateExpr(subExpr)
-//
-//    }
-
 
 
   }
@@ -503,13 +498,14 @@ class TreeNodeForGraph{
 class ArgumentNode(headName:String,bodyName:String,location:String,clauseID:Int,arg:ITerm,argIndex:Int) {
   val InList=ListBuffer
   val OutList=ListBuffer
-  val index=argIndex
-  val name=location+"_argument_"+index.toString
+  val index=argIndex.toString
+  val name=location+"_argument_"+index
   var argumentEdgeFlag=false
   val originalContent=arg.toString
   var constantFlowInNode:String=""
   val dataFLowHyperEdge=new DataFlowHyperEdge(bodyName,headName,name,clauseID)
   val originalContentInITerm=arg
+  val hintIndex=index
 }
 
 class ControlFowHyperEdge(body:String,head:String,ind:Int) {
@@ -526,9 +522,35 @@ class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) 
 
 }
 
+class predicateGraph(astR:String,predName:String,graph:String,t:String,i:String){
+  val ASTRoot=astR
+  val predicateName=predName
+  val graphText=graph
+  val predicateType=t
+  val index=i
+}
+
+
 class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode]){
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
+  var predicateList:ListBuffer[VerifHintElement]=ListBuffer[VerifHintElement]()
+  var predicateGraphList:ListBuffer[predicateGraph]=ListBuffer[predicateGraph]()
+  var nodeList=ListBuffer[Pair[String,String]]()
+  var hintList=ListBuffer[Triple[String,String,IExpression]]()
+
+
+  def getHintsList(): Unit ={
+    for(p <- predicateList) p match{
+      case VerifHintInitPred(p) => {hintList+=Triple(name,"VerifHintInitPred",p)}
+      case VerifHintTplPred(p,_) => {hintList+=Triple(name,"VerifHintInitPred",p)}
+      case VerifHintTplPredPosNeg(p,_) => {hintList+=Triple(name,"VerifHintInitPred",p)}
+      case VerifHintTplEqTerm(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
+      case VerifHintTplInEqTerm(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
+      case VerifHintTplInEqTermPosNeg(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
+      case _=>{}
+    }
+  }
 
   def getArgNameByContent(c:String): String ={
     var name=""
@@ -539,6 +561,17 @@ class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode])
     }
     name
   }
+
+  def getArgNameByIndex(i:String): String ={
+    var name=""
+    for(arg<-argumentList){
+      if(arg.index==i){
+        name=arg.name
+      }
+    }
+    name
+  }
+
 
 }
 

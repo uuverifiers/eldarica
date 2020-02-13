@@ -268,7 +268,8 @@ class StaticAbstractionBuilderSmtHintsSelection(
     }else{
 
       //Output graphs
-      val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
+      //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
+      HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,clauses,sortedHints)
       val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
 
       //write horn clauses to file

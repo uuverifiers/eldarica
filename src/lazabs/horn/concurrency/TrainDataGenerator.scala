@@ -108,7 +108,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
 
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses)
+      HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
     }
 
