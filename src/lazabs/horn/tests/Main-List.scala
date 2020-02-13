@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2017-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,8 +27,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.tests
 
+import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories._
 import ap.types.MonoSortedPredicate
@@ -39,7 +40,7 @@ object MainList extends App {
   import IExpression._
   
   ap.util.Debug enableAllAssertions true
-  lazabs.GlobalParameters.get.setLogLevel(3)
+  lazabs.GlobalParameters.get.setLogLevel(1)
   lazabs.GlobalParameters.get.assertions = true
 
   val listADT =

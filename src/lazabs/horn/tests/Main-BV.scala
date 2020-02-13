@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2017-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,39 +27,58 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.tests
 
-import ap.SimpleAPI
-import ap.theories.ModuloArithmetic._
-import HornClauses._
-import ap.parser.IExpression._
+import lazabs.horn.bottomup._
+import ap.parser._
+import ap.theories._
+import ap.types.MonoSortedPredicate
 
-object MainBV2 extends App {
+object MainBV extends App {
+  import HornClauses._
+  import IExpression._
+  import ModuloArithmetic._
+
   ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
   lazabs.GlobalParameters.get.assertions = true
 
-  SimpleAPI.withProver { p =>
-    import p._
+  val Seq(i1, i2) =
+    for (n <- 1 to 2) yield MonoSortedPredicate("i" + n, List(UnsignedBVSort(8)))
+ 
+  val x = UnsignedBVSort(8) newConstant "x"
 
-    val x = createConstant("x", UnsignedBVSort(32))
-    val y = createConstant("y", UnsignedBVSort(32))
+  val clauses = List(
+    i1(0)                  :- true,
+    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(x, bv(8, 100))),
+    i1(bvadd(x, bv(8, 2))) :- i2(x),
+    bvult(x, bv(8, 200))   :- i1(x)
+  )
 
-    val C = createRelation("C", Seq(UnsignedBVSort(32), UnsignedBVSort(32)))
-    val D = createRelation("D", Seq(UnsignedBVSort(32), UnsignedBVSort(32)))
+  println
+  println(clauses mkString "\n")
 
-    val defClauses = List(
-      C(bv(32, 1), bv(32, 1))                     :- true,
-      C(bvadd(x, bv(32, 1)), bvadd(bv(32, 1), y)) :- C(x, y),
-      D(x, y)                                     :- (C(x, y), x === bv(32, 0))
-    )
+  println
+  println("Solving ...")
 
-    val prop =
-      (y === bv(32, 0)) :- D(x, y)
+  println(SimpleWrapper.solve(clauses, debuggingOutput = true))
 
-    SimpleWrapper.solve(prop :: defClauses, useTemplates = true,
-                        debuggingOutput = true) match {
-      case Left(sol) => println("sat"); println(sol mapValues (pp(_)))
-      case Right(cex) => println("unsat"); println(cex)
-    }
-  }
+  //
+
+  val clauses2 = List(
+    i1(100)                :- true,
+    i2(bvadd(x, bv(8, 3))) :- (i1(x), bvult(x, bv(8, 50))),
+    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(bv(8, 70), x)),
+    i1(bvadd(x, bv(8, 2))) :- i2(x),
+    (x =/= 75)             :- i1(x)
+  )
+
+  println
+  println(clauses mkString "\n")
+
+  println
+  println("Solving ...")
+
+  println(SimpleWrapper.solve(clauses2, debuggingOutput = true,
+                              useTemplates = true))
 }

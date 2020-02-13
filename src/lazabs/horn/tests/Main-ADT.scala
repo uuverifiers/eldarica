@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2017-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,31 +27,44 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.tests
 
+import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories._
 import ap.types.MonoSortedPredicate
 
-object MainBV extends App {
+object MainADT extends App {
+
   import HornClauses._
   import IExpression._
-  import ModuloArithmetic._
-
+  
   ap.util.Debug enableAllAssertions true
-  lazabs.GlobalParameters.get.setLogLevel(3)
+  lazabs.GlobalParameters.get.setLogLevel(1)
   lazabs.GlobalParameters.get.assertions = true
 
+  val pairADT =
+    new ADT(List("pair"),
+            List(("p", ADT.CtorSignature(List(("left", ADT.OtherSort(Sort.Integer)),
+                                              ("right", ADT.OtherSort(Sort.Bool))),
+                                         ADT.ADTSort(0)))))
+
+  println("ADT: " + pairADT)
+
+  val Pair = pairADT.sorts.head
+  val P = pairADT.constructors.head
+  val Seq(Seq(left, right)) = pairADT.selectors
+
   val Seq(i1, i2) =
-    for (n <- 1 to 2) yield MonoSortedPredicate("i" + n, List(UnsignedBVSort(8)))
- 
-  val x = UnsignedBVSort(8) newConstant "x"
+    for (n <- 1 to 2) yield MonoSortedPredicate("i" + n, List(Pair))
+
+  val p = Pair newConstant "p"
 
   val clauses = List(
-    i1(0)                  :- true,
-    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(x, bv(8, 100))),
-    i1(bvadd(x, bv(8, 2))) :- i2(x),
-    bvult(x, bv(8, 200))   :- i1(x)
+    i1(P(0, ADT.BoolADT.True))                     :- true,
+    i2(P(left(p) + 1, 1 - right(p)))               :- i1(p),
+    i1(P(left(p) * 2, 1 - right(p)))               :- i2(p),
+    (left(p) >= 0 & right(p) === ADT.BoolADT.True) :- i1(p)
   )
 
   println
@@ -62,22 +75,4 @@ object MainBV extends App {
 
   println(SimpleWrapper.solve(clauses, debuggingOutput = true))
 
-  //
-
-  val clauses2 = List(
-    i1(100)                :- true,
-    i2(bvadd(x, bv(8, 3))) :- (i1(x), bvult(x, bv(8, 50))),
-    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(bv(8, 70), x)),
-    i1(bvadd(x, bv(8, 2))) :- i2(x),
-    (x =/= 75)             :- i1(x)
-  )
-
-  println
-  println(clauses mkString "\n")
-
-  println
-  println("Solving ...")
-
-  println(SimpleWrapper.solve(clauses2, debuggingOutput = true,
-                              useTemplates = true))
 }

@@ -4,11 +4,11 @@ export LAZABS_HOME=../..
 export JAR="${LAZABS_HOME}"/target/scala-*/Eldarica-assembly-*.jar
 export JAVA_OPTS="-Xmx2024m -Xss20000k -cp $JAR"
 
-for mainClass in lazabs.horn.bottomup.MainArrays \
-                 lazabs.horn.bottomup.MainADT \
-                 lazabs.horn.bottomup.MainList \
-                 lazabs.horn.bottomup.MainBV \
-                 lazabs.horn.bottomup.MainBV2; do
+for mainClass in lazabs.horn.tests.MainArrays \
+                 lazabs.horn.tests.MainADT \
+                 lazabs.horn.tests.MainList \
+                 lazabs.horn.tests.MainBV \
+                 lazabs.horn.tests.MainBV2; do
     echo
     echo $mainClass
     java $JAVA_OPTS $mainClass 2>&1 | grep -iv time | grep -v 'ms)' | grep -v 'Number of implication checks' | grep -iv 'hasher' | sed -e 's/Map(.*$//g'
