@@ -2,6 +2,9 @@ language: scala
 scala:
   - 2.11.8
 
+jdk:
+          - openjdk8
+
 os:
     - linux
 
