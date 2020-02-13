@@ -522,12 +522,13 @@ class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) 
 
 }
 
-class predicateGraph(astR:String,predName:String,graph:String,t:String,i:String){
+class predicateGraph(astR:String,predName:String,graph:String,t:String,i:String,h: IExpression){
   val ASTRoot=astR
   val predicateName=predName
   val graphText=graph
   val predicateType=t
   val index=i
+  val hintText=h
 }
 
 

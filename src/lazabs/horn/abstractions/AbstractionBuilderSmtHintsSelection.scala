@@ -37,7 +37,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
-import lazabs.horn.concurrency.{GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
+import lazabs.horn.concurrency._
 import lazabs.horn.global.HornClause
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.viewer.HornPrinter
@@ -269,7 +269,7 @@ class StaticAbstractionBuilderSmtHintsSelection(
 
       //Output graphs
       //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,clauses,sortedHints)
+      DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,clauses,sortedHints)
       val hintGraph= new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
 
       //write horn clauses to file

@@ -104,11 +104,14 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
         //copy smt2 file
       }
 
+      //write argument score to file
+      val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+      HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,selectedHint,argumentList)
 
 
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints)
+      DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
     }
 

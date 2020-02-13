@@ -258,9 +258,9 @@ class VerificationLoop(system : ParametricEncoder.System) {
       //get horn clauses
       if(GlobalParameters.get.getHornGraph==true){
         val sortedHints=HintsSelection.sortHints(simpHints)
-        HintsSelection.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints) //write horn format to file
-        //println(simpClauses)
-        //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
+        DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints) //write horn graph to file
+        val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+        HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,sortedHints,argumentList)
       }
 
 
