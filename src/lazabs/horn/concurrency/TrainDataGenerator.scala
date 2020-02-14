@@ -106,7 +106,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
 
       //write argument score to file
       val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-      HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,selectedHint,argumentList)
+      HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
 
 
       //Output graphs

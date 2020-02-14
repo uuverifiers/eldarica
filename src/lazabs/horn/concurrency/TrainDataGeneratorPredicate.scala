@@ -40,7 +40,7 @@ import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{DagInterpolator, HornPredAbs, TemplateInterpolator}
+import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, TemplateInterpolator}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.collection.immutable.ListMap
@@ -329,7 +329,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     println("-----------------test finished-----------------------")
 
     if(selectedTemplates.isEmpty){
-
+      writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
     }else{//only write to file when optimized hint is not empty
       writeHintsWithIDToFile(InitialHintsWithID,fileName,"initial")//write hints and their ID to file
       writeHintsWithIDToFile(PositiveHintsWithID,fileName,"positive")
@@ -352,7 +352,8 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
       }
-
+      val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+      HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
       DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints)

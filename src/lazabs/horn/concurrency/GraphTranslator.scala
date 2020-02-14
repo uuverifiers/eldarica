@@ -544,11 +544,11 @@ class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode])
   def getHintsList(): Unit ={
     for(p <- predicateList) p match{
       case VerifHintInitPred(p) => {hintList+=Triple(name,"VerifHintInitPred",p)}
-      case VerifHintTplPred(p,_) => {hintList+=Triple(name,"VerifHintInitPred",p)}
-      case VerifHintTplPredPosNeg(p,_) => {hintList+=Triple(name,"VerifHintInitPred",p)}
-      case VerifHintTplEqTerm(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
-      case VerifHintTplInEqTerm(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
-      case VerifHintTplInEqTermPosNeg(t,_) => {hintList+=Triple(name,"VerifHintInitPred",t)}
+      case VerifHintTplPred(p,_) => {hintList+=Triple(name,"VerifHintTplPred",p)}
+      case VerifHintTplPredPosNeg(p,_) => {hintList+=Triple(name,"VerifHintTplPredPosNeg",p)}
+      case VerifHintTplEqTerm(t,_) => {hintList+=Triple(name,"VerifHintTplEqTerm",t)}
+      case VerifHintTplInEqTerm(t,_) => {hintList+=Triple(name,"VerifHintTplInEqTerm",t)}
+      case VerifHintTplInEqTermPosNeg(t,_) => {hintList+=Triple(name,"VerifHintTplInEqTermPosNeg",t)}
       case _=>{}
     }
   }

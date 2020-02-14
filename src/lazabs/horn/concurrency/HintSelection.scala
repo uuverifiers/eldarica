@@ -41,6 +41,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import java.lang.System.currentTimeMillis
 
 import ap.basetypes.IdealInt
+import ap.theories.{SimpleArray, TheoryRegistry}
 import lazabs.Main
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.GraphTranslator
@@ -70,39 +71,6 @@ object HintsSelection {
     return tempHints
   }
 
-  def writeHornAndGraphToFiles(selectedHints: VerificationHints,
-                               sortedHints: VerificationHints,
-                               clauses: HornPreprocessor.Clauses,
-                               clauseSet: Seq[HornClause], wrappedHintList: Seq[wrappedHintWithID]) = {
-    if (selectedHints.isEmpty) { //when no hint available
-      println("No hints selected (no need for hints)")
-      //not write horn clauses to file
-    } else {
-
-      //Output graphs
-      //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-      DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,clauses,sortedHints)
-      val hintGraph = new GraphTranslator_hint(clauses, GlobalParameters.get.fileName, sortedHints, wrappedHintList)
-
-      //write horn clauses to file
-      val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-      val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
-      writer.write(HornPrinter(clauseSet))
-      writer.close()
-      //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
-      //write smt2 format to file
-      if (GlobalParameters.get.fileName.endsWith(".c")) { //if it is a c file
-        HintsSelection.writeSMTFormatToFile(clauses, "../trainData/") //write smt2 format to file
-      }
-      if (GlobalParameters.get.fileName.endsWith(".smt2")) { //if it is a smt2 file
-        //copy smt2 file
-        val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../trainData/" + fileName)
-      }
-
-
-    }
-  }
 
   def getInitialPredicates(encoder: ParametricEncoder, simpHints: VerificationHints, simpClauses: Clauses): VerificationHints = {
     val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
@@ -415,7 +383,7 @@ object HintsSelection {
       println("-----------------test finished-----------------------")
 
       if (selectedTemplates.isEmpty) {
-
+        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
       } else {
         //only write to file when optimized hint is not empty
         writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
@@ -562,10 +530,10 @@ object HintsSelection {
 
 
       if (optimizedTemplates.isEmpty) {
-
+        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
       } else {
         //only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
         writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
         writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
@@ -715,7 +683,7 @@ object HintsSelection {
       //GlobalParameters.get.printHints=optimizedHints
 
       if (optimizedHints.isEmpty) {
-
+        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
       } else {
         //only write to file when optimized hint is not empty
         writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
@@ -1145,40 +1113,69 @@ object HintsSelection {
   }
 
 
-  def writeArgumentScoreToFile(file:String,hints:VerificationHints,argumentList:List[(IExpression.Predicate,Int)]): Unit ={
+  def writeArgumentScoreToFile(file:String,
+                               argumentList:List[(IExpression.Predicate,Int)],
+                               positiveHints:VerificationHints): Unit ={
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     val writer = new PrintWriter(new File("../trainData/" + fileName + ".arguments")) //python path
 
     //get argument list
+    var argID=0
     var arguments:ListBuffer[argumentInfo]=ListBuffer[argumentInfo]()
     for((arg,i)<-argumentList.zipWithIndex){
       for((a,j) <- (0 to arg._2-1).zipWithIndex){
-        val ID=i*arg._2+j
-        writer.write(ID+":"+arg._1.toString()+":"+"arg"+a+"\n")
-        arguments+=new argumentInfo(ID,arg._1,a)
+        arguments+=new argumentInfo(argID,arg._1,a)
+        argID=argID+1
+      }
+    }
+
+    //get hint info list
+    var positiveHintInfoList:ListBuffer[hintInfo]=ListBuffer[hintInfo]()
+    for((head,hintList)<-positiveHints.getPredicateHints()){
+      for(h<-hintList) h match{
+        case VerifHintInitPred(p) => {positiveHintInfoList+=new hintInfo(p,"VerifHintInitPred",head)}
+        case VerifHintTplPred(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPred",head)}
+        case VerifHintTplPredPosNeg(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPredPosNeg",head)}
+        case VerifHintTplEqTerm(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplEqTerm",head)}
+        case VerifHintTplInEqTerm(t,_) => {positiveHintInfoList+= new hintInfo(t,"VerifHintTplInEqTerm",head)}
+        case VerifHintTplInEqTermPosNeg(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplInEqTermPosNeg",head)}
+        case _=>{}
       }
     }
 
     //go through all predicates and arguments count occurrence
-    for((head,hintList)<-hints.getPredicateHints()){
-      for(h<-hintList){
-
+    for(arg<-arguments){
+      for(hint<-positiveHintInfoList){
+        if(arg.location.equals(hint.head))
+          if(ContainsSymbol(hint.expression, new IVariable(arg.index)))
+            arg.score=arg.score+1
       }
     }
+
 
     //normalize score
 
     //write arguments with score to file
+
+    for(arg<-arguments){
+      writer.write(arg.ID+":"+arg.location.toString()+":"+"arg"+arg.index+":"+arg.score+"\n")
+    }
 
 
     writer.close()
 
   }
 }
+class hintInfo(e:IExpression,t:String,h:IExpression.Predicate){
+  val head=h
+  val expression=e
+  val hintType=t
+}
 class argumentInfo(id:Int,loc: IExpression.Predicate,ind:Int)
 {
   val ID=id
   val location=loc
   val index=ind
+  var score=0
 }

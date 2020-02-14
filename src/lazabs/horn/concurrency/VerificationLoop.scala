@@ -39,7 +39,7 @@ import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornWrapper, Util}
 import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.concurrency.HintsSelection.initialIDForHints
+import lazabs.horn.concurrency.HintsSelection.{initialIDForHints, writeHintsWithIDToFile}
 import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
@@ -225,10 +225,6 @@ class VerificationLoop(system : ParametricEncoder.System) {
         GlobalParameters.get.withAndWOTemplates
       else
         List()
-      ////debug///
-
-      //No hints selection
-      //val optimizedHints=simpHints
 
       //Select hints by Edarica
       import lazabs.horn.concurrency.HintsSelection
@@ -240,8 +236,9 @@ class VerificationLoop(system : ParametricEncoder.System) {
       //val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
       //Call python to select hints
 
+      //No hints selection
+      var optimizedHints=HintsSelection.sortHints(simpHints) //if there is no readHints flag, use simpHints
 
-      var optimizedHints=simpHints //if there is no readHints flag, use simpHints
       if(GlobalParameters.get.readHints==true){
         //Read selected hints from file (NNs)
         println("simpHints:")
@@ -257,10 +254,13 @@ class VerificationLoop(system : ParametricEncoder.System) {
       }
       //get horn clauses
       if(GlobalParameters.get.getHornGraph==true){
-        val sortedHints=HintsSelection.sortHints(simpHints)
-        DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints) //write horn graph to file
+        val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
+        val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
+
+        DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,optimizedHints) //write horn graph to file
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-        HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,sortedHints,argumentList)
+        HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints)
       }
 
 

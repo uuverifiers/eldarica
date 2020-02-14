@@ -266,6 +266,9 @@ class StaticAbstractionBuilderSmtHintsSelection(
       println("No hints selected (no need for hints)")
       //not write horn clauses to file
     }else{
+      //write argument score to file
+      val argumentList=(for (p <- HornClauses.allPredicates(clauses)) yield (p, p.arity)).toList
+      HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
 
       //Output graphs
       //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
