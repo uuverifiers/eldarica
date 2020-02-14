@@ -49,14 +49,14 @@ class DefaultPreprocessor extends HornPreprocessor {
   val printWidth = 55
   val clauseNumWidth = 10
 
-  val preStages : List[HornPreprocessor] =
+  def preStages : List[HornPreprocessor] =
     List(ReachabilityChecker,
-         PartialConstraintEvaluator,
-         DefinitionInliner,
+         new PartialConstraintEvaluator,
+         new ConstraintSimplifier,
          new ClauseInliner,
          new SizeArgumentExtender)
 
-  val postStages : List[HornPreprocessor] =
+  def postStages : List[HornPreprocessor] =
     List(new ClauseShortener) ++
     (if (lazabs.GlobalParameters.get.splitClauses)
       List(new ClauseSplitter) else List()) ++
@@ -110,7 +110,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         lastSize = curSize
         applyStage(AbstractAnalyser.EqualityPropagator)
         applyStage(AbstractAnalyser.ConstantPropagator)
-        applyStage(DefinitionInliner)
+        applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
         if (lazabs.GlobalParameters.get.slicing)

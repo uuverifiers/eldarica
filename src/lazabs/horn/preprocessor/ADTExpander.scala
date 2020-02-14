@@ -39,7 +39,6 @@ import IExpression.{Predicate, Sort, and}
 import ap.theories.ADT
 import ap.types.MonoSortedPredicate
 
-import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  LinkedHashMap}
 
@@ -63,26 +62,6 @@ object ADTExpander {
              : Option[Seq[(ITerm, Sort, String)]]
   }
 
-  private class ConstraintRewriter(replacements : GMap[ITerm, IConstant])
-                extends CollectingVisitor[Unit, IExpression] {
-    def postVisit(t : IExpression,
-                  arg : Unit,
-                  subres : Seq[IExpression]) : IExpression =
-      (t update subres) match {
-        case updatedT : ITerm =>
-          (replacements get updatedT) match {
-            case Some(c) => c
-            case None    => updatedT
-          }
-        case updatedT =>
-          updatedT
-      }
-  }
-
-  private def rewriteConstraint(constraint : IFormula,
-                                replacements : GMap[ITerm, IConstant]) =
-    (new ConstraintRewriter(replacements)).visit(constraint, ())
-                                          .asInstanceOf[IFormula]
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -221,7 +200,7 @@ class ADTExpander(val name : String,
         val newBody = for (a <- body) yield rewriteAtom(a)
 
         val newConstraint =
-          rewriteConstraint(constraint, newTerms) &&&
+          ConstraintSimplifier.rewriteConstraint(constraint, newTerms) &&&
           and(additionalConstraints) &&&
           and(for ((t, c) <- newTerms.iterator) yield (t === c))
 
