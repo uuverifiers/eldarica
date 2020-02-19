@@ -13,6 +13,10 @@ import scala.collection.mutable.{ListBuffer, HashMap => MHashMap}
 
 object DrawHornGraph {
 
+  //todo:draw only hint graph without data flow
+  def writeHornClausesGraphWithHintsToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
+
+  }
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
     println("Write horn to file")
     var edgeNameMap: Map[String, String] = Map()
@@ -495,15 +499,15 @@ object DrawHornGraph {
     println("Write horn to graph")
     val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
 
-
+    //todo:add class and unique node name to all nodes's directory []
     writerGraph.write("digraph dag {" + "\n")
     //control flow node
     for (p <- predicates) {
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
-      writerGraph.write("" + p.name + " [label=\"" + p.name + "\"" + " shape=\"rect\"" + "];" + "\n")
+      writerGraph.write("" + p.name + " [label=\"" + p.name + "\"" +" class=cfn "+ " shape=\"rect\"" + "];" + "\n")
     }
-    writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\"" + " shape=\"rect\"" + "];" + "\n") //false node
-    writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" + " shape=\"rect\"" + "];" + "\n") //initial node
+    writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\""+" class=cfn " + " shape=\"rect\"" + "];" + "\n") //false node
+    writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" +" class=cfn "+ " shape=\"rect\"" + "];" + "\n") //initial node
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
 
 
@@ -512,10 +516,11 @@ object DrawHornGraph {
     for (clauseInfo <- clauseList) {
       //create control flow hyper edges and connections to control flow nodes
       //create control flow hyper edge nodes
-      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " [label=\"Guarded ControlFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+      val cfheName=clauseInfo.controlFlowHyperEdge.name
+      writerGraph.write(cfheName + " [label=\""+cfheName+"\"" +" class=controlFlowHyperEdge"+ " shape=\"diamond\"" + "];" + "\n")
       //create edges of control flow hyper edge
-      writerGraph.write(clauseInfo.body.name + " -> " + clauseInfo.controlFlowHyperEdge.name + "[label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
-      writerGraph.write(clauseInfo.controlFlowHyperEdge.name + " -> " + clauseInfo.head.name + "[label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
+      writerGraph.write(clauseInfo.body.name + " -> " + cfheName + "[label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
+      writerGraph.write(cfheName + " -> " + clauseInfo.head.name + "[label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
 
 
       //get unique control flow nodes
@@ -531,7 +536,7 @@ object DrawHornGraph {
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
       //create argument nodes
-      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" + " shape=\"oval\"" + "];" + "\n")
+      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" +" class=argument"+ " shape=\"oval\"" + "];" + "\n")
       //connect arguments to location
       writerGraph.write(arg.name + " -> " + controlFLowNode.name + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
         " style=\"dashed\"" + "]" + "\n")
@@ -553,7 +558,7 @@ object DrawHornGraph {
       var andName = ""
       if (clauseInfo.guardNumber > 1) { //connect constraints by &
         andName = "xxx" + clauseInfo.name + "_" + clauseInfo.clauseID + "xxx" + "_and"
-        writerGraph.write(andName + " [label=\"" + "&" + "\"" + " shape=\"rect\"" + "];" + "\n")
+        writerGraph.write(andName + " [label=\"" + "&" + "\"" +" class=Operator"+ " shape=\"rect\"" + "];" + "\n")
         clauseInfo.guardASTRootName = andName //store this node to clauses's guardASTRootName
       }
       //draw guard ast
@@ -575,7 +580,7 @@ object DrawHornGraph {
       }
       //if there is no guard add true condition
       if (clauseInfo.guardASTGraph.isEmpty) {
-        writerGraph.write(clauseInfo.trueCondition + " [label=\"" + "true" + "\"" + " shape=\"rect\"" + "];" + "\n") //add true node
+        writerGraph.write(clauseInfo.trueCondition + " [label=\"" + "true" + "\"" +" class=true"+ " shape=\"rect\"" + "];" + "\n") //add true node
         writerGraph.write(clauseInfo.trueCondition + "->" + clauseInfo.controlFlowHyperEdge.name //add edge to control flow hyper edges
           + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
 
@@ -600,7 +605,7 @@ object DrawHornGraph {
     for (clauseInfo <- clauseList; headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
       //create data flow hyperedge node
       writerGraph.write(headArg.dataFLowHyperEdge.name +
-        " [label=\"Guarded DataFlow Hyperedge\"" + " shape=\"diamond\"" + "];" + "\n")
+        " [label=\""+headArg.dataFLowHyperEdge.name+"\"" +" class=DataFlowHyperedge" +" shape=\"diamond\"" + "];" + "\n")
       //create data flow hyperedge node coonections
       writerGraph.write(headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
         "[label=\"" + edgeNameMap("dataFlowOut") + "\"]" + "\n")
@@ -624,7 +629,7 @@ object DrawHornGraph {
       for (headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
         if (headArg.constantFlowInNode != "") {
           writerGraph.write(headArg.constantFlowInNode
-            + " [label=\"" + headArg.originalContent + "\"" + "];" + "\n") //create constant node
+            + " [label=\"" + headArg.originalContent + "\"" + " class=Constant"+ "];" + "\n") //create constant node
           writerGraph.write(headArg.constantFlowInNode + "->" + headArg.dataFLowHyperEdge.name //add edge to argument
             + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
         }
@@ -633,7 +638,7 @@ object DrawHornGraph {
       for (bodyArg <- clauseInfo.body.argumentList; if !clauseInfo.body.argumentList.isEmpty) {
         if (!bodyArg.constantFlowInNode.isEmpty) {
           writerGraph.write(bodyArg.constantFlowInNode
-            + " [label=\"" + bodyArg.originalContent + "\"" + "];" + "\n") //create constant node
+            + " [label=\"" + bodyArg.originalContent + "\"" +" class=Constant"+ "];" + "\n") //create constant node
           //todo: find where this body be head, and find that dataflow hyper edge
           writerGraph.write(bodyArg.constantFlowInNode + "->" + bodyArg.name //add edge to argument
             + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
@@ -656,7 +661,7 @@ object DrawHornGraph {
     //draw hints
     for(cfn<-controlFLowNodeList){
       for (pre <- cfn.predicateGraphList) { //draw guard ast
-        writerGraph.write(pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index+ " [label=\""+pre.predicateName+"_"+pre.predicateType+"_"+pre.index+"\" shape=\"rect\"];\n")
+        writerGraph.write(pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index+ " [label=\""+pre.predicateName+"_"+pre.predicateType+"_"+pre.index+"\" "+" class=Predicate shape=\"rect\"];\n")
         writerGraph.write(pre.ASTRoot+" -> "+pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
         writerGraph.write(pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index+" -> "+pre.predicateName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
         writerGraph.write(pre.graphText + "\n")
