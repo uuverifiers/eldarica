@@ -79,6 +79,7 @@ class GlobalParameters extends Cloneable {
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
+  var hornGraphWithHints=false
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -223,6 +224,7 @@ class GlobalParameters extends Cloneable {
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
+    that.hornGraphWithHints=this.hornGraphWithHints
   }
 
   override def clone : GlobalParameters = {
@@ -317,6 +319,7 @@ object Main {
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-getHornGraph" :: rest => getHornGraph = true; arguments(rest)
+      case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
@@ -494,7 +497,9 @@ object Main {
           " -absTimeout:time\tset timeout for labeling hints\n"+
           " -rank:n\tuse top n or score above n ranked hints read from file\n"+
           " -getSMT2\tget SMT2 file\n"+
-          " -getHornGraph\tget horn graph file\n"
+          " -getHornGraph\tget horn graph file\n"+
+          " -hornGraphWithHints\tget horn graph file with hints\n"
+
 
           )
           false

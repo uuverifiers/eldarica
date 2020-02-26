@@ -5,6 +5,7 @@ import java.io.{File, PrintWriter}
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
@@ -659,15 +660,18 @@ object DrawHornGraph {
 
     writerGraph.write("\n\n\n\n")
     //draw hints
-    for(cfn<-controlFLowNodeList){
-      for (pre <- cfn.predicateGraphList) { //draw guard ast
-        val predicateNodeName=pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index
-        writerGraph.write(predicateNodeName+ " [label=\""+predicateNodeName+"\" "+" nodeName="+predicateNodeName+" class=Predicate shape=\"rect\"];\n")
-        writerGraph.write(pre.ASTRoot+" -> "+predicateNodeName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
-        writerGraph.write(predicateNodeName+" -> "+pre.predicateName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
-        writerGraph.write(pre.graphText + "\n")
+    if(GlobalParameters.get.hornGraphWithHints==true){
+      for(cfn<-controlFLowNodeList){
+        for (pre <- cfn.predicateGraphList) { //draw ast
+          val predicateNodeName=pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index
+          writerGraph.write(predicateNodeName+ " [label=\""+predicateNodeName+"\" "+" nodeName="+predicateNodeName+" class=Predicate shape=\"rect\"];\n")
+          writerGraph.write(pre.ASTRoot+" -> "+predicateNodeName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
+          writerGraph.write(predicateNodeName+" -> "+pre.predicateName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
+          writerGraph.write(pre.graphText + "\n")
+        }
       }
     }
+
 
 
 
