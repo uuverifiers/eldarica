@@ -149,7 +149,7 @@ object SimplePropagators {
   //////////////////////////////////////////////////////////////////////////////
   
   /**
-   * Abstract domain for constant propagation
+   * Abstract domain for equality propagation
    */
   class EqualityPropDomain extends InliningAbstractDomain {
     type Element = Option[Partitioning]
