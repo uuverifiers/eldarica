@@ -382,7 +382,7 @@ class TreeNode{
 }
 
 object BinarySearchTree {
-
+  var ASTtype=""
   var relationString:String="" //store node relation information
   def preOrder(root: TreeNode): Unit = {
     if (root != null) {
@@ -395,14 +395,14 @@ object BinarySearchTree {
         val (l_key,l_value)=root.lchild.data.head
         //println(k+"->"+l_key)
         if(k!=l_key){
-          relationString=relationString+(k+"->"+l_key+"\n")
+          relationString=relationString+(k+"->"+l_key+"[label=\"" + ASTtype + "\"]"+"\n")
         }
 
       }
       if(root.rchild!=null){
         val (r_key,r_value)=root.rchild.data.head
         //println(k+"->"+r_key)
-        relationString=relationString+(k+" -> "+r_key+"\n")
+        relationString=relationString+(k+" -> "+r_key+"[label=\"" + ASTtype + "\"]"+"\n")
       }
       preOrder(root.lchild)
       //print(root.data.keys + "\n")
@@ -436,6 +436,7 @@ class TreeNodeForGraph{
 }
 
   object BinarySearchTreeForGraph {
+    var connectionType=""
     var ASTtype=""
     var relationString:String="" //store node relation information
     var nodeString:String="" //store node information
@@ -447,14 +448,15 @@ class TreeNodeForGraph{
         if(root.lchild!=null){
           val (l_key,l_value)=root.lchild.data.head
           if(k!=l_key && v!="root"){
-            relationString=relationString+(l_key+"->"+k+"\n")
+            //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
+            relationString=relationString+(l_key+"->"+k+"[label=\"" + connectionType + "\"]"+"\n")
           }
         }
 
         if(root.rchild!=null){
           val (r_key,r_value)=root.rchild.data.head
           if(k!=r_key && v!="root"){
-            relationString=relationString+(r_key+"->"+k+"\n")
+            relationString=relationString+(r_key+"->"+k+"[label=\"" + connectionType + "\"]"+"\n")
           }
 
         }

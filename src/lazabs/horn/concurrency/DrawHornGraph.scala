@@ -33,9 +33,11 @@ object DrawHornGraph {
     edgeNameMap += ("constantDataFlow" -> "constant data flow")
     edgeNameMap += ("dataFlow" -> "data flow")
     edgeNameMap += ("predicateAST" -> "predicateAST")
+    edgeNameMap += ("dataFlowAST" -> "dataFlowAST")
+    edgeNameMap += ("predicate" -> "prdicate")
 
     //turn on/off edge's label
-    var edgeNameSwitch = false
+    var edgeNameSwitch = true
     if (edgeNameSwitch == false) {
       for (key <- edgeNameMap.keys) {
         edgeNameMap += (key -> "")
@@ -382,7 +384,7 @@ object DrawHornGraph {
       }
 
       //parse normal dataflow
-      val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,MHashMap.empty[String,ITerm])
+      val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,MHashMap.empty[String,ITerm],edgeNameMap)
       currentClause.dataFlowASTGraph=dataFLowAST
       //draw simple data flow
       for (comArg <- commonArg) {
@@ -458,7 +460,7 @@ object DrawHornGraph {
         guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
       //draw guard
-      val (guardASTList,guardNodeHashMap) = drawAST(currentClause, "guard", guardMap,dataFlowNodeHashMap)
+      val (guardASTList,guardNodeHashMap) = drawAST(currentClause, "guard", guardMap,dataFlowNodeHashMap,edgeNameMap)
       for (ast <- guardASTList if !guardASTList.isEmpty) {
         currentClause.guardASTGraph = currentClause.guardASTGraph ++ Map(ast.astRootName -> ast.graphText)
       }
@@ -480,7 +482,7 @@ object DrawHornGraph {
     //parse hint
     for(cfn<-controlFLowNodeList){
       cfn.getHintsList()
-      val (hintsASTList,hintsNodeHashMap)=drawAST(cfn,cfn.argumentList,cfn.hintList,MHashMap.empty[String,ITerm])
+      val (hintsASTList,hintsNodeHashMap)=drawAST(cfn,cfn.argumentList,cfn.hintList,MHashMap.empty[String,ITerm],edgeNameMap)
       cfn.predicateGraphList=hintsASTList
     }
 
@@ -537,7 +539,7 @@ object DrawHornGraph {
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
       //create argument nodes
-      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" +" nodeName="+arg.name+" class=argument"+ " shape=\"oval\"" + "];" + "\n")
+      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" +" nodeName="+arg.name+" class=argument "+ " head="+controlFLowNode.name +" shape=\"oval\"" + "];" + "\n")
       //connect arguments to location
       writerGraph.write(arg.name + " -> " + controlFLowNode.name + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
         " style=\"dashed\"" + "]" + "\n")
@@ -666,7 +668,7 @@ object DrawHornGraph {
           val predicateNodeName=pre.predicateName+"_"+pre.predicateType+ "_"+ pre.index
           writerGraph.write(predicateNodeName+ " [label=\""+predicateNodeName+"\" "+" nodeName="+predicateNodeName+" class=Predicate shape=\"rect\"];\n")
           writerGraph.write(pre.ASTRoot+" -> "+predicateNodeName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
-          writerGraph.write(predicateNodeName+" -> "+pre.predicateName+ "[label=\""+edgeNameMap("predicateAST")+"\" ];\n")
+          writerGraph.write(predicateNodeName+" -> "+pre.predicateName+ "[label=\""+edgeNameMap("predicate")+"\" ];\n")
           writerGraph.write(pre.graphText + "\n")
         }
       }
@@ -681,7 +683,8 @@ object DrawHornGraph {
   }
 
   def drawAST(cfn:ControlFlowNode,argumentList:ListBuffer[ArgumentNode],hints:ListBuffer[Triple[String,String,IExpression]],
-              freeVariableMap:MHashMap[String,ITerm]) = {
+              freeVariableMap:MHashMap[String,ITerm],
+              edgeNameMap:Map[String,String]) = {
     var ASTGraph = ListBuffer[predicateGraph]()
     var nodeCount: Int = 0
     var hintCount: Int = 0
@@ -1519,6 +1522,7 @@ object DrawHornGraph {
       //println(hint)
       astNodeNamePrefix =hintName + "predicate_"+ hintCount + "_node_"
       translateConstraint(hint, root) //define nodes in graph, information is stored in logString
+      BinarySearchTreeForGraph.connectionType=edgeNameMap("predicateAST")
       BinarySearchTreeForGraph.nodeString = logString
       BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
       logString = BinarySearchTreeForGraph.nodeString + BinarySearchTreeForGraph.relationString
@@ -1539,7 +1543,8 @@ object DrawHornGraph {
 
   def drawAST(clause: ClauseTransitionInformation, ASTType: String,
               conatraintMap: Map[String, IExpression],
-              freeVariableMap:MHashMap[String,ITerm]) = {
+              freeVariableMap:MHashMap[String,ITerm],
+              edgeNameMap:Map[String,String]) = {
     var ASTGraph = ListBuffer[DataFlowASTGraphInfo]()
     var nodeCount: Int = 0
     var dataFlowCount: Int = 0
@@ -2515,6 +2520,7 @@ object DrawHornGraph {
         clause.dataFlowNumber = clause.dataFlowNumber + 1
       }
       translateConstraint(conatraint, root) //define nodes in graph, information is stored in logString
+      BinarySearchTreeForGraph.connectionType=edgeNameMap("dataFlowAST")
       BinarySearchTreeForGraph.ASTtype = ASTType
       BinarySearchTreeForGraph.nodeString = logString
       BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
