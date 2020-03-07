@@ -108,8 +108,8 @@ class DefaultPreprocessor extends HornPreprocessor {
       var curSize = curClauses.size
       while (lastSize != curSize) {
         lastSize = curSize
-        applyStage(AbstractAnalyser.EqualityPropagator)
-        applyStage(AbstractAnalyser.ConstantPropagator)
+        applyStage(SimplePropagators.EqualityPropagator)
+        applyStage(SimplePropagators.ConstantPropagator)
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)

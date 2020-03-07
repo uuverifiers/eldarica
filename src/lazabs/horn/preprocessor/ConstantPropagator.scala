@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,58 +35,20 @@ import ap.basetypes.IdealInt
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.Util.{UnionFind, IntUnionFind}
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 LinkedHashSet, ArrayBuffer, LinkedHashMap}
+import scala.collection.mutable.{HashMap => MHashMap,
+                                 ArrayBuffer, LinkedHashMap}
 
-object AbstractAnalyser {
+object SimplePropagators {
   import HornClauses.Clause
   import SymbolSplitter.ClausePropagator
   import IExpression.{Predicate, ConstantTerm}
-
-  /**
-   * Abstract domains used during propagation
-   */
-  trait AbstractDomain {
-    val name : String
-
-    /** The type of abstract elements in this domain */
-    type Element
-
-    /** The abstract bottom element */
-    def bottom(p : Predicate) : Element
-    
-    /** Compute the join (union) of two abstract elements */
-    def join(a : Element, b : Element) : Element
-
-    /** Test whether an abstract element is bottom */
-    def isBottom(b : Element) : Boolean
-
-    /** Create an abstract transformer for the given clause */
-    def transformerFor(clause : Clause) : AbstractTransformer[Element]
-
-    /** Inline the abstract value of a clause body literal by possibly
-     *  modifying the literal, and adding a further constraint to the clause */
-    def inline(a : IAtom, value : Element) : (IAtom, IFormula)
-
-    /** Augment a solution constraint by the information expressed in an
-     *  abstract value */
-    def augmentSolution(sol : IFormula, value : Element) : IFormula
-  }
-
-  /**
-   * Transformer that computes the abstract value of a clause head given
-   * the abstract values for the body literals.
-   */
-  trait AbstractTransformer[Element] {
-    def transform(bodyValues : Seq[Element]) : Element
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
+  import AbstractAnalyser.{AbstractDomain, AbstractTransformer}
+  import PropagatingPreprocessor.InliningAbstractDomain
 
   /**
    * Abstract domain for constant propagation
    */
-  class ConstantPropDomain extends AbstractDomain {
+  class ConstantPropDomain extends InliningAbstractDomain {
     type Element = Option[Seq[Option[ITerm]]]
 
     val name = "constant"
@@ -187,9 +149,9 @@ object AbstractAnalyser {
   //////////////////////////////////////////////////////////////////////////////
   
   /**
-   * Abstract domain for constant propagation
+   * Abstract domain for equality propagation
    */
-  class EqualityPropDomain extends AbstractDomain {
+  class EqualityPropDomain extends InliningAbstractDomain {
     type Element = Option[Partitioning]
 
     val name = "equality"
@@ -406,135 +368,13 @@ object AbstractAnalyser {
   /**
    * Abstract analyser instantiated to perform constant propagation.
    */
-  def ConstantPropagator = new AbstractAnalyser(new ConstantPropDomain)
+  def ConstantPropagator =
+    new PropagatingPreprocessor(new ConstantPropDomain)
 
   /**
    * Abstract analyser instantiated to perform equality propagation.
    */
-  def EqualityPropagator = new AbstractAnalyser(new EqualityPropDomain)
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * A simple fixed-point loop using some abstract domain.
- */
-class AbstractAnalyser(domain : AbstractAnalyser.AbstractDomain)
-      extends HornPreprocessor {
-  import HornPreprocessor._
-  import HornClauses.Clause
-  import IExpression.{Predicate, ConstantTerm}
-
-  val name : String = domain.name + " propagation"
-
-  def process(clauses : Clauses, hints : VerificationHints)
-             : (Clauses, VerificationHints, BackTranslator) = {
-    val allPreds = HornClauses allPredicates clauses
-    
-    val clauseSeq = clauses.toVector
-    val clausesWithBodyPred =
-      (for ((clause, n) <- clauseSeq.zipWithIndex;
-            if clause.head.pred != HornClauses.FALSE;
-            IAtom(p, _) <- clause.body)
-       yield (p, n)) groupBy (_._1)
-
-    val propagators =
-      for (clause <- clauseSeq) yield (domain transformerFor clause)
-
-    val abstractValues = new MHashMap[Predicate, domain.Element]
-    for (p <- allPreds)
-      abstractValues.put(p, domain bottom p)
-
-    val clausesTodo = new LinkedHashSet[Int]
-
-    // start with the clauses with empty body
-    for ((Clause(IAtom(p, _), Seq(), _), n) <- clauseSeq.iterator.zipWithIndex;
-         if p != HornClauses.FALSE)
-      clausesTodo += n
-      
-    while (!clausesTodo.isEmpty) {
-      val nextID = clausesTodo.head
-      clausesTodo -= nextID
-      val Clause(head, body, _) = clauseSeq(nextID)
-
-      val bodyValues =
-        for (IAtom(p, _) <- body) yield abstractValues(p)
-      val newAbstractEl =
-        propagators(nextID) transform bodyValues
-
-      if (!(domain isBottom newAbstractEl)) {
-        val headPred = head.pred
-        val oldAbstractEl = abstractValues(headPred)
-        val jointEl = domain.join(oldAbstractEl, newAbstractEl)
-
-        if (jointEl != oldAbstractEl) {
-          abstractValues.put(headPred, jointEl)
-          for ((_, n) <- clausesWithBodyPred.getOrElse(headPred, List()))
-            clausesTodo += n
-        }
-      }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    val clauseBackMapping = new MHashMap[Clause, Clause]
-
-    var changed = false
-
-    val newClauses =
-      for (clause <- clauses) yield {
-        val Clause(head, body, constraint) = clause
-        var newConstraint = constraint
-
-        var clauseChanged = false
-
-        val newBody =
-          for (a <- body) yield {
-            val aValue = abstractValues(a.pred)
-            val (newA, constr) = domain.inline(a, aValue)
-            newConstraint = newConstraint &&& constr
-            if (!(newA eq a))
-              clauseChanged = true
-            newA
-          }
-
-        if (!(newConstraint eq constraint))
-          clauseChanged = true
-
-        val newClause =
-          if (clauseChanged) {
-            changed = true
-            Clause(head, newBody, newConstraint)
-          } else {
-            clause
-          }
-          
-        clauseBackMapping.put(newClause, clause)
-        newClause
-      }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    val translator =
-      if (changed) {
-        new BackTranslator {
-          import IExpression._
-
-          def translate(solution : Solution) =
-            solution transform {
-              case (pred, sol) =>
-                domain.augmentSolution(sol, abstractValues(pred))
-            }
-          
-          def translate(cex : CounterExample) =
-            for (p <- cex) yield (p._1, clauseBackMapping(p._2))
-        }
-      } else {
-        IDENTITY_TRANSLATOR
-      }
-
-    (newClauses, hints, translator)
-  }
+  def EqualityPropagator =
+    new PropagatingPreprocessor(new EqualityPropDomain)
 
 }
