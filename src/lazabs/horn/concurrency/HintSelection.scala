@@ -1159,7 +1159,7 @@ object HintsSelection {
     //write arguments with score to file
 
     for(arg<-arguments){
-      writer.write(arg.ID+":"+arg.location.toString()+":"+"arg"+arg.index+":"+arg.score+"\n")
+      writer.write(arg.ID+":"+arg.location.toString()+":"+"argument"+arg.index+":"+arg.score+"\n")
     }
 
 

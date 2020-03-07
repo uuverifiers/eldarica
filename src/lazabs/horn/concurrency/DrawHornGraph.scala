@@ -539,7 +539,7 @@ object DrawHornGraph {
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
       //create argument nodes
-      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" +" nodeName="+arg.name+" class=argument "+ " head="+controlFLowNode.name +" shape=\"oval\"" + "];" + "\n")
+      writerGraph.write(arg.name + " [label=\"" + arg.name + "\"" +" nodeName=argument"+arg.index+" class=argument "+ " head="+controlFLowNode.name +" shape=\"oval\"" + "];" + "\n")
       //connect arguments to location
       writerGraph.write(arg.name + " -> " + controlFLowNode.name + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
         " style=\"dashed\"" + "]" + "\n")
