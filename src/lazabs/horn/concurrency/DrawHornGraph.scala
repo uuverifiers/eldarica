@@ -395,7 +395,7 @@ object DrawHornGraph {
                if headArg.originalContent == comArg._1 && bodyArg.originalContent == comArg._1) {
             currentClause.simpleDataFlowConnection = currentClause.simpleDataFlowConnection ++
               Map(headArg.dataFLowHyperEdge.name ->
-                (bodyArg.name + " -> " + headArg.dataFLowHyperEdge.name +
+                ("\"" + bodyArg.name + "\"" + " -> " + "\"" + headArg.dataFLowHyperEdge.name+ "\"" +
                   "[label=\"" + edgeNameMap("dataFlowIn") + "\"]" + "\n"))
             //                  + //data flow hyper edge already been drew when create this hyperedge
             //                  headArg.dataFLowHyperEdge.name + " -> " + headArg.name +
@@ -416,8 +416,8 @@ object DrawHornGraph {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + " <- " + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = "\""+"xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
-                  argument.name + "_constant_" + "\""+arg._1+"\""
+                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
+                  argument.name + "_constant_" + "\""+arg._1
                 //println(argument.constantFlowInNode)
               }
           }
@@ -438,8 +438,8 @@ object DrawHornGraph {
               if (argument.originalContent == arg._1) {
                 writer.write(argument.name + "<-" + arg._1 + "\n")
                 //add constant data flow in to clause data structure
-                argument.constantFlowInNode = "\""+"xxx"+currentClause.name + "_" + currentClause.clauseID  + "xxx" +
-                  argument.name + "_constant_" +arg._1+"\""
+                argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID  + "xxx" +
+                  argument.name + "_constant_" +arg._1
                 //println(argument.constantFlowInNode)
               }
           }catch {
