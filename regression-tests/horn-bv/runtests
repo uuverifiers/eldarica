@@ -31,8 +31,10 @@ TESTS="inconclusive.smt2 \
        nonlinear.smt2 \
        quantifier.smt2 \
        substring.error.nts.smt2 \
-       test0.correct.pierre_bv8.smt2 \
-       test0.correct.pierre_bv32.smt2"
+       conjunctElimBug.smt2"
+
+#       test0.correct.pierre_bv8.smt2 \
+#       test0.correct.pierre_bv32.smt2 \
 
 for name in $TESTS; do
     echo

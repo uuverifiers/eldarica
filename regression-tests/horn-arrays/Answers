@@ -52,17 +52,17 @@ Initially:                                             4         2
 
 
 Theories: Types, ADT(true, false), ADT(p)
-Unique satisfiable clauses: 4
+Unique satisfiable clauses: 3
    1 clauses with 0 body literals
-   3 clauses with 1 body literals
+   2 clauses with 1 body literals
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                                      3
+CEGAR iterations:                                      2
 Final number of abstract states:                       2
 Final number of matched abstract states:               2
 Final number of abstract edges:                        3
 Number of generated predicates:                        3
-Average predicate size (# of sub-formulas):            1.33
+Average predicate size (# of sub-formulas):            1.67
 
 --------------------------------------------------------------------------------
 
