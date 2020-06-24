@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -352,7 +352,7 @@ class IntervalPropagator(clauses : IndexedSeq[HornPredAbs.NormClause],
   //////////////////////////////////////////////////////////////////////////////
   // Assemble results
 
-  val result =
+  val result : Seq[(HornPredAbs.NormClause, HornPredAbs.NormClause)] =
     (for ((clause, clauseNum) <- clauses.iterator.zipWithIndex;
           if (!extendedConstraints(clauseNum).isFalse)) yield {
        if (modifiedClauses contains clauseNum) {

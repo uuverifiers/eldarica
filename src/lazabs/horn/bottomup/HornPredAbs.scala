@@ -610,18 +610,23 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       rawNormClauses.put(NormClause(c, (p) => relationSymbols(p)), c)
     }
 
-    val res = new LinkedHashMap[NormClause, CC]
+    if (lazabs.GlobalParameters.get.intervals) {
+      val res = new LinkedHashMap[NormClause, CC]
 
-    val propagator =
-      new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
-                              sf.reducerSettings)
+      val propagator =
+        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
+                                sf.reducerSettings)
 
-    for ((nc, oc) <- propagator.result)
-      res.put(nc, rawNormClauses(oc))
+      for ((nc, oc) <- propagator.result)
+        res.put(nc, rawNormClauses(oc))
 
-    (res.toSeq, propagator.rsBounds)
-
-//   rawNormClauses.toSeq
+      (res.toSeq, propagator.rsBounds)
+    } else {
+      val emptyBounds =
+        (for (rs <- relationSymbols.valuesIterator)
+         yield (rs -> Conjunction.TRUE)).toMap
+      (rawNormClauses.toSeq, emptyBounds)
+    }
   }
 
   val relationSymbolReducers =

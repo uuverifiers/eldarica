@@ -92,6 +92,7 @@ class GlobalParameters extends Cloneable {
   var absInFile = false
   var lbe = false
   var slicing = true
+  var intervals = true
   var prettyPrint = false
   var smtPrettyPrint = false  
 //  var interpolation = false
@@ -175,6 +176,7 @@ class GlobalParameters extends Cloneable {
     that.absInFile = this.absInFile
     that.lbe = this.lbe
     that.slicing = this.slicing
+    that.intervals = this.intervals
     that.prettyPrint = this.prettyPrint
     that.smtPrettyPrint = this.smtPrettyPrint
     that.ntsPrint = this.ntsPrint
@@ -415,6 +417,7 @@ object Main {
         arguments(rest)
 
       case "-noSlicing" :: rest => slicing = false; arguments(rest)
+      case "-noIntervals" :: rest => intervals = false; arguments(rest)
       //case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
       case "-stac" :: rest => staticAccelerate = true; arguments(rest)
@@ -468,6 +471,7 @@ object Main {
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
+          " -noIntervals\tDisable interval analysis\n" +
           " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
           " -pHints\tPrint initial predicates and abstraction templates\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +

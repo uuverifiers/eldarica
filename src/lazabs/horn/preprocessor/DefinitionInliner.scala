@@ -288,14 +288,13 @@ class ConstraintSimplifier extends HornPreprocessor {
     }
 
     def postVisit(t : IExpression, extractFun : Boolean,
-                  subres : Seq[IExpression]) : IExpression = t match {
-      case t : IFunApp if extractFun && ContainsSymbol.isClosed(t) => {
-        val s = t update subres
-        extractedFuns.getOrElseUpdate(s, newConst(Sort sortOf s))
+                  subres : Seq[IExpression]) : IExpression =
+      IExpression.updateAndSimplifyLazily(t, subres) match {
+        case t : IFunApp if extractFun && ContainsSymbol.isClosed(t) =>
+          extractedFuns.getOrElseUpdate(t, newConst(Sort sortOf t))
+        case t =>
+          t
       }
-      case t =>
-        t update subres
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -339,7 +338,8 @@ class ConstraintSimplifier extends HornPreprocessor {
             }
 
           } else if (!(replacedConsts contains c) &&
-                     !(replacedConsts contains d)) {
+                     !(replacedConsts contains d) &&
+                     (Sort sortOf left) == (Sort sortOf right)) {
 
             if (!(headSyms contains c)) {
               replacement.put(c, right +++ offset)
@@ -367,7 +367,7 @@ class ConstraintSimplifier extends HornPreprocessor {
         true
     }
 
-    if (replacement.isEmpty)
+    if (remConjuncts.size == conjuncts.size && replacement.isEmpty)
       return None
 
     val newConjuncts =
@@ -524,10 +524,53 @@ class ConstraintSimplifier extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Eliminate function applications that are no longer needed
+   */
+  private def gcFunctionApplications(
+                       headSyms : scala.collection.Set[ConstantTerm],
+                       body : List[IAtom],
+                       conjuncts : Seq[IFormula])
+                     : Option[Seq[IFormula]] = {
+    val blockedConsts = new MHashSet[ConstantTerm]
+    val defConsts     = new MHashSet[ConstantTerm]
+
+    blockedConsts ++= headSyms
+    for (a <- body)
+      blockedConsts ++= SymbolCollector constants a
+
+    for (f <- conjuncts) f match {
+      case Eq(left : IFunApp, right@IConstant(c)) =>
+        if ((Sort sortOf left) == (Sort sortOf right) && (defConsts add c))
+          blockedConsts ++= SymbolCollector constants left
+        else
+          blockedConsts ++= SymbolCollector constants f
+      case f =>
+        blockedConsts ++= SymbolCollector constants f
+    }
+
+    val newConjuncts = conjuncts filter {
+      case Eq(_ : IFunApp, IConstant(c)) =>
+        blockedConsts contains c
+      case _ =>
+        true
+    }
+
+    if (newConjuncts.size < conjuncts.size)
+      Some(newConjuncts)
+    else
+      None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Simplify equations of the clause
    */
   private def equationalRewriting(clause : Clause) : Clause = {
     val Clause(head, oriBody, constraint) = clause
+
+    // TODO: should we try to undo the flattening, as far as possible,
+    // before translating clauses to internal form?
 
     val headSyms  = SymbolCollector constants head
     var body      = oriBody
@@ -540,7 +583,7 @@ class ConstraintSimplifier extends HornPreprocessor {
 
     var persistentEqs : Seq[IFormula] = List()
 
-    var changed = false
+    var changed = containsFunctions
     var cont    = true
     while (cont) {
       cont = false
@@ -568,6 +611,16 @@ class ConstraintSimplifier extends HornPreprocessor {
         // check whether ADT simplifications are possible
 
         for (newConjuncts <- adtRewriting(conjuncts)) {
+          conjuncts = newConjuncts
+          changed   = true
+          cont      = true
+        }
+      }
+
+      if (!cont && containsFunctions) {
+        // check whether function applications can be eliminated
+
+        for (newConjuncts <- gcFunctionApplications(headSyms, body, conjuncts)){
           conjuncts = newConjuncts
           changed   = true
           cont      = true

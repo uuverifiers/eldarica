@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -301,6 +301,7 @@ class PrincessWrapper {
       case BVashr(bits)=> Some((ModuloArithmetic.bv_ashr, bits))
       case BVxor(bits) => Some((ModuloArithmetic.bv_xor, bits))
       case BVxnor(bits)=> Some((ModuloArithmetic.bv_xnor, bits))
+      case BVcomp(bits)=> Some((ModuloArithmetic.bv_comp, bits))
       case _           => None
     }
   }
@@ -443,6 +444,10 @@ class PrincessWrapper {
         val (op, typ) = fun2BVBinOp(fun)(bits)
         BinaryExpression(rvT(left), op, rvT(right)).stype(typ)
       }
+
+      case IFunApp(ModuloArithmetic.bv_comp,
+                   Seq(IIntLit(IdealInt(bits)), left, right)) =>
+        BinaryExpression(rvT(left), BVcomp(bits), rvT(right)).stype(BVType(1))
 
       case IFunApp(ModuloArithmetic.bv_concat,
                    Seq(IIntLit(IdealInt(bits1)), IIntLit(IdealInt(bits2)),
