@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -137,6 +137,7 @@ object ASTree {
   case class BVule(bits : Int)   extends BinaryOperator("bvule")
   case class BVslt(bits : Int)   extends BinaryOperator("bvslt")
   case class BVsle(bits : Int)   extends BinaryOperator("bvsle")
+  case class BVcomp(bits : Int)  extends BinaryOperator("bvcomp")
 
   case class BV2Int(bits : Int)  extends UnaryOperator ("bv2int")
   case class BV2Nat(bits : Int)  extends UnaryOperator ("bv2nat")
