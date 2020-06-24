@@ -31,6 +31,7 @@
 package lazabs
 
 import java.io.{File, FileInputStream, FileNotFoundException, InputStream, PrintWriter}
+import java.lang.System.currentTimeMillis
 
 import parser._
 import lazabs.art._
@@ -73,6 +74,7 @@ class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
   var totalHints=0 //DEBUG
   var threadTimeout = 2000 //debug
+  var solvabilityTimeout=2000
   var extractTemplates=false
   var extractPredicates=false
   var readHints=false
@@ -219,6 +221,7 @@ class GlobalParameters extends Cloneable {
     that.timeoutChecker = this.timeoutChecker
     //DEBUG
     that.threadTimeout = this.threadTimeout //debug
+    that.solvabilityTimeout=this.solvabilityTimeout
     that.rank = this.rank //debug
     //that.printHints = this.printHints //DEBUG
     that.extractTemplates=this.extractTemplates//debug
@@ -379,6 +382,10 @@ object Main {
         threadTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) ).toInt;
         arguments(rest)
+      case tTimeout :: rest if (tTimeout.startsWith("-solvabilityTimeout:")) =>  //debug
+        solvabilityTimeout =
+          (java.lang.Float.parseFloat(tTimeout.drop("-solvabilityTimeout:".length)) ).toInt;
+        arguments(rest)
       case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>  //debug
         rank =
           (java.lang.Float.parseFloat(tTimeout.drop(6))); //parse input string
@@ -499,6 +506,7 @@ object Main {
           " -extractTemplates\textract templates training data\n"+
           " -extractPredicates\textract predicates training data\n"+
           " -absTimeout:time\tset timeout for labeling hints\n"+
+          " -solvabilityTimeout:time\tset timeout for solvability\n"+
           " -rank:n\tuse top n or score above n ranked hints read from file\n"+
           " -getSMT2\tget SMT2 file\n"+
           " -getHornGraph\tget horn graph file\n"+
@@ -635,7 +643,6 @@ object Main {
         //do selection
         lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
-
         return
       }
 
@@ -687,7 +694,9 @@ object Main {
         return
       }
       if(extractPredicates){
+
         val predicateGenerator=new lazabs.horn.concurrency.TrainDataGeneratorPredicate(smallSystem,system) //generate train data by predicates
+
         return
       }
 

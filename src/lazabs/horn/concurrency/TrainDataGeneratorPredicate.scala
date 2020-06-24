@@ -36,6 +36,7 @@ import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import lazabs.GlobalParameters
+import lazabs.Main.TimeoutException
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
@@ -137,6 +138,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
   val file = GlobalParameters.get.fileName
   val fileName=file.substring(file.lastIndexOf("/")+1)
   val timeOut = GlobalParameters.get.threadTimeout //timeout
+  val solvabilityTimeout=GlobalParameters.get.solvabilityTimeout
 
   val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
@@ -146,6 +148,23 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       throw lazabs.Main.TimeoutException
 
   println("extract original predicates")
+  val startTimeCEGAR = currentTimeMillis
+  val toParamsCEGAR = GlobalParameters.get.clone
+  toParamsCEGAR.timeoutChecker = () => {
+    if ((currentTimeMillis - startTimeCEGAR) > solvabilityTimeout * 1000) //timeout milliseconds
+      throw lazabs.Main.TimeoutException //Main.TimeoutException
+  }
+  try{
+    GlobalParameters.parameters.withValue(toParamsCEGAR) {
+      new HornPredAbs(simpClauses, simpHints.toInitialPredicates, interpolator)
+    }
+  }
+  catch {
+    case lazabs.Main.TimeoutException => {
+      throw TimeoutException
+    }
+  }
+
   val cegar = new HornPredAbs(simpClauses,
     simpHints.toInitialPredicates,
     interpolator)

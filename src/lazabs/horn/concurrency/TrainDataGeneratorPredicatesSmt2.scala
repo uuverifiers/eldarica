@@ -295,8 +295,30 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       /////////////////////////predicates extracting begin///////////////////////////////
 
+      val timeOut = GlobalParameters.get.threadTimeout //timeout
+      val solvabilityTimeout=GlobalParameters.get.solvabilityTimeout
 
       println("extract original predicates")
+      //check solvability
+      val startTimeCEGAR = currentTimeMillis
+      val toParamsCEGAR = GlobalParameters.get.clone
+      toParamsCEGAR.timeoutChecker = () => {
+        if ((currentTimeMillis - startTimeCEGAR) > solvabilityTimeout * 1000) //timeout milliseconds
+          throw lazabs.Main.TimeoutException //Main.TimeoutException
+      }
+      try{
+        GlobalParameters.parameters.withValue(toParamsCEGAR) {
+          new HornPredAbs(simplifiedClauses,
+            simpHints.toInitialPredicates, predGenerator,
+            counterexampleMethod)
+          }
+        }
+      catch {
+        case lazabs.Main.TimeoutException => {
+          throw TimeoutException
+        }
+      }
+
       val Cegar = new HornPredAbs(simplifiedClauses,
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
@@ -307,7 +329,6 @@ object TrainDataGeneratorPredicatesSmt2 {
       //predicates selection begin
       val file = GlobalParameters.get.fileName
       val fileName = file.substring(file.lastIndexOf("/") + 1)
-      val timeOut = GlobalParameters.get.threadTimeout //timeout
 
 
       ////////////////////
