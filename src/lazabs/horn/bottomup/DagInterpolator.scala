@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -301,7 +301,7 @@ object DagInterpolator {
         // extract the predicates used for the sub-proof
         Left((for ((p, freshPs) <- predMap.iterator;
                    formulas = for (q <- freshPs;
-                                   c <- predAbs.relevantPredicates.getOrElse(q, List())) yield c;
+                                   c <- predAbs.relevantRawPredicates.getOrElse(q, List())) yield c;
                    if (!formulas.isEmpty)) yield (p, formulas.distinct)).toList)
       case Right(cex) =>
         // TODO: used predicates at this point are not correct!

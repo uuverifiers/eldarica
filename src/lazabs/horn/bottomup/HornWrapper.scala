@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -368,9 +368,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       println(
          "----------------------------------- CEGAR --------------------------------------")
 
-       (new HornPredAbs(simplifiedClauses,
+      val predAbs =
+        new HornPredAbs(simplifiedClauses,
                         simpHints.toInitialPredicates, predGenerator,
-                        counterexampleMethod)).result
+                        counterexampleMethod)
+      val result =
+        predAbs.result
+
+      result
     }
 
     result match {
