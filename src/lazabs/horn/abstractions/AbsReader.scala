@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,8 @@
 
 package lazabs.horn.abstractions
 
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+
 import ap.parser._
 import ap.parameters.ParserSettings
 import ap.parser.Parser2InputAbsy.CRRemover2
@@ -39,6 +41,102 @@ import TplSpec.Absyn._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
+object AbsReader {
+
+  /**
+   * Output a set of verification hints in the template parser format.
+   */
+  def printHints(hints : VerificationHints) : Unit = {
+    for ((pred, hints) <- hints.predicateHints.toSeq sortBy (_._1.name)) {
+      val sorts =
+        predArgumentSorts(pred)
+      val argConsts =
+        for ((s, n) <- sorts.zipWithIndex) yield (s newConstant ("x" + n))
+      val subst =
+        ((for (c <- argConsts.iterator) yield IConstant(c)).toList, 0)
+
+      val (initPreds, otherHints) =
+        hints partition (_.isInstanceOf[VerificationHints.VerifHintInitPred])
+
+      if (!initPreds.isEmpty) {
+        print("(initial-predicates ")
+        print(SMTLineariser.quoteIdentifier(pred.name))
+        print(" ")
+        SMTLineariser.printArguments(sorts, argConsts)
+        println
+
+        for (VerificationHints.VerifHintInitPred(p) <- initPreds) {
+          print("  ")
+          printIExpr(p, subst)
+          println
+        }
+
+        println(")")
+      }
+
+      if (!otherHints.isEmpty) {
+        print("(templates ")
+        print(SMTLineariser.quoteIdentifier(pred.name))
+        print(" ")
+        SMTLineariser.printArguments(sorts, argConsts)
+        println
+
+        for (el <- otherHints)
+          printHintElement(el, subst)
+
+        println(")")
+      }
+    }
+  }
+
+  private def printHintElement(hint : VerificationHints.VerifHintElement,
+                               subst : (List[ITerm], Int)) : Unit = {
+    import VerificationHints._
+    print("  (")
+    hint match {
+      case VerifHintTplPred(f, cost) => {
+        print("predicate ")
+        printIExpr(f, subst)
+        print(" " + cost)
+      }
+      case VerifHintTplPredPosNeg(f, cost) => {
+        print("predicate-2 ")
+        printIExpr(f, subst)
+        print(" " + cost)
+      }
+      case VerifHintTplEqTerm(t, cost) => {
+        print("term ")
+        printIExpr(t, subst)
+        print(" " + cost)
+      }
+      case VerifHintTplInEqTerm(t, cost) => {
+        print("inequality-term ")
+        printIExpr(t, subst)
+        print(" " + cost)
+      }
+      case VerifHintTplInEqTermPosNeg(t, cost) => {
+        print("inequality-term-2 ")
+        printIExpr(t, subst)
+        print(" " + cost)
+      }
+      case VerifHintTplIterationThreshold(threshold) => {
+        print("iterationThreshold " + threshold)
+      }
+      case el =>
+        throw new Exception("Unsupported hint element: " + el)
+    }
+    println(")")
+  }
+
+  private def printIExpr(t : IExpression, subst : (List[ITerm], Int)) =
+    SMTLineariser(VariableSubstVisitor(t, subst))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class to read initial predicates and interpolation templates from a file.
+ */
 class AbsReader(input : java.io.Reader) {
 
   private val printer = new PrettyPrinterNonStatic
@@ -52,7 +150,8 @@ class AbsReader(input : java.io.Reader) {
   val (initialPredicates, allHints, predArities) =
     SimpleAPI.withProver(enableAssert =
                          lazabs.GlobalParameters.get.assertions) { prover =>
-    Console.err.println("Loading CEGAR hints ...")
+    println(
+        "---------------------------- Loading CEGAR hints -------------------------------")
 
     val l = new Yylex(new CRRemover2 (input))
     val p = new parser(l)

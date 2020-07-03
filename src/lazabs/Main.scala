@@ -97,6 +97,8 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationPortfolio = false
   var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""
+  var cegarPostHintsFile : String = ""
+  var predicateOutputFile : String = ""
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
@@ -179,6 +181,8 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
     that.cegarHintsFile = this.cegarHintsFile
+    that.cegarPostHintsFile = this.cegarPostHintsFile
+    that.predicateOutputFile = this.predicateOutputFile
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
     that.princess = this.princess
@@ -347,6 +351,15 @@ object Main {
         cegarHintsFile = tFile drop 7
         arguments(rest)
       }
+      case tFile :: rest if (tFile.startsWith("-postHints:")) => {
+        cegarPostHintsFile = tFile drop 11
+        arguments(rest)
+      }
+
+      case tFile :: rest if (tFile.startsWith("-pPredicates:")) => {
+        predicateOutputFile = tFile drop 13
+        arguments(rest)
+      }
 
       case "-pHints" :: rest => templateBasedInterpolationPrint = true; arguments(rest)
 
@@ -431,8 +444,10 @@ object Main {
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -noIntervals\tDisable interval analysis\n" +
-          " -hints:f\tRead initial predicates and abstraction templates from a file\n" +
+          " -hints:f\tRead hints (initial predicates and abstraction templates) from a file\n" +
+          " -postHints:f\tRead hints for processed clauses from a file\n" +
           " -pHints\tPrint initial predicates and abstraction templates\n" +
+          " -pPredicates:f\tOutput predicates computed by CEGAR to a file\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +

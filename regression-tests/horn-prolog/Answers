@@ -209,7 +209,7 @@ NOT SOLVABLE
 51: Block1(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) -> 52
 52: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(0)
 zero-iterations.horn
-Loading CEGAR hints ...
+---------------------------- Loading CEGAR hints -------------------------------
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             7         3
