@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -144,47 +144,52 @@ class HornWrapper(constraints: Seq[HornClause],
 //    if (GlobalParameters.get.printHornSimplified)
 //      printMonolithic(unsimplifiedClauses)
 
-  private val name2Pred =
-    (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
-          IAtom(p, _) <- (head :: body).iterator)
-     yield (p.name -> p)).toMap
-
   //////////////////////////////////////////////////////////////////////////////
 
-  private val hints : VerificationHints =
-    GlobalParameters.get.cegarHintsFile match {
-      case "" =>
-        EmptyVerificationHints
-      case hintsFile => {
-        val reader = new AbsReader (
-                       new java.io.BufferedReader (
-                         new java.io.FileReader(hintsFile)))
-        val hints =
-          (for ((predName, hints) <- reader.allHints.iterator;
-                pred = name2Pred get predName;
-                if {
-                  if (pred.isDefined) {
-                    if (pred.get.arity != reader.predArities(predName))
-                      throw new Exception(
-                        "Hints contain predicate with wrong arity: " +
-                        predName + " (should be " + pred.get.arity + " but is " +
-                        reader.predArities(predName) + ")")
-                  } else {
-                    Console.err.println("   Ignoring hints for " + predName + "\n")
-                  }
-                  pred.isDefined
-                }) yield {
-             (pred.get, hints)
-           }).toMap
-        VerificationHints(hints)
-      }
+  private def readHints(filename : String,
+                        name2Pred : Map[String, Predicate])
+                      : VerificationHints = filename match {
+    case "" =>
+      EmptyVerificationHints
+    case hintsFile => {
+      val reader = new AbsReader (
+                     new java.io.BufferedReader (
+                       new java.io.FileReader(hintsFile)))
+      val hints =
+        (for ((predName, hints) <- reader.allHints.iterator;
+              pred = name2Pred get predName;
+              if {
+                if (pred.isDefined) {
+                  if (pred.get.arity != reader.predArities(predName))
+                    throw new Exception(
+                      "Hints contain predicate with wrong arity: " +
+                      predName + " (should be " + pred.get.arity + " but is " +
+                      reader.predArities(predName) + ")")
+                } else {
+                  Console.err.println(
+                    "   Ignoring hints for " + predName + "\n")
+                }
+                pred.isDefined
+              }) yield {
+           (pred.get, hints)
+         }).toMap
+      VerificationHints(hints)
     }
+  }
+
+  private val hints : VerificationHints = {
+    val name2Pred =
+      (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
+            IAtom(p, _) <- (head :: body).iterator)
+       yield (p.name -> p)).toMap
+    readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val (simplifiedClauses, simpHints, preprocBackTranslator) =
+  private val (simplifiedClauses, simpPreHints, preprocBackTranslator) =
     Console.withErr(outStream) {
-    val (simplifiedClauses, simpHints, backTranslator) =
+    val (simplifiedClauses, simpPreHints, backTranslator) =
       if (lbe) {
         (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       } else {
@@ -210,8 +215,10 @@ class HornWrapper(constraints: Seq[HornClause],
 //      println("-------------------------------")
     }
 
-    (simplifiedClauses, simpHints, backTranslator)
+    (simplifiedClauses, simpPreHints, backTranslator)
   }
+
+
 
   //print horn graph in smt format
   val sortedHints=HintsSelection.sortHints(simpHints)
@@ -224,6 +231,16 @@ class HornWrapper(constraints: Seq[HornClause],
   }
 
 
+private val postHints : VerificationHints = {
+    val name2Pred =
+      (for (Clause(head, body, _) <- simplifiedClauses.iterator;
+            IAtom(p, _) <- (head :: body).iterator)
+       yield (p.name -> p)).toMap
+    readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
+  }
+  val allHints = simpPreHints ++ postHints
+
+
   val params =
     if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
       lazabs.GlobalParameters.get.withAndWOTemplates
@@ -233,7 +250,7 @@ class HornWrapper(constraints: Seq[HornClause],
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] =
     ParallelComputation(params) {
       new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
-                           simpHints, preprocBackTranslator,
+                           allHints, preprocBackTranslator,
                            disjunctive, outStream).result
     }
 
@@ -377,9 +394,42 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       println(
         "----------------------------------- CEGAR --------------------------------------")
 
+
       (new HornPredAbs(simplifiedClauses,
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)).result
+
+      val predAbs =
+        new HornPredAbs(simplifiedClauses,
+                        simpHints.toInitialPredicates, predGenerator,
+                        counterexampleMethod)
+      val result =
+        predAbs.result
+
+      lazabs.GlobalParameters.get.predicateOutputFile match {
+        case "" =>
+          // nothing
+        case filename => {
+          val predicates =
+            VerificationHints(
+              for ((p, preds) <- predAbs.relevantPredicates) yield {
+                 val hints =
+                   for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
+                 p -> hints
+              })
+
+          println(
+            "Saving CEGAR predicates to " + filename)
+
+          val output = new java.io.FileOutputStream(filename)
+          Console.withOut(output) {
+            AbsReader.printHints(predicates)
+          }
+        }
+      }
+
+      result
+
     }
 
 

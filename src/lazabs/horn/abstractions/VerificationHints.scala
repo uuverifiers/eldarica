@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -213,6 +213,22 @@ object VerificationHints {
             remHints = for (VerifHintInitPred(f) <- hints) yield f;
             if !remHints.isEmpty)
        yield (p -> remHints)).toMap
+
+    def ++(that : VerificationHints) =
+      if (that.isEmpty) {
+        this
+      } else if (this.isEmpty) {
+        that
+      } else {
+        val allHints =
+          predicateHints ++
+          (for ((p, hints) <- predicateHints.iterator) yield
+            (predicateHints get p) match {
+              case Some(oldHints) => p -> (oldHints ++ hints)
+              case None           => p -> hints
+            })
+        VerificationHints(allHints)
+      }
   }
 
   //////////////////////////////////////////////////////////////////////////////

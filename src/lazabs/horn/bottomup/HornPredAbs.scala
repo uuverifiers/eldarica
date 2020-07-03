@@ -1008,7 +1008,10 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val relevantPredicates : Map[Predicate, Seq[Conjunction]] = {
+  /**
+   * A set of predicates that is sufficient to solve the set of Horn clauses.
+   */
+  lazy val relevantRawPredicates : Map[Predicate, Seq[Conjunction]] = {
     import TerForConvenience._
     implicit val order = sf.order
 
@@ -1026,6 +1029,14 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       rs.pred -> allPreds.distinct
     }).toMap
   }
+
+  /**
+   * A set of predicates that is sufficient to solve the set of Horn clauses.
+   */
+  lazy val relevantPredicates : Map[Predicate, Seq[IFormula]] =
+    for ((p, preds) <- relevantRawPredicates) yield {
+      p -> convertToInputAbsy(p, preds)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1053,41 +1064,57 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * The result of CEGAR: either a solution of the Horn clauses, or
+   * a counterexample DAG containing the predicates and clauses.
+   */
   lazy val result : Either[Map[Predicate, IFormula],
                            Dag[(IAtom, CC)]] = rawResult match {
     case Left(solution) =>
-      Left(for ((p, c) <- solution) yield {
-             if (c.isTrue) {
-               (p, IBoolLit(true))
-             } else if (c.isFalse) {
-               (p, IBoolLit(false))
-             } else {
-               // we replace the variables with sorted constants, to
-               // to enable theory-specific back-translation
-               val consts =
-                 for (s <- predArgumentSorts(p)) yield (s newConstant "X")
-               val order =
-                 c.order extend consts.reverse
-               val cWithConsts =
-                 TypeTheory.filterTypeConstraints(
-                   VariableSubst(0, consts, order)(c))
-               implicit val context =
-                 new Theory.DefaultDecoderContext(cWithConsts)
-               val internal =
-                 Internal2InputAbsy(cWithConsts,
-                                    sf.functionEnc.predTranslation)
-               val simp =
-                 IntToTermTranslator((new Simplifier)(internal))
-               val backSubst =
-                 (for ((c, n) <- consts.iterator.zipWithIndex)
-                  yield (c -> IVariable(n))).toMap
-               val simpWithVars =
-                 ConstantSubstVisitor(simp, backSubst)
-               (p, simpWithVars)
-             }})
+      Left(for ((p, c) <- solution)
+           yield (p, convertToInputAbsy(p, List(c)).head))
     case Right(trace) =>
       Right(trace)
   }
+
+  /**
+   * Translate solution formulas back to input ASTs. This will
+   * first replace the variables with sorted constants, to
+  *  to enable theory-specific back-translation.
+   */
+  private def convertToInputAbsy(p : Predicate,
+                                 cs : Seq[Conjunction]) : Seq[IFormula] =
+    cs match {
+      case Seq(c) if c.isTrue =>
+        List(IBoolLit(true))
+      case Seq(c) if c.isFalse =>
+        List(IBoolLit(false))
+      case cs => {
+        val consts =
+          for (s <- predArgumentSorts(p)) yield (s newConstant "X")
+        val order =
+          sf.order extend consts.reverse
+        val subst =
+          VariableSubst(0, consts, order)
+        val backSubst =
+          (for ((c, n) <- consts.iterator.zipWithIndex)
+           yield (c -> IVariable(n))).toMap
+        val simplifier =
+          new Simplifier
+
+        for (c <- cs) yield {
+          val cWithConsts =
+            TypeTheory.filterTypeConstraints(subst(c))
+          implicit val context =
+            new Theory.DefaultDecoderContext(cWithConsts)
+          val internal =
+            Internal2InputAbsy(cWithConsts, sf.functionEnc.predTranslation)
+          val simp =
+            IntToTermTranslator(simplifier(internal))
+          ConstantSubstVisitor(simp, backSubst)
+        }
+      }
+    }
   
   //////////////////////////////////////////////////////////////////////////////
   
