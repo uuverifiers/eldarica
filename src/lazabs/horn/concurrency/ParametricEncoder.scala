@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -84,11 +84,16 @@ object ParametricEncoder {
   abstract sealed class Barrier(val name : String,
                                 val domains : Seq[Set[IExpression.Predicate]]) {
     override def toString = name
+    def filterDomains(remainingPreds : Set[IExpression.Predicate]) : Barrier
   }
 
   class SimpleBarrier(_name : String,
                       _domains : Seq[Set[IExpression.Predicate]])
-    extends Barrier(_name, _domains)
+    extends Barrier(_name, _domains) {
+    def filterDomains(remainingPreds : Set[IExpression.Predicate])
+                    : SimpleBarrier =
+      new SimpleBarrier(name, for (d <- domains) yield (d & remainingPreds))
+  }
 
   /**
    * A family of barriers is specified like a simple barrier, but in
@@ -99,7 +104,13 @@ object ParametricEncoder {
                       _domains : Seq[Set[IExpression.Predicate]],
                       val equivalentProcesses :
                         (ITerm, ITerm, ITerm, ITerm) => IFormula)
-    extends Barrier(_name, _domains)
+    extends Barrier(_name, _domains) {
+    def filterDomains(remainingPreds : Set[IExpression.Predicate])
+                    : BarrierFamily =
+      new BarrierFamily(name,
+                        for (d <- domains) yield (d & remainingPreds),
+                        equivalentProcesses)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -415,7 +426,23 @@ object ParametricEncoder {
         assertions filter {
           clause => clause.predicates subsetOf allPreds }
 
-      System(newProcesses,
+      // we need to remove deleted predicates also from the barriers
+      val newBarriers = new MHashMap[Barrier, Barrier]
+
+      def filterBarrier(b : Barrier) =
+        newBarriers.getOrElseUpdate(b, b filterDomains allPreds)
+
+      val newProcesses2 =
+        for ((process, repl) <- newProcesses) yield {
+          val newClauses =
+            for ((clause, sync) <- process) yield sync match {
+              case BarrierSync(b) => (clause, BarrierSync(filterBarrier(b)))
+              case s              => (clause, s)
+            }
+          (newClauses, repl)
+        }
+
+      System(newProcesses2,
              globalVarNum,
              backgroundAxioms,
              timeSpec,
