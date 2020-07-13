@@ -131,6 +131,10 @@ object Solve {
                   println(lazabs.viewer.HornPrinter.print(cl))
                 }
             } else if (lazabs.GlobalParameters.get.displaySolutionSMT) {
+              // TODO: this should probably just use the function for printing
+              // models in SMTLineariser. But will change the syntax a bit
+              // and require tests to be updated
+
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
                 for((pred,sol) <- sortedSol) {
                   val cl = HornClause(RelVar(pred.name,

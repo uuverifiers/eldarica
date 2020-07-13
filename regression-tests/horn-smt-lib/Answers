@@ -343,3 +343,15 @@ unsat
 5: Inv(mod_cast(0, 255, 56), mod_cast(0, 255, 107)) -> 6
 6: Inv(mod_cast(0, 255, 5), mod_cast(0, 255, 56)) -> 7
 7: Inv(mod_cast(0, 255, 5), mod_cast(0, 255, 5))
+
+solution-verifier-bug.smt2
+sat
+(define-fun ULTIMATE.start_L-1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= A 0) (not (= I true))))
+(define-fun ULTIMATE.start_L17 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (and (= G (- 3)) (= F (- 3))) (= A 0)) (not (= I true))))
+(define-fun ULTIMATE.start_L23 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (not (= I true)) (= D 3)))
+(define-fun ULTIMATE.start_L29 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (= D 3) (= A 3)) (not (= I true))))
+(define-fun ULTIMATE.start_L5 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I false))
+(define-fun ULTIMATE.start_L7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool false)
+(define-fun ULTIMATE.start_ULTIMATE.startENTRY ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= B A) (not (= I true))))
+(define-fun ULTIMATE.start_ULTIMATE.startEXIT ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I false))
+(define-fun ULTIMATE.start_ULTIMATE.startFINAL ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= I false) (= E C)))

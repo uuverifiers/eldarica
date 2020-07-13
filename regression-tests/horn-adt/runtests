@@ -6,7 +6,6 @@ TESTS="simple-adt-horn.smt2 \
        bool.smt2 \
        bool-unsat.smt2 \
        list-synasc.smt2 \
-       list-synasc-unsat.smt2 \
        unbounded-tree.smt2 \
        record-cex.smt2 \
        strings2-unsat.smt2 \
@@ -18,3 +17,12 @@ for name in $TESTS; do
     $LAZABS -pngNo -ssol -cex -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
+# Examples with currently unstable output, do not show the counterexample
+
+TESTS="list-synasc-unsat.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done

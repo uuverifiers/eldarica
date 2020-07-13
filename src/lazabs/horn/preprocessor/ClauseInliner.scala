@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,6 +61,9 @@ class ClauseInliner extends HornPreprocessor {
       private val backMapping = clauseBackMapping.toMap
 
       //////////////////////////////////////////////////////////////////////////
+
+      // TODO: this should really use interpolation, not QE to compute
+      // solutions
 
       def translate(solution : Solution) = {
         // augment solution to also satisfy inlined clauses
