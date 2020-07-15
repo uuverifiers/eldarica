@@ -8,6 +8,8 @@ import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
+import lazabs.horn.concurrency.Digraph
+import play.api.libs.json.Json
 
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap}
 
@@ -18,6 +20,33 @@ object DrawHornGraph {
   def writeHornClausesGraphWithHintsToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
 
   }
+
+  def genereateGNNInputs(): Unit ={
+    val a=List(1,2,3)
+    val users = Json.obj("users" -> a)
+    println(users)
+
+  }
+
+  def buildHornGraphInMemory(file: String, simpClauses: Clauses,hints:VerificationHints): Unit ={
+    import scala.collection.mutable.Map
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val dot = new Digraph(comment = "Horn Graph")
+
+    dot.node("A", "King Arthur",attrs = Map("constraint" -> "false","shape"->"\"diamond\""))
+    dot.node("B", "Sir Bedevere the Wise")
+    dot.node("L", "Sir Lancelot the Brave")
+
+
+    dot.edges(Array(("A", "B"), ("A", "L")))
+    dot.edge("B", "L", attrs = Map("constraint" -> "false","shape"->"\"diamond\""))
+    println(dot.source())
+    //dot.render(fileName = fileName+"-1.gv", directory = "../trainData/", view = true)
+
+
+  }
+
+
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
     println("Write horn to file")
     var edgeNameMap: Map[String, String] = Map()
@@ -269,24 +298,24 @@ object DrawHornGraph {
         val sp=new Simplifier()
         for((arg,argITerm)<-args if !args.isEmpty){
           if(ContainsSymbol(targetConjunct,argITerm)){
-            println("targetConjunct:"+targetConjunct)
-            println("args:"+args)
+            //println("targetConjunct:"+targetConjunct)
+            //println("args:"+args)
             var oldArg=new ConstantTerm("_")
             argITerm match{
               case IConstant(c)=>{
-                println("IConstant:"+argITerm)
+                //println("IConstant:"+argITerm)
                 oldArg=c
               }
               case _=>{}
             }
             val newArg=new IConstant(new ConstantTerm(("_"+arg)))
             modifiedConjunct= sp(SimplifyingConstantSubstVisitor(modifiedConjunct,Map(oldArg->newArg)))  //replace arg to _arg
-            println("arg:"+arg)
-            println("modifiedConjunct:"+modifiedConjunct)
+            //println("arg:"+arg)
+            //println("modifiedConjunct:"+modifiedConjunct)
             if(!tempDataFlowConjunct.iterator.exists(p=>p.toString==sp(Eq(argITerm,newArg)).toString)){
               tempDataFlowConjunct+=sp(Eq(argITerm,newArg))
             }
-            println("new data flow conjunct:"+sp(Eq(argITerm,newArg)))
+            //println("new data flow conjunct:"+sp(Eq(argITerm,newArg)))
             //val Eq(a,b) = sp(Eq(argITerm,newArg))
           }
         }
