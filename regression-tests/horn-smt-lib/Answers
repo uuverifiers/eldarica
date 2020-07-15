@@ -355,3 +355,10 @@ sat
 (define-fun ULTIMATE.start_ULTIMATE.startENTRY ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= B A) (not (= I true))))
 (define-fun ULTIMATE.start_ULTIMATE.startEXIT ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I false))
 (define-fun ULTIMATE.start_ULTIMATE.startFINAL ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= I false) (= E C)))
+
+groebner-bug.smt2
+Warning: ignoring exit
+Theories: GroebnerMultiplication
+unsat
+
+0: FALSE
