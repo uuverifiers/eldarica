@@ -9,7 +9,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.Digraph
-import play.api.libs.json.Json
+import play.api.libs.json._
 
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap}
 
@@ -21,10 +21,39 @@ object DrawHornGraph {
 
   }
 
-  def genereateGNNInputs(): Unit ={
-    val a=List(1,2,3)
-    val users = Json.obj("users" -> a)
-    println(users)
+  def genereateGNNInputs(file: String, simpClauses: Clauses): Unit ={
+    val nodeIds=List(0,1,2,3,4,5)
+    val binaryAdjacentcy=List(List(1,2),List(2,3))
+    val tenaryAdjacency=List(List(1,2,3),List(2,3,1))
+    val controlLocationIndices=List(1,2)
+    val argumentIndices=List(4,5)
+    val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
+      "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
+    println(oneGraphGNNInput)
+
+
+    println("Write GNNInput to file")
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val writer = new PrintWriter(new File("../trainData/" + fileName + ".JSON")) //python path
+    writer.write(oneGraphGNNInput.toString())
+    writer.close()
+
+  }
+
+  def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacentcy:ListBuffer[ListBuffer[Int]],
+                           tenaryAdjacency:ListBuffer[ListBuffer[Int]],
+                           controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int]): Unit ={
+    val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
+      "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
+    println(oneGraphGNNInput)
+
+
+    println("Write GNNInput to file")
+    val writer = new PrintWriter(new File("../trainData/" + file +"-test"+ ".JSON")) //python path
+    writer.write(oneGraphGNNInput.toString())
+    writer.close()
 
   }
 
@@ -528,18 +557,63 @@ object DrawHornGraph {
     writer.close()
 
 
+    ///////////////////////////////////////////////////////////////
+    import scala.collection.mutable.Map
+    val dot = new Digraph(comment = "Horn Graph")
+    var GNNNodeID=0
+    var hyperEdgeNodeID=0
+    var TotalNodeID=0
+
+    var nodeIds=new ListBuffer[Int]()
+    var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
+    var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    var controlLocationIndices=new ListBuffer[Int]()
+    var argumentIndices=new ListBuffer[Int]()
+
+    var nodeNameToIDMap =   scala.collection.mutable.Map[String, Int]()
+    var unfinishedTenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+
+    //val nodeIdsList = nodeIds.toList
+    //val binaryAdjacentcyList = binaryAdjacentcy.toList ?
+
+    def addQuotes(str:String): String ={
+      return "\"" + str + "\""
+    }
+
     println("Write horn to graph")
     val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
 
-    //todo:add class and unique node name to all nodes's directory []
+
     writerGraph.write("digraph dag {" + "\n")
     //control flow node
     for (p <- predicates) {
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
-      writerGraph.write("" + "\"" + p.name + "\"" + " [label=\"" + p.name + "\"" +" nodeName="+ "\"" + p.name + "\"" +" class=cfn "+ " shape=\"rect\"" + "];" + "\n")
+      writerGraph.write("" + addQuotes(p.name)+ " [label=" + addQuotes(p.name) +" nodeName="+ addQuotes(p.name) +" class=cfn "+ " shape=\"rect\"" + "];" + "\n")
+      dot.node(addQuotes(p.name), addQuotes(p.name),attrs = Map("nodeName"->addQuotes(p.name),
+        "shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
+      nodeIds+=GNNNodeID
+      controlLocationIndices+=GNNNodeID
+      nodeNameToIDMap(p.name)=GNNNodeID
+      GNNNodeID+=1
     }
     writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\""+" nodeName=FALSE"+" class=cfn " + " shape=\"rect\"" + "];" + "\n") //false node
+    dot.node("FALSE","False",
+      attrs = Map("nodeName"->"False","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
+    nodeIds+=GNNNodeID
+    controlLocationIndices+=GNNNodeID
+    nodeNameToIDMap("FALSE")=GNNNodeID
+    GNNNodeID+=1
+
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" +" nodeName=Initial"+" class=cfn "+ " shape=\"rect\"" + "];" + "\n") //initial node
+    dot.node("Initial","Initial",
+      attrs = Map("nodeName"->"Initial","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
+    nodeIds+=GNNNodeID
+    controlLocationIndices+=GNNNodeID
+    nodeNameToIDMap("Initial")=GNNNodeID
+    GNNNodeID+=1
+
+
+
     var ControlFowHyperEdgeList = new ListBuffer[ControlFowHyperEdge]() //build control flow hyper edge list
 
 
@@ -550,10 +624,16 @@ object DrawHornGraph {
       //create control flow hyper edge nodes
       val cfheName=clauseInfo.controlFlowHyperEdge.name
       writerGraph.write(cfheName + " [label=\"Control flow hyperedge\""+" nodeName="+cfheName +" class=controlFlowHyperEdge"+ " shape=\"diamond\"" + "];" + "\n")
+      dot.node(cfheName,addQuotes("Control flow hyperedge"),attrs = Map("nodeName"->cfheName,
+        "shape"->addQuotes("diamond"),"class"->"controlFlowHyperEdge","hyperEdgeNodeID"->hyperEdgeNodeID.toString))
+      hyperEdgeNodeID+=1
       //create edges of control flow hyper edge
-      writerGraph.write("\"" + clauseInfo.body.name + "\"" + " -> " + cfheName + " [label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
-      writerGraph.write(cfheName + " -> " + "\"" + clauseInfo.head.name + "\"" + " [label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
-
+      writerGraph.write(addQuotes(clauseInfo.body.name)+ " -> " + cfheName + " [label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
+      writerGraph.write(cfheName + " -> " + addQuotes(clauseInfo.head.name) + " [label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
+      dot.edge(addQuotes(clauseInfo.body.name),cfheName,attrs=Map("label"->addQuotes(edgeNameMap("controlFlowIn"))))
+      dot.edge(addQuotes(cfheName),addQuotes(clauseInfo.head.name),attrs=Map("label"->addQuotes(edgeNameMap("controlFlowOut"))))
+      //todo:hyperedges are tenary edges. Need guard AST root here
+      unfinishedTenaryAdjacency+=ListBuffer(nodeNameToIDMap(clauseInfo.body.name),-1,nodeNameToIDMap(clauseInfo.head.name))
 
       //get unique control flow nodes
       if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.head.name)) {
@@ -562,9 +642,13 @@ object DrawHornGraph {
       if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.body.name)) {
         uniqueControlFLowNodeList += clauseInfo.body
       }
-
-
     }
+
+    //todo:check point . to be continue...
+    dot.render(fileName = fileName+"-test.gv", directory = "../trainData/", view = false)
+    writeGNNInputsToJSON(fileName,nodeIds,binaryAdjacentcy,tenaryAdjacency,controlLocationIndices,argumentIndices)
+
+
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
       //create argument nodes

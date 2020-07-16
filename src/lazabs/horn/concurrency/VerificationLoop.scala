@@ -277,11 +277,12 @@ class VerificationLoop(system : ParametricEncoder.System,
 
         DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,optimizedHints) //write horn graph to file
 
-        DrawHornGraph.buildHornGraphInMemory(GlobalParameters.get.fileName,simpClauses,optimizedHints) //build horn graph in memory
-        DrawHornGraph.genereateGNNInputs()
+        //DrawHornGraph.buildHornGraphInMemory(GlobalParameters.get.fileName,simpClauses,optimizedHints) //build horn graph in memory
+        //DrawHornGraph.genereateGNNInputs(GlobalParameters.get.fileName,simpClauses)
+
 
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-        HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints)
+        HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
 
 
       }

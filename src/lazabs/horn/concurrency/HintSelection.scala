@@ -1115,7 +1115,8 @@ object HintsSelection {
 
   def writeArgumentScoreToFile(file:String,
                                argumentList:List[(IExpression.Predicate,Int)],
-                               positiveHints:VerificationHints): Unit ={
+                               positiveHints:VerificationHints,
+                               countOccurrence:Boolean=true): Unit ={
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     val writer = new PrintWriter(new File("../trainData/" + fileName + ".arguments")) //python path
@@ -1130,38 +1131,38 @@ object HintsSelection {
       }
     }
 
-    //get hint info list
-    var positiveHintInfoList:ListBuffer[hintInfo]=ListBuffer[hintInfo]()
-    for((head,hintList)<-positiveHints.getPredicateHints()){
-      for(h<-hintList) h match{
-        case VerifHintInitPred(p) => {positiveHintInfoList+=new hintInfo(p,"VerifHintInitPred",head)}
-        case VerifHintTplPred(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPred",head)}
-        case VerifHintTplPredPosNeg(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPredPosNeg",head)}
-        case VerifHintTplEqTerm(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplEqTerm",head)}
-        case VerifHintTplInEqTerm(t,_) => {positiveHintInfoList+= new hintInfo(t,"VerifHintTplInEqTerm",head)}
-        case VerifHintTplInEqTermPosNeg(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplInEqTermPosNeg",head)}
-        case _=>{}
+    if (countOccurrence==true){
+      //get hint info list
+      var positiveHintInfoList:ListBuffer[hintInfo]=ListBuffer[hintInfo]()
+      for((head,hintList)<-positiveHints.getPredicateHints()){
+        for(h<-hintList) h match{
+          case VerifHintInitPred(p) => {positiveHintInfoList+=new hintInfo(p,"VerifHintInitPred",head)}
+          case VerifHintTplPred(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPred",head)}
+          case VerifHintTplPredPosNeg(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPredPosNeg",head)}
+          case VerifHintTplEqTerm(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplEqTerm",head)}
+          case VerifHintTplInEqTerm(t,_) => {positiveHintInfoList+= new hintInfo(t,"VerifHintTplInEqTerm",head)}
+          case VerifHintTplInEqTermPosNeg(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplInEqTermPosNeg",head)}
+          case _=>{}
+        }
       }
-    }
 
-    //go through all predicates and arguments count occurrence
-    for(arg<-arguments){
-      for(hint<-positiveHintInfoList){
-        if(arg.location.equals(hint.head))
-          if(ContainsSymbol(hint.expression, new IVariable(arg.index)))
-            arg.score=arg.score+1
+      //go through all predicates and arguments count occurrence
+      for(arg<-arguments){
+        for(hint<-positiveHintInfoList){
+          if(arg.location.equals(hint.head))
+            if(ContainsSymbol(hint.expression, new IVariable(arg.index)))
+              arg.score=arg.score+1
+        }
       }
-    }
 
+    }
 
     //normalize score
 
     //write arguments with score to file
-
     for(arg<-arguments){
       writer.write(arg.ID+":"+arg.location.toString()+":"+"argument"+arg.index+":"+arg.score+"\n")
     }
-
 
     writer.close()
 
