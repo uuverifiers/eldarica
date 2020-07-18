@@ -542,8 +542,10 @@ class ControlFowHyperEdge(body:String,head:String,ind:Int) {
 
 }
 class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) {
-  val from=body
-  val to=head
+  var fromData=""
+  var fromASTRoot=""
+  val from =head
+  val to=guardedArgument
   val name="DataFowHyperEdge_"+ind.toString+"_"+guardedArgument
 
 }
@@ -615,7 +617,7 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   var dataFlowNumber=0
   var guardASTGraph=Map[String,String]()//rootName->graph
   var dataFlowASTGraph=ListBuffer[DataFlowASTGraphInfo]()
-  var simpleDataFlowConnection=Map[String,String]()//map:hyperedge->connectiongraph
+  var simpleDataFlowConnection=Map[ArgumentNode,ArgumentNode]()//map:hyperedge->connectiongraph
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""
   var nodeList=ListBuffer[Pair[String,String]]()
