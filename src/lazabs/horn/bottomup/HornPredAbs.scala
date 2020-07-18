@@ -42,6 +42,7 @@ import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
+import ap.proof.tree.SeededRandomDataSource
 import ap.util.{Seqs, Timeout}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.{TypeTheory, Sort, MonoSortedPredicate, IntToTermTranslator}
@@ -674,6 +675,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 //    gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, PluginSequence(plugins))
     gs = Param.REDUCER_SETTINGS.set(gs, sf.reducerSettings)
+    gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(12354))
     gs
   }
 
