@@ -10,8 +10,9 @@ import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.Digraph
 import play.api.libs.json._
+import lazabs.horn.concurrency.BinarySearchTreeForGraphClass
 
-import scala.collection.mutable.{ListBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ListBuffer, HashMap => MHashMap,Map => MuMap}
 
 
 object DrawHornGraph {
@@ -75,8 +76,39 @@ object DrawHornGraph {
 
   }
 
+  class GNNInput(){
+    var GNNNodeID=0
+    var hyperEdgeNodeID=0
+    var TotalNodeID=0
+
+    var nodeIds=new ListBuffer[Int]()
+    var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
+    var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    var controlLocationIndices=new ListBuffer[Int]()
+    var argumentIndices=new ListBuffer[Int]()
+
+    var nodeNameToIDMap =   MuMap[String, Int]()
+    var controlFLowTenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+
+    def incrementNodeIds(nodeName:String): Unit ={
+      nodeIds+=GNNNodeID
+      nodeNameToIDMap(nodeName)=GNNNodeID
+      GNNNodeID+=1
+    }
+    def incrementArgumentIndicesAndNodeIds(nodeName:String): Unit ={
+      argumentIndices+=GNNNodeID
+      incrementNodeIds(nodeName)
+    }
+    def incrementControlLocationIndicesAndNodeIds(nodeName:String): Unit ={
+      controlLocationIndices+=GNNNodeID
+      incrementNodeIds(nodeName)
+    }
+  }
 
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
+    val dot = new Digraph(comment = "Horn Graph")
+    val gnn_input=new GNNInput()
+
     println("Write horn to file")
     var edgeNameMap: Map[String, String] = Map()
     edgeNameMap += ("controlFlowIn" -> "control flow in")
@@ -94,6 +126,8 @@ object DrawHornGraph {
     edgeNameMap += ("dataFlowAST" -> "dataFlowAST")
     edgeNameMap += ("predicate" -> "prdicate")
 
+
+
     //turn on/off edge's label
     var edgeNameSwitch = true
     if (edgeNameSwitch == false) {
@@ -107,8 +141,9 @@ object DrawHornGraph {
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
     val writer = new PrintWriter(new File("../trainData/" + fileName + ".HornGraph")) //python path
 
-    //write dataflow
 
+
+    //write dataflow
     import IExpression._
 
     var controlFLowNodeList = ListBuffer[ControlFlowNode]()
@@ -134,7 +169,6 @@ object DrawHornGraph {
           argsInBody += Pair(arg.toString,arg)
         }
       }
-
 
 
       //store head and body to controlFLowNodeList data structure
@@ -173,14 +207,19 @@ object DrawHornGraph {
       for(arg<-currentClause.head.argumentList if !currentClause.head.argumentList.isEmpty){
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
+          if (!gnn_input.nodeNameToIDMap.contains(arg.name))
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name)
         }
       }
       //add body argument to node list
       for(arg<-currentClause.body.argumentList if !currentClause.body.argumentList.isEmpty){
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
+          if (!gnn_input.nodeNameToIDMap.contains(arg.name))
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name)
         }
       }
+
 
 
       writer.write("Head arguments: " + argsInHead.toString() + "\n")
@@ -442,7 +481,8 @@ object DrawHornGraph {
       }
 
       //parse normal dataflow
-      val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,MHashMap.empty[String,ITerm],edgeNameMap)
+      val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,
+        MHashMap.empty[String,ITerm],edgeNameMap,gnn_input,dot)
       currentClause.dataFlowASTGraph=dataFLowAST
       //draw simple data flow
       for (comArg <- commonArg) {
@@ -518,7 +558,8 @@ object DrawHornGraph {
         guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
       //draw guard
-      val (guardASTList,guardNodeHashMap) = drawAST(currentClause, "guard", guardMap,dataFlowNodeHashMap,edgeNameMap)
+      val (guardASTList,guardNodeHashMap) = drawAST(currentClause, "guard", guardMap,dataFlowNodeHashMap,
+        edgeNameMap,gnn_input,dot)
       for (ast <- guardASTList if !guardASTList.isEmpty) {
         currentClause.guardASTGraph = currentClause.guardASTGraph ++ Map(ast.astRootName -> ast.graphText)
       }
@@ -558,27 +599,7 @@ object DrawHornGraph {
 
 
     ///////////////////////////////////////////////////////////////
-    import scala.collection.mutable.Map
-    val dot = new Digraph(comment = "Horn Graph")
-    var GNNNodeID=0
-    var hyperEdgeNodeID=0
-    var TotalNodeID=0
 
-    var nodeIds=new ListBuffer[Int]()
-    var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
-    var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
-    var controlLocationIndices=new ListBuffer[Int]()
-    var argumentIndices=new ListBuffer[Int]()
-
-    var nodeNameToIDMap =   scala.collection.mutable.Map[String, Int]()
-    var unfinishedTenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
-
-    //val nodeIdsList = nodeIds.toList
-    //val binaryAdjacentcyList = binaryAdjacentcy.toList ?
-
-    def addQuotes(str:String): String ={
-      return "\"" + str + "\""
-    }
 
     println("Write horn to graph")
     val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
@@ -589,28 +610,19 @@ object DrawHornGraph {
     for (p <- predicates) {
       //println("" + predIndex(p) + " [label=\"" + p.name + "\"];")
       writerGraph.write("" + addQuotes(p.name)+ " [label=" + addQuotes(p.name) +" nodeName="+ addQuotes(p.name) +" class=cfn "+ " shape=\"rect\"" + "];" + "\n")
-      dot.node(addQuotes(p.name), addQuotes(p.name),attrs = Map("nodeName"->addQuotes(p.name),
-        "shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
-      nodeIds+=GNNNodeID
-      controlLocationIndices+=GNNNodeID
-      nodeNameToIDMap(p.name)=GNNNodeID
-      GNNNodeID+=1
+      dot.node(addQuotes(p.name), addQuotes(p.name),attrs = MuMap("nodeName"->addQuotes(p.name),
+        "shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->gnn_input.GNNNodeID.toString))
+      gnn_input.incrementControlLocationIndicesAndNodeIds(p.name)
     }
     writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\""+" nodeName=FALSE"+" class=cfn " + " shape=\"rect\"" + "];" + "\n") //false node
     dot.node("FALSE","False",
-      attrs = Map("nodeName"->"False","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
-    nodeIds+=GNNNodeID
-    controlLocationIndices+=GNNNodeID
-    nodeNameToIDMap("FALSE")=GNNNodeID
-    GNNNodeID+=1
+      attrs = MuMap("nodeName"->"False","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->gnn_input.GNNNodeID.toString))
+    gnn_input.incrementControlLocationIndicesAndNodeIds("FALSE")
 
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" +" nodeName=Initial"+" class=cfn "+ " shape=\"rect\"" + "];" + "\n") //initial node
     dot.node("Initial","Initial",
-      attrs = Map("nodeName"->"Initial","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->GNNNodeID.toString))
-    nodeIds+=GNNNodeID
-    controlLocationIndices+=GNNNodeID
-    nodeNameToIDMap("Initial")=GNNNodeID
-    GNNNodeID+=1
+      attrs = MuMap("nodeName"->"Initial","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->gnn_input.GNNNodeID.toString))
+    gnn_input.incrementControlLocationIndicesAndNodeIds("Initial")
 
 
 
@@ -624,16 +636,16 @@ object DrawHornGraph {
       //create control flow hyper edge nodes
       val cfheName=clauseInfo.controlFlowHyperEdge.name
       writerGraph.write(cfheName + " [label=\"Control flow hyperedge\""+" nodeName="+cfheName +" class=controlFlowHyperEdge"+ " shape=\"diamond\"" + "];" + "\n")
-      dot.node(cfheName,addQuotes("Control flow hyperedge"),attrs = Map("nodeName"->cfheName,
-        "shape"->addQuotes("diamond"),"class"->"controlFlowHyperEdge","hyperEdgeNodeID"->hyperEdgeNodeID.toString))
-      hyperEdgeNodeID+=1
+      dot.node(cfheName,addQuotes("Control flow hyperedge"),attrs = MuMap("nodeName"->cfheName,
+        "shape"->addQuotes("diamond"),"class"->"controlFlowHyperEdge","hyperEdgeNodeID"->gnn_input.hyperEdgeNodeID.toString))
+      gnn_input.hyperEdgeNodeID+=1
       //create edges of control flow hyper edge
       writerGraph.write(addQuotes(clauseInfo.body.name)+ " -> " + cfheName + " [label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
       writerGraph.write(cfheName + " -> " + addQuotes(clauseInfo.head.name) + " [label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
-      dot.edge(addQuotes(clauseInfo.body.name),cfheName,attrs=Map("label"->addQuotes(edgeNameMap("controlFlowIn"))))
-      dot.edge(addQuotes(cfheName),addQuotes(clauseInfo.head.name),attrs=Map("label"->addQuotes(edgeNameMap("controlFlowOut"))))
+      dot.edge(addQuotes(clauseInfo.body.name),cfheName,attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowIn"))))
+      dot.edge(addQuotes(cfheName),addQuotes(clauseInfo.head.name),attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowOut"))))
       //todo:hyperedges are tenary edges. Need guard AST root here
-      unfinishedTenaryAdjacency+=ListBuffer(nodeNameToIDMap(clauseInfo.body.name),-1,nodeNameToIDMap(clauseInfo.head.name))
+      gnn_input.controlFLowTenaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.body.name),-1,gnn_input.nodeNameToIDMap(clauseInfo.head.name))
 
       //get unique control flow nodes
       if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.head.name)) {
@@ -644,18 +656,21 @@ object DrawHornGraph {
       }
     }
 
-    //todo:check point . to be continue...
-    dot.render(fileName = fileName+"-test.gv", directory = "../trainData/", view = false)
-    writeGNNInputsToJSON(fileName,nodeIds,binaryAdjacentcy,tenaryAdjacency,controlLocationIndices,argumentIndices)
-
 
     //create and connect to argument nodes
     for (controlFLowNode <- uniqueControlFLowNodeList; arg <- controlFLowNode.argumentList) {
       //create argument nodes
-      writerGraph.write("\"" +arg.name+ "\"" + " [label=\"" + arg.name + "\"" +" nodeName=argument"+arg.index+" class=argument "+ " head="+"\""+controlFLowNode.name+"\"" +" shape=\"oval\"" + "];" + "\n")
+      writerGraph.write(addQuotes(arg.name) + " [label=\"" + arg.name + "\"" +" nodeName=argument"+arg.index+" class=argument "+ " head="+"\""+controlFLowNode.name+"\"" +" shape=\"oval\"" + "];" + "\n")
+      dot.node(addQuotes(arg.name),addQuotes(arg.name),
+        attrs = MuMap("nodeName"->("argument"+arg.index),"class"->"argument","head"->addQuotes(controlFLowNode.name),
+          "GNNNodeID"->gnn_input.GNNNodeID.toString,"shape"->"oval"))
+
       //connect arguments to location
-      writerGraph.write("\"" + arg.name+ "\"" + " -> " +"\""+ controlFLowNode.name+"\"" + "[label=" + "\"" + edgeNameMap("argument") + "\"" +
+      writerGraph.write(addQuotes(arg.name) + " -> " + addQuotes(controlFLowNode.name) + "[label=" + addQuotes(edgeNameMap("argument")) +
         " style=\"dashed\"" + "]" + "\n")
+      dot.edge(addQuotes(arg.name),addQuotes(controlFLowNode.name),attrs = MuMap("label"->addQuotes(edgeNameMap("argument")),
+      "style"->"dashed"))
+      gnn_input.binaryAdjacentcy+=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
     }
 
 
@@ -674,8 +689,11 @@ object DrawHornGraph {
       var andName = ""
       if (clauseInfo.guardNumber > 1) { //connect constraints by &
         andName = "xxx" + clauseInfo.name + "_" + clauseInfo.clauseID + "xxx" + "_and"
-        writerGraph.write("\"" + andName+ "\"" + " [label=\"" + "&" + "\"" +" nodeName="+ "\"" +andName+ "\"" +" class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+        writerGraph.write(addQuotes(andName) + " [label=\"" + "&" + "\"" +" nodeName="+ "\"" +andName+ "\"" +" class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+        dot.node(andName,addQuotes("&"),attrs = MuMap("andName"->addQuotes(andName),"class"->"Operator","shape"->"rect"))
+        gnn_input.incrementNodeIds(andName)
         clauseInfo.guardASTRootName = andName //store this node to clauses's guardASTRootName
+
       }
       //draw guard ast
       for ((rootName, ast) <- clauseInfo.guardASTGraph) { //draw guard ast
@@ -715,8 +733,12 @@ object DrawHornGraph {
 
     }
 
-    //draw data flow
+    //todo:check point . to be continue...
+    dot.render(fileName = fileName+"-test.gv", directory = "../trainData/", view = false)
+    writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
+      gnn_input.controlLocationIndices,gnn_input.argumentIndices)
 
+    //draw data flow
     //draw guarded data flow hyperedge for head
     for (clauseInfo <- clauseList; headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
       //create data flow hyperedge node
@@ -1635,12 +1657,11 @@ object DrawHornGraph {
       //println(hint)
       astNodeNamePrefix =hintName + "predicate_"+ hintCount + "_node_"
       translateConstraint(hint, root) //define nodes in graph, information is stored in logString
-      BinarySearchTreeForGraph.connectionType=edgeNameMap("predicateAST")
-      BinarySearchTreeForGraph.nodeString = logString
-      BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
-      logString = BinarySearchTreeForGraph.nodeString + BinarySearchTreeForGraph.relationString
-      BinarySearchTreeForGraph.relationString = ""
-      BinarySearchTreeForGraph.nodeString = ""
+
+      val binary_search_tree_for_graph = new BinarySearchTreeForGraphClass(edgeNameMap("predicateAST"))
+      binary_search_tree_for_graph.nodeString = logString
+      binary_search_tree_for_graph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
+      logString = binary_search_tree_for_graph.nodeString + binary_search_tree_for_graph.relationString
 
       val currentASTGraph = new predicateGraph(rootName, hintName, logString,hintType,i.toString,hint)
       ASTGraph += currentASTGraph //record graph as string
@@ -1657,7 +1678,7 @@ object DrawHornGraph {
   def drawAST(clause: ClauseTransitionInformation, ASTType: String,
               conatraintMap: Map[String, IExpression],
               freeVariableMap:MHashMap[String,ITerm],
-              edgeNameMap:Map[String,String]) = {
+              edgeNameMap:Map[String,String],gnn_inputs:GNNInput,dot:Digraph) = {
     var ASTGraph = ListBuffer[DataFlowASTGraphInfo]()
     var nodeCount: Int = 0
     var dataFlowCount: Int = 0
@@ -1676,7 +1697,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "!"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "!" + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "!" + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("!"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1685,7 +1709,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> "!"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "!" + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "!" + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("!"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1699,24 +1726,23 @@ object DrawHornGraph {
           if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == p)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p) -> (p)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(p) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(p) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(p)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(p)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == p)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p) -> (p)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(p) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(p) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(p)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(p)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (p)))
-              logString = logString + ( "\"" + astNodeNamePrefix + nodeCount + "\"" +  " [label=\"" + p + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Pred "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + p + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Pred "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(p),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Pred","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
-                rootName = astNodeNamePrefix + nodeCount
+                rootName = nodeName
               }
             }
             nodeCount = nodeCount + 1
@@ -1727,22 +1753,21 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == p)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(p) -> (p)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(p) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(p) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(p)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(p)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == p)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(p) -> (p)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(p) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(p) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(p)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(p)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (p)))
-              logString = logString + ( "\"" + astNodeNamePrefix + nodeCount + "\"" +  " [label=\"" + p + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Pred "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + p + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Pred "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(p),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Pred","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -1761,22 +1786,21 @@ object DrawHornGraph {
           if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == j)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j) -> (j)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(j) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(j) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(j)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(j)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == j)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j) -> (j)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(j) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(j) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(j)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(j)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (j)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + j + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + j + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(j),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Operator","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -1788,22 +1812,21 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == j)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(j) -> (j)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(j) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(j) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(j)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(j)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == j)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(j) -> (j)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(j) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(j) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(j)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(j)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (j)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + j + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + j + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(j),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Operator","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -1822,22 +1845,21 @@ object DrawHornGraph {
           if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.rchild = new TreeNodeForGraph(Map(nodeName-> (v)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=BoolValue "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=BoolValue "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"BoolValue","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -1845,22 +1867,21 @@ object DrawHornGraph {
           } else if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=BoolValue "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=BoolValue "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"BoolValue","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -1876,8 +1897,6 @@ object DrawHornGraph {
             if (clause.body.argumentList.exists(_.originalContent == c)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
               if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(c))){
-                logString = logString + ( "\"" + clause.body.getArgNameByContent(c) + "\"" +
-                  " [label=\"" + clause.body.getArgNameByContent(c) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(c)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.body.getArgNameByContent(c),clause.body.getArgNameByContent(c))
               }
               if (nodeCount == 0) {
@@ -1886,8 +1905,6 @@ object DrawHornGraph {
             } else if (clause.head.argumentList.exists(_.originalContent == c)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
               if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(c))){
-                logString = logString + ( "\"" + clause.head.getArgNameByContent(c) + "\"" +
-                  " [label=\"" + clause.head.getArgNameByContent(c) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(c)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.head.getArgNameByContent(c),clause.head.getArgNameByContent(c))
               }
               if (nodeCount == 0) {
@@ -1899,8 +1916,11 @@ object DrawHornGraph {
               val nodeName:String=nodeNameOut
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (c)))
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
+                dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
+                  "class"->"Constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName)
               }
               //logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + c + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
@@ -1913,18 +1933,12 @@ object DrawHornGraph {
               //              println(c)
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(c) -> (c)))
               if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(c))){
-                logString = logString + ( "\"" + clause.body.getArgNameByContent(c) + "\"" +
-                  " [label=\"" + clause.body.getArgNameByContent(c) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(c)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.body.getArgNameByContent(c),clause.body.getArgNameByContent(c))
               }
-//              logString = logString + ( "\"" + clause.body.getArgNameByContent(c) + "\"" +
-//                " [label=\"" + clause.body.getArgNameByContent(c) + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,clause.body.getArgNameByContent(c),rootName)
             } else if (clause.head.argumentList.exists(_.originalContent == c)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(c) -> (c)))
               if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(c))){
-                logString = logString + ( "\"" + clause.head.getArgNameByContent(c) + "\"" +
-                  " [label=\"" + clause.head.getArgNameByContent(c) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(c)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.head.getArgNameByContent(c),clause.head.getArgNameByContent(c))
               }
               rootName = checkASTRoot(nodeCount,clause.head.getArgNameByContent(c),rootName)
@@ -1934,8 +1948,11 @@ object DrawHornGraph {
               val nodeName:String=nodeNameOut
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (c)))
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
+                dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
+                  "class"->"Constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
             }
@@ -1947,7 +1964,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IEpsilon"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IEpsilon" +" nodeName="+ "\"" + nodeName+ "\"" +  "\""+" class=Operator "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IEpsilon" +" nodeName="+ addQuotes(nodeName) +  "\""+" class=Operator "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IEpsilon"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1957,7 +1977,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> "IEpsilon"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IEpsilon" +" nodeName="+ "\"" + nodeName+ "\"" +  "\""+" class=Operator "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IEpsilon" +" nodeName="+ addQuotes(nodeName) +  "\""+" class=Operator "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IEpsilon"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1971,7 +1994,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IFormulaITE"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IFormulaITE" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Formula "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IFormulaITE" + "\""+" nodeName="+ addQuotes(nodeName) + " class=Formula "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IFormulaITE"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Formula","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1983,7 +2009,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName-> "IFormulaITE"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IFormulaITE" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Formula "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IFormulaITE" + "\""+" nodeName="+ addQuotes(nodeName) + " class=Formula "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IFormulaITE"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Formula","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -1999,7 +2028,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IFunApp"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IFunApp" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=IFunApp "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IFunApp" + "\""+" nodeName="+ addQuotes(nodeName) + " class=IFunApp "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IFunApp"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"IFunApp","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2011,7 +2043,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "IFunApp"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "IFunApp" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=IFunApp "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "IFunApp" + "\""+" nodeName="+ addQuotes(nodeName) + " class=IFunApp "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("IFunApp"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"IFunApp","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2026,7 +2061,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> eq))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + eq + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + eq + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(eq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2037,7 +2075,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> eq))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + eq + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + eq + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(eq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2052,7 +2093,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> geq))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + geq + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + geq + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(geq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2063,7 +2107,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> geq))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + geq + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + geq + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(geq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2079,19 +2126,18 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> eq))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + eq + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + eq + "\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(eq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
             nodeCount = nodeCount + 1
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.lchild.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2100,14 +2146,21 @@ object DrawHornGraph {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.lchild.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Literal "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
             }
             nodeCount = nodeCount + 1
             translateConstraint(term, root.lchild)
           } else if (root.rchild == null) {
-            root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> eq))
-            logString = logString + ( "\"" + astNodeNamePrefix + nodeCount + "\"" +  " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+            val nodeName=astNodeNamePrefix + nodeCount
+            root.rchild = new TreeNodeForGraph(Map(nodeName -> eq))
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + eq + "\"" + " shape=\"rect\"" +" class=Operator "+ "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(eq),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2115,12 +2168,8 @@ object DrawHornGraph {
 
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.rchild.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2129,8 +2178,11 @@ object DrawHornGraph {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.rchild.rchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + ( "\"" + astNodeNamePrefix + nodeCount + "\"" +  " [label=\"" + eq + "\"" + " shape=\"rect\"" + "];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
             }
             nodeCount = nodeCount + 1
             translateConstraint(term, root.rchild)
@@ -2141,7 +2193,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nn=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nn -> geq))
-            logString = logString + ( "\"" + nn + "\"" +  " [label=\"" + geq + "\"" +" nodeName="+ "\"" + nn+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nn) +  " [label=\"" + geq + "\"" +" nodeName="+ addQuotes(nn) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nn),addQuotes(geq),MuMap("nodeName"->addQuotes(nn),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nn)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2152,7 +2207,10 @@ object DrawHornGraph {
             nodeHashMap=nodeHashMapOut
             val nodeName:String=nodeNameOut
             root.lchild.lchild = new TreeNodeForGraph(Map(nodeName -> ("0")))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "0" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "0" + "\""+" nodeName="+ addQuotes(nodeName) + " class=Constant "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("0"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             rootName = checkASTRoot(nodeCount,nodeName,rootName)
             nodeCount = nodeCount + 1
             translateConstraint(t, root.lchild)
@@ -2160,7 +2218,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nn=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nn -> geq))
-            logString = logString + ( "\"" + nn + "\"" +  " [label=\"" + geq + "\"" +" nodeName="+ "\"" + nn+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nn) +  " [label=\"" + geq + "\"" +" nodeName="+ addQuotes(nn) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nn),addQuotes(geq),MuMap("nodeName"->addQuotes(nn),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nn)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2170,7 +2231,10 @@ object DrawHornGraph {
             nodeHashMap=nodeHashMapOut
             val nodeName:String=nodeNameOut
             root.rchild.rchild = new TreeNodeForGraph(Map(nodeName -> ("0")))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "0" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Constant "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "0" + "\""+" nodeName="+ addQuotes(nodeName) + " class=Constant "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("0"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             rootName = checkASTRoot(nodeCount,nodeName,rootName)
             nodeCount = nodeCount + 1
             translateConstraint(t, root.rchild)
@@ -2184,8 +2248,6 @@ object DrawHornGraph {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
               if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(v))){
-                logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                  " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.body.getArgNameByContent(v),clause.body.getArgNameByContent(v))
               }
               if (nodeCount == 0) {
@@ -2194,8 +2256,6 @@ object DrawHornGraph {
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
               if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(v))){
-                logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                  " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.head.getArgNameByContent(v),clause.head.getArgNameByContent(v))
               }
               if (nodeCount == 0) {
@@ -2206,9 +2266,11 @@ object DrawHornGraph {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              //todo: remove node declare redundancy
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Literal "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
+                dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                  "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName)
                 clause.nodeList+=Pair(nodeName,v)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
@@ -2218,8 +2280,6 @@ object DrawHornGraph {
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
               if(!clause.nodeList.exists(x=>x._1==clause.body.getArgNameByContent(v))){
-                logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                  " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.body.getArgNameByContent(v),clause.body.getArgNameByContent(v))
               }
               if (nodeCount == 0) {
@@ -2228,8 +2288,6 @@ object DrawHornGraph {
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
               if(!clause.nodeList.exists(x=>x._1==clause.head.getArgNameByContent(v))){
-                logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                  " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
                 clause.nodeList+=Pair(clause.head.getArgNameByContent(v),clause.head.getArgNameByContent(v))
               }
               if (nodeCount == 0) {
@@ -2241,7 +2299,10 @@ object DrawHornGraph {
               val nodeName:String=nodeNameOut
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (v)))
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Literal "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
+                dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                  "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName)
                 clause.nodeList+=Pair(nodeName,v)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
@@ -2255,22 +2316,21 @@ object DrawHornGraph {
           if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == n)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n) -> (n)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(n) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(n) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(n)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(n)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == n)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n) -> (n)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(n) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(n) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(n)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(n)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (n)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + n + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=INamePart "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + n + "\""+" nodeName="+ addQuotes(nodeName) + " class=INamePart "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(n),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"INamePart","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -2285,22 +2345,21 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == n)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(n) -> (n)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(n) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(n) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(n)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(n)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == n)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(n) -> (n)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(n) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(n) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(n)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(n)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (n)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + n + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=INamePart "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + n + "\""+" nodeName="+ addQuotes(nodeName) + " class=INamePart "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(n),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"INamePart","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -2317,7 +2376,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> d))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + d + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + d + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(d),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2328,7 +2390,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> d))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + d + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + d + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(d),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2344,7 +2409,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> p))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + p + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + p + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(p),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2355,7 +2423,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> p))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + p + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + p + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(p),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2370,7 +2441,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> q))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + q + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + q + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(q),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2380,7 +2454,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> q))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + q + "\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + q + "\"" +" nodeName="+ addQuotes(nodeName) + " class= Operator"+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes(q),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2394,7 +2471,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName-> "ITermITE"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "ITermITE" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=ITermITE "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "ITermITE" + "\""+" nodeName="+ addQuotes(nodeName) + " class=ITermITE "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("ITermITE"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"ITermITE","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2406,7 +2486,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITermITE"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "ITermITE" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=ITermITE "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "ITermITE" + "\""+" nodeName="+ addQuotes(nodeName) + " class=ITermITE "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("ITermITE"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"ITermITE","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2423,7 +2506,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "*"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"*\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"*\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("*"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2431,15 +2517,11 @@ object DrawHornGraph {
 
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2448,7 +2530,10 @@ object DrawHornGraph {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.lchild.lchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Coeff "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Coeff "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Coeff","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -2458,7 +2543,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(nodeName -> "*"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"*\"" +" nodeName="+ "\"" + nodeName+ "\"" + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"*\"" +" nodeName="+ addQuotes(nodeName) + " class=Operator "+ " shape=\"rect\"" + "];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("*"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"Operator","shape"->"rect","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2466,15 +2554,11 @@ object DrawHornGraph {
 
             if (clause.body.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(v)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == v)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(v) -> (v)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(v) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(v) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(v)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(v)
               }
@@ -2483,7 +2567,10 @@ object DrawHornGraph {
               nodeHashMap=nodeHashMapOut
               val nodeName:String=nodeNameOut
               root.rchild.rchild = new TreeNodeForGraph(Map(nodeName -> (v)))
-              logString = logString + ( "\"" + nodeName + "\""  + " [label=\"" + v + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Coeff "+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName)  + " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Coeff "+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Coeff","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -2498,7 +2585,10 @@ object DrawHornGraph {
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "ITrigger"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "ITrigger" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=ITrigger "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "ITrigger" + "\""+" nodeName="+ addQuotes(nodeName) + " class=ITrigger "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("ITrigger"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"ITrigger","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2511,7 +2601,10 @@ object DrawHornGraph {
           } else if (root.rchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "ITrigger"))
-            logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + "ITrigger" + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=ITrigger "+"];" + "\n")
+            logString = logString + ( addQuotes(nodeName) +  " [label=\"" + "ITrigger" + "\""+" nodeName="+ addQuotes(nodeName) + " class=ITrigger "+"];" + "\n")
+            dot.node(addQuotes(nodeName),addQuotes("ITrigger"),MuMap("nodeName"->addQuotes(nodeName),
+              "class"->"ITrigger","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+            gnn_inputs.incrementNodeIds(nodeName)
             if (nodeCount == 0) {
               rootName = astNodeNamePrefix + nodeCount
             }
@@ -2530,22 +2623,21 @@ object DrawHornGraph {
           if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == i)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i) -> (i)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(i) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(i) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(i)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(i)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == i)) {
               root.rchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i) -> (i)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(i) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(i) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(i)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(i)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (i)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + i + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Variable"+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + i + "\""+" nodeName="+ addQuotes(nodeName) + " class=Variable"+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(i),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Variable","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
@@ -2554,73 +2646,30 @@ object DrawHornGraph {
           } else if (root.lchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == i)) {
               root.lchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i) -> (i)))
-              logString = logString + ( "\"" + clause.body.getArgNameByContent(i) + "\"" +
-                " [label=\"" + clause.body.getArgNameByContent(i) + "\""+" nodeName="+ "\"" + clause.body.getArgNameByContent(i)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.body.getArgNameByContent(i)
               }
             } else if (clause.head.argumentList.exists(_.originalContent == i)) {
               root.lchild = new TreeNodeForGraph(Map(clause.head.getArgNameByContent(i) -> (i)))
-              logString = logString + ( "\"" + clause.head.getArgNameByContent(i) + "\"" +
-                " [label=\"" + clause.head.getArgNameByContent(i) + "\""+" nodeName="+ "\"" + clause.head.getArgNameByContent(i)+ "\"" + " class=argument "+"];" + "\n")
               if (nodeCount == 0) {
                 rootName = clause.head.getArgNameByContent(i)
               }
             } else {
               val nodeName=astNodeNamePrefix + nodeCount
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (i)))
-              logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + i + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=Variable"+"];" + "\n")
+              logString = logString + ( addQuotes(nodeName) +  " [label=\"" + i + "\""+" nodeName="+ addQuotes(nodeName) + " class=Variable"+"];" + "\n")
+              dot.node(addQuotes(nodeName),addQuotes(i),MuMap("nodeName"->addQuotes(nodeName),
+                "class"->"Variable","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+              gnn_inputs.incrementNodeIds(nodeName)
               if (nodeCount == 0) {
                 rootName = astNodeNamePrefix + nodeCount
               }
             }
             nodeCount = nodeCount + 1
           }
-
         }
         case IIntFormula(rel, t) => {
           println("IIntFormula")
-          //          if(root.lchild==null){
-          //            if(rel.toString=="GeqZero"){
-          //              root.lchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
-          //              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
-          //              if(nodeCount==0){
-          //                rootName=astNodeNamePrefix+nodeCount
-          //              }
-          //              nodeCount=nodeCount+1
-          //              root.lchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-          //              //println(nodeCount + " [label=\""+ "0" +"\"];")
-          //              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-          //              if(nodeCount==0){
-          //                rootName=astNodeNamePrefix+nodeCount
-          //              }
-          //              nodeCount=nodeCount+1
-          //              //root=root.lchild
-          //              translateConstraint(t,root.lchild)
-          //              //println(nodeCount + " [label=\""+ ">=" +"\"];")
-          //
-          //            }
-          //          }else if(root.rchild==null){
-          //            if(rel.toString=="GeqZero"){
-          //              root.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->">="))
-          //              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ ">=" +"\"];"+"\n")
-          //              if(nodeCount==0){
-          //                rootName=astNodeNamePrefix+nodeCount
-          //              }
-          //              nodeCount=nodeCount+1
-          //              root.rchild.rchild = new TreeNodeForGraph(Map(astNodeNamePrefix+nodeCount->"constant_0"))
-          //              //println(nodeCount + " [label=\""+ "0" +"\"];")
-          //              logString=logString+(astNodeNamePrefix+nodeCount + " [label=\""+ "0" +"\"];"+"\n")
-          //              if(nodeCount==0){
-          //                rootName=astNodeNamePrefix+nodeCount
-          //              }
-          //              nodeCount=nodeCount+1
-          //              //root=root.lchild
-          //              translateConstraint(t,root.rchild)
-          //              //println(nodeCount + " [label=\""+ ">=" +"\"];")
-          //
-          //            }
-          //          }
         }
         case _ => println("?")
       }
@@ -2633,14 +2682,10 @@ object DrawHornGraph {
         clause.dataFlowNumber = clause.dataFlowNumber + 1
       }
       translateConstraint(conatraint, root) //define nodes in graph, information is stored in logString
-      BinarySearchTreeForGraph.connectionType=edgeNameMap("dataFlowAST")
-      BinarySearchTreeForGraph.ASTtype = ASTType
-      BinarySearchTreeForGraph.nodeString = logString
-      BinarySearchTreeForGraph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
-      logString = BinarySearchTreeForGraph.nodeString + BinarySearchTreeForGraph.relationString
-      BinarySearchTreeForGraph.relationString = ""
-      BinarySearchTreeForGraph.nodeString = ""
-
+      val binary_search_tree_for_graph=new BinarySearchTreeForGraphClass(edgeNameMap("dataFlowAST"),ASTType)
+      binary_search_tree_for_graph.nodeString = logString
+      binary_search_tree_for_graph.preOrder(rootMark,gnn_inputs,dot) //connect nodes in graph, information is stored in relationString
+      logString = binary_search_tree_for_graph.nodeString + binary_search_tree_for_graph.relationString
 
       val currentASTGraph = new DataFlowASTGraphInfo(rootName, argumentName, logString)
       ASTGraph += currentASTGraph //record graph as string
@@ -2727,6 +2772,9 @@ object DrawHornGraph {
     (nodeHashMap,nodeName)
   }
 
+  def addQuotes(str:String): String ={
+    return "\"" + str + "\""
+  }
 
 
 }

@@ -4,6 +4,7 @@ import java.io.{File, FileWriter, PrintWriter}
 import ap.parser._
 import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.concurrency.DrawHornGraph.GNNInput
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 
 import scala.collection.mutable.ListBuffer
@@ -435,65 +436,88 @@ class TreeNodeForGraph{
   }
 }
 
-  object BinarySearchTreeForGraph {
-    var connectionType=""
-    var ASTtype=""
-    var relationString:String="" //store node relation information
-    var nodeString:String="" //store node information
-    def preOrder(root: TreeNodeForGraph): Unit = {
-      if (root != null) {
-        //println(root.data)
-        val (k,v) = root.data.head
 
-        if(root.lchild!=null){
-          val (l_key,l_value)=root.lchild.data.head
-          if(k!=l_key && v!="root"){
-            //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
-            relationString=relationString+("\""+l_key+"\""+" -> "+"\""+k+"\""+"[label=\"" + connectionType + "\"]"+"\n")
-          }
+class BinarySearchTreeForGraphClass (connectionType:String,ASTtype:String = ""){
+
+  var relationString: String = "" //store node relation information
+  var nodeString: String = "" //store node information
+  def preOrder(root: TreeNodeForGraph): Unit = {
+    if (root != null) {
+      //println(root.data)
+      val (k, v) = root.data.head
+
+      if (root.lchild != null) {
+        val (l_key, l_value) = root.lchild.data.head
+        if (k != l_key && v != "root") {
+          //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
+          relationString = relationString + ("\"" + l_key + "\"" + " -> " + "\"" + k + "\"" + "[label=\"" + connectionType + "\"]" + "\n")
+        }
+      }
+
+      if (root.rchild != null) {
+        val (r_key, r_value) = root.rchild.data.head
+        if (k != r_key && v != "root") {
+          relationString = relationString + ("\"" + r_key + "\"" + " -> " + "\"" + k + "\"" + "[label=\"" + connectionType + "\"]" + "\n")
         }
 
-        if(root.rchild!=null){
-          val (r_key,r_value)=root.rchild.data.head
-          if(k!=r_key && v!="root"){
-            relationString=relationString+("\""+r_key+"\""+" -> "+"\""+k+"\""+"[label=\"" + connectionType + "\"]"+"\n")
-          }
+      }
+      preOrder(root.lchild)
+      //print(root.data.keys + "\n")
+      preOrder(root.rchild)
+      //print(root.data.keys + "\n")
+    }
+  }
+  def preOrder(root: TreeNodeForGraph,gnn_inputs:GNNInput,dot:Digraph): Unit = {
+    import scala.collection.mutable.{Map => MuMap}
+    import lazabs.horn.concurrency.DrawHornGraph.addQuotes
+    if (root != null) {
+      val (k, v) = root.data.head
+      if (root.lchild != null) {
+        val (l_key, l_value) = root.lchild.data.head
+        if (k != l_key && v != "root") {
+          //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
+          relationString = relationString + (addQuotes(l_key)+ " -> " + addQuotes(k) + "[label=\"" + connectionType + "\"]" + "\n")
+          dot.edge(l_key,k,attrs = MuMap("label"->addQuotes(connectionType)))
+          gnn_inputs.binaryAdjacentcy+=ListBuffer(gnn_inputs.nodeNameToIDMap(l_key),gnn_inputs.nodeNameToIDMap(k))
+        }
+      }
 
+      if (root.rchild != null) {
+        val (r_key, r_value) = root.rchild.data.head
+        if (k != r_key && v != "root") {
+          relationString = relationString + (addQuotes(r_key) + " -> " + addQuotes(k)+ "[label=\"" + connectionType + "\"]" + "\n")
+          dot.edge(r_key,k,attrs = MuMap("label"->addQuotes(connectionType)))
+          gnn_inputs.binaryAdjacentcy+=ListBuffer(gnn_inputs.nodeNameToIDMap(r_key),gnn_inputs.nodeNameToIDMap(k))
         }
 
-        preOrder(root.lchild)
-        //print(root.data.keys + "\n")
-        preOrder(root.rchild)
-        //print(root.data.keys + "\n")
-
       }
-
+      preOrder(root.lchild,gnn_inputs,dot)
+      //print(root.data.keys + "\n")
+      preOrder(root.rchild,gnn_inputs,dot)
+      //print(root.data.keys + "\n")
     }
-
-
-    def deleteANode(node:String): Unit ={
-      var tempRelation=""
-      var sList:Array[String]=nodeString.split("\n")
-      var deleteList=ListBuffer[String]()
-      for(line<-sList if line.contains(node)){
-        deleteList+=line
-      }
-      var nodeList=ListBuffer[String]()
-      for(line<-sList){
-        nodeList+=line
-      }
-      for(line<-deleteList){
-        nodeList-=line
-      }
-      //sList.filter(! _.contains(line))
-      for(line<-nodeList){
-        tempRelation=tempRelation+line
-      }
-      nodeString=tempRelation
+  }
+  def deleteANode(node: String): Unit = {
+    var tempRelation = ""
+    var sList: Array[String] = nodeString.split("\n")
+    var deleteList = ListBuffer[String]()
+    for (line <- sList if line.contains(node)) {
+      deleteList += line
     }
-
+    var nodeList = ListBuffer[String]()
+    for (line <- sList) {
+      nodeList += line
+    }
+    for (line <- deleteList) {
+      nodeList -= line
+    }
+    //sList.filter(! _.contains(line))
+    for (line <- nodeList) {
+      tempRelation = tempRelation + line
+    }
+    nodeString = tempRelation
+  }
 }
-
 
 
 
