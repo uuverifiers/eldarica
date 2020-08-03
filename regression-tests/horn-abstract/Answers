@@ -196,7 +196,7 @@ listcounter.correct.nts.smt2
 sat
 Warning: ignoring get-model
 Warning: ignoring exit
-Loading CEGAR hints ...
+---------------------------- Loading CEGAR hints -------------------------------
 sat
 (define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (= A E) (= B F)) (= D H)) (and (and (>= A 0) (>= B 0)) (>= D 0))))
 (define-fun INV2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (and (= A E) (= B F)) (= C G)) (= D H)) (and (and (and (>= A 1) (>= B 0)) (>= C 0)) (>= D 0))))

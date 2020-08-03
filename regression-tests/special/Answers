@@ -7,5 +7,5 @@ fib.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: SimpleArray(1)
-Loading CEGAR hints ...
+---------------------------- Loading CEGAR hints -------------------------------
 sat

@@ -64,24 +64,34 @@ object HornWrapper {
     def write(b: Int) = {}
   }
 
-  def verifySolution(fullSol: HornPreprocessor.Solution,
-                     unsimplifiedClauses: Seq[Clause]): Unit = {
-    // verify correctness of the solution
-    if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-      import p._
-      unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
-        addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-        !!(constraint)
-        for (IAtom(pred, args) <- body)
-          !!(subst(fullSol(pred), args.toList, 0))
-        ??(if (head.pred == HornClauses.FALSE)
-          i(false)
-        else
-          subst(fullSol(head.pred), head.args.toList, 0))
-        ??? == ProverStatus.Valid
-      }
-      }
-    })
+
+  def verifySolution(fullSol : HornPreprocessor.Solution,
+                     unsimplifiedClauses : Seq[Clause]) : Unit = {
+          // verify correctness of the solution
+          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+            import p._
+            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
+                addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+
+                for (c <- clause.constants) (Sort sortOf c) match {
+                  case Sort.MultipleValueBool =>
+                    // since we are making use of the equivalence
+                    // x == False <=> x != True, we need to add bounds on Boolean
+                    // variables (corresponding to the law of the excluded middle)
+                    !! (Sort.Bool.membershipConstraint(c))
+                  case _ =>
+                    // nothing
+                }
+
+                !! (constraint)
+                for (IAtom(pred, args) <- body)
+                  !! (subst(fullSol(pred), args.toList, 0))
+                ?? (if (head.pred == HornClauses.FALSE)
+                      i(false)
+                    else
+                      subst(fullSol(head.pred), head.args.toList, 0))
+                ??? == ProverStatus.Valid
+              }}})
   }
 
   def verifyCEX(fullCEX: HornPreprocessor.CounterExample,
