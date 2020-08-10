@@ -161,6 +161,7 @@ object HornPredAbs {
   }
 
   def predArgumentSorts(pred : Predicate) : Seq[Sort] = pred match {
+    // TODO: use function MonoSortedPredicate.argumentSorts for this
     case pred : MonoSortedPredicate => pred.argSorts
     case _ => for (_ <- 0 until pred.arity) yield Sort.Integer
   }
