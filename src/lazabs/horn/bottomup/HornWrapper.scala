@@ -241,9 +241,10 @@ class HornWrapper(constraints: Seq[HornClause],
   if (GlobalParameters.get.getHornGraph == true) {
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
     HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints)
-    DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints) //write horn format to file
+    DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints) //write horn graph and gnn to file
     //println(simplifiedClauses)
     //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
+    sys.exit()
   }
 
 
@@ -271,6 +272,8 @@ class HornWrapper(constraints: Seq[HornClause],
         allHints, preprocBackTranslator,
         disjunctive, outStream).result
     }
+
+
 
   //////////////////////////////////////////////////////////////////////////////
 

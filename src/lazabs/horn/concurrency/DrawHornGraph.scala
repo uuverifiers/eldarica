@@ -48,11 +48,11 @@ object DrawHornGraph {
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
       "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
-    println(oneGraphGNNInput)
+    //println(oneGraphGNNInput)
 
 
     println("Write GNNInput to file")
-    val writer = new PrintWriter(new File("../trainData/" + file +"-test"+ ".JSON")) //python path
+    val writer = new PrintWriter(new File("../trainData/" + file + ".JSON")) //python path
     writer.write(oneGraphGNNInput.toString())
     writer.close()
 
@@ -491,9 +491,9 @@ object DrawHornGraph {
 
           for (bodyArg <- currentClause.body.argumentList; headArg <- currentClause.head.argumentList
                if headArg.originalContent == comArg._1 && bodyArg.originalContent == comArg._1) {
-                println("---debug---")
-                println(bodyArg.name)
-                println(headArg.dataFLowHyperEdge.name)
+//                println("---debug---")
+//                println(bodyArg.name)
+//                println(headArg.dataFLowHyperEdge.name)
                 currentClause.simpleDataFlowConnection = currentClause.simpleDataFlowConnection ++
                   Map(bodyArg ->headArg)
 //                    ("\"" + bodyArg.name + "\"" + " -> " + "\"" + headArg.dataFLowHyperEdge.name+ "\"" +
@@ -701,7 +701,7 @@ object DrawHornGraph {
           //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
           writerGraph.write(addQuotes(rootName) + " -> " + addQuotes(andName)//ast.substring(0,ast.indexOf("[label")-1)
             + " [label=\"" + edgeNameMap("astAnd") + "\"" + "];" + "\n")
-          dot.edge(rootName,andName,attrs = MuMap("label"->addQuotes( edgeNameMap("astAnd"))))
+          dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("astAnd"))))
           gnn_input.binaryAdjacentcy+=ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
         } else {
           clauseInfo.guardASTRootName = rootName
@@ -846,8 +846,8 @@ object DrawHornGraph {
       }
     }
 
-    //todo:check point . to be continue...
-    dot.render(fileName = fileName+"-test.gv", directory = "../trainData/", view = false)
+    //todo:check point . output horn graph and gnn input
+    dot.render(fileName = fileName+"-auto"+".gv", directory = "../trainData/", view = false)
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices)
 

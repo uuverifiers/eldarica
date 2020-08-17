@@ -525,7 +525,7 @@ object Main {
           " -solvabilityTimeout:time\tset timeout for solvability\n"+
           " -rank:n\tuse top n or score above n ranked hints read from file\n"+
           " -getSMT2\tget SMT2 file\n"+
-          " -getHornGraph\tget horn graph file\n"+
+          " -getHornGraph\tget horn graph file and GNN input\n"+
           " -hornGraphWithHints\tget horn graph file with hints\n"
 
 
@@ -703,7 +703,6 @@ object Main {
         lazabs.horn.concurrency.ReaderMain.printClauses(smallSystem)
         return
       }
-
 
       if(extractTemplates){
         val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data by templates
