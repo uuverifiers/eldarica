@@ -279,7 +279,7 @@ class VerificationLoop(system : ParametricEncoder.System,
 
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
         HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
-        //sys.exit()
+        sys.exit()
       }
 
 
