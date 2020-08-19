@@ -847,7 +847,8 @@ object DrawHornGraph {
     }
 
     //todo:check point . output horn graph and gnn input
-    dot.render(fileName = fileName+"-auto"+".gv", directory = "../trainData/", view = false)
+    dot.save(fileName = fileName+"-auto"+".gv", directory = "../trainData/")
+    //dot.render(fileName = fileName+"-auto"+".gv", directory = "../trainData/", view = false)
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices)
 
