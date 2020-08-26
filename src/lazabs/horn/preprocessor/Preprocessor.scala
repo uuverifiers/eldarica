@@ -112,20 +112,13 @@ object HornPreprocessor {
     for (((t, s), n) <- (a.args.iterator zip sorts.iterator).zipWithIndex)
       (Sort sortOf t, s) match {
         case (Sort.Numeric(_), Sort.Numeric(_)) => // ok
-        case (AnyBool(_), AnyBool(_))           => // ok
+        case (Sort.AnyBool(_), Sort.AnyBool(_)) => // ok
         case (s2, s) if s2 != s =>
           throw new Exception("Argument " + n + " of " + a.pred +
                                 " should have sort " + s + " but is " + t +
                                 " of sort " + s2)
         case _ => // ok
       }
-  }
-
-  object AnyBool {
-    def unapply(s : Sort) : Option[Sort] = s match {
-      case Sort.Bool | Sort.MultipleValueBool => Some(s)
-      case _ => None
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
