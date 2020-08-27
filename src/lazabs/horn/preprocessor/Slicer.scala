@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
 import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
 
 import ap.theories.ADT
@@ -111,21 +112,28 @@ object Slicer extends HornPreprocessor {
                       (IConstant(c), t) <- formal.iterator zip actual.iterator)
                  yield (c, t)).toMap
 
-              val usedHeadArgs = usedArgs(head.pred)
-              val argIt = newHeadArgs.iterator
+              val usedHeadArgs    = usedArgs(head.pred)
+              val argIt           = newHeadArgs.iterator
+              var unknownArgument = false
               val oldHeadArgs =
                 (for ((t, i) <- head.args.iterator.zipWithIndex) yield {
-                   if (usedHeadArgs contains i)
+                   if (unknownArgument)
+                     null
+                   else if (usedHeadArgs contains i)
                      argIt.next
                    else
                      SimplifyingConstantSubstVisitor(t, simpleMapping) match {
-                       case ConcreteTerm(t) => t
-                       case _ => null
+                       case ConcreteTerm(t) =>
+                         t
+                       case _ => {
+                         unknownArgument = true
+                         null
+                       }
                      }
                  }).toList
 
               val completeOldHeadArgs =
-                if (oldHeadArgs contains null) p.scope {
+                if (unknownArgument) p.scope {
                   // do a more expensive semantic inference of the head state
                   import p._
 

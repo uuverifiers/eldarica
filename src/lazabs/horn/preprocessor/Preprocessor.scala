@@ -35,6 +35,7 @@ import IExpression._
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
 import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -82,6 +83,47 @@ object HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Verify that all atoms in the clause have arguments of correct sorts.
+   */
+  def typeCheck(clause : HornClauses.Clause) : Unit =
+    for (a <- List(clause.head) ++ clause.body)
+      typeCheck(a)
+
+  /**
+   * Verify that all atoms in all clauses have arguments of correct sorts.
+   */
+  def typeCheck(clauses : Iterable[HornClauses.Clause]) : Unit =
+    if (lazabs.Main.assertions)
+      for (clause <- clauses)
+        typeCheck(clause)
+
+  /**
+   * Verify that all terms in a counterexample have correct sorts.
+   */
+  def typeCheck(cex : CounterExample) : Unit =
+    if (lazabs.Main.assertions)
+      for (p <- cex) typeCheck(p._1)
+
+  /**
+   * Verify that all arguments have correct sorts.
+   */
+  def typeCheck(a : IAtom) : Unit = {
+    val sorts = predArgumentSorts(a.pred)
+    for (((t, s), n) <- (a.args.iterator zip sorts.iterator).zipWithIndex)
+      (Sort sortOf t, s) match {
+        case (Sort.Numeric(_), Sort.Numeric(_)) => // ok
+        case (Sort.AnyBool(_), Sort.AnyBool(_)) => // ok
+        case (s2, s) if s2 != s =>
+          throw new Exception("Argument " + n + " of " + a.pred +
+                                " should have sort " + s + " but is " + t +
+                                " of sort " + s2)
+        case _ => // ok
+      }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Class for back-translating solutions of Horn constraints,
    * undoing any simplification that was done upfront.
    */
@@ -112,8 +154,16 @@ object HornPreprocessor {
         extends BackTranslator {
     def translate(solution : Solution) =
       (solution /: translators) { case (sol, t) => t translate sol }
-    def translate(cex : CounterExample) =
-      (cex /: translators) { case (cex, t) => t translate cex }
+    def translate(cex : CounterExample) = {
+      typeCheck(cex)
+      (cex /: translators) {
+        case (cex, t) => {
+          val newCEX = t translate cex
+          typeCheck(newCEX)
+          newCEX
+        }
+      }
+    }
   }
 
   val IDENTITY_TRANSLATOR = new BackTranslator {

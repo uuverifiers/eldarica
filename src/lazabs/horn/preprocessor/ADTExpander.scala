@@ -87,7 +87,7 @@ class ADTExpander(val name : String,
     val newPreds =
       new MHashMap[Predicate,
                    (Predicate,                         // new predicate
-                    Seq[Option[Seq[(ITerm, String)]]], // additional arguments
+                    Seq[Option[Seq[(ITerm, Sort, String)]]], // additional arguments
                     Map[Int, Int])]                    // argument mapping,
                                                        //   needed for
                                                        //   VerifHintElement
@@ -107,7 +107,7 @@ class ADTExpander(val name : String,
     for (pred <- predicates) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
-      val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, String)]]]
+      val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, Sort, String)]]]
       val argMapping = new MHashMap[Int, Int]
       val solSubst   = new ArrayBuffer[ITerm]
       val cexArgs    = new ArrayBuffer[ITerm]
@@ -125,9 +125,9 @@ class ADTExpander(val name : String,
             for (newArguments <-
                    expansion.expand(pred, argNum,
                                     sort.asInstanceOf[ADT.ADTProxySort])) {
-              val (addArgs, addSorts, addNames) = newArguments.unzip3
+              val (addArgs, addSorts, _) = newArguments.unzip3
               newSorts ++= addSorts
-              addedArgs(addedArgs.size - 1) = Some(addArgs zip addNames)
+              addedArgs(addedArgs.size - 1) = Some(newArguments)
               val subst = (List(solSubst.last), 1)
               for (t <- addArgs)
                 solSubst += VariableSubstVisitor(t, subst)
@@ -170,15 +170,13 @@ class ADTExpander(val name : String,
         def rewriteAtom(a : IAtom) : IAtom =
           (newPreds get a.pred) match {
             case Some((newPred, addedArgs, _)) => {
-              val sorts = predArgumentSorts(newPred)
               val newArgs = new ArrayBuffer[ITerm]
 
-              for (((t, maybeArgs), sort) <-
-                     a.args.iterator zip addedArgs.iterator zip sorts.iterator){
+              for ((t, maybeArgs) <- a.args.iterator zip addedArgs.iterator){
                 newArgs += t
                 for (newArgSpecs <- maybeArgs) {
                   val subst = (List(t), 1)
-                  for ((s, name) <- newArgSpecs) {
+                  for ((s, sort, name) <- newArgSpecs) {
                     val instArg =
                       VariableSubstVisitor(s, subst)
                     newArgs +=
