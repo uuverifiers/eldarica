@@ -49,7 +49,7 @@ import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
 import HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, StaticAbstractionBuilderSmtHintsSelection, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
@@ -239,14 +239,13 @@ class HornWrapper(constraints: Seq[HornClause],
   //print horn graph in smt format
   val sortedHints = HintsSelection.sortHints(simpPreHints)
   if (GlobalParameters.get.getHornGraph == true) {
-    //val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-    //HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints)
+    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+    HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints)
     DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints) //write horn graph and gnn to file
     //println(simplifiedClauses)
     //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
     sys.exit()
   }
-
 
   private val postHints: VerificationHints = {
     val name2Pred =
@@ -374,8 +373,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   private lazy val absBuilder =
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
 
-  private lazy val autoAbstraction: AbstractionMap =
+  private lazy val autoAbstraction: AbstractionMap = {
     absBuilder.abstractionRecords
+  }
 
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction: AbstractionMap =
@@ -386,9 +386,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   /** Learned interpolation abstraction hints */
   //read ranks from file
+//  private lazy val absBuilderGNN = {
+//  new StaticAbstractionBuilderSmtHintsSelection(simplifiedClauses, abstractionType)
+//  }
+//  private lazy val learnedAbstraction: AbstractionMap =
+//  absBuilder.abstractionRecords
 
-  println("--------auto-generated-templates----------")
-  absBuilder.abstractionHints.pretyPrintHints()
+
+
+//  println("--------auto-generated-templates----------")
+//  absBuilder.abstractionHints.pretyPrintHints()
 
   val rankedArumentFileName=""
   private val learnedHints=learnedInterpolationAbstractionHints(rankedArumentFileName,simplifiedClauses,absBuilder.abstractionHints)
