@@ -49,7 +49,7 @@ import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
 import HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, StaticAbstractionBuilderSmtHintsSelection, VerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm

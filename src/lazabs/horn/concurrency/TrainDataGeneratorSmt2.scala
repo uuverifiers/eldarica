@@ -40,7 +40,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, StaticAbstractionBuilderSmtHintsSelection, VerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.concurrency.{DrawHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}

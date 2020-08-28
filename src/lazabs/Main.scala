@@ -47,7 +47,6 @@ import lazabs.horn.parser.HornReader
 import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.abstractions.StaticAbstractionBuilderSmtHintsSelection
 import lazabs.horn.concurrency.CCReader
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.concurrency.{VerificationLoop}
