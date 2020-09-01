@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer, Chencheng Liang All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -492,32 +492,23 @@ object TrainDataGeneratorPredicatesSmt2 {
           if (selectedPredicates.isEmpty) {
 
           } else {
+            val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
             //only write to file when optimized hint is not empty
             HintsSelection.writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
 
-            val writerPositive = new PrintWriter(new File("../trainData/"+fileName+".positiveHints")) //python path
+            val writerPositive = new PrintWriter(new File(filePath + fileName+".positiveHints")) //python path
             for(wrappedHint<-PositiveHintsWithID){
               writerPositive.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
             }
             writerPositive.close()
 
-            val writerNegative = new PrintWriter(new File("../trainData/"+fileName+".negativeHints")) //python path
+            val writerNegative = new PrintWriter(new File(filePath + fileName+".negativeHints")) //python path
             for(wrappedHint<-NegativeHintsWithID){
               writerNegative.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
             }
             writerNegative.close()
 //            HintsSelection.writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
 //            HintsSelection.writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
-          }
-
-          //clauses:Seq[HornClauses.Clause],clauseSet: Seq[HornClause]
-
-          //HintsSelection.writeHornAndGraphToFiles(selectedPredicates,sortedHints,simplifiedClauses,clauseSet)
-
-          if(selectedPredicates.isEmpty){ //when no hint available
-            println("No hints selected (no need for hints)")
-            //not write horn clauses to file
-          }else{
 
             //Output graphs
             //val hornGraph = new GraphTranslator(simplifiedClauses, GlobalParameters.get.fileName)
@@ -527,23 +518,22 @@ object TrainDataGeneratorPredicatesSmt2 {
             HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedPredicates)
 
             //write horn clauses to file
-            val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
-            val writer = new PrintWriter(new File("../trainData/"+fileName+".horn")) //python path
+
+            val writer = new PrintWriter(new File(filePath+fileName+".horn")) //python path
             writer.write(HornPrinter(clauseSet))
             writer.close()
             //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
             //write smt2 format to file
             if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-              HintsSelection.writeSMTFormatToFile(simplifiedClauses,"../trainData/")  //write smt2 format to file
+              HintsSelection.writeSMTFormatToFile(simplifiedClauses,filePath)  //write smt2 format to file
             }
             if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
               //copy smt2 file
-              val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1)
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../trainData/"+fileName)
+              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,filePath+fileName)
             }
-
+            //clauses:Seq[HornClauses.Clause],clauseSet: Seq[HornClause]
+            //HintsSelection.writeHornAndGraphToFiles(selectedPredicates,sortedHints,simplifiedClauses,clauseSet)
           }
-
 
         }
 

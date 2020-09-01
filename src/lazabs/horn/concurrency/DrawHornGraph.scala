@@ -1,3 +1,31 @@
+/**
+ * Copyright (c) 2011-2020 Philipp Ruemmer, Chencheng Liang All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
@@ -35,8 +63,10 @@ object DrawHornGraph {
 
 
     println("Write GNNInput to file")
-    val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val writer = new PrintWriter(new File("../trainData/" + fileName + ".JSON")) //python path
+
+    val writer = new PrintWriter(new File(file+ ".JSON")) //python path
+    //val fileName = file.substring(file.lastIndexOf("/") + 1)
+    //val writer = new PrintWriter(new File("../trainData/" + fileName + ".JSON")) //python path
     writer.write(oneGraphGNNInput.toString())
     writer.close()
 
@@ -52,7 +82,8 @@ object DrawHornGraph {
 
 
     println("Write GNNInput to file")
-    val writer = new PrintWriter(new File("../trainData/" + file + ".JSON")) //python path
+    val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
+    //val writer = new PrintWriter(new File("../trainData/" + file + ".JSON")) //python path
     writer.write(oneGraphGNNInput.toString())
     writer.close()
 
@@ -139,7 +170,8 @@ object DrawHornGraph {
     //println(file.substring(file.lastIndexOf("/")+1))
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
-    val writer = new PrintWriter(new File("../trainData/" + fileName + ".HornGraph")) //python path
+    //val writer = new PrintWriter(new File("../trainData/" + fileName + ".HornGraph")) //python path
+    val writer = new PrintWriter(new File(file + ".HornGraph")) //python path
 
 
 
@@ -605,7 +637,8 @@ object DrawHornGraph {
 
 
     println("Write horn to graph")
-    val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
+    val writerGraph = new PrintWriter(new File(file + ".gv")) //python path
+    //val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
 
 
     writerGraph.write("digraph dag {" + "\n")
@@ -847,7 +880,9 @@ object DrawHornGraph {
     }
 
     //todo:check point . output horn graph and gnn input
-    dot.save(fileName = fileName+"-auto"+".gv", directory = "../trainData/")
+    val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
+    dot.save(fileName = fileName+"-auto"+".gv", directory = filePath)
+    //dot.save(fileName = fileName+"-auto"+".gv", directory = "../trainData/")
     //dot.render(fileName = fileName+"-auto"+".gv", directory = "../trainData/", view = false)
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices)
@@ -948,7 +983,7 @@ object DrawHornGraph {
         case IBinFormula(junctor, f1, f2) => {
           //println("IBinFormula")
           val j = junctor.toString
-          println(j.toString)
+          //println(j.toString)
           if (root.lchild == null) {
             if (argumentList.exists(_.originalContent == j)) {
               root.lchild = new TreeNodeForGraph(Map(cfn.getArgNameByContent(j) -> (j)))
@@ -1085,7 +1120,7 @@ object DrawHornGraph {
           nodeCount = nodeCount + 1
         }
         case IEpsilon(cond) => {
-          println("IEpsilon")
+          //println("IEpsilon")
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IEpsilon"))
@@ -1109,7 +1144,7 @@ object DrawHornGraph {
         }
         //case IFormula()=>println("IFormula")
         case IFormulaITE(cond, left, right) => {
-          println("IFormulaITE")
+          //println("IFormulaITE")
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IFormulaITE"))
@@ -1137,7 +1172,7 @@ object DrawHornGraph {
           }
         }
         case IFunApp(fun, args) => {
-          println("IFunApp");
+          //println("IFunApp");
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "IFunApp"))
@@ -1361,7 +1396,7 @@ object DrawHornGraph {
           nodeCount = nodeCount + 1
         }
         case INamedPart(name, subformula) => {
-          println("INamedPart")
+          //println("INamedPart")
           val n = name.toString
           if (root.lchild == null) {
             if (argumentList.exists(_.originalContent == n)) {
@@ -1464,7 +1499,7 @@ object DrawHornGraph {
         }
         case IQuantified(quan, subformula) => {
           val q = quan.toString
-          println("IQuantified")
+          //println("IQuantified")
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> q))
@@ -1488,7 +1523,7 @@ object DrawHornGraph {
         }
         //case ITerm()=>println("ITerm")
         case ITermITE(cond, left, right) => {
-          println("ITermITE")
+          //println("ITermITE")
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "ITermITE"))
@@ -1578,7 +1613,7 @@ object DrawHornGraph {
 
         }
         case ITrigger(patterns, subformula) => {
-          println("ITrigger");
+          //println("ITrigger");
           if (root.lchild == null) {
             val nodeName=astNodeNamePrefix + nodeCount
             root.lchild = new TreeNodeForGraph(Map(nodeName -> "ITrigger"))
@@ -2658,9 +2693,9 @@ object DrawHornGraph {
           }
         }
         case IVariable(index) => {
-          println("IVariable")
+          //println("IVariable")
           val i = index.toString
-          println(i)
+          //println(i)
           if (root.rchild == null) {
             if (clause.body.argumentList.exists(_.originalContent == i)) {
               root.rchild = new TreeNodeForGraph(Map(clause.body.getArgNameByContent(i) -> (i)))

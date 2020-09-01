@@ -10,14 +10,9 @@ import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import scala.collection.mutable.ListBuffer
 
 class GraphTranslator(hornClauses : Seq[HornClauses.Clause],file:String) {
-
   import HornClauses.Clause
 
-  //println(file.substring(file.lastIndexOf("/")+1))
-  val fileName=file.substring(file.lastIndexOf("/")+1)
-  //println(fileName)
-  //val writer = new PrintWriter(new File("graphs/"+fileName+".gv"))
-  val writer = new PrintWriter(new File("../graphs/"+fileName+".gv")) //python path
+  val writer = new PrintWriter(new File(file+".gv")) //python path
 
   // println(hornClauses)
 
@@ -54,11 +49,9 @@ class GraphTranslator_hint(hornClauses : Seq[HornClauses.Clause],
   var logString:String="" //store node information
 
   //create fileName.hints.graphs directory
-  val fileName=file.substring(file.lastIndexOf("/")+1)
-  //val pathName= "graphs/"+fileName+".hints.graphs"+"/"
-  val pathName= "../trainData/"+fileName+".hints.graphs"+"/" //python path
+  val pathName= file + ".hints.graphs"+"/" //python path
   //val hintFileName=head.name.toString()+":"+oneHint.toString()+".gv"
-  val hintFile = new File(pathName)
+  val hintFile = new File(file + ".hints.graphs"+"/")
   hintFile.mkdir() //create fileName.hints.graphs directory
 
   println("---graph translator (hints)---")

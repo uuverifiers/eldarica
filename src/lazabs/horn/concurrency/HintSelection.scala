@@ -1,5 +1,32 @@
+/**
+ * Copyright (c) 2011-2020 Philipp Ruemmer, CHencheng Liang. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package lazabs.horn.concurrency
-
 import ap.terfor.preds.Predicate
 import ap.terfor._
 import ap.parser.{IExpression, _}
@@ -701,25 +728,23 @@ object HintsSelection {
 
   def writeHintsWithIDToFile(wrappedHintList: Seq[wrappedHintWithID], fileName: String, hintType: String) {
     val distinctWrappedHintList = wrappedHintList.distinct
+    val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
     if (hintType == "initial") {
-      //val writer = new PrintWriter(new File("trainData/"+fileName+".initialHints"))
-      val writer = new PrintWriter(new File("../trainData/" + fileName + ".initialHints")) //python path
+      val writer = new PrintWriter(new File(filePath + fileName + ".initialHints")) //python path
       for (wrappedHint <- wrappedHintList) {
         writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
       writer.close()
     }
     if (hintType == "positive") {
-      //val writer = new PrintWriter(new File("trainData/"+fileName+".positiveHints"))
-      val writer = new PrintWriter(new File("../trainData/" + fileName + ".positiveHints")) //python path
+      val writer = new PrintWriter(new File(filePath + fileName + ".positiveHints")) //python path
       for (wrappedHint <- wrappedHintList) {
         writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
       writer.close()
     }
     if (hintType == "negative") {
-      //val writer = new PrintWriter(new File("trainData/"+fileName+".negativeHints"))
-      val writer = new PrintWriter(new File("../trainData/" + fileName + ".negativeHints")) //python path
+      val writer = new PrintWriter(new File(filePath+ fileName + ".negativeHints")) //python path
       for (wrappedHint <- wrappedHintList) {
         writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
@@ -932,11 +957,8 @@ object HintsSelection {
   }
 
   def readHintsIDFromFile(fileName: String, originalHints: VerificationHints, rank: String = ""): VerificationHints = {
-    val fileNameShorter = fileName.substring(fileName.lastIndexOf("/"), fileName.length) //get file name
     var parsedHintslist = Seq[Seq[String]]() //store parsed hints
-
-    //val f = "predictedHints/"+fileNameShorter+".optimizedHints" //read file
-    val f = "../predictedHints/" + fileNameShorter + ".optimizedHints" //python file
+    val f = fileName + ".optimizedHints" //python file
     for (line <- Source.fromFile(f).getLines) {
       var parsedHints = Seq[String]() //store parsed hints
       //parse read file
@@ -958,7 +980,7 @@ object HintsSelection {
     println("---readInitialHints-----")
     var readInitialHintsWithID: Map[String, String] = Map()
     //val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
-    val fInitial = "../predictedHints/" + fileNameShorter + ".initialHints" //python file
+    val fInitial =  fileName + ".initialHints" //python file
     for (line <- Source.fromFile(fInitial).getLines) {
       var parsedHints = Seq[String]() //store parsed hints
       //parse read file
@@ -1061,14 +1083,11 @@ object HintsSelection {
 
 
   def writeHornClausesToFile(file: String, simpClauses: Clauses): Unit = {
-    val fileName = file.substring(file.lastIndexOf("/") + 1)
-    //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
-    val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
+    val writer = new PrintWriter(new File(file + ".horn"))
     for (clause <- simpClauses) {
       writer.write(clause.toPrologString + "\n")
     }
     writer.close()
-
   }
 
 
@@ -1119,7 +1138,7 @@ object HintsSelection {
                                countOccurrence:Boolean=true): Unit ={
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val writer = new PrintWriter(new File("../trainData/" + fileName + ".arguments")) //python path
+    val writer = new PrintWriter(new File(file + ".arguments")) //python path
 
     //get argument list
     var argID=0

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2020 Philipp Ruemmer, CHencheng Liang. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,10 +71,10 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
   //  HintsSelection.readHintsFromJSON("test")
   //  println("---debug---")
 
-
+  val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
   //output all training data
   if(GlobalParameters.get.getSMT2==true){
-    HintsSelection.writeSMTFormatToFile(encoder.allClauses,"regression-tests/smt-graph/")  //write smt2 format to file
+    HintsSelection.writeSMTFormatToFile(encoder.allClauses,filePath)  //write smt2 format to file
     println(encoder.allClauses)
   }
 
@@ -98,7 +98,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(simpClauses,"../trainData/")  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simpClauses,filePath)  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file

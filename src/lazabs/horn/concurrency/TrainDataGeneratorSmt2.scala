@@ -255,18 +255,19 @@ object TrainDataGeneratorSmt2 {
 
             //write horn clauses to file
             val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-            val writer = new PrintWriter(new File("../trainData/" + fileName + ".horn")) //python path
+            val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
+            val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))
             writer.close()
             //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
             //write smt2 format to file
             if (GlobalParameters.get.fileName.endsWith(".c")) { //if it is a c file
-              HintsSelection.writeSMTFormatToFile(simplifiedClauses, "../trainData/") //write smt2 format to file
+              HintsSelection.writeSMTFormatToFile(simplifiedClauses, filePath) //write smt2 format to file
             }
             if (GlobalParameters.get.fileName.endsWith(".smt2")) { //if it is a smt2 file
               //copy smt2 file
               val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../trainData/" + fileName)
+              HintsSelection.moveRenameFile(GlobalParameters.get.fileName, filePath + fileName)
             }
           }
         }

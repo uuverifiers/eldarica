@@ -215,9 +215,6 @@ class HornWrapper(constraints: Seq[HornClause],
         }
 
       if (GlobalParameters.get.printHornSimplified) {
-        //      println("-------------------------------")
-        //      printClauses(simplifiedClauses)
-        //      println("-------------------------------")
 
         println("Clauses after preprocessing:")
         for (c <- simplifiedClauses)
