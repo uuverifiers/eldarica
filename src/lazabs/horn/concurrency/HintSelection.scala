@@ -1135,7 +1135,7 @@ object HintsSelection {
   def writeArgumentScoreToFile(file:String,
                                argumentList:List[(IExpression.Predicate,Int)],
                                positiveHints:VerificationHints,
-                               countOccurrence:Boolean=true): Unit ={
+                               countOccurrence:Boolean=true): ListBuffer[argumentInfo] ={
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     val writer = new PrintWriter(new File(file + ".arguments")) //python path
@@ -1175,16 +1175,16 @@ object HintsSelection {
       }
 
     }
-
     //normalize score
-
     //write arguments with score to file
     for(arg<-arguments){
       writer.write(arg.ID+":"+arg.location.toString()+":"+"argument"+arg.index+":"+arg.score+"\n")
     }
-
     writer.close()
-
+//    val argumentIDList=for(arg<-arguments) yield arg.ID
+//    val argumentNameList=for(arg<-arguments) yield arg.location.toString()+":"+"argument"+arg.index
+//    val argumentOccurrence=for(arg<-arguments) yield arg.score
+  (arguments)
   }
 }
 class hintInfo(e:IExpression,t:String,h:IExpression.Predicate){

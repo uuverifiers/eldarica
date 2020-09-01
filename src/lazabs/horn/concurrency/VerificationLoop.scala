@@ -275,10 +275,10 @@ class VerificationLoop(system : ParametricEncoder.System,
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
 
-        DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,optimizedHints) //write horn graph and gn input to file
+        val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+        val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
+        DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,optimizedHints,argumentInfo) //write horn graph and gn input to file
 
-        //val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-        //HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
         sys.exit()
       }
 

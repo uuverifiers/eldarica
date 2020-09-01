@@ -74,12 +74,15 @@ object DrawHornGraph {
 
   def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacentcy:ListBuffer[ListBuffer[Int]],
                            tenaryAdjacency:ListBuffer[ListBuffer[Int]],
-                           controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int]): Unit ={
+                           controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],
+                           argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int]): Unit ={
+
+
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
       "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
-      "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
+      "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
+    "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence)
     //println(oneGraphGNNInput)
-
 
     println("Write GNNInput to file")
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
@@ -118,6 +121,7 @@ object DrawHornGraph {
     var controlLocationIndices=new ListBuffer[Int]()
     var argumentIndices=new ListBuffer[Int]()
 
+
     var nodeNameToIDMap =   MuMap[String, Int]()
     var controlFLowTenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
 
@@ -136,7 +140,7 @@ object DrawHornGraph {
     }
   }
 
-  def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints): Unit = {
+  def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfo:ListBuffer[argumentInfo]): Unit = {
     val dot = new Digraph(comment = "Horn Graph")
     val gnn_input=new GNNInput()
 
@@ -882,10 +886,12 @@ object DrawHornGraph {
     //todo:check point . output horn graph and gnn input
     val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
     dot.save(fileName = fileName+"-auto"+".gv", directory = filePath)
-    //dot.save(fileName = fileName+"-auto"+".gv", directory = "../trainData/")
-    //dot.render(fileName = fileName+"-auto"+".gv", directory = "../trainData/", view = false)
+
+    val argumentIDList=for(arg<-argumentInfo) yield arg.ID
+    val argumentNameList=for(arg<-argumentInfo) yield arg.location.toString()+":"+"argument"+arg.index
+    val argumentOccurrence=for(arg<-argumentInfo) yield arg.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
-      gnn_input.controlLocationIndices,gnn_input.argumentIndices)
+      gnn_input.controlLocationIndices,gnn_input.argumentIndices,argumentIDList,argumentNameList,argumentOccurrence)
 
 
 

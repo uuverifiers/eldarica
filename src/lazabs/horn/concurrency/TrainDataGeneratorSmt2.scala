@@ -244,18 +244,19 @@ object TrainDataGeneratorSmt2 {
             println("No hints selected (no need for hints)")
             //not write horn clauses to file
           } else {
+            val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+            val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
+
             //write argument score to file
             val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-            HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
+            val argumentInfo= HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
 
             //Output graphs
             //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-            DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints)
+            DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
             val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
 
             //write horn clauses to file
-            val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-            val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))
             writer.close()
