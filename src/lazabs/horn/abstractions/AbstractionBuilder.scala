@@ -224,7 +224,7 @@ class StaticAbstractionBuilder(
           for (k <- 0 until loopHead.arity) yield {
             var score:Int=0
             for (arg <- argumentInfoWrapList if (arg.head==loopHead.name && k==arg.index)) {
-              score=arg.score.toInt
+              score=arg.score.toInt //todo: not use toInt, directly use float number? Or at least transform >0.5 to 1 and <0.5 to 0
             }
             (v(k) -> score)
           }

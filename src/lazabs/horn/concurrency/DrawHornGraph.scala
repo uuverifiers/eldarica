@@ -40,7 +40,7 @@ import lazabs.horn.concurrency.Digraph
 import play.api.libs.json._
 import lazabs.horn.concurrency.BinarySearchTreeForGraphClass
 
-import scala.collection.mutable.{ListBuffer, HashMap => MHashMap,Map => MuMap}
+import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 
 
 object DrawHornGraph {
@@ -109,17 +109,28 @@ object DrawHornGraph {
 
 
   }
+  class argumentInfoHronGraph(headName:String,ind:Int)
+  {
+    var ID=0
+    val head=headName
+    val index=ind
+    val name = "argument"+ind.toString
+    var score=0
+  }
 
   class GNNInput(){
     var GNNNodeID=0
     var hyperEdgeNodeID=0
     var TotalNodeID=0
+    //var argumentIDCount=0
 
     var nodeIds=new ListBuffer[Int]()
     var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
     var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     var controlLocationIndices=new ListBuffer[Int]()
     var argumentIndices=new ListBuffer[Int]()
+    var argumentInfoHornGraphList=new ListBuffer[argumentInfoHronGraph]
+
 
 
     var nodeNameToIDMap =   MuMap[String, Int]()
@@ -140,7 +151,7 @@ object DrawHornGraph {
     }
   }
 
-  def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfo:ListBuffer[argumentInfo]): Unit = {
+  def writeHornClausesGraphToFile(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo]): Unit = {
     val dot = new Digraph(comment = "Horn Graph")
     val gnn_input=new GNNInput()
 
@@ -232,6 +243,7 @@ object DrawHornGraph {
         }
       }
       val currentControlFlowNodeHead = new ControlFlowNode(clause.head.pred.name, currentControlFlowNodeArgumentListHead)
+      currentControlFlowNodeHead.arity=clause.head.pred.arity
       if (!controlFLowNodeList.exists(_.name == clause.head.pred.name)) { //if head is not in controlFLowNodeList
         controlFLowNodeList += currentControlFlowNodeHead
       }
@@ -239,20 +251,35 @@ object DrawHornGraph {
       val currentClause = new ClauseTransitionInformation(currentControlFlowNodeHead, currentControlFlowNodeBody, clauseID)
       clauseID = clauseID + 1
 
+      //todo:check if this argument sequence equal to .argument's argument sequence
       //add head argument to node list
       for(arg<-currentClause.head.argumentList if !currentClause.head.argumentList.isEmpty){
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
-          if (!gnn_input.nodeNameToIDMap.contains(arg.name))
+          if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
             gnn_input.incrementArgumentIndicesAndNodeIds(arg.name)
+            gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
+//            val argumentHead=arg.name.substring(0,arg.name.indexOf("_argument"))
+//            val argumentIndex=(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt
+//            var tempCounter=false
+//            for (argInfo <- gnn_input.argumentInfoHornGraphList){
+//              if (argInfo.head==argumentHead && argumentIndex==argInfo.index) tempCounter=true
+//            }
+//            if (tempCounter==false)
+//              gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(argumentHead,argumentIndex)
+
+          }
         }
       }
       //add body argument to node list
       for(arg<-currentClause.body.argumentList if !currentClause.body.argumentList.isEmpty){
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
-          if (!gnn_input.nodeNameToIDMap.contains(arg.name))
+          if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
             gnn_input.incrementArgumentIndicesAndNodeIds(arg.name)
+            gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
+          }
+
         }
       }
 
@@ -886,14 +913,18 @@ object DrawHornGraph {
     //todo:check point . output horn graph and gnn input
     val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
     dot.save(fileName = fileName+"-auto"+".gv", directory = filePath)
+    
+    //align by argument name
+    for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
+        if(arg.head==argHornGraph.head && arg.index == argHornGraph.index)
+          argHornGraph.score=arg.score
+    }
 
-    val argumentIDList=for(arg<-argumentInfo) yield arg.ID
-    val argumentNameList=for(arg<-argumentInfo) yield arg.location.toString()+":"+"argument"+arg.index
-    val argumentOccurrence=for(arg<-argumentInfo) yield arg.score
+    val argumentIDList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
+    val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
+    val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
-      gnn_input.controlLocationIndices,gnn_input.argumentIndices,argumentIDList,argumentNameList,argumentOccurrence)
-
-
+      gnn_input.controlLocationIndices,gnn_input.argumentIndices,argumentIDList,argumentNameList,argumentOccurrenceList)
 
 
     writerGraph.write("}" + "\n")

@@ -554,6 +554,7 @@ class predicateGraph(astR:String,predName:String,graph:String,t:String,i:String,
 
 
 class ControlFlowNode(nodeName:String,argumentNodeList:ListBuffer[ArgumentNode]){
+  var arity=0
   val name=nodeName
   var argumentList:ListBuffer[ArgumentNode]=argumentNodeList
   var predicateList:ListBuffer[VerifHintElement]=ListBuffer[VerifHintElement]()
