@@ -122,7 +122,6 @@ object DrawHornGraph {
     var GNNNodeID=0
     var hyperEdgeNodeID=0
     var TotalNodeID=0
-    //var argumentIDCount=0
 
     var nodeIds=new ListBuffer[Int]()
     var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
@@ -184,7 +183,6 @@ object DrawHornGraph {
     }
     //println(file.substring(file.lastIndexOf("/")+1))
     val fileName = file.substring(file.lastIndexOf("/") + 1)
-    //val writer = new PrintWriter(new File("trainData/"+fileName+".horn"))
     //val writer = new PrintWriter(new File("../trainData/" + fileName + ".HornGraph")) //python path
     val writer = new PrintWriter(new File(file + ".HornGraph")) //python path
 
@@ -554,9 +552,6 @@ object DrawHornGraph {
 
           for (bodyArg <- currentClause.body.argumentList; headArg <- currentClause.head.argumentList
                if headArg.originalContent == comArg._1 && bodyArg.originalContent == comArg._1) {
-//                println("---debug---")
-//                println(bodyArg.name)
-//                println(headArg.dataFLowHyperEdge.name)
                 currentClause.simpleDataFlowConnection = currentClause.simpleDataFlowConnection ++
                   Map(bodyArg ->headArg)
 //                    ("\"" + bodyArg.name + "\"" + " -> " + "\"" + headArg.dataFLowHyperEdge.name+ "\"" +
@@ -619,7 +614,6 @@ object DrawHornGraph {
       //naming guard with index
       for ((conjunct, i) <- guardConjunct.zipWithIndex) {
         //PrincessLineariser.printExpression(conjunct)
-        //println()
         writer.write(conjunct + "\n")
         guardMap=guardMap++Map(("guard_" + i.toString) -> conjunct)
       }
@@ -650,8 +644,6 @@ object DrawHornGraph {
       val (hintsASTList,hintsNodeHashMap)=drawAST(cfn,cfn.argumentList,cfn.hintList,MHashMap.empty[String,ITerm],edgeNameMap)
       cfn.predicateGraphList=hintsASTList
     }
-
-
 
     writer.write("-----------\n")
 
@@ -738,13 +730,11 @@ object DrawHornGraph {
     }
 
 
-
     //    for (Clause(IAtom(phead, headArgs), body, _) <- simpClauses;
     //         //if phead != HornClauses.FALSE;
     //         IAtom(pbody, _) <- body) {  //non-initial control flow iteration
     //
     //    }
-
 
     //create guarded data flow node for this clause
     writerGraph.write("\n")
@@ -913,22 +903,21 @@ object DrawHornGraph {
     //todo:check point . output horn graph and gnn input
     val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
     dot.save(fileName = fileName+"-auto"+".gv", directory = filePath)
-    
-    //align by argument name
-    for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
-        if(arg.head==argHornGraph.head && arg.index == argHornGraph.index)
-          argHornGraph.score=arg.score
-    }
 
+    //match by argument name
+    for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
+        if(arg.head==argHornGraph.head && arg.index == argHornGraph.index) {
+          argHornGraph.score=arg.score
+          argHornGraph.ID=arg.ID
+        }
+    }
     val argumentIDList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
     val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices,argumentIDList,argumentNameList,argumentOccurrenceList)
 
-
     writerGraph.write("}" + "\n")
-
     writerGraph.close()
   }
 
