@@ -611,6 +611,7 @@ class ClauseTransitionInformation(controlFlowHead:ControlFlowNode,controlFLowBod
   var dataFlowNumber=0
   var guardASTGraph=Map[String,String]()//rootName->graph
   var dataFlowASTGraph=ListBuffer[DataFlowASTGraphInfo]()
+  var argumentDataFlowASTGraph=ListBuffer[DataFlowASTGraphInfo]()
   var simpleDataFlowConnection=Map[ArgumentNode,ArgumentNode]()//map:hyperedge->connectiongraph
   val name:String=head.name+"___"+body.name
   var guardASTRootName=""

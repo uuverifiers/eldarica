@@ -180,7 +180,9 @@ object DrawHornGraph {
         nodeSymbols+=nodeClass +"_"+ constantTermCanonicalID.toString
         constantTermCanonicalID+=1
       }
-      else if (nodeClass=="operator"){
+      else if (nodeClass=="FALSE"){
+        nodeSymbols+=nodeName
+      } else if (nodeClass=="operator"){
         nodeSymbols+=nodeName
       }else if (nodeClass=="constant"){
         nodeSymbols+=nodeName
@@ -304,7 +306,7 @@ object DrawHornGraph {
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
           if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
-            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"argument",arg.name)
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"constant",arg.originalContent)
             gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
 //            val argumentHead=arg.name.substring(0,arg.name.indexOf("_argument"))
 //            val argumentIndex=(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt
@@ -323,7 +325,7 @@ object DrawHornGraph {
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
           if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
-            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"argument",arg.name)
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"constant",arg.originalContent)
             gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
           }
 
@@ -342,9 +344,12 @@ object DrawHornGraph {
 
       //head argument -common argument
       val relativeComplimentOfHeadArg = argsInHead.filterNot(arg => commonArg.contains(arg))
+      //body argument -common argument
+      val relativeComplimentOfBodyArg = argsInBody.filterNot(arg => commonArg.contains(arg))
       // store relativeComplimentOfHeadArg to clause
       currentClause.relativeComplimentOfHeadArg=relativeComplimentOfHeadArg
       writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
+      writer.write("relativeComplimentOfBodyArg:" + relativeComplimentOfBodyArg.toString() + "\n")
 
 
       //separate guard and data flow conjunct
@@ -536,6 +541,7 @@ object DrawHornGraph {
         }
         case _=>{}
       }
+
 //      //After preprocessing, the left dataflow conjuncts only has one head argument
 //      for(conjunct<-dataFlowConjunct){
 //        //val Eq(a,b)=conjunct
@@ -570,6 +576,7 @@ object DrawHornGraph {
               //val sp=new ap.parser.Simplifier
               //sp.apply(lhs)
               dataFlowMap = dataFlowMap ++ Map(currentClause.head.getArgNameByContent(headArg._1) -> df)
+
             }
             //writer.write(headArg+"="+lhs+"-"+otherTerms+"\n")// data flow: lhs - otherTerms -> c
           }
@@ -580,6 +587,19 @@ object DrawHornGraph {
         }
 
       }
+
+      //preprocessing: if commonArg is empty and headName = bodyName, there is a data flow between arguments
+      if (commonArg.isEmpty && currentClause.body.name==currentClause.head.name){
+        for ((argHead, argBody) <- (relativeComplimentOfHeadArg zip relativeComplimentOfBodyArg)){
+          for(arg <-currentClause.head.argumentList){
+            if (arg.originalContent==argHead._1) {
+              dataFlowMap=dataFlowMap ++ Map(arg.name -> argBody._2)
+              writer.write(arg.name+ "<-" + argBody._2.toString+"\n")
+            }
+          }
+        }
+      }
+
 
       var dataFlowList = ListBuffer[IExpression]()
       for ((arg, df) <- dataFlowMap) {
@@ -594,6 +614,9 @@ object DrawHornGraph {
       val (dataFLowAST,dataFlowNodeHashMap) = drawAST(currentClause, "dataFlow", dataFlowMap,
         MHashMap.empty[String,ITerm],edgeNameMap,gnn_input,dot)
       currentClause.dataFlowASTGraph=dataFLowAST
+
+
+
       //draw simple data flow
       for (comArg <- commonArg) {
         if (!dataFlowElementList.contains(comArg._1)) {
@@ -611,6 +634,8 @@ object DrawHornGraph {
           }
         }
       }
+
+
 
       //draw constant data flow
       //if arguments in head are constant, add data flow constant ->arguments
@@ -725,7 +750,7 @@ object DrawHornGraph {
     writerGraph.write("FALSE" + " [label=\"" + "FALSE" + "\""+" nodeName=FALSE"+" class=cfn " + " shape=\"rect\"" + "];" + "\n") //false node
     dot.node("FALSE","False",
       attrs = MuMap("nodeName"->"False","shape"->addQuotes("rect"),"class"->"cfn","GNNNodeID"->gnn_input.GNNNodeID.toString))
-    gnn_input.incrementControlLocationIndicesAndNodeIds("FALSE","cfn","FALSE")
+    gnn_input.incrementControlLocationIndicesAndNodeIds("FALSE","FALSE","FALSE")
 
     writerGraph.write("Initial" + " [label=\"" + "Initial" + "\"" +" nodeName=Initial"+" class=cfn "+ " shape=\"rect\"" + "];" + "\n") //initial node
     dot.node("Initial","Initial",
@@ -2070,8 +2095,8 @@ object DrawHornGraph {
                 logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=constantTerm "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
                 dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
-                  "class"->"constantTerm","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-                gnn_inputs.incrementNodeIds(nodeName,"constantTerm",c)
+                  "class"->"constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName,"constant",c)
               }
               //logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + c + "\"];" + "\n")
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
@@ -2102,8 +2127,8 @@ object DrawHornGraph {
                 logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=constantTerm "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
                 dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
-                  "class"->"constantTerm","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-                gnn_inputs.incrementNodeIds(nodeName,"constantTerm",c)
+                  "class"->"constant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                gnn_inputs.incrementNodeIds(nodeName,"constant",c)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
             }
@@ -2301,7 +2326,7 @@ object DrawHornGraph {
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
               dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
                 "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-              gnn_inputs.incrementNodeIds(nodeName,"literal",v)
+              gnn_inputs.incrementNodeIds(nodeName,"constant",v)
             }
             nodeCount = nodeCount + 1
             translateConstraint(term, root.lchild)
@@ -2333,7 +2358,7 @@ object DrawHornGraph {
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
               dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
                 "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-              gnn_inputs.incrementNodeIds(nodeName,"literal",v)
+              gnn_inputs.incrementNodeIds(nodeName,"constant",v)
             }
             nodeCount = nodeCount + 1
             translateConstraint(term, root.rchild)
@@ -2421,7 +2446,7 @@ object DrawHornGraph {
                 logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
                 dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
                   "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-                gnn_inputs.incrementNodeIds(nodeName,"literal",v)
+                gnn_inputs.incrementNodeIds(nodeName,"constant",v)
                 clause.nodeList+=Pair(nodeName,v)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
@@ -2453,7 +2478,7 @@ object DrawHornGraph {
                 logString = logString + ( addQuotes(nodeName) +  " [label=\"" + v + "\""+" nodeName="+ addQuotes(nodeName) + " class=Literal "+"];" + "\n")
                 dot.node(addQuotes(nodeName),addQuotes(v),MuMap("nodeName"->addQuotes(nodeName),
                   "class"->"Literal","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
-                gnn_inputs.incrementNodeIds(nodeName,"literal",v)
+                gnn_inputs.incrementNodeIds(nodeName,"constant",v)
                 clause.nodeList+=Pair(nodeName,v)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
