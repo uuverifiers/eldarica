@@ -52,12 +52,12 @@ object DrawHornGraph {
 
   def genereateSampleGNNInputs(file: String, simpClauses: Clauses): Unit ={
     val nodeIds=List(0,1,2,3,4,5)
-    val binaryAdjacentcy=List(List(1,2),List(2,3))
+    val binaryAdjacency=List(List(1,2),List(2,3))
     val tenaryAdjacency=List(List(1,2,3),List(2,3,1))
     val controlLocationIndices=List(1,2)
     val argumentIndices=List(4,5)
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
-      "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "binaryAdjacentList" -> binaryAdjacency,"tenaryAdjacencyList" -> tenaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
     println(oneGraphGNNInput)
 
@@ -89,15 +89,17 @@ object DrawHornGraph {
 
   }
 
-  def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacentcy:ListBuffer[ListBuffer[Int]],
+  def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacency:ListBuffer[ListBuffer[Int]],
                            tenaryAdjacency:ListBuffer[ListBuffer[Int]],
                            controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],nodeSymbolList:ListBuffer[String],
-                           argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int]): Unit ={
+                           argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int],
+                           controlFlowHyperEdges:Adjacentcy,dataFlowHyperEdges:Adjacentcy): Unit ={
 
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,"nodeSymbolList"->nodeSymbolList,
-      "binaryAdjacentList" -> binaryAdjacentcy,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "binaryAdjacentList" -> binaryAdjacency,"tenaryAdjacencyList" -> tenaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
-    "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence)
+    "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
+    "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList)
     //println(oneGraphGNNInput)
     println("Write GNNInput to file")
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
@@ -116,6 +118,12 @@ object DrawHornGraph {
     var score=0
   }
 
+  class Adjacentcy(edge_name:String,edge_number:Int){
+    val edgeName=edge_name
+    val edgeNumber=edge_number
+    var edgeList=new ListBuffer[ListBuffer[Int]]()
+  }
+
   class GNNInput(){
     var GNNNodeID=0
     var hyperEdgeNodeID=0
@@ -126,14 +134,20 @@ object DrawHornGraph {
 
     var nodeIds=new ListBuffer[Int]()
     var nodeSymbols = new ListBuffer[String]()
-    var binaryAdjacentcy=new ListBuffer[ListBuffer[Int]]()
+
+    //todo: differentiate edges
+    var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+
+
     var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+
+    val controlFlowHyperEdges=new Adjacentcy("controlFlowHyperEdge",3)
+    val dataFlowHyperEdges=new Adjacentcy("dataFlowHyperEdge",3)
+
     var controlLocationIndices=new ListBuffer[Int]()
     var argumentIndices=new ListBuffer[Int]()
     var argumentInfoHornGraphList=new ListBuffer[argumentInfoHronGraph]
-
     var nodeNameToIDMap =   MuMap[String, Int]()
-    var controlFLowTenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
 
     def incrementNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
       nodeIds+=GNNNodeID
@@ -201,17 +215,23 @@ object DrawHornGraph {
 
     println("Write horn to file")
     var edgeNameMap: Map[String, String] = Map()
-    edgeNameMap += ("controlFlowIn" -> "control flow in")
-    edgeNameMap += ("controlFlowOut" -> "control flow out")
-    edgeNameMap += ("dataFlowIn" -> "data flow in")
-    edgeNameMap += ("dataFlowOut" -> "data flow out")
+    //edgeNameMap += ("controlFlowIn" -> "control flow in")//replaced by controlFlowHyperEdge
+    //edgeNameMap += ("controlFlowOut" -> "control flow out")//replaced by controlFlowHyperEdge
+    edgeNameMap += ("controlFlowHyperEdge" -> "CFHE")
+
+    //edgeNameMap += ("dataFlowIn" -> "data flow in")//replaced by dataFlowHyperEdge
+    //edgeNameMap += ("dataFlowOut" -> "data flow out")//replaced by dataFlowHyperEdge
+    edgeNameMap += ("dataFlowHyperEdge" -> "DFHE")
+
+    //edgeNameMap += ("condition" -> "condition") //replaced by controlFlowHyperEdge and dataFlowHyperEdge
+    //edgeNameMap += ("constantDataFlow" -> "constant data flow") //replaced by dataFlow
+    //edgeNameMap += ("astAnd" -> "AST &") //replaced by dataFlowAST
+
     edgeNameMap += ("argument" -> "argument")
-    edgeNameMap += ("astAnd" -> "AST &")
-    edgeNameMap += ("condition" -> "condition")
-    edgeNameMap += ("constantDataFlow" -> "constant data flow")
-    edgeNameMap += ("dataFlow" -> "data flow")
-    edgeNameMap += ("predicateAST" -> "predicateAST")
+    edgeNameMap += ("dataFlow" -> "dataFlow")
     edgeNameMap += ("dataFlowAST" -> "dataFlowAST")
+
+    edgeNameMap += ("predicateAST" -> "predicateAST")
     edgeNameMap += ("predicate" -> "prdicate")
 
 
@@ -739,10 +759,10 @@ object DrawHornGraph {
         "shape"->addQuotes("diamond"),"class"->"controlFlowHyperEdge","hyperEdgeNodeID"->gnn_input.hyperEdgeNodeID.toString))
       gnn_input.hyperEdgeNodeID+=1
       //create edges of control flow hyper edge
-      writerGraph.write(addQuotes(clauseInfo.body.name)+ " -> " + cfheName + " [label=\"" + edgeNameMap("controlFlowIn") + "\"]" + "\n")
-      writerGraph.write(cfheName + " -> " + addQuotes(clauseInfo.head.name) + " [label=\"" + edgeNameMap("controlFlowOut") + "\"]" + "\n")
-      dot.edge(addQuotes(clauseInfo.body.name),cfheName,attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowIn"))))
-      dot.edge(addQuotes(cfheName),addQuotes(clauseInfo.head.name),attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowOut"))))
+      writerGraph.write(addQuotes(clauseInfo.body.name)+ " -> " + cfheName + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"]" + "\n")//controlFlowIn
+      writerGraph.write(cfheName + " -> " + addQuotes(clauseInfo.head.name) + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"]" + "\n")//controlFlowOut
+      dot.edge(addQuotes(clauseInfo.body.name),cfheName,attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//controlFlowIn
+      dot.edge(addQuotes(cfheName),addQuotes(clauseInfo.head.name),attrs=MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//controlFlowOut
       //get unique control flow nodes
       if (!uniqueControlFLowNodeList.exists(_.name == clauseInfo.head.name)) {
         uniqueControlFLowNodeList += clauseInfo.head
@@ -766,7 +786,7 @@ object DrawHornGraph {
         " style=\"dashed\"" + "]" + "\n")
       dot.edge(addQuotes(arg.name),addQuotes(controlFLowNode.name),attrs = MuMap("label"->addQuotes(edgeNameMap("argument")),
       "style"->"dashed"))
-      gnn_input.binaryAdjacentcy+=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
+      gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
     }
 
 
@@ -794,9 +814,9 @@ object DrawHornGraph {
         if (clauseInfo.guardNumber > 1) { //connect constraints by &
           //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
           writerGraph.write(addQuotes(rootName) + " -> " + addQuotes(andName)//ast.substring(0,ast.indexOf("[label")-1)
-            + " [label=\"" + edgeNameMap("astAnd") + "\"" + "];" + "\n")
-          dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("astAnd"))))
-          gnn_input.binaryAdjacentcy+=ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
+            + " [label=\"" + edgeNameMap("dataFlowAST") + "\"" + "];" + "\n")//astAnd
+          dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("dataFlowAST"))))//astAnd
+          gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
         } else {
           clauseInfo.guardASTRootName = rootName
         }
@@ -805,12 +825,14 @@ object DrawHornGraph {
       //guard AST root point to control flow hyperedge
       if (!clauseInfo.guardASTRootName.isEmpty) {
         writerGraph.write(addQuotes(clauseInfo.guardASTRootName) + " -> " + addQuotes(clauseInfo.controlFlowHyperEdge.name)
-          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
+          + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"" + "];" + "\n")//condition
         dot.edge(addQuotes(clauseInfo.guardASTRootName),addQuotes(clauseInfo.controlFlowHyperEdge.name),
-          attrs = MuMap("label"->addQuotes(edgeNameMap("condition"))))
-        gnn_input.tenaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
+          attrs = MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//condition
+        val tenaryListBuffer= ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.guardASTRootName),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
+        gnn_input.tenaryAdjacency+=tenaryListBuffer
+        gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
       }
       //if there is no guard add true condition
       if (clauseInfo.guardASTGraph.isEmpty) {
@@ -818,20 +840,22 @@ object DrawHornGraph {
         dot.node(addQuotes(clauseInfo.trueCondition),addQuotes("true"),attrs = MuMap("nodeName"->addQuotes(clauseInfo.trueCondition),"class"->"true","shape"->"rect"))
         gnn_input.incrementNodeIds(clauseInfo.trueCondition,"constant","true")
         writerGraph.write(addQuotes(clauseInfo.trueCondition) + " -> " + addQuotes(clauseInfo.controlFlowHyperEdge.name)//add edge to control flow hyper edges
-          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
-        dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(clauseInfo.controlFlowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("condition"))))
-        gnn_input.tenaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
+          + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"" + "];" + "\n")//condition
+        dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(clauseInfo.controlFlowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//condition
+        val tenaryListBuffer=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.trueCondition),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
+        gnn_input.tenaryAdjacency += tenaryListBuffer
+        gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
       }
 
       //draw data flow ast
       for (graphInfo <- clauseInfo.dataFlowASTGraph; argNode <- clauseInfo.head.argumentList if (graphInfo.argumentName == argNode.name)) {
         writerGraph.write(graphInfo.graphText + "\n") //draw AST
         writerGraph.write(addQuotes(graphInfo.astRootName) + " -> " + addQuotes(argNode.dataFLowHyperEdge.name) //connect to data flow hyper edge
-          + " [label=\"" + edgeNameMap("dataFlow") + "\"" + "];" + "\n")
+          + " [label=\"" + edgeNameMap("dataFlowHyperEdge") + "\"" + "];" + "\n")//dataFlow
         argNode.dataFLowHyperEdge.fromData=graphInfo.astRootName
-        dot.edge(addQuotes(graphInfo.astRootName),addQuotes(argNode.dataFLowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlow"))))
+        dot.edge(addQuotes(graphInfo.astRootName),addQuotes(argNode.dataFLowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowHyperEdge"))))//dataFlow
       }
     }
 
@@ -855,10 +879,7 @@ object DrawHornGraph {
           dot.node(addQuotes(headArg.constantFlowInNode),addQuotes(headArg.originalContent),
             attrs = MuMap("nodeName"->addQuotes(headArg.constantFlowInNode),"class"->"Constant"))
           gnn_input.incrementNodeIds(headArg.constantFlowInNode,"constant",headArg.originalContent)
-//          writerGraph.write("\"" + headArg.constantFlowInNode+ "\"" + " -> " + "\"" + headArg.dataFLowHyperEdge.name+"\"" //add edge to argument
-//            + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
           headArg.dataFLowHyperEdge.fromData=headArg.constantFlowInNode
-          ///////
           drawDataFlowHyperEdge(clauseInfo,headArg)
         }
       }
@@ -871,10 +892,10 @@ object DrawHornGraph {
             attrs = MuMap("nodeName"->addQuotes(bodyArg.constantFlowInNode),"class"->"Constant"))
           gnn_input.incrementNodeIds(bodyArg.constantFlowInNode,"constant",bodyArg.originalContent)
           writerGraph.write(addQuotes(bodyArg.constantFlowInNode) + " -> " + addQuotes(bodyArg.name)//add edge to argument
-            + " [label=\"" + edgeNameMap("constantDataFlow") + "\"" + "];" + "\n")
+            + " [label=\"" + edgeNameMap("dataFlow") + "\"" + "];" + "\n")
           dot.edge(addQuotes(bodyArg.constantFlowInNode) ,addQuotes(bodyArg.name),
-            attrs = MuMap("label"->addQuotes(edgeNameMap("constantDataFlow"))))
-          gnn_input.binaryAdjacentcy+=ListBuffer(gnn_input.nodeNameToIDMap(bodyArg.constantFlowInNode),
+            attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlow"))))
+          gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(bodyArg.constantFlowInNode),
             gnn_input.nodeNameToIDMap(bodyArg.name))
           //bodyArg.dataFLowHyperEdge.fromData=bodyArg.constantFlowInNode
         }
@@ -890,26 +911,28 @@ object DrawHornGraph {
 
       //create data flow hyperedge node coonections
       writerGraph.write(addQuotes(headArg.dataFLowHyperEdge.name) + " -> " + addQuotes(headArg.name) +
-        "[label=\"" + edgeNameMap("dataFlowOut") + "\"]" + "\n")
-      dot.edge(addQuotes(headArg.dataFLowHyperEdge.name),addQuotes(headArg.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowOut"))))
+        "[label=\"" + edgeNameMap("dataFlowHyperEdge") + "\"]" + "\n")//dataFlowOut
+      dot.edge(addQuotes(headArg.dataFLowHyperEdge.name),addQuotes(headArg.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowHyperEdge"))))//dataFlowOut
 
       //guard AST root point to data flow hyperedge
       if (!clauseInfo.guardASTRootName.isEmpty) {
         writerGraph.write(addQuotes(clauseInfo.guardASTRootName) + " -> " + addQuotes(headArg.dataFLowHyperEdge.name) +
-          "[label=\"" + edgeNameMap("dataFlowIn") + "\"]" + "\n")
-        dot.edge(addQuotes(clauseInfo.guardASTRootName),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowIn"))))
+          "[label=\"" + edgeNameMap("dataFlowHyperEdge") + "\"]" + "\n")//dataFlowIn
+        dot.edge(addQuotes(clauseInfo.guardASTRootName),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowHyperEdge"))))//dataFlowIn
         headArg.dataFLowHyperEdge.fromASTRoot=clauseInfo.guardASTRootName
       }
       //if there is no guard add true condition to data flow hyperedge
       if (clauseInfo.guardASTGraph.isEmpty) {
         writerGraph.write(addQuotes(clauseInfo.trueCondition) + " -> " + addQuotes(headArg.dataFLowHyperEdge.name) //add edge to data flow hyper edges
-          + " [label=\"" + edgeNameMap("condition") + "\"" + "];" + "\n")
-        dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"-> addQuotes(edgeNameMap("condition"))))
+          + " [label=\"" + edgeNameMap("dataFlowHyperEdge") + "\"" + "];" + "\n")//condition
+        dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"-> addQuotes(edgeNameMap("dataFlowHyperEdge"))))//condition
         headArg.dataFLowHyperEdge.fromASTRoot=clauseInfo.trueCondition
       }
-      gnn_input.tenaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromData),
+      val tenaryListBuffer = ListBuffer(gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromData),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromASTRoot),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.to))
+      gnn_input.tenaryAdjacency+=tenaryListBuffer
+      gnn_input.dataFlowHyperEdges.edgeList += tenaryListBuffer
     }
 
 
@@ -917,7 +940,7 @@ object DrawHornGraph {
     for (clauseInfo <- clauseList) {
       if (!clauseInfo.simpleDataFlowConnection.isEmpty) {
         for ((bodyArg, headArg) <- clauseInfo.simpleDataFlowConnection) {
-          writerGraph.write(addQuotes(bodyArg.name) + " -> " + addQuotes(headArg.dataFLowHyperEdge.name) + "[label=\"" + edgeNameMap("dataFlowIn") + "\"]" + "\n")
+          writerGraph.write(addQuotes(bodyArg.name) + " -> " + addQuotes(headArg.dataFLowHyperEdge.name) + "[label=\"" + edgeNameMap("dataFlow") + "\"]" + "\n")//dataFlowIn
           headArg.dataFLowHyperEdge.fromData=bodyArg.name
           drawDataFlowHyperEdge(clauseInfo,headArg)
           //writerGraph.write(connection)
@@ -954,8 +977,9 @@ object DrawHornGraph {
     val argumentIDList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
     val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
-    writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacentcy,gnn_input.tenaryAdjacency,
-      gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList)
+    writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.tenaryAdjacency,
+      gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList,
+    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges)
 
     writerGraph.write("}" + "\n")
     writerGraph.close()
