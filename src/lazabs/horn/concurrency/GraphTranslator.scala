@@ -471,7 +471,9 @@ class BinarySearchTreeForGraphClass (connectionType:String,ASTtype:String = ""){
           //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
           relationString = relationString + (addQuotes(l_key)+ " -> " + addQuotes(k) + "[label=\"" + connectionType + "\"]" + "\n")
           dot.edge(addQuotes(l_key),addQuotes(k),attrs = MuMap("label"->addQuotes(connectionType)))
-          gnn_inputs.binaryAdjacency+=ListBuffer(gnn_inputs.nodeNameToIDMap(l_key),gnn_inputs.nodeNameToIDMap(k))
+          val dataFlowASTEdges = ListBuffer(gnn_inputs.nodeNameToIDMap(l_key),gnn_inputs.nodeNameToIDMap(k))
+          gnn_inputs.binaryAdjacency += dataFlowASTEdges
+          gnn_inputs.dataFlowASTEdges.edgeList += dataFlowASTEdges
         }
       }
 
@@ -480,7 +482,9 @@ class BinarySearchTreeForGraphClass (connectionType:String,ASTtype:String = ""){
         if (k != r_key && v != "root") {
           relationString = relationString + (addQuotes(r_key) + " -> " + addQuotes(k)+ "[label=\"" + connectionType + "\"]" + "\n")
           dot.edge(addQuotes(r_key),addQuotes(k),attrs = MuMap("label"->addQuotes(connectionType)))
-          gnn_inputs.binaryAdjacency+=ListBuffer(gnn_inputs.nodeNameToIDMap(r_key),gnn_inputs.nodeNameToIDMap(k))
+          val dataFlowASTEdges = ListBuffer(gnn_inputs.nodeNameToIDMap(r_key),gnn_inputs.nodeNameToIDMap(k))
+          gnn_inputs.binaryAdjacency += dataFlowASTEdges
+          gnn_inputs.dataFlowASTEdges.edgeList += dataFlowASTEdges
         }
 
       }

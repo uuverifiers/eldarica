@@ -27,9 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
-
 import java.io.{File, PrintWriter}
-
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
@@ -39,7 +37,6 @@ import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.Digraph
 import play.api.libs.json._
 import lazabs.horn.concurrency.BinarySearchTreeForGraphClass
-
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 
 
@@ -53,11 +50,11 @@ object DrawHornGraph {
   def genereateSampleGNNInputs(file: String, simpClauses: Clauses): Unit ={
     val nodeIds=List(0,1,2,3,4,5)
     val binaryAdjacency=List(List(1,2),List(2,3))
-    val tenaryAdjacency=List(List(1,2,3),List(2,3,1))
+    val ternaryAdjacency=List(List(1,2,3),List(2,3,1))
     val controlLocationIndices=List(1,2)
     val argumentIndices=List(4,5)
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,
-      "binaryAdjacentList" -> binaryAdjacency,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "binaryAdjacentList" -> binaryAdjacency,"ternaryAdjacencyList" -> ternaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices)
     println(oneGraphGNNInput)
 
@@ -90,16 +87,18 @@ object DrawHornGraph {
   }
 
   def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacency:ListBuffer[ListBuffer[Int]],
-                           tenaryAdjacency:ListBuffer[ListBuffer[Int]],
+                           ternaryAdjacency:ListBuffer[ListBuffer[Int]],
                            controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],nodeSymbolList:ListBuffer[String],
                            argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int],
-                           controlFlowHyperEdges:Adjacentcy,dataFlowHyperEdges:Adjacentcy): Unit ={
+                           controlFlowHyperEdges:Adjacency,dataFlowHyperEdges:Adjacency,dataFlowASTEdges:Adjacency,
+                           dataFlowEdges:Adjacency,argumentEdges:Adjacency): Unit ={
 
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,"nodeSymbolList"->nodeSymbolList,
-      "binaryAdjacentList" -> binaryAdjacency,"tenaryAdjacencyList" -> tenaryAdjacency,
+      "binaryAdjacentList" -> binaryAdjacency,"ternaryAdjacencyList" -> ternaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
     "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
-    "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList)
+    "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList,
+      "dataFlowASTEdges"->dataFlowASTEdges.edgeList,"dataFlowEdges"->dataFlowEdges.edgeList,"argumentEdges"->argumentEdges.edgeList)
     //println(oneGraphGNNInput)
     println("Write GNNInput to file")
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
@@ -118,7 +117,7 @@ object DrawHornGraph {
     var score=0
   }
 
-  class Adjacentcy(edge_name:String,edge_number:Int){
+  class Adjacency(edge_name:String,edge_number:Int){
     val edgeName=edge_name
     val edgeNumber=edge_number
     var edgeList=new ListBuffer[ListBuffer[Int]]()
@@ -137,12 +136,14 @@ object DrawHornGraph {
 
     //todo: differentiate edges
     var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
+    val dataFlowEdges = new Adjacency("dataFlowEdge",2)
+    val argumentEdges = new Adjacency("argumentEdge",2)
 
 
-    var tenaryAdjacency=new ListBuffer[ListBuffer[Int]]()
-
-    val controlFlowHyperEdges=new Adjacentcy("controlFlowHyperEdge",3)
-    val dataFlowHyperEdges=new Adjacentcy("dataFlowHyperEdge",3)
+    var ternaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    val controlFlowHyperEdges=new Adjacency("controlFlowHyperEdge",3)
+    val dataFlowHyperEdges=new Adjacency("dataFlowHyperEdge",3)
 
     var controlLocationIndices=new ListBuffer[Int]()
     var argumentIndices=new ListBuffer[Int]()
@@ -786,7 +787,9 @@ object DrawHornGraph {
         " style=\"dashed\"" + "]" + "\n")
       dot.edge(addQuotes(arg.name),addQuotes(controlFLowNode.name),attrs = MuMap("label"->addQuotes(edgeNameMap("argument")),
       "style"->"dashed"))
-      gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
+      val argumentEdge=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
+      gnn_input.binaryAdjacency += argumentEdge
+      gnn_input.argumentEdges.edgeList += argumentEdge
     }
 
 
@@ -816,7 +819,9 @@ object DrawHornGraph {
           writerGraph.write(addQuotes(rootName) + " -> " + addQuotes(andName)//ast.substring(0,ast.indexOf("[label")-1)
             + " [label=\"" + edgeNameMap("dataFlowAST") + "\"" + "];" + "\n")//astAnd
           dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("dataFlowAST"))))//astAnd
-          gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
+          val dataFlowASTEdge = ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
+          gnn_input.binaryAdjacency += dataFlowASTEdge
+          gnn_input.dataFlowASTEdges.edgeList += dataFlowASTEdge
         } else {
           clauseInfo.guardASTRootName = rootName
         }
@@ -831,7 +836,7 @@ object DrawHornGraph {
         val tenaryListBuffer= ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.guardASTRootName),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
-        gnn_input.tenaryAdjacency+=tenaryListBuffer
+        gnn_input.ternaryAdjacency+=tenaryListBuffer
         gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
       }
       //if there is no guard add true condition
@@ -845,7 +850,7 @@ object DrawHornGraph {
         val tenaryListBuffer=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.trueCondition),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
-        gnn_input.tenaryAdjacency += tenaryListBuffer
+        gnn_input.ternaryAdjacency += tenaryListBuffer
         gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
       }
 
@@ -895,8 +900,10 @@ object DrawHornGraph {
             + " [label=\"" + edgeNameMap("dataFlow") + "\"" + "];" + "\n")
           dot.edge(addQuotes(bodyArg.constantFlowInNode) ,addQuotes(bodyArg.name),
             attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlow"))))
-          gnn_input.binaryAdjacency+=ListBuffer(gnn_input.nodeNameToIDMap(bodyArg.constantFlowInNode),
-            gnn_input.nodeNameToIDMap(bodyArg.name))
+          val dataFlow= ListBuffer(gnn_input.nodeNameToIDMap(bodyArg.constantFlowInNode), gnn_input.nodeNameToIDMap(bodyArg.name))
+          gnn_input.binaryAdjacency += dataFlow
+          gnn_input.dataFlowEdges.edgeList += dataFlow
+
           //bodyArg.dataFLowHyperEdge.fromData=bodyArg.constantFlowInNode
         }
       }
@@ -931,7 +938,7 @@ object DrawHornGraph {
       val tenaryListBuffer = ListBuffer(gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromData),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromASTRoot),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.to))
-      gnn_input.tenaryAdjacency+=tenaryListBuffer
+      gnn_input.ternaryAdjacency+=tenaryListBuffer
       gnn_input.dataFlowHyperEdges.edgeList += tenaryListBuffer
     }
 
@@ -977,9 +984,9 @@ object DrawHornGraph {
     val argumentIDList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
     val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
-    writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.tenaryAdjacency,
+    writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.ternaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList,
-    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges)
+    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.argumentEdges)
 
     writerGraph.write("}" + "\n")
     writerGraph.close()
