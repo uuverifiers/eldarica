@@ -547,7 +547,7 @@ class ControlFowHyperEdge(body:String,head:String,ind:Int) {
 
 }
 class DataFlowHyperEdge(body:String,head:String,guardedArgument:String,ind:Int) {
-  var fromData=""
+  var fromData=("",true)
   var fromASTRoot=""
   val from =head
   val to=guardedArgument
