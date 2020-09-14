@@ -95,14 +95,13 @@ object DrawHornGraph {
                            controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],nodeSymbolList:ListBuffer[String],
                            argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int],
                            controlFlowHyperEdges:Adjacency,dataFlowHyperEdges:Adjacency,dataFlowASTEdges:Adjacency,
-                           dataFlowEdges:Adjacency,argumentDataFlowEdges:Adjacency,guardASTEdges:Adjacency,argumentEdges:Adjacency): Unit ={
+                           dataFlowEdges:Adjacency,guardASTEdges:Adjacency,argumentEdges:Adjacency): Unit ={
 
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,"nodeSymbolList"->nodeSymbolList,
       "binaryAdjacentList" -> binaryAdjacency,"ternaryAdjacencyList" -> ternaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
       "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
       "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList,
-      "argumentDataFlowEdges"->argumentDataFlowEdges.edgeList,
       "dataFlowASTEdges"->dataFlowASTEdges.edgeList,"dataFlowEdges"->dataFlowEdges.edgeList,
       "guardASTEdges"->guardASTEdges.edgeList,
       "argumentEdges"->argumentEdges.edgeList)
@@ -144,7 +143,6 @@ object DrawHornGraph {
     //todo: differentiate edges
     var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
-    val argumentDataFlowEdges = new Adjacency("argumentDataFlowEdge",2)
     val dataFlowEdges = new Adjacency("dataFlowEdge",2)
     val argumentEdges = new Adjacency("argumentEdge",2)
     val guardASTEdges = new Adjacency("guardASTEdge",2)
@@ -325,7 +323,7 @@ object DrawHornGraph {
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
           if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
-            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"symbolicConstant",arg.originalContent)
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"argument",arg.originalContent)
             gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
           }
         }
@@ -335,7 +333,7 @@ object DrawHornGraph {
         if(!currentClause.nodeList.exists(x=>x._1==arg.name)){
           currentClause.nodeList+=Pair(arg.name,arg.originalContent)
           if (!gnn_input.nodeNameToIDMap.contains(arg.name)) {
-            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"symbolicConstant",arg.originalContent)
+            gnn_input.incrementArgumentIndicesAndNodeIds(arg.name,"argument",arg.originalContent)
             gnn_input.argumentInfoHornGraphList+=new argumentInfoHronGraph(arg.name.substring(0,arg.name.indexOf("_argument"))+"/"+currentClause.head.arity,(arg.name.substring(arg.name.indexOf("argument_")+"argument_".size,arg.name.size)).toInt)
           }
 
@@ -999,7 +997,7 @@ object DrawHornGraph {
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.ternaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList,
-    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.argumentDataFlowEdges,gnn_input.guardASTEdges,gnn_input.argumentEdges)
+    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.guardASTEdges,gnn_input.argumentEdges)
 
     writerGraph.write("}" + "\n")
     writerGraph.close()
@@ -2102,10 +2100,10 @@ object DrawHornGraph {
               val nodeName:String=nodeNameOut
               root.lchild = new TreeNodeForGraph(Map(nodeName -> (c)))
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=constantTerm "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=symbolicConstant "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
                 dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
-                  "class"->"constantTerm","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                  "class"->"symbolicConstant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
                 gnn_inputs.incrementNodeIds(nodeName,"symbolicConstant",c)
               }
               //logString = logString + ( "\"" + nodeName + "\"" +  " [label=\"" + c + "\"];" + "\n")
@@ -2134,10 +2132,10 @@ object DrawHornGraph {
               val nodeName:String=nodeNameOut
               root.rchild = new TreeNodeForGraph(Map(nodeName -> (c)))
               if(!clause.nodeList.exists(x=>x._1==nodeName)){
-                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=constantTerm "+"];" + "\n")
+                logString = logString + ( addQuotes(nodeName) +  " [label=\"" + c + "\""+" nodeName="+ "\"" + nodeName+ "\"" + " class=symbolicConstant "+"];" + "\n")
                 clause.nodeList+=Pair(nodeName,c)
                 dot.node(addQuotes(nodeName),addQuotes(c),MuMap("nodeName"->addQuotes(nodeName),
-                  "class"->"constantTerm","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
+                  "class"->"symbolicConstant","GNNNodeID"->gnn_inputs.GNNNodeID.toString))
                 gnn_inputs.incrementNodeIds(nodeName,"symbolicConstant",c)
               }
               rootName = checkASTRoot(nodeCount,nodeName,rootName)
