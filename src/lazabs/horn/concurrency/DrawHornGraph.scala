@@ -91,14 +91,17 @@ object DrawHornGraph {
                            controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],nodeSymbolList:ListBuffer[String],
                            argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int],
                            controlFlowHyperEdges:Adjacency,dataFlowHyperEdges:Adjacency,dataFlowASTEdges:Adjacency,
-                           dataFlowEdges:Adjacency,argumentEdges:Adjacency): Unit ={
+                           dataFlowEdges:Adjacency,argumentDataFlowEdges:Adjacency,guardASTEdges:Adjacency,argumentEdges:Adjacency): Unit ={
 
     val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,"nodeSymbolList"->nodeSymbolList,
       "binaryAdjacentList" -> binaryAdjacency,"ternaryAdjacencyList" -> ternaryAdjacency,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
-    "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
-    "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList,
-      "dataFlowASTEdges"->dataFlowASTEdges.edgeList,"dataFlowEdges"->dataFlowEdges.edgeList,"argumentEdges"->argumentEdges.edgeList)
+      "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
+      "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList,
+      "argumentDataFlowEdges"->argumentDataFlowEdges.edgeList,
+      "dataFlowASTEdges"->dataFlowASTEdges.edgeList,"dataFlowEdges"->dataFlowEdges.edgeList,
+      "guardASTEdges"->guardASTEdges.edgeList,
+      "argumentEdges"->argumentEdges.edgeList)
     //println(oneGraphGNNInput)
     println("Write GNNInput to file")
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
@@ -137,8 +140,10 @@ object DrawHornGraph {
     //todo: differentiate edges
     var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
+    val argumentDataFlowEdges = new Adjacency("argumentDataFlowEdge",2)
     val dataFlowEdges = new Adjacency("dataFlowEdge",2)
     val argumentEdges = new Adjacency("argumentEdge",2)
+    val guardASTEdges = new Adjacency("guardASTEdge",2)
 
 
     var ternaryAdjacency=new ListBuffer[ListBuffer[Int]]()
@@ -231,6 +236,7 @@ object DrawHornGraph {
     edgeNameMap += ("argument" -> "argument")
     edgeNameMap += ("dataFlow" -> "dataFlow")
     edgeNameMap += ("dataFlowAST" -> "dataFlowAST")
+    edgeNameMap += ("guardAST" -> "guardAST")
 
     edgeNameMap += ("predicateAST" -> "predicateAST")
     edgeNameMap += ("predicate" -> "prdicate")
@@ -811,17 +817,19 @@ object DrawHornGraph {
         gnn_input.incrementNodeIds(andName,"operator","&")
         clauseInfo.guardASTRootName = andName //store this node to clauses's guardASTRootName
       }
-      //draw guard ast
+      //draw guard ast and connect root AST to and
       for ((rootName, ast) <- clauseInfo.guardASTGraph) { //create & node to connect constraints
         writerGraph.write(ast + "\n")
         if (clauseInfo.guardNumber > 1) { //connect constraints by &
           //writerGraph.write(clauseInfo.name + "_and"+"->"+rootName//ast.substring(0,ast.indexOf("[label")-1)
           writerGraph.write(addQuotes(rootName) + " -> " + addQuotes(andName)//ast.substring(0,ast.indexOf("[label")-1)
-            + " [label=\"" + edgeNameMap("dataFlowAST") + "\"" + "];" + "\n")//astAnd
-          dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("dataFlowAST"))))//astAnd
+            + " [label=\"" + edgeNameMap("guardAST") + "\"" + "];" + "\n")//astAnd,dataFlowAST,dataFlow
+          dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("guardAST"))))//astAnd,dataFlowAST,dataFlow
           val dataFlowASTEdge = ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
           gnn_input.binaryAdjacency += dataFlowASTEdge
-          gnn_input.dataFlowASTEdges.edgeList += dataFlowASTEdge
+          //gnn_input.dataFlowASTEdges.edgeList += dataFlowASTEdge
+          //gnn_input.dataFlowEdges.edgeList += dataFlowASTEdge
+          gnn_input.guardASTEdges.edgeList += dataFlowASTEdge
         } else {
           clauseInfo.guardASTRootName = rootName
         }
@@ -903,6 +911,7 @@ object DrawHornGraph {
           val dataFlow= ListBuffer(gnn_input.nodeNameToIDMap(bodyArg.constantFlowInNode), gnn_input.nodeNameToIDMap(bodyArg.name))
           gnn_input.binaryAdjacency += dataFlow
           gnn_input.dataFlowEdges.edgeList += dataFlow
+          gnn_input.argumentDataFlowEdges.edgeList += dataFlow
 
           //bodyArg.dataFLowHyperEdge.fromData=bodyArg.constantFlowInNode
         }
@@ -943,7 +952,7 @@ object DrawHornGraph {
     }
 
 
-    //draw simple data flow connection
+    //draw simple data flow connection //todo: merge to guarded data flow
     for (clauseInfo <- clauseList) {
       if (!clauseInfo.simpleDataFlowConnection.isEmpty) {
         for ((bodyArg, headArg) <- clauseInfo.simpleDataFlowConnection) {
@@ -986,7 +995,7 @@ object DrawHornGraph {
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.ternaryAdjacency,
       gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList,
-    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.argumentEdges)
+    gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.argumentDataFlowEdges,gnn_input.guardASTEdges,gnn_input.argumentEdges)
 
     writerGraph.write("}" + "\n")
     writerGraph.close()
@@ -1832,7 +1841,7 @@ object DrawHornGraph {
       astNodeNamePrefix =hintName + "predicate_"+ hintCount + "_node_"
       translateConstraint(hint, root) //define nodes in graph, information is stored in logString
 
-      val binary_search_tree_for_graph = new BinarySearchTreeForGraphClass(edgeNameMap("predicateAST"))
+      val binary_search_tree_for_graph = new BinarySearchTreeForGraphClass("predicateAST")
       binary_search_tree_for_graph.nodeString = logString
       binary_search_tree_for_graph.preOrder(rootMark) //connect nodes in graph, information is stored in relationString
       logString = binary_search_tree_for_graph.nodeString + binary_search_tree_for_graph.relationString
@@ -2856,7 +2865,7 @@ object DrawHornGraph {
       }
       val root = new TreeNodeForGraph(Map(astNodeNamePrefix + nodeCount -> "root"))
       translateConstraint(conatraint, root) //define nodes in graph, information is stored in logString
-      val binary_search_tree_for_graph=new BinarySearchTreeForGraphClass(edgeNameMap("dataFlowAST"),ASTType)
+      val binary_search_tree_for_graph=new BinarySearchTreeForGraphClass(ASTType)//dataFlowAST,dataFlow
       binary_search_tree_for_graph.nodeString = logString
       binary_search_tree_for_graph.preOrder(root,gnn_inputs,dot) //connect nodes in graph, information is stored in relationString
       logString = binary_search_tree_for_graph.nodeString + binary_search_tree_for_graph.relationString
