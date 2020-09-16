@@ -119,6 +119,7 @@ class GlobalParameters extends Cloneable {
   var pngNo = true;
   var eogCEX = false;
   var plainCEX = false;
+  var simplifiedCEX = false;
   var assertions = false
   var verifyInterpolants = false
   var timeoutChecker : () => Unit = () => ()
@@ -201,6 +202,7 @@ class GlobalParameters extends Cloneable {
     that.pngNo = this.pngNo
     that.eogCEX = this.eogCEX
     that.plainCEX = this.plainCEX
+    that.simplifiedCEX = this.simplifiedCEX
     that.assertions = this.assertions
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
@@ -417,6 +419,7 @@ object Main {
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
       case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
+      case "-cexSimplified" :: rest => simplifiedCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
       case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +

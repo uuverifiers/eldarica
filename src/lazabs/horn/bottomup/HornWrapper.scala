@@ -437,7 +437,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
           Left(res filterKeys allPredicates(unsimplifiedClauses))
         }
         
-      case Right(cex) =>
+      case Right(cex) => {
+        if (lazabs.GlobalParameters.get.simplifiedCEX) {
+          println
+          cex.map(_._1).prettyPrint
+        }
         if (lazabs.GlobalParameters.get.needFullCEX) {
           val fullCEX = preprocBackTranslator translate cex
           HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
@@ -445,6 +449,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         } else {
           Right(for (p <- cex) yield p._1)
         }
+      }
     }
   }
 }
