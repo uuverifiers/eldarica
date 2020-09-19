@@ -488,7 +488,7 @@ class PrincessWrapper {
         BoolConst(false)
     }
     
-    val Var0Extractor = SymbolSum(IVariable(0))
+    val Var0Eq = SymbolEquation(IVariable(0))
     def rvF(t: IFormula): Expression = t match {
 
       // Set constraints (not used currently)
@@ -540,11 +540,17 @@ class PrincessWrapper {
         lazabs.ast.ASTree.Iff(rvF(e1).stype(BooleanType()),
                               rvF(e2).stype(BooleanType()))
       
-      case IQuantified(Quantifier.EX,IIntFormula(IIntRelation.EqZero,Var0Extractor(varCoeff, remainder))) => // EX (varCoeff * _0 + remainder = 0)
-       lazabs.ast.ASTree.Equality(lazabs.ast.ASTree.Modulo(reduceDeBruijn(rvT(remainder)).stype(IntegerType()),rvT(varCoeff).stype(IntegerType())),NumericalConst(0)).stype(BooleanType())
-      case IQuantified(Quantifier.EX, e) =>
+       // EX (varCoeff * _0 = remainder)
+      case ISortedQuantified(Quantifier.EX,
+                             Sort.Integer, Var0Eq(varCoeff, remainder)) =>
+       lazabs.ast.ASTree.Equality(
+         lazabs.ast.ASTree.Modulo(reduceDeBruijn(rvT(remainder)).stype(IntegerType()),
+                                  rvT(varCoeff.abs).stype(IntegerType())),
+         NumericalConst(0)).stype(BooleanType())
+      case ISortedQuantified(Quantifier.EX, Sort.Integer, e) =>
         lazabs.ast.ASTree.Existential(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
-      case IQuantified(Quantifier.ALL, e) => lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
+      case ISortedQuantified(Quantifier.ALL, Sort.Integer, e) =>
+        lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
 

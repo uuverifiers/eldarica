@@ -80,7 +80,7 @@ object HornWrapper {
                     // since we are making use of the equivalence
                     // x == False <=> x != True, we need to add bounds on Boolean
                     // variables (corresponding to the law of the excluded middle)
-                    !! (Sort.Bool.membershipConstraint(c))
+                    !! (c >= 0 & c <= 1)
                   case _ =>
                     // nothing
                 }
