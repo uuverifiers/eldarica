@@ -74,6 +74,13 @@ object ConstraintSimplifier {
   class BinaryIntFormula(opPred : IIntRelation.Value => Boolean) {
     def unapply(f : IFormula)
               : Option[(IIntRelation.Value, ITerm, ITerm, IdealInt)] = f match {
+      case IEquation(left, right) if opPred(IIntRelation.EqZero) =>
+        extractSyms(left - right) match {
+          case null =>
+            None
+          case (a, b, offset) =>
+            Some((IIntRelation.EqZero, a, b, offset))
+        }
       case IIntFormula(op, t) if opPred(op) =>
         extractSyms(t) match {
           case null =>

@@ -1876,8 +1876,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       println(" -> " + complete) */
 
       val iabsy =
-        sf.postprocessing.processInterpolant(f)
-
+        sf.postprocessing(f, simplify = true)
       val (rawF, posF, negF) = rsPredsToInternal(iabsy)
 
 //      println(" -> pos: " + posF)
