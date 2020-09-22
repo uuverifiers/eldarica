@@ -143,26 +143,27 @@ object HintsSelection {
 
     val LastPredicate = cegar.predicates //Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]]
 
-    var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
-
+    //don't do canonical nameing here
+    var originalPredicates: Map[Predicate, Seq[IFormula]] = LastPredicate
+    //var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
     //show original predicates
-    var numberOfpredicates = 0
-    println("Original predicates:")
-    for ((head, preds) <- LastPredicate) {
-      // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-      println("key:" + head.pred)
-      val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-      //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-      val predicateSequence = for (p <- preds) yield {
-        val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
-        //println("value:"+simplifiedPredicate)
-        val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-        println("value:" + varPred)
-        numberOfpredicates = numberOfpredicates + 1
-        varPred
-      }
-      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
-    }
+//    var numberOfpredicates = 0
+//    println("Original predicates:")
+//    for ((head, preds) <- LastPredicate) {
+//      // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+//      println("key:" + head.pred)
+//      val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+//      //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+//      val predicateSequence = for (p <- preds) yield {
+//        val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
+//        //println("value:"+simplifiedPredicate)
+//        val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+//        println("value:" + varPred)
+//        numberOfpredicates = numberOfpredicates + 1
+//        varPred
+//      }
+//      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
+//    }
     //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
     var initialPredicates = VerificationHints(Map())
     for ((head, preds) <- originalPredicates) {
@@ -241,23 +242,24 @@ object HintsSelection {
     if (LastPredicate.isEmpty) {
       return VerificationHints(Map())
     } else {
-      var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
-
+      //don't do canonical nameing here
+      val originalPredicates=LastPredicate
+      //var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
       //show LastPredicate
-      println("Original predicates:")
-      for ((head, preds) <- LastPredicate) {
-        // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-        val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-        //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-        val predicateSequence = for (p <- preds) yield {
-          val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
-          //println("value:"+simplifiedPredicate)
-          val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-          println("value:" + varPred)
-          varPred
-        }
-        originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
-      }
+//      println("Original predicates:")
+//      for ((head, preds) <- LastPredicate) {
+//        // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+//        val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+//        //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+//        val predicateSequence = for (p <- preds) yield {
+//          val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
+//          //println("value:"+simplifiedPredicate)
+//          val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+//          println("value:" + varPred)
+//          varPred
+//        }
+//        originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
+//      }
 
       //      var initialPredicates = VerificationHints(Map())
       //      for ((head, preds) <- originalPredicates) {
@@ -1164,7 +1166,7 @@ object HintsSelection {
       for(arg<-arguments){
         for(hint<-positiveHintInfoList){
           if(arg.location.equals(hint.head))
-            if(ContainsSymbol(hint.expression, new IVariable(arg.index)))
+            if(ContainsSymbol(hint.expression, IVariable(arg.index)))
               arg.score=arg.score+1
         }
       }

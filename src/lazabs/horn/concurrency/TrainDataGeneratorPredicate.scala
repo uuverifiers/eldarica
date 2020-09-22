@@ -177,23 +177,24 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
   }else{
 
 
-    var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
-
+    //don't do canonical nameing here
+    val originalPredicates= LastPredicate
+    //var originalPredicates: Map[Predicate, Seq[IFormula]] = Map()
     //show LastPredicate
-    println("Original predicates:")
-    for ((head, preds) <- LastPredicate) {
-      // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-      val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-      //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-      val predicateSequence = for (p <- preds) yield {
-        val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
-        //println("value:"+simplifiedPredicate)
-        val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-        println("value:" + varPred)
-        varPred
-      }
-      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
-    }
+//    println("Original predicates:")
+//    for ((head, preds) <- LastPredicate) {
+//      // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+//      val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+//      //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+//      val predicateSequence = for (p <- preds) yield {
+//        val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.functionEnc.predTranslation))
+//        //println("value:"+simplifiedPredicate)
+//        val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+//        println("value:" + varPred)
+//        varPred
+//      }
+//      originalPredicates = originalPredicates ++ Map(head.pred -> predicateSequence.distinct)
+//    }
 
 
     var initialPredicates = VerificationHints(Map())
