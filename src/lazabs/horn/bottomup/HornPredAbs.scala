@@ -85,6 +85,9 @@ object HornPredAbs {
       new FunctionEncoder(
         Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
         Param.GENERATE_TOTALITY_AXIOMS(PreprocessingSettings.DEFAULT))
+    def getFunctionEnc(): FunctionEncoder ={
+      (functionEnc)
+    }
 
     for (t <- theories) {
       orderVar = t extend orderVar
