@@ -1091,18 +1091,13 @@ object HintsSelection {
   }
 
 
-  def writeSMTFormatToFile(simpClauses: Clauses, path: String): Unit = {
+  def writeSMTFormatToFile(simpClauses: Clauses, fileName: String): Unit = {
 
-    val basename = GlobalParameters.get.fileName
-    //      val suffix =
-    //        (for (inv <- invariants) yield (inv mkString "_")) mkString "--"
-    //      val filename = basename + "-" + suffix + ".smt2"
-    //println(basename.substring(basename.lastIndexOf("/")+1))
-    val fileName = basename.substring(basename.lastIndexOf("/") + 1)
+
     //val filename = basename + ".smt2"
     println("write " + fileName + " to smt format file")
     //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")
-    val out = new java.io.FileOutputStream(path + fileName + ".smt2") //python path
+    val out = new java.io.FileOutputStream(fileName + ".smt2") //python path
     Console.withOut(out) {
       val clauseFors =
         for (c <- simpClauses) yield {

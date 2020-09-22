@@ -133,14 +133,17 @@ object DrawHornGraph {
     var GNNNodeID=0
     var hyperEdgeNodeID=0
     var TotalNodeID=0
-
+    //canonical node category for hyperedge horn graph
     var CONTROLCanonicalID,argumentCanonicalID,predicateCanonicalID,iEpsilonCanonicalID,iFormulaITECanonicalID,iFunAppCanonicalID,
     iNamePartCanonicalID,iTermITECanonicalID,iTriggerCanonicalID,variableCanonicalID,symbolicConstantCanonicalID=0
+
+    //canonical node category for layer horn graph
+    var clauseHeadCanonicalID,clauseBodyCanonicalID,clauseArgCanonicalID,clauseCanonicalID,predicateNameCanonicalID,
+    predicateArgumentCanonicalID=0
 
     var nodeIds=new ListBuffer[Int]()
     var nodeSymbols = new ListBuffer[String]()
 
-    //todo: differentiate edges
     var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
     val dataFlowEdges = new Adjacency("dataFlowEdge",2)
@@ -195,6 +198,24 @@ object DrawHornGraph {
       }else if (nodeClass=="symbolicConstant"){
         nodeSymbols+=nodeClass +"_"+ symbolicConstantCanonicalID.toString
         symbolicConstantCanonicalID+=1
+      }else if (nodeClass=="clauseHead"){
+        nodeSymbols+=nodeClass +"_"+ clauseHeadCanonicalID.toString
+        clauseHeadCanonicalID+=1
+      }else if (nodeClass=="clauseBody"){
+        nodeSymbols+=nodeClass +"_"+ clauseBodyCanonicalID.toString
+        clauseBodyCanonicalID+=1
+      }else if (nodeClass=="clauseArg"){
+        nodeSymbols+=nodeClass +"_"+ clauseArgCanonicalID.toString
+        clauseArgCanonicalID+=1
+      }else if (nodeClass=="clause"){
+        nodeSymbols+=nodeClass +"_"+ clauseCanonicalID.toString
+        clauseCanonicalID+=1
+      }else if (nodeClass=="predicateName"){
+        nodeSymbols+=nodeClass +"_"+ predicateNameCanonicalID.toString
+        predicateNameCanonicalID+=1
+      }else if (nodeClass=="predicateArgument"){
+        nodeSymbols+=nodeClass +"_"+ predicateArgumentCanonicalID.toString
+        predicateArgumentCanonicalID+=1
       }
       else if (nodeClass=="FALSE"){
         nodeSymbols+=nodeName
@@ -356,9 +377,40 @@ object DrawHornGraph {
       writer.write("relativeComplimentOfHeadArg:" + relativeComplimentOfHeadArg.toString() + "\n")
       writer.write("relativeComplimentOfBodyArg:" + relativeComplimentOfBodyArg.toString() + "\n")
 
+      writer.write(clause.head.args+ "\n")
+      writer.write(clause.body+ "\n")
+      writer.write(clause.constraint+ "\n")
+      /*
+      inv_main6(P5, T6, T7, T8, T9) :- inv_main6(0, T6 + -1, T7 + -1, P4, P0), P3 != 0 & T9 = P0 + 1 + T6 + -1 & T8 = P4 + 1 + T7 + -1 & P5 = 0.
+      dataflow:
+      P5 <- 0
+      T6 <- T6 + -1
+      T7 <- T7 + -1
+      T8 <- P4
+      T9 <- P0
+      Guards:
+      P3 != 0
+      T9 = P0 + 1 + T6 + -1
+      T8 = P4 + 1 + T7 + -1
+      P5 = 0
 
+
+      clause format: head(arg1,arg2,...,argn):-body(bodyArg1,bodyArg2,...bodyArgn), [E_1 & E_2 & ... & E_M]
+      bodyArg and E
+      parsing constrains:
+      E is expression in constrains
+      if E is not a equation
+        E is a guard
+      else if E includes head's argument:
+        E is a data flow
+      else if E does not include head's argument:
+        E is a guard
+      parsing things in body(E1,E2)
+
+      */
       //separate guard and data flow conjunct
-      //if the expression is not a equation, then it is a guard
+      //if the expression is not a equation, it is a guard
+      //if the expression is a equation and includes head's argument, then it is a data flow.
       //if the expression is a equation and head's argument -common argument not in the formula,then it is a guard
       //if the expression is a equation and there are element in the head's argument - common argument set, then it is a data flow
       var guardConjunct=ListBuffer[IFormula]()
@@ -526,6 +578,28 @@ object DrawHornGraph {
         dataFlowConjunct=dataFlowConjunctTemp
       }
 
+      /*
+      todo: not use this mechanism, use argument to involve in guard directly. check 05.c-1.smt2' main6:argument_0 dataflow hyperedge_2
+      inv_main6(P5, T6, T7, T8, T9) :- inv_main6(0, T6 + -1, T7 + -1, P4, P0), P3 != 0 & T9 = P0 + 1 + T6 + -1 & T8 = P4 + 1 + T7 + -1 & P5 = 0.
+      Data flow:
+      P5 <- 0
+      T6 <- _T6
+      T7 <- _T7
+      T8 <- _T8
+      T9 <- _T9
+      P5<-0
+      T6<-(T6 + -1)
+      T7<-(T7 + -1)
+      T8<-P4
+      T9<-P0
+      inv_main6_argument_0<-0
+      Guard:
+      !(P3 = 0)
+      ((_T9 + (-1 * P0 + -1 * _T6)) = 0)
+      ((_T8 + (-1 * P4 + -1 * _T7)) = 0)
+      dataflow number:5
+      guard number:3
+      */
       //preprocessing:if data flow has more than one head elements, replace element in conjunct to be a guard, add data flow
       writer.write("Data flow:\n")
       var dataFlowMap = Map[String, IExpression]() //argument->dataflow
@@ -633,7 +707,7 @@ object DrawHornGraph {
       }
 
 
-      //draw constant data flow //todo: merge to standard data flow .dataFlowMap
+      //draw constant data flow
       //if arguments in head are constant, add data flow constant ->arguments
       //head constant dataflow
       if (!argsInHead.isEmpty) {
@@ -645,7 +719,6 @@ object DrawHornGraph {
                 //add constant data flow in to clause data structure
                 argument.constantFlowInNode = "xxx"+currentClause.name + "_" + currentClause.clauseID +  "xxx" +
                   argument.name + "_constant_" + "\""+arg._1
-                //dataFlowMap=dataFlowMap ++ Map(argument.name -> arg._2)
               }
           }
         }
@@ -853,7 +926,7 @@ object DrawHornGraph {
         gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
       }
 
-      //draw data flow ast and connect to hyperedge
+      //draw data flow ast and get data flow AST node
       for (graphInfo <- clauseInfo.dataFlowASTGraph; argNode <- clauseInfo.head.argumentList if (graphInfo.argumentName == argNode.name)) {
         argNode.dataFLowHyperEdge.fromData=(graphInfo.astRootName,true)
         writerGraph.write(graphInfo.graphText + "\n") //draw AST
@@ -866,11 +939,10 @@ object DrawHornGraph {
 
 
     //draw data flow
-    //draw constant data flow for head
+    //draw constant data flow for head. example: main4(a,0):-main5(x,y)
     for (clauseInfo <- clauseList) {
       for (headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
-        if (headArg.dataFLowHyperEdge.fromData._2==true && isNumeric(headArg.dataFLowHyperEdge.fromData._1)) {
-
+        if (headArg.constantFlowInNode!="") {
           writerGraph.write(addQuotes(headArg.constantFlowInNode)
             + " [label=\"" + headArg.originalContent + "\"" +" nodeName="+ "\"" +headArg.constantFlowInNode+ "\"" + " class=Constant"+ "];" + "\n") //create constant node
           dot.node(addQuotes(headArg.constantFlowInNode),addQuotes(headArg.originalContent),
@@ -885,9 +957,9 @@ object DrawHornGraph {
 
         }
       }
-      //draw constant data flow for body
+      //draw constant data flow for body. example: main4(a,b):-main5(x,0)
       for (bodyArg <- clauseInfo.body.argumentList; if !clauseInfo.body.argumentList.isEmpty) {
-        if (bodyArg.dataFLowHyperEdge.fromData._2==true && isNumeric(bodyArg.dataFLowHyperEdge.fromData._1)) {
+        if (bodyArg.constantFlowInNode!="") {
           writerGraph.write(addQuotes(bodyArg.constantFlowInNode)
             + " [label=\"" + bodyArg.originalContent + "\"" +" nodeName=" + addQuotes(bodyArg.constantFlowInNode) +" class=Constant"+ "];" + "\n") //create constant node
           dot.node(addQuotes(bodyArg.constantFlowInNode),addQuotes(bodyArg.originalContent),
@@ -903,7 +975,7 @@ object DrawHornGraph {
       }
     }
 
-    //draw simple data flow connection //todo: merge to guarded data flow
+    //draw simple data flow connection. for example: main4(a,b):-main5(x,0)[empty], a<-x
     for (clauseInfo <- clauseList) {
       if (!clauseInfo.simpleDataFlowConnection.isEmpty) {
         for ((bodyArg, headArg) <- clauseInfo.simpleDataFlowConnection) {
@@ -917,7 +989,7 @@ object DrawHornGraph {
       }
     }
 
-    //draw guarded data flow hyperedge for head
+    //draw left guarded data flow hyperedge for head.
     for (clauseInfo <- clauseList; headArg <- clauseInfo.head.argumentList; if !clauseInfo.head.argumentList.isEmpty) {
       //create data flow hyperedge node
       if(headArg.dataFLowHyperEdge.fromData._1!="" && headArg.dataFLowHyperEdge.fromData._2==true){
@@ -928,7 +1000,6 @@ object DrawHornGraph {
         dot.edge(addQuotes(headArg.dataFLowHyperEdge.fromData._1),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("dataFlowHyperEdge"))))//dataFlow
       }
     }
-
 
     def drawDataFlowHyperEdge(clauseInfo:ClauseTransitionInformation,headArg:ArgumentNode): Unit ={
       //create hyperedge
@@ -963,7 +1034,6 @@ object DrawHornGraph {
       gnn_input.ternaryAdjacency+=tenaryListBuffer
       gnn_input.dataFlowHyperEdges.edgeList += tenaryListBuffer
     }
-
 
 
     writerGraph.write("\n\n\n\n")

@@ -53,7 +53,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
-import lazabs.horn.concurrency.{DrawHornGraph, HintsSelection, ReaderMain}
+import lazabs.horn.concurrency.{DrawHornGraph, HintsSelection, ReaderMain,DrawLayerHornGraph}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -241,6 +241,8 @@ class HornWrapper(constraints: Seq[HornClause],
     DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo) //write horn graph and gnn to file
     //println(simplifiedClauses)
     //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
+
+    val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, unsimplifiedClauses, sortedHints,argumentInfo)
     sys.exit()
   }
 
