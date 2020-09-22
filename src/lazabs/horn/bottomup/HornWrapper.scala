@@ -78,7 +78,7 @@ object HornWrapper {
                     // since we are making use of the equivalence
                     // x == False <=> x != True, we need to add bounds on Boolean
                     // variables (corresponding to the law of the excluded middle)
-                    !! (Sort.Bool.membershipConstraint(c))
+                    !! (c >= 0 & c <= 1)
                   case _ =>
                     // nothing
                 }
@@ -510,8 +510,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           // only keep relation symbols that were also part of the orginal problem
           Left(res filterKeys allPredicates(unsimplifiedClauses))
         }
-
-      case Right(cex) =>
+        
+      case Right(cex) => {
+        if (lazabs.GlobalParameters.get.simplifiedCEX) {
+          println
+          cex.map(_._1).prettyPrint
+        }
         if (lazabs.GlobalParameters.get.needFullCEX) {
           val fullCEX = preprocBackTranslator translate cex
           HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
@@ -519,6 +523,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         } else {
           Right(for (p <- cex) yield p._1)
         }
+      }
     }
   }
 }

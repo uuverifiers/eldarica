@@ -93,16 +93,14 @@ object HornPreprocessor {
    * Verify that all atoms in all clauses have arguments of correct sorts.
    */
   def typeCheck(clauses : Iterable[HornClauses.Clause]) : Unit =
-    if (lazabs.Main.assertions)
-      for (clause <- clauses)
-        typeCheck(clause)
+    for (clause <- clauses)
+      typeCheck(clause)
 
   /**
    * Verify that all terms in a counterexample have correct sorts.
    */
   def typeCheck(cex : CounterExample) : Unit =
-    if (lazabs.Main.assertions)
-      for (p <- cex) typeCheck(p._1)
+    for (p <- cex) typeCheck(p._1)
 
   /**
    * Verify that all arguments have correct sorts.
@@ -155,11 +153,13 @@ object HornPreprocessor {
     def translate(solution : Solution) =
       (solution /: translators) { case (sol, t) => t translate sol }
     def translate(cex : CounterExample) = {
-      typeCheck(cex)
+      if (lazabs.Main.assertions)
+        typeCheck(cex)
       (cex /: translators) {
         case (cex, t) => {
           val newCEX = t translate cex
-          typeCheck(newCEX)
+          if (lazabs.Main.assertions)
+            typeCheck(newCEX)
           newCEX
         }
       }

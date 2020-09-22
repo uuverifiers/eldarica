@@ -80,10 +80,11 @@ object HornPredAbs {
       rs
     }
 
-    var orderVar : TermOrder = TermOrder.EMPTY
-    val functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
-                          Param.GENERATE_TOTALITY_AXIOMS(PreprocessingSettings.DEFAULT))
+    private var orderVar : TermOrder = TermOrder.EMPTY
+    private val functionEnc =
+      new FunctionEncoder(
+        Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
+        Param.GENERATE_TOTALITY_AXIOMS(PreprocessingSettings.DEFAULT))
 
     for (t <- theories) {
       orderVar = t extend orderVar
@@ -97,6 +98,9 @@ object HornPredAbs {
       }
       orderVar
     }
+
+    def postprocessing =
+      new Postprocessing(signature, functionEnc.predTranslation)
 
     def genConstant(name : String) : ConstantTerm = {
       val res = new ConstantTerm(name)
@@ -155,7 +159,7 @@ object HornPredAbs {
     def toInternalClausify(f : IFormula) : Conjunction =
       HornPredAbs.toInternal(f, signature, functionEnc,
                              clausifyPreprocSettings)
-                             
+
     def preprocess(f : Conjunction) : Conjunction =
       if (theories.isEmpty) f else !Theory.preprocess(!f, theories, order)
   }
@@ -229,8 +233,7 @@ object HornPredAbs {
 
     override def toString = DialogUtil.asString {
       PrincessLineariser.printExpression(
-        (new Simplifier)(Internal2InputAbsy(rawPred,
-                           rs.sf.functionEnc.predTranslation)))
+        rs.sf.postprocessing.processFormula(rawPred))
  //     print(positive)
  //     print(" / ")
  //     print(negative)
@@ -1101,19 +1104,12 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         val backSubst =
           (for ((c, n) <- consts.iterator.zipWithIndex)
            yield (c -> IVariable(n))).toMap
-        val simplifier =
-          new Simplifier
 
         for (c <- cs) yield {
-          val cWithConsts =
-            TypeTheory.filterTypeConstraints(subst(c))
-          implicit val context =
-            new Theory.DefaultDecoderContext(cWithConsts)
-          val internal =
-            Internal2InputAbsy(cWithConsts, sf.functionEnc.predTranslation)
-          val simp =
-            IntToTermTranslator(simplifier(internal))
-          ConstantSubstVisitor(simp, backSubst)
+          val raw = sf.postprocessing(subst(c),
+                                      simplify = true,
+                                      int2TermTranslation = true)
+          ConstantSubstVisitor(raw, backSubst)
         }
       }
     }
@@ -1880,8 +1876,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       println(" -> " + complete) */
 
       val iabsy =
-        (new Simplifier)(Internal2InputAbsy(f, sf.functionEnc.predTranslation))
-
+        sf.postprocessing(f, simplify = true)
       val (rawF, posF, negF) = rsPredsToInternal(iabsy)
 
 //      println(" -> pos: " + posF)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2020 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -101,15 +101,17 @@ object HornReader {
           case IBinJunctor.Eqv =>
             assert(false)
         }
-      case f@INot(IAtom(_,_)) => cnf = f :: Nil
-      case f@INot(IBoolLit(_)) => cnf = f :: Nil
-      case f@INot(IIntFormula(_,_)) => cnf = f :: Nil
+      case f@INot(_ : IAtom) => cnf = f :: Nil
+      case f@INot(_ : IBoolLit) => cnf = f :: Nil
+      case f@INot(_ : IIntFormula) => cnf = f :: Nil
+      case f@INot(_ : IEquation) => cnf = f :: Nil
       case f : IAtom => cnf = f :: Nil
       case f : IBoolLit => cnf = f :: Nil
       case f : IIntFormula => cnf = f :: Nil
+      case f : IEquation => cnf = f :: Nil
       case f : IQuantified => cnf = f :: Nil
-      case _ => 
-        assert(false)
+      case f => 
+        throw new Exception ("cannot handle " + f)
     }
     cnf
   }
@@ -150,22 +152,6 @@ object HornReader {
       case INot(IAtom(_,_)) => true
       case _ => false
     })
-  }
-
-  private def quantifiers(aF : IFormula) : List[ap.terfor.conjunctions.Quantifier] = {
-      aF match {
-        case IQuantified(q,f) =>
-          q :: quantifiers(f)
-        case IBinFormula(j,f1,f2) =>
-          quantifiers(f1) ::: quantifiers(f2)
-        case INot(f) =>
-          quantifiers(f)
-        case _ => Nil
-      }
-  }
-
-  private def cnt_quantif(aF : IFormula) : Int = {
-      quantifiers(aF).length
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -336,7 +322,6 @@ class SMTHornReader protected[parser] (
     Console.err.println("Theories: " + (signature.theories mkString ", "))
 
   private val eldClauses = for (cc <- clauses) yield {
-    var parameterConsts = List[ITerm]()
     var symMap = Map[ConstantTerm, String]()
     var clause = cc
 
@@ -392,24 +377,19 @@ class SMTHornReader protected[parser] (
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
-    var varNum = 0
+    var sorts  = List[Sort]()
 
     while (clause.isInstanceOf[IQuantified]) {
-      val IQuantified(Quantifier.ALL, d) = clause
+      val ISortedQuantified(Quantifier.ALL, sort, d) = clause
       clause = d
-      varNum = varNum + 1
+      sorts = sort :: sorts
     }
 
     val groundClause =
-      if (varNum > 0) {
-        val inferrer = new VarTypeInferrer(varNum)
-        inferrer.visitWithoutResult(clause, Context(()))
-        for (s <- inferrer.types.reverseIterator) {
-          parameterConsts =
-            newConstantTerm("P" + symMap.size,
-                            if (s == null) Sort.Integer else s) ::
-              parameterConsts
-        }
+      if (!sorts.isEmpty) {
+        val parameterConsts =
+          for (s <- sorts)
+          yield IConstant((newConstantTerm("P" + symMap.size, s)))
         subst(clause, parameterConsts, 0)
       } else {
         clause

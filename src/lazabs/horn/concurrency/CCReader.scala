@@ -239,7 +239,14 @@ class CCReader private (prog : Program,
     }
 
     def rangePred(t : ITerm) : IFormula =
-      toSort membershipConstraint t
+      toSort match {
+        case Sort.Nat =>
+          t >= 0
+        case ModSort(lower, upper) =>
+          t >= lower & t <= upper
+        case Sort.Integer =>
+          true
+      }
 
     def newConstant(name : String) =
       toSort newConstant name

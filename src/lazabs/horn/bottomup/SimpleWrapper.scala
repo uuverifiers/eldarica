@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2020 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 package lazabs.horn.bottomup
 
 import lazabs.{GlobalParameters, ParallelComputation}
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord,
                                  InitPredicateVerificationHints}
 
@@ -160,5 +160,17 @@ object SimpleWrapper {
    * To be used as head of clauses without head.
    */
   val FALSEAtom = IAtom(HornClauses.FALSE, List())
+
+  /**
+   * Verify that all atoms in all clauses have arguments of correct sorts.
+   */
+  def typeCheck(clauses : Iterable[HornClauses.Clause]) : Unit =
+    HornPreprocessor.typeCheck(clauses)
+
+  /**
+   * Verify that all atoms in the clause have arguments of correct sorts.
+   */
+  def typeCheck(clause : HornClauses.Clause) : Unit =
+    HornPreprocessor.typeCheck(clause)
 
 }
