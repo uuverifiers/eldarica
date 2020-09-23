@@ -72,7 +72,11 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val clauseArgumentPrefix="clauseArgument_"
   val symbolicConstantPrefix="symbolicConstant_"
 
-  var predicateNameMap = Map[String,String]() //original name -> canonical name
+  var predicateNameMap = Map[String,predicateInfo]() //original name -> canonical name
+  class predicateInfo(predicateName:String){
+    val predicateCanonicalName=predicateName
+    var argumentCanonicalNameList= new ListBuffer[Pair[String,Int]]() //(canonicalName, ID)
+  }
 
   println("-------------debug-----------")
 
@@ -101,17 +105,17 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     //clause layer: create edge between head and clause node
     addEdge(clauseNodeName,clauseHeadNodeName,"controlHead")
     //predicateLayer->clauseLayer: connect predicate to clause head
-    if(predicateNameMap.contains(clause.head.pred.name)){
-      addEdge(predicateNameMap(clause.head.pred.name),clauseHeadNodeName,"predicateInstance")
-    }
+    addEdge(predicateNameMap(clause.head.pred.name).predicateCanonicalName,clauseHeadNodeName,"predicateInstance")
     var tempIDForArgument=0
-    for (headArg<-clause.head.args){
+    for ((headArgument,predicateArgument)<-clause.head.args zip predicateNameMap(clause.head.pred.name).argumentCanonicalNameList){
       //clause layer: create clause head argument node
       val clauseArgumentNodeName = clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
       createNode(clauseArgumentNodeName,
         "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
       //clause layer: create edge between head and argument
       addEdge(clauseHeadNodeName,clauseArgumentNodeName,"controlArgument")
+      //predicateLayer->clauseLayer: connect predicate argument to clause argument
+      addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
       tempIDForArgument+=1
     }
 
@@ -127,18 +131,18 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //clause layer: create edge between body and clause node
       addEdge(clauseNodeName,clauseBodyNodeName,"controlBody")
       //predicateLayer->clauseLayer: connect predicate to clause body
-      if(predicateNameMap.contains(bodyPredicate.pred.name)){
-        addEdge(predicateNameMap(bodyPredicate.pred.name),clauseBodyNodeName,"predicateInstance")
-      }
+      addEdge(predicateNameMap(bodyPredicate.pred.name).predicateCanonicalName,clauseBodyNodeName,"predicateInstance")
 
       tempIDForArgument=0
-      for (bodyArg<-bodyPredicate.args){
+      for ((bodyArgument,predicateArgument)<-bodyPredicate.args zip predicateNameMap(bodyPredicate.pred.name).argumentCanonicalNameList){
         //clause layer: create clause body argument node
         val clauseArgumentNodeName=clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
         createNode(clauseArgumentNodeName,
           "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
         //clause layer: create edge between body and argument
         addEdge(clauseBodyNodeName,clauseArgumentNodeName,"controlArgument")
+        //predicateLayer->clauseLayer: connect predicate argument to clause argument
+        addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
         tempIDForArgument+=1
       }
     }
@@ -179,7 +183,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     //predicate layer: create predicate and argument node
     if (!predicateNameMap.contains(pred.pred.name)){
       val predicateNodeCanonicalName=predicateNamePrefix+gnn_input.predicateNameCanonicalID.toString
-      predicateNameMap+=(pred.pred.name->predicateNodeCanonicalName)
+      predicateNameMap+=(pred.pred.name->new predicateInfo(predicateNodeCanonicalName))
       createNode(predicateNamePrefix+gnn_input.predicateNameCanonicalID.toString,
         pred.pred.name,"predicateName","box",gnn_input.GNNNodeID)
       var tempID=0
@@ -188,9 +192,10 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         //create argument node
         createNode(argumentNodeCanonicalName,
           "Arg"+tempID.toString,"predicateArgument","ellipse",gnn_input.GNNNodeID)
-        tempID+=1
         //create edge from argument to predicate
         addEdge(predicateNodeCanonicalName,argumentNodeCanonicalName,"predicateArgument")
+        predicateNameMap(pred.pred.name).argumentCanonicalNameList+=Pair(argumentNodeCanonicalName,tempID)
+        tempID+=1
       }
     }
   }
