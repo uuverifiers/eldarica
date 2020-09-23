@@ -28,8 +28,11 @@
  */
 package lazabs.horn.concurrency
 import java.io.{File, PrintWriter}
-import ap.parser.IAtom
+
+import ap.parser.IExpression.{Conj, Const, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ, LeafFormula, SignConst, SimpleTerm}
+import ap.parser.{IAtom, IBinFormula, IBoolLit, IConstant, IEpsilon, IExpression, IFormulaITE, IFunApp, IIntFormula, IIntLit, INamedPart, INot, IPlus, IQuantified, ITermITE, ITimes, ITrigger, IVariable}
 import lazabs.GlobalParameters
+
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 import lazabs.horn.concurrency.DrawHornGraph.{GNNInput, addQuotes}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
@@ -60,6 +63,15 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       edgeNameMap += (key -> "")
   }
 
+  var shapeMap: Map[String, String] = Map()
+  shapeMap += ("constant" -> "circle")
+  shapeMap += ("operator" -> "square")
+  shapeMap += ("predicateArgument" -> "ellipse")
+  shapeMap += ("clause" -> "box")
+  shapeMap += ("clauseHead" -> "box")
+  shapeMap += ("clauseBody" -> "box")
+  shapeMap += ("clauseArgument" -> "ellipse")
+  shapeMap += ("symbolicConstant" -> "circle")
   //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
   //  var predicateNumber,predicateArgumentNumber=1
   //  var clauseNumber,clauseHeadNumber,clauseBodyNumber,clauseArgumentNumber=1;
@@ -117,6 +129,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
       addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
       tempIDForArgument+=1
+      //todo: draw AST tree for argument
+      drawAST(headArgument,clauseArgumentNodeName)
     }
 
 
@@ -144,6 +158,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         //predicateLayer->clauseLayer: connect predicate argument to clause argument
         addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
         tempIDForArgument+=1
+        //todo: draw AST tree for argument
+        drawAST(bodyArgument,clauseArgumentNodeName)
       }
     }
 
@@ -200,6 +216,116 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
   }
 
+  def drawAST(e: IExpression,previousNodeName:String=""): Unit ={
+    e match {
+      case EqZ(t)=>{
+        //println("EqZ")
+        //create equal node
+        val equalName="="+"_"+gnn_input.GNNNodeID
+        createNode(equalName,"=","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(equalName,previousNodeName,"subTerm")
+        //create zero node
+        val zeroName="0"+"_"+gnn_input.GNNNodeID
+        createNode(zeroName,"0","constant",shapeMap("constant"),gnn_input.GNNNodeID)
+        addEdge(zeroName,equalName,"subTerm")
+        drawAST(t,equalName)
+      }
+      case Eq(t1, t2) => {
+        //println("Eq")
+      }
+      case EqLit(term, lit) => {
+        //println("EqLit")
+      }
+      case GeqZ(t)=>{
+        //println("GeqZ")
+      }
+      case Geq(t1, t2) => {
+        //println("Geq")
+      }
+      case Conj(a,b)=>{println("Conj")}
+      case Disj(a,b)=>{println("Disj")}
+      case Const(t)=>{
+        println("Const")
+        val constantStr=t.toString()
+        println(constantStr)
+        val constantName=constantStr+"_"+gnn_input.GNNNodeID
+        createNode(constantName,constantStr,"constant",shapeMap("constant"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(constantName,previousNodeName,"subTerm")
+      }
+      case SignConst(t)=>{println("SignConst")}
+      //case SimpleTerm(t)=>{println("SimpleTerm")}
+      case LeafFormula(t)=>{println("LeafFormula")}
+      case Difference(t1, t2)=>{
+        //println("Difference")
+        //create plus node
+        val differenceName="-"+"_"+gnn_input.GNNNodeID
+        createNode(differenceName,"-","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(differenceName,previousNodeName,"subTerm")
+        drawAST(t1,differenceName)
+        drawAST(t2,differenceName)
+      }
+
+      case IAtom(pred, args) => {
+      }
+      case IBinFormula(j, f1, f2) => {
+      }
+      case IBoolLit(v) => {
+      }
+      case IFormulaITE(cond, left, right) => {
+      }
+      case IIntFormula(rel, term) => {
+      }
+      case INamedPart(pname, subformula) => {
+      }
+      case INot(subformula) => {
+        val notName="!"+"_"+gnn_input.GNNNodeID
+        createNode(notName,"!","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(notName,previousNodeName,"subTerm")
+        drawAST(subformula,notName)
+      }
+      case IQuantified(quan, subformula) => {
+      }
+      case ITrigger(patterns, subformula) => {
+      }
+      case IConstant(c) => {
+        println("IConstant")
+        val constantStr=c.toString()
+        println(constantStr)
+        val constantName=symbolicConstantPrefix+gnn_input.symbolicConstantCanonicalID
+        createNode(constantName,constantStr,"symbolicConstant",shapeMap("symbolicConstant"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(constantName,previousNodeName,"subTerm")
+      }
+      case IEpsilon(cond) => {
+      }
+      case IFunApp(fun, args) => {
+      }
+      case IIntLit(v) => {
+      }
+      case IPlus(t1, t2) => {
+        //create plus node
+        val plusName="+"+"_"+gnn_input.GNNNodeID
+        createNode(plusName,"+","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(plusName,previousNodeName,"subTerm")
+        drawAST(t1,plusName)
+        drawAST(t2,plusName)
+      }
+      case ITermITE(cond, left, right) => {
+      }
+      case ITimes(coeff, subterm) => {
+        val timesName="*"+""+"_"+gnn_input.GNNNodeID
+        createNode(timesName,"*","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdge(timesName,previousNodeName,"subTerm")
+
+        val coeffStr=coeff.toString()+"_"+gnn_input.GNNNodeID
+        createNode(coeffStr,coeff.toString(),"constant",shapeMap("constant"),gnn_input.GNNNodeID)
+        addEdge(coeffStr,timesName,"subTerm")
+        drawAST(subterm,timesName)
+      }
+      case IVariable(index) => {
+      }
+      case _ => {}
+    }
+  }
 
 }
 

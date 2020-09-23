@@ -139,7 +139,7 @@ object DrawHornGraph {
 
     //canonical node category for layer horn graph
     var clauseHeadCanonicalID,clauseBodyCanonicalID,clauseArgCanonicalID,clauseCanonicalID,predicateNameCanonicalID,
-    predicateArgumentCanonicalID=0
+    predicateArgumentCanonicalID,operatorUniqueID,constantUniqueID=0
 
     var nodeIds=new ListBuffer[Int]()
     var nodeSymbols = new ListBuffer[String]()
