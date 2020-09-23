@@ -144,87 +144,130 @@ object DrawHornGraph {
     var nodeIds=new ListBuffer[Int]()
     var nodeSymbols = new ListBuffer[String]()
 
+    //edge category for hyperedge horn graph
     var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
     val dataFlowEdges = new Adjacency("dataFlowEdge",2)
     val argumentEdges = new Adjacency("argumentEdge",2)
     val guardASTEdges = new Adjacency("guardASTEdge",2)
 
-
     var ternaryAdjacency=new ListBuffer[ListBuffer[Int]]()
     val controlFlowHyperEdges=new Adjacency("controlFlowHyperEdge",3)
     val dataFlowHyperEdges=new Adjacency("dataFlowHyperEdge",3)
+
+    //edge category for layer version horn graph
+    val predicateArgumentEdges = new Adjacency("predicateArgument",2)
+    val predicateInstanceEdges = new Adjacency("predicateInstance",2)
+    val argumentInstanceEdges = new Adjacency("argumentInstance",2)
+    val controlHeadEdges = new Adjacency("controlHead",2)
+    val controlBodyEdges= new Adjacency("controlBody",2)
+    val controlArgumentEdges = new Adjacency("controlArgument",2)
+    val guardEdges = new Adjacency("guard",2)
+    val dataEdges = new Adjacency("data",2)
+    val subTermEdges = new Adjacency("subTerm",2)
+    val unknownEdges = new Adjacency("unknownEdges",2)
 
     var controlLocationIndices=new ListBuffer[Int]()
     var argumentIndices=new ListBuffer[Int]()
     var argumentInfoHornGraphList=new ListBuffer[argumentInfoHronGraph]
     var nodeNameToIDMap =   MuMap[String, Int]()
 
+    def incrementEdge(from:String,to:String,label:String): Unit ={
+      val fromID=nodeNameToIDMap(from)
+      val toID=nodeNameToIDMap(to)
+      label match {
+        case "predicateArgument" => predicateArgumentEdges.edgeList += ListBuffer(fromID,toID)
+        case "predicateInstance" => predicateInstanceEdges.edgeList += ListBuffer(fromID,toID)
+        case "argumentInstance" => argumentInstanceEdges.edgeList += ListBuffer(fromID,toID)
+        case "controlHead" => controlHeadEdges.edgeList += ListBuffer(fromID,toID)
+        case "controlBody" => controlBodyEdges.edgeList += ListBuffer(fromID,toID)
+        case "controlArgument" => controlArgumentEdges.edgeList += ListBuffer(fromID,toID)
+        case "guard" => guardEdges.edgeList += ListBuffer(fromID,toID)
+        case "data" => dataEdges.edgeList += ListBuffer(fromID,toID)
+        case "subTerm" => subTermEdges.edgeList += ListBuffer(fromID,toID)
+        case _ => unknownEdges.edgeList += ListBuffer(fromID,toID)
+
+      }
+    }
+
     def incrementNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
       nodeIds+=GNNNodeID
       nodeNameToIDMap(nodeUniqueName)=GNNNodeID
       GNNNodeID+=1
+      nodeClass match{
+        case "CONTROL" =>{
+          nodeSymbols+=nodeClass +"_"+ CONTROLCanonicalID.toString
+          CONTROLCanonicalID+=1
+        }
+        case "argument" =>{
+          nodeSymbols+=nodeClass +"_"+ argumentCanonicalID.toString
+          argumentCanonicalID+=1
+        }
+        case "predicate" =>{
+          nodeSymbols+=nodeClass +"_"+ predicateCanonicalID.toString
+          predicateCanonicalID+=1
+        }
+        case "IEpsilon" =>{
+          nodeSymbols+=nodeClass +"_"+ iEpsilonCanonicalID.toString
+          iEpsilonCanonicalID+=1
+        }
+        case "IFormulaITE" =>{
+          nodeSymbols+=nodeClass +"_"+ iFormulaITECanonicalID.toString
+          iFormulaITECanonicalID+=1
+        }
+        case "IFunApp" =>{
+          nodeSymbols+=nodeClass +"_"+ iFunAppCanonicalID.toString
+          iFunAppCanonicalID+=1
+        }
+        case "INamePart" =>{
+          nodeSymbols+=nodeClass +"_"+ iNamePartCanonicalID.toString
+          iNamePartCanonicalID+=1
+        }
+        case "ITermITE"=>{
+          nodeSymbols+=nodeClass +"_"+ iTermITECanonicalID.toString
+          iTermITECanonicalID+=1
+        }
+        case "ITrigger"=>{
+          nodeSymbols+=nodeClass +"_"+ iTriggerCanonicalID.toString
+          iTriggerCanonicalID+=1
+        }
+        case "variable"=>{
+          nodeSymbols+=nodeClass +"_"+ variableCanonicalID.toString
+          variableCanonicalID+=1
+        }
+        case "symbolicConstant"=>{
+          nodeSymbols+=nodeClass +"_"+ symbolicConstantCanonicalID.toString
+          symbolicConstantCanonicalID+=1
+        }
+        case "clauseHead"=>{
+          nodeSymbols+=nodeClass +"_"+ clauseHeadCanonicalID.toString
+          clauseHeadCanonicalID+=1
+        }
+        case "clauseBody" =>{
+          nodeSymbols+=nodeClass +"_"+ clauseBodyCanonicalID.toString
+          clauseBodyCanonicalID+=1
+        }
+        case "clauseArg" =>{
+          nodeSymbols+=nodeClass +"_"+ clauseArgCanonicalID.toString
+          clauseArgCanonicalID+=1
+        }
+        case "clause" =>{
+          nodeSymbols+=nodeClass +"_"+ clauseCanonicalID.toString
+          clauseCanonicalID+=1
+        }
+        case "predicateName"=>{
+          nodeSymbols+=nodeClass +"_"+ predicateNameCanonicalID.toString
+          predicateNameCanonicalID+=1
+        }
+        case "predicateArgument" =>{
+          nodeSymbols+=nodeClass +"_"+ predicateArgumentCanonicalID.toString
+          predicateArgumentCanonicalID+=1
+        }
+        case "FALSE" => nodeSymbols+=nodeName
+        case "operator" => nodeSymbols+=nodeName
+        case "constant" => nodeSymbols+=nodeName
+        case _ => nodeSymbols+=nodeName
 
-      if(nodeClass=="CONTROL"){
-        nodeSymbols+=nodeClass +"_"+ CONTROLCanonicalID.toString
-        CONTROLCanonicalID+=1
-      }else if (nodeClass=="argument"){
-        nodeSymbols+=nodeClass +"_"+ argumentCanonicalID.toString
-        argumentCanonicalID+=1
-      }else if (nodeClass=="predicate"){
-        nodeSymbols+=nodeClass +"_"+ predicateCanonicalID.toString
-        predicateCanonicalID+=1
-      }else if (nodeClass=="IEpsilon"){
-        nodeSymbols+=nodeClass +"_"+ iEpsilonCanonicalID.toString
-        iEpsilonCanonicalID+=1
-      }else if (nodeClass=="IFormulaITE"){
-        nodeSymbols+=nodeClass +"_"+ iFormulaITECanonicalID.toString
-        iFormulaITECanonicalID+=1
-      }else if (nodeClass=="IFunApp"){
-        nodeSymbols+=nodeClass +"_"+ iFunAppCanonicalID.toString
-        iFunAppCanonicalID+=1
-      }else if (nodeClass=="INamePart"){
-        nodeSymbols+=nodeClass +"_"+ iNamePartCanonicalID.toString
-        iNamePartCanonicalID+=1
-      }else if (nodeClass=="ITermITE"){
-        nodeSymbols+=nodeClass +"_"+ iTermITECanonicalID.toString
-        iTermITECanonicalID+=1
-      }else if (nodeClass=="ITrigger"){
-        nodeSymbols+=nodeClass +"_"+ iTriggerCanonicalID.toString
-        iTriggerCanonicalID+=1
-      }else if (nodeClass=="variable"){
-        nodeSymbols+=nodeClass +"_"+ variableCanonicalID.toString
-        variableCanonicalID+=1
-      }else if (nodeClass=="symbolicConstant"){
-        nodeSymbols+=nodeClass +"_"+ symbolicConstantCanonicalID.toString
-        symbolicConstantCanonicalID+=1
-      }else if (nodeClass=="clauseHead"){
-        nodeSymbols+=nodeClass +"_"+ clauseHeadCanonicalID.toString
-        clauseHeadCanonicalID+=1
-      }else if (nodeClass=="clauseBody"){
-        nodeSymbols+=nodeClass +"_"+ clauseBodyCanonicalID.toString
-        clauseBodyCanonicalID+=1
-      }else if (nodeClass=="clauseArg"){
-        nodeSymbols+=nodeClass +"_"+ clauseArgCanonicalID.toString
-        clauseArgCanonicalID+=1
-      }else if (nodeClass=="clause"){
-        nodeSymbols+=nodeClass +"_"+ clauseCanonicalID.toString
-        clauseCanonicalID+=1
-      }else if (nodeClass=="predicateName"){
-        nodeSymbols+=nodeClass +"_"+ predicateNameCanonicalID.toString
-        predicateNameCanonicalID+=1
-      }else if (nodeClass=="predicateArgument"){
-        nodeSymbols+=nodeClass +"_"+ predicateArgumentCanonicalID.toString
-        predicateArgumentCanonicalID+=1
-      }
-      else if (nodeClass=="FALSE"){
-        nodeSymbols+=nodeName
-      } else if (nodeClass=="operator"){
-        nodeSymbols+=nodeName
-      }else if (nodeClass=="constant"){
-        nodeSymbols+=nodeName
-      }else{
-        nodeSymbols+="unknown"
       }
 
     }

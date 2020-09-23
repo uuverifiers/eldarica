@@ -48,10 +48,10 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   edgeNameMap += ("argumentInstance" -> "AI")
   edgeNameMap += ("controlHead" -> "CH")
   edgeNameMap += ("controlBody" -> "CB")
-  edgeNameMap += ("argument" -> "ARG")
+  edgeNameMap += ("controlArgument" -> "ARG")
   edgeNameMap += ("guard" -> "guard")
   edgeNameMap += ("data" -> "data")
-  edgeNameMap += ("subTermEdge" -> "ste")
+  edgeNameMap += ("subTerm" -> "st")
 
   //turn on/off edge's label
   var edgeNameSwitch = true
@@ -72,65 +72,92 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val clauseArgumentPrefix="clauseArgument_"
   val symbolicConstantPrefix="symbolicConstant_"
 
-  var predicateNameSet= Set[String]()
+  var predicateNameMap = Map[String,String]() //original name -> canonical name
 
   println("-------------debug-----------")
+
+  for (clause <- simpClauses) {
+    //predicate layer: create predicate and arguments and edges between them
+    createPredicateLayerNodesAndEdges(clause.head)
+    for (bodyPredicate<-clause.body){
+      //predicate layer: create predicate and arguments and edges between them
+      createPredicateLayerNodesAndEdges(bodyPredicate)
+    }
+  }
+
   for (clause <- simpClauses) {
 
     println(clause.toPrologString.toString)
-    //create clause node
-    createNode(clausePrefix+gnn_input.clauseCanonicalID.toString,
+    //clause layer: create clause node
+    val clauseNodeName= clausePrefix+gnn_input.clauseCanonicalID.toString
+    createNode(clauseNodeName,
       "C"+gnn_input.clauseCanonicalID.toString,"clause","box",gnn_input.GNNNodeID)
 
-    //create head node
-    createNode(clauseHeadPrefix+gnn_input.clauseHeadCanonicalID.toString,
+
+    //clause layer: create clause head node
+    val clauseHeadNodeName = clauseHeadPrefix+gnn_input.clauseHeadCanonicalID.toString
+    createNode(clauseHeadNodeName,
       "HEAD","clauseHead","box",gnn_input.GNNNodeID)
-
-    //create body node
-    createNode(clauseBodyPrefix+gnn_input.clauseBodyCanonicalID.toString,
-      "BODY"+gnn_input.clauseBodyCanonicalID.toString,"clauseBody","box",gnn_input.GNNNodeID)
-
-    //create FALSE node
-    createNode("FALSE",
-      "FALSE","FALSE","box",gnn_input.GNNNodeID)
-
-    //create clause arguments node in head
-    var tempID=0
-    for (headArg<-clause.head.args){
-      createNode(clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString,
-        "ARG"+tempID.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
-      tempID+=1
+    //clause layer: create edge between head and clause node
+    addEdge(clauseNodeName,clauseHeadNodeName,"controlHead")
+    //predicateLayer->clauseLayer: connect predicate to clause head
+    if(predicateNameMap.contains(clause.head.pred.name)){
+      addEdge(predicateNameMap(clause.head.pred.name),clauseHeadNodeName,"predicateInstance")
     }
-    createPredicateLayerNodesAndEdges(clause.head)
+    var tempIDForArgument=0
+    for (headArg<-clause.head.args){
+      //clause layer: create clause head argument node
+      val clauseArgumentNodeName = clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
+      createNode(clauseArgumentNodeName,
+        "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
+      //clause layer: create edge between head and argument
+      addEdge(clauseHeadNodeName,clauseArgumentNodeName,"controlArgument")
+      tempIDForArgument+=1
+    }
 
 
-    //create clause arguments node in body
+    //clause layer: create clause arguments node in body
+    var tempIDForPredicate=0
     for (bodyPredicate<-clause.body){
-      createPredicateLayerNodesAndEdges(bodyPredicate)
-      tempID=0
-      for (bodyArg<-bodyPredicate.args){
-        createNode(clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString,
-          "ARG"+tempID.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
-        tempID+=1
+      //clause layer: create clause body node
+      val clauseBodyNodeName=clauseBodyPrefix+gnn_input.clauseBodyCanonicalID.toString
+      createNode(clauseBodyNodeName,
+        "BODY"+tempIDForPredicate.toString,"clauseBody","box",gnn_input.GNNNodeID)
+      tempIDForPredicate+=1
+      //clause layer: create edge between body and clause node
+      addEdge(clauseNodeName,clauseBodyNodeName,"controlBody")
+      //predicateLayer->clauseLayer: connect predicate to clause body
+      if(predicateNameMap.contains(bodyPredicate.pred.name)){
+        addEdge(predicateNameMap(bodyPredicate.pred.name),clauseBodyNodeName,"predicateInstance")
       }
-      predicateNameSet+=bodyPredicate.pred.name
+
+      tempIDForArgument=0
+      for (bodyArg<-bodyPredicate.args){
+        //clause layer: create clause body argument node
+        val clauseArgumentNodeName=clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
+        createNode(clauseArgumentNodeName,
+          "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
+        //clause layer: create edge between body and argument
+        addEdge(clauseBodyNodeName,clauseArgumentNodeName,"controlArgument")
+        tempIDForArgument+=1
+      }
     }
 
 
   }
-
 
   //write dot file
   val filePath=file.substring(0,file.lastIndexOf("/")+1)
   dot.save(fileName = file+".layerHornGraph.gv", directory = filePath)
   //write JSON file
   val oneGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
-    "argumentIndices"->gnn_input.argumentIndices)
+    "argumentIndices"->gnn_input.argumentIndices,"controlBodyEdges"->gnn_input.controlBodyEdges.edgeList,
+  "predicateArgumentEdges"->gnn_input.predicateArgumentEdges.edgeList,"controlHeadEdges"->gnn_input.controlHeadEdges.edgeList,
+  "unknownEdges"->gnn_input.unknownEdges.edgeList,"predicateInstanceEdges"->gnn_input.predicateInstanceEdges.edgeList)
   println("Write GNNInput to file")
   val writer = new PrintWriter(new File(file + ".layerHornGraph.JSON")) //python path
   writer.write(oneGraphGNNInput.toString())
   writer.close()
-
 
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
@@ -142,25 +169,28 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }else{
       gnn_input.incrementNodeIds(canonicalName,className,labelName)
     }
-
+  }
+  def addEdge(from:String,to:String,label:String): Unit ={
+    dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
+    gnn_input.incrementEdge(from, to,label)
   }
 
   def createPredicateLayerNodesAndEdges(pred:IAtom): Unit ={
     //predicate layer: create predicate and argument node
-    if (!predicateNameSet.contains(pred.pred.name)){
-      predicateNameSet+=pred.pred.name
+    if (!predicateNameMap.contains(pred.pred.name)){
       val predicateNodeCanonicalName=predicateNamePrefix+gnn_input.predicateNameCanonicalID.toString
+      predicateNameMap+=(pred.pred.name->predicateNodeCanonicalName)
       createNode(predicateNamePrefix+gnn_input.predicateNameCanonicalID.toString,
         pred.pred.name,"predicateName","box",gnn_input.GNNNodeID)
       var tempID=0
       for (headArg<-pred.args){
-        val argumentNodeCanonicalName=clauseArgumentPrefix+gnn_input.predicateArgumentCanonicalID.toString
+        val argumentNodeCanonicalName=predicateArgumentPrefix+gnn_input.predicateArgumentCanonicalID.toString
         //create argument node
         createNode(argumentNodeCanonicalName,
           "Arg"+tempID.toString,"predicateArgument","ellipse",gnn_input.GNNNodeID)
         tempID+=1
         //create edge from argument to predicate
-        dot.edge(addQuotes(predicateNodeCanonicalName),addQuotes(argumentNodeCanonicalName),attrs = MuMap("label"->addQuotes(edgeNameMap("predicateArgument"))))
+        addEdge(predicateNodeCanonicalName,argumentNodeCanonicalName,"predicateArgument")
       }
     }
   }
