@@ -129,7 +129,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
       addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
       tempIDForArgument+=1
-      //todo: draw AST tree for argument
+      //todo: draw AST tree for argument,identify root
       drawAST(headArgument,clauseArgumentNodeName)
     }
 
@@ -158,7 +158,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         //predicateLayer->clauseLayer: connect predicate argument to clause argument
         addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
         tempIDForArgument+=1
-        //todo: draw AST tree for argument
+        //todo: draw AST tree for argument, identify root
         drawAST(bodyArgument,clauseArgumentNodeName)
       }
     }
@@ -216,6 +216,36 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
   }
 
+  def addEdgeInSubTerm(from:String,to:String): Unit ={
+    val toNodeClass=to.substring(0,to.indexOf("_"))
+    toNodeClass match {
+      case "clause" => addEdge(from,to,"guard")
+      case "clauseArgument" => addEdge(from,to,"data")
+      case _ => addEdge(from,to,"subTerm")
+    }
+  }
+
+  def drawASTBinaryRelation(op:String,previousNodeName:String,e1: IExpression,e2: IExpression): Unit ={
+    val condName=op+"_"+gnn_input.GNNNodeID
+    createNode(condName,op,"operator",shapeMap("operator"),gnn_input.GNNNodeID)
+    if(previousNodeName!="") addEdgeInSubTerm(condName,previousNodeName)
+    drawAST(e1,condName)
+    drawAST(e2,condName)
+  }
+  def drawASTUnaryRelation(op:String,previousNodeName:String,e: IExpression): Unit ={
+    val opName=op+"_"+gnn_input.GNNNodeID
+    createNode(opName,op,"operator",shapeMap("operator"),gnn_input.GNNNodeID)
+    if(previousNodeName!="") addEdgeInSubTerm(opName,previousNodeName)
+    drawAST(e,opName)
+  }
+
+  def drawASTEndNode(constantStr:String,previousNodeName:String,className:String): Unit ={
+    val constantName=constantStr+"_"+gnn_input.GNNNodeID
+    createNode(constantName,constantStr,className,shapeMap(className),gnn_input.GNNNodeID)
+    //if(previousNodeName!="")
+    addEdgeInSubTerm(constantName,previousNodeName)
+  }
+
   def drawAST(e: IExpression,previousNodeName:String=""): Unit ={
     e match {
       case EqZ(t)=>{
@@ -223,107 +253,128 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         //create equal node
         val equalName="="+"_"+gnn_input.GNNNodeID
         createNode(equalName,"=","operator",shapeMap("operator"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(equalName,previousNodeName,"subTerm")
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
         //create zero node
-        val zeroName="0"+"_"+gnn_input.GNNNodeID
-        createNode(zeroName,"0","constant",shapeMap("constant"),gnn_input.GNNNodeID)
-        addEdge(zeroName,equalName,"subTerm")
+        drawASTEndNode("0"+"_"+gnn_input.GNNNodeID,equalName,"constant")
+
         drawAST(t,equalName)
       }
       case Eq(t1, t2) => {
         //println("Eq")
+        drawASTBinaryRelation("=",previousNodeName,t1,t2)
       }
       case EqLit(term, lit) => {
         //println("EqLit")
+        //create equal node
+        val equalName="="+"_"+gnn_input.GNNNodeID
+        createNode(equalName,"=","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
+        //create lit node
+        drawASTEndNode(lit.toString(),equalName,"constant")
+
+        drawAST(term,equalName)
       }
       case GeqZ(t)=>{
         //println("GeqZ")
+        //create >= node
+        val equalName=">="+"_"+gnn_input.GNNNodeID
+        createNode(equalName,"=","operator",shapeMap("operator"),gnn_input.GNNNodeID)
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
+        //create zero node
+        drawASTEndNode("0"+"_"+gnn_input.GNNNodeID,equalName,"constant")
+
+        drawAST(t,equalName)
       }
       case Geq(t1, t2) => {
         //println("Geq")
+        drawASTBinaryRelation(">=",previousNodeName,t1,t2)
       }
-      case Conj(a,b)=>{println("Conj")}
-      case Disj(a,b)=>{println("Disj")}
+      case Conj(a,b)=>{
+//        println("Conj")
+        drawASTBinaryRelation("&",previousNodeName,a,b)
+      }
+      case Disj(a,b)=>{
+//        println("Disj")
+        drawASTBinaryRelation("|",previousNodeName,a,b)
+      }
       case Const(t)=>{
-        println("Const")
-        val constantStr=t.toString()
-        println(constantStr)
-        val constantName=constantStr+"_"+gnn_input.GNNNodeID
-        createNode(constantName,constantStr,"constant",shapeMap("constant"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(constantName,previousNodeName,"subTerm")
+        //println("Const")
+        drawASTEndNode(t.toString(),previousNodeName,"constant")
       }
       case SignConst(t)=>{println("SignConst")}
       //case SimpleTerm(t)=>{println("SimpleTerm")}
-      case LeafFormula(t)=>{println("LeafFormula")}
+      case LeafFormula(t)=>{
+        //println("LeafFormula")
+        drawAST(t,previousNodeName)
+      }
       case Difference(t1, t2)=>{
         //println("Difference")
-        //create plus node
-        val differenceName="-"+"_"+gnn_input.GNNNodeID
-        createNode(differenceName,"-","operator",shapeMap("operator"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(differenceName,previousNodeName,"subTerm")
-        drawAST(t1,differenceName)
-        drawAST(t2,differenceName)
+        drawASTBinaryRelation("-",previousNodeName,t1,t2)
       }
 
       case IAtom(pred, args) => {
       }
       case IBinFormula(j, f1, f2) => {
+        drawASTBinaryRelation(j.toString,previousNodeName,f1,f2)
       }
       case IBoolLit(v) => {
+        //println("IBoolLit")
+        drawASTEndNode(v.toString(),previousNodeName,"constant")
       }
       case IFormulaITE(cond, left, right) => {
+          drawAST(cond,previousNodeName)
+          drawAST(right,previousNodeName)
+          drawAST(left,previousNodeName)
       }
       case IIntFormula(rel, term) => {
+        drawASTUnaryRelation(rel.toString,previousNodeName,term)
       }
       case INamedPart(pname, subformula) => {
+        drawASTUnaryRelation(pname.toString,previousNodeName,subformula)
       }
       case INot(subformula) => {
-        val notName="!"+"_"+gnn_input.GNNNodeID
-        createNode(notName,"!","operator",shapeMap("operator"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(notName,previousNodeName,"subTerm")
-        drawAST(subformula,notName)
+        drawASTUnaryRelation("!",previousNodeName,subformula)
       }
       case IQuantified(quan, subformula) => {
+        drawASTUnaryRelation(quan.toString,previousNodeName,subformula)
       }
       case ITrigger(patterns, subformula) => {
       }
       case IConstant(c) => {
-        println("IConstant")
-        val constantStr=c.toString()
-        println(constantStr)
-        val constantName=symbolicConstantPrefix+gnn_input.symbolicConstantCanonicalID
-        createNode(constantName,constantStr,"symbolicConstant",shapeMap("symbolicConstant"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(constantName,previousNodeName,"subTerm")
+        //println("IConstant")
+        drawASTEndNode(c.toString(),previousNodeName,"symbolicConstant")
       }
       case IEpsilon(cond) => {
+        drawASTUnaryRelation("eps",previousNodeName,cond)
       }
       case IFunApp(fun, args) => {
       }
       case IIntLit(v) => {
+        //println("IIntLit")
+        drawASTEndNode(v.toString(),previousNodeName,"constant")
       }
       case IPlus(t1, t2) => {
-        //create plus node
-        val plusName="+"+"_"+gnn_input.GNNNodeID
-        createNode(plusName,"+","operator",shapeMap("operator"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(plusName,previousNodeName,"subTerm")
-        drawAST(t1,plusName)
-        drawAST(t2,plusName)
+        drawASTBinaryRelation("+",previousNodeName,t1,t2)
       }
       case ITermITE(cond, left, right) => {
+        drawAST(cond,previousNodeName)
+        drawAST(right,previousNodeName)
+        drawAST(left,previousNodeName)
       }
       case ITimes(coeff, subterm) => {
-        val timesName="*"+""+"_"+gnn_input.GNNNodeID
+        val timesName="*"+"_"+gnn_input.GNNNodeID
         createNode(timesName,"*","operator",shapeMap("operator"),gnn_input.GNNNodeID)
-        if(previousNodeName!="") addEdge(timesName,previousNodeName,"subTerm")
+        if(previousNodeName!="") addEdgeInSubTerm(timesName,previousNodeName)
 
-        val coeffStr=coeff.toString()+"_"+gnn_input.GNNNodeID
-        createNode(coeffStr,coeff.toString(),"constant",shapeMap("constant"),gnn_input.GNNNodeID)
-        addEdge(coeffStr,timesName,"subTerm")
+        drawASTEndNode(coeff.toString()+"_"+gnn_input.GNNNodeID,timesName,"constant")
         drawAST(subterm,timesName)
       }
       case IVariable(index) => {
+        drawASTEndNode(index.toString()+"_"+gnn_input.GNNNodeID,previousNodeName,"constant")
       }
-      case _ => {}
+      case _ => {
+        drawASTEndNode("unknown_"+gnn_input.GNNNodeID,previousNodeName,"constant")
+      }
     }
   }
 
