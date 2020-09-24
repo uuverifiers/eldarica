@@ -29,6 +29,7 @@
 
 package lazabs.horn
 import java.io.{File, PrintWriter}
+
 import lazabs.ast.ASTree._
 import bottomup.{HornTranslator, _}
 import ap.parser._
@@ -43,7 +44,7 @@ import lazabs.horn.global._
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
-import lazabs.horn.concurrency.{DrawHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
+import lazabs.horn.concurrency.{DrawHornGraph, DrawLayerHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
 import lazabs.viewer.HornPrinter
 
 
@@ -255,7 +256,7 @@ object TrainDataGeneratorSmt2 {
             //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
             DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
             val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
-
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
             //write horn clauses to file
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))

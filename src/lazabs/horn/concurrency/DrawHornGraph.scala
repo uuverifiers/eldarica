@@ -172,7 +172,7 @@ object DrawHornGraph {
     var argumentInfoHornGraphList=new ListBuffer[argumentInfoHronGraph]
     var nodeNameToIDMap =   MuMap[String, Int]()
 
-    def incrementEdge(from:String,to:String,label:String): Unit ={
+    def incrementBinaryEdge(from:String,to:String,label:String): Unit ={
       val fromID=nodeNameToIDMap(from)
       val toID=nodeNameToIDMap(to)
       label match {
@@ -186,8 +186,8 @@ object DrawHornGraph {
         case "data" => dataEdges.edgeList += ListBuffer(fromID,toID)
         case "subTerm" => subTermEdges.edgeList += ListBuffer(fromID,toID)
         case _ => unknownEdges.edgeList += ListBuffer(fromID,toID)
-
       }
+      binaryAdjacency+=ListBuffer(fromID,toID)
     }
 
     def incrementNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
@@ -1115,6 +1115,7 @@ object DrawHornGraph {
     writerGraph.write("}" + "\n")
     writerGraph.close()
   }
+
 
   def drawAST(cfn:ControlFlowNode,argumentList:ListBuffer[ArgumentNode],hints:ListBuffer[Triple[String,String,IExpression]],
               freeVariableMap:MHashMap[String,ITerm],

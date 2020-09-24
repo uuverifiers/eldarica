@@ -1193,4 +1193,5 @@ class argumentInfo(id:Int,loc: IExpression.Predicate,ind:Int)
   val index=ind
   var score=0
   val head=location.toString()
+  val headName=location.name
 }
