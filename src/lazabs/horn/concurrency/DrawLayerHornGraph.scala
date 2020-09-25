@@ -167,9 +167,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
 
   }
 
-  //write dot file
-  val filePath=file.substring(0,file.lastIndexOf("/")+1)
-  dot.save(fileName = file+".layerHornGraph.gv", directory = filePath)
   //match by argument name
   for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
     if(arg.headName==argHornGraph.head && arg.index == argHornGraph.index) {
@@ -181,7 +178,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
   val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
   //write JSON file
-  val oneGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
+  val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
     "argumentIndices"->gnn_input.argumentIndices,
     "binaryAdjacentList"->gnn_input.binaryAdjacency,
     "ternaryAdjacencyList"->gnn_input.ternaryAdjacency,
@@ -198,8 +195,13 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     "argumentOccurrence"->argumentOccurrenceList)
   println("Write GNNInput to file")
   val writer = new PrintWriter(new File(file + ".layerHornGraph.JSON")) //python path
-  writer.write(oneGraphGNNInput.toString())
+  writer.write(layerVersionGraphGNNInput.toString())
   writer.close()
+
+  //write dot file
+  val filePath=file.substring(0,file.lastIndexOf("/")+1)
+  val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
+  dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
 
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
