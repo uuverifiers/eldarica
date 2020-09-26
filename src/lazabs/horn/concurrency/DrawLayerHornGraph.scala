@@ -184,6 +184,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     "ternaryAdjacencyList"->gnn_input.ternaryAdjacency,
     "predicateArgumentEdges"->gnn_input.predicateArgumentEdges.edgeList,
     "predicateInstanceEdges"->gnn_input.predicateInstanceEdges.edgeList,
+    "argumentInstanceEdges"->gnn_input.argumentInstanceEdges.edgeList,
     "controlHeadEdges"->gnn_input.controlHeadEdges.edgeList,
     "controlBodyEdges"->gnn_input.controlBodyEdges.edgeList,
     "controlArgumentEdges"->gnn_input.controlArgumentEdges.edgeList,
