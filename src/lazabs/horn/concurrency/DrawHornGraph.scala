@@ -834,7 +834,7 @@ object DrawHornGraph {
 
 
     println("Write horn to graph")
-    val writerGraph = new PrintWriter(new File(file + ".gv")) //python path
+    val writerGraph = new PrintWriter(new File(file + ".gv"))
     //val writerGraph = new PrintWriter(new File("../trainData/" + fileName + ".gv")) //python path
 
 

@@ -41,10 +41,14 @@ import play.api.libs.json.Json
 import scala.collection.mutable.ListBuffer
 
 class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo]) {
+  val useDotLib=false
   val dot = new Digraph(comment = "Horn Graph")
   val gnn_input=new GNNInput()
 
-  println("Write horn to file")
+  val writerGraph = new PrintWriter(new File(file + ".layerHornGraph.gv"))
+  writerGraph.write("digraph dag {" + "\n")
+
+  println("Write layer horn graph to file")
   var edgeNameMap: Map[String, String] = Map()
   edgeNameMap += ("predicateArgument" -> "PA")
   edgeNameMap += ("predicateInstance" -> "PI")
@@ -161,10 +165,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       }
     }
 
-
-
-
-
   }
 
   //match by argument name
@@ -199,16 +199,25 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   writer.write(layerVersionGraphGNNInput.toString())
   writer.close()
 
+  writerGraph.write("}" + "\n")
+  writerGraph.close()
+
   //write dot file
-  val filePath=file.substring(0,file.lastIndexOf("/")+1)
-  val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
-  dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
+  if (useDotLib==true){
+    val filePath=file.substring(0,file.lastIndexOf("/")+1)
+    val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
+    dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
+  }
 
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
-    dot.node(addQuotes(canonicalName), label = addQuotes(labelName),
-      attrs = MuMap("nodeName"->addQuotes(canonicalName),
-        "shape"->addQuotes(shape),"class"->className,"GNNNodeID"->GNNNodeID.toString))
+    if (useDotLib==true)
+      dot.node(addQuotes(canonicalName), label = addQuotes(labelName),
+        attrs = MuMap("nodeName"->addQuotes(canonicalName),
+          "shape"->addQuotes(shape),"class"->className,"GNNNodeID"->GNNNodeID.toString))
+
+    writerGraph.write(addQuotes(canonicalName) +
+      " [label="+addQuotes(labelName)+" nodeName="+addQuotes(canonicalName)+" class="+className +" shape="+ addQuotes(shape) + "];" + "\n")
     if (className=="predicateArgument"){
       gnn_input.incrementArgumentIndicesAndNodeIds(canonicalName,className,labelName)
     }else{
@@ -216,7 +225,10 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
   }
   def addEdge(from:String,to:String,label:String): Unit ={
-    dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
+    if (useDotLib==true)
+      dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
+    writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
     gnn_input.incrementBinaryEdge(from, to,label)
   }
 
