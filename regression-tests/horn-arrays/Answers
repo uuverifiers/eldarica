@@ -1,6 +1,6 @@
 
 lazabs.horn.tests.MainArrays
-Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),(((k + -3) = 0) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
+Solving List(Clause(p0(1, cnt, a),List(),true), Clause(p1(0, 0, a),List(p0(1, cnt, a)),true), Clause(p2(c, cnt, a),List(p1(c, cnt, a)),(((4 + -1 * cnt) + -1) >= 0)), Clause(p0(c, cnt, a),List(p1(c, cnt, a)),((cnt + -4) >= 0)), Clause(p1(c, (cnt + 1), a),List(p2(c, cnt, a)),((select(a, (cnt + 1)) + -1 * select(a, cnt)) >= 0)), Clause(p1(1, (cnt + 1), store(store(a, cnt, select(a, (cnt + 1))), (cnt + 1), select(a, cnt))),List(p2(c, cnt, a)),(((select(a, cnt) + -1 * select(a, (cnt + 1))) + -1) >= 0)), Clause(p3(0, cnt, a),List(p0(0, cnt, a)),true), Clause(FALSE,List(p3(c, cnt, a)),((k = 3) & (((select(a, k) + -1 * select(a, (k + 1))) + -1) >= 0)))) ...
 Theories: Types, SimpleArray(1)
 Unique satisfiable clauses: 8
    1 clauses with 0 body literals
@@ -43,7 +43,7 @@ ADT: ADT(p)
 Clause(i1(p(0, true)),List(),true)
 Clause(i2(p((left(p) + 1), (1 + -1 * right(p)))),List(i1(p)),true)
 Clause(i1(p(2 * left(p), (1 + -1 * right(p)))),List(i2(p)),true)
-Clause(FALSE,List(i1(p)),(!(left(p) >= 0) | !((right(p) + -1 * true) = 0)))
+Clause(FALSE,List(i1(p)),(!(left(p) >= 0) | !(right(p) = true)))
 
 Solving ...
 ------------------------------- Preprocessing ----------------------------------
@@ -51,10 +51,11 @@ Solving ...
 Initially:                                             4         2
 
 
-Theories: Types, ADT(true, false), ADT(p)
+Theories: Types, ADT(p), ADT(true, false)
 Unique satisfiable clauses: 3
    1 clauses with 0 body literals
    2 clauses with 1 body literals
+Warning: type clash during inference: bool vs int
 
 --------------------------------- Statistics -----------------------------------
 CEGAR iterations:                                      2
@@ -76,10 +77,10 @@ Clause(C(cons(c, x), y, cons(c, r)),List(C(x, y, r)),true)
 Clause(S(nil, 0),List(),true)
 Clause(S(cons(c, x), (n + 1)),List(S(x, n)),true)
 Clause(FALSE,List(S(x, n)),!(n >= 0))
-Clause(FALSE,List(C(x, y, r)),!(((clist_size(r) + -1 * 1) + -1 * (((clist_size(x) + -1 * 1) + clist_size(y)) + -1 * 1)) = 0))
-Clause(FALSE,List(C(x, y, r)),!((EPS EX EX EX ((((((_0 + -1 * (clist_size(r) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + -1 * (EPS EX EX EX ((((((_0 + -1 * (clist_size(x) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + EPS EX EX EX ((((((_0 + -1 * (clist_size(y) + -1 * 1)) = 0) & ((_1 + -1 * mul(_3, _2)) = 0)) & ((_2 + -2) = 0)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)))) = 0))
-Clause(FALSE,List(S(x, n)),!(((2 * n + 1) + -1 * clist_size(x)) = 0))
-Clause(FALSE,List(C(x, y, r)),((!((r + -1 * nil) = 0) & !((head(x) + -1 * head(r)) = 0)) & !((head(y) + -1 * head(r)) = 0)))
+Clause(FALSE,List(C(x, y, r)),!((clist_size(r) + -1 * 1) = (((clist_size(x) + -1 * 1) + clist_size(y)) + -1 * 1)))
+Clause(FALSE,List(C(x, y, r)),!(EPS EX EX EX (((((_0 = (clist_size(r) + -1 * 1)) & (_1 = mul(_3, _2))) & (_2 = 2)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) = (EPS EX EX EX (((((_0 = (clist_size(x) + -1 * 1)) & (_1 = mul(_3, _2))) & (_2 = 2)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)) + EPS EX EX EX (((((_0 = (clist_size(y) + -1 * 1)) & (_1 = mul(_3, _2))) & (_2 = 2)) & ((_0 + -1 * _1) >= 0)) & (((_1 + -1 * (_0 + -1 * \if ((_2 >= 0)) \then (_2) \else (-1 * _2))) + -1) >= 0)))))
+Clause(FALSE,List(S(x, n)),!((2 * n + 1) = clist_size(x)))
+Clause(FALSE,List(C(x, y, r)),((!(r = nil) & !(head(x) = head(r))) & !(head(y) = head(r))))
 
 Solving ...
 ------------------------------- Preprocessing ----------------------------------
@@ -208,5 +209,5 @@ sat
 (define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (= F 0)) (and (= F 0) (not (= B 0)))) (and (= F 0) (not (= D 0))))))
 (define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
 (define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (and (<= F 1) (>= F 0))) (and (not (= B 0)) (and (<= F 1) (>= F 0)))) (and (not (= D 0)) (and (<= F 1) (>= F 0))))))
-(define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= A 1) (and (<= F 0) (>= F 0))) (or (or (or (not (= F 0)) (not (= D 0))) (not (= B 0))) (= E C))))
+(define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F 0) (= A 1)) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
 (define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)

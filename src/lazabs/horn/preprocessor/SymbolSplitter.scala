@@ -276,9 +276,9 @@ object SymbolSplitter extends HornPreprocessor {
       for (f <- LineariseVisitor(Transform2NNF(clause.constraint),
                                  IBinJunctor.And);
            if (f match {
-             case IIntFormula(IIntRelation.EqZero, _)       => true
-             case INot(IIntFormula(IIntRelation.EqZero, _)) => true
-             case _                                         => false
+             case Eq(_, _)       => true
+             case INot(Eq(_, _)) => true
+             case _              => false
            }))
       yield f
 
