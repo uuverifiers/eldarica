@@ -474,12 +474,12 @@ class BinarySearchTreeForGraphClass (ASTtype:String = ""){
           //relationString=relationString+(l_key+"->"+k+"[label=\"" + edgeNameMap("dataFlowOut") + "\"]"+"\n")
           relationString = relationString + (addQuotes(l_key)+ " -> " + addQuotes(k) + "[label=\"" + treeType + "\"]" + "\n")
           dot.edge(addQuotes(l_key),addQuotes(k),attrs = MuMap("label"->addQuotes(treeType)))
-          val ASTEdges = ListBuffer(gnn_inputs.nodeNameToIDMap(l_key),gnn_inputs.nodeNameToIDMap(k))
-          gnn_inputs.binaryAdjacency += ASTEdges
+          val ASTEdges = Array(gnn_inputs.nodeNameToIDMap(l_key),gnn_inputs.nodeNameToIDMap(k))
+          gnn_inputs.binaryAdjacency.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           if (treeType=="dataFlow"){
-            gnn_inputs.dataFlowASTEdges.edgeList += ASTEdges
-            gnn_inputs.dataFlowEdges.edgeList += ASTEdges
-          }else{gnn_inputs.guardASTEdges.edgeList += ASTEdges}
+            gnn_inputs.dataFlowASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+            gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+          }else{gnn_inputs.guardASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))}
         }
       }
 
@@ -489,11 +489,11 @@ class BinarySearchTreeForGraphClass (ASTtype:String = ""){
           relationString = relationString + (addQuotes(r_key) + " -> " + addQuotes(k)+ "[label=\"" + treeType + "\"]" + "\n")
           dot.edge(addQuotes(r_key),addQuotes(k),attrs = MuMap("label"->addQuotes(treeType)))
           val ASTEdges = ListBuffer(gnn_inputs.nodeNameToIDMap(r_key),gnn_inputs.nodeNameToIDMap(k))
-          gnn_inputs.binaryAdjacency += ASTEdges
+          gnn_inputs.binaryAdjacency.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           if (treeType=="dataFlow"){
-            gnn_inputs.dataFlowASTEdges.edgeList += ASTEdges
-            gnn_inputs.dataFlowEdges.edgeList += ASTEdges
-          }else{gnn_inputs.guardASTEdges.edgeList += ASTEdges}
+            gnn_inputs.dataFlowASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+            gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+          }else{gnn_inputs.guardASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))}
         }
       }
       preOrder(root.lchild,gnn_inputs,dot)

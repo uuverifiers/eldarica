@@ -90,25 +90,26 @@ object DrawHornGraph {
 
   }
 
-  def writeGNNInputsToJSON(file: String,nodeIds:ListBuffer[Int],binaryAdjacency:ListBuffer[ListBuffer[Int]],
-                           ternaryAdjacency:ListBuffer[ListBuffer[Int]],
-                           controlLocationIndices:ListBuffer[Int],argumentIndices:ListBuffer[Int],nodeSymbolList:ListBuffer[String],
-                           argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrence:ListBuffer[Int],
+  def writeGNNInputsToJSON(file: String,nodeIds:Array[Int],binaryAdjacency:Adjacency,
+                           ternaryAdjacency:Adjacency,
+                           controlLocationIndices:Array[Int],argumentIndices:Array[Int],nodeSymbolList:Array[String],
+                           argumentIDList:Array[Int],argumentNameList:Array[String],argumentOccurrence:Array[Int],
                            controlFlowHyperEdges:Adjacency,dataFlowHyperEdges:Adjacency,dataFlowASTEdges:Adjacency,
                            dataFlowEdges:Adjacency,guardASTEdges:Adjacency,argumentEdges:Adjacency): Unit ={
-
-    val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds,"nodeSymbolList"->nodeSymbolList,
-      "binaryAdjacentList" -> binaryAdjacency,"ternaryAdjacencyList" -> ternaryAdjacency,
+    val oneGraphGNNInput=Json.obj("nodeIds" -> nodeIds.toList,"nodeSymbolList"->nodeSymbolList.toList,
+      "binaryAdjacentList" -> binaryAdjacency.binaryEdge.toString(),
+      "ternaryAdjacencyList" -> ternaryAdjacency.ternaryEdge.toString,
       "controlLocationIndices"->controlLocationIndices,"argumentIndices"->argumentIndices,
       "argumentIDList"->argumentIDList,"argumentNameList"->argumentNameList,"argumentOccurrence"->argumentOccurrence,
-      "controlFlowHyperEdges"->controlFlowHyperEdges.edgeList,"dataFlowHyperEdges"->dataFlowHyperEdges.edgeList,
-      "dataFlowASTEdges"->dataFlowASTEdges.edgeList,"dataFlowEdges"->dataFlowEdges.edgeList,
-      "guardASTEdges"->guardASTEdges.edgeList,
-      "argumentEdges"->argumentEdges.edgeList)
+      "controlFlowHyperEdges"->controlFlowHyperEdges.ternaryEdge.toString,
+      "dataFlowHyperEdges"->dataFlowHyperEdges.ternaryEdge.toString,
+      "dataFlowASTEdges"->dataFlowASTEdges.binaryEdge.toString,
+      "dataFlowEdges"->dataFlowEdges.binaryEdge.toString,
+      "guardASTEdges"->guardASTEdges.binaryEdge.toString,
+      "argumentEdges"->argumentEdges.binaryEdge.toString)
     //println(oneGraphGNNInput)
     println("Write GNNInput to file")
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + ".JSON")) //python path
-    //val writer = new PrintWriter(new File("../trainData/" + file + ".JSON")) //python path
     writer.write(oneGraphGNNInput.toString())
     writer.close()
   }
@@ -126,8 +127,18 @@ object DrawHornGraph {
   class Adjacency(edge_name:String,edge_number:Int){
     val edgeName=edge_name
     val edgeNumber=edge_number
-    var edgeList=new ListBuffer[ListBuffer[Int]]()
+
+    //var edgeList=new ListBuffer[ListBuffer[Int]]()
+    var binaryEdge= Array[Pair[Int,Int]]()
+    var ternaryEdge=Array[Triple[Int,Int,Int]]()
+
+    def incrementBinaryEdge(from:Int,to:Int): Unit =
+      binaryEdge:+=Pair(from,to)
+
+    def incrementTernaryEdge(from:Int,to1:Int,to2:Int): Unit =
+      ternaryEdge:+=Triple(from,to1,to2)
   }
+
 
   class GNNInput(){
     var GNNNodeID=0
@@ -141,17 +152,18 @@ object DrawHornGraph {
     var clauseHeadCanonicalID,clauseBodyCanonicalID,clauseArgCanonicalID,clauseCanonicalID,predicateNameCanonicalID,
     predicateArgumentCanonicalID,operatorUniqueID,constantUniqueID=0
 
-    var nodeIds=new ListBuffer[Int]()
-    var nodeSymbols = new ListBuffer[String]()
+    var nodeIds= Array[Int]()
+    //var nodeSymbols = new ListBuffer[String]()
+    var nodeSymbols = Array[String]()
 
     //edge category for hyperedge horn graph
-    var binaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    var binaryAdjacency=new Adjacency("binaryEdge",edge_number = 2)
     val dataFlowASTEdges = new Adjacency("dataFlowASTEdge",2)
     val dataFlowEdges = new Adjacency("dataFlowEdge",2)
     val argumentEdges = new Adjacency("argumentEdge",2)
     val guardASTEdges = new Adjacency("guardASTEdge",2)
 
-    var ternaryAdjacency=new ListBuffer[ListBuffer[Int]]()
+    var ternaryAdjacency = new Adjacency("ternaryEdge",3)
     val controlFlowHyperEdges=new Adjacency("controlFlowHyperEdge",3)
     val dataFlowHyperEdges=new Adjacency("dataFlowHyperEdge",3)
 
@@ -167,116 +179,118 @@ object DrawHornGraph {
     val subTermEdges = new Adjacency("subTerm",2)
     val unknownEdges = new Adjacency("unknownEdges",2)
 
-    var controlLocationIndices=new ListBuffer[Int]()
-    var argumentIndices=new ListBuffer[Int]()
+    var controlLocationIndices= Array[Int]()
+    var argumentIndices= Array[Int]()
     var argumentInfoHornGraphList=new ListBuffer[argumentInfoHronGraph]
     var nodeNameToIDMap =   MuMap[String, Int]()
 
     def incrementBinaryEdge(from:String,to:String,label:String): Unit ={
       val fromID=nodeNameToIDMap(from)
       val toID=nodeNameToIDMap(to)
+      //array
+      //list
+      //hash map
       label match {
-        case "predicateArgument" => predicateArgumentEdges.edgeList += ListBuffer(fromID,toID)
-        case "predicateInstance" => predicateInstanceEdges.edgeList += ListBuffer(fromID,toID)
-        case "argumentInstance" => argumentInstanceEdges.edgeList += ListBuffer(fromID,toID)
-        case "controlHead" => controlHeadEdges.edgeList += ListBuffer(fromID,toID)
-        case "controlBody" => controlBodyEdges.edgeList += ListBuffer(fromID,toID)
-        case "controlArgument" => controlArgumentEdges.edgeList += ListBuffer(fromID,toID)
-        case "guard" => guardEdges.edgeList += ListBuffer(fromID,toID)
-        case "data" => dataEdges.edgeList += ListBuffer(fromID,toID)
-        case "subTerm" => subTermEdges.edgeList += ListBuffer(fromID,toID)
-        case _ => unknownEdges.edgeList += ListBuffer(fromID,toID)
+        case "predicateArgument" => predicateArgumentEdges.incrementBinaryEdge(fromID,toID)
+        case "predicateInstance" => predicateInstanceEdges.incrementBinaryEdge(fromID,toID)
+        case "argumentInstance" => argumentInstanceEdges.incrementBinaryEdge(fromID,toID)
+        case "controlHead" => controlHeadEdges.incrementBinaryEdge(fromID,toID)
+        case "controlBody" => controlBodyEdges.incrementBinaryEdge(fromID,toID)
+        case "controlArgument" => controlArgumentEdges.incrementBinaryEdge(fromID,toID)
+        case "guard" => guardEdges.incrementBinaryEdge(fromID,toID)
+        case "data" => dataEdges.incrementBinaryEdge(fromID,toID)
+        case "subTerm" => subTermEdges.incrementBinaryEdge(fromID,toID)
+        case _ => unknownEdges.incrementBinaryEdge(fromID,toID)
       }
-      binaryAdjacency+=ListBuffer(fromID,toID)
+      binaryAdjacency.incrementBinaryEdge(fromID,toID)
     }
-
     def incrementNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
-      nodeIds+=GNNNodeID
+      nodeIds+:=GNNNodeID
       nodeNameToIDMap(nodeUniqueName)=GNNNodeID
       GNNNodeID+=1
       nodeClass match{
         case "CONTROL" =>{
-          nodeSymbols+=nodeClass +"_"+ CONTROLCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ CONTROLCanonicalID.toString
           CONTROLCanonicalID+=1
         }
         case "argument" =>{
-          nodeSymbols+=nodeClass +"_"+ argumentCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ argumentCanonicalID.toString
           argumentCanonicalID+=1
         }
         case "predicate" =>{
-          nodeSymbols+=nodeClass +"_"+ predicateCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ predicateCanonicalID.toString
           predicateCanonicalID+=1
         }
         case "IEpsilon" =>{
-          nodeSymbols+=nodeClass +"_"+ iEpsilonCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iEpsilonCanonicalID.toString
           iEpsilonCanonicalID+=1
         }
         case "IFormulaITE" =>{
-          nodeSymbols+=nodeClass +"_"+ iFormulaITECanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iFormulaITECanonicalID.toString
           iFormulaITECanonicalID+=1
         }
         case "IFunApp" =>{
-          nodeSymbols+=nodeClass +"_"+ iFunAppCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iFunAppCanonicalID.toString
           iFunAppCanonicalID+=1
         }
         case "INamePart" =>{
-          nodeSymbols+=nodeClass +"_"+ iNamePartCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iNamePartCanonicalID.toString
           iNamePartCanonicalID+=1
         }
         case "ITermITE"=>{
-          nodeSymbols+=nodeClass +"_"+ iTermITECanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iTermITECanonicalID.toString
           iTermITECanonicalID+=1
         }
         case "ITrigger"=>{
-          nodeSymbols+=nodeClass +"_"+ iTriggerCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ iTriggerCanonicalID.toString
           iTriggerCanonicalID+=1
         }
         case "variable"=>{
-          nodeSymbols+=nodeClass +"_"+ variableCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ variableCanonicalID.toString
           variableCanonicalID+=1
         }
         case "symbolicConstant"=>{
-          nodeSymbols+=nodeClass +"_"+ symbolicConstantCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ symbolicConstantCanonicalID.toString
           symbolicConstantCanonicalID+=1
         }
         case "clauseHead"=>{
-          nodeSymbols+=nodeClass +"_"+ clauseHeadCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ clauseHeadCanonicalID.toString
           clauseHeadCanonicalID+=1
         }
         case "clauseBody" =>{
-          nodeSymbols+=nodeClass +"_"+ clauseBodyCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ clauseBodyCanonicalID.toString
           clauseBodyCanonicalID+=1
         }
         case "clauseArg" =>{
-          nodeSymbols+=nodeClass +"_"+ clauseArgCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ clauseArgCanonicalID.toString
           clauseArgCanonicalID+=1
         }
         case "clause" =>{
-          nodeSymbols+=nodeClass +"_"+ clauseCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ clauseCanonicalID.toString
           clauseCanonicalID+=1
         }
         case "predicateName"=>{
-          nodeSymbols+=nodeClass +"_"+ predicateNameCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ predicateNameCanonicalID.toString
           predicateNameCanonicalID+=1
         }
         case "predicateArgument" =>{
-          nodeSymbols+=nodeClass +"_"+ predicateArgumentCanonicalID.toString
+          nodeSymbols:+=nodeClass +"_"+ predicateArgumentCanonicalID.toString
           predicateArgumentCanonicalID+=1
         }
-        case "FALSE" => nodeSymbols+=nodeName
-        case "operator" => nodeSymbols+=nodeName
-        case "constant" => nodeSymbols+=nodeName
-        case _ => nodeSymbols+=nodeName
+        case "FALSE" => nodeSymbols:+=nodeName
+        case "operator" => nodeSymbols:+=nodeName
+        case "constant" => nodeSymbols:+=nodeName
+        case _ => nodeSymbols:+=nodeName
 
       }
 
     }
     def incrementArgumentIndicesAndNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
-      argumentIndices+=GNNNodeID
+      argumentIndices:+=GNNNodeID
       incrementNodeIds(nodeUniqueName,nodeClass,nodeName)
     }
     def incrementControlLocationIndicesAndNodeIds(nodeUniqueName:String,nodeClass:String,nodeName:String): Unit ={
-      controlLocationIndices+=GNNNodeID
+      controlLocationIndices:+=GNNNodeID
       incrementNodeIds(nodeUniqueName,nodeClass,nodeName)
     }
   }
@@ -900,9 +914,10 @@ object DrawHornGraph {
         " style=\"dashed\"" + "]" + "\n")
       dot.edge(addQuotes(arg.name),addQuotes(controlFLowNode.name),attrs = MuMap("label"->addQuotes(edgeNameMap("argument")),
       "style"->"dashed"))
-      val argumentEdge=ListBuffer(gnn_input.nodeNameToIDMap(arg.name),gnn_input.nodeNameToIDMap(controlFLowNode.name))
-      gnn_input.binaryAdjacency += argumentEdge
-      gnn_input.argumentEdges.edgeList += argumentEdge
+      val fromID=gnn_input.nodeNameToIDMap(arg.name)
+      val toID=gnn_input.nodeNameToIDMap(controlFLowNode.name)
+      gnn_input.binaryAdjacency.incrementBinaryEdge(fromID,toID)
+      gnn_input.argumentEdges.incrementBinaryEdge(fromID,toID)
     }
 
 
@@ -933,10 +948,12 @@ object DrawHornGraph {
             + " [label=\"" + edgeNameMap("guardAST") + "\"" + "];" + "\n")//astAnd,dataFlowAST,dataFlow
           dot.edge(addQuotes(rootName),addQuotes(andName),attrs = MuMap("label"->addQuotes( edgeNameMap("guardAST"))))//astAnd,dataFlowAST,dataFlow
           val dataFlowASTEdge = ListBuffer(gnn_input.nodeNameToIDMap(rootName),gnn_input.nodeNameToIDMap(andName))
-          gnn_input.binaryAdjacency += dataFlowASTEdge
+          val fromID=gnn_input.nodeNameToIDMap(rootName)
+          val toID=gnn_input.nodeNameToIDMap(andName)
+          gnn_input.binaryAdjacency.incrementBinaryEdge(fromID,toID)
           //gnn_input.dataFlowASTEdges.edgeList += dataFlowASTEdge
           //gnn_input.dataFlowEdges.edgeList += dataFlowASTEdge
-          gnn_input.guardASTEdges.edgeList += dataFlowASTEdge
+          gnn_input.guardASTEdges.incrementBinaryEdge(fromID,toID)
         } else {
           clauseInfo.guardASTRootName = rootName
         }
@@ -948,11 +965,12 @@ object DrawHornGraph {
           + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"" + "];" + "\n")//condition
         dot.edge(addQuotes(clauseInfo.guardASTRootName),addQuotes(clauseInfo.controlFlowHyperEdge.name),
           attrs = MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//condition
-        val tenaryListBuffer= ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
+        val tenaryArray= Array(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.guardASTRootName),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
-        gnn_input.ternaryAdjacency+=tenaryListBuffer
-        gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
+
+        gnn_input.ternaryAdjacency.incrementTernaryEdge(tenaryArray(0),tenaryArray(2),tenaryArray(3))
+        gnn_input.controlFlowHyperEdges.incrementTernaryEdge(tenaryArray(0),tenaryArray(2),tenaryArray(3))
       }
       //if there is no guard add true condition
       if (clauseInfo.guardASTGraph.isEmpty) {
@@ -962,11 +980,11 @@ object DrawHornGraph {
         writerGraph.write(addQuotes(clauseInfo.trueCondition) + " -> " + addQuotes(clauseInfo.controlFlowHyperEdge.name)//add edge to control flow hyper edges
           + " [label=\"" + edgeNameMap("controlFlowHyperEdge") + "\"" + "];" + "\n")//condition
         dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(clauseInfo.controlFlowHyperEdge.name),attrs = MuMap("label"->addQuotes(edgeNameMap("controlFlowHyperEdge"))))//condition
-        val tenaryListBuffer=ListBuffer(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
+        val tenaryArray=Array(gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.from),
           gnn_input.nodeNameToIDMap(clauseInfo.trueCondition),
           gnn_input.nodeNameToIDMap(clauseInfo.controlFlowHyperEdge.to))
-        gnn_input.ternaryAdjacency += tenaryListBuffer
-        gnn_input.controlFlowHyperEdges.edgeList += tenaryListBuffer
+        gnn_input.ternaryAdjacency.incrementTernaryEdge(tenaryArray(0),tenaryArray(2),tenaryArray(3))
+        gnn_input.controlFlowHyperEdges.incrementTernaryEdge(tenaryArray(0),tenaryArray(2),tenaryArray(3))
       }
 
       //draw data flow ast and get data flow AST node
@@ -1071,11 +1089,11 @@ object DrawHornGraph {
         dot.edge(addQuotes(clauseInfo.trueCondition),addQuotes(headArg.dataFLowHyperEdge.name),attrs = MuMap("label"-> addQuotes(edgeNameMap("dataFlowHyperEdge"))))//condition
         headArg.dataFLowHyperEdge.fromASTRoot=clauseInfo.trueCondition
       }
-      val tenaryListBuffer = ListBuffer(gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromData._1),
+      val tenaryArray = Array(gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromData._1),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.fromASTRoot),
         gnn_input.nodeNameToIDMap(headArg.dataFLowHyperEdge.to))
-      gnn_input.ternaryAdjacency+=tenaryListBuffer
-      gnn_input.dataFlowHyperEdges.edgeList += tenaryListBuffer
+      gnn_input.ternaryAdjacency.incrementTernaryEdge(tenaryArray(0),tenaryArray(1),tenaryArray(2))
+      gnn_input.dataFlowHyperEdges.incrementTernaryEdge(tenaryArray(0),tenaryArray(1),tenaryArray(2))
     }
 
 
@@ -1109,7 +1127,7 @@ object DrawHornGraph {
     val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
     writeGNNInputsToJSON(fileName,gnn_input.nodeIds,gnn_input.binaryAdjacency,gnn_input.ternaryAdjacency,
-      gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList,argumentNameList,argumentOccurrenceList,
+      gnn_input.controlLocationIndices,gnn_input.argumentIndices,gnn_input.nodeSymbols,argumentIDList.toArray,argumentNameList.toArray,argumentOccurrenceList.toArray,
     gnn_input.controlFlowHyperEdges,gnn_input.dataFlowHyperEdges,gnn_input.dataFlowASTEdges,gnn_input.dataFlowEdges,gnn_input.guardASTEdges,gnn_input.argumentEdges)
 
     writerGraph.write("}" + "\n")

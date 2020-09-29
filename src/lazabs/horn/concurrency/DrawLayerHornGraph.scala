@@ -177,20 +177,22 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val argumentIDList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
   val argumentNameList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.head+":"+argHornGraph.name
   val argumentOccurrenceList = for (argHornGraph<-gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
-  //write JSON file
+
+  /*
+  //write JSON file by json library
   val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
     "argumentIndices"->gnn_input.argumentIndices,
-    "binaryAdjacentList"->gnn_input.binaryAdjacency,
-    "ternaryAdjacencyList"->gnn_input.ternaryAdjacency,
-    "predicateArgumentEdges"->gnn_input.predicateArgumentEdges.edgeList,
-    "predicateInstanceEdges"->gnn_input.predicateInstanceEdges.edgeList,
-    "argumentInstanceEdges"->gnn_input.argumentInstanceEdges.edgeList,
-    "controlHeadEdges"->gnn_input.controlHeadEdges.edgeList,
-    "controlBodyEdges"->gnn_input.controlBodyEdges.edgeList,
-    "controlArgumentEdges"->gnn_input.controlArgumentEdges.edgeList,
-    "guardEdges"->gnn_input.guardEdges.edgeList,
-    "dataEdges"->gnn_input.dataEdges.edgeList,
-    "unknownEdges"->gnn_input.unknownEdges.edgeList,
+    "binaryAdjacentList"->gnn_input.binaryAdjacency.binaryEdge.toVector.toString(),
+    "ternaryAdjacencyList"->gnn_input.ternaryAdjacency.ternaryEdge.toString,
+    "predicateArgumentEdges"->gnn_input.predicateArgumentEdges.binaryEdge.toString,
+    "predicateInstanceEdges"->gnn_input.predicateInstanceEdges.binaryEdge.toString,
+    "argumentInstanceEdges"->gnn_input.argumentInstanceEdges.binaryEdge.toString,
+    "controlHeadEdges"->gnn_input.controlHeadEdges.binaryEdge.toString,
+    "controlBodyEdges"->gnn_input.controlBodyEdges.binaryEdge.toString,
+    "controlArgumentEdges"->gnn_input.controlArgumentEdges.binaryEdge.toString,
+    "guardEdges"->gnn_input.guardEdges.binaryEdge.toString,
+    "dataEdges"->gnn_input.dataEdges.binaryEdge.toString,
+    "unknownEdges"->gnn_input.unknownEdges.binaryEdge.toString,
     "argumentIDList"->argumentIDList,
     "argumentNameList"->argumentNameList,
     "argumentOccurrence"->argumentOccurrenceList)
@@ -198,9 +200,112 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val writer = new PrintWriter(new File(file + ".layerHornGraph.JSON")) //python path
   writer.write(layerVersionGraphGNNInput.toString())
   writer.close()
+*/
 
-  writerGraph.write("}" + "\n")
-  writerGraph.close()
+
+  //direct write to JSON file
+  println("Write GNNInput to file")
+  var lastFiledFlag=false
+  val writer = new PrintWriter(new File(file + ".layerHornGraph.JSON"))
+  writer.write("{")
+  writeGNNInputToJSONFile("nodeIds",IntArray(gnn_input.nodeIds),writer)
+  writeGNNInputToJSONFile("nodeSymbolList",StringArray(gnn_input.nodeSymbols),writer)
+  writeGNNInputToJSONFile("argumentIndices",IntArray(gnn_input.argumentIndices),writer)
+  writeGNNInputToJSONFile("binaryAdjacentList",PairArray(gnn_input.binaryAdjacency.binaryEdge),writer)
+  writeGNNInputToJSONFile("ternaryAdjacencyList",TripleArray(gnn_input.ternaryAdjacency.ternaryEdge),writer)
+  writeGNNInputToJSONFile("predicateArgumentEdges",PairArray(gnn_input.predicateArgumentEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("predicateInstanceEdges",PairArray(gnn_input.predicateInstanceEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("argumentInstanceEdges",PairArray(gnn_input.argumentInstanceEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("controlHeadEdges",PairArray(gnn_input.controlHeadEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("controlBodyEdges",PairArray(gnn_input.controlBodyEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("controlArgumentEdges",PairArray(gnn_input.controlArgumentEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("guardEdges",PairArray(gnn_input.guardEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("dataEdges",PairArray(gnn_input.dataEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("unknownEdges",PairArray(gnn_input.unknownEdges.binaryEdge),writer)
+  writeGNNInputToJSONFile("argumentIDList",IntArray(argumentIDList.toArray),writer)
+  writeGNNInputToJSONFile("argumentNameList",StringArray(argumentNameList.toArray),writer)
+  lastFiledFlag=true
+  writeGNNInputToJSONFile("argumentOccurrence",IntArray(argumentOccurrenceList.toArray),writer)
+  writer.write("}")
+  writer.close()
+  def writeGNNInputToJSONFile(fieldName:String,fiedlContent:Arrays,writer:PrintWriter): Unit ={
+    fiedlContent match {
+      case StringArray(x)=>{writeOneField(fieldName,x,writer)}
+      case IntArray(x)=>{writeOneField(fieldName,x,writer)}
+      case PairArray(x)=>{writeOneField(fieldName,x,writer)}
+      case TripleArray(x)=>writeOneField(fieldName,x,writer)
+    }
+    if (lastFiledFlag==false)
+      writer.write(",\n")
+    else
+      writer.write("\n")
+  }
+  sealed abstract class Arrays
+  case class StringArray(x:Array[String]) extends Arrays
+  case class IntArray(x:Array[Int]) extends Arrays
+  case class PairArray(x:Array[Pair[Int,Int]]) extends Arrays
+  case class TripleArray(x:Array[Triple[Int,Int,Int]]) extends Arrays
+
+  def writeOneField(fieldName:String,fiedlContent:Array[Pair[Int,Int]],writer:PrintWriter): Unit ={
+    writer.write(addQuotes(fieldName))
+    writer.write(":")
+    writer.write("[")
+    val filedSize=fiedlContent.size-1
+    for ((p,i)<-fiedlContent.zipWithIndex){
+      writer.write("[")
+      writer.write(p._1.toString)
+      writer.write(",")
+      writer.write(p._2.toString)
+      writer.write("]")
+      if (i<filedSize)
+        writer.write(",")
+    }
+    writer.write("]")
+  }
+  def writeOneField(fieldName:String,fiedlContent:Array[Triple[Int,Int,Int]],writer:PrintWriter): Unit ={
+    writer.write(addQuotes(fieldName))
+    writer.write(":")
+    writer.write("[")
+    val filedSize=fiedlContent.size-1
+    for ((p,i)<-fiedlContent.zipWithIndex){
+      writer.write("[")
+      writer.write(p._1.toString)
+      writer.write(",")
+      writer.write(p._2.toString)
+      writer.write(",")
+      writer.write(p._3.toString)
+      writer.write("]")
+      if (i<filedSize)
+        writer.write(",")
+    }
+    writer.write("]")
+  }
+
+  def writeOneField(fieldName:String,fiedlContent:Array[Int],writer:PrintWriter): Unit ={
+    writer.write(addQuotes(fieldName))
+    writer.write(":")
+    writer.write("[")
+    val filedSize=fiedlContent.size-1
+    for ((p,i)<-fiedlContent.zipWithIndex){
+      writer.write(p.toString)
+      if (i<filedSize)
+        writer.write(",")
+    }
+    writer.write("]")
+  }
+  def writeOneField(fieldName:String,fiedlContent:Array[String],writer:PrintWriter): Unit ={
+    writer.write(addQuotes(fieldName))
+    writer.write(":")
+    writer.write("[")
+    val filedSize=fiedlContent.size-1
+    for ((p,i)<-fiedlContent.zipWithIndex){
+      writer.write(addQuotes(p.toString))
+      if (i<filedSize)
+        writer.write(",")
+    }
+    writer.write("]")
+  }
+
 
   //write dot file
   if (useDotLib==true){
@@ -359,10 +464,5 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       case _ => drawASTEndNode("unknown",previousNodeName,"constant")
     }
   }
-
-}
-
-
-class ClauseInfo(){
 
 }
