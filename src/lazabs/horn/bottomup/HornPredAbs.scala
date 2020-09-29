@@ -1104,6 +1104,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
           sf.order extend consts.reverse
         val subst =
           VariableSubst(0, consts, order)
+        // TODO: switch to sorted variables at this point
         val backSubst =
           (for ((c, n) <- consts.iterator.zipWithIndex)
            yield (c -> IVariable(n))).toMap
