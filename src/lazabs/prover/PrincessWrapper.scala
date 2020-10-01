@@ -38,8 +38,10 @@ import ap.parser._
 import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
+import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
+import ap.types.MonoSortedIFunction
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -100,6 +102,8 @@ object PrincessWrapper {
     case AdtType(s)               => s //??? sorts are in ADT.sorts
     case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
     case ArrayType(IntegerType()) => SimpleArray.ArraySort(1)
+    case HeapType(s)              => s
+    case HeapAddressType(hs)      => hs.AddressSort
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -115,6 +119,8 @@ object PrincessWrapper {
       BVType(n)
     case SimpleArray.ArraySort(1) =>
       ArrayType(IntegerType())
+    case s : HeapSort => HeapType(s)
+    case s : AddressSort => HeapAddressType(s.heapTheory)
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -236,6 +242,17 @@ class PrincessWrapper {
         adt.ctorIds(sortNum)(f2pterm(v))
       case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
         adt.termSize(sortNum)(f2pterm(v))
+
+      // Heap theory
+      case HeapFun(heap, name, exprList) =>
+        val Some(fun) = heap.functions.find(_.name == name)
+        val termArgs = exprList.map(f2pterm(_))
+        fun(termArgs : _*)
+
+      case HeapPred(heap, name, exprList) =>
+        val Some(pred) = heap.predicates.find(_.name == name)
+        val termArgs = exprList.map(f2pterm(_))
+        pred(termArgs : _*)
 
       // Bit-vectors
 
@@ -397,6 +414,10 @@ class PrincessWrapper {
       case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
         ADTtest(adt, sortNum, rvT(e))
 
+      // Theory of heap
+      case IFunApp(f@Heap.HeapFunExtractor(h), e) =>
+        HeapFun(h, f.name, e.map(rvT(_)))
+
       // Bit-vectors
 
       case IFunApp(ModuloArithmetic.mod_cast,
@@ -484,7 +505,7 @@ class PrincessWrapper {
         lazabs.ast.ASTree.Variable("_" + index,Some(index)).stype(IntegerType())      
       case IIntLit(value) => lazabs.ast.ASTree.NumericalConst(value.bigIntValue)
       case _ =>
-        println("Error in conversion from Princess to Eldarica (ITerm): " + t + " sublcass of " + t.getClass)
+        println("Error in conversion from Princess to Eldarica (ITerm): " + t + " subclass of " + t.getClass)
         BoolConst(false)
     }
     
@@ -560,8 +581,12 @@ class PrincessWrapper {
         BinaryExpression(rvT(left), pred2BVBinOp(pred)(bits),
                          rvT(right)).stype(BooleanType())
 
+      // Heap theory
+      case IAtom(pred@Heap.HeapPredExtractor(h), e) =>
+        HeapPred(h, pred.name, e.map(rvT(_)))
+
       case _ =>
-        println("Error in conversion from Princess to Eldarica (IFormula): " + t + " sublcass of " + t.getClass)
+        println("Error in conversion from Princess to Eldarica (IFormula): " + t + " subclass of " + t.getClass)
         BoolConst(false)
     }
     rvF(t)

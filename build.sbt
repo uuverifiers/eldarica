@@ -143,6 +143,7 @@ lazy val root = (project in file(".")).
 //
     resolvers += "uuverifiers" at "http://logicrunch.research.it.uu.se/maven/",
 //    libraryDependencies += "uuverifiers" %% "princess" % "2020-07-13"
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+      libraryDependencies += "uuverifiers" %% "princess" % "unstable-SNAPSHOT"
 )
 //

@@ -30,7 +30,7 @@
 package lazabs.ast
 
 import lazabs.types._
-import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
+import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
 
 
 object ASTree {
@@ -102,7 +102,12 @@ object ASTree {
                      v: Expression) extends Expression
   case class ADTsize(adt: ADT, sortNum : Int,
                      v: Expression) extends Expression
-  
+
+  // Heap theory
+  case class HeapFun(heap: Heap, name: String,
+                     exprList: Seq[Expression]) extends Expression
+  case class HeapPred(heap: Heap, name: String,
+                     exprList: Seq[Expression]) extends Expression
   // Bit-vectors
 
   case class BVconst(bits: Int, num : BigInt) extends Expression

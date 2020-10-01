@@ -114,6 +114,10 @@ object HornPrinter {
           varMap += (name -> newIndex)
           getAlphabeticChar(newIndex)
       }
+      case HeapFun(heap, name, exprList) =>
+        name + "(" + exprList.map(printExp).mkString(", ") + ")"
+      case HeapPred(heap, name, exprList) =>
+        name + "(" + exprList.map(printExp).mkString(", ") + ")"
       // TODO: ??
       case Variable(_,Some(index)) => 
         getAlphabeticChar(index)  // variable from Princess

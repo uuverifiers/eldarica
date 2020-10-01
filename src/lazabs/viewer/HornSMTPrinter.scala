@@ -135,6 +135,10 @@ object HornSMTPrinter {
         "(select " + printExp(ar) + " " + printExp(ind) + ")"
       case ArrayUpdate(ar, ind, value) =>
         "(store " + printExp(ar) + " " + printExp(ind) + " " + printExp(value) + ")"
+      case HeapFun(heap, name, exprList) =>
+        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+      case HeapPred(heap, name, exprList) =>
+        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {
