@@ -261,7 +261,7 @@ object DrawHornGraph {
           nodeSymbols:+=nodeClass +"_"+ clauseBodyCanonicalID.toString
           clauseBodyCanonicalID+=1
         }
-        case "clauseArg" =>{
+        case "clauseArgument" =>{
           nodeSymbols:+=nodeClass +"_"+ clauseArgCanonicalID.toString
           clauseArgCanonicalID+=1
         }

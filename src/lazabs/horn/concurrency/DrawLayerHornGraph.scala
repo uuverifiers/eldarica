@@ -70,6 +70,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   var shapeMap: Map[String, String] = Map()
   shapeMap += ("constant" -> "circle")
   shapeMap += ("operator" -> "square")
+  shapeMap += ("predicateName" -> "box")
   shapeMap += ("predicateArgument" -> "ellipse")
   shapeMap += ("clause" -> "box")
   shapeMap += ("clauseHead" -> "box")
@@ -77,9 +78,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   shapeMap += ("clauseArgument" -> "ellipse")
   shapeMap += ("symbolicConstant" -> "circle")
   //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
-  //  var predicateNumber,predicateArgumentNumber=1
-  //  var clauseNumber,clauseHeadNumber,clauseBodyNumber,clauseArgumentNumber=1;
-  //  var symbolicConstantNumber=1
   val predicateNamePrefix="predicate_"
   val predicateArgumentPrefix="predicateArgument_"
   val clausePrefix="clause_"
@@ -107,7 +105,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     //clause layer: create clause node
     val clauseNodeName= clausePrefix+gnn_input.clauseCanonicalID.toString
     createNode(clauseNodeName,
-      "C"+gnn_input.clauseCanonicalID.toString,"clause","box",gnn_input.GNNNodeID)
+      "C"+gnn_input.clauseCanonicalID.toString,"clause",shapeMap("clause"),gnn_input.GNNNodeID)
     //draw constraints and connect to clause node
     for (conjunct <- LineariseVisitor(clause.constraint, IBinJunctor.And)){
       drawAST(conjunct,clauseNodeName)
@@ -117,7 +115,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     //clause layer: create clause head node
     val clauseHeadNodeName = clauseHeadPrefix+gnn_input.clauseHeadCanonicalID.toString
     createNode(clauseHeadNodeName,
-      "HEAD","clauseHead","box",gnn_input.GNNNodeID)
+      "HEAD","clauseHead",shapeMap("clauseHead"),gnn_input.GNNNodeID)
     //clause layer: create edge between head and clause node
     addEdge(clauseNodeName,clauseHeadNodeName,"controlHead")
     //predicateLayer->clauseLayer: connect predicate to clause head
@@ -127,7 +125,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //clause layer: create clause head argument node
       val clauseArgumentNodeName = clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
       createNode(clauseArgumentNodeName,
-        "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
+        "ARG"+tempIDForArgument.toString,"clauseArgument",shapeMap("clauseArgument"),gnn_input.GNNNodeID)
       //clause layer: create edge between head and argument
       addEdge(clauseHeadNodeName,clauseArgumentNodeName,"controlArgument")
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
@@ -143,7 +141,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //clause layer: create clause body node
       val clauseBodyNodeName=clauseBodyPrefix+gnn_input.clauseBodyCanonicalID.toString
       createNode(clauseBodyNodeName,
-        "BODY"+tempIDForPredicate.toString,"clauseBody","box",gnn_input.GNNNodeID)
+        "BODY"+tempIDForPredicate.toString,"clauseBody",shapeMap("clauseBody"),gnn_input.GNNNodeID)
       tempIDForPredicate+=1
       //clause layer: create edge between body and clause node
       addEdge(clauseNodeName,clauseBodyNodeName,"controlBody")
@@ -155,7 +153,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         //clause layer: create clause body argument node
         val clauseArgumentNodeName=clauseArgumentPrefix+gnn_input.clauseArgCanonicalID.toString
         createNode(clauseArgumentNodeName,
-          "ARG"+tempIDForArgument.toString,"clauseArg","ellipse",gnn_input.GNNNodeID)
+          "ARG"+tempIDForArgument.toString,"clauseArgument",shapeMap("clauseArgument"),gnn_input.GNNNodeID)
         //clause layer: create edge between body and argument
         addEdge(clauseBodyNodeName,clauseArgumentNodeName,"controlArgument")
         //predicateLayer->clauseLayer: connect predicate argument to clause argument
@@ -164,16 +162,15 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         drawAST(bodyArgument,clauseArgumentNodeName)
       }
     }
-
   }
   writerGraph.write("}" + "\n")
   writerGraph.close()
 
-  //write dot file
+  //write graph by dot library
   if (useDotLib==true){
     val filePath=file.substring(0,file.lastIndexOf("/")+1)
     val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
-    dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
+    dot.save(fileName = fileName+".dot.layerHornGraph.gv", directory = filePath)
   }
 
 
@@ -211,7 +208,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   writer.write(layerVersionGraphGNNInput.toString())
   writer.close()
 */
-
 
   //direct write to JSON file
   println("Write GNNInput to file")
@@ -319,10 +315,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   }
 
 
-
-
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
-    if (useDotLib==true)
+    if (useDotLib==true) //use dot libarary
       dot.node(addQuotes(canonicalName), label = addQuotes(labelName),
         attrs = MuMap("nodeName"->addQuotes(canonicalName),
           "shape"->addQuotes(shape),"class"->className,"GNNNodeID"->GNNNodeID.toString))
@@ -336,7 +330,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
   }
   def addEdge(from:String,to:String,label:String): Unit ={
-    if (useDotLib==true)
+    if (useDotLib==true) //use dot libarary
       dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
     writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
       " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
@@ -349,13 +343,13 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       val predicateNodeCanonicalName=predicateNamePrefix+gnn_input.predicateNameCanonicalID.toString
       predicateNameMap+=(pred.pred.name->new predicateInfo(predicateNodeCanonicalName))
       createNode(predicateNodeCanonicalName,
-        pred.pred.name,"predicateName","box",gnn_input.GNNNodeID)
+        pred.pred.name,"predicateName",shapeMap("predicateName"),gnn_input.GNNNodeID)
       var tempID=0
       for (headArg<-pred.args){
         val argumentNodeCanonicalName=predicateArgumentPrefix+gnn_input.predicateArgumentCanonicalID.toString
         //create argument node
         createNode(argumentNodeCanonicalName,
-          "Arg"+tempID.toString,"predicateArgument","ellipse",gnn_input.GNNNodeID)
+          "Arg"+tempID.toString,"predicateArgument",shapeMap("predicateArgument"),gnn_input.GNNNodeID)
         //create edge from argument to predicate
         addEdge(predicateNodeCanonicalName,argumentNodeCanonicalName,"predicateArgument")
         predicateNameMap(pred.pred.name).argumentCanonicalNameList+=Pair(argumentNodeCanonicalName,tempID)
@@ -373,7 +367,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       case _ => addEdge(from,to,"subTerm")
     }
   }
-
   def drawASTBinaryRelation(op:String,previousNodeName:String,e1: IExpression,e2: IExpression): Unit ={
     val condName=op+"_"+gnn_input.GNNNodeID
     createNode(condName,op,"operator",shapeMap("operator"),gnn_input.GNNNodeID)
