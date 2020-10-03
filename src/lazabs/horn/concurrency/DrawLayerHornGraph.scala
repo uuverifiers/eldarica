@@ -166,6 +166,16 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
 
   }
+  writerGraph.write("}" + "\n")
+  writerGraph.close()
+
+  //write dot file
+  if (useDotLib==true){
+    val filePath=file.substring(0,file.lastIndexOf("/")+1)
+    val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
+    dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
+  }
+
 
   //match by argument name
   for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
@@ -228,6 +238,9 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   writeGNNInputToJSONFile("argumentOccurrence",IntArray(argumentOccurrenceList.toArray),writer)
   writer.write("}")
   writer.close()
+
+
+
   def writeGNNInputToJSONFile(fieldName:String,fiedlContent:Arrays,writer:PrintWriter): Unit ={
     fiedlContent match {
       case StringArray(x)=>{writeOneField(fieldName,x,writer)}
@@ -280,7 +293,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
     writer.write("]")
   }
-
   def writeOneField(fieldName:String,fiedlContent:Array[Int],writer:PrintWriter): Unit ={
     writer.write(addQuotes(fieldName))
     writer.write(":")
@@ -307,12 +319,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   }
 
 
-  //write dot file
-  if (useDotLib==true){
-    val filePath=file.substring(0,file.lastIndexOf("/")+1)
-    val fileName=file.substring(file.lastIndexOf("/")+1,file.size)
-    dot.save(fileName = fileName+".layerHornGraph.gv", directory = filePath)
-  }
 
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
