@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+  * Copyright (c) 2011-2020 Hossein Hojjat, Philipp Ruemmer, Chencheng Liang.
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without

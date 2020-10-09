@@ -34,7 +34,7 @@ import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import lazabs.horn.concurrency.DrawHornGraph.{addQuotes}
+import lazabs.horn.concurrency.DrawHornGraph.{addQuotes,isNumeric}
 import play.api.libs.json._
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -44,6 +44,10 @@ object DrawHornGraph {
   }
   def addQuotes(str:String): String ={
     return "\"" + str + "\""
+  }
+  def isNumeric(input: String): Boolean = {
+    if (input != "" && input.forall(_.isDigit)) true
+    else false
   }
 }
 
@@ -234,11 +238,6 @@ class DrawHornGraph {
 
   }
 
-  def isNumeric(input: String): Boolean = {
-    if (input != "" && input.forall(_.isDigit)) true
-    else false
-  }
-
   def genereateSampleGNNInputs(file: String, simpClauses: Clauses): Unit = {
     val nodeIds = List(0, 1, 2, 3, 4, 5)
     val binaryAdjacency = List(List(1, 2), List(2, 3))
@@ -302,9 +301,6 @@ class DrawHornGraph {
     writer.write(oneGraphGNNInput.toString())
     writer.close()
   }
-
-
-
 
 
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]): Unit = {

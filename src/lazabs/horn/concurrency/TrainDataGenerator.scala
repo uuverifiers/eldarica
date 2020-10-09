@@ -42,7 +42,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-/////debug/////
 class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : ParametricEncoder.System){
   import VerificationLoop._
   val processNum = smallSystem.processes.size

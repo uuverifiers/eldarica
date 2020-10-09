@@ -55,8 +55,8 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
-  var totalHints=0 //DEBUG
-  var threadTimeout = 2000 //debug
+  var totalHints=0
+  var threadTimeout = 2000 
   var solvabilityTimeout=2000
   var extractTemplates=false
   var extractPredicates=false
@@ -209,13 +209,12 @@ class GlobalParameters extends Cloneable {
     that.assertions = this.assertions
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
-    //DEBUG
-    that.threadTimeout = this.threadTimeout //debug
+    that.threadTimeout = this.threadTimeout
     that.solvabilityTimeout=this.solvabilityTimeout
-    that.rank = this.rank //debug
-    //that.printHints = this.printHints //DEBUG
-    that.extractTemplates=this.extractTemplates//debug
-    that.extractPredicates=this.extractPredicates//debug
+    that.rank = this.rank
+    //that.printHints = this.printHints
+    that.extractTemplates=this.extractTemplates
+    that.extractPredicates=this.extractPredicates
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
@@ -393,15 +392,15 @@ object Main {
         templateBasedInterpolationTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>  //debug
+      case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>
         threadTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) ).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-solvabilityTimeout:")) =>  //debug
+      case tTimeout :: rest if (tTimeout.startsWith("-solvabilityTimeout:")) =>
         solvabilityTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop("-solvabilityTimeout:".length)) ).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>  //debug
+      case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>
         rank =
           (java.lang.Float.parseFloat(tTimeout.drop(6))); //parse input string
         arguments(rest)

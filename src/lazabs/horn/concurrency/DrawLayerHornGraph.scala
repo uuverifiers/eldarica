@@ -46,8 +46,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   val dot = new Digraph(comment = "Horn Graph")
   val gnn_input=new GNNInput()
 
-
-
   val writerGraph = new PrintWriter(new File(file + ".layerHornGraph.gv"))
   writerGraph.write("digraph dag {" + "\n")
 
@@ -319,10 +317,10 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
 
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String,GNNNodeID:Int): Unit ={
-    if (useDotLib==true) //use dot libarary
-      dot.node(addQuotes(canonicalName), label = addQuotes(labelName),
-        attrs = MuMap("nodeName"->addQuotes(canonicalName),
-          "shape"->addQuotes(shape),"class"->className,"GNNNodeID"->GNNNodeID.toString))
+//    if (useDotLib==true) //use dot libarary
+//      dot.node(addQuotes(canonicalName), label = addQuotes(labelName),
+//        attrs = MuMap("nodeName"->addQuotes(canonicalName),
+//          "shape"->addQuotes(shape),"class"->className,"GNNNodeID"->GNNNodeID.toString))
 
     writerGraph.write(addQuotes(canonicalName) +
       " [label="+addQuotes(labelName)+" nodeName="+addQuotes(canonicalName)+" class="+className +" shape="+ addQuotes(shape) + "];" + "\n")
@@ -333,8 +331,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     }
   }
   def addEdge(from:String,to:String,label:String): Unit ={
-    if (useDotLib==true) //use dot libarary
-      dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
+//    if (useDotLib==true) //use dot libarary
+//      dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
 
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.monoDirectionLayerGraph=>{
