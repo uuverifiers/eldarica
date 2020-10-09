@@ -242,7 +242,7 @@ class HornWrapper(constraints: Seq[HornClause],
     //println(simplifiedClauses)
     //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
 
-    val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
+    val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo,true)
     sys.exit()
   }
 

@@ -40,10 +40,12 @@ import play.api.libs.json.Json
 
 import scala.collection.mutable.ListBuffer
 
-class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo]) {
+class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo],biDirectionOption:Boolean = false) {
   val useDotLib=false
   val dot = new Digraph(comment = "Horn Graph")
   val gnn_input=new GNNInput()
+  val biDirection=biDirectionOption
+
 
   val writerGraph = new PrintWriter(new File(file + ".layerHornGraph.gv"))
   writerGraph.write("digraph dag {" + "\n")
@@ -213,7 +215,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   println("Write GNNInput to file")
   var lastFiledFlag=false
   val writer = new PrintWriter(new File(file + ".layerHornGraph.JSON"))
-  writer.write("{")
+  writer.write("{\n")
   writeGNNInputToJSONFile("nodeIds",IntArray(gnn_input.nodeIds),writer)
   writeGNNInputToJSONFile("nodeSymbolList",StringArray(gnn_input.nodeSymbols),writer)
   writeGNNInputToJSONFile("argumentIndices",IntArray(gnn_input.argumentIndices),writer)
@@ -332,9 +334,17 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   def addEdge(from:String,to:String,label:String): Unit ={
     if (useDotLib==true) //use dot libarary
       dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
-    writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
-      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
-    gnn_input.incrementBinaryEdge(from, to,label)
+
+    if (biDirection==true) {
+      writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+        " [dir=\"both\", label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+      gnn_input.incrementBinaryEdge(from, to,label)
+      gnn_input.incrementBinaryEdge(to, from,label)
+    }else{
+      writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+        " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+      gnn_input.incrementBinaryEdge(from, to,label)
+    }
   }
 
   def createPredicateLayerNodesAndEdges(pred:IAtom): Unit ={
