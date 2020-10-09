@@ -376,7 +376,8 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints,argumentInfo)
+      val hornGraph = new DrawHornGraph
+      hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,sortedHints,argumentInfo)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
       val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, sortedHints,argumentInfo)
     }

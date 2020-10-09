@@ -29,30 +29,14 @@
  */
 
 package lazabs
-
 import java.io.{File, FileInputStream, FileNotFoundException, InputStream, PrintWriter}
-import java.lang.System.currentTimeMillis
-
-import parser._
-import lazabs.art._
 import lazabs.art.SearchMethod._
-import lazabs.horn.global.HornClause
 import lazabs.prover._
 import lazabs.viewer._
-import lazabs.utils.Inline._
-//import lazabs.utils.PointerAnalysis
-//import lazabs.cfg.MakeCFG
 import lazabs.nts._
-import lazabs.horn.parser.HornReader
-import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType}
 import lazabs.horn.concurrency.CCReader
-import lazabs.horn.abstractions.VerificationHints
-import lazabs.horn.concurrency.{VerificationLoop}
-
-import ap.util.Debug
-
 import ap.util.Debug
 
 object GlobalParameters {
@@ -80,6 +64,7 @@ class GlobalParameters extends Cloneable {
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
+  var hornGraphType:HornGraphType.Value=HornGraphType.monoDirectionLayerGraph
   var hornGraphWithHints=false
   var in: InputStream = null
   var fileName = ""
@@ -329,7 +314,26 @@ object Main {
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
-      case "-getHornGraph" :: rest => getHornGraph = true; arguments(rest)
+      case "-getHornGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.monoDirectionLayerGraph
+        arguments(rest)
+      }
+      case "-getHornGraph:monoDirectionLayerGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.monoDirectionLayerGraph
+        arguments(rest)
+      }
+      case "-getHornGraph:biDirectionLayerGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.biDirectionLayerGraph
+        arguments(rest)
+      }
+      case "-getHornGraph:hyperEdgeGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.hyperEdgeHraph
+        arguments(rest)
+      }
       case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)

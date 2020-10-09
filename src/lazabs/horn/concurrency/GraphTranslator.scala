@@ -4,7 +4,6 @@ import java.io.{File, FileWriter, PrintWriter}
 import ap.parser._
 import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.concurrency.DrawHornGraph.GNNInput
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 
 import scala.collection.mutable.ListBuffer

@@ -513,7 +513,8 @@ object TrainDataGeneratorPredicatesSmt2 {
             val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedPredicates)
             //Output graphs
             //val hornGraph = new GraphTranslator(simplifiedClauses, GlobalParameters.get.fileName)
-            DrawHornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses,sortedHints,argumentInfo)
+            val hornGraph = new DrawHornGraph
+            hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simplifiedClauses,sortedHints,argumentInfo)
             val hintGraph= new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
 

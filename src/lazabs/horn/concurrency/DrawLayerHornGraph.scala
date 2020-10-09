@@ -34,17 +34,18 @@ import ap.parser.{IAtom, IBinFormula, IBinJunctor, IBoolLit, IConstant, IEpsilon
 import lazabs.GlobalParameters
 
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
-import lazabs.horn.concurrency.DrawHornGraph.{GNNInput, addQuotes, argumentInfoHronGraph}
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
+import lazabs.horn.concurrency.{GNNInput,argumentInfoHronGraph}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.Json
 
 import scala.collection.mutable.ListBuffer
 
-class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo],biDirectionOption:Boolean = false) {
+class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo]) {
   val useDotLib=false
   val dot = new Digraph(comment = "Horn Graph")
   val gnn_input=new GNNInput()
-  val biDirection=biDirectionOption
+
 
 
   val writerGraph = new PrintWriter(new File(file + ".layerHornGraph.gv"))
@@ -335,15 +336,18 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     if (useDotLib==true) //use dot libarary
       dot.edge(addQuotes(from),addQuotes(to),attrs = MuMap("label"->addQuotes(edgeNameMap(label))))
 
-    if (biDirection==true) {
-      writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
-        " [dir=\"both\", label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
-      gnn_input.incrementBinaryEdge(from, to,label)
-      gnn_input.incrementBinaryEdge(to, from,label)
-    }else{
-      writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
-        " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
-      gnn_input.incrementBinaryEdge(from, to,label)
+    GlobalParameters.get.hornGraphType match {
+      case HornGraphType.monoDirectionLayerGraph=>{
+        writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+          " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+        gnn_input.incrementBinaryEdge(from, to,label)
+      }
+      case HornGraphType.biDirectionLayerGraph=>{
+        writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+          " [dir=\"both\", label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+        gnn_input.incrementBinaryEdge(from, to,label)
+        gnn_input.incrementBinaryEdge(to, from,label)
+      }
     }
   }
 
