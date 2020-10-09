@@ -56,7 +56,7 @@ object GlobalParameters {
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
   var totalHints=0
-  var threadTimeout = 2000 
+  var threadTimeout = 2000
   var solvabilityTimeout=2000
   var extractTemplates=false
   var extractPredicates=false

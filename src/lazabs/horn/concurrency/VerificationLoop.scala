@@ -41,6 +41,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, St
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.concurrency.HintsSelection.{initialIDForHints, writeHintsWithIDToFile}
 import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.concurrent.TimeoutException
@@ -278,9 +279,15 @@ class VerificationLoop(system : ParametricEncoder.System,
 
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
         val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
-        val hornGraph = new DrawHornGraph
-        hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName,simpClauses,optimizedHints,argumentInfo) //write horn graph and gn input to file
-        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+        GlobalParameters.get.hornGraphType match {
+          case HornGraphType.hyperEdgeHraph=>{
+            val hornGraph = new DrawHornGraph
+            hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+          }
+          case _=>{
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+          }
+        }
         sys.exit()
       }
 

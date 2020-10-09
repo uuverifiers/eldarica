@@ -174,7 +174,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     dot.save(fileName = fileName+".dot.layerHornGraph.gv", directory = filePath)
   }
 
-
   //match by argument name
   for(argHornGraph<-gnn_input.argumentInfoHornGraphList;arg<-argumentInfoList) {
     if(arg.headName==argHornGraph.head && arg.index == argHornGraph.index) {
