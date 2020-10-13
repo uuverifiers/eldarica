@@ -477,7 +477,7 @@ class BinarySearchTreeForGraphClass (ASTtype:String = ""){
           gnn_inputs.binaryAdjacency.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           if (treeType=="dataFlow"){
             gnn_inputs.dataFlowASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
-            gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+            //gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           }else{gnn_inputs.guardASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))}
         }
       }
@@ -491,7 +491,7 @@ class BinarySearchTreeForGraphClass (ASTtype:String = ""){
           gnn_inputs.binaryAdjacency.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           if (treeType=="dataFlow"){
             gnn_inputs.dataFlowASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
-            gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
+            //gnn_inputs.dataFlowEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))
           }else{gnn_inputs.guardASTEdges.incrementBinaryEdge(ASTEdges(0),ASTEdges(1))}
         }
       }

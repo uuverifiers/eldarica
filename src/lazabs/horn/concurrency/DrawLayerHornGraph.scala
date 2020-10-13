@@ -92,7 +92,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     var argumentCanonicalNameList= new ListBuffer[Pair[String,Int]]() //(canonicalName, ID)
   }
 
-  val astEndNodeSet=scala.collection.mutable.Map[String,String]()//map[constantName->constantNameWithCanonicalNumber]
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String,String]()//map[constantName->constantNameWithCanonicalNumber]
 
   for (clause <- simpClauses) {
