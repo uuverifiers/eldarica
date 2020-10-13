@@ -53,7 +53,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
-import lazabs.horn.concurrency.{DrawHornGraph,HintsSelection, ReaderMain,DrawLayerHornGraph}
+import lazabs.horn.concurrency.{DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, HintsSelection, ReaderMain}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
@@ -242,8 +242,9 @@ class HornWrapper(constraints: Seq[HornClause],
     //println(simplifiedClauses)
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeHraph=>{
-        val hornGraph = new DrawHornGraph
-        hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
+        val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
+//        val hornGraph = new DrawHornGraph
+//        hornGraph.writeHornClausesGraphToFile(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
       }
       case _=>{
         val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
