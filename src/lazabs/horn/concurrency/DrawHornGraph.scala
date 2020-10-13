@@ -122,9 +122,6 @@ class GNNInput() {
   def incrementBinaryEdge(from: String, to: String, label: String): Unit = {
     val fromID = nodeNameToIDMap(from)
     val toID = nodeNameToIDMap(to)
-    //array
-    //list
-    //hash map
     label match {
       case "predicateArgument" => predicateArgumentEdges.incrementBinaryEdge(fromID, toID)
       case "predicateInstance" => predicateInstanceEdges.incrementBinaryEdge(fromID, toID)
@@ -231,13 +228,24 @@ class GNNInput() {
   }
 }
 
-class DrawHornGraph {
+class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo])  {
 
-  //todo:draw only hint graph without data flow
-  def writeHornClausesGraphWithHintsToFile(file: String, simpClauses: Clauses, hints: VerificationHints): Unit = {
-
+  val gnn_input=new GNNInput()
+  val writerGraph = new PrintWriter(new File(file + ".hornGraph.gv"))
+  writerGraph.write("digraph dag {" + "\n")
+  def createNode(canonicalName:String,labelName:String,className:String,shape:String): Unit ={
+    writerGraph.write(addQuotes(canonicalName) +
+      " [label="+addQuotes(labelName)+" nodeName="+addQuotes(canonicalName)+" class="+className +" shape="+ addQuotes(shape) + "];" + "\n")
+    if (className=="predicateArgument"){
+      gnn_input.incrementArgumentIndicesAndNodeIds(canonicalName,className,labelName)
+    }else if(className=="CONTROL"){
+      gnn_input.incrementControlLocationIndicesAndNodeIds(canonicalName,className,labelName)
+    }else{
+      gnn_input.incrementNodeIds(canonicalName,className,labelName)
+    }
   }
 
+  /*
   def genereateSampleGNNInputs(file: String, simpClauses: Clauses): Unit = {
     val nodeIds = List(0, 1, 2, 3, 4, 5)
     val binaryAdjacency = List(List(1, 2), List(2, 3))
@@ -301,7 +309,6 @@ class DrawHornGraph {
     writer.write(oneGraphGNNInput.toString())
     writer.close()
   }
-
 
   def writeHornClausesGraphToFile(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]): Unit = {
     val dot = new Digraph(comment = "Horn Graph")
@@ -1141,7 +1148,6 @@ class DrawHornGraph {
     writerGraph.write("}" + "\n")
     writerGraph.close()
   }
-
 
   def drawAST(cfn: ControlFlowNode, argumentList: ListBuffer[ArgumentNode], hints: ListBuffer[Triple[String, String, IExpression]],
               freeVariableMap: MHashMap[String, ITerm],
@@ -1999,7 +2005,6 @@ class DrawHornGraph {
     }
     (ASTGraph, nodeHashMap)
   }
-
 
   def drawAST(clause: ClauseTransitionInformation, ASTType: String,
               conatraintMap: Map[String, IExpression],
@@ -3095,6 +3100,8 @@ class DrawHornGraph {
     }
     (nodeHashMap, nodeName)
   }
+
+   */
 
 }
 

@@ -35,20 +35,62 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import scala.collection.mutable.ListBuffer
 
-class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
-  /*
-  (1) x = f(\bar y) s.t.
+class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph (file: String, simpClauses: Clauses,hints:VerificationHints,argumentInfoList:ListBuffer[argumentInfo]) {
 
-  <1> x is one of the arguments of the clause head
-  <2> \bar y are arguments of the literals in the clause body. what if \bar y are just some constants?
-  <3> any variable assignment (assignment of values to the variables occurring in C) that satisfies the constraint of C also satisfies (1).
-  */
+  println("Write hyperedge horn graph to file")
+  var edgeNameMap: Map[String, String] = Map()
+  edgeNameMap += ("controlFlowHyperEdge" -> "CFHE")
+  edgeNameMap += ("dataFlowHyperEdge" -> "DFHE")
+  edgeNameMap += ("dataFlowAST" -> "data")
+  edgeNameMap += ("guardAST" -> "guard")
+  edgeNameMap += ("argument" -> "arg")
+  //turn on/off edge's label
+  var edgeNameSwitch = true
+  if (edgeNameSwitch == false) {
+    for (key <- edgeNameMap.keys)
+      edgeNameMap += (key -> "")
+  }
+  //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
+  val controlNodePrefix="CONTROLN_"
+  val symbolicConstantNodePrefix="SYMBOLIC_CONSTANT_"
+  val argumentNodePrefix="ARGUMENT_"
+  //node shape map
+  var nodeShapeMap: Map[String, String] = Map()
+  nodeShapeMap += ("CONTROL" -> "box")
+  nodeShapeMap += ("OPERATOR" -> "square")
+  nodeShapeMap += ("SYMBOLIC_CONSTANT" -> "circle")
+  nodeShapeMap += ("CONSTANT" -> "circle")
+  nodeShapeMap += ("ARGUMENT" -> "ellipse")
+  nodeShapeMap += ("FALSE" -> "box")
+
+
   val sp = new Simplifier()
   val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
   for (clause <- simpClauses) {
-    val (dataFlowSet,guardSet)=getDataFlowAndGuard(clause,dataFlowInfoWriter)
+    val normalizedClause = clause.normalize()
+    val (dataFlowSet,guardSet)=getDataFlowAndGuard(clause,normalizedClause,dataFlowInfoWriter)
+    //todo: draw control flow
+    if(normalizedClause.body.isEmpty){
+      val initialControlFlowNodeName= controlNodePrefix+gnn_input.CONTROLCanonicalID.toString
+      createNode(initialControlFlowNodeName,"Initial","CONTROL",nodeShapeMap("CONTROL"))
+    }else{
+      for(body<-clause.body){
+        val controlFlowNodeName= controlNodePrefix+gnn_input.CONTROLCanonicalID.toString
+        createNode(controlFlowNodeName,body.pred.name,"CONTROL",nodeShapeMap("CONTROL"))
+      }
+    }
+    if (normalizedClause.head.pred.name=="FALSE"){
+      createNode("FALSE","FALSE","FALSE",nodeShapeMap("FALSE"))
+    }else{
+      val controlFlowNodeName= controlNodePrefix+gnn_input.CONTROLCanonicalID.toString
+      createNode(controlFlowNodeName,normalizedClause.head.pred.name,"CONTROL",nodeShapeMap("CONTROL"))
+    }
+
+    //todo: draw guard and data flow
 
   }
+  writerGraph.write("}" + "\n")
+  writerGraph.close()
   dataFlowInfoWriter.close()
 
 
@@ -59,8 +101,14 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
 
 
 
-  def getDataFlowAndGuard(clause:Clause,dataFlowInfoWriter:PrintWriter): (Set[IExpression],Set[IFormula]) ={
-    val normalizedClause = clause.normalize()
+  def getDataFlowAndGuard(clause:Clause,normalizedClause:Clause,dataFlowInfoWriter:PrintWriter): (Set[IExpression],Set[IFormula]) ={
+     /*
+    (1) x = f(\bar y) s.t.
+
+    <1> x is one of the arguments of the clause head
+    <2> \bar y are arguments of the literals in the clause body. what if \bar y are just some constants?
+    <3> any variable assignment (assignment of values to the variables occurring in C) that satisfies the constraint of C also satisfies (1).
+    */
     var dataflowList = Set[IExpression]()
     var dataflowListHeadArgSymbolEquation=Set[IExpression]()
     val bodySymbols = for (body <- normalizedClause.body; arg <- body.args) yield new ConstantTerm(arg.toString)
@@ -95,7 +143,5 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
       dataFlowInfoWriter.write(g.toString+"\n")
     (dataflowListHeadArgSymbolEquation,guardList)
   }
-
-
 
 }

@@ -60,14 +60,13 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   edgeNameMap += ("guard" -> "guard")
   edgeNameMap += ("data" -> "data")
   edgeNameMap += ("subTerm" -> "st")
-
   //turn on/off edge's label
   var edgeNameSwitch = true
   if (edgeNameSwitch == false) {
     for (key <- edgeNameMap.keys)
       edgeNameMap += (key -> "")
   }
-
+  //node shape map
   var shapeMap: Map[String, String] = Map()
   shapeMap += ("constant" -> "circle")
   shapeMap += ("operator" -> "square")
@@ -94,6 +93,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   }
 
   val astEndNodeSet=scala.collection.mutable.Map[String,String]()//map[constantName->constantNameWithCanonicalNumber]
+  val constantNodeSetInOneClause = scala.collection.mutable.Map[String,String]()//map[constantName->constantNameWithCanonicalNumber]
 
   for (clause <- simpClauses) {
     //predicate layer: create predicate and arguments and edges between them
@@ -105,6 +105,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
   }
 
   for (clause <- simpClauses) {
+    constantNodeSetInOneClause.clear()
     //clause layer: create clause node
     val clauseNodeName= clausePrefix+gnn_input.clauseCanonicalID.toString
     createNode(clauseNodeName,
@@ -113,7 +114,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     for (conjunct <- LineariseVisitor(clause.constraint, IBinJunctor.And)){
       drawAST(conjunct,clauseNodeName)
     }
-
 
     //clause layer: create clause head node
     val clauseHeadNodeName = clauseHeadPrefix+gnn_input.clauseHeadCanonicalID.toString
@@ -132,8 +132,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
       //clause layer: create edge between head and argument
       addEdge(clauseHeadNodeName,clauseArgumentNodeName,"controlArgument")
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
-      addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
-      astEndNodeSet.clear()
       drawAST(headArgument,clauseArgumentNodeName)
       tempIDForArgument+=1
     }
@@ -162,7 +160,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
         addEdge(clauseBodyNodeName,clauseArgumentNodeName,"controlArgument")
         //predicateLayer->clauseLayer: connect predicate argument to clause argument
         addEdge(predicateArgument._1,clauseArgumentNodeName,"argumentInstance")
-        astEndNodeSet.clear()
         drawAST(bodyArgument,clauseArgumentNodeName)
         tempIDForArgument+=1
       }
@@ -396,14 +393,14 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses,hints:VerificationHi
     drawAST(e,opName)
   }
   def drawASTEndNode(constantStr:String,previousNodeName:String,className:String): Unit ={
-    if (astEndNodeSet.keySet.contains(constantStr)){
-      addEdgeInSubTerm(astEndNodeSet(constantStr),previousNodeName)
+    if (constantNodeSetInOneClause.keySet.contains(constantStr)){
+      addEdgeInSubTerm(constantNodeSetInOneClause(constantStr),previousNodeName)
     }else{
       val constantName=constantStr+"_"+gnn_input.GNNNodeID
       createNode(constantName,constantStr,className,shapeMap(className),gnn_input.GNNNodeID)
       //if(previousNodeName!="")
       addEdgeInSubTerm(constantName,previousNodeName)
-      astEndNodeSet(constantStr)=constantName
+      constantNodeSetInOneClause(constantStr)=constantName
     }
 
   }
