@@ -326,6 +326,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
     var nodeName=""
     if (constantNodeSetInOneClause.keySet.contains(constantStr)){
       addEdgeInSubTerm(constantNodeSetInOneClause(constantStr),previousNodeName)
+      nodeName=constantNodeSetInOneClause(constantStr)
     }else{
       val constantName=constantStr+"_"+gnn_input.GNNNodeID
       nodeName=constantName
@@ -350,7 +351,6 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
   def createHyperEdgeNode(canonicalName: String, labelName: String, className: String, shape: String): Unit = {
     writerGraph.write(addQuotes(canonicalName) +
       " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
-    //todo:create hyperedge class to store all info
     className match {
       case "controlFlowHyperEdge" => gnn_input.controlFlowHyperEdgeCanonicalID += 1
       case "dataFlowHyperEdge" => gnn_input.dataFlowHyperEdgeCanonicalID += 1
@@ -410,9 +410,9 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
       case IBoolLit(v) => rootName=drawASTEndNode(v.toString(),previousNodeName,"constant")
       case IFormulaITE(cond, left, right) => {
         //todo: check rootName
-        drawAST(cond,previousNodeName)
-        drawAST(right,previousNodeName)
-        drawAST(left,previousNodeName)
+        rootName=drawAST(cond,previousNodeName)
+        rootName=drawAST(right,previousNodeName)
+        rootName=drawAST(left,previousNodeName)
       }
       case IIntFormula(rel, term) => rootName=drawASTUnaryRelation(rel.toString,previousNodeName,term)
       case INamedPart(pname, subformula) => rootName=drawASTUnaryRelation(pname.toString,previousNodeName,subformula)
@@ -425,9 +425,9 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
       case IIntLit(v) => rootName=drawASTEndNode(v.toString(),previousNodeName,"constant")
       case IPlus(t1, t2) => rootName=drawASTBinaryRelation("+",previousNodeName,t1,t2)
       case ITermITE(cond, left, right) => {
-        drawAST(cond,previousNodeName)
-        drawAST(right,previousNodeName)
-        drawAST(left,previousNodeName)
+        rootName=drawAST(cond,previousNodeName)
+        rootName=drawAST(right,previousNodeName)
+        rootName=drawAST(left,previousNodeName)
       }
       case ITimes(coeff, subterm) => {
         val timesName="*"+"_"+gnn_input.GNNNodeID

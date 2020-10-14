@@ -92,7 +92,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
     val normalizedClause = clause.normalize()
     val (dataFlowSet,guardSet)=getDataFlowAndGuard(clause,normalizedClause,dataFlowInfoWriter)
 
-
     //draw head predicate node and argument node
     if (normalizedClause.head.pred.name=="FALSE"){
       //draw predicate node
@@ -116,7 +115,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
           tempID+=1
           //connect to control flow node
           addBinaryEdge(argumentnodeName,controlFlowNodeName,"argument")
-          //todo: draw dataflow
           drawDataFlow(arg,dataFlowSet)
         }
         argumentNodeSetInOneClause(normalizedClause.head.pred.name)=argumentNodeArray
@@ -125,7 +123,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
         for(controlNodeName<-argumentNodeSetInOneClause.keySet) if (controlNodeName==normalizedClause.head.pred.name){
           for( (argNodeName,arg)<- argumentNodeSetInOneClause(controlNodeName) zip normalizedClause.head.args){
             constantNodeSetInOneClause(arg.toString)=argNodeName
-            //todo: draw dataflow
             drawDataFlow(arg,dataFlowSet)
           }
         }
@@ -188,11 +185,10 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
       }
     }
 
-
-    //todo:draw guard for all hyperedge
     if (guardSet.isEmpty){
       val trueNodeName="true_"+gnn_input.GNNNodeID.toString
       createNode(trueNodeName,"true","constant",nodeShapeMap("constant"))
+      constantNodeSetInOneClause("true")=trueNodeName
       for (hyperEdgeNode<-hyperEdgeList){
         hyperEdgeNode.hyperEdgeType match {
           case HyperEdgeType.controlFlow=>addTernaryEdge(hyperEdgeNode.fromName,trueNodeName,hyperEdgeNode.toName,hyperEdgeNode.hyperEdgeNodeName,"controlFlowHyperEdge")
@@ -230,10 +226,8 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   writeGNNInputToJSONFile(argumentIDList,argumentNameList,argumentOccurrenceList)
 
 
-
   def drawDataFlow(arg:ITerm,dataFlowSet:Set[IExpression]): Unit ={
     val SE = IExpression.SymbolEquation(arg)
-    println(arg.toString)
     for (df<-dataFlowSet) df match {
       case SE(coefficient, rhs)  if(!coefficient.isZero)=> {
         //draw data flow hyperedge node
@@ -290,7 +284,5 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
       dataFlowInfoWriter.write(g.toString+"\n")
     (dataflowListHeadArgSymbolEquation,guardList)
   }
-
-
 
 }
