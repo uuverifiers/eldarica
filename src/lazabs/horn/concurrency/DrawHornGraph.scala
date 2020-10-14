@@ -35,7 +35,7 @@ import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import lazabs.horn.concurrency.DrawHornGraph.{addQuotes, isNumeric}
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 import play.api.libs.json._
 
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
@@ -83,7 +83,8 @@ class GNNInput() {
   var TotalNodeID = 0
   //canonical node category for hyperedge horn graph
   var CONTROLCanonicalID, argumentCanonicalID, predicateCanonicalID, iEpsilonCanonicalID, iFormulaITECanonicalID, iFunAppCanonicalID,
-  iNamePartCanonicalID, iTermITECanonicalID, iTriggerCanonicalID, variableCanonicalID, symbolicConstantCanonicalID, hyperEdgeCanonicalID = 0
+  iNamePartCanonicalID, iTermITECanonicalID, iTriggerCanonicalID, variableCanonicalID, symbolicConstantCanonicalID,
+  controlFlowHyperEdgeCanonicalID,dataFlowHyperEdgeCanonicalID = 0
 
   //canonical node category for layer horn graph
   var clauseHeadCanonicalID, clauseBodyCanonicalID, clauseArgCanonicalID, clauseCanonicalID, predicateNameCanonicalID,
@@ -159,12 +160,10 @@ class GNNInput() {
     argumentIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-
   def incrementControlLocationIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     controlLocationIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-
   def incrementNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     nodeIds +:= GNNNodeID
     nodeNameToIDMap(nodeUniqueName) = GNNNodeID
@@ -252,12 +251,85 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
     case DrawHornGraph.HornGraphType.hyperEdgeHraph => graphType="hyperEdgeHornGraph"
     case _=> graphType="layerHornGraph"
   }
+  var edgeNameMap: Map[String, String] = Map()
+  var nodeShapeMap: Map[String, String] = Map()
+  val constantNodeSetInOneClause = scala.collection.mutable.Map[String,String]()//map[constantName->constantNameWithCanonicalNumber]
+  val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String,String]()
+  val argumentNodeSetInOneClause = scala.collection.mutable.Map[String,Array[String]]()//predicateName:String -> arguments Array[String]
+  var astEdgeType=""
   val gnn_input=new GNNInput()
   val writerGraph = new PrintWriter(new File(file + "."+graphType+".gv"))
   writerGraph.write("digraph dag {" + "\n")
 
 
+  def addBinaryEdge(from:String,to:String,label:String): Unit ={
+    writerGraph.write(addQuotes(from)+ " -> " + addQuotes(to) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    gnn_input.incrementBinaryEdge(from, to,label)
+  }
+  def addTernaryEdge(from:String,guard:String,to:String,hyperEdgeName:String,label:String): Unit ={
+    //fromNode to hyperedge
+    writerGraph.write(addQuotes(from)+ " -> " + addQuotes(hyperEdgeName) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    //guardNode to hyperedge
+    writerGraph.write(addQuotes(guard)+ " -> " + addQuotes(hyperEdgeName) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    //hyperedge to toNode
+    writerGraph.write(addQuotes(hyperEdgeName)+ " -> " + addQuotes(to) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    //form gnn input
+    gnn_input.incrementTernaryEdge(from,guard,to,label)
+  }
+  def updateTernaryEdge(from:String,guard:String,to:String,hyperEdgeName:String,label:String): Unit ={
+    //guardNode to hyperedge
+    writerGraph.write(addQuotes(guard)+ " -> " + addQuotes(hyperEdgeName) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    gnn_input.incrementTernaryEdge(from,guard,to,label)
+  }
 
+  def addEdgeInSubTerm(from:String,to:String): Unit ={
+    if (!to.isEmpty){
+      //for layer graph
+//      val toNodeClass=to.substring(0,to.indexOf("_"))
+//      toNodeClass match {
+//        case "clause" => addBinaryEdge(from,to,"guard")
+//        case "clauseArgument" => addBinaryEdge(from,to,"data")
+//        case _ => addBinaryEdge(from,to,"subTerm")
+//      }
+      //for hyperedge graph
+      addBinaryEdge(from,to,astEdgeType)
+    }
+
+  }
+
+  def drawASTBinaryRelation(op:String,previousNodeName:String,e1: IExpression,e2: IExpression): String ={
+    val condName=op+"_"+gnn_input.GNNNodeID
+    createNode(condName,op,"operator",nodeShapeMap("operator"))
+    if(previousNodeName!="") addEdgeInSubTerm(condName,previousNodeName)
+    drawAST(e1,condName)
+    drawAST(e2,condName)
+    condName
+  }
+  def drawASTUnaryRelation(op:String,previousNodeName:String,e: IExpression): String ={
+    val opName=op+"_"+gnn_input.GNNNodeID
+    createNode(opName,op,"operator",nodeShapeMap("operator"))
+    if(previousNodeName!="") addEdgeInSubTerm(opName,previousNodeName)
+    drawAST(e,opName)
+    opName
+  }
+  def drawASTEndNode(constantStr:String,previousNodeName:String,className:String): String ={
+    var nodeName=""
+    if (constantNodeSetInOneClause.keySet.contains(constantStr)){
+      addEdgeInSubTerm(constantNodeSetInOneClause(constantStr),previousNodeName)
+    }else{
+      val constantName=constantStr+"_"+gnn_input.GNNNodeID
+      nodeName=constantName
+      createNode(constantName,constantStr,className,nodeShapeMap(className))
+      addEdgeInSubTerm(constantName,previousNodeName)
+      constantNodeSetInOneClause(constantStr)=constantName
+    }
+    nodeName
+  }
 
   def createNode(canonicalName:String,labelName:String,className:String,shape:String): Unit ={
     writerGraph.write(addQuotes(canonicalName) +
@@ -270,9 +342,101 @@ class DrawHornGraph(file: String, simpClauses: Clauses,hints:VerificationHints,a
       gnn_input.incrementNodeIds(canonicalName,className,labelName)
     }
   }
-  
-  def createHyperEdgeNode(): Unit ={
 
+  def createHyperEdgeNode(canonicalName: String, labelName: String, className: String, shape: String): Unit = {
+    writerGraph.write(addQuotes(canonicalName) +
+      " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
+    //todo:create hyperedge class to store all info
+    className match {
+      case "controlFlowHyperEdge" => gnn_input.controlFlowHyperEdgeCanonicalID += 1
+      case "dataFlowHyperEdge" => gnn_input.dataFlowHyperEdgeCanonicalID += 1
+    }
+  }
+  def drawAST(e: IExpression,previousNodeName:String=""): String ={
+    var rootName=""
+    e match {
+      case EqZ(t)=>{
+        //todo: symplify to drawASTBinaryRelation
+        //println("EqZ")
+        //create equal node
+        val equalName="="+"_"+gnn_input.GNNNodeID
+        rootName=equalName
+        createNode(equalName,"=","operator",nodeShapeMap("operator"))
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
+        //create zero node
+        drawASTEndNode("0",equalName,"constant")
+        drawAST(t,equalName)
+      }
+      case Eq(t1, t2) => {
+        rootName=drawASTBinaryRelation("=",previousNodeName,t1,t2)
+      }
+      case EqLit(term, lit) => {
+        //create equal node
+        val equalName="="+"_"+gnn_input.GNNNodeID
+        rootName=equalName
+        createNode(equalName,"=","operator",nodeShapeMap("operator"))
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
+        //create lit node
+        drawASTEndNode(lit.toString(),equalName,"constant")
+        drawAST(term,equalName)
+      }
+      case GeqZ(t)=>{
+        //create >= node
+        val equalName=">="+"_"+gnn_input.GNNNodeID
+        rootName=equalName
+        createNode(equalName,"=","operator",nodeShapeMap("operator"))
+        if(previousNodeName!="") addEdgeInSubTerm(equalName,previousNodeName)
+        //create zero node
+        drawASTEndNode("0",equalName,"constant")
+        drawAST(t,equalName)
+      }
+      case Geq(t1, t2) => rootName=drawASTBinaryRelation(">=",previousNodeName,t1,t2)
+      case Conj(a,b)=> rootName=drawASTBinaryRelation("&",previousNodeName,a,b)
+      case Disj(a,b)=> rootName=drawASTBinaryRelation("|",previousNodeName,a,b)
+      case Const(t)=> rootName=drawASTEndNode(t.toString(),previousNodeName,"constant")
+      //case SignConst(t)=>{println("SignConst")}
+      //case SimpleTerm(t)=>{println("SimpleTerm")}
+      //      case LeafFormula(t)=>{
+      //        //println("LeafFormula")
+      //        drawAST(t,previousNodeName)
+      //      }
+      case Difference(t1, t2)=> rootName=drawASTBinaryRelation("-",previousNodeName,t1,t2)
+      case IAtom(pred, args) => {}
+      case IBinFormula(j, f1, f2) => rootName=drawASTBinaryRelation(j.toString,previousNodeName,f1,f2)
+      case IBoolLit(v) => rootName=drawASTEndNode(v.toString(),previousNodeName,"constant")
+      case IFormulaITE(cond, left, right) => {
+        //todo: check rootName
+        drawAST(cond,previousNodeName)
+        drawAST(right,previousNodeName)
+        drawAST(left,previousNodeName)
+      }
+      case IIntFormula(rel, term) => rootName=drawASTUnaryRelation(rel.toString,previousNodeName,term)
+      case INamedPart(pname, subformula) => rootName=drawASTUnaryRelation(pname.toString,previousNodeName,subformula)
+      case INot(subformula) => rootName=drawASTUnaryRelation("!",previousNodeName,subformula)
+      case IQuantified(quan, subformula) => rootName=drawASTUnaryRelation(quan.toString,previousNodeName,subformula)
+      case ITrigger(patterns, subformula) => {}
+      case IConstant(c) => rootName=drawASTEndNode(c.name,previousNodeName,"symbolicConstant")
+      case IEpsilon(cond) => rootName=drawASTUnaryRelation("eps",previousNodeName,cond)
+      case IFunApp(fun, args) => {}
+      case IIntLit(v) => rootName=drawASTEndNode(v.toString(),previousNodeName,"constant")
+      case IPlus(t1, t2) => rootName=drawASTBinaryRelation("+",previousNodeName,t1,t2)
+      case ITermITE(cond, left, right) => {
+        drawAST(cond,previousNodeName)
+        drawAST(right,previousNodeName)
+        drawAST(left,previousNodeName)
+      }
+      case ITimes(coeff, subterm) => {
+        val timesName="*"+"_"+gnn_input.GNNNodeID
+        rootName=timesName
+        createNode(timesName,"*","operator",nodeShapeMap("operator"))
+        if(previousNodeName!="") addEdgeInSubTerm(timesName,previousNodeName)
+        drawASTEndNode(coeff.toString(),timesName,"constant")
+        drawAST(subterm,timesName)
+      }
+      case IVariable(index) => rootName=drawASTEndNode(index.toString(),previousNodeName,"constant")
+      case _ => rootName=drawASTEndNode("unknown",previousNodeName,"constant")
+    }
+    rootName
   }
 
   def writeGNNInputToJSONFile(argumentIDList:ListBuffer[Int],argumentNameList:ListBuffer[String],argumentOccurrenceList:ListBuffer[Int]): Unit ={
