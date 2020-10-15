@@ -20,5 +20,5 @@ void main()
 
   struct parent *cp1 = list->child1->p;
   struct parent *cp2 = list->child2->p;
-  assert(cp1 == list || cp1 == 0);
+  assert(list->child1->p == list);
 }

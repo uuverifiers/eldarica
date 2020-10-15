@@ -9,6 +9,6 @@ void main() {
     int *b = calloc(sizeof(int));
     *b = 42;
     swap(&a, b);
-    assert(a == 0 || a == 3 || a == 42);
+    assert(a == 42);
 }
 

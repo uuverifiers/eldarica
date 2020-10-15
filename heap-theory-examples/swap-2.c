@@ -11,6 +11,6 @@ void main() {
     *b = 42;
     swap(a, b);
     int tmp = *a;
-    assert(tmp == 0 || tmp == 3 || tmp == 42);
+    assert(tmp == 42);
 }
 
