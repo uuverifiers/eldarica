@@ -127,6 +127,7 @@ class GNNInput(simpClauses:Clauses) {
 
   val learningLabel= new FormLearningLabels(simpClauses)
   val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
+  val predicateOccurrenceInCirleLabel=learningLabel.getPredicateOccurenceInCircles()
 
   def incrementBinaryEdge(from: String, to: String, label: String): Unit = {
     val fromID = nodeNameToIDMap(from)
