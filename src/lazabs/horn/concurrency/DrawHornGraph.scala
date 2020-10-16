@@ -463,7 +463,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
     writer.write("{\n")
-    writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds.reverse), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIndices", IntArray(gnn_input.argumentIndices), writer, lastFiledFlag)
