@@ -276,9 +276,10 @@ class VerificationLoop(system : ParametricEncoder.System,
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
-
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
         val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
+//        val learningLabel = new FormLearningLabels(simpClauses, optimizedHints)
+//        learningLabel.predicateOccurrenceMap
         GlobalParameters.get.hornGraphType match {
           case HornGraphType.hyperEdgeHraph=>{
             val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)

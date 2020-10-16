@@ -29,11 +29,14 @@
 package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
+
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
+import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
+
 import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 
 object DrawHornGraph {
@@ -75,7 +78,7 @@ class Adjacency(edge_name: String, edge_number: Int) {
     ternaryEdge :+= Triple(from, to1, to2)
 }
 
-class GNNInput() {
+class GNNInput(simpClauses:Clauses) {
   var GNNNodeID = 0
   var hyperEdgeNodeID = 0
   var TotalNodeID = 0
@@ -117,8 +120,13 @@ class GNNInput() {
   var controlLocationIndices = Array[Int]()
   var falseIndices = Array[Int]()
   var argumentIndices = Array[Int]()
+  var predicateIndices = Array[Int]()
+  var predicateOccurrenceInClause = Array[Int]()
   var argumentInfoHornGraphList = new ListBuffer[argumentInfoHronGraph]
   var nodeNameToIDMap = MuMap[String, Int]()
+
+  val learningLabel= new FormLearningLabels(simpClauses)
+  val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
 
   def incrementBinaryEdge(from: String, to: String, label: String): Unit = {
     val fromID = nodeNameToIDMap(from)
@@ -176,6 +184,18 @@ class GNNInput() {
 
   def incrementControlLocationIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     controlLocationIndices :+= GNNNodeID
+    for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
+      predicateIndices :+= GNNNodeID
+      predicateOccurrenceInClause :+= l._2
+    }
+    incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
+  }
+
+  def incrementPredicateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
+    for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
+      predicateIndices :+= GNNNodeID
+      predicateOccurrenceInClause :+= l._2
+    }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -272,9 +292,14 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()
   val argumentNodeSetInOneClause = scala.collection.mutable.Map[String, Array[String]]() //predicateName:String -> arguments Array[String]
   var astEdgeType = ""
-  val gnn_input = new GNNInput()
+  val gnn_input = new GNNInput(simpClauses)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
   writerGraph.write("digraph dag {" + "\n")
+
+
+
+
+
 
   def addBinaryEdge(from: String, to: String, label: String): Unit = {
     GlobalParameters.get.hornGraphType match {
@@ -370,6 +395,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     className match {
       case "predicateArgument" => gnn_input.incrementArgumentIndicesAndNodeIds(canonicalName, className, labelName)
       case "CONTROL" => gnn_input.incrementControlLocationIndicesAndNodeIds(canonicalName, className, labelName)
+      case "predicateName" => gnn_input.incrementPredicateIndicesAndNodeIds(canonicalName, className, labelName)
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
       case _ => gnn_input.incrementNodeIds(canonicalName, className, labelName)
     }
@@ -437,8 +463,8 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
     writer.write("{\n")
-    writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols.reverse), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds.reverse), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIndices", IntArray(gnn_input.argumentIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
@@ -447,6 +473,8 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     writeGNNInputFieldToJSONFile("unknownEdges", PairArray(gnn_input.unknownEdges.binaryEdge), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIDList", IntArray(argumentIDList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentNameList", StringArray(argumentNameList.toArray), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("predicateIndices", IntArray(gnn_input.predicateIndices), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("predicateOccurrenceInClause", IntArray(gnn_input.predicateOccurrenceInClause), writer, lastFiledFlag)
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.hyperEdgeHraph => {
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)

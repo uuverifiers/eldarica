@@ -56,6 +56,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   nodeShapeMap += ("constant" -> "circle")
   nodeShapeMap += ("operator" -> "square")
   nodeShapeMap += ("predicateName" -> "box")
+  nodeShapeMap += ("FALSE" -> "box")
   nodeShapeMap += ("predicateArgument" -> "ellipse")
   nodeShapeMap += ("clause" -> "box")
   nodeShapeMap += ("clauseHead" -> "box")
@@ -77,13 +78,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
     var argumentCanonicalNameList = new ListBuffer[Pair[String, Int]]() //(canonicalName, ID)
   }
 
-  for (clause <- simpClauses) {
-    //predicate layer: create predicate and arguments and edges between them
-    createPredicateLayerNodesAndEdges(clause.head)
-    for (bodyPredicate <- clause.body) {
-      //predicate layer: create predicate and arguments and edges between them
-      createPredicateLayerNodesAndEdges(bodyPredicate)
-    }
+  for (clause <- simpClauses;a<-clause.allAtoms) {
+    createPredicateLayerNodesAndEdges(a)
   }
 
   for (clause <- simpClauses) {
@@ -148,7 +144,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   }
   writerGraph.write("}" + "\n")
   writerGraph.close()
-
+  //form label here
   val (argumentIDList, argumentNameList, argumentOccurrenceList) = matchArguments()
   writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList)
   /*
@@ -179,22 +175,31 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   def createPredicateLayerNodesAndEdges(pred: IAtom): Unit = {
     //predicate layer: create predicate and argument node
     if (!predicateNameMap.contains(pred.pred.name)) {
-      val predicateNodeCanonicalName = predicateNamePrefix + gnn_input.predicateNameCanonicalID.toString
-      predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))
-      createNode(predicateNodeCanonicalName,
-        pred.pred.name, "predicateName", nodeShapeMap("predicateName"))
-      var tempID = 0
-      for (headArg <- pred.args) {
-        val argumentNodeCanonicalName = predicateArgumentPrefix + gnn_input.predicateArgumentCanonicalID.toString
-        //create argument node
-        createNode(argumentNodeCanonicalName,
-          "Arg" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
-        //create edge from argument to predicate
-        addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument")
-        predicateNameMap(pred.pred.name).argumentCanonicalNameList += Pair(argumentNodeCanonicalName, tempID)
-        gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID)
-        tempID += 1
+      if(pred.pred.name!="FALSE"){
+        val predicateNodeCanonicalName = predicateNamePrefix + gnn_input.predicateNameCanonicalID.toString
+        predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))
+        createNode(predicateNodeCanonicalName,
+          pred.pred.name, "predicateName", nodeShapeMap("predicateName"))
+        var tempID = 0
+        for (headArg <- pred.args) {
+          val argumentNodeCanonicalName = predicateArgumentPrefix + gnn_input.predicateArgumentCanonicalID.toString
+          //create argument node
+          createNode(argumentNodeCanonicalName,
+            "Arg" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
+          //create edge from argument to predicate
+          addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument")
+          predicateNameMap(pred.pred.name).argumentCanonicalNameList += Pair(argumentNodeCanonicalName, tempID)
+          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID)
+          tempID += 1
+        }
+      }else{
+        val predicateNodeCanonicalName = "FALSE"
+        predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))
+        createNode(predicateNodeCanonicalName,
+          pred.pred.name, "FALSE", nodeShapeMap("FALSE"))
       }
+
+
     }
   }
 
