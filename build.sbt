@@ -152,7 +152,7 @@ lazy val root = (project in file(".")).
     },
       
 //
-    resolvers += "uuverifiers" at "http://logicrunch.research.it.uu.se/maven/",
+    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
 //    libraryDependencies += "uuverifiers" %% "princess" % "2020-07-13"
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
