@@ -122,12 +122,13 @@ class GNNInput(simpClauses:Clauses) {
   var argumentIndices = Array[Int]()
   var predicateIndices = Array[Int]()
   var predicateOccurrenceInClause = Array[Int]()
+  var predicateStrongConnectedComponent = Array[Int]()
   var argumentInfoHornGraphList = new ListBuffer[argumentInfoHronGraph]
   var nodeNameToIDMap = MuMap[String, Int]()
 
   val learningLabel= new FormLearningLabels(simpClauses)
   val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
-  val predicateOccurrenceInCirleLabel=learningLabel.getPredicateOccurenceInCircles()
+  val predicateStrongConnectedComponentLabel=learningLabel.getStrongConnectedComponentPredicateList()
 
   def incrementBinaryEdge(from: String, to: String, label: String): Unit = {
     val fromID = nodeNameToIDMap(from)
@@ -188,7 +189,9 @@ class GNNInput(simpClauses:Clauses) {
     for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
       predicateIndices :+= GNNNodeID
       predicateOccurrenceInClause :+= l._2
+      predicateStrongConnectedComponent:+=predicateStrongConnectedComponentLabel(nodeName)
     }
+
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -196,6 +199,7 @@ class GNNInput(simpClauses:Clauses) {
     for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
       predicateIndices :+= GNNNodeID
       predicateOccurrenceInClause :+= l._2
+      predicateStrongConnectedComponent:+=predicateStrongConnectedComponentLabel(nodeName)
     }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
@@ -476,6 +480,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     writeGNNInputFieldToJSONFile("argumentNameList", StringArray(argumentNameList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("predicateIndices", IntArray(gnn_input.predicateIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("predicateOccurrenceInClause", IntArray(gnn_input.predicateOccurrenceInClause), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("predicateStrongConnectedComponent", IntArray(gnn_input.predicateStrongConnectedComponent), writer, lastFiledFlag)
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.hyperEdgeHraph => {
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)

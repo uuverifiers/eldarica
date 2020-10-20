@@ -250,7 +250,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
    (1) x = f(\bar y) s.t.
 
    <1> x is one of the arguments of the clause head
-   <2> \bar y are arguments of the literals in the clause body. what if \bar y are just some constants?
+   <2> \bar y are arguments of the literals in the clause body.
    <3> any variable assignment (assignment of values to the variables occurring in C) that satisfies the constraint of C also satisfies (1).
    */
     var dataflowList = Set[IExpression]()

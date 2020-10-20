@@ -4,17 +4,22 @@ import java.io.{File, PrintWriter}
 import ap.terfor.preds.Predicate
 import ap.parser.IAtom
 import lazabs.GlobalParameters
+import lazabs.horn.bottomup.AbsGraph
 import lazabs.horn.concurrency.DrawHornGraph.addQuotes
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
+import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
+
 class FormLearningLabels (simpClauses: Clauses){
   //hints: VerificationHints
-  class predicateNodeInfo(nodeName:String){
+  class predicateNodeInfo(nodeName:String,index:Int){
     val name=nodeName
+    var nodeIndex= index
     var predecessorNameList:List[String]=List()
     var successorNameList:List[String]=List()
+    var successorIndexList:List[Int]=List()
     def prettyPrint(): Unit ={
-      println(name)
+      println(nodeIndex+":"+name)
       print("predecessors:")
       for (p<-predecessorNameList) print(p+",")
       println
@@ -24,13 +29,19 @@ class FormLearningLabels (simpClauses: Clauses){
     }
   }
 
-  def getPredicateOccurenceInCircles(): Map[String,Int] ={
+
+  def getStrongConnectedComponentPredicateList(): Map[String,Int] ={
+    var nodeCounter=0
     var predicateNameSet:Set[String]=Set()
-    var predicateNodeList:List[predicateNodeInfo]=List()
-      for (clause<-simpClauses;p<-clause.predicates){
+    var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map()
+    for (clause<-simpClauses;p<-clause.predicates){
       if (!predicateNameSet.contains(p.name))
-        predicateNodeList:+=new predicateNodeInfo(p.name)
-        predicateNameSet+=p.name
+        {
+          predicateName2NodeMap=predicateName2NodeMap.updated(p.name,new predicateNodeInfo(p.name,nodeCounter))
+          nodeCounter+=1
+          predicateNameSet+=p.name
+        }
+
     }
     //build and visualize graph
     val writerPredicateGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
@@ -47,16 +58,29 @@ class FormLearningLabels (simpClauses: Clauses){
           " [label=" + addQuotes(bodyName)  + " shape=" + "box" + "];" + "\n")
         //add edge
         writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
-        for(pn<-predicateNodeList) if(pn.name==headName) pn.predecessorNameList:+=bodyName else if (pn.name==bodyName) pn.successorNameList:+=headName
-
+        //for(pn<-predicateNodeList) if(pn.name==headName) pn.predecessorNameList:+=bodyName else if (pn.name==bodyName) pn.successorNameList:+=headName
+        predicateName2NodeMap(headName).predecessorNameList:+=bodyName
+        predicateName2NodeMap(bodyName).successorNameList:+=headName
+        predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
       }
     }
     writerPredicateGraph.write("}" + "\n")
     writerPredicateGraph.close()
 
     //todo:identify circles
-    val circles:Set[List[String]]=Set()
-    //for (ps<-predicateNodeList) ps.prettyPrint()
+    //val circles:Set[List[String]]=Set()
+    //todo: form g: Map[Int, List[Int]]
+    val g = for (node<-predicateName2NodeMap.values) yield (node.nodeIndex-> node.successorIndexList)
+    val x=new TarjanRecursive
+    val cir=x.apply(g.toMap)
+    val predicateIndex2NodeMap = (for (node<-predicateName2NodeMap.values) yield node.nodeIndex->node).toMap
+    val circles = for (c<-cir) yield for(i<-c) yield predicateIndex2NodeMap(i).name
+    for (c<-circles) println(c.toString())
+
+      //dfs visits
+//    for (ps<-predicateName2NodeMap.values) ps.prettyPrint()
+//    println("---------------")
+//    dfs(predicateName2NodeMap)
 
 
     //form predicate head occurrence in circles
@@ -65,8 +89,26 @@ class FormLearningLabels (simpClauses: Clauses){
       predicateOccurrenceMap=predicateOccurrenceMap.updated(p,predicateOccurrenceMap(p)+1)
       //new Predicate("Initial",0)
     }
+    println(predicateOccurrenceMap)
     predicateOccurrenceMap
   }
+
+  def traversal(node:predicateNodeInfo,nodeMap:Map[String,predicateNodeInfo]): Unit ={
+    for (nextNode<-node.successorNameList) if (!node.successorNameList.isEmpty){
+      node.successorNameList=node.successorNameList.diff(List(nextNode))
+      println(node.name+" -> ",nextNode)
+      traversal(nodeMap(nextNode),nodeMap)
+    }
+  }
+
+  def dfs(nodeList:Map[String,predicateNodeInfo]): Unit ={
+    for (node<-nodeList.values){
+      traversal(node,nodeList)
+    }
+
+  }
+
+
 
   def getPredicateOccurenceInClauses(): Map[Predicate,Int] ={
     //form predicate head occurrence in clauses
@@ -79,4 +121,48 @@ class FormLearningLabels (simpClauses: Clauses){
     }
     predicateOccurrenceMap
   }
+}
+
+class TarjanRecursive {
+
+  /**
+   * The algorithm takes a directed graph as input, a
+   * nd produces a partition of the graph's vertices into the graph's strongly connected components.
+   * @param g the graph
+   * @return the strongly connected components of g
+   */
+  def apply(g: Map[Int, List[Int]]): scala.collection.mutable.Buffer[scala.collection.mutable.Buffer[Int]] = {
+    val s = scala.collection.mutable.Buffer.empty[Int]
+    val s_set = scala.collection.mutable.Set.empty[Int]
+    val index = scala.collection.mutable.Map.empty[Int, Int]
+    val lowlink = scala.collection.mutable.Map.empty[Int, Int]
+    val ret = scala.collection.mutable.Buffer.empty[scala.collection.mutable.Buffer[Int]]
+    def visit(v: Int): Unit = {
+      index(v) = index.size
+      lowlink(v) = index(v)
+      s += v
+      s_set += v
+      for (w <- g(v)) {
+        if (!index.contains(w)) {
+          visit(w)
+          lowlink(v) = math.min(lowlink(w), lowlink(v))
+        } else if (s_set(w)) {
+          lowlink(v) = math.min(lowlink(v), index(w))
+        }
+      }
+      if (lowlink(v) == index(v)) {
+        val scc = scala.collection.mutable.Buffer.empty[Int]
+        var w = -1
+        while(v != w) {
+          w = s.remove(s.size - 1)
+          scc += w
+          s_set -= w
+        }
+        ret += scc
+      }
+    }
+    for (v <- g.keys) if (!index.contains(v)) visit(v)
+    ret
+  }
+
 }
