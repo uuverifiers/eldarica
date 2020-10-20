@@ -4,11 +4,9 @@ import java.io.{File, PrintWriter}
 import ap.terfor.preds.Predicate
 import ap.parser.IAtom
 import lazabs.GlobalParameters
-import lazabs.horn.bottomup.AbsGraph
 import lazabs.horn.concurrency.DrawHornGraph.addQuotes
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
-import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 
 class FormLearningLabels (simpClauses: Clauses){
   //hints: VerificationHints
@@ -68,14 +66,14 @@ class FormLearningLabels (simpClauses: Clauses){
     writerPredicateGraph.close()
 
     //todo:identify circles
-    //val circles:Set[List[String]]=Set()
-    //todo: form g: Map[Int, List[Int]]
+    //form g: Map[Int, List[Int]]
     val g = for (node<-predicateName2NodeMap.values) yield (node.nodeIndex-> node.successorIndexList)
+    //find out strong connected graph
     val x=new TarjanRecursive
     val cir=x.apply(g.toMap)
     val predicateIndex2NodeMap = (for (node<-predicateName2NodeMap.values) yield node.nodeIndex->node).toMap
-    val circles = for (c<-cir) yield for(i<-c) yield predicateIndex2NodeMap(i).name
-    for (c<-circles) println(c.toString())
+    val circles = for (c<-cir if (c.size>1)) yield for(i<-c) yield predicateIndex2NodeMap(i).name
+    //for (c<-circles) println(c.toString())
 
       //dfs visits
 //    for (ps<-predicateName2NodeMap.values) ps.prettyPrint()
@@ -83,13 +81,17 @@ class FormLearningLabels (simpClauses: Clauses){
 //    dfs(predicateName2NodeMap)
 
 
-    //form predicate head occurrence in circles
+    //form predicate node occurrence in strong connected graph
     var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p.name->0)).toMap
     for (c<-circles;p<-c) if (predicateOccurrenceMap.keySet.contains(p)){
-      predicateOccurrenceMap=predicateOccurrenceMap.updated(p,predicateOccurrenceMap(p)+1)
-      //new Predicate("Initial",0)
+      //predicateOccurrenceMap=predicateOccurrenceMap.updated(p,predicateOccurrenceMap(p)+1)
+      predicateOccurrenceMap=predicateOccurrenceMap.updated(p,1)
     }
-    println(predicateOccurrenceMap)
+    //mark self-cycle node to 1
+    for(p<-predicateOccurrenceMap.keys) if(predicateName2NodeMap(p).successorNameList.contains(p))
+      predicateOccurrenceMap=predicateOccurrenceMap.updated(p,1)
+
+    //println(predicateOccurrenceMap)
     predicateOccurrenceMap
   }
 
