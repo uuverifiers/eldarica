@@ -633,7 +633,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
       for ((nc, oc) <- propagator.result)
         res.put(nc, rawNormClauses(oc))
-
       (res.toSeq, propagator.rsBounds)
     } else {
       val emptyBounds =

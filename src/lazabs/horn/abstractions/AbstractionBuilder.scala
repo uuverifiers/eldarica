@@ -273,7 +273,6 @@ class StaticAbstractionBuilder(
     val index=argumentIndex
     val score=argumentScore
   }
-  //todo: read learned argument scores from .predicted_argument file
 
   //////////////////////////////////////////////////////////////////////////////
 
