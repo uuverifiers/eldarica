@@ -220,8 +220,8 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   writerGraph.close()
   dataFlowInfoWriter.close()
 
-  val (argumentIDList, argumentNameList, argumentOccurrenceList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
 
   def drawPredicateNode(controlFlowNodeName: String, predicateName: String, className: String): Unit = {
     //draw predicate node

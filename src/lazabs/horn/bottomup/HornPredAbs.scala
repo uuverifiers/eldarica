@@ -642,6 +642,37 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     }
   }
 
+  // print argument bounds
+  var argumentBounds: scala.collection.mutable.Map[Predicate, List[Pair[String, String]]] = scala.collection.mutable.Map()
+  for ((rs, bounds) <- relationSymbolBounds)if (!bounds.isFalse && rs.pred.name!="FALSE") {
+    //println(rs + ":")
+    var argumentBoundList: List[Pair[String, String]] = List()
+    if(bounds.isTrue){//FALSE's bounds is true
+      for (s <- rs.arguments(0))
+        argumentBoundList :+= Pair("\"None\"", "\"None\"")
+    }else{
+      for (s <- rs.arguments(0)) {
+        //print("  " + s + ": ")
+        val lc = ap.terfor.linearcombination.LinearCombination(s, bounds.order)
+        var lowerBound: String = "0"
+        var upperBound: String = "0"
+        PresburgerTools.lowerBound(lc, bounds) match {
+          case Some(x) => lowerBound = x.toString()
+          case _ => lowerBound = "\"None\""
+        }
+        //print(", ")
+        (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
+          case Some(x) => upperBound = x.toString()
+          case _ => upperBound = "\"None\""
+        }
+        argumentBoundList :+= Pair(lowerBound, upperBound)
+        //println()
+      }
+    }
+    argumentBounds(rs.pred) = argumentBoundList
+  }
+
+
   val relationSymbolReducers =
     (for (rs <- relationSymbols.valuesIterator) yield {
       val bounds = relationSymbolBounds.getOrElse(rs, Conjunction.TRUE)

@@ -145,8 +145,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   writerGraph.write("}" + "\n")
   writerGraph.close()
   //form label here
-  val (argumentIDList, argumentNameList, argumentOccurrenceList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
   /*
   //write JSON file by json library
   val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,

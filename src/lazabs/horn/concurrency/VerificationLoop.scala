@@ -270,30 +270,7 @@ class VerificationLoop(system : ParametricEncoder.System,
         HintsSelection.writeSMTFormatToFile(encoder.allClauses,GlobalParameters.get.fileName)  //write smt2 format to file
         println(encoder.allClauses)
       }
-      //get horn clauses
-      if(GlobalParameters.get.getHornGraph==true){
-        //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
-        //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
-        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
-        val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-        val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
-//        val learningLabel = new FormLearningLabels(simpClauses, optimizedHints)
-//        learningLabel.predicateOccurrenceMap
-        GlobalParameters.get.hornGraphType match {
-          case HornGraphType.hyperEdgeHraph=>{
-            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
-          }
-          case _=>{
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
-          }
-        }
-        sys.exit()
-      }
 
-
-
-      ////debug/////
     val predAbsResult = ParallelComputation(params) {
       val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
                                Console.withErr(Console.out) {
@@ -327,6 +304,25 @@ class VerificationLoop(system : ParametricEncoder.System,
       } else {
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }
+
+      if(GlobalParameters.get.getHornGraph==true){
+        val predAbs =new HornPredAbs(simpClauses, simpHints.toInitialPredicates, interpolator)
+        //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
+        //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
+        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
+        val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+        //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
+        val argumentInfo = HintsSelection.getArgumentBound(argumentList,predAbs.argumentBounds)
+        GlobalParameters.get.hornGraphType match {
+          case HornGraphType.hyperEdgeHraph=>
+            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+          case _=>
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+        }
+        sys.exit()
+      }
+
       println("-------------------Test optimized hints---------------------------------")
       println
       println(

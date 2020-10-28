@@ -1124,7 +1124,6 @@ object HintsSelection {
     )
     // could return `path`
   }
-
   def getArgumentInfo(argumentList:List[(IExpression.Predicate,Int)]):ListBuffer[argumentInfo]= {
     var argID=0
     var arguments:ListBuffer[argumentInfo]=ListBuffer[argumentInfo]()
@@ -1134,6 +1133,11 @@ object HintsSelection {
         argID=argID+1
       }
     }
+    arguments
+  }
+
+  def getArgumentInfoFromFile(argumentList:List[(IExpression.Predicate,Int)]):ListBuffer[argumentInfo]= {
+    val arguments=getArgumentInfo(argumentList)
     val argumentFileName=GlobalParameters.get.fileName+".arguments"
     if(scala.reflect.io.File(argumentFileName).exists){
       //read score from .argument file
@@ -1144,7 +1148,14 @@ object HintsSelection {
       }
     }
 
-    (arguments)
+    arguments
+  }
+  def getArgumentBound(argumentList:List[(IExpression.Predicate,Int)],argumentBounds: scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo]  ={
+    val arguments=getArgumentInfo(argumentList)
+    for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.name==k.name){
+      arg.bound=v(arg.index)
+    }
+    arguments
   }
   def writeArgumentScoreToFile(file:String,
                                argumentList:List[(IExpression.Predicate,Int)],
@@ -1152,7 +1163,7 @@ object HintsSelection {
                                countOccurrence:Boolean=true): ListBuffer[argumentInfo] ={
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val arguments=getArgumentInfo(argumentList)
+    val arguments=getArgumentInfoFromFile(argumentList)
     val writer = new PrintWriter(new File(file + ".arguments")) //python path
 
     if (countOccurrence==true){
@@ -1205,4 +1216,5 @@ class argumentInfo(id:Int,loc: IExpression.Predicate,ind:Int)
   var score=0
   val head=location.toString()
   val headName=location.name
+  var bound:Pair[String,String] = ("","")
 }

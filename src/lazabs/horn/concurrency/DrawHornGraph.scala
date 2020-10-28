@@ -61,6 +61,7 @@ class argumentInfoHronGraph(headName: String, ind: Int) {
   val index = ind
   val name = "argument" + ind.toString
   var score = 0
+  var bound:Pair[String,String] =("","")
 }
 
 class Adjacency(edge_name: String, edge_number: Int) {
@@ -463,7 +464,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     rootName
   }
 
-  def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String], argumentOccurrenceList: ListBuffer[Int]): Unit = {
+  def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String], argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)]): Unit = {
     println("Write GNNInput to file")
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
@@ -488,8 +489,6 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
-        lastFiledFlag = true
-        writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
       }
       case _ => {
         writeGNNInputFieldToJSONFile("predicateArgumentEdges", PairArray(gnn_input.predicateArgumentEdges.binaryEdge), writer, lastFiledFlag)
@@ -500,26 +499,29 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
         writeGNNInputFieldToJSONFile("controlArgumentEdges", PairArray(gnn_input.controlArgumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardEdges", PairArray(gnn_input.guardEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataEdges", PairArray(gnn_input.dataEdges.binaryEdge), writer, lastFiledFlag)
-        lastFiledFlag = true
-        writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
       }
     }
+    writeGNNInputFieldToJSONFile("argumentBoundList", PairStringArray(argumentBoundList.toArray), writer, lastFiledFlag)
+    lastFiledFlag = true
+    writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
     writer.write("}")
     writer.close()
   }
 
-  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int]) = {
+  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)]) = {
     //match by argument name
     for (argHornGraph <- gnn_input.argumentInfoHornGraphList; arg <- argumentInfoList) {
       if (arg.headName == argHornGraph.head && arg.index == argHornGraph.index) {
         argHornGraph.score = arg.score
         argHornGraph.ID = arg.ID
+        argHornGraph.bound=arg.bound
       }
     }
     val argumentIDList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
     val argumentNameList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.head + ":" + argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
-    (argumentIDList, argumentNameList, argumentOccurrenceList)
+    val argumentBoundList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.bound
+    (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
   }
 
   def writeGNNInputFieldToJSONFile(fieldName: String, fiedlContent: Arrays, writer: PrintWriter, lastFiledFlag: Boolean): Unit = {
@@ -528,6 +530,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       case IntArray(x) => writeOneField(fieldName, x, writer)
       case PairArray(x) => writeOneField(fieldName, x, writer)
       case TripleArray(x) => writeOneField(fieldName, x, writer)
+      case PairStringArray(x)=> writePairStringArrayField(fieldName, x, writer)
     }
     if (lastFiledFlag == false)
       writer.write(",\n")
@@ -542,6 +545,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   case class IntArray(x: Array[Int]) extends Arrays
 
   case class PairArray(x: Array[Pair[Int, Int]]) extends Arrays
+  case class PairStringArray(x: Array[Pair[String, String]]) extends Arrays
 
   case class TripleArray(x: Array[Triple[Int, Int, Int]]) extends Arrays
 
@@ -555,6 +559,22 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       writer.write(p._1.toString)
       writer.write(",")
       writer.write(p._2.toString)
+      writer.write("]")
+      if (i < filedSize)
+        writer.write(",")
+    }
+    writer.write("]")
+  }
+  def writePairStringArrayField(fieldName: String, fiedlContent: Array[Pair[String, String]], writer: PrintWriter): Unit = {
+    writer.write(addQuotes(fieldName))
+    writer.write(":")
+    writer.write("[")
+    val filedSize = fiedlContent.size - 1
+    for ((p, i) <- fiedlContent.zipWithIndex) {
+      writer.write("[")
+      writer.write(p._1)
+      writer.write(",")
+      writer.write(p._2)
       writer.write("]")
       if (i < filedSize)
         writer.write(",")
