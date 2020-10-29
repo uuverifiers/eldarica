@@ -1153,7 +1153,7 @@ object HintsSelection {
   def getArgumentBound(argumentList:List[(IExpression.Predicate,Int)],argumentBounds: scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo]  ={
     val arguments=getArgumentInfo(argumentList)
     for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.name==k.name){
-      arg.bound=v(arg.index)
+        arg.bound=v(arg.index)
     }
     arguments
   }

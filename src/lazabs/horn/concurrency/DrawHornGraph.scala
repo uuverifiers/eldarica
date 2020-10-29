@@ -517,10 +517,10 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
         argHornGraph.bound=arg.bound
       }
     }
-    val argumentIDList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.ID
-    val argumentNameList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.head + ":" + argHornGraph.name
-    val argumentOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.score
-    val argumentBoundList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList) yield argHornGraph.bound
+    val argumentIDList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList; if argHornGraph.bound._1!="\"False\"") yield argHornGraph.ID
+    val argumentNameList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.head + ":" + argHornGraph.name
+    val argumentOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.score
+    val argumentBoundList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.bound
     (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
   }
 
