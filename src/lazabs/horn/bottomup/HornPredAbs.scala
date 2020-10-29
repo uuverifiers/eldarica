@@ -644,12 +644,15 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   // print argument bounds
   var argumentBounds: scala.collection.mutable.Map[Predicate, List[Pair[String, String]]] = scala.collection.mutable.Map()
-  for ((rs, bounds) <- relationSymbolBounds)if (!bounds.isFalse && rs.pred.name!="FALSE") {
+  for ((rs, bounds) <- relationSymbolBounds;if (rs.pred.name!="FALSE")) {//don't learn from bounds.isFalse case
     //println(rs + ":")
     var argumentBoundList: List[Pair[String, String]] = List()
     if(bounds.isTrue){//FALSE's bounds is true
       for (s <- rs.arguments(0))
         argumentBoundList :+= Pair("\"None\"", "\"None\"")
+    }else if(bounds.isFalse){
+      for (s <- rs.arguments(0))
+        argumentBoundList :+= Pair("\"False\"", "\"False\"")
     }else{
       for (s <- rs.arguments(0)) {
         //print("  " + s + ": ")
