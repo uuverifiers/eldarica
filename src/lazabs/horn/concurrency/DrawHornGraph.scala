@@ -55,13 +55,14 @@ object DrawHornGraph {
   }
 }
 
-class argumentInfoHronGraph(headName: String, ind: Int) {
+class argumentInfoHronGraph(headName: String, ind: Int, globalIndex: Int) {
   var ID = 0
   val head = headName
   val index = ind
   val name = "argument" + ind.toString
   var score = 0
-  var bound:Pair[String,String] =("","")
+  var bound: Pair[String, String] = ("", "")
+  val globalIndexInGraph = globalIndex
 }
 
 class Adjacency(edge_name: String, edge_number: Int) {
@@ -464,7 +465,8 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     rootName
   }
 
-  def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String], argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)]): Unit = {
+  def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String],
+                              argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)],argumentIndicesList:ListBuffer[Int]): Unit = {
     println("Write GNNInput to file")
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
@@ -472,7 +474,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("argumentIndices", IntArray(gnn_input.argumentIndices), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("argumentIndices", IntArray(argumentIndicesList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("binaryAdjacentList", PairArray(gnn_input.binaryAdjacency.binaryEdge), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("ternaryAdjacencyList", TripleArray(gnn_input.ternaryAdjacency.ternaryEdge), writer, lastFiledFlag)
@@ -508,7 +510,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     writer.close()
   }
 
-  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)]) = {
+  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)],ListBuffer[Int]) = {
     //match by argument name
     for (argHornGraph <- gnn_input.argumentInfoHornGraphList; arg <- argumentInfoList) {
       if (arg.headName == argHornGraph.head && arg.index == argHornGraph.index) {
@@ -518,10 +520,11 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       }
     }
     val argumentIDList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList; if argHornGraph.bound._1!="\"False\"") yield argHornGraph.ID
+    val argumentIndicesList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList; if argHornGraph.bound._1!="\"False\"") yield argHornGraph.globalIndexInGraph
     val argumentNameList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.head + ":" + argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.score
     val argumentBoundList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.bound
-    (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
+    (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList)
   }
 
   def writeGNNInputFieldToJSONFile(fieldName: String, fiedlContent: Arrays, writer: PrintWriter, lastFiledFlag: Boolean): Unit = {

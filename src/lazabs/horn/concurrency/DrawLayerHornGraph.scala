@@ -145,8 +145,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   writerGraph.write("}" + "\n")
   writerGraph.close()
   //form label here
-  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList)
   /*
   //write JSON file by json library
   val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
@@ -189,7 +189,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
           //create edge from argument to predicate
           addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument")
           predicateNameMap(pred.pred.name).argumentCanonicalNameList += Pair(argumentNodeCanonicalName, tempID)
-          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID)
+          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID,gnn_input.GNNNodeID-1)
           tempID += 1
         }
       }else{

@@ -114,7 +114,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
           createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
           constantNodeSetInOneClause(arg.toString) = argumentnodeName
           argumentNodeArray :+= argumentnodeName
-          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(normalizedClause.head.pred.name, tempID)
+          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(normalizedClause.head.pred.name, tempID,gnn_input.GNNNodeID-1)
           tempID += 1
           //connect to control flow node
           addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
@@ -162,7 +162,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
             createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
             constantNodeSetInOneClause(arg.toString) = argumentnodeName
             argumentNodeArray :+= argumentnodeName
-            gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(body.pred.name, tempID)
+            gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(body.pred.name, tempID,gnn_input.GNNNodeID-1)
             tempID += 1
             //connect to control flow node
             addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
@@ -220,8 +220,8 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   writerGraph.close()
   dataFlowInfoWriter.close()
 
-  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList)
 
   def drawPredicateNode(controlFlowNodeName: String, predicateName: String, className: String): Unit = {
     //draw predicate node
