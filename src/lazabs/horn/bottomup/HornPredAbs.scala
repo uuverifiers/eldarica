@@ -30,32 +30,26 @@
 package lazabs.horn.bottomup
 
 import ap.basetypes.IdealInt
-import ap.{Signature, DialogUtil, SimpleAPI, PresburgerTools}
+import ap.{DialogUtil, PresburgerTools, Signature, SimpleAPI}
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
-                      ReducerSettings}
-import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience,
-                  Term, Formula}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
-                               SeqReducerPluginFactory}
-import ap.terfor.preds.{Predicate, Atom}
-import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
+import ap.parameters.{GoalSettings, Param, PreprocessingSettings, ReducerSettings}
+import ap.terfor.{ConstantTerm, Formula, TerForConvenience, Term, TermOrder, VariableTerm}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction, SeqReducerPluginFactory}
+import ap.terfor.preds.{Atom, Predicate}
+import ap.terfor.substitutions.{ConstantSubst, VariableShiftSubst, VariableSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.proof.tree.SeededRandomDataSource
 import ap.util.{Seqs, Timeout}
 import ap.theories.{Theory, TheoryCollector}
-import ap.types.{TypeTheory, Sort, MonoSortedPredicate, IntToTermTranslator}
+import ap.types.{IntToTermTranslator, MonoSortedPredicate, Sort, TypeTheory}
 import SimpleAPI.ProverStatus
-
-import lazabs.prover.{Tree, Leaf}
+import lazabs.prover.{Leaf, Tree}
 import Util._
 import DisjInterpolator._
+import lazabs.GlobalParameters
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 LinkedHashSet, LinkedHashMap,
-                                 ArrayBuffer, Queue, PriorityQueue,
-                                 ArrayBuilder, ArrayStack}
+import scala.collection.mutable.{ArrayBuffer, ArrayBuilder, ArrayStack, LinkedHashMap, LinkedHashSet, PriorityQueue, Queue, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.{Random, Sorting}
 
 object HornPredAbs {
@@ -641,40 +635,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       (rawNormClauses.toSeq, emptyBounds)
     }
   }
-
-  // print argument bounds
-  var argumentBounds: scala.collection.mutable.Map[Predicate, List[Pair[String, String]]] = scala.collection.mutable.Map()
-  for ((rs, bounds) <- relationSymbolBounds;if (rs.pred.name!="FALSE")) {//don't learn from bounds.isFalse case
-    //println(rs + ":")
-    var argumentBoundList: List[Pair[String, String]] = List()
-    if(bounds.isTrue){//FALSE's bounds is true
-      for (s <- rs.arguments(0))
-        argumentBoundList :+= Pair("\"None\"", "\"None\"")
-    }else if(bounds.isFalse){
-      for (s <- rs.arguments(0))
-        argumentBoundList :+= Pair("\"False\"", "\"False\"")
-    }else{
-      for (s <- rs.arguments(0)) {
-        //print("  " + s + ": ")
-        val lc = ap.terfor.linearcombination.LinearCombination(s, bounds.order)
-        var lowerBound: String = "0"
-        var upperBound: String = "0"
-        PresburgerTools.lowerBound(lc, bounds) match {
-          case Some(x) => lowerBound = x.toString()
-          case _ => lowerBound = "\"None\""
-        }
-        //print(", ")
-        (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
-          case Some(x) => upperBound = x.toString()
-          case _ => upperBound = "\"None\""
-        }
-        argumentBoundList :+= Pair(lowerBound, upperBound)
-        //println()
-      }
-    }
-    argumentBounds(rs.pred) = argumentBoundList
-  }
-
 
   val relationSymbolReducers =
     (for (rs <- relationSymbols.valuesIterator) yield {

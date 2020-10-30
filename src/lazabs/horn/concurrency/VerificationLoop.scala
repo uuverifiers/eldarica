@@ -306,14 +306,14 @@ class VerificationLoop(system : ParametricEncoder.System,
       }
 
       if(GlobalParameters.get.getHornGraph==true){
-        val predAbs =new HornPredAbs(simpClauses, simpHints.toInitialPredicates, interpolator)
+        val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simpClauses, simpHints.toInitialPredicates, interpolator)
         //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
         //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
-        val argumentInfo = HintsSelection.getArgumentBound(argumentList,predAbs.argumentBounds)
+        val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
         GlobalParameters.get.hornGraphType match {
           case HornGraphType.hyperEdgeHraph=>
             val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
