@@ -447,7 +447,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       new simplifiedHornPredAbsForArgumentBounds(simplifiedClauses, //HornPredAbs
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
-
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
     //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
     val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)

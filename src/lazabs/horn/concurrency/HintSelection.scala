@@ -1134,7 +1134,8 @@ object HintsSelection {
   }
   def getArgumentBound(argumentList:List[(IExpression.Predicate,Int)],argumentBounds: scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo]  ={
     val arguments=getArgumentInfo(argumentList)
-    for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.name==k.name){
+    for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.toString()==k.toString()){
+      println(arg.location,k)
         arg.bound=v(arg.index)
     }
     arguments
@@ -1257,8 +1258,8 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
   }
   // print argument bounds
   var argumentBounds: scala.collection.mutable.Map[Predicate, List[Pair[String, String]]] = scala.collection.mutable.Map()
-  for ((rs, bounds) <- relationSymbolBounds; if (rs.pred.name != "FALSE")) { //don't learn from bounds.isFalse case
-    //println(rs + ":")
+  for ((rs, bounds) <- relationSymbolBounds; if (rs.pred.name != "FALSE")) { //don't learn from FALSE predicate
+    //println(rs.pred.name + ":")
     var argumentBoundList: List[Pair[String, String]] = List()
     if (bounds.isTrue) { //FALSE's bounds is true
       for (s <- rs.arguments(0))
@@ -1270,8 +1271,8 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
       for (s <- rs.arguments(0)) {
         //print("  " + s + ": ")
         val lc = ap.terfor.linearcombination.LinearCombination(s, bounds.order)
-        var lowerBound: String = "0"
-        var upperBound: String = "0"
+        var lowerBound: String = ""
+        var upperBound: String = ""
         PresburgerTools.lowerBound(lc, bounds) match {
           case Some(x) => lowerBound = x.toString()
           case _ => lowerBound = "\"None\""
