@@ -288,10 +288,9 @@ class GNNInput(simpClauses:Clauses) {
 }
 
 class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
-  var graphType = ""
-  GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.hyperEdgeHraph => graphType = "hyperEdgeHornGraph"
-    case _ => graphType = "layerHornGraph"
+  val graphType = GlobalParameters.get.hornGraphType match {
+    case DrawHornGraph.HornGraphType.hyperEdgeHraph => "hyperEdgeHornGraph"
+    case _ => "layerHornGraph"
   }
   var edgeNameMap: Map[String, String] = Map()
   var nodeShapeMap: Map[String, String] = Map()
@@ -418,49 +417,48 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   }
 
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
-    var rootName = ""
-    e match {
-      case EqZ(t) => rootName = drawASTBinaryRelation("=", previousNodeName, t, new ConstantTerm("0"))
-      case Eq(t1, t2) => rootName = drawASTBinaryRelation("=", previousNodeName, t1, t2)
-      case EqLit(term, lit) => rootName = drawASTBinaryRelation("=", previousNodeName, term, lit)
-      case GeqZ(t) => rootName = drawASTBinaryRelation("=>", previousNodeName, t, new ConstantTerm("0"))
-      case Geq(t1, t2) => rootName = drawASTBinaryRelation(">=", previousNodeName, t1, t2)
-      case Conj(a, b) => rootName = drawASTBinaryRelation("&", previousNodeName, a, b)
-      case Disj(a, b) => rootName = drawASTBinaryRelation("|", previousNodeName, a, b)
-      case Const(t) => rootName = drawASTEndNode(t.toString(), previousNodeName, "constant")
+    val rootName = e match {
+      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, new ConstantTerm("0"))
+      case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
+      case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit)
+      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, new ConstantTerm("0"))
+      case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
+      case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
+      case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
+      case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
       //case SignConst(t)=>{println("SignConst")}
       //case SimpleTerm(t)=>{println("SimpleTerm")}
       //      case LeafFormula(t)=>{
       //        //println("LeafFormula")
       //        drawAST(t,previousNodeName)
       //      }
-      case Difference(t1, t2) => rootName = drawASTBinaryRelation("-", previousNodeName, t1, t2)
-      case IAtom(pred, args) => {}
-      case IBinFormula(j, f1, f2) => rootName = drawASTBinaryRelation(j.toString, previousNodeName, f1, f2)
-      case IBoolLit(v) => rootName = drawASTEndNode(v.toString(), previousNodeName, "constant")
+      case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2)
+      case IAtom(pred, args) => {""}
+      case IBinFormula(j, f1, f2) => drawASTBinaryRelation(j.toString, previousNodeName, f1, f2)
+      case IBoolLit(v) =>  drawASTEndNode(v.toString(), previousNodeName, "constant")
       case IFormulaITE(cond, left, right) => {
-        rootName = drawAST(cond, previousNodeName)
-        rootName = drawAST(right, previousNodeName)
-        rootName = drawAST(left, previousNodeName)
+        drawAST(cond, previousNodeName)
+        drawAST(right, previousNodeName)
+        drawAST(left, previousNodeName)
       }
-      case IIntFormula(rel, term) => rootName = drawASTUnaryRelation(rel.toString, previousNodeName, term)
-      case INamedPart(pname, subformula) => rootName = drawASTUnaryRelation(pname.toString, previousNodeName, subformula)
-      case INot(subformula) => rootName = drawASTUnaryRelation("!", previousNodeName, subformula)
-      case IQuantified(quan, subformula) => rootName = drawASTUnaryRelation(quan.toString, previousNodeName, subformula)
-      case ITrigger(patterns, subformula) => {}
-      case IConstant(c) => rootName = drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
-      case IEpsilon(cond) => rootName = drawASTUnaryRelation("eps", previousNodeName, cond)
-      case IFunApp(fun, args) => {}
-      case IIntLit(v) => rootName = drawASTEndNode(v.toString(), previousNodeName, "constant")
-      case IPlus(t1, t2) => rootName = drawASTBinaryRelation("+", previousNodeName, t1, t2)
+      case IIntFormula(rel, term) => drawASTUnaryRelation(rel.toString, previousNodeName, term)
+      case INamedPart(pname, subformula) => drawASTUnaryRelation(pname.toString, previousNodeName, subformula)
+      case INot(subformula) =>  drawASTUnaryRelation("!", previousNodeName, subformula)
+      case IQuantified(quan, subformula) =>  drawASTUnaryRelation(quan.toString, previousNodeName, subformula)
+      case ITrigger(patterns, subformula) => {""}
+      case IConstant(c) => drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
+      case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond)
+      case IFunApp(fun, args) => {""}
+      case IIntLit(v) => drawASTEndNode(v.toString(), previousNodeName, "constant")
+      case IPlus(t1, t2) =>  drawASTBinaryRelation("+", previousNodeName, t1, t2)
       case ITermITE(cond, left, right) => {
-        rootName = drawAST(cond, previousNodeName)
-        rootName = drawAST(right, previousNodeName)
-        rootName = drawAST(left, previousNodeName)
+        drawAST(cond, previousNodeName)
+        drawAST(right, previousNodeName)
+        drawAST(left, previousNodeName)
       }
-      case ITimes(coeff, subterm) => rootName = drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
-      case IVariable(index) => rootName = drawASTEndNode(index.toString(), previousNodeName, "constant")
-      case _ => rootName = drawASTEndNode("unknown", previousNodeName, "constant")
+      case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
+      case IVariable(index) => drawASTEndNode(index.toString(), previousNodeName, "constant")
+      case _ => drawASTEndNode("unknown", previousNodeName, "constant")
     }
     rootName
   }

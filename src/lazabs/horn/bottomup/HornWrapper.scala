@@ -435,7 +435,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  //todo:move this before cegar
   val sortedHints = HintsSelection.sortHints(simpHints)
   if (GlobalParameters.get.getHornGraph == true) {
     val counterexampleMethod =

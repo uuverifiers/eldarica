@@ -1271,16 +1271,14 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
       for (s <- rs.arguments(0)) {
         //print("  " + s + ": ")
         val lc = ap.terfor.linearcombination.LinearCombination(s, bounds.order)
-        var lowerBound: String = ""
-        var upperBound: String = ""
-        PresburgerTools.lowerBound(lc, bounds) match {
-          case Some(x) => lowerBound = x.toString()
-          case _ => lowerBound = "\"None\""
+        val lowerBound=PresburgerTools.lowerBound(lc, bounds) match {
+          case Some(x) => x.toString()
+          case _ => "\"None\""
         }
         //print(", ")
-        (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
-          case Some(x) => upperBound = x.toString()
-          case _ => upperBound = "\"None\""
+        val upperBound= (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
+          case Some(x) => x.toString()
+          case _ => "\"None\""
         }
         argumentBoundList :+= Pair(lowerBound, upperBound)
         //println()
