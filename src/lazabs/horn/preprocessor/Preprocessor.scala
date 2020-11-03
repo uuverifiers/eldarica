@@ -119,6 +119,36 @@ object HornPreprocessor {
       }
   }
 
+  /////////////////////////////////////////////////////////////////////////////
+
+  object NameFactory {
+    def predNameFactory(clauses : Seq[HornClauses.Clause]) : NameFactory = {
+      val preds = HornClauses allPredicates clauses
+      new NameFactory(preds map (_.name))
+    }
+  }
+
+  /**
+   * Class to generate new, unique names of symbols.
+   */
+  class NameFactory(existingNames : Iterable[String]) {
+    private val allNames = new MHashSet[String]
+    allNames ++= existingNames
+
+    private var cnt = 0
+
+    def newName(base : String) : String = {
+      val res = base + "_" + cnt
+      cnt = cnt + 1
+      if (allNames contains res) {
+        newName(base)
+      } else {
+        allNames += res
+        res
+      }
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
