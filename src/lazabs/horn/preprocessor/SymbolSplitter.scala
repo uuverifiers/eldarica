@@ -79,8 +79,9 @@ object SymbolSplitter extends HornPreprocessor {
 
       // duplicate relation symbols with concrete arguments
 
-      val predMapping = new MHashMap[(Predicate, Seq[ITerm]), Predicate]
+      val predMapping       = new MHashMap[(Predicate, Seq[ITerm]), Predicate]
       val clauseBackMapping = new MHashMap[Clause, Clause]
+      val nameFactory       = NameFactory predNameFactory clauses
 
       def renamePred(p : Predicate,
                      concreteArgs : Seq[Option[ITerm]]) : Option[Predicate] = {
@@ -94,7 +95,7 @@ object SymbolSplitter extends HornPreprocessor {
              yield a.get).toList
           Some(predMapping.getOrElseUpdate(
                  (p, fixedArgs),
-                 MonoSortedPredicate(p.name + "_" + predMapping.size,
+                 MonoSortedPredicate(nameFactory newName p.name,
                                      predArgumentSorts(p))))
         }
       }
