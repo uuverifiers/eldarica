@@ -67,6 +67,12 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
     for (key <- edgeNameMap.keys)
       edgeNameMap += (key -> "")
   }
+  edgeDirectionMap += ("controlFlowHyperEdge" -> false)
+  edgeDirectionMap += ("dataFlowHyperEdge" -> false)
+  edgeDirectionMap += ("dataFlowAST" -> false)
+  edgeDirectionMap += ("guardAST" -> false)
+  edgeDirectionMap += ("argument" -> false)
+
   //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
   val controlNodePrefix = "CONTROLN_"
   val symbolicConstantNodePrefix = "SYMBOLIC_CONSTANT_"
