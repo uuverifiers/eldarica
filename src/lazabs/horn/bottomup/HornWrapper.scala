@@ -437,18 +437,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   val sortedHints = HintsSelection.sortHints(simpHints)
   if (GlobalParameters.get.getHornGraph == true) {
-    val counterexampleMethod =
-      if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
-      else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
-    val simpPredAbs =
-      new simplifiedHornPredAbsForArgumentBounds(simplifiedClauses, //HornPredAbs
-        simpHints.toInitialPredicates, predGenerator,
-        counterexampleMethod)
+
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
     //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
-    val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
+    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
 
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeHraph=>{
