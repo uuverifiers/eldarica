@@ -42,7 +42,7 @@ import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
-    val monoDirectionLayerGraph, biDirectionLayerGraph, hyperEdgeHraph = Value
+    val monoDirectionLayerGraph, biDirectionLayerGraph,hybridDirectionLayerGraph, hyperEdgeHraph = Value
   }
 
   def addQuotes(str: String): String = {
@@ -293,6 +293,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     case _ => "layerHornGraph"
   }
   var edgeNameMap: Map[String, String] = Map()
+  var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()
@@ -307,15 +308,15 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
 
 
 
-  def addBinaryEdge(from: String, to: String, label: String): Unit = {
-    GlobalParameters.get.hornGraphType match {
-      case HornGraphType.biDirectionLayerGraph => {
+  def addBinaryEdge(from: String, to: String, label: String, biDirection:Boolean=false): Unit = {
+    biDirection match {
+      case true => {
         writerGraph.write(addQuotes(from) + " -> " + addQuotes(to) +
           " [dir=\"both\", label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
         gnn_input.incrementBinaryEdge(from, to, label)
         gnn_input.incrementBinaryEdge(to, from, label)
       }
-      case _ => {
+      case false => {
         writerGraph.write(addQuotes(from) + " -> " + addQuotes(to) +
           " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
         gnn_input.incrementBinaryEdge(from, to, label)
@@ -348,14 +349,14 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     if (!to.isEmpty) {
       GlobalParameters.get.hornGraphType match {
         case HornGraphType.hyperEdgeHraph => {
-          addBinaryEdge(from, to, astEdgeType)
+          addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
         }
         case _ => {
           val toNodeClass = to.substring(0, to.indexOf("_"))
           toNodeClass match {
-            case "clause" => addBinaryEdge(from, to, "guard")
-            case "clauseArgument" => addBinaryEdge(from, to, "data")
-            case _ => addBinaryEdge(from, to, "subTerm")
+            case "clause" => addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+            case "clauseArgument" => addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+            case _ => addBinaryEdge(from, to, "subTerm",edgeDirectionMap("subTerm"))
           }
         }
       }
