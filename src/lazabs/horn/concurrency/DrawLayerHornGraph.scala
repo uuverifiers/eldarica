@@ -30,13 +30,13 @@ package lazabs.horn.concurrency
 
 import ap.parser.{IAtom, IBinFormula, IBinJunctor, IBoolLit, IConstant, IEpsilon, IExpression, IFormulaITE, IFunApp, IIntFormula, IIntLit, INamedPart, INot, IPlus, IQuantified, ITerm, ITermITE, ITimes, ITrigger, IVariable, LineariseVisitor}
 import lazabs.GlobalParameters
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.Json
 
 import scala.collection.mutable.ListBuffer
 
 class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
-
   println("Write layer horn graph to file")
   edgeNameMap += ("predicateArgument" -> "PA")
   edgeNameMap += ("predicateInstance" -> "PI")
@@ -75,17 +75,6 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
       edgeDirectionMap += ("guard" -> true)
       edgeDirectionMap += ("data" -> true)
       edgeDirectionMap += ("subTerm" -> true)
-    }
-    case DrawHornGraph.HornGraphType.biDirectionLayerGraph =>{
-      edgeDirectionMap += ("predicateArgument" -> false)
-      edgeDirectionMap += ("predicateInstance" -> false)
-      edgeDirectionMap += ("argumentInstance" -> false)
-      edgeDirectionMap += ("controlHead" -> false)
-      edgeDirectionMap += ("controlBody" -> false)
-      edgeDirectionMap += ("controlArgument" -> false)
-      edgeDirectionMap += ("guard" -> false)
-      edgeDirectionMap += ("data" -> false)
-      edgeDirectionMap += ("subTerm" -> false)
     }
   }
 
@@ -183,8 +172,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
   writerGraph.write("}" + "\n")
   writerGraph.close()
   //form label here
-  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
   /*
   //write JSON file by json library
   val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
@@ -243,3 +232,4 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
 
 
 }
+

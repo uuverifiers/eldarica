@@ -64,7 +64,7 @@ class GlobalParameters extends Cloneable {
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
-  var hornGraphType:HornGraphType.Value=HornGraphType.monoDirectionLayerGraph
+  var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
   var hornGraphWithHints=false
   var in: InputStream = null
   var fileName = ""
@@ -315,12 +315,7 @@ object Main {
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-getHornGraph" :: rest => {
         getHornGraph = true
-        hornGraphType = HornGraphType.monoDirectionLayerGraph
-        arguments(rest)
-      }
-      case "-getHornGraph:monoDirectionLayerGraph" :: rest => {
-        getHornGraph = true
-        hornGraphType = HornGraphType.monoDirectionLayerGraph
+        hornGraphType = HornGraphType.hybridDirectionLayerGraph
         arguments(rest)
       }
       case "-getHornGraph:biDirectionLayerGraph" :: rest => {
@@ -335,7 +330,7 @@ object Main {
       }
       case "-getHornGraph:hyperEdgeGraph" :: rest => {
         getHornGraph = true
-        hornGraphType = HornGraphType.hyperEdgeHraph
+        hornGraphType = HornGraphType.hyperEdgeGraph
         arguments(rest)
       }
       case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
@@ -541,7 +536,7 @@ object Main {
           " -rank:n\tuse top n or score above n ranked hints read from file\n"+
           " -getSMT2\tget SMT2 file\n"+
           " -getHornGraph\tget horn graph file and GNN input\n"+
-          " -getHornGraph:t\tInterp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
+          " -getHornGraph:t\tInterp. getHornGraph: biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
           " -hornGraphWithHints\tget horn graph file with hints\n"
 
 

@@ -42,7 +42,8 @@ import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
 object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
-    val monoDirectionLayerGraph, biDirectionLayerGraph,hybridDirectionLayerGraph, hyperEdgeHraph = Value
+    //type HornGraphType = Value
+    val hyperEdgeGraph, biDirectionLayerGraph, hybridDirectionLayerGraph= Value
   }
 
   def addQuotes(str: String): String = {
@@ -63,6 +64,9 @@ class argumentInfoHronGraph(headName: String, ind: Int, globalIndex: Int) {
   var score = 0
   var bound: Pair[String, String] = ("", "")
   val globalIndexInGraph = globalIndex
+  var binaryOccurrenceInTemplates=0
+  var constNames=Array[String]()
+  var canonicalName=""
 }
 
 class Adjacency(edge_name: String, edge_number: Int) {
@@ -102,6 +106,8 @@ class GNNInput(simpClauses:Clauses) {
   //edge category for hyperedge horn graph
   val dataFlowASTEdges = new Adjacency("dataFlowASTEdge", 2)
   val guardASTEdges = new Adjacency("guardASTEdge", 2)
+  val templateASTEdges = new Adjacency("templateASTEdge", 2)
+  val templateEdges = new Adjacency("templateEdge", 2)
   //val dataFlowEdges = new Adjacency("dataFlowEdge", 2)
   val argumentEdges = new Adjacency("argumentEdge", 2)
   val controlFlowHyperEdges = new Adjacency("controlFlowHyperEdge", 3)
@@ -136,11 +142,13 @@ class GNNInput(simpClauses:Clauses) {
     val fromID = nodeNameToIDMap(from)
     val toID = nodeNameToIDMap(to)
     GlobalParameters.get.hornGraphType match {
-      case HornGraphType.hyperEdgeHraph => {
+      case HornGraphType.hyperEdgeGraph => {
         label match {
           // hyperedge graph
           case "dataFlowAST" => dataFlowASTEdges.incrementBinaryEdge(fromID, toID)
           case "guardAST" => guardASTEdges.incrementBinaryEdge(fromID, toID)
+          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
+          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "argument" => argumentEdges.incrementBinaryEdge(fromID, toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
@@ -289,13 +297,14 @@ class GNNInput(simpClauses:Clauses) {
 
 class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
   val graphType = GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.hyperEdgeHraph => "hyperEdgeHornGraph"
+    case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
     case _ => "layerHornGraph"
   }
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
+  val argumentNodeSetInPredicates = scala.collection.mutable.Map[String, String]() //map[argumentConstantName->argumentNameWithCanonicalNumber]
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()
   val argumentNodeSetInOneClause = scala.collection.mutable.Map[String, Array[String]]() //predicateName:String -> arguments Array[String]
   var astEdgeType = ""
@@ -348,7 +357,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   def addEdgeInSubTerm(from: String, to: String): Unit = {
     if (!to.isEmpty) {
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeHraph => {
+        case HornGraphType.hyperEdgeGraph => {
           addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
         }
         case _ => {
@@ -382,18 +391,29 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   }
 
   def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
-    var nodeName = ""
-    if (constantNodeSetInOneClause.keySet.contains(constantStr)) {
-      addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName)
-      nodeName = constantNodeSetInOneClause(constantStr)
-    } else {
-      val constantName = constantStr + "_" + gnn_input.GNNNodeID
-      nodeName = constantName
-      createNode(constantName, constantStr, className, nodeShapeMap(className))
-      addEdgeInSubTerm(constantName, previousNodeName)
-      constantNodeSetInOneClause(constantStr) = constantName
+    if (argumentNodeSetInPredicates.isEmpty){
+      if (constantNodeSetInOneClause.keySet.contains(constantStr)) {
+        addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName)
+        constantNodeSetInOneClause(constantStr)
+      } else {
+        val constantName = constantStr + "_" + gnn_input.GNNNodeID
+        createNode(constantName, constantStr, className, nodeShapeMap(className))
+        addEdgeInSubTerm(constantName, previousNodeName)
+        constantNodeSetInOneClause(constantStr) = constantName
+        constantName
+      }
+    }else{
+      if(argumentNodeSetInPredicates.keySet.contains(constantStr)){
+        addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName)
+        argumentNodeSetInPredicates(constantStr)
+      }else{
+        val constantName = constantStr + "_" + gnn_input.GNNNodeID
+        createNode(constantName, constantStr, className, nodeShapeMap(className))
+        addEdgeInSubTerm(constantName, previousNodeName)
+        constantName
+      }
     }
-    nodeName
+
   }
 
   def createNode(canonicalName: String, labelName: String, className: String, shape: String): Unit = {
@@ -458,14 +478,17 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
         drawAST(left, previousNodeName)
       }
       case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
-      case IVariable(index) => drawASTEndNode(index.toString(), previousNodeName, "constant")
+      case IVariable(index) => {
+        drawASTEndNode("_"+index.toString(), previousNodeName, "constant") ////add _ to differentiate index with other constants
+      }
       case _ => drawASTEndNode("unknown", previousNodeName, "constant")
+
     }
     rootName
   }
 
   def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String],
-                              argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)],argumentIndicesList:ListBuffer[Int]): Unit = {
+                              argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)],argumentIndicesList:ListBuffer[Int],argumentBinaryOccurrenceList:ListBuffer[Int]): Unit = {
     println("Write GNNInput to file")
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
@@ -484,9 +507,11 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     writeGNNInputFieldToJSONFile("predicateOccurrenceInClause", IntArray(gnn_input.predicateOccurrenceInClause), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("predicateStrongConnectedComponent", IntArray(gnn_input.predicateStrongConnectedComponent), writer, lastFiledFlag)
     GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.hyperEdgeHraph => {
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph => {
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
@@ -503,27 +528,30 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       }
     }
     writeGNNInputFieldToJSONFile("argumentBoundList", PairStringArray(argumentBoundList.toArray), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("argumentBinaryOccurrenceList", IntArray(argumentBinaryOccurrenceList.toArray), writer, lastFiledFlag)
     lastFiledFlag = true
     writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
     writer.write("}")
     writer.close()
   }
 
-  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)],ListBuffer[Int]) = {
+  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)],ListBuffer[Int],ListBuffer[Int]) = {
     //match by argument name
     for (argHornGraph <- gnn_input.argumentInfoHornGraphList; arg <- argumentInfoList) {
       if (arg.headName == argHornGraph.head && arg.index == argHornGraph.index) {
         argHornGraph.score = arg.score
         argHornGraph.ID = arg.ID
         argHornGraph.bound=arg.bound
+        argHornGraph.binaryOccurrenceInTemplates=arg.binaryOccurenceLabel
       }
     }
     val argumentIDList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList; if argHornGraph.bound._1!="\"False\"") yield argHornGraph.ID
     val argumentIndicesList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList; if argHornGraph.bound._1!="\"False\"") yield argHornGraph.globalIndexInGraph
     val argumentNameList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.head + ":" + argHornGraph.name
     val argumentOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.score
+    val argumentBinaryOccurrenceList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.binaryOccurrenceInTemplates
     val argumentBoundList = for (argHornGraph <- gnn_input.argumentInfoHornGraphList if argHornGraph.bound._1!="\"False\"") yield argHornGraph.bound
-    (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList)
+    (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
   }
 
   def writeGNNInputFieldToJSONFile(fieldName: String, fiedlContent: Arrays, writer: PrintWriter, lastFiledFlag: Boolean): Unit = {

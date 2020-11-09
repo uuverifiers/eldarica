@@ -77,6 +77,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.viewer.HornPrinter
 
 object TrainDataGeneratorPredicatesSmt2 {
@@ -465,10 +466,10 @@ object TrainDataGeneratorPredicatesSmt2 {
           }
           //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
           var selectedPredicates = VerificationHints(Map())
-          for ((head, preds) <- optimizedPredicate) {
+          for ((head, fomulas) <- optimizedPredicate) {
             var x: Seq[VerifHintElement] = Seq()
-            for (p <- preds) {
-              x = x ++ Seq(VerificationHints.VerifHintInitPred(p))
+            for (f <- fomulas) {
+              x = x ++ Seq(VerificationHints.VerifHintInitPred(f))
             }
             selectedPredicates = selectedPredicates.addPredicateHints(Map(head -> x))
           }
@@ -491,59 +492,54 @@ object TrainDataGeneratorPredicatesSmt2 {
           if (selectedPredicates.isEmpty) {
 
           } else {
-            val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
-            //only write to file when optimized hint is not empty
-            HintsSelection.writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+            //todo:form argument occurrence label
+            //todo: form template relevant filter label
 
-            val writerPositive = new PrintWriter(new File(filePath + fileName+".positiveHints")) //python path
-            for(wrappedHint<-PositiveHintsWithID){
-              writerPositive.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
-            }
-            writerPositive.close()
+            //Output graphs
+            val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+            val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
+            //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, selectedPredicates,argumentInfo)
+            GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, selectedPredicates,argumentInfo)
 
-            val writerNegative = new PrintWriter(new File(filePath + fileName+".negativeHints")) //python path
-            for(wrappedHint<-NegativeHintsWithID){
-              writerNegative.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
-            }
-            writerNegative.close()
+
+            //val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
+
+            //write initial, positive, negative hints to files
+//            HintsSelection.writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
+//
+//            val writerPositive = new PrintWriter(new File(filePath + fileName+".positiveHints"))
+//            for(wrappedHint<-PositiveHintsWithID){
+//              writerPositive.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+//            }
+//            writerPositive.close()
+//            val writerNegative = new PrintWriter(new File(filePath + fileName+".negativeHints"))
+//            for(wrappedHint<-NegativeHintsWithID){
+//              writerNegative.write(wrappedHint.ID.toString+":"+wrappedHint.head+":"+wrappedHint.hint+"\n")
+//            }
+//            writerNegative.close()
 //            HintsSelection.writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
 //            HintsSelection.writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
-
-            val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-            val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedPredicates)
-            //Output graphs
-            //val hornGraph = new GraphTranslator(simplifiedClauses, GlobalParameters.get.fileName)
-            val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,simplifiedClauses,sortedHints,argumentInfo)
-            val hintGraph= new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
-
             //write horn clauses to file
-
-            val writer = new PrintWriter(new File(filePath+fileName+".horn")) //python path
-            writer.write(HornPrinter(clauseSet))
-            writer.close()
+//            val writer = new PrintWriter(new File(filePath+fileName+".horn"))
+//            writer.write(HornPrinter(clauseSet))
+//            writer.close()
             //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
+
             //write smt2 format to file
-            if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-              HintsSelection.writeSMTFormatToFile(simplifiedClauses,filePath)  //write smt2 format to file
-            }
-            if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
-              //copy smt2 file
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,filePath+fileName)
-            }
+//            if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
+//              HintsSelection.writeSMTFormatToFile(simplifiedClauses,filePath)  //write smt2 format to file
+//            }
+//            if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
+//              //copy smt2 file
+//              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,filePath+fileName)
+//            }
             //clauses:Seq[HornClauses.Clause],clauseSet: Seq[HornClause]
             //HintsSelection.writeHornAndGraphToFiles(selectedPredicates,sortedHints,simplifiedClauses,clauseSet)
           }
-
         }
-
       }
-
-
-
-
-
-
 
     }
   }

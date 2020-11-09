@@ -1182,8 +1182,10 @@ object HintsSelection {
       for(arg<-arguments){
         for(hint<-positiveHintInfoList){
           if(arg.location.equals(hint.head))
-            if(ContainsSymbol(hint.expression, IVariable(arg.index)))
+            if(ContainsSymbol(hint.expression, IVariable(arg.index))) {
               arg.score=arg.score+1
+              arg.binaryOccurenceLabel=1
+            }
         }
       }
 
@@ -1214,6 +1216,7 @@ class argumentInfo(id:Int,loc: IExpression.Predicate,ind:Int)
   val head=location.toString()
   val headName=location.name
   var bound:Pair[String,String] = ("","")
+  var binaryOccurenceLabel=0
 }
 
 class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause](iClauses: Iterable[CC],

@@ -315,7 +315,7 @@ class VerificationLoop(system : ParametricEncoder.System,
         //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
         val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
         GlobalParameters.get.hornGraphType match {
-          case HornGraphType.hyperEdgeHraph=>
+          case HornGraphType.hyperEdgeGraph=>
             val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
           case _=>
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
@@ -348,6 +348,8 @@ class VerificationLoop(system : ParametricEncoder.System,
       }
 
     }
+
+
 
     ////////////////////////////////////////////////////////////////////////////
 
