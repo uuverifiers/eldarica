@@ -33,6 +33,7 @@ import java.io.{File, PrintWriter}
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
+import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
@@ -300,6 +301,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
     case _ => "layerHornGraph"
   }
+  val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
@@ -656,6 +658,26 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
     }
     writer.write("]")
   }
+  def drawTemplates(pre:Predicate): List[String] ={
+    var templateNameList:List[String]=List()
+    for((hp,templates)<-hints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
+      var templateCounter=0
+      for (t<-templates){
+        val templateNodeName=templateNodePrefix+templateCounter.toString
+        templateNameList:+=templateNodeName
+        createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"))
+        templateCounter+=1
+        t match {
+          case VerifHintInitPred(e)=>{
+            drawAST(e,templateNodeName)
+          }
+          case _=>{println("__")}
+        }
+      }
+    }
+    templateNameList
+  }
+
 }
 
 

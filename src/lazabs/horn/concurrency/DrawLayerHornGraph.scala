@@ -127,7 +127,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
     //clause layer: create edge between head and clause node
     addBinaryEdge(clauseNodeName, clauseHeadNodeName, "controlHead", edgeDirectionMap("controlHead"))
     //predicateLayer->clauseLayer: connect predicate to clause head
-    addBinaryEdge(clauseHeadNodeName,predicateNameMap(clause.head.pred.name).predicateCanonicalName, "predicateInstance",edgeDirectionMap("predicateInstance"))
+    addBinaryEdge(predicateNameMap(clause.head.pred.name).predicateCanonicalName,clauseHeadNodeName, "predicateInstance",edgeDirectionMap("predicateInstance"))
     var tempIDForArgument = 0
     for ((headArgument, predicateArgument) <- clause.head.args zip predicateNameMap(clause.head.pred.name).argumentCanonicalNameList) {
       //clause layer: create clause head argument node
@@ -135,7 +135,7 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
       createNode(clauseArgumentNodeName,
         "ARG" + tempIDForArgument.toString, "clauseArgument", nodeShapeMap("clauseArgument"))
       //clause layer: create edge between head and argument
-      addBinaryEdge(clauseArgumentNodeName,clauseHeadNodeName, "controlArgument",edgeDirectionMap("controlArgument"))
+      addBinaryEdge(clauseHeadNodeName,clauseArgumentNodeName, "controlArgument",edgeDirectionMap("controlArgument"))
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
       drawAST(headArgument, clauseArgumentNodeName)
       tempIDForArgument += 1

@@ -89,7 +89,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   val argumentNodePrefix = "predicateArgument"
   val controlFlowHyperEdgeNodePrefix = "CFHE_"
   val dataFlowHyperEdgeNodePrefix = "DFHE_"
-  val templateNodePrefix = "template_"
   //node shape map
   nodeShapeMap += ("CONTROL" -> "component")
   nodeShapeMap += ("operator" -> "square")
@@ -239,7 +238,8 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
     clauseNumber += 1
   }
 
-
+  //todo:move to draw horn graph
+  //draw templates
   for (argInfo<-gnn_input.argumentInfoHornGraphList){
     argumentNodeSetInPredicates("_"+argInfo.index.toString)=argInfo.canonicalName //add _ to differentiate index with other constants
   }
@@ -258,25 +258,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList) = matchArguments()
   writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
 
-  def drawTemplates(pre:Predicate): List[String] ={
-    var templateNameList:List[String]=List()
-    for((hp,templates)<-hints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
-      var templateCounter=0
-      for (t<-templates){
-        val templateNodeName=templateNodePrefix+templateCounter.toString
-        templateNameList:+=templateNodeName
-        createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"))
-        templateCounter+=1
-        t match {
-          case VerifHintInitPred(e)=>{
-            drawAST(e,templateNodeName)
-          }
-          case _=>{println("__")}
-        }
-      }
-    }
-    templateNameList
-  }
 
   def drawPredicateNode(controlFlowNodeName: String, predicateName: String, className: String): Unit = {
     //draw predicate node
