@@ -66,8 +66,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   edgeNameMap += ("dataFlowHyperEdge" -> "DFHE")
   edgeNameMap += ("dataFlowAST" -> "data")
   edgeNameMap += ("guardAST" -> "guard")
-  edgeNameMap += ("templateAST"->"tAST")
-  edgeNameMap += ("template"->"template")
   edgeNameMap += ("argument" -> "arg")
   //turn on/off edge's label
   var edgeNameSwitch = true
@@ -79,8 +77,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   edgeDirectionMap += ("dataFlowHyperEdge" -> false)
   edgeDirectionMap += ("dataFlowAST" -> false)
   edgeDirectionMap += ("guardAST" -> false)
-  edgeDirectionMap += ("templateAST"->false)
-  edgeDirectionMap += ("template" -> false)
   edgeDirectionMap += ("argument" -> false)
 
   //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
@@ -98,7 +94,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   nodeShapeMap += ("FALSE" -> "component")
   nodeShapeMap += ("controlFlowHyperEdge" -> "diamond")
   nodeShapeMap += ("dataFlowHyperEdge" -> "diamond")
-  nodeShapeMap += ("template" -> "component")
 
   val sp = new Simplifier()
   val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
@@ -129,10 +124,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
           createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
           constantNodeSetInOneClause(arg.toString) = argumentnodeName
           argumentNodeArray :+= argumentnodeName
-          val localArgInfo=new argumentInfoHronGraph(normalizedClause.head.pred.name, tempID,gnn_input.GNNNodeID-1)
-          localArgInfo.canonicalName=argumentnodeName
-          localArgInfo.constNames:+=arg.toString
-          gnn_input.argumentInfoHornGraphList += localArgInfo
+          updateArgumentInfoHornGraphList(normalizedClause.head.pred.name,tempID,argumentnodeName,arg)
           tempID += 1
           //connect to control flow node
           addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
@@ -181,10 +173,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
             createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
             constantNodeSetInOneClause(arg.toString) = argumentnodeName
             argumentNodeArray :+= argumentnodeName
-            val localArgInfo=new argumentInfoHronGraph(normalizedClause.head.pred.name, tempID,gnn_input.GNNNodeID-1)
-            localArgInfo.canonicalName=argumentnodeName
-            localArgInfo.constNames:+=arg.toString
-            gnn_input.argumentInfoHornGraphList += localArgInfo
+            updateArgumentInfoHornGraphList(body.pred.name,tempID,argumentnodeName,arg)
             tempID += 1
             //connect to control flow node
             addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
@@ -238,7 +227,6 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
     clauseNumber += 1
   }
 
-  //todo:move to draw horn graph
   //draw templates
   for (argInfo<-gnn_input.argumentInfoHornGraphList){
     argumentNodeSetInPredicates("_"+argInfo.index.toString)=argInfo.canonicalName //add _ to differentiate index with other constants
@@ -247,7 +235,7 @@ class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: Verifica
   for(p<-HornClauses.allPredicates(simpClauses)){
     val templateNameList=drawTemplates(p)
     for (templateNodeName<-templateNameList)
-      addBinaryEdge(templateNodeName,controlFlowNodeSetInOneClause(p.name),"template")
+      addBinaryEdge(controlFlowNodeSetInOneClause(p.name),templateNodeName,"template")
   }
 
 

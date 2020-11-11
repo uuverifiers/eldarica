@@ -98,6 +98,9 @@ class GNNInput(simpClauses:Clauses) {
   var clauseHeadCanonicalID, clauseBodyCanonicalID, clauseArgCanonicalID, clauseCanonicalID, predicateNameCanonicalID,
   predicateArgumentCanonicalID, operatorUniqueID, constantUniqueID = 0
 
+  //canonical node category for both graph
+  var templateCanonicalID=0
+
   var nodeIds = Array[Int]()
   //var nodeSymbols = new ListBuffer[String]()
   var nodeSymbols = Array[String]()
@@ -129,6 +132,7 @@ class GNNInput(simpClauses:Clauses) {
   var controlLocationIndices = Array[Int]()
   var falseIndices = Array[Int]()
   var argumentIndices = Array[Int]()
+  var templateIndices = Array[Int]()
   var predicateIndices = Array[Int]()
   var predicateOccurrenceInClause = Array[Int]()
   var predicateStrongConnectedComponent = Array[Int]()
@@ -166,6 +170,9 @@ class GNNInput(simpClauses:Clauses) {
           case "guard" => guardEdges.incrementBinaryEdge(fromID, toID)
           case "data" => dataEdges.incrementBinaryEdge(fromID, toID)
           case "subTerm" => subTermEdges.incrementBinaryEdge(fromID, toID)
+          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
+          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
+
         }
       }
     }
@@ -192,6 +199,10 @@ class GNNInput(simpClauses:Clauses) {
 
   def incrementArgumentIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     argumentIndices :+= GNNNodeID
+    incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
+  }
+  def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
+    templateIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -288,6 +299,10 @@ class GNNInput(simpClauses:Clauses) {
         nodeSymbols :+= nodeClass + "_" + predicateArgumentCanonicalID.toString
         predicateArgumentCanonicalID += 1
       }
+      case "template" => {
+        nodeSymbols :+= nodeClass + "_" + templateCanonicalID.toString
+        templateCanonicalID += 1
+      }
       case "FALSE" => nodeSymbols :+= nodeName
       case "operator" => nodeSymbols :+= nodeName
       case "constant" => nodeSymbols :+= nodeName
@@ -307,11 +322,18 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   var nodeShapeMap: Map[String, String] = Map()
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
   val argumentNodeSetInPredicates = scala.collection.mutable.Map[String, String]() //map[argumentConstantName->argumentNameWithCanonicalNumber]
-  val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()
+  val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
   val argumentNodeSetInOneClause = scala.collection.mutable.Map[String, Array[String]]() //predicateName:String -> arguments Array[String]
   var astEdgeType = ""
   val gnn_input = new GNNInput(simpClauses)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
+
+  edgeNameMap += ("templateAST"->"tAST")
+  edgeNameMap += ("template"->"template")
+  edgeDirectionMap += ("templateAST"->false)
+  edgeDirectionMap += ("template" -> false)
+  nodeShapeMap += ("template" -> "component")
+
   writerGraph.write("digraph dag {" + "\n")
 
 
@@ -367,12 +389,16 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
           toNodeClass match {
             case "clause" => addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
             case "clauseArgument" => addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
-            case _ => addBinaryEdge(from, to, "subTerm",edgeDirectionMap("subTerm"))
+            case _ => {
+              astEdgeType match {
+                case "templateAST"=>{addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))}
+                case _=>{addBinaryEdge(from, to, "subTerm",edgeDirectionMap("subTerm"))}
+              }
+            }
           }
         }
       }
     }
-
   }
 
   def drawASTBinaryRelation(op: String, previousNodeName: String, e1: IExpression, e2: IExpression): String = {
@@ -426,6 +452,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       case "CONTROL" => gnn_input.incrementControlLocationIndicesAndNodeIds(canonicalName, className, labelName)
       case "predicateName" => gnn_input.incrementPredicateIndicesAndNodeIds(canonicalName, className, labelName)
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
+      case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName)
       case _ => gnn_input.incrementNodeIds(canonicalName, className, labelName)
     }
   }
@@ -661,12 +688,10 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   def drawTemplates(pre:Predicate): List[String] ={
     var templateNameList:List[String]=List()
     for((hp,templates)<-hints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
-      var templateCounter=0
       for (t<-templates){
-        val templateNodeName=templateNodePrefix+templateCounter.toString
+        val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName
         createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"))
-        templateCounter+=1
         t match {
           case VerifHintInitPred(e)=>{
             drawAST(e,templateNodeName)
@@ -676,6 +701,13 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
       }
     }
     templateNameList
+  }
+
+  def updateArgumentInfoHornGraphList(pre:String,tempID:Int,argumentnodeName:String,arg:ITerm): Unit ={
+    val localArgInfo=new argumentInfoHronGraph(pre, tempID,gnn_input.GNNNodeID-1)
+    localArgInfo.canonicalName=argumentnodeName
+    localArgInfo.constNames:+=arg.toString
+    gnn_input.argumentInfoHornGraphList += localArgInfo
   }
 
 }

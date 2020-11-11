@@ -30,6 +30,7 @@ package lazabs.horn.concurrency
 
 import ap.parser.{IAtom, IBinFormula, IBinJunctor, IBoolLit, IConstant, IEpsilon, IExpression, IFormulaITE, IFunApp, IIntFormula, IIntLit, INamedPart, INot, IPlus, IQuantified, ITerm, ITermITE, ITimes, ITrigger, IVariable, LineariseVisitor}
 import lazabs.GlobalParameters
+import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.Json
@@ -169,6 +170,19 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
       }
     }
   }
+
+  //draw templates
+  for (argInfo<-gnn_input.argumentInfoHornGraphList){
+    argumentNodeSetInPredicates("_"+argInfo.index.toString)=argInfo.canonicalName //add _ to differentiate index with other constants
+  }
+  astEdgeType = "templateAST"
+  for(p<-HornClauses.allPredicates(simpClauses)){
+    val templateNameList=drawTemplates(p)
+    for (templateNodeName<-templateNameList)
+      addBinaryEdge(predicateNameMap(p.name).predicateCanonicalName,templateNodeName,"template")
+  }
+
+
   writerGraph.write("}" + "\n")
   writerGraph.close()
   //form label here
@@ -216,7 +230,8 @@ class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: Verification
           //create edge from argument to predicate
           addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument",edgeDirectionMap("predicateArgument"))
           predicateNameMap(pred.pred.name).argumentCanonicalNameList += Pair(argumentNodeCanonicalName, tempID)
-          gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID,gnn_input.GNNNodeID-1)
+          //gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID,gnn_input.GNNNodeID-1)
+          updateArgumentInfoHornGraphList(pred.pred.name,tempID,argumentNodeCanonicalName,headArg)
           tempID += 1
         }
       }else{
