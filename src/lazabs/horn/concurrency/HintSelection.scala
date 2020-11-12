@@ -5,15 +5,15 @@
  * modification, are permitted provided that the following conditions are met:
  *
  * * Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer.
+ * list of conditions and the following disclaimer.
  *
  * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
  *
  * * Neither the name of the authors nor the names of their
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -27,6 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
+
 import ap.terfor.preds.Predicate
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
@@ -41,7 +42,7 @@ import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import java.nio.file.{Files, Paths, StandardCopyOption}
 
@@ -70,6 +71,18 @@ class wrappedHintWithID {
 }
 
 object HintsSelection {
+
+  def getClausesInCounterExamples(result: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]], clauses: Clauses): Clauses = {
+    if (result.isRight)
+    (result match {
+      case Right(cex) => {
+        for (node <- cex.subdagIterator; clau <- clauses if (node.d._2.equals(clau))) yield clau
+      }
+    }).toSeq
+    else
+      Seq()
+  }
+
   def sortHints(hints: VerificationHints): VerificationHints = {
     var tempHints = VerificationHints(Map()) //sort the hints
     for ((oneHintKey, oneHintValue) <- hints.getPredicateHints()) {
@@ -408,7 +421,7 @@ object HintsSelection {
 
   def tryAndTestSelectionTemplates(encoder: ParametricEncoder, simpHints: VerificationHints,
                                    simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID],
-                                   predicateFlag: Boolean = true): VerificationHints = {
+                                   predicateFlag: Boolean = true): (VerificationHints, Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
 
 
     val fileName = file.substring(file.lastIndexOf("/") + 1)
@@ -420,7 +433,8 @@ object HintsSelection {
 
     println("-------------------------Hints selection begins------------------------------------------")
     if (simpHints.isEmpty) {
-      return simpHints
+      val result: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]] = Left(Map())
+      (simpHints, result)
     } else {
       for ((head, preds) <- simpHints.predicateHints) {
         var criticalTemplatesSeq: Seq[VerifHintElement] = Seq()
@@ -457,16 +471,11 @@ object HintsSelection {
                     if (encoder.globalPredicateTemplates.isEmpty) {
                       autoAbstractionMap
                     } else {
-
                       val loopDetector = builder.loopDetector
-
                       print("Using interpolation templates provided in program: ")
-
-
                       val hintsAbstractionMap =
                         loopDetector hints2AbstractionRecord currentTemplates //emptyHints criticalHints
                       //DEBUG
-
                       println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
                       AbstractionRecord.mergeMaps(Map(), hintsAbstractionMap) //autoAbstractionMap=Map()
@@ -528,6 +537,47 @@ object HintsSelection {
 
 
       println("\n------------DEBUG-Select critical hints end-------------------------")
+
+      println("\n------------test selected hints-------------------------")
+      val result = GlobalParameters.parameters.withValue(GlobalParameters.get.clone) {
+        //interpolator
+        val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
+          Console.withErr(Console.out) {
+            val builder =
+              new StaticAbstractionBuilder(
+                simpClauses,
+                GlobalParameters.get.templateBasedInterpolationType)
+            val autoAbstractionMap =
+              builder.abstractionRecords
+            val abstractionMap =
+              if (encoder.globalPredicateTemplates.isEmpty) {
+                autoAbstractionMap
+              } else {
+                val loopDetector = builder.loopDetector
+                print("Using interpolation templates provided in program: ")
+                val hintsAbstractionMap =
+                  loopDetector hints2AbstractionRecord currentTemplates //emptyHints criticalHints
+                //DEBUG
+                println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
+
+                AbstractionRecord.mergeMaps(Map(), hintsAbstractionMap) //autoAbstractionMap=Map()
+              }
+
+            TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+              abstractionMap,
+              GlobalParameters.get.templateBasedInterpolationTimeout)
+          } else {
+          DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        }
+
+        println(
+          "----------------------------------- CEGAR --------------------------------------")
+
+        new HornPredAbs(simpClauses, // loop
+          optimizedTemplates.toInitialPredicates, //emptyHints
+          interpolator).result
+      }
+
       //println("\nsimpHints Hints:")
       //simpHints.pretyPrintHints()
       println("\nOptimized Hints:")
@@ -542,13 +592,13 @@ object HintsSelection {
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
       } else {
         //only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
+        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
         writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
         writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
 
 
-      return optimizedTemplates
+      (optimizedTemplates, result)
     }
 
 
@@ -559,7 +609,7 @@ object HintsSelection {
                                       counterexampleMethod: HornPredAbs.CounterexampleMethod.Value =
                                       HornPredAbs.CounterexampleMethod.FirstBestShortest,
                                       hintsAbstraction: AbstractionMap
-                                     ): VerificationHints = {
+                                     ): (VerificationHints, Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
 
     val fileName = file.substring(file.lastIndexOf("/") + 1)
     val timeOut = GlobalParameters.get.threadTimeout //timeout
@@ -572,7 +622,8 @@ object HintsSelection {
 
     if (simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation == false) {
       println("simpHints is empty or abstract:off")
-      return simpHints
+      val result: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]] = Left(Map())
+      (simpHints, result)
     }
     else {
       println("-------------------------Hints selection begins------------------------------------------")
@@ -602,6 +653,7 @@ object HintsSelection {
             if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
+
 
           try {
             GlobalParameters.parameters.withValue(toParams) {
@@ -637,6 +689,7 @@ object HintsSelection {
               (new HornPredAbs(simpClauses, //simplifiedClauses
                 currentTemplates.toInitialPredicates, predGenerator,
                 counterexampleMethod)).result
+
 
               // not timeout ...
               println("Delete a redundant hint:\n" + head + "\n" + oneHint)
@@ -682,6 +735,41 @@ object HintsSelection {
       } //first for end
 
       println("\n------------DEBUG-Select critical hints end-------------------------")
+      val result = GlobalParameters.parameters.withValue(GlobalParameters.get.clone) {
+        val outStream =
+          if (GlobalParameters.get.logStat)
+            Console.err
+          else
+            HornWrapper.NullStream
+        val loopDetector = new LoopDetector(simpClauses)
+        val autoAbstraction = loopDetector.hints2AbstractionRecord(currentTemplates)
+        val predGenerator = Console.withErr(outStream) {
+          if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
+            val fullAbstractionMap =
+              AbstractionRecord.mergeMaps(Map(), autoAbstraction) //hintsAbstraction,autoAbstraction replaced by Map()
+
+            if (fullAbstractionMap.isEmpty) {
+              DagInterpolator.interpolatingPredicateGenCEXAndOr _
+            }
+
+            else {
+              TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+                fullAbstractionMap,
+                lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+            }
+
+          } else {
+            DagInterpolator.interpolatingPredicateGenCEXAndOr _ //if abstract:off
+          }
+        }
+        println(
+          "----------------------------------- CEGAR --------------------------------------")
+
+        (new HornPredAbs(simpClauses, //simplifiedClauses
+          optimizedHints.toInitialPredicates, predGenerator,
+          counterexampleMethod)).result
+      }
+
       println("\noriginal Hints:")
       simpHints.pretyPrintHints()
       println("\nOptimized Hints:")
@@ -699,18 +787,14 @@ object HintsSelection {
         writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
         writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
       }
-
-
-      return optimizedHints
-
+      (optimizedHints, result)
     }
-
   }
 
 
   def writeHintsWithIDToFile(wrappedHintList: Seq[wrappedHintWithID], fileName: String, hintType: String) {
     val distinctWrappedHintList = wrappedHintList.distinct
-    val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
+    val filePath = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.lastIndexOf("/") + 1)
     if (hintType == "initial") {
       val writer = new PrintWriter(new File(filePath + fileName + ".initialHints")) //python path
       for (wrappedHint <- wrappedHintList) {
@@ -726,7 +810,7 @@ object HintsSelection {
       writer.close()
     }
     if (hintType == "negative") {
-      val writer = new PrintWriter(new File(filePath+ fileName + ".negativeHints")) //python path
+      val writer = new PrintWriter(new File(filePath + fileName + ".negativeHints")) //python path
       for (wrappedHint <- wrappedHintList) {
         writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
       }
@@ -962,7 +1046,7 @@ object HintsSelection {
     println("---readInitialHints-----")
     var readInitialHintsWithID: Map[String, String] = Map()
     //val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
-    val fInitial =  fileName + ".initialHints" //python file
+    val fInitial = fileName + ".initialHints" //python file
     for (line <- Source.fromFile(fInitial).getLines) {
       var parsedHints = Seq[String]() //store parsed hints
       //parse read file
@@ -1107,34 +1191,36 @@ object HintsSelection {
     )
     // could return `path`
   }
-  def getArgumentInfo(argumentList:List[(IExpression.Predicate,Int)]):ListBuffer[argumentInfo]= {
-    var argID=0
-    var arguments:ListBuffer[argumentInfo]=ListBuffer[argumentInfo]()
-    for((arg,i)<-argumentList.zipWithIndex){
-      for((a,j) <- (0 to arg._2-1).zipWithIndex){
-        arguments+=new argumentInfo(argID,arg._1,a)
-        argID=argID+1
+
+  def getArgumentInfo(argumentList: List[(IExpression.Predicate, Int)]): ListBuffer[argumentInfo] = {
+    var argID = 0
+    var arguments: ListBuffer[argumentInfo] = ListBuffer[argumentInfo]()
+    for ((arg, i) <- argumentList.zipWithIndex) {
+      for ((a, j) <- (0 to arg._2 - 1).zipWithIndex) {
+        arguments += new argumentInfo(argID, arg._1, a)
+        argID = argID + 1
       }
     }
     arguments
   }
 
-  def getArgumentInfoFromFile(argumentList:List[(IExpression.Predicate,Int)]):ListBuffer[argumentInfo]= {
-    val arguments=getArgumentInfo(argumentList)
-    val argumentFileName=GlobalParameters.get.fileName+".arguments"
-    if(scala.reflect.io.File(argumentFileName).exists){
+  def getArgumentInfoFromFile(argumentList: List[(IExpression.Predicate, Int)]): ListBuffer[argumentInfo] = {
+    val arguments = getArgumentInfo(argumentList)
+    val argumentFileName = GlobalParameters.get.fileName + ".arguments"
+    if (scala.reflect.io.File(argumentFileName).exists) {
       //read score from .argument file
-      for (arg<-arguments;line <- Source.fromFile(argumentFileName).getLines){
-        val parsedLine=line.split(":")
-        if(arg.head==parsedLine(1) && ("argument"+arg.index.toString)==parsedLine(2))
-          arg.score=parsedLine(3).toInt
+      for (arg <- arguments; line <- Source.fromFile(argumentFileName).getLines) {
+        val parsedLine = line.split(":")
+        if (arg.head == parsedLine(1) && ("argument" + arg.index.toString) == parsedLine(2))
+          arg.score = parsedLine(3).toInt
       }
     }
 
     arguments
   }
-  def getArgumentBoundForSmt(argumentList:List[(IExpression.Predicate,Int)],disjunctive:Boolean,simplifiedClauses:Seq[Clause],simpHints: VerificationHints
-                       ,predGenerator:Dag[DisjInterpolator.AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]]): ListBuffer[argumentInfo]  ={
+
+  def getArgumentBoundForSmt(argumentList: List[(IExpression.Predicate, Int)], disjunctive: Boolean, simplifiedClauses: Seq[Clause], simpHints: VerificationHints
+                             , predGenerator: Dag[DisjInterpolator.AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]]): ListBuffer[argumentInfo] = {
     val counterexampleMethod =
       if (disjunctive)
         HornPredAbs.CounterexampleMethod.AllShortest
@@ -1144,46 +1230,60 @@ object HintsSelection {
       new simplifiedHornPredAbsForArgumentBounds(simplifiedClauses, //HornPredAbs
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
-    getArgumentBound(argumentList,simpPredAbs.argumentBounds)
+    getArgumentBound(argumentList, simpPredAbs.argumentBounds)
   }
-  def getArgumentBound(argumentList:List[(IExpression.Predicate,Int)],argumentBounds:scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo]  ={
-    val arguments=getArgumentInfo(argumentList)
-    for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.toString()==k.toString()){
-      arg.bound=v(arg.index)
+
+  def getArgumentBound(argumentList: List[(IExpression.Predicate, Int)], argumentBounds: scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo] = {
+    val arguments = getArgumentInfo(argumentList)
+    for ((k, v) <- argumentBounds; arg <- arguments) if (arg.location.toString() == k.toString()) {
+      arg.bound = v(arg.index)
     }
     arguments
   }
-  def writeArgumentScoreToFile(file:String,
-                               argumentList:List[(IExpression.Predicate,Int)],
-                               positiveHints:VerificationHints,
-                               countOccurrence:Boolean=true): ListBuffer[argumentInfo] ={
+
+  def writeArgumentScoreToFile(file: String,
+                               argumentList: List[(IExpression.Predicate, Int)],
+                               positiveHints: VerificationHints,
+                               countOccurrence: Boolean = true): ListBuffer[argumentInfo] = {
     println("Write arguments to file")
     val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val arguments=getArgumentInfoFromFile(argumentList)
+    val arguments = getArgumentInfoFromFile(argumentList)
     val writer = new PrintWriter(new File(file + ".arguments")) //python path
 
-    if (countOccurrence==true){
+    if (countOccurrence == true) {
       //get hint info list
-      var positiveHintInfoList:ListBuffer[hintInfo]=ListBuffer[hintInfo]()
-      for((head,hintList)<-positiveHints.getPredicateHints()){
-        for(h<-hintList) h match{
-          case VerifHintInitPred(p) => {positiveHintInfoList+=new hintInfo(p,"VerifHintInitPred",head)}
-          case VerifHintTplPred(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPred",head)}
-          case VerifHintTplPredPosNeg(p,_) => {positiveHintInfoList+=new hintInfo(p,"VerifHintTplPredPosNeg",head)}
-          case VerifHintTplEqTerm(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplEqTerm",head)}
-          case VerifHintTplInEqTerm(t,_) => {positiveHintInfoList+= new hintInfo(t,"VerifHintTplInEqTerm",head)}
-          case VerifHintTplInEqTermPosNeg(t,_) => {positiveHintInfoList+=new hintInfo(t,"VerifHintTplInEqTermPosNeg",head)}
-          case _=>{}
+      var positiveHintInfoList: ListBuffer[hintInfo] = ListBuffer[hintInfo]()
+      for ((head, hintList) <- positiveHints.getPredicateHints()) {
+        for (h <- hintList) h match {
+          case VerifHintInitPred(p) => {
+            positiveHintInfoList += new hintInfo(p, "VerifHintInitPred", head)
+          }
+          case VerifHintTplPred(p, _) => {
+            positiveHintInfoList += new hintInfo(p, "VerifHintTplPred", head)
+          }
+          case VerifHintTplPredPosNeg(p, _) => {
+            positiveHintInfoList += new hintInfo(p, "VerifHintTplPredPosNeg", head)
+          }
+          case VerifHintTplEqTerm(t, _) => {
+            positiveHintInfoList += new hintInfo(t, "VerifHintTplEqTerm", head)
+          }
+          case VerifHintTplInEqTerm(t, _) => {
+            positiveHintInfoList += new hintInfo(t, "VerifHintTplInEqTerm", head)
+          }
+          case VerifHintTplInEqTermPosNeg(t, _) => {
+            positiveHintInfoList += new hintInfo(t, "VerifHintTplInEqTermPosNeg", head)
+          }
+          case _ => {}
         }
       }
 
       //go through all predicates and arguments count occurrence
-      for(arg<-arguments){
-        for(hint<-positiveHintInfoList){
-          if(arg.location.equals(hint.head))
-            if(ContainsSymbol(hint.expression, IVariable(arg.index))) {
-              arg.score=arg.score+1
-              arg.binaryOccurenceLabel=1
+      for (arg <- arguments) {
+        for (hint <- positiveHintInfoList) {
+          if (arg.location.equals(hint.head))
+            if (ContainsSymbol(hint.expression, IVariable(arg.index))) {
+              arg.score = arg.score + 1
+              arg.binaryOccurenceLabel = 1
             }
         }
       }
@@ -1191,43 +1291,43 @@ object HintsSelection {
     }
     //normalize score
     //write arguments with score to file
-    for(arg<-arguments){
-      writer.write(arg.ID+":"+arg.location.toString()+":"+"argument"+arg.index+":"+arg.score+"\n")
+    for (arg <- arguments) {
+      writer.write(arg.ID + ":" + arg.location.toString() + ":" + "argument" + arg.index + ":" + arg.score + "\n")
     }
     writer.close()
-//    val argumentIDList=for(arg<-arguments) yield arg.ID
-//    val argumentNameList=for(arg<-arguments) yield arg.location.toString()+":"+"argument"+arg.index
-//    val argumentOccurrence=for(arg<-arguments) yield arg.score
-  (arguments)
+    //    val argumentIDList=for(arg<-arguments) yield arg.ID
+    //    val argumentNameList=for(arg<-arguments) yield arg.location.toString()+":"+"argument"+arg.index
+    //    val argumentOccurrence=for(arg<-arguments) yield arg.score
+    (arguments)
   }
 }
 
-class VerificationHintsInfo(val initialHints:VerificationHints, val positiveHints:VerificationHints, val negativeHints:VerificationHints){
+class VerificationHintsInfo(val initialHints: VerificationHints, val positiveHints: VerificationHints, val negativeHints: VerificationHints)
 
+class ClauseInfo(val simplifiedClause: Clauses, val clausesInCounterExample: Clauses)
+
+class hintInfo(e: IExpression, t: String, h: IExpression.Predicate) {
+  val head = h
+  val expression = e
+  val hintType = t
 }
 
-class hintInfo(e:IExpression,t:String,h:IExpression.Predicate){
-  val head=h
-  val expression=e
-  val hintType=t
-}
-class argumentInfo(id:Int,loc: IExpression.Predicate,ind:Int)
-{
-  val ID=id
-  val location=loc
-  val index=ind
-  var score=0
-  val head=location.toString()
-  val headName=location.name
-  var bound:Pair[String,String] = ("","")
-  var binaryOccurenceLabel=0
+class argumentInfo(id: Int, loc: IExpression.Predicate, ind: Int) {
+  val ID = id
+  val location = loc
+  val index = ind
+  var score = 0
+  val head = location.toString()
+  val headName = location.name
+  var bound: Pair[String, String] = ("", "")
+  var binaryOccurenceLabel = 0
 }
 
 class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause](iClauses: Iterable[CC],
                                                                                  initialPredicates: Map[Predicate, Seq[IFormula]],
                                                                                  predicateGenerator: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
                                                                                    Either[Seq[(Predicate, Seq[Conjunction])],
-                                                                                     Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value = HornPredAbs.CounterexampleMethod.FirstBestShortest)  {
+                                                                                     Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value = HornPredAbs.CounterexampleMethod.FirstBestShortest) {
   val theories = {
     val coll = new TheoryCollector
     coll addTheory TypeTheory
@@ -1264,7 +1364,7 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
       val res = new LinkedHashMap[NormClause, CC]
 
       val propagator =
-        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
+        new IntervalPropagator(rawNormClauses.keys.toIndexedSeq,
           sf.reducerSettings)
 
       for ((nc, oc) <- propagator.result)
@@ -1292,12 +1392,12 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
       for (s <- rs.arguments(0)) {
         //print("  " + s + ": ")
         val lc = ap.terfor.linearcombination.LinearCombination(s, bounds.order)
-        val lowerBound=PresburgerTools.lowerBound(lc, bounds) match {
+        val lowerBound = PresburgerTools.lowerBound(lc, bounds) match {
           case Some(x) => x.toString()
           case _ => "\"None\""
         }
         //print(", ")
-        val upperBound= (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
+        val upperBound = (for (b <- PresburgerTools.lowerBound(-lc, bounds)) yield -b) match {
           case Some(x) => x.toString()
           case _ => "\"None\""
         }

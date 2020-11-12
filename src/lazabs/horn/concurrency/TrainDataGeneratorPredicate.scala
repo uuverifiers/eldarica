@@ -42,6 +42,7 @@ import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder, Ve
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, TemplateInterpolator}
+import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.collection.immutable.ListMap
@@ -375,11 +376,13 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
       val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedTemplates,simpHints.filterPredicates(selectedTemplates.predicateHints.keySet))
+      val clausesInCE=getClausesInCounterExamples(test,simpClauses)
+      val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,simpClauses,hintsCollection,argumentInfo)
+      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,clauseCollection,hintsCollection,argumentInfo)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedTemplates,InitialHintsWithID)
-      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, hintsCollection,argumentInfo)
+      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
     }
 
 

@@ -37,7 +37,7 @@ import play.api.libs.json.Json
 
 import scala.collection.mutable.ListBuffer
 
-class DrawLayerHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
   println("Write layer horn graph to file")
   edgeNameMap += ("predicateArgument" -> "PA")
   edgeNameMap += ("predicateInstance" -> "PI")

@@ -30,6 +30,8 @@
 
 package lazabs.horn.bottomup
 
+import java.io.OutputStream
+
 import ap.parser._
 import IExpression._
 import ap.SimpleAPI
@@ -55,8 +57,9 @@ import StaticAbstractionBuilder.AbstractionType
 import ap.terfor.Formula
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
-import lazabs.horn.concurrency.{DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
+import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -442,12 +445,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
     val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
+    val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph=>{
-        val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, emptyHintsCollection,argumentInfo)
+        val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
       }
       case _=>{
-        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, emptyHintsCollection,argumentInfo)
+        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
       }
     }
     sys.exit()
@@ -481,30 +485,25 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
       val result =
         predAbs.result
-      //todo: form clause occurrence in counter example label
 
-      if (GlobalParameters.get.getHornGraph == true) {
-        println("debug---")
-        result match {
-          case Right(cex)=>{
-            println("Right")
-            println(cex)
+      //todo: form clause occurrence in counter example label
+      if (GlobalParameters.get.getLabelFromCounterExample == true) {
+        val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
+
+        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+        val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
+        //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+        val hintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
+        val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
+        GlobalParameters.get.hornGraphType match {
+          case HornGraphType.hyperEdgeGraph=>{
+            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
           }
-          case Left(res)=>{}
+          case _=>{
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+          }
         }
-//        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-//        //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
-//        val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
-//
-//        GlobalParameters.get.hornGraphType match {
-//          case HornGraphType.hyperEdgeGraph=>{
-//            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
-//          }
-//          case _=>{
-//            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
-//          }
-//        }
-//        sys.exit()
+        sys.exit()
       }
 
       lazabs.GlobalParameters.get.predicateOutputFile match {

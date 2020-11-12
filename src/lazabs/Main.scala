@@ -64,6 +64,7 @@ class GlobalParameters extends Cloneable {
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
+  var getLabelFromCounterExample=false
   var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
   var hornGraphWithHints=false
   var in: InputStream = null
@@ -218,6 +219,7 @@ class GlobalParameters extends Cloneable {
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
+    that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.hornGraphWithHints=this.hornGraphWithHints
   }
 
@@ -313,6 +315,7 @@ object Main {
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
+      case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getHornGraph" :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.hybridDirectionLayerGraph
@@ -527,17 +530,18 @@ object Main {
 //          " -upprel\tExpect UPPAAL file using Relational Encoding\n"
           "\n" +
           "C/C++/TA front-end:\n" +
-          " -arithMode:t\tInteger semantics: math (default), ilp32, lp64, llp64\n" +
-          " -pIntermediate\tDump Horn clauses encoding concurrent programs\n"+
-          " -extractTemplates\textract templates training data\n"+
-          " -extractPredicates\textract predicates training data\n"+
-          " -absTimeout:time\tset timeout for labeling hints\n"+
-          " -solvabilityTimeout:time\tset timeout for solvability\n"+
-          " -rank:n\tuse top n or score above n ranked hints read from file\n"+
-          " -getSMT2\tget SMT2 file\n"+
-          " -getHornGraph\tget horn graph file and GNN input\n"+
-          " -getHornGraph:t\tInterp. getHornGraph: biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
-          " -hornGraphWithHints\tget horn graph file with hints\n"
+          " -arithMode:t\t Integer semantics: math (default), ilp32, lp64, llp64\n" +
+          " -pIntermediate\t Dump Horn clauses encoding concurrent programs\n"+
+          " -extractTemplates\t extract templates training data\n"+
+          " -extractPredicates\t extract predicates training data\n"+
+          " -absTimeout:time\t set timeout for labeling hints\n"+
+          " -solvabilityTimeout:time\t set timeout for solvability\n"+
+          " -rank:n\t use top n or score above n ranked hints read from file\n"+
+          " -getSMT2\t get SMT2 file\n"+
+          " -getHornGraph\t get horn graph file and GNN input\n"+
+          " -getHornGraph:t\t Interp. getHornGraph: biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
+          " -getLabelFromCounterExample \t get label from counter example\n" +
+          " -hornGraphWithHints\t get horn graph file with hints\n"
 
 
           )

@@ -312,7 +312,8 @@ class GNNInput(simpClauses:Clauses) {
   }
 }
 
-class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+  val simpClauses = clausesCollection.simplifiedClause
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
     case _ => "layerHornGraph"

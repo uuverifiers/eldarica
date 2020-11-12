@@ -34,7 +34,7 @@ import ap.SimpleAPI.ProverStatus
 import ap.parser._
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.bottomup._
-import lazabs.horn.concurrency.HintsSelection.initialIDForHints
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 import lazabs.{GlobalParameters, ParallelComputation}
 
@@ -89,7 +89,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
     }
 
     //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
-    val selectedHint=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID,true)
+    val (selectedHint,result)=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID,true)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
@@ -107,12 +107,14 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
       val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedHint,simpHints.filterPredicates(selectedHint.predicateHints.keySet))
+      val clausesInCE=getClausesInCounterExamples(result,simpClauses)
+      val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
 
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,simpClauses,hintsCollection,argumentInfo)
+      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,clauseCollection,hintsCollection,argumentInfo)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedHint,InitialHintsWithID)
-      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, hintsCollection,argumentInfo)
+      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
     }
 
   }
