@@ -44,7 +44,7 @@ import lazabs.horn.global._
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import lazabs.horn.concurrency.HintsSelection.initialIDForHints
-import lazabs.horn.concurrency.{DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain}
+import lazabs.horn.concurrency.{DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain, VerificationHintsInfo}
 import lazabs.viewer.HornPrinter
 
 
@@ -251,12 +251,12 @@ object TrainDataGeneratorSmt2 {
             //write argument score to file
             val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
             val argumentInfo= HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
-
+            val hintsCollection=new VerificationHintsInfo(simpHints,optimizedHints,simpHints.filterPredicates(optimizedHints.predicateHints.keySet))
             //Output graphs
             //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-            val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
+            val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simplifiedClauses, hintsCollection,argumentInfo)
             val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, sortedHints,argumentInfo)
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simplifiedClauses, hintsCollection,argumentInfo)
             //write horn clauses to file
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))

@@ -314,11 +314,12 @@ class VerificationLoop(system : ParametricEncoder.System,
         val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
         //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
         val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
+        val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
         GlobalParameters.get.hornGraphType match {
           case HornGraphType.hyperEdgeGraph=>
-            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, simpClauses, emptyHintsCollection,argumentInfo)
           case _=>
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, optimizedHints,argumentInfo)
+            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, emptyHintsCollection,argumentInfo)
         }
         sys.exit()
       }

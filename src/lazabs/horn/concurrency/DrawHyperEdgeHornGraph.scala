@@ -60,7 +60,7 @@ class hyperEdgeInfo(name: String, from: String = "", to: String, nodeType: Hyper
   val hyperEdgeType = nodeType
 }
 
-class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawHyperEdgeHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
   println("Write hyperedge horn graph to file")
   edgeNameMap += ("controlFlowHyperEdge" -> "CFHE")
   edgeNameMap += ("dataFlowHyperEdge" -> "DFHE")

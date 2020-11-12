@@ -57,6 +57,7 @@ object DrawHornGraph {
   }
 }
 
+
 class argumentInfoHronGraph(headName: String, ind: Int, globalIndex: Int) {
   var ID = 0
   val head = headName
@@ -311,7 +312,7 @@ class GNNInput(simpClauses:Clauses) {
   }
 }
 
-class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
     case _ => "layerHornGraph"
@@ -335,9 +336,6 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   nodeShapeMap += ("template" -> "component")
 
   writerGraph.write("digraph dag {" + "\n")
-
-
-
 
 
 
@@ -687,7 +685,7 @@ class DrawHornGraph(file: String, simpClauses: Clauses, hints: VerificationHints
   }
   def drawTemplates(pre:Predicate): List[String] ={
     var templateNameList:List[String]=List()
-    for((hp,templates)<-hints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
+    for((hp,templates)<-hints.initialHints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
       for (t<-templates){
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName

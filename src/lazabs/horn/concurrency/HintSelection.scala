@@ -1149,7 +1149,6 @@ object HintsSelection {
   def getArgumentBound(argumentList:List[(IExpression.Predicate,Int)],argumentBounds:scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo]  ={
     val arguments=getArgumentInfo(argumentList)
     for ((k,v) <-argumentBounds;arg<-arguments)if(arg.location.toString()==k.toString()){
-      println(arg.location,k)
       arg.bound=v(arg.index)
     }
     arguments
@@ -1202,6 +1201,11 @@ object HintsSelection {
   (arguments)
   }
 }
+
+class VerificationHintsInfo(val initialHints:VerificationHints, val positiveHints:VerificationHints, val negativeHints:VerificationHints){
+
+}
+
 class hintInfo(e:IExpression,t:String,h:IExpression.Predicate){
   val head=h
   val expression=e

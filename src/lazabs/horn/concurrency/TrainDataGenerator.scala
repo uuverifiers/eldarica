@@ -106,13 +106,13 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       //write argument score to file
       val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
       val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
-
+      val hintsCollection=new VerificationHintsInfo(simpHints,selectedHint,simpHints.filterPredicates(selectedHint.predicateHints.keySet))
 
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,simpClauses,sortedHints,argumentInfo)
-      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, sortedHints,InitialHintsWithID)
-      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, sortedHints,argumentInfo)
+      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,simpClauses,hintsCollection,argumentInfo)
+      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedHint,InitialHintsWithID)
+      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, simpClauses, hintsCollection,argumentInfo)
     }
 
   }
