@@ -504,9 +504,6 @@ object TrainDataGeneratorPredicatesSmt2 {
             GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
 
-            //todo: form template relevant filter label
-
-
             //val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
 
             //write initial, positive, negative hints to files

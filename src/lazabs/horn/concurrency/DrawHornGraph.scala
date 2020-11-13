@@ -136,6 +136,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   var falseIndices = Array[Int]()
   var argumentIndices = Array[Int]()
   var templateIndices = Array[Int]()
+  var templateRelevanceLabel = Array[Int]()
   var clauseIndices = Array[Int]()
   var predicateIndices = Array[Int]()
   var predicateOccurrenceInClause = Array[Int]()
@@ -206,8 +207,12 @@ class GNNInput(clauseCollection:ClauseInfo) {
     argumentIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-  def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
+  def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,hintLabel:Boolean): Unit = {
     templateIndices :+= GNNNodeID
+    hintLabel match {
+      case true =>templateRelevanceLabel:+=1
+      case false =>templateRelevanceLabel:+=0
+    }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
@@ -456,7 +461,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
   }
 
-  def createNode(canonicalName: String, labelName: String, className: String, shape: String, identificationInfo:Clauses=Seq()): Unit = {
+  def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Boolean=false): Unit = {
     writerGraph.write(addQuotes(canonicalName) +
       " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
     className match {
@@ -464,8 +469,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case "CONTROL" => gnn_input.incrementControlLocationIndicesAndNodeIds(canonicalName, className, labelName)
       case "predicateName" => gnn_input.incrementPredicateIndicesAndNodeIds(canonicalName, className, labelName)
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
-      case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName)
-      case "clause"=> gnn_input.incrementClauseIndicesAndNodeIds(canonicalName, className, labelName,identificationInfo)
+      case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName,hintLabel)
+      case "clause"=> gnn_input.incrementClauseIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
       case _ => gnn_input.incrementNodeIds(canonicalName, className, labelName)
     }
   }
@@ -540,6 +545,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIndices", IntArray(argumentIndicesList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateIndices", IntArray(gnn_input.templateIndices), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("templateRelevanceLabel", IntArray(gnn_input.templateRelevanceLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseBinaryOccurrenceInCounterExampleList", IntArray(gnn_input.clausesOccurrenceInCounterExample), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
@@ -708,7 +714,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       for (t<-templates){
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName
-        createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"))
+        val hintLabel = if (hints.positiveHints.predicateHints(hp).contains(t)) true else false
+        createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
           case VerifHintInitPred(e)=>{
             drawAST(e,templateNodeName)

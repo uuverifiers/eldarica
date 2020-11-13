@@ -486,6 +486,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         predAbs.result
 
       //todo: form clause occurrence in counter example label
+      //todo: add clause in hyperedge graph
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         println("debug---------")
         val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
