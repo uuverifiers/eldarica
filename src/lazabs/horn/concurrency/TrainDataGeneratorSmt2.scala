@@ -250,7 +250,7 @@ object TrainDataGeneratorSmt2 {
 
             //write argument score to file
             val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-            val argumentInfo= HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
+            val argumentInfo= HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
             val hintsCollection=new VerificationHintsInfo(simpHints,optimizedHints,simpHints.filterPredicates(optimizedHints.predicateHints.keySet))
             val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
             val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)

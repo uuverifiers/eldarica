@@ -1241,15 +1241,11 @@ object HintsSelection {
     arguments
   }
 
-  def writeArgumentScoreToFile(file: String,
-                               argumentList: List[(IExpression.Predicate, Int)],
-                               positiveHints: VerificationHints,
-                               countOccurrence: Boolean = true): ListBuffer[argumentInfo] = {
-    println("Write arguments to file")
-    val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val arguments = getArgumentInfoFromFile(argumentList)
-    val writer = new PrintWriter(new File(file + ".arguments")) //python path
-
+  def getArgumentOccurrenceInHints(file: String,
+                                   argumentList: List[(IExpression.Predicate, Int)],
+                                   positiveHints: VerificationHints,
+                                   countOccurrence: Boolean = true): ListBuffer[argumentInfo] ={
+    val arguments = getArgumentInfo(argumentList)
     if (countOccurrence == true) {
       //get hint info list
       var positiveHintInfoList: ListBuffer[hintInfo] = ListBuffer[hintInfo]()
@@ -1276,29 +1272,38 @@ object HintsSelection {
           case _ => {}
         }
       }
-
       //go through all predicates and arguments count occurrence
       for (arg <- arguments) {
         for (hint <- positiveHintInfoList) {
           if (arg.location.equals(hint.head) && ContainsSymbol(hint.expression, IVariable(arg.index))) {
             arg.score = arg.score + 1
             arg.binaryOccurenceLabel = 1
-            }
+          }
         }
       }
 
     }
     //normalize score
-    //write arguments with score to file
-    for (arg <- arguments) {
-      writer.write(arg.ID + ":" + arg.location.toString() + ":" + "argument" + arg.index + ":" + arg.score + "\n")
-    }
-    writer.close()
     //    val argumentIDList=for(arg<-arguments) yield arg.ID
     //    val argumentNameList=for(arg<-arguments) yield arg.location.toString()+":"+"argument"+arg.index
     //    val argumentOccurrence=for(arg<-arguments) yield arg.score
     (arguments)
+
   }
+  def writeArgumentOccurrenceInHintsToFile(file: String,
+                               argumentList: List[(IExpression.Predicate, Int)],
+                               positiveHints: VerificationHints,
+                               countOccurrence: Boolean = true): ListBuffer[argumentInfo]  = {
+    val arguments = getArgumentOccurrenceInHints(file,argumentList,positiveHints,countOccurrence)
+    println("Write arguments to file")
+    val writer = new PrintWriter(new File(file + ".arguments")) //python path
+    for (arg <- arguments) {
+      writer.write(arg.ID + ":" + arg.location.toString() + ":" + "argument" + arg.index + ":" + arg.score + "\n")
+    }
+    writer.close()
+    arguments
+  }
+
 }
 
 class VerificationHintsInfo(val initialHints: VerificationHints, val positiveHints: VerificationHints, val negativeHints: VerificationHints)

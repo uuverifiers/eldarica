@@ -374,7 +374,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
         //copy smt2 file
       }
       val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
-      val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
+      val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedTemplates,simpHints.filterPredicates(selectedTemplates.predicateHints.keySet))
       val clausesInCE=getClausesInCounterExamples(test,simpClauses)
       val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
