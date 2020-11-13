@@ -31,7 +31,7 @@ package lazabs.horn.concurrency
 import ap.parser.{IAtom, IBinFormula, IBinJunctor, IBoolLit, IConstant, IEpsilon, IExpression, IFormulaITE, IFunApp, IIntFormula, IIntLit, INamedPart, INot, IPlus, IQuantified, ITerm, ITermITE, ITimes, ITrigger, IVariable, LineariseVisitor}
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.Json
 
@@ -109,7 +109,6 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   for (clause <- simpClauses;a<-clause.allAtoms) {
     createPredicateLayerNodesAndEdges(a)
   }
-
   for (clause <- simpClauses) {
     constantNodeSetInOneClause.clear()
     //clause layer: create clause node
@@ -181,7 +180,6 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     for (templateNodeName<-templateNameList)
       addBinaryEdge(predicateNameMap(p.name).predicateCanonicalName,templateNodeName,"template")
   }
-
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

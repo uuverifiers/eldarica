@@ -357,7 +357,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   writerGraph.write("digraph dag {" + "\n")
 
 
-
   def addBinaryEdge(from: String, to: String, label: String, biDirection:Boolean=false): Unit = {
     biDirection match {
       case true => {
@@ -714,7 +713,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       for (t<-templates){
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName
-        val hintLabel = if (hints.positiveHints.predicateHints(hp).contains(t)) true else false
+        val hintLabel = if (hints.positiveHints.predicateHints.keySet.contains(hp) && hints.positiveHints.predicateHints(hp).contains(t)) true else false
         createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
           case VerifHintInitPred(e)=>{

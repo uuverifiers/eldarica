@@ -226,7 +226,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     }
     clauseNumber += 1
   }
-
   //draw templates
   for (argInfo<-gnn_input.argumentInfoHornGraphList){
     argumentNodeSetInPredicates("_"+argInfo.index.toString)=argInfo.canonicalName //add _ to differentiate index with other constants
@@ -237,7 +236,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     for (templateNodeName<-templateNameList)
       addBinaryEdge(controlFlowNodeSetInOneClause(p.name),templateNodeName,"template")
   }
-
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

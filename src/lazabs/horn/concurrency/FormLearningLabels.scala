@@ -57,7 +57,6 @@ class FormLearningLabels (clauseCollection: ClauseInfo){
           " [label=" + addQuotes(bodyName)  + " shape=" + "box" + "];" + "\n")
         //add edge
         writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
-        //for(pn<-predicateNodeList) if(pn.name==headName) pn.predecessorNameList:+=bodyName else if (pn.name==bodyName) pn.successorNameList:+=headName
         predicateName2NodeMap(headName).predecessorNameList:+=bodyName
         predicateName2NodeMap(bodyName).successorNameList:+=headName
         predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
@@ -66,7 +65,6 @@ class FormLearningLabels (clauseCollection: ClauseInfo){
     writerPredicateGraph.write("}" + "\n")
     writerPredicateGraph.close()
 
-    //todo:identify circles
     //form g: Map[Int, List[Int]]
     val g = for (node<-predicateName2NodeMap.values) yield (node.nodeIndex-> node.successorIndexList)
     //find out strong connected graph
