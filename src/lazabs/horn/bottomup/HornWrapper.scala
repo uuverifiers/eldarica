@@ -440,10 +440,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   val sortedHints = HintsSelection.sortHints(simpHints)
   if (GlobalParameters.get.getHornGraph == true) {
-
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
     //val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
-    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,sortedHints,predGenerator)
     val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
     val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
     GlobalParameters.get.hornGraphType match {
@@ -488,21 +487,26 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
       //todo: form clause occurrence in counter example label
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
+        println("debug---------")
         val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
 
         val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-        val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
+        val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=true)
         //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
         val hintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
         val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
-        GlobalParameters.get.hornGraphType match {
-          case HornGraphType.hyperEdgeGraph=>{
-            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-          }
-          case _=>{
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-          }
-        }
+        GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
+        val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+        GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
+        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+//        GlobalParameters.get.hornGraphType match {
+//          case HornGraphType.hyperEdgeGraph=>{
+//            val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+//          }
+//          case _=>{
+//            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+//          }
+//        }
         sys.exit()
       }
 

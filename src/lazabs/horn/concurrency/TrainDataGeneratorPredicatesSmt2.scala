@@ -499,6 +499,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
             val argumentInfo = HintsSelection.writeArgumentScoreToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
             //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+            GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
             val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
             GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)

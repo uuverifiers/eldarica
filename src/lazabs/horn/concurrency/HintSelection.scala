@@ -1280,10 +1280,9 @@ object HintsSelection {
       //go through all predicates and arguments count occurrence
       for (arg <- arguments) {
         for (hint <- positiveHintInfoList) {
-          if (arg.location.equals(hint.head))
-            if (ContainsSymbol(hint.expression, IVariable(arg.index))) {
-              arg.score = arg.score + 1
-              arg.binaryOccurenceLabel = 1
+          if (arg.location.equals(hint.head) && ContainsSymbol(hint.expression, IVariable(arg.index))) {
+            arg.score = arg.score + 1
+            arg.binaryOccurenceLabel = 1
             }
         }
       }

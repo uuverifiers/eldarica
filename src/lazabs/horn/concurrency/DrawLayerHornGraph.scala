@@ -115,7 +115,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     //clause layer: create clause node
     val clauseNodeName = clausePrefix + gnn_input.clauseCanonicalID.toString
     createNode(clauseNodeName,
-      "C" + gnn_input.clauseCanonicalID.toString, "clause", nodeShapeMap("clause"))
+      "C" + gnn_input.clauseCanonicalID.toString, "clause", nodeShapeMap("clause"),Seq(clause))
     //draw constraints and connect to clause node
     for (conjunct <- LineariseVisitor(clause.constraint, IBinJunctor.And)) {
       drawAST(conjunct, clauseNodeName)

@@ -8,7 +8,9 @@ import lazabs.horn.concurrency.DrawHornGraph.addQuotes
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
 
-class FormLearningLabels (simpClauses: Clauses){
+class FormLearningLabels (clauseCollection: ClauseInfo){
+  val simpClauses=clauseCollection.simplifiedClause
+  val clausesInCE=clauseCollection.clausesInCounterExample
   //hints: VerificationHints
   class predicateNodeInfo(nodeName:String,index:Int){
     val name=nodeName
@@ -26,7 +28,6 @@ class FormLearningLabels (simpClauses: Clauses){
       println
     }
   }
-
 
   def getStrongConnectedComponentPredicateList(): Map[String,Int] ={
     var nodeCounter=0
@@ -110,8 +111,6 @@ class FormLearningLabels (simpClauses: Clauses){
 
   }
 
-
-
   def getPredicateOccurenceInClauses(): Map[Predicate,Int] ={
     //form predicate head occurrence in clauses
     var predicateOccurrenceMap:Map[Predicate,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p->0)).toMap
@@ -123,6 +122,8 @@ class FormLearningLabels (simpClauses: Clauses){
     }
     predicateOccurrenceMap
   }
+
+
 }
 
 class TarjanRecursive {
