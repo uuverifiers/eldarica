@@ -64,7 +64,7 @@ class argumentInfoHronGraph(headName: String, ind: Int, globalIndex: Int) {
   val index = ind
   val name = "argument" + ind.toString
   var score = 0
-  var bound: Pair[String, String] = ("", "")
+  var bound: Pair[String, String] = (addQuotes("None"),addQuotes("None"))
   val globalIndexInGraph = globalIndex
   var binaryOccurrenceInTemplates=0
   var constNames=Array[String]()

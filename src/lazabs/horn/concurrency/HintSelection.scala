@@ -1323,7 +1323,7 @@ class argumentInfo(id: Int, loc: IExpression.Predicate, ind: Int) {
   var score = 0
   val head = location.toString()
   val headName = location.name
-  var bound: Pair[String, String] = ("", "")
+  var bound: Pair[String, String] = ("\"None\"", "\"None\"")
   var binaryOccurenceLabel = 0
 }
 
