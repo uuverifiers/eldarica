@@ -119,6 +119,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   val argumentEdges = new Adjacency("argumentEdge", 2)
   val controlFlowHyperEdges = new Adjacency("controlFlowHyperEdge", 3)
   val dataFlowHyperEdges = new Adjacency("dataFlowHyperEdge", 3)
+  val clauseEdges = new Adjacency("clauseEdge", 2)
 
   //edge category for layer version horn graph
   val predicateArgumentEdges = new Adjacency("predicateArgument", 2)
@@ -161,6 +162,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
           case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
           case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "argument" => argumentEdges.incrementBinaryEdge(fromID, toID)
+          case "clause" => clauseEdges.incrementBinaryEdge(fromID,toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }

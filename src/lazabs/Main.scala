@@ -540,7 +540,7 @@ object Main {
           " -getSMT2\t get SMT2 file\n"+
           " -getHornGraph\t get horn graph file and GNN input\n"+
           " -getHornGraph:t\t Interp. getHornGraph: biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
-          " -getLabelFromCounterExample \t get label from counter example\n" +
+          " -getLabelFromCE \t get label from counter example\n" +
           " -hornGraphWithHints\t get horn graph file with hints\n"
 
 
