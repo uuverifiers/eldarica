@@ -336,7 +336,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
-    case _ => "layerHornGraph"
+    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "layerHornGraph"
+    case DrawHornGraph.HornGraphType.biDirectionLayerGraph => "bi-layerHornGraph"
   }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
