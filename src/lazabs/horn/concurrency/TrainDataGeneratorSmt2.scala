@@ -43,6 +43,7 @@ import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain, VerificationHintsInfo}
 import lazabs.viewer.HornPrinter
@@ -259,7 +260,12 @@ object TrainDataGeneratorSmt2 {
             //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
             val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
             val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
+            GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+            GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+            GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
+            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
             //write horn clauses to file
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))

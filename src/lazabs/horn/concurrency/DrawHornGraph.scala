@@ -44,7 +44,7 @@ object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
     //type HornGraphType = Value
-    val hyperEdgeGraph, biDirectionLayerGraph, hybridDirectionLayerGraph= Value
+    val hyperEdgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph= Value
   }
 
   def addQuotes(str: String): String = {
@@ -338,6 +338,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
     case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "layerHornGraph"
     case DrawHornGraph.HornGraphType.biDirectionLayerGraph => "bi-layerHornGraph"
+    case DrawHornGraph.HornGraphType.monoDirectionLayerGraph => "mono-layerHornGraph"
   }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()

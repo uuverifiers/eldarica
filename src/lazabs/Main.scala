@@ -321,6 +321,11 @@ object Main {
         hornGraphType = HornGraphType.hybridDirectionLayerGraph
         arguments(rest)
       }
+      case "-getHornGraph:monoDirectionLayerGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.monoDirectionLayerGraph
+        arguments(rest)
+      }
       case "-getHornGraph:biDirectionLayerGraph" :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.biDirectionLayerGraph
@@ -539,7 +544,7 @@ object Main {
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -getSMT2\t get SMT2 file\n"+
           " -getHornGraph\t get horn graph file and GNN input\n"+
-          " -getHornGraph:t\t Interp. getHornGraph: biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
+          " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph, hyperEdgeGraph\n" +
           " -getLabelFromCE \t get label from counter example\n" +
           " -hornGraphWithHints\t get horn graph file with hints\n"
 

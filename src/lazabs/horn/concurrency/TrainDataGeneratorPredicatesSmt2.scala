@@ -503,6 +503,10 @@ object TrainDataGeneratorPredicatesSmt2 {
             val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
             GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
             val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+            GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+            GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
+            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
 
             //val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
 

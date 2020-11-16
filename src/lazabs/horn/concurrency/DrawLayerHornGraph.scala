@@ -54,7 +54,12 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     for (key <- edgeNameMap.keys)
       edgeNameMap += (key -> "")
   }
+  val edgeNameList=List("predicateArgument","predicateInstance","argumentInstance","controlHead","controlBody","controlArgument","guard","data","subTerm")
   GlobalParameters.get.hornGraphType match {
+    case DrawHornGraph.HornGraphType.monoDirectionLayerGraph =>{
+      for (edgeName<-edgeNameList)
+        edgeDirectionMap += (edgeName -> false)
+    }
     case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph =>{
       edgeDirectionMap += ("predicateArgument" -> false)
       edgeDirectionMap += ("predicateInstance" -> false)
@@ -67,19 +72,10 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       edgeDirectionMap += ("subTerm" -> false)
     }
     case DrawHornGraph.HornGraphType.biDirectionLayerGraph =>{
-      edgeDirectionMap += ("predicateArgument" -> true)
-      edgeDirectionMap += ("predicateInstance" -> true)
-      edgeDirectionMap += ("argumentInstance" -> true)
-      edgeDirectionMap += ("controlHead" -> true)
-      edgeDirectionMap += ("controlBody" -> true)
-      edgeDirectionMap += ("controlArgument" -> true)
-      edgeDirectionMap += ("guard" -> true)
-      edgeDirectionMap += ("data" -> true)
-      edgeDirectionMap += ("subTerm" -> true)
+      for (edgeName<-edgeNameList)
+        edgeDirectionMap += (edgeName -> true)
     }
   }
-
-
   //node shape map
   nodeShapeMap += ("constant" -> "circle")
   nodeShapeMap += ("operator" -> "square")

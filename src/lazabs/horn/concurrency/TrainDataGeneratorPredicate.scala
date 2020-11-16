@@ -42,6 +42,7 @@ import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder, Ve
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, TemplateInterpolator}
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
@@ -382,7 +383,12 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
       val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,clauseCollection,hintsCollection,argumentInfo)
       val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedTemplates,InitialHintsWithID)
-      val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+      GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
+      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+      GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+      GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
+      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
     }
 
 
