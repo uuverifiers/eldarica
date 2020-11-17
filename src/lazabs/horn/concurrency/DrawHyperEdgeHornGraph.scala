@@ -32,7 +32,8 @@ package lazabs.horn.concurrency
 import java.io.{File, PrintWriter}
 
 import ap.parser.IExpression.{ConstantTerm, Eq, Predicate}
-import ap.parser.{IBinJunctor, IConstant, IExpression, IFormula, ITerm, LineariseVisitor, Simplifier, SymbolCollector}
+import ap.parser.{IAtom, IBinJunctor, IConstant, IExpression, IFormula, ITerm, IVariable, LineariseVisitor, Simplifier, SymbolCollector}
+import ap.types.Sort.Integer.newConstant
 import jdk.nashorn.internal.objects.Global
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
@@ -292,25 +293,51 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     }
   }
 
+  def replaceIntersectArgumentInBody(clause: Clause): Clause = {
+    var f: IFormula = clause.constraint
+    def replaceArgumentInBody(body: IAtom): IAtom = {
+      var argList: Seq[ITerm] = Seq()
+      for (arg <- body.args) {
+        if (clause.head.args.contains(arg)) {
+          val ic = IConstant(newConstant(arg.toString + "__"))
+          //replace argument
+          argList :+= ic
+          //add equation in constrains
+          f = f &&& (arg === ic)
+        } else
+          argList :+= arg
+      }
+      IAtom(body.pred, argList)
+    }
+
+    Clause(IAtom(clause.head.pred, clause.head.args),
+      for (body <- clause.body) yield replaceArgumentInBody(body),
+      f)
+  }
+
   def getDataFlowAndGuard(clause: Clause, normalizedClause: Clause, dataFlowInfoWriter: PrintWriter): (Set[IExpression], Set[IFormula]) = {
     /*
+    Replace arguments in argumentInHead.intersect(argumentInBody) to arg' and add arg=arg' to constrains
+
    (1) x = f(\bar y) s.t.
 
    <1> x is one of the arguments of the clause head
    <2> \bar y are arguments of the literals in the clause body.
    <3> any variable assignment (assignment of values to the variables occurring in C) that satisfies the constraint of C also satisfies (1).
    */
+    //replace intersect arguments in body and add arg=arg' to constrains
+    val replacedClause=replaceIntersectArgumentInBody(normalizedClause)
     var dataflowList = Set[IExpression]()
     var dataflowListHeadArgSymbolEquation = Set[IExpression]()
-    val bodySymbols = for (body <- normalizedClause.body; arg <- body.args) yield new ConstantTerm(arg.toString)
+    val bodySymbols = for (body <- replacedClause.body; arg <- body.args) yield new ConstantTerm(arg.toString)
     var bodySymbolsSet = bodySymbols.toSet
-    for (x <- normalizedClause.head.args) {
+    for (x <- replacedClause.head.args) {
       val SE = IExpression.SymbolEquation(x)
       val constantTermX = new ConstantTerm(x.toString)
-      for (f <- LineariseVisitor(normalizedClause.constraint, IBinJunctor.And)) f match {
+      for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) f match {
         case SE(coefficient, rhs) => {
           if (!(dataflowList contains f) && !(bodySymbolsSet contains constantTermX) && !SymbolCollector.constants(rhs).isEmpty
-            && (for (s <- SymbolCollector.constants(rhs)) yield s.name).subsetOf(for (s <- bodySymbolsSet) yield s.name)
+            && !(for (s <- SymbolCollector.constants(rhs)) yield s.name).intersect(for (s <- bodySymbolsSet) yield s.name).isEmpty
             && (for (s <- SymbolCollector.constants(f)) yield s.name).contains(x.toString)) {
             // discovered data-flow from body to x!
             dataflowList += f //sp(IExpression.Eq(x,rhs))
@@ -322,12 +349,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-    val guardList = (for (f <- LineariseVisitor(normalizedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df.asInstanceOf[IFormula])
+    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df.asInstanceOf[IFormula])
     dataFlowInfoWriter.write("--------------------\n")
     dataFlowInfoWriter.write("original clause:\n")
     dataFlowInfoWriter.write(clause.toPrologString + "\n")
-    dataFlowInfoWriter.write("normalized clause:\n")
-    dataFlowInfoWriter.write(normalizedClause.toPrologString + "\n")
+    dataFlowInfoWriter.write("normalized and replaced clause:\n")
+    dataFlowInfoWriter.write(replacedClause.toPrologString + "\n")
     dataFlowInfoWriter.write("dataflow:\n")
     for (df <- dataflowListHeadArgSymbolEquation)
       dataFlowInfoWriter.write(df.toString + "\n")

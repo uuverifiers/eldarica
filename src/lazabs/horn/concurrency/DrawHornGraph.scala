@@ -441,11 +441,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
     if (argumentNodeSetInPredicates.isEmpty){ //argument merging node is included in constantNodeSetInOneClause
       drawAndMergeConstantNode(constantStr,previousNodeName,className)
-    }else{
-      if(argumentNodeSetInPredicates.keySet.contains(constantStr)){
+    }else{ //when create template nodes, argumentNodeSetInPredicates store argument node name
+      if(argumentNodeSetInPredicates.keySet.contains(constantStr)){//if this node is a argument, merge argument
         addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName)
         argumentNodeSetInPredicates(constantStr)
-      }else{
+      }else{//if this node is a constant, treat with regular constant. constantNodeSetInOneClause range in one predicate
 //        val constantName = constantStr + "_" + gnn_input.GNNNodeID
 //        createNode(constantName, constantStr, className, nodeShapeMap(className))
 //        addEdgeInSubTerm(constantName, previousNodeName)
