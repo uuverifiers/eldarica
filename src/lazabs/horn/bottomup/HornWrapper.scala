@@ -485,10 +485,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       val result =
         predAbs.result
 
-      //todo: form clause occurrence in counter example label
       //todo: add clause in hyperedge graph
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
-        println("debug---------")
         val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
 
         val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
@@ -499,7 +497,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
         val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
         GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
-        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+        new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
         GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
         new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
         GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph

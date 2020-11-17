@@ -439,29 +439,33 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
-    if (argumentNodeSetInPredicates.isEmpty){
-      if (constantNodeSetInOneClause.keySet.contains(constantStr)) {
-        addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName)
-        constantNodeSetInOneClause(constantStr)
-      } else {
-        val constantName = constantStr + "_" + gnn_input.GNNNodeID
-        createNode(constantName, constantStr, className, nodeShapeMap(className))
-        addEdgeInSubTerm(constantName, previousNodeName)
-        constantNodeSetInOneClause(constantStr) = constantName
-        constantName
-      }
+    if (argumentNodeSetInPredicates.isEmpty){ //argument merging node is included in constantNodeSetInOneClause
+      drawAndMergeConstantNode(constantStr,previousNodeName,className)
     }else{
       if(argumentNodeSetInPredicates.keySet.contains(constantStr)){
         addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName)
         argumentNodeSetInPredicates(constantStr)
       }else{
-        val constantName = constantStr + "_" + gnn_input.GNNNodeID
-        createNode(constantName, constantStr, className, nodeShapeMap(className))
-        addEdgeInSubTerm(constantName, previousNodeName)
-        constantName
+//        val constantName = constantStr + "_" + gnn_input.GNNNodeID
+//        createNode(constantName, constantStr, className, nodeShapeMap(className))
+//        addEdgeInSubTerm(constantName, previousNodeName)
+//        constantName
+        drawAndMergeConstantNode(constantStr,previousNodeName,className)
       }
     }
+  }
 
+  def drawAndMergeConstantNode(constantStr:String,previousNodeName:String,className:String): String = {
+    if (constantNodeSetInOneClause.keySet.contains(constantStr)) {
+      addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName)
+      constantNodeSetInOneClause(constantStr)
+    } else {
+      val constantName = constantStr + "_" + gnn_input.GNNNodeID
+      createNode(constantName, constantStr, className, nodeShapeMap(className))
+      addEdgeInSubTerm(constantName, previousNodeName)
+      constantNodeSetInOneClause(constantStr) = constantName
+      constantName
+    }
   }
 
   def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Boolean=false): Unit = {
@@ -714,6 +718,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   def drawTemplates(pre:Predicate): List[String] ={
     var templateNameList:List[String]=List()
     for((hp,templates)<-hints.initialHints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
+      constantNodeSetInOneClause.clear()
       for (t<-templates){
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName
