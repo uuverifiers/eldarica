@@ -258,14 +258,14 @@ object TrainDataGeneratorSmt2 {
 
             //Output graphs
             //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-            val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-            val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
-            GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
-            val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-            GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
-            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-            GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
-            new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+            //val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
+            for(graphType<-HornGraphType.values){
+              GlobalParameters.get.hornGraphType=graphType
+              GlobalParameters.get.hornGraphType match {
+                case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+                case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+              }
+            }
             //write horn clauses to file
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))

@@ -44,7 +44,7 @@ object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
     //type HornGraphType = Value
-    val hyperEdgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph= Value
+    val hyperEdgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph, clauseRelatedTaskLayerGraph= Value
   }
 
   def addQuotes(str: String): String = {
@@ -127,6 +127,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   val argumentInstanceEdges = new Adjacency("argumentInstance", 2)
   val controlHeadEdges = new Adjacency("controlHead", 2)
   val controlBodyEdges = new Adjacency("controlBody", 2)
+  val controlEdges = new Adjacency("controlBody", 2)
   val controlArgumentEdges = new Adjacency("controlArgument", 2)
   val guardEdges = new Adjacency("guard", 2)
   val dataEdges = new Adjacency("data", 2)
@@ -174,6 +175,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
           case "argumentInstance" => argumentInstanceEdges.incrementBinaryEdge(fromID, toID)
           case "controlHead" => controlHeadEdges.incrementBinaryEdge(fromID, toID)
           case "controlBody" => controlBodyEdges.incrementBinaryEdge(fromID, toID)
+          case "control" => controlEdges.incrementBinaryEdge(fromID, toID)
           case "controlArgument" => controlArgumentEdges.incrementBinaryEdge(fromID, toID)
           case "guard" => guardEdges.incrementBinaryEdge(fromID, toID)
           case "data" => dataEdges.incrementBinaryEdge(fromID, toID)
@@ -336,9 +338,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
-    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "layerHornGraph"
+    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "hybrid-layerHornGraph"
     case DrawHornGraph.HornGraphType.biDirectionLayerGraph => "bi-layerHornGraph"
     case DrawHornGraph.HornGraphType.monoDirectionLayerGraph => "mono-layerHornGraph"
+    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => "clause-related-task-layerHornGraph"
   }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
@@ -403,6 +406,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       GlobalParameters.get.hornGraphType match {
         case HornGraphType.hyperEdgeGraph => {
           addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
+        }
+        case HornGraphType.clauseRelatedTaskLayerGraph=>{
+          astEdgeType match {
+            case "templateAST"=>addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))
+            case "data"=>addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+            case _=>addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+          }
         }
         case _ => {
           val toNodeClass = to.substring(0, to.indexOf("_"))
@@ -583,6 +593,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("argumentInstanceEdges", PairArray(gnn_input.argumentInstanceEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlHeadEdges", PairArray(gnn_input.controlHeadEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlBodyEdges", PairArray(gnn_input.controlBodyEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("controlEdge", PairArray(gnn_input.controlEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlArgumentEdges", PairArray(gnn_input.controlArgumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardEdges", PairArray(gnn_input.guardEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataEdges", PairArray(gnn_input.dataEdges.binaryEdge), writer, lastFiledFlag)

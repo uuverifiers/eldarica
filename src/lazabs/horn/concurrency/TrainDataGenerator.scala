@@ -113,14 +113,14 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
 
       //Output graphs
       //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      val hornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName,clauseCollection,hintsCollection,argumentInfo)
-      val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedHint,InitialHintsWithID)
-      GlobalParameters.get.hornGraphType=HornGraphType.hybridDirectionLayerGraph
-      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-      GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
-      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-      GlobalParameters.get.hornGraphType=HornGraphType.biDirectionLayerGraph
-      new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+      //val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedHint,InitialHintsWithID)
+      for(graphType<-HornGraphType.values){
+        GlobalParameters.get.hornGraphType=graphType
+        GlobalParameters.get.hornGraphType match {
+          case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+          case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+        }
+      }
     }
 
   }
@@ -129,4 +129,3 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
   //val optimizedHintsByNNs=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,encoder.globalHints,InitialHintsWithID)
 }
 
-/////debug/////
