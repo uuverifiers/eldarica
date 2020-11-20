@@ -298,7 +298,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     def replaceArgumentInBody(body: IAtom): IAtom = {
       var argList: Seq[ITerm] = Seq()
       for (arg <- body.args) {
-        if (clause.head.args.contains(arg)) {
+        if ((for (a<-clause.head.args) yield a.toString).contains(arg.toString)) {
           val ic = IConstant(newConstant(arg.toString + "__"))
           //replace argument
           argList :+= ic
