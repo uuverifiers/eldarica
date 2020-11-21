@@ -595,6 +595,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("controlBodyEdges", PairArray(gnn_input.controlBodyEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlEdges", PairArray(gnn_input.controlEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlArgumentEdges", PairArray(gnn_input.controlArgumentEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("subTermEdges", PairArray(gnn_input.subTermEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardEdges", PairArray(gnn_input.guardEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataEdges", PairArray(gnn_input.dataEdges.binaryEdge), writer, lastFiledFlag)
       }
