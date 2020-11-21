@@ -45,7 +45,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
-import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, GraphTranslator, GraphTranslator_hint, HintsSelection, ReaderMain, VerificationHintsInfo}
+import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo}
 import lazabs.viewer.HornPrinter
 
 
@@ -257,15 +257,8 @@ object TrainDataGeneratorSmt2 {
             val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
 
             //Output graphs
-            //val hornGraph = new GraphTranslator(clauses, GlobalParameters.get.fileName)
-            //val hintGraph = new GraphTranslator_hint(simplifiedClauses, GlobalParameters.get.fileName, sortedHints, InitialHintsWithID)
-            for(graphType<-HornGraphType.values){
-              GlobalParameters.get.hornGraphType=graphType
-              GlobalParameters.get.hornGraphType match {
-                case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-                case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-              }
-            }
+            GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
             //write horn clauses to file
             val writer = new PrintWriter(new File(filePath + fileName + ".horn")) //python path
             writer.write(HornPrinter(clauseSet))

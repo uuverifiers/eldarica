@@ -500,13 +500,8 @@ object TrainDataGeneratorPredicatesSmt2 {
             val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
             //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
 
-            for(graphType<-HornGraphType.values){
-              GlobalParameters.get.hornGraphType=graphType
-              GlobalParameters.get.hornGraphType match {
-                case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-                case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-              }
-            }
+            GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
 
 
             //val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)

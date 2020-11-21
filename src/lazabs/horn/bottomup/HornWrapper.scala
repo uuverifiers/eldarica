@@ -57,7 +57,7 @@ import StaticAbstractionBuilder.AbstractionType
 import ap.terfor.Formula
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
-import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
+import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
 
@@ -445,12 +445,17 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,sortedHints,predGenerator)
     val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
     val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
-    GlobalParameters.get.hornGraphType match {
-      case HornGraphType.hyperEdgeGraph=>{
-        val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+    if (GlobalParameters.get.getAllHornGraph==true) {
+        GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
       }
-      case _=>{
-        val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+      else{
+      GlobalParameters.get.hornGraphType match {
+        case HornGraphType.hyperEdgeGraph=>{
+          val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+        }
+        case _=>{
+          val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+        }
       }
     }
     sys.exit()
@@ -494,13 +499,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
         val hintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
         val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
-        for(graphType<-HornGraphType.values){
-          GlobalParameters.get.hornGraphType=graphType
-          GlobalParameters.get.hornGraphType match {
-            case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-            case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-          }
-        }
+        GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         sys.exit()
       }
 

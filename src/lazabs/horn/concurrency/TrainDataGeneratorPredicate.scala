@@ -380,15 +380,8 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       val clausesInCE=getClausesInCounterExamples(test,simpClauses)
       val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
       //Output graphs
-      //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      //val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedTemplates,InitialHintsWithID)
-      for(graphType<-HornGraphType.values){
-        GlobalParameters.get.hornGraphType=graphType
-        GlobalParameters.get.hornGraphType match {
-          case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-          case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-        }
-      }
+      GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
     }
 
 

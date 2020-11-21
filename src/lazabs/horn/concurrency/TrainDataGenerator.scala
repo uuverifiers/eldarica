@@ -112,15 +112,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
 
       //Output graphs
-      //val hornGraph = new GraphTranslator(simpClauses, GlobalParameters.get.fileName)
-      //val hintGraph= new GraphTranslator_hint(simpClauses, GlobalParameters.get.fileName, selectedHint,InitialHintsWithID)
-      for(graphType<-HornGraphType.values){
-        GlobalParameters.get.hornGraphType=graphType
-        GlobalParameters.get.hornGraphType match {
-          case HornGraphType.hyperEdgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-          case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
-        }
-      }
+      GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
     }
 
   }

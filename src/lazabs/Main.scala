@@ -64,6 +64,7 @@ class GlobalParameters extends Cloneable {
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
+  var getAllHornGraph=false
   var getLabelFromCounterExample=false
   var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
   var hornGraphWithHints=false
@@ -219,6 +220,7 @@ class GlobalParameters extends Cloneable {
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
+    that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.hornGraphWithHints=this.hornGraphWithHints
   }
@@ -318,7 +320,7 @@ object Main {
       case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getHornGraph" :: rest => {
         getHornGraph = true
-        hornGraphType = HornGraphType.hybridDirectionLayerGraph
+        getAllHornGraph = true
         arguments(rest)
       }
       case "-getHornGraph:monoDirectionLayerGraph" :: rest => {
@@ -548,7 +550,7 @@ object Main {
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -getSMT2\t get SMT2 file\n"+
-          " -getHornGraph\t get horn graph file and GNN input\n"+
+          " -getHornGraph\t get all types of horn graph file and GNN input\n"+
           " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, hyperEdgeGraph\n" +
           " -getLabelFromCE \t get label from counter example\n" +
           " -hornGraphWithHints\t get horn graph file with hints\n"
