@@ -105,11 +105,28 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   var tempID = 0
   var clauseNumber = 0
   var hyperEdgeList = scala.collection.mutable.ListBuffer[hyperEdgeInfo]()
+
+
+  def drawArgumentNodeForPredicate(pre:IAtom,controlFlowNodeName:String): Unit ={
+    var argumentNodeArray = Array[String]()
+    tempID = 0
+    for (arg <- pre.args) {
+      val argumentnodeName = argumentNodePrefix + gnn_input.predicateArgumentCanonicalID.toString
+      createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
+      constantNodeSetInOneClause(arg.toString) = argumentnodeName
+      argumentNodeArray :+= argumentnodeName
+      updateArgumentInfoHornGraphList(pre.pred.name,tempID,argumentnodeName,arg)
+      tempID += 1
+      //connect to control flow node
+      addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
+    }
+    argumentNodeSetInOneClause(pre.pred.name) = argumentNodeArray
+  }
+
   for (clause <- simpClauses) {
     hyperEdgeList.clear()
     constantNodeSetInOneClause.clear()
-    val normalizedClause = clause.normalize()
-    val (dataFlowSet, guardSet) = getDataFlowAndGuard(clause, normalizedClause, dataFlowInfoWriter)
+    val (dataFlowSet, guardSet,normalizedClause) = getDataFlowAndGuard(clause, clause.normalize(), dataFlowInfoWriter)
 
     //draw head predicate node and argument node
     val headNodeName=
@@ -123,27 +140,13 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
         drawPredicateNode(controlFlowNodeName, normalizedClause.head.pred.name, "CONTROL")
         //draw argument node
-        var argumentNodeArray = Array[String]()
-        tempID = 0
-        for (arg <- normalizedClause.head.args) {
-          val argumentnodeName = argumentNodePrefix + gnn_input.predicateArgumentCanonicalID.toString
-          createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
-          constantNodeSetInOneClause(arg.toString) = argumentnodeName
-          argumentNodeArray :+= argumentnodeName
-          updateArgumentInfoHornGraphList(normalizedClause.head.pred.name,tempID,argumentnodeName,arg)
-          tempID += 1
-          //connect to control flow node
-          addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
-          drawDataFlow(arg, dataFlowSet)
-        }
-        argumentNodeSetInOneClause(normalizedClause.head.pred.name) = argumentNodeArray
+        drawArgumentNodeForPredicate(normalizedClause.head,controlFlowNodeName)
         controlFlowNodeName
 
-      } else {
+      } else{
         for (controlNodeName <- argumentNodeSetInOneClause.keySet) if (controlNodeName == normalizedClause.head.pred.name) {
           for ((argNodeName, arg) <- argumentNodeSetInOneClause(controlNodeName) zip normalizedClause.head.args) {
             constantNodeSetInOneClause(arg.toString) = argNodeName
-            drawDataFlow(arg, dataFlowSet)
           }
         }
         controlFlowNodeSetInOneClause(normalizedClause.head.pred.name)
@@ -176,19 +179,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           //store control flow hyperedge connection between body and head
           hyperEdgeList :+= new hyperEdgeInfo(controlFlowHyperedgeName, controlFlowNodeName, controlFlowNodeSetInOneClause(normalizedClause.head.pred.name), HyperEdgeType.controlFlow)
           //draw argument node
-          var argumentNodeArray = Array[String]()
-          tempID = 0
-          for (arg <- body.args) {
-            val argumentnodeName = argumentNodePrefix + gnn_input.predicateArgumentCanonicalID.toString
-            createNode(argumentnodeName, "ARG_" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
-            constantNodeSetInOneClause(arg.toString) = argumentnodeName
-            argumentNodeArray :+= argumentnodeName
-            updateArgumentInfoHornGraphList(body.pred.name,tempID,argumentnodeName,arg)
-            tempID += 1
-            //connect to control flow node
-            addBinaryEdge(argumentnodeName, controlFlowNodeName, "argument")
-          }
-          argumentNodeSetInOneClause(body.pred.name) = argumentNodeArray
+          drawArgumentNodeForPredicate(body,controlFlowNodeName)
         } else {
           for (controlNodeName <- argumentNodeSetInOneClause.keySet) if (controlNodeName == body.pred.name) {
             for ((argNodeName, arg) <- argumentNodeSetInOneClause(controlNodeName) zip body.args) {
@@ -204,6 +195,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
+    //draw dataflow
+    for (arg <- normalizedClause.head.args)
+      drawDataFlow(arg, dataFlowSet)
 
     var guardRootNodeList:List[String]=List()
     if (guardSet.isEmpty) {
@@ -315,7 +309,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       f)
   }
 
-  def getDataFlowAndGuard(clause: Clause, normalizedClause: Clause, dataFlowInfoWriter: PrintWriter): (Set[IExpression], Set[IFormula]) = {
+  def getDataFlowAndGuard(clause: Clause, normalizedClause: Clause, dataFlowInfoWriter: PrintWriter): (Set[IExpression], Set[IFormula],Clause) = {
     /*
     Replace arguments in argumentInHead.intersect(argumentInBody) to arg' and add arg=arg' to constrains
 
@@ -361,7 +355,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     dataFlowInfoWriter.write("guard:\n")
     for (g <- guardList)
       dataFlowInfoWriter.write(g.toString + "\n")
-    (dataflowListHeadArgSymbolEquation, guardList)
+    (dataflowListHeadArgSymbolEquation, guardList,replacedClause)
   }
 
 }
