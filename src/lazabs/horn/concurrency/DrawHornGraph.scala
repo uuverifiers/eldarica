@@ -352,6 +352,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
   val argumentNodeSetInOneClause = scala.collection.mutable.Map[String, Array[String]]() //predicateName:String -> arguments Array[String]
   var astEdgeType = ""
+  var astEndNodeType=""
   val gnn_input = new GNNInput(clausesCollection)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
 
@@ -411,14 +412,20 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           astEdgeType match {
             case "templateAST"=>addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))
             case "data"=>addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
-            case _=>addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+            case "guard"=>addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
           }
         }
         case _ => {
           val toNodeClass = to.substring(0, to.indexOf("_"))
           toNodeClass match {
             case "clause" => addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
-            case "clauseArgument" => addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+            case "clauseArgument" => {
+              //addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+              astEndNodeType match {
+                case "clauseHead"=> addBinaryEdge(to, from, "data",edgeDirectionMap("data"))
+                case "clauseBody"=> addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+              }
+            }
             case _ => {
               astEdgeType match {
                 case "templateAST"=>{addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))}

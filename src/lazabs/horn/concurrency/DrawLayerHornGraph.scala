@@ -128,7 +128,10 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       "C" + gnn_input.clauseCanonicalID.toString, "clause", nodeShapeMap("clause"),Seq(clause))
     //draw constraints and connect to clause node
     for (conjunct <- LineariseVisitor(clause.constraint, IBinJunctor.And)) {
-      astEdgeType="guard"
+      GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => astEdgeType="guard"
+        case _=>
+      }
       drawAST(conjunct, clauseNodeName)
     }
 
@@ -209,6 +212,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
 */
 
   def createAndConnectAguments(clauseHeadOrBodyName:String,pred:IAtom): Unit ={
+
     var tempIDForArgument = 0
     for ((bodyArgument, predicateArgument) <- pred.args zip predicateNameMap(pred.pred.name).argumentCanonicalNameList) {
       //clause layer: create clause body/head argument node
@@ -227,10 +231,16 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       }
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
       GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>addBinaryEdge(clauseArgumentNodeName,predicateArgument._1, "argumentInstance",edgeDirectionMap("argumentInstance"))
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>{
+          astEdgeType="data"
+          addBinaryEdge(clauseArgumentNodeName,predicateArgument._1, "argumentInstance",edgeDirectionMap("argumentInstance"))
+        }
         case _=>addBinaryEdge(predicateArgument._1, clauseArgumentNodeName, "argumentInstance",edgeDirectionMap("argumentInstance"))
       }
-      astEdgeType="data"
+      clauseHeadOrBodyName.substring(0, clauseHeadOrBodyName.indexOf("_")) match {
+        case "clauseHead"=>{astEndNodeType="clauseHead"}
+        case "clauseBody"=>{astEndNodeType="clauseBody"}
+      }
       drawAST(bodyArgument, clauseArgumentNodeName)
       tempIDForArgument += 1
     }
