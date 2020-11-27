@@ -1,13 +1,6 @@
 package lazabs.horn.concurrency
-import java.io.{File, FileWriter, PrintWriter}
-
-import ap.parser._
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.VerificationHints._
-import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
-
 import scala.collection.mutable.ListBuffer
 
 object GraphTranslator{

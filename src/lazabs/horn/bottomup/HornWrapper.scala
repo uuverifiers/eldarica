@@ -1,45 +1,44 @@
 /**
-  * Copyright (c) 2011-2020 Hossein Hojjat, Philipp Ruemmer, Chencheng Liang.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-  *
-  * * Redistributions of source code must retain the above copyright notice, this
-  * list of conditions and the following disclaimer.
-  *
-  * * Redistributions in binary form must reproduce the above copyright notice,
-  * this list of conditions and the following disclaimer in the documentation
-  * and/or other materials provided with the distribution.
-  *
-  * * Neither the name of the authors nor the names of their
-  * contributors may be used to endorse or promote products derived from
-  * this software without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  */
+ * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 package lazabs.horn.bottomup
-
-import java.io.OutputStream
 
 import ap.parser._
 import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
+
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{StoppedException, TimeoutException}
+import lazabs.Main.{TimeoutException, StoppedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -50,58 +49,59 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import HornPredAbs.{RelationSymbol}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
+  StaticAbstractionBuilder, AbstractionRecord,
+  VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
-import ap.terfor.Formula
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-import lazabs.horn.abstractions.VerificationHints.VerifHintTplEqTerm
+import lazabs.horn.concurrency.ReaderMain
+
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+  LinkedHashMap}
+
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
-
-import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
 
 object HornWrapper {
 
   object NullStream extends java.io.OutputStream {
-    def write(b: Int) = {}
+    def write(b : Int) = {}
   }
-
 
   def verifySolution(fullSol : HornPreprocessor.Solution,
                      unsimplifiedClauses : Seq[Clause]) : Unit = {
-          // verify correctness of the solution
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-            import p._
-            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
-                addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+    // verify correctness of the solution
+    if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+      import p._
+      unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
+        addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
 
-                for (c <- clause.constants) (Sort sortOf c) match {
-                  case Sort.MultipleValueBool =>
-                    // since we are making use of the equivalence
-                    // x == False <=> x != True, we need to add bounds on Boolean
-                    // variables (corresponding to the law of the excluded middle)
-                    !! (c >= 0 & c <= 1)
-                  case _ =>
-                    // nothing
-                }
+        for (c <- clause.constants) (Sort sortOf c) match {
+          case Sort.MultipleValueBool =>
+            // since we are making use of the equivalence
+            // x == False <=> x != True, we need to add bounds on Boolean
+            // variables (corresponding to the law of the excluded middle)
+            !! (c >= 0 & c <= 1)
+          case _ =>
+          // nothing
+        }
 
-                !! (constraint)
-                for (IAtom(pred, args) <- body)
-                  !! (subst(fullSol(pred), args.toList, 0))
-                ?? (if (head.pred == HornClauses.FALSE)
-                      i(false)
-                    else
-                      subst(fullSol(head.pred), head.args.toList, 0))
-                ??? == ProverStatus.Valid
-              }}})
+        !! (constraint)
+        for (IAtom(pred, args) <- body)
+          !! (subst(fullSol(pred), args.toList, 0))
+        ?? (if (head.pred == HornClauses.FALSE)
+          i(false)
+        else
+          subst(fullSol(head.pred), head.args.toList, 0))
+        ??? == ProverStatus.Valid
+      }}})
   }
 
-  def verifyCEX(fullCEX: HornPreprocessor.CounterExample,
-                unsimplifiedClauses: Seq[Clause]): Unit = {
+  def verifyCEX(fullCEX : HornPreprocessor.CounterExample,
+                unsimplifiedClauses : Seq[Clause]) : Unit = {
     // verify correctness of the counterexample
     if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
       import p._
@@ -115,15 +115,14 @@ object HornWrapper {
               (unsimplifiedClauses contains clause) &&
               ((children.iterator zip body.iterator) forall {
                 case (c, IAtom(pred, _)) =>
-                  c > 0 && dag(c)._1.pred == pred
-              }) &&
+                  c > 0 && dag(c)._1.pred == pred }) &&
               // semantic check: are clause constraints satisfied?
               scope {
                 addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-                !!(state.args === head.args)
+                !! (state.args === head.args)
                 for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
-                  !!(dag(c)._1.args === args)
-                !!(constraint)
+                  !! (dag(c)._1.args === args)
+                !! (constraint)
                 ??? == ProverStatus.Sat
               }
         })
@@ -137,16 +136,15 @@ object HornWrapper {
 class HornWrapper(constraints: Seq[HornClause],
                   uppaalAbsMap: Option[Map[String, AbsLattice]],
                   lbe: Boolean,
-                  disjunctive: Boolean) {
+                  disjunctive : Boolean) {
 
-  def printClauses(cs: Seq[Clause]) = {
+  def printClauses(cs : Seq[Clause]) = {
     for (c <- cs) {
       println(c);
     }
   }
 
   private val translator = new HornTranslator
-
   import translator._
 
   //////////////////////////////////////////////////////////////////////////////
@@ -167,14 +165,14 @@ class HornWrapper(constraints: Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def readHints(filename: String,
-                        name2Pred: Map[String, Predicate])
+  private def readHints(filename : String,
+                        name2Pred : Map[String, Predicate])
   : VerificationHints = filename match {
     case "" =>
       EmptyVerificationHints
     case hintsFile => {
-      val reader = new AbsReader(
-        new java.io.BufferedReader(
+      val reader = new AbsReader (
+        new java.io.BufferedReader (
           new java.io.FileReader(hintsFile)))
       val hints =
         (for ((predName, hints) <- reader.allHints.iterator;
@@ -198,15 +196,13 @@ class HornWrapper(constraints: Seq[HornClause],
     }
   }
 
-  private val hints: VerificationHints = {
+  private val hints : VerificationHints = {
     val name2Pred =
       (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
     readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
   }
-
-
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -221,6 +217,9 @@ class HornWrapper(constraints: Seq[HornClause],
         }
 
       if (GlobalParameters.get.printHornSimplified) {
+        //      println("-------------------------------")
+        //      printClauses(simplifiedClauses)
+        //      println("-------------------------------")
 
         println("Clauses after preprocessing:")
         for (c <- simplifiedClauses)
@@ -238,7 +237,7 @@ class HornWrapper(constraints: Seq[HornClause],
       (simplifiedClauses, simpPreHints, backTranslator)
     }
 
-  private val postHints: VerificationHints = {
+  private val postHints : VerificationHints = {
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
@@ -246,9 +245,7 @@ class HornWrapper(constraints: Seq[HornClause],
     readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
   }
 
-
   val allHints = simpPreHints ++ postHints
-
 
   val params =
     if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
@@ -256,18 +253,16 @@ class HornWrapper(constraints: Seq[HornClause],
     else
       List()
 
-  val result: Either[Map[Predicate, IFormula], Dag[IAtom]] =
+  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] =
     ParallelComputation(params) {
       new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
         allHints, preprocBackTranslator,
         disjunctive, outStream).result
     }
 
-
-
   //////////////////////////////////////////////////////////////////////////////
 
-  def printMonolithic(converted: Seq[Clause]): Unit =
+  def printMonolithic(converted : Seq[Clause]) : Unit =
     if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
       Console.err.println("Clauses are linear; printing monolithic form")
 
@@ -280,7 +275,7 @@ class HornWrapper(constraints: Seq[HornClause],
       val maxArity = (preds map (_.arity)).max
 
       val p = new Predicate("p", maxArity + 1)
-      val preArgs = for (i <- 0 until (maxArity + 1))
+      val preArgs =  for (i <- 0 until (maxArity + 1))
         yield new ConstantTerm("pre" + i)
       val postArgs = for (i <- 0 until (maxArity + 1))
         yield new ConstantTerm("post" + i)
@@ -297,8 +292,7 @@ class HornWrapper(constraints: Seq[HornClause],
       }
 
       if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
-      case _ => false
-      })
+      case _ => false })
         Console.err.println("WARNING: ignoring clauses without relation symbols")
 
       val transitionClause = {
@@ -344,18 +338,12 @@ class HornWrapper(constraints: Seq[HornClause],
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class ArgumentReader(reader: java.io.Reader){
-
-}
-
-class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
-                       simplifiedClauses: Seq[Clause],
-                       simpHints: VerificationHints,
-                       preprocBackTranslator: BackTranslator,
-                       disjunctive: Boolean,
-                       outStream: java.io.OutputStream) {
-
-
+class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
+                       simplifiedClauses : Seq[Clause],
+                       simpHints : VerificationHints,
+                       preprocBackTranslator : BackTranslator,
+                       disjunctive : Boolean,
+                       outStream : java.io.OutputStream) {
 
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
@@ -364,62 +352,22 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   private lazy val absBuilder =
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
 
-  private lazy val autoAbstraction: AbstractionMap = {
+  private lazy val autoAbstraction : AbstractionMap =
     absBuilder.abstractionRecords
-  }
 
   /** Manually provided interpolation abstraction hints */
-  private lazy val hintsAbstraction: AbstractionMap =
+  private lazy val hintsAbstraction : AbstractionMap =
     if (simpHints.isEmpty)
       Map()
     else
       absBuilder.loopDetector hints2AbstractionRecord simpHints
 
-  /** Learned interpolation abstraction hints */
-  //read ranks from file
-//  private lazy val absBuilderGNN = {
-//  new StaticAbstractionBuilderSmtHintsSelection(simplifiedClauses, abstractionType)
-//  }
-//  private lazy val learnedAbstraction: AbstractionMap =
-//  absBuilder.abstractionRecords
-
-
-
-//  println("--------auto-generated-templates----------")
-//  absBuilder.abstractionHints.pretyPrintHints()
-
-  val rankedArumentFileName=""
-  private val learnedHints=learnedInterpolationAbstractionHints(rankedArumentFileName,simplifiedClauses,absBuilder.abstractionHints)
-
-  private lazy val learnedHintsAbstraction: AbstractionMap =
-    absBuilder.loopDetector hints2AbstractionRecord learnedHints
-
-
-  private def learnedInterpolationAbstractionHints(filename: String,
-                                  simplifiedClauses: Seq[Clause],
-                                  hints:VerificationHints)
-  : VerificationHints = filename match {
-    case "" =>
-      EmptyVerificationHints
-    case hintsFile => {
-      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-      val reader = new ArgumentReader(
-        new java.io.BufferedReader(
-          new java.io.FileReader(hintsFile)))
-
-      //todo:change cost
-      VerificationHints(Map())
-    }
-  }
   //////////////////////////////////////////////////////////////////////////////
 
   private val predGenerator = Console.withErr(outStream) {
     if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
-      val autoAndManualAbstractionMAP =
-        AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
-
       val fullAbstractionMap =
-        AbstractionRecord.mergeMaps(autoAndManualAbstractionMAP, learnedHintsAbstraction)
+        AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
 
       if (fullAbstractionMap.isEmpty)
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
@@ -436,19 +384,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  val sortedHints = HintsSelection.sortHints(simpHints)
   if (GlobalParameters.get.getHornGraph == true) {
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-    //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, sortedHints,countOccurrence=false)
-    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,sortedHints,predGenerator)
+    //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
+    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
     val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
     val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
     if (GlobalParameters.get.getAllHornGraph==true) {
-        GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
-      }
-      else{
+      GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
+    }
+    else{
       GlobalParameters.get.hornGraphType match {
         case HornGraphType.hyperEdgeGraph=>{
           val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
@@ -462,7 +407,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   }
 
 
-  val result: Either[Map[Predicate, IFormula], Dag[IAtom]] = {
+  //////////////////////////////////////////////////////////////////////////////
+
+  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
         HornPredAbs.CounterexampleMethod.AllShortest
@@ -474,19 +421,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       println(
         "----------------------------------- CEGAR --------------------------------------")
 
-
-      (new HornPredAbs(simplifiedClauses,
-        simpHints.toInitialPredicates, predGenerator,
-        counterexampleMethod)).result
-
       val predAbs =
         new HornPredAbs(simplifiedClauses,
           simpHints.toInitialPredicates, predGenerator,
           counterexampleMethod)
-
-      def reduce(c : Conjunction) =
-        ReduceWithConjunction(Conjunction.TRUE, c.order)(c)
-
       val result =
         predAbs.result
 
@@ -509,7 +447,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         case filename => {
           val predicates =
             VerificationHints(
-              //for ((p, preds) <- absBuilder.abstractionHints) yield {
               for ((p, preds) <- predAbs.relevantPredicates) yield {
                 val hints =
                   for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
@@ -521,16 +458,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
           val output = new java.io.FileOutputStream(filename)
           Console.withOut(output) {
-            AbsReader.printHints(absBuilder.abstractionHints)
-            //AbsReader.printHints(predicates)
+            AbsReader.printHints(predicates)
           }
         }
       }
 
       result
-
     }
-
 
     result match {
       case Left(res) =>
@@ -542,7 +476,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           // only keep relation symbols that were also part of the orginal problem
           Left(res filterKeys allPredicates(unsimplifiedClauses))
         }
-        
+
       case Right(cex) => {
         if (lazabs.GlobalParameters.get.simplifiedCEX) {
           println
@@ -564,11 +498,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 class HornTranslator {
 
-  val predicates = MHashMap[String, Literal]().empty
-
+  val predicates = MHashMap[String,Literal]().empty
   def getPrincessPredLiteral(r: HornLiteral): Literal = r match {
     case RelVar(varName, params) =>
-      predicates.get(varName) match {
+      predicates.get(varName) match{
         case Some(p) => p
         case None =>
           predicates += (varName -> new Literal {
@@ -582,8 +515,7 @@ class HornTranslator {
       throw new Exception("Invalid relation symbol")
   }
 
-  def global2bup(h: HornClause): ConstraintClause = new IConstraintClause {
-
+  def global2bup (h: HornClause): ConstraintClause = new IConstraintClause {
     import lazabs.ast.ASTree._
 
     val head = h.head match {
@@ -596,63 +528,61 @@ class HornTranslator {
         getPrincessPredLiteral(rv)
     }
     val headParams: List[Parameter] = h.head match {
-      case RelVar(_, params) => params
+      case RelVar(_,params) => params
       case _ => List()
     }
-    val bodyRelVars = (for (rv@RelVar(_, _) <- h.body) yield rv)
+    val bodyRelVars = (for(rv@RelVar(_,_) <- h.body) yield rv)
 
     val body = bodyRelVars.map(getPrincessPredLiteral(_))
 
     val freeVariables = {
-      val free = Set[String]() ++ (for (Interp(f@_) <- h.body) yield f).map(freeVars(_)).flatten.map(_.name)
+      val free = Set[String]() ++ (for(Interp(f@_) <- h.body) yield f).map(freeVars(_)).flatten.map(_.name)
       val bound = Set[String]() ++ headParams.map(_.name) ++ bodyRelVars.map(_.params.map(_.name)).flatten
       free.filterNot(bound.contains(_))
     }
 
     val localVariableNum = freeVariables.size
 
-    def iInstantiateConstraint(headArguments: Seq[ConstantTerm],
+    def iInstantiateConstraint(headArguments : Seq[ConstantTerm],
                                bodyArguments: Seq[Seq[ConstantTerm]],
-                               localVariables: Seq[ConstantTerm]): IFormula = {
+                               localVariables : Seq[ConstantTerm]) : IFormula = {
 
       //println("This is the clause: " + lazabs.viewer.HornPrinter.printDebug(h))
       //println("This is the head arguments: " + headArguments + " and the body arguments: " + bodyArguments + " and the local arguments: " + localVariables)
 
-      val symbolMap: LinkedHashMap[String, ConstantTerm] = LinkedHashMap[String, ConstantTerm]() ++
+      val symbolMap: LinkedHashMap[String,ConstantTerm] = LinkedHashMap[String,ConstantTerm]() ++
         (
           headParams.map(_.name).zip(headArguments) ++
             (bodyRelVars.zip(bodyArguments).map(x => x._1.params.map(_.name).zip(x._2)).flatten.toMap) ++
             freeVariables.zip(localVariables)
           )
-      val constraint = lazabs.nts.NtsHorn.assignmentsToConjunction(for (Interp(f@_) <- h.body) yield f)
-      val (princessFormula, _) = formula2Princess(List(constraint), symbolMap, true)
+      val constraint = lazabs.nts.NtsHorn.assignmentsToConjunction(for(Interp(f@_) <- h.body) yield f)
+      val (princessFormula,_) = formula2Princess(List(constraint),symbolMap,true)
       princessFormula.head.asInstanceOf[IFormula]
-      //println("instantiated constraint: " + res)      
+      //println("instantiated constraint: " + res)
     }
-
     override def toString = lazabs.viewer.HornPrinter.printDebug(h)
   }
 
   def horn2Eldarica(constraints: Seq[Clause]): Seq[HornClause] = {
-    var varMap = Map[ConstantTerm, String]().empty
+    var varMap = Map[ConstantTerm,String]().empty
     var xcl = 0
     var x = 0
 
-    def getVar(ct: ConstantTerm) = {
+    def getVar(ct : ConstantTerm) = {
       varMap get ct match {
         case Some(n) => n
         case None =>
           //lazabs.ast.ASTree.Parameter(,lazabs.types.IntegerType())
-          val n = "sc_" + xcl + "_" + x
-          x = x + 1;
-          varMap += ct -> n
+          val n = "sc_"+xcl+"_"+x
+          x = x+1;
+          varMap += ct->n
           n
       }
     }
-
-    def atom(a: IAtom): HornLiteral = {
+    def atom(a : IAtom) : HornLiteral = {
       a match {
-        case IAtom(HornClauses.FALSE, _) =>
+        case IAtom(HornClauses.FALSE,_) =>
           lazabs.horn.global.Interp(lazabs.ast.ASTree.BoolConst(false))
         case _ =>
           RelVar(
@@ -666,13 +596,12 @@ class HornTranslator {
           )
       }
     }
-
-    def horn2Eldarica(cl: Clause): HornClause = {
+    def horn2Eldarica(cl : Clause) : HornClause = {
       xcl = xcl + 1
       val clNorm = cl.normalize()
       val var_all = SymbolCollector constants (clNorm.constraint)
       val symbolMap_p2e = (for (v <- var_all) yield (v, getVar(v))).toMap
-      val body_atoms = Interp(formula2Eldarica(clNorm.constraint, symbolMap_p2e, false))
+      val body_atoms = Interp(formula2Eldarica(clNorm.constraint,symbolMap_p2e,false))
       val body_constr = (for (a <- clNorm.body) yield atom(a))
       HornClause(atom(clNorm.head), body_atoms :: body_constr)
     }
@@ -680,10 +609,10 @@ class HornTranslator {
     constraints map (horn2Eldarica(_))
   }
 
-  val predPool = new MHashMap[(String, Int), Predicate]
+  val predPool = new MHashMap[(String,Int), Predicate]
 
-  def relVar2Atom(rv: RelVar,
-                  symbolMap: LinkedHashMap[String, ConstantTerm]): IAtom = {
+  def relVar2Atom(rv : RelVar,
+                  symbolMap: LinkedHashMap[String, ConstantTerm]) : IAtom = {
     val RelVar(varName, params) =
       rv
     val argExprs =
@@ -704,7 +633,7 @@ class HornTranslator {
     val headAtom = cl.head match {
       case Interp(lazabs.ast.ASTree.BoolConst(false)) =>
         IAtom(HornClauses.FALSE, List())
-      case rv: RelVar =>
+      case rv : RelVar =>
         relVar2Atom(rv, symbolMap)
       case _ =>
         throw new UnsupportedOperationException
@@ -715,7 +644,7 @@ class HornTranslator {
 
     // first translate relation symbols in the body
     for (rv <- cl.body) rv match {
-      case rv: RelVar =>
+      case rv : RelVar =>
         relVarAtoms ::= relVar2Atom(rv, symbolMap)
       case _ =>
       // nothing
@@ -724,14 +653,14 @@ class HornTranslator {
     // and then interpreted constraints
     for (rv <- cl.body) rv match {
       case Interp(e) => {
-        val (interp, sym) = formula2Princess(List(e), symbolMap, true)
+        val (interp,sym) = formula2Princess(List(e), symbolMap, true)
         interpFormulas ::= interp.head
       }
       case _ =>
       // nothing
     }
 
-    Clause(headAtom, relVarAtoms,
+    Clause(headAtom,relVarAtoms,
       and(interpFormulas map (PrincessWrapper expr2Formula _)))
   }
 

@@ -38,9 +38,9 @@ import play.api.libs.json.Json
 import scala.collection.mutable.ListBuffer
 
 class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
-  println("Write "+GlobalParameters.get.hornGraphType.toString+" to file")
+  println("Write " + GlobalParameters.get.hornGraphType.toString + " to file")
   GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>{
+    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => {
       edgeNameMap += ("predicateInstance" -> "PI")
       edgeNameMap += ("argumentInstance" -> "AI")
       edgeNameMap += ("control" -> "CTRL")
@@ -48,7 +48,26 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       edgeNameMap += ("guard" -> "guard")
       edgeNameMap += ("data" -> "data")
     }
-    case _=>{
+    case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => {
+      edgeNameMap += ("predicateArgument" -> "PA")
+      edgeNameMap += ("predicateInstanceHead" -> "PIH")
+      edgeNameMap += ("predicateInstanceBody" -> "PIB")
+      edgeNameMap += ("argumentInstance" -> "AI")
+      edgeNameMap += ("controlHead" -> "CH")
+      edgeNameMap += ("controlBody" -> "CB")
+      edgeNameMap += ("controlArgumentHead" -> "CAH")
+      edgeNameMap += ("controlArgumentBody" -> "CAB")
+      edgeNameMap += ("guardConstant" -> "guard_const")
+      edgeNameMap += ("guardOperator" -> "guard_op")
+      edgeNameMap += ("guardSc" -> "guard_sc")
+      edgeNameMap += ("dataConstant" -> "data_const")
+      edgeNameMap += ("dataOperator" -> "data_op")
+      edgeNameMap += ("dataSc" -> "data_sc")
+      edgeNameMap += ("subTermConstantOperator" -> "ste_const_op")
+      edgeNameMap += ("subTermOperatorOperator" -> "ste_op_op")
+      edgeNameMap += ("subTermScOperator" -> "ste_sc_op")
+    }
+    case _ => {
       edgeNameMap += ("predicateArgument" -> "PA")
       edgeNameMap += ("predicateInstance" -> "PI")
       edgeNameMap += ("argumentInstance" -> "AI")
@@ -67,15 +86,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       edgeNameMap += (key -> "")
   }
   GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.monoDirectionLayerGraph =>{
-      for (edgeName<-edgeNameMap.keySet)
-        edgeDirectionMap += (edgeName -> false)
-    }
-    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph =>{
-      for (edgeName<-edgeNameMap.keySet)
-        edgeDirectionMap += (edgeName -> false)
-    }
-    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph =>{
+    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => {
       edgeDirectionMap += ("predicateArgument" -> false)
       edgeDirectionMap += ("predicateInstance" -> false)
       edgeDirectionMap += ("argumentInstance" -> true)
@@ -86,9 +97,13 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       edgeDirectionMap += ("data" -> false)
       edgeDirectionMap += ("subTerm" -> false)
     }
-    case DrawHornGraph.HornGraphType.biDirectionLayerGraph =>{
-      for (edgeName<-edgeNameMap.keySet)
+    case DrawHornGraph.HornGraphType.biDirectionLayerGraph => {
+      for (edgeName <- edgeNameMap.keySet)
         edgeDirectionMap += (edgeName -> true)
+    }
+    case _ => {
+      for (edgeName <- edgeNameMap.keySet)
+        edgeDirectionMap += (edgeName -> false)
     }
   }
   //node shape map
@@ -117,7 +132,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     var argumentCanonicalNameList = new ListBuffer[Pair[String, Int]]() //(canonicalName, ID)
   }
 
-  for (clause <- simpClauses;a<-clause.allAtoms) {
+  for (clause <- simpClauses; a <- clause.allAtoms) {
     createPredicateLayerNodesAndEdges(a)
   }
   for (clause <- simpClauses) {
@@ -125,12 +140,12 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     //clause layer: create clause node
     val clauseNodeName = clausePrefix + gnn_input.clauseCanonicalID.toString
     createNode(clauseNodeName,
-      "C" + gnn_input.clauseCanonicalID.toString, "clause", nodeShapeMap("clause"),Seq(clause))
+      "C" + gnn_input.clauseCanonicalID.toString, "clause", nodeShapeMap("clause"), Seq(clause))
     //draw constraints and connect to clause node
     for (conjunct <- LineariseVisitor(clause.constraint, IBinJunctor.And)) {
       GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => astEdgeType="guard"
-        case _=>
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => astEdgeType = "guard"
+        case _ =>
       }
       drawAST(conjunct, clauseNodeName)
     }
@@ -141,15 +156,16 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       "HEAD", "clauseHead", nodeShapeMap("clauseHead"))
     //clause layer: create edge between head and clause node
     GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>addBinaryEdge(clauseNodeName,clauseHeadNodeName, "control", edgeDirectionMap("control"))
-      case _=>addBinaryEdge(clauseNodeName, clauseHeadNodeName, "controlHead", edgeDirectionMap("controlHead"))
+      case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(clauseNodeName, clauseHeadNodeName, "control", edgeDirectionMap("control"))
+      case _ => addBinaryEdge(clauseNodeName, clauseHeadNodeName, "controlHead", edgeDirectionMap("controlHead"))
     }
     //predicateLayer->clauseLayer: connect predicate to clause head
     GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>addBinaryEdge(clauseHeadNodeName,predicateNameMap(clause.head.pred.name).predicateCanonicalName, "predicateInstance",edgeDirectionMap("predicateInstance"))
-      case _=>addBinaryEdge(predicateNameMap(clause.head.pred.name).predicateCanonicalName,clauseHeadNodeName, "predicateInstance",edgeDirectionMap("predicateInstance"))
+      case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(clauseHeadNodeName, predicateNameMap(clause.head.pred.name).predicateCanonicalName, "predicateInstance", edgeDirectionMap("predicateInstance"))
+      case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => addBinaryEdge(predicateNameMap(clause.head.pred.name).predicateCanonicalName, clauseHeadNodeName, "predicateInstanceHead", edgeDirectionMap("predicateInstanceHead"))
+      case _ => addBinaryEdge(predicateNameMap(clause.head.pred.name).predicateCanonicalName, clauseHeadNodeName, "predicateInstance", edgeDirectionMap("predicateInstance"))
     }
-    createAndConnectAguments(clauseHeadNodeName,clause.head)
+    createAndConnectAguments(clauseHeadNodeName, clause.head)
 
     //clause layer: create clause arguments node in body
     var tempIDForPredicate = 0
@@ -161,32 +177,36 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       tempIDForPredicate += 1
       //clause layer: create edge between body and clause node
       GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>addBinaryEdge(clauseNodeName,clauseBodyNodeName, "control",edgeDirectionMap("control"))
-        case _=>addBinaryEdge(clauseBodyNodeName,clauseNodeName, "controlBody",edgeDirectionMap("controlBody"))
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(clauseNodeName, clauseBodyNodeName, "control", edgeDirectionMap("control"))
+        case _ => addBinaryEdge(clauseBodyNodeName, clauseNodeName, "controlBody", edgeDirectionMap("controlBody"))
       }
       //predicateLayer->clauseLayer: connect predicate to clause body
-      addBinaryEdge(clauseBodyNodeName,predicateNameMap(bodyPredicate.pred.name).predicateCanonicalName, "predicateInstance",edgeDirectionMap("predicateInstance"))
+      GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph=>addBinaryEdge(clauseBodyNodeName, predicateNameMap(bodyPredicate.pred.name).predicateCanonicalName, "predicateInstanceBody", edgeDirectionMap("predicateInstanceBody"))
+        case _ =>addBinaryEdge(clauseBodyNodeName, predicateNameMap(bodyPredicate.pred.name).predicateCanonicalName, "predicateInstance", edgeDirectionMap("predicateInstance"))
+      }
 
-      createAndConnectAguments(clauseBodyNodeName,bodyPredicate)
+
+      createAndConnectAguments(clauseBodyNodeName, bodyPredicate)
     }
   }
 
   //draw templates
-  for (argInfo<-gnn_input.argumentInfoHornGraphList){
-    argumentNodeSetInPredicates("_"+argInfo.index.toString)=argInfo.canonicalName //add _ to differentiate index with other constants
+  for (argInfo <- gnn_input.argumentInfoHornGraphList) {
+    argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
   astEdgeType = "templateAST"
-  for(p<-HornClauses.allPredicates(simpClauses)){
-    val templateNameList=drawTemplates(p)
-    for (templateNodeName<-templateNameList)
-      addBinaryEdge(predicateNameMap(p.name).predicateCanonicalName,templateNodeName,"template")
+  for (p <- HornClauses.allPredicates(simpClauses)) {
+    val templateNameList = drawTemplates(p)
+    for (templateNodeName <- templateNameList)
+      addBinaryEdge(predicateNameMap(p.name).predicateCanonicalName, templateNodeName, "template")
   }
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
   //form label here
-  val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
+  val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
   /*
   //write JSON file by json library
   val layerVersionGraphGNNInput=Json.obj("nodeIds" -> gnn_input.nodeIds,"nodeSymbolList"->gnn_input.nodeSymbols,
@@ -211,7 +231,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   writer.close()
 */
 
-  def createAndConnectAguments(clauseHeadOrBodyName:String,pred:IAtom): Unit ={
+  def createAndConnectAguments(clauseHeadOrBodyName: String, pred: IAtom): Unit = {
 
     var tempIDForArgument = 0
     for ((bodyArgument, predicateArgument) <- pred.args zip predicateNameMap(pred.pred.name).argumentCanonicalNameList) {
@@ -221,25 +241,35 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
         "ARG" + tempIDForArgument.toString, "clauseArgument", nodeShapeMap("clauseArgument"))
       //clause layer: create edge between body/head and argument
       GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>addBinaryEdge(clauseArgumentNodeName,clauseHeadOrBodyName, "controlArgument",edgeDirectionMap("controlArgument"))
-        case _=>{
-          clauseHeadOrBodyName.substring(0,clauseHeadOrBodyName.indexOf("_")) match {
-            case "clauseHead"=>addBinaryEdge(clauseHeadOrBodyName,clauseArgumentNodeName, "controlArgument",edgeDirectionMap("controlArgument"))
-            case "clauseBody"=>addBinaryEdge(clauseArgumentNodeName,clauseHeadOrBodyName, "controlArgument",edgeDirectionMap("controlArgument"))
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(clauseArgumentNodeName, clauseHeadOrBodyName, "controlArgument", edgeDirectionMap("controlArgument"))
+        case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph =>{
+          clauseHeadOrBodyName.substring(0, clauseHeadOrBodyName.indexOf("_")) match {
+            case "clauseHead" => addBinaryEdge(clauseHeadOrBodyName, clauseArgumentNodeName, "controlArgumentHead", edgeDirectionMap("controlArgumentHead"))
+            case "clauseBody" => addBinaryEdge(clauseArgumentNodeName, clauseHeadOrBodyName, "controlArgumentBody", edgeDirectionMap("controlArgumentBody"))
+          }
+        }
+        case _ => {
+          clauseHeadOrBodyName.substring(0, clauseHeadOrBodyName.indexOf("_")) match {
+            case "clauseHead" => addBinaryEdge(clauseHeadOrBodyName, clauseArgumentNodeName, "controlArgument", edgeDirectionMap("controlArgument"))
+            case "clauseBody" => addBinaryEdge(clauseArgumentNodeName, clauseHeadOrBodyName, "controlArgument", edgeDirectionMap("controlArgument"))
           }
         }
       }
       //predicateLayer->clauseLayer: connect predicate argument to clause argument
       GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph=>{
-          astEdgeType="data"
-          addBinaryEdge(clauseArgumentNodeName,predicateArgument._1, "argumentInstance",edgeDirectionMap("argumentInstance"))
+        case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => {
+          astEdgeType = "data"
+          addBinaryEdge(clauseArgumentNodeName, predicateArgument._1, "argumentInstance", edgeDirectionMap("argumentInstance"))
         }
-        case _=>addBinaryEdge(predicateArgument._1, clauseArgumentNodeName, "argumentInstance",edgeDirectionMap("argumentInstance"))
+        case _ => addBinaryEdge(predicateArgument._1, clauseArgumentNodeName, "argumentInstance", edgeDirectionMap("argumentInstance"))
       }
       clauseHeadOrBodyName.substring(0, clauseHeadOrBodyName.indexOf("_")) match {
-        case "clauseHead"=>{astEndNodeType="clauseHead"}
-        case "clauseBody"=>{astEndNodeType="clauseBody"}
+        case "clauseHead" => {
+          astEndNodeType = "clauseHead"
+        }
+        case "clauseBody" => {
+          astEndNodeType = "clauseBody"
+        }
       }
       drawAST(bodyArgument, clauseArgumentNodeName)
       tempIDForArgument += 1
@@ -250,7 +280,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   def createPredicateLayerNodesAndEdges(pred: IAtom): Unit = {
     //predicate layer: create predicate and argument node
     if (!predicateNameMap.contains(pred.pred.name)) {
-      if(pred.pred.name!="FALSE"){
+      if (pred.pred.name != "FALSE") {
         val predicateNodeCanonicalName = predicateNamePrefix + gnn_input.predicateNameCanonicalID.toString
         predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))
         createNode(predicateNodeCanonicalName,
@@ -263,15 +293,15 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
             "Arg" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
           //create edge from argument to predicate
           GlobalParameters.get.hornGraphType match {
-            case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph =>addBinaryEdge(argumentNodeCanonicalName,predicateNodeCanonicalName, "controlArgument",edgeDirectionMap("controlArgument"))
-            case _=>addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument",edgeDirectionMap("predicateArgument"))
+            case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(argumentNodeCanonicalName, predicateNodeCanonicalName, "controlArgument", edgeDirectionMap("controlArgument"))
+            case _ => addBinaryEdge(predicateNodeCanonicalName, argumentNodeCanonicalName, "predicateArgument", edgeDirectionMap("predicateArgument"))
           }
           predicateNameMap(pred.pred.name).argumentCanonicalNameList += Pair(argumentNodeCanonicalName, tempID)
           //gnn_input.argumentInfoHornGraphList += new argumentInfoHronGraph(pred.pred.name, tempID,gnn_input.GNNNodeID-1)
-          updateArgumentInfoHornGraphList(pred.pred.name,tempID,argumentNodeCanonicalName,headArg)
+          updateArgumentInfoHornGraphList(pred.pred.name, tempID, argumentNodeCanonicalName, headArg)
           tempID += 1
         }
-      }else{
+      } else {
         val predicateNodeCanonicalName = "FALSE"
         predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))
         createNode(predicateNodeCanonicalName,
