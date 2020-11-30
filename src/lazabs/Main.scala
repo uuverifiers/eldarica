@@ -353,6 +353,11 @@ object Main {
         hornGraphType = HornGraphType.hyperEdgeGraph
         arguments(rest)
       }
+      case "-getHornGraph:equivalentHyperedgeGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.equivalentHyperedgeGraph
+        arguments(rest)
+      }
       case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)

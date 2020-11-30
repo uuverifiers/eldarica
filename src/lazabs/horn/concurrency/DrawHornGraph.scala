@@ -30,6 +30,7 @@ package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
 
+import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
@@ -44,7 +45,7 @@ object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
     //type HornGraphType = Value
-    val hyperEdgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph, clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph= Value
+    val hyperEdgeGraph,equivalentHyperedgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph, clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph= Value
   }
 
   def addQuotes(str: String): String = {
@@ -372,6 +373,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     case DrawHornGraph.HornGraphType.monoDirectionLayerGraph => "mono-layerHornGraph"
     case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => "clause-related-task-layerHornGraph"
     case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => "fine-grained-edge-type-layerHornGraph"
+    case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph => "equivalent-hyperedgeGraph"
   }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
@@ -587,16 +589,15 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
-    println(e.toString)
     val rootName = e match {
-      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, new ConstantTerm("0"))
+      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
       case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
       case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit)
-      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, new ConstantTerm("0"))
+      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, IdealInt.ZERO)
       case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
       case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
       case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
-      //case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
+      case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
       //case SignConst(t)=>{println("SignConst")}
       //case SimpleTerm(t)=>{println("SimpleTerm")}
       //      case LeafFormula(t)=>{
@@ -617,17 +618,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case INot(subformula) =>  drawASTUnaryRelation("!", previousNodeName, subformula)
       case IQuantified(quan, subformula) =>  drawASTUnaryRelation(quan.toString, previousNodeName, subformula)
       case ITrigger(patterns, subformula) => {""}
-      case IConstant(c) => {
-       if (c.toString().forall(_.isDigit)) {
-         println("IConstant",c.toString(),"isDigit")
-         drawASTEndNode(c.name, previousNodeName, "constant")
-        }
-       else {
-         println("IConstant",c.toString(),"isNotDigit")
-         drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
-       }
-        //drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
-      }
+      case IConstant(c) => drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
       case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond)
       case IFunApp(fun, args) => {""}
       case IIntLit(v) => drawASTEndNode(v.toString(), previousNodeName, "constant")
