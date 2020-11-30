@@ -137,7 +137,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       }
     }
 
-
     //draw body predicate node and argument node
     var bodyNodeNameList:Array[String]=Array()
     if (normalizedClause.body.isEmpty) {
@@ -188,6 +187,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       val trueNodeName = "true_" + gnn_input.GNNNodeID.toString
       guardRootNodeList:+=trueNodeName
       createNode(trueNodeName, "true", "constant", nodeShapeMap("constant"))
+      constantNodeSetCrossGraph("true")=trueNodeName
       constantNodeSetInOneClause("true") = trueNodeName
       drawHyperEdgeWithTrueGuard(trueNodeName)
     } else {
@@ -238,7 +238,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName:String,labelName:String,className:String): Unit ={
     GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.hyperEdgeGraph => createHyperEdgeNode(controlFlowHyperedgeName, labelName+ clauseNumber.toString, className, nodeShapeMap(className))
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph => createHyperEdgeNode(controlFlowHyperedgeName, labelName, className, nodeShapeMap(className))
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph =>
     }
   }

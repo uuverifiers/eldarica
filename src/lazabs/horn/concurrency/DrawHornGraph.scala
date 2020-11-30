@@ -379,6 +379,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
+  val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
   val argumentNodeSetInPredicates = scala.collection.mutable.Map[String, String]() //map[argumentConstantName->argumentNameWithCanonicalNumber]
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
@@ -534,31 +535,34 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
   def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
     //println("constantStr",constantStr,"className",className)
-    if (argumentNodeSetInPredicates.isEmpty){ //argument merging node is included in constantNodeSetInOneClause
+    if (argumentNodeSetInPredicates.isEmpty){ //not drawing templates
       drawAndMergeConstantNode(constantStr,previousNodeName,className)
     }else{ //when create template nodes, argumentNodeSetInPredicates store argument node name
       if(argumentNodeSetInPredicates.keySet.contains(constantStr)){//if this node is a argument, merge argument
         addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName,className)
         argumentNodeSetInPredicates(constantStr)
       }else{//if this node is a constant, treat with regular constant. constantNodeSetInOneClause range in one predicate
-//        val constantName = constantStr + "_" + gnn_input.GNNNodeID
-//        createNode(constantName, constantStr, className, nodeShapeMap(className))
-//        addEdgeInSubTerm(constantName, previousNodeName)
-//        constantName
         drawAndMergeConstantNode(constantStr,previousNodeName,className)
       }
     }
   }
 
   def drawAndMergeConstantNode(constantStr:String,previousNodeName:String,className:String): String = {
-    if (constantNodeSetInOneClause.keySet.contains(constantStr)) {
+    if (constantNodeSetCrossGraph.keySet.contains(constantStr)){ //if a constant is a global constant
+      addEdgeInSubTerm(constantNodeSetCrossGraph(constantStr), previousNodeName,className)
+      constantNodeSetCrossGraph(constantStr)
+    } else if (constantNodeSetInOneClause.keySet.contains(constantStr)) { //if a constant is a local clause constant
       addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName,className)
       constantNodeSetInOneClause(constantStr)
     } else {
       val constantName = constantStr + "_" + gnn_input.GNNNodeID
       createNode(constantName, constantStr, className, nodeShapeMap(className))
       addEdgeInSubTerm(constantName, previousNodeName,className)
-      constantNodeSetInOneClause(constantStr) = constantName
+      //constantNodeSetInOneClause(constantStr) = constantName
+      className match {
+        case "constant" => constantNodeSetCrossGraph(constantStr) = constantName
+        case _ => constantNodeSetInOneClause(constantStr) = constantName
+      }
       constantName
     }
   }
