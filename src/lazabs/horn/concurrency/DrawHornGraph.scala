@@ -170,7 +170,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
     val fromID = nodeNameToIDMap(from)
     val toID = nodeNameToIDMap(to)
     GlobalParameters.get.hornGraphType match {
-      case HornGraphType.hyperEdgeGraph => {
+      case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph=> {
         label match {
           // hyperedge graph
           case "dataFlowAST" => dataFlowASTEdges.incrementBinaryEdge(fromID, toID)
@@ -437,9 +437,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   def addEdgeInSubTerm(from: String, to: String, fromNodeLabel:String = ""): Unit = {
     if (!to.isEmpty) {
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph => {
-          addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
-        }
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
         case HornGraphType.clauseRelatedTaskLayerGraph=>{
           astEdgeType match {
             case "templateAST"=>addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))
@@ -663,15 +661,21 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("predicateOccurrenceInClause", IntArray(gnn_input.predicateOccurrenceInClause), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("predicateStrongConnectedComponent", IntArray(gnn_input.predicateStrongConnectedComponent), writer, lastFiledFlag)
     GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.hyperEdgeGraph => {
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph=> {
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
-        //temp change on hyperedge graph
-//        writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
-//        writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+      }
+      case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph=>{
+        writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", PairArray(gnn_input.controlFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", PairArray(gnn_input.dataFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
       }

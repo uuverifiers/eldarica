@@ -321,12 +321,8 @@ class VerificationLoop(system : ParametricEncoder.System,
         }
         else{
           GlobalParameters.get.hornGraphType match {
-            case HornGraphType.hyperEdgeGraph=>{
-              val hyperedgeHornGraph = new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
-            }
-            case _=>{
-              val layerHornGraph= new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
-            }
+            case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+            case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
           }
         }
         sys.exit()
