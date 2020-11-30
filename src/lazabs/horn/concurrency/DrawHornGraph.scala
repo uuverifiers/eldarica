@@ -178,6 +178,8 @@ class GNNInput(clauseCollection:ClauseInfo) {
           case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "argument" => argumentEdges.incrementBinaryEdge(fromID, toID)
           case "clause" => clauseEdges.incrementBinaryEdge(fromID,toID)
+          case "controlFlowHyperEdge"=> controlFlowHyperEdges.incrementBinaryEdge(fromID,toID)
+          case "dataFlowHyperEdge" => dataFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }
@@ -531,8 +533,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
-    println("constantStr",constantStr,"className",className)
-
+    //println("constantStr",constantStr,"className",className)
     if (argumentNodeSetInPredicates.isEmpty){ //argument merging node is included in constantNodeSetInOneClause
       drawAndMergeConstantNode(constantStr,previousNodeName,className)
     }else{ //when create template nodes, argumentNodeSetInPredicates store argument node name
@@ -586,6 +587,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
+    println(e.toString)
     val rootName = e match {
       case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, new ConstantTerm("0"))
       case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
@@ -616,10 +618,14 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case IQuantified(quan, subformula) =>  drawASTUnaryRelation(quan.toString, previousNodeName, subformula)
       case ITrigger(patterns, subformula) => {""}
       case IConstant(c) => {
-       if (c.toString().forall(_.isDigit))
-        drawASTEndNode(c.name, previousNodeName, "constant")
-       else
+       if (c.toString().forall(_.isDigit)) {
+         println("IConstant",c.toString(),"isDigit")
+         drawASTEndNode(c.name, previousNodeName, "constant")
+        }
+       else {
+         println("IConstant",c.toString(),"isNotDigit")
          drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
+       }
         //drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
       }
       case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond)
@@ -672,8 +678,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
-        writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
-        writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+        //temp change on hyperedge graph
+//        writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+//        writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("controlFlowHyperEdges", PairArray(gnn_input.controlFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("dataFlowHyperEdges", PairArray(gnn_input.dataFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
       }
       case _ => {
         writeGNNInputFieldToJSONFile("predicateArgumentEdges", PairArray(gnn_input.predicateArgumentEdges.binaryEdge), writer, lastFiledFlag)
@@ -699,8 +708,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("subTermConstantOperatorEdges", PairArray(gnn_input.subTermConstantOperatorEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("subTermOperatorOperatorEdges", PairArray(gnn_input.subTermOperatorOperatorEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("subTermScOperatorEdges", PairArray(gnn_input.subTermScOperatorEdges.binaryEdge), writer, lastFiledFlag)
-
-
       }
     }
     lastFiledFlag = true
