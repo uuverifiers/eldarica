@@ -321,7 +321,7 @@ class VerificationLoop(system : ParametricEncoder.System,
         }
         else{
           GlobalParameters.get.hornGraphType match {
-            case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+            case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph |HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
             case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
           }
         }

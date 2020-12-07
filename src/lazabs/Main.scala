@@ -358,6 +358,11 @@ object Main {
         hornGraphType = HornGraphType.equivalentHyperedgeGraph
         arguments(rest)
       }
+      case "-getHornGraph:concretizedHyperedgeGraph" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.concretizedHyperedgeGraph
+        arguments(rest)
+      }
       case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
@@ -561,7 +566,7 @@ object Main {
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -getSMT2\t get SMT2 file\n"+
           " -getHornGraph\t get all types of horn graph file and GNN input\n"+
-          " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph, hyperEdgeGraph\n" +
+          " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph, hyperEdgeGraph, equivalentHyperedgeGraph, concretizedHyperedgeGraph\n" +
           " -getLabelFromCE \t get label from counter example\n" +
           " -hornGraphWithHints\t get horn graph file with hints\n"
 

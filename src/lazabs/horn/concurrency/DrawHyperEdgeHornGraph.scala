@@ -81,7 +81,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeDirectionMap += ("guardAST" -> false)
   edgeDirectionMap += ("argument" -> false)
   edgeDirectionMap += ("clause" -> false)
-
   //node cotegory: Operator and Constant don't need canonical name. FALSE is unique category
   val controlNodePrefix = "CONTROLN_"
   val symbolicConstantNodePrefix = "SYMBOLIC_CONSTANT_"
@@ -105,7 +104,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   var tempID = 0
   var clauseNumber = 0
   var hyperEdgeList = scala.collection.mutable.ListBuffer[hyperEdgeInfo]()
-
 
   for (clause <- simpClauses) {
     hyperEdgeList.clear()
@@ -136,7 +134,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         controlFlowNodeSetInOneClause(normalizedClause.head.pred.name)
       }
     }
-
     //draw body predicate node and argument node
     var bodyNodeNameList:Array[String]=Array()
     if (normalizedClause.body.isEmpty) {
@@ -197,10 +194,16 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         guardRootNodeList:+=guardRootNodeName
         for (hyperEdgeNode <- hyperEdgeList) {
           hyperEdgeNode.guardName += guardRootNodeName
-          if (hyperEdgeNode.guardName.size <= 1)
-            drawHyperEdge(hyperEdgeNode,guardRootNodeName,addTernaryEdge)
-          else
-            drawHyperEdge(hyperEdgeNode,guardRootNodeName,updateTernaryEdge)
+          if (hyperEdgeNode.guardName.size <= 1) {
+            GlobalParameters.get.hornGraphType match {
+              case HornGraphType.concretizedHyperedgeGraph=> drawHyperEdge(hyperEdgeNode,guardRootNodeName,addConcretinizedTernaryEdge)
+              case HornGraphType.hyperEdgeGraph| HornGraphType.equivalentHyperedgeGraph=> drawHyperEdge(hyperEdgeNode,guardRootNodeName,addTernaryEdge)
+            }
+          } else
+            GlobalParameters.get.hornGraphType match {
+              case HornGraphType.concretizedHyperedgeGraph=> drawHyperEdge(hyperEdgeNode,guardRootNodeName,updateConcretinizedTernaryEdge)
+              case HornGraphType.hyperEdgeGraph| HornGraphType.equivalentHyperedgeGraph=> drawHyperEdge(hyperEdgeNode,guardRootNodeName,updateTernaryEdge)
+            }
         }
       }
     }
@@ -240,6 +243,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.hyperEdgeGraph => createHyperEdgeNode(controlFlowHyperedgeName, labelName, className, nodeShapeMap(className))
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph =>
+      case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>createConcretinizedHyperEdgeNode(controlFlowHyperedgeName,labelName,className,nodeShapeMap(className))
     }
   }
   def drawHyperEdgeWithTrueGuard(middleNodeName:String): Unit ={
@@ -257,6 +261,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
               addBinaryEdge(middleNodeName,hyperEdgeNode.toName,label="dataFlowHyperEdge")
               addBinaryEdge(hyperEdgeNode.toName,hyperEdgeNode.fromName,label="dataFlowHyperEdge")
             }
+          }
+        }
+      }
+      case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>{
+        for (hyperEdgeNode <- hyperEdgeList) {
+          hyperEdgeNode.hyperEdgeType match {
+            case HyperEdgeType.controlFlow => addConcretinizedTernaryEdge(hyperEdgeNode.fromName, middleNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "controlFlowHyperEdge")
+            case HyperEdgeType.dataFlow => addConcretinizedTernaryEdge(hyperEdgeNode.fromName, middleNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "dataFlowHyperEdge")
           }
         }
       }
@@ -280,7 +292,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
             addBinaryEdge(guardRootNodeName,hyperEdgeNode.toName,label="controlFlowHyperEdge")
             addBinaryEdge(hyperEdgeNode.toName,hyperEdgeNode.fromName,label="controlFlowHyperEdge")
           }
-          case DrawHornGraph.HornGraphType.hyperEdgeGraph => f(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "controlFlowHyperEdge")
+          //case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=> addConcretinizedTernaryEdge(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "controlFlowHyperEdge")
+          case DrawHornGraph.HornGraphType.hyperEdgeGraph |DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => f(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "controlFlowHyperEdge")
         }
       }
       case HyperEdgeType.dataFlow => {
@@ -290,7 +303,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
             addBinaryEdge(guardRootNodeName,hyperEdgeNode.toName,label="dataFlowHyperEdge")
             addBinaryEdge(hyperEdgeNode.toName,hyperEdgeNode.fromName,label="dataFlowHyperEdge")
           }
-          case DrawHornGraph.HornGraphType.hyperEdgeGraph =>  f(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "dataFlowHyperEdge")
+          //case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=> addConcretinizedTernaryEdge(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "dataFlowHyperEdge")
+          case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>  f(hyperEdgeNode.fromName, guardRootNodeName, hyperEdgeNode.toName, hyperEdgeNode.hyperEdgeNodeName, "dataFlowHyperEdge")
         }
       }
     }

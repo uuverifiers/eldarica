@@ -29,13 +29,12 @@
 package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
-
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
-import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 
@@ -45,7 +44,7 @@ object DrawHornGraph {
 
   object HornGraphType extends Enumeration {
     //type HornGraphType = Value
-    val hyperEdgeGraph,equivalentHyperedgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph, clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph= Value
+    val hyperEdgeGraph,concretizedHyperedgeGraph,equivalentHyperedgeGraph, monoDirectionLayerGraph,biDirectionLayerGraph, hybridDirectionLayerGraph, clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph= Value
   }
 
   def addQuotes(str: String): String = {
@@ -170,7 +169,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
     val fromID = nodeNameToIDMap(from)
     val toID = nodeNameToIDMap(to)
     GlobalParameters.get.hornGraphType match {
-      case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph=> {
+      case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=> {
         label match {
           // hyperedge graph
           case "dataFlowAST" => dataFlowASTEdges.incrementBinaryEdge(fromID, toID)
@@ -355,6 +354,10 @@ class GNNInput(clauseCollection:ClauseInfo) {
         nodeSymbols :+= nodeClass + "_" + templateCanonicalID.toString
         templateCanonicalID += 1
       }
+      case "controlFlowHyperEdge"=>
+        nodeSymbols :+= nodeClass + "_" + controlFlowHyperEdgeCanonicalID.toString
+      case "dataFlowHyperEdge"=>
+        nodeSymbols :+= nodeClass + "_" + dataFlowHyperEdgeCanonicalID.toString
       case "FALSE" => nodeSymbols :+= nodeName
       case "operator" => nodeSymbols :+= nodeName
       case "constant" => nodeSymbols :+= nodeName
@@ -374,6 +377,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => "clause-related-task-layerHornGraph"
     case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => "fine-grained-edge-type-layerHornGraph"
     case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph => "equivalent-hyperedgeGraph"
+    case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => "concretized-hyperedgeGraph"
   }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
@@ -414,7 +418,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
   }
 
-  def addTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit = {
+  def drawTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit ={
     //fromNode to hyperedge
     writerGraph.write(addQuotes(from) + " -> " + addQuotes(hyperEdgeName) +
       " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
@@ -424,8 +428,19 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     //hyperedge to toNode
     writerGraph.write(addQuotes(hyperEdgeName) + " -> " + addQuotes(to) +
       " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+  }
+
+  def addTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit = {
+    drawTernaryEdge(from,guard,to,hyperEdgeName,label)
     //form gnn input
     gnn_input.incrementTernaryEdge(from, guard, to, label)
+  }
+
+  def addConcretinizedTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit ={
+    drawTernaryEdge(from,guard,to,hyperEdgeName,label)
+    gnn_input.incrementBinaryEdge(from,hyperEdgeName,label)
+    gnn_input.incrementBinaryEdge(guard,hyperEdgeName,label)
+    gnn_input.incrementBinaryEdge(hyperEdgeName,to,label)
   }
 
   def updateTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit = {
@@ -434,11 +449,18 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
     gnn_input.incrementTernaryEdge(from, guard, to, label)
   }
+  def updateConcretinizedTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit ={
+    writerGraph.write(addQuotes(guard) + " -> " + addQuotes(hyperEdgeName) +
+      " [label=" + addQuotes(edgeNameMap(label)) + "]" + "\n")
+    gnn_input.incrementBinaryEdge(from,hyperEdgeName,label)
+    gnn_input.incrementBinaryEdge(guard,hyperEdgeName,label)
+    gnn_input.incrementBinaryEdge(hyperEdgeName,to,label)
+  }
 
   def addEdgeInSubTerm(from: String, to: String, fromNodeLabel:String = ""): Unit = {
     if (!to.isEmpty) {
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph |HornGraphType.concretizedHyperedgeGraph => addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
         case HornGraphType.clauseRelatedTaskLayerGraph=>{
           astEdgeType match {
             case "templateAST"=>addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))
@@ -589,6 +611,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case "dataFlowHyperEdge" => gnn_input.dataFlowHyperEdgeCanonicalID += 1
     }
   }
+  def createConcretinizedHyperEdgeNode(canonicalName: String, labelName: String, className: String, shape: String): Unit = {
+    createNode(canonicalName,labelName,className,shape)
+    className match {
+      case "controlFlowHyperEdge" => gnn_input.controlFlowHyperEdgeCanonicalID += 1
+      case "dataFlowHyperEdge" => gnn_input.dataFlowHyperEdgeCanonicalID += 1
+    }
+  }
 
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
     val rootName = e match {
@@ -674,7 +703,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
       }
-      case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph=>{
+      case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph| DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>{
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)

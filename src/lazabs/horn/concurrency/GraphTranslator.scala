@@ -8,7 +8,7 @@ object GraphTranslator{
     for(graphType<-HornGraphType.values){
       GlobalParameters.get.hornGraphType=graphType
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph |HornGraphType.equivalentHyperedgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
+        case HornGraphType.hyperEdgeGraph |HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph =>new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
         case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintsCollection,argumentInfo)
       }
     }

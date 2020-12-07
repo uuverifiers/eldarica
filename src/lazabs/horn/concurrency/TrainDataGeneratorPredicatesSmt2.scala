@@ -319,6 +319,12 @@ object TrainDataGeneratorPredicatesSmt2 {
           throw TimeoutException
         }
       }
+      //todo: simple generator
+      //constrains in clauses as initial predicates
+      //arguments =/<=/>= a constant
+      //for training we use terminating examples.
+      //todo: relevance filter of predicates
+
 
       val Cegar = new HornPredAbs(simplifiedClauses,
         simpHints.toInitialPredicates, predGenerator,
@@ -498,7 +504,6 @@ object TrainDataGeneratorPredicatesSmt2 {
             //Output graphs
             val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
             val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
-            //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
 
             GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 

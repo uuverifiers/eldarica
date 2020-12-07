@@ -395,7 +395,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }
     else{
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph|HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
         case _=> new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
       }
     }
@@ -429,8 +429,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
 
         val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
-        val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=true)
-        //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+        val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
         val hintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
         val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
         GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
