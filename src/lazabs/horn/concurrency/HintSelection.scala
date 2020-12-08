@@ -35,40 +35,28 @@ import lazabs.horn.abstractions.{AbstractionRecord, LoopDetector, StaticAbstract
 import lazabs.horn.bottomup._
 
 import scala.io.Source
-import scala.collection.mutable.{LinkedHashMap, ListBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer, HashMap => MHashMap, HashSet => MHashSet}
 import java.io.{File, FileWriter, PrintWriter}
-
 import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import java.nio.file.{Files, Paths, StandardCopyOption}
 
+import java.nio.file.{Files, Paths, StandardCopyOption}
 import ap.parser._
 import IExpression._
 import lazabs.horn.bottomup.HornClauses
-import java.lang.System.currentTimeMillis
 
+import java.lang.System.currentTimeMillis
 import ap.PresburgerTools
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFactory}
 
-class wrappedHintWithID {
-  var ID: Int = 0
-  var head: String = ""
-  var hint: String = ""
-
-  def this(ID: Int, head: String, hint: String) = {
-    this();
-    this.ID = ID;
-    this.head = head;
-    this.hint = hint;
-  }
-}
+case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
 
@@ -1123,28 +1111,23 @@ object HintsSelection {
       }
     }
 
-    return readHints
+    readHints
   }
 
+  def transformPredicateMapToVerificationHints(originalPredicates:Map[Predicate, Seq[IFormula]]):  VerificationHints ={
+    VerificationHints(
+      for ((head, preds) <- originalPredicates) yield
+        head -> (for (p <- preds) yield VerificationHints.VerifHintInitPred(p))
+    )
+  }
 
   def initialIDForHints(simpHints: VerificationHints): Seq[wrappedHintWithID] = {
-    //var HintsIDMap=Map("initialKey"->"")
-    var wrappedHintsList: Seq[wrappedHintWithID] = Seq()
-    var HintsIDMap: Map[String, String] = Map()
     var counter = 0
-
-    for ((head) <- simpHints.getPredicateHints().keys.toList) { //loop for head
-      for (oneHint <- simpHints.getValue(head)) { //loop for every template in the head
-        HintsIDMap ++= Map(counter.toString + ":" + head.name.toString() -> oneHint.toString) //map(ID:head->hint)
-        counter = counter + 1
-        val oneWrappedHint = new wrappedHintWithID(counter, head.name.toString, oneHint.toString)
-        wrappedHintsList = wrappedHintsList ++ Seq(oneWrappedHint)
-      }
+    val wrappedHintsList = for ((head,hints) <- simpHints.getPredicateHints();oneHint <- hints) yield{
+      counter = counter + 1
+      wrappedHintWithID(counter, head.name, oneHint.toString)
     }
-    //HintsIDMap=HintsIDMap-"initialKey"
-
-    return wrappedHintsList
-
+    wrappedHintsList.toSeq
   }
 
 
