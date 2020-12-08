@@ -55,9 +55,10 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
+  var generateSimplePredicates=false
   var totalHints=0
-  var threadTimeout = 2000
-  var solvabilityTimeout=2000
+  var threadTimeout = 60000
+  var solvabilityTimeout=60000
   var extractTemplates=false
   var extractPredicates=false
   var readHints=false
@@ -223,6 +224,7 @@ class GlobalParameters extends Cloneable {
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.hornGraphWithHints=this.hornGraphWithHints
+    that.generateSimplePredicates=this.generateSimplePredicates
   }
 
   override def clone : GlobalParameters = {
@@ -315,6 +317,7 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-extractTemplates" :: rest => extractTemplates = true; arguments(rest)
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
+      case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
@@ -424,11 +427,11 @@ object Main {
         arguments(rest)
       case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>
         threadTimeout =
-          (java.lang.Float.parseFloat(tTimeout.drop(12)) ).toInt;
+          (java.lang.Float.parseFloat(tTimeout.drop("-absTimeout:".length)) *1000).toInt;
         arguments(rest)
       case tTimeout :: rest if (tTimeout.startsWith("-solvabilityTimeout:")) =>
         solvabilityTimeout =
-          (java.lang.Float.parseFloat(tTimeout.drop("-solvabilityTimeout:".length)) ).toInt;
+          (java.lang.Float.parseFloat(tTimeout.drop("-solvabilityTimeout:".length))*1000 ).toInt;
         arguments(rest)
       case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>
         rank =
@@ -560,7 +563,8 @@ object Main {
           " -arithMode:t\t Integer semantics: math (default), ilp32, lp64, llp64\n" +
           " -pIntermediate\t Dump Horn clauses encoding concurrent programs\n"+
           " -extractTemplates\t extract templates training data\n"+
-          " -extractPredicates\t extract predicates training data\n"+
+          " -extractPredicates\t extract predicates from CEGAR process\n"+
+          " -generateSimplePredicates\t extract predicates using simply generated predicates\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+

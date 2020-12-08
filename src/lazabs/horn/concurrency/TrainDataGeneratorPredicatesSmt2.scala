@@ -33,12 +33,12 @@ import lazabs.ast.ASTree._
 import bottomup.{HornTranslator, _}
 import abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, VerificationHints}
 import ap.parser._
-import IExpression.{Predicate}
-import bottomup.HornClauses.{Clause}
+import IExpression.{Eq, Geq, Predicate}
+import bottomup.HornClauses.Clause
 import bottomup.Util.Dag
 import ap.parser._
 import lazabs.GlobalParameters
-import lazabs.Main.{TimeoutException}
+import lazabs.Main.TimeoutException
 import preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import bottomup.HornClauses._
 import global._
@@ -47,8 +47,9 @@ import AbstractionRecord.AbstractionMap
 import ap.terfor.conjunctions.Conjunction
 import concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
 import concurrency._
-import abstractions.VerificationHints.{VerifHintElement, _}
+import ap.basetypes.IdealInt
 import bottomup.DisjInterpolator.AndOrNode
+
 
 object TrainDataGeneratorPredicatesSmt2 {
   def apply(clauseSet: Seq[HornClause],
@@ -262,15 +263,12 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       /////////////////////////predicates extracting begin///////////////////////////////
 
-      val timeOut = GlobalParameters.get.threadTimeout //timeout
-      val solvabilityTimeout=GlobalParameters.get.solvabilityTimeout
-
       println("extract original predicates")
       //check solvability
       val startTimeCEGAR = currentTimeMillis
       val toParamsCEGAR = GlobalParameters.get.clone
       toParamsCEGAR.timeoutChecker = () => {
-        if ((currentTimeMillis - startTimeCEGAR) > solvabilityTimeout * 1000) //timeout milliseconds
+        if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
           throw lazabs.Main.TimeoutException //Main.TimeoutException
       }
       try{
@@ -286,43 +284,58 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
       }
 
-
-
-      if(GlobalParameters.get.intervals==true) {
+      val originalPredicates =
+      (if(GlobalParameters.get.generateSimplePredicates==true) {
         //todo: simple generator
+        for(clause<-simplifiedClauses)
+          println(Console.BLUE + clause.toPrologString)
 
-        //constrains in clauses as initial predicates
-        //arguments =/<=/>= a constant
-        //for training we use terminating examples.
-      }
-      //todo: relevance filter of predicates
-      
-      val Cegar = new HornPredAbs(simplifiedClauses,
-        simpHints.toInitialPredicates, predGenerator,
-        counterexampleMethod)
-      val lastPredicates = Cegar.predicates
+        //todo:constrains in clauses as initial predicates
+        val constraintPredicates= (for (clause<-simplifiedClauses;pred<-clause.predicates) yield
+          pred -> (for (constraint <- LineariseVisitor(clause.constraint, IBinJunctor.And)) yield constraint)).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
+        println(Console.RED + constraintPredicates)
+
+        //todo:arguments =/<=/>= a constant
+        val eqConstant:IdealInt=IdealInt(42)
+        val argumentConstantEqualPredicate = (for(clause<-simplifiedClauses;at<-clause.allAtoms) yield at.pred-> (for(arg<-at.args)yield Set(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
+//        var argumentConstantEqualPredicate:Map[Predicate,Seq[IFormula]]=Map()
+//        for(clause<-simplifiedClauses;at<-clause.allAtoms; if !argumentConstantEqualPredicate.keys.toArray.contains(at.pred) ) argumentConstantEqualPredicate += at.pred-> (for(arg<-at.args)yield Seq(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten
+        println(Console.RED + "argumentConstantEqualPredicate: "+argumentConstantEqualPredicate)
+
+        val simplelyGeneratedPredicates = (for((cpKey,cpPredicates)<-constraintPredicates;(apKey,apPredicates)<-argumentConstantEqualPredicate;if cpKey.equals(apKey)) yield (cpKey->(cpPredicates ++ apPredicates))).toMap
+        println(Console.RED + simplelyGeneratedPredicates)
+
+        //simplelyGeneratedPredicates
+        argumentConstantEqualPredicate
+      }else{
+        val Cegar = new HornPredAbs(simplifiedClauses,
+          simpHints.toInitialPredicates, predGenerator,
+          counterexampleMethod)
+        val lastPredicates = Cegar.predicates
+        (if (!Cegar.predicates.isEmpty){
+          var numberOfpredicates = 0
+          println("Original predicates:")
+          for ((head, preds) <- lastPredicates) yield{
+            // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+            println("key:" + head.pred)
+            val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+            //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+            val predicateSequence = for (p <- preds) yield {
+              val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+              //println("value:"+simplifiedPredicate)
+              val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+              println("value:" + varPred)
+              numberOfpredicates = numberOfpredicates + 1
+              varPred
+            }
+            (head.pred -> predicateSequence.distinct)
+          }
+        } else Map()).asInstanceOf[Map[Predicate,Seq[IFormula]]]
+      })
+
 
       //predicates selection begin
-      if (!lastPredicates.isEmpty) {
-        //show original predicates
-        var numberOfpredicates = 0
-        println("Original predicates:")
-        val originalPredicates= for ((head, preds) <- lastPredicates) yield{
-          // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-          println("key:" + head.pred)
-          val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-          //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-          val predicateSequence = for (p <- preds) yield {
-            val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
-            //println("value:"+simplifiedPredicate)
-            val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-            println("value:" + varPred)
-            numberOfpredicates = numberOfpredicates + 1
-            varPred
-          }
-          (head.pred -> predicateSequence.distinct)
-        }
-
+      if (!originalPredicates.isEmpty) {
         //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
         val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
 
@@ -341,12 +354,12 @@ object TrainDataGeneratorPredicatesSmt2 {
 
         //Predicate selection begin
         println("------Predicates selection begin----")
-        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
           Either[Seq[(Predicate, Seq[Conjunction])],
             Dag[(IAtom, HornPredAbs.NormClause)]] =
           (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
             //throw new RuntimeException("interpolator exception")
-            throw lazabs.Main.TimeoutException
+            throw lazabs.Main.TimeoutException //if need new predicate throw timeout exception?
 
         var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
         var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
@@ -368,20 +381,20 @@ object TrainDataGeneratorPredicatesSmt2 {
             println("after delete")
             println("head", head)
             println("predicates", currentPredicate(head))
+            println("currentPredicate",currentPredicate)
 
             //try cegar
-            val startTime = currentTimeMillis
+            val startTime = System.currentTimeMillis()
             val toParams = GlobalParameters.get.clone
             toParams.timeoutChecker = () => {
-              if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
+              if ((currentTimeMillis - startTime) > GlobalParameters.get.threadTimeout)
                 throw lazabs.Main.TimeoutException //Main.TimeoutException
             }
             try {
               GlobalParameters.parameters.withValue(toParams) {
                 println("----------------------------------- CEGAR --------------------------------------")
-
-                new HornPredAbs(simplifiedClauses, // loop
-                  currentPredicate, //emptyHints
+                new HornPredAbs(simplifiedClauses,
+                  currentPredicate,
                   exceptionalPredGen).result
                 //not timeout
                 redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
@@ -394,8 +407,7 @@ object TrainDataGeneratorPredicatesSmt2 {
                 }
               }
             } catch {
-              case lazabs.Main.TimeoutException => {
-                //catch timeout
+              case lazabs.Main.TimeoutException => { //need new predicate or timeout
                 criticalPredicatesSeq = criticalPredicatesSeq ++ Seq(p)
                 //add deleted predicate back to curren predicate
                 currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
@@ -426,12 +438,12 @@ object TrainDataGeneratorPredicatesSmt2 {
         println("!@@@@")
         selectedPredicates.pretyPrintHints()
         println("@@@@!")
-        println("timeout:" + GlobalParameters.get.threadTimeout)
+        println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
         println("\n------------test selected predicates-------------------------")
         val test = new HornPredAbs(simplifiedClauses, // loop
           optimizedPredicate,
-          //selectedPredicates.toInitialPredicates, //emptyHints
+          //selectedPredicates.toInitialPredicates,
           exceptionalPredGen).result
         println("-----------------test finished-----------------------")
 
@@ -443,6 +455,9 @@ object TrainDataGeneratorPredicatesSmt2 {
           val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
           val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
           GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
+
+
         }
 
       }

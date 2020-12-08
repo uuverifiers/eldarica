@@ -769,7 +769,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   //////////////////////////////////////////////////////////////////////////////
 
   // Initialise with given initial predicates
-  
   for ((p, preds) <- initialPredicates) {
     val rs = relationSymbols(p)
     for ((f, predIndex) <- preds.iterator.zipWithIndex) {
@@ -864,8 +863,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 */
 
       val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
-
-      if (states exists (backwardSubsumedStates contains _)) {
+      if (states exists (backwardSubsumedStates contains _)) { //(error "key not found: P2")
         postponedExpansions += expansion
       } else {
         try {
@@ -914,7 +912,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         }
       }
     }
-  
+
     if (res == null) {
       assert(nextToProcess.isEmpty)
 

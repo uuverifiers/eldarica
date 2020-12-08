@@ -315,7 +315,7 @@ object HintsSelection {
           val startTime = currentTimeMillis
           val toParams = GlobalParameters.get.clone
           toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
+            if ((currentTimeMillis - startTime) > timeOut ) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
           try {
@@ -439,7 +439,7 @@ object HintsSelection {
           val startTime = currentTimeMillis
           val toParams = GlobalParameters.get.clone
           toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
+            if ((currentTimeMillis - startTime) > timeOut ) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
           try {
@@ -638,7 +638,7 @@ object HintsSelection {
           val startTime = currentTimeMillis
           val toParams = GlobalParameters.get.clone
           toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
+            if ((currentTimeMillis - startTime) > timeOut ) //timeout milliseconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
 

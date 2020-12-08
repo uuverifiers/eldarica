@@ -153,7 +153,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
   val startTimeCEGAR = currentTimeMillis
   val toParamsCEGAR = GlobalParameters.get.clone
   toParamsCEGAR.timeoutChecker = () => {
-    if ((currentTimeMillis - startTimeCEGAR) > solvabilityTimeout * 1000) //timeout milliseconds
+    if ((currentTimeMillis - startTimeCEGAR) > solvabilityTimeout ) //timeout milliseconds
       throw lazabs.Main.TimeoutException //Main.TimeoutException
   }
   try{
@@ -271,7 +271,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
         val startTime = currentTimeMillis
         val toParams = GlobalParameters.get.clone
         toParams.timeoutChecker = () => {
-          if ((currentTimeMillis - startTime) > timeOut * 1000) //timeout milliseconds
+          if ((currentTimeMillis - startTime) > timeOut ) //timeout milliseconds
             throw lazabs.Main.TimeoutException //Main.TimeoutException
         }
         try {

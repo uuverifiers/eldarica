@@ -401,6 +401,9 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }
     sys.exit()
   }
+  //todo: generate simple predicates
+  //todo: output generated graph with simple predicates
+  //todo: read selected predicates from JSON file
 
 
   //////////////////////////////////////////////////////////////////////////////
