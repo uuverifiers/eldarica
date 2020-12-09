@@ -42,7 +42,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.concurrency.HintsSelection.{initialIDForHints, writeHintsWithIDToFile}
 import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import scala.concurrent.TimeoutException
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
@@ -305,17 +305,21 @@ class VerificationLoop(system : ParametricEncoder.System,
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }
 
+      val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simpClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+        case _ => simpClauses
+      }
       if(GlobalParameters.get.getHornGraph==true){
-        val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simpClauses, simpHints.toInitialPredicates, interpolator)
+        val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simplifiedClausesForGraph, simpHints.toInitialPredicates, interpolator)
         //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
-        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
-        val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+        HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,GlobalParameters.get.fileName)  //write smt2 format to file
+        val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
         //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
         val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
         val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
-        val clauseCollection = new ClauseInfo(simpClauses,Seq())
+        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
         if (GlobalParameters.get.getAllHornGraph==true) {
           GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
         }
@@ -340,14 +344,14 @@ class VerificationLoop(system : ParametricEncoder.System,
             //throw new RuntimeException("interpolator exception")
             throw lazabs.Main.TimeoutException
 
-        new HornPredAbs(simpClauses,
+        new HornPredAbs(simplifiedClausesForGraph,
           Map(),//need Map[Predicate, Seq[IFormula]]
           exceptionalPredGen).result
       }else{
         println("Use hints:")
         optimizedHints.pretyPrintHints()
 
-        new HornPredAbs(simpClauses,
+        new HornPredAbs(simplifiedClausesForGraph,
           optimizedHints.toInitialPredicates,//need Map[Predicate, Seq[IFormula]]
           interpolator).result
       }

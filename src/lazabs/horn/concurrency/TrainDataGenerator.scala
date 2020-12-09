@@ -36,7 +36,7 @@ import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.bottomup._
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.{GlobalParameters, ParallelComputation}
 
 import scala.collection.mutable.ArrayBuffer
@@ -77,9 +77,11 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
     HintsSelection.writeSMTFormatToFile(encoder.allClauses,filePath)  //write smt2 format to file
     println(encoder.allClauses)
   }
+  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+    case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simpClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+    case _ => simpClauses
+  }
 
-
-  import scala.collection.immutable.ListMap
   val sortedHints=HintsSelection.sortHints(simpHints)
   if(sortedHints.isEmpty){}else{
     //write selected hints with IDs to file
@@ -89,27 +91,27 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
     }
 
-    //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID)
-    val (selectedHint,result)=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simpClauses,GlobalParameters.get.fileName,InitialHintsWithID,true)
+    //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simplifiedClausesForGraph,GlobalParameters.get.fileName,InitialHintsWithID)
+    val (selectedHint,result)=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simplifiedClausesForGraph,GlobalParameters.get.fileName,InitialHintsWithID,true)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
       //write horn clauses to file
-      HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses)
+      HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simplifiedClausesForGraph)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
-        HintsSelection.writeSMTFormatToFile(simpClauses,filePath)  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,filePath)  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
       }
 
       //write argument score to file
-      val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
       val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedHint,simpHints.filterPredicates(selectedHint.predicateHints.keySet))
-      val clausesInCE=getClausesInCounterExamples(result,simpClauses)
-      val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
+      val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)
+      val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,clausesInCE)
 
       //Output graphs
       GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)

@@ -284,31 +284,39 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
       }
 
+      val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-simplifiedClauses) yield clause.normalize()
+        case _ => simplifiedClauses
+      }
+
       val originalPredicates =
       (if(GlobalParameters.get.generateSimplePredicates==true) {
-        //todo: simple generator
-        for(clause<-simplifiedClauses)
+        //todo: simple generator, use noInterval for training data generating
+        //todo: transform predicates'argument to canonical names i.e. _0,_1,...
+
+
+        for(clause<-simplePredicatesGeneratorClauses)
           println(Console.BLUE + clause.toPrologString)
 
         //todo:constrains in clauses as initial predicates
-        val constraintPredicates= (for (clause<-simplifiedClauses;pred<-clause.predicates) yield
+        val constraintPredicates= (for (clause<-simplePredicatesGeneratorClauses;pred<-clause.predicates) yield
           pred -> (for (constraint <- LineariseVisitor(clause.constraint, IBinJunctor.And)) yield constraint)).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
-        println(Console.RED + constraintPredicates)
+        println(Console.RED + "constraintPredicates: "+constraintPredicates)
 
         //todo:arguments =/<=/>= a constant
         val eqConstant:IdealInt=IdealInt(42)
-        val argumentConstantEqualPredicate = (for(clause<-simplifiedClauses;at<-clause.allAtoms) yield at.pred-> (for(arg<-at.args)yield Set(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
+        val argumentConstantEqualPredicate = (for(clause<-simplePredicatesGeneratorClauses;at<-clause.allAtoms) yield at.pred-> (for(arg<-at.args)yield Set(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
 //        var argumentConstantEqualPredicate:Map[Predicate,Seq[IFormula]]=Map()
-//        for(clause<-simplifiedClauses;at<-clause.allAtoms; if !argumentConstantEqualPredicate.keys.toArray.contains(at.pred) ) argumentConstantEqualPredicate += at.pred-> (for(arg<-at.args)yield Seq(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten
+//        for(clause<-simplePredicatesGeneratorClauses;at<-clause.allAtoms; if !argumentConstantEqualPredicate.keys.toArray.contains(at.pred) ) argumentConstantEqualPredicate += at.pred-> (for(arg<-at.args)yield Seq(Eq(arg,eqConstant),Geq(arg,eqConstant),Geq(eqConstant,arg))).flatten
         println(Console.RED + "argumentConstantEqualPredicate: "+argumentConstantEqualPredicate)
 
         val simplelyGeneratedPredicates = (for((cpKey,cpPredicates)<-constraintPredicates;(apKey,apPredicates)<-argumentConstantEqualPredicate;if cpKey.equals(apKey)) yield (cpKey->(cpPredicates ++ apPredicates))).toMap
         println(Console.RED + simplelyGeneratedPredicates)
 
         //simplelyGeneratedPredicates
-        argumentConstantEqualPredicate
+        constraintPredicates
       }else{
-        val Cegar = new HornPredAbs(simplifiedClauses,
+        val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
           simpHints.toInitialPredicates, predGenerator,
           counterexampleMethod)
         val lastPredicates = Cegar.predicates
@@ -348,7 +356,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
 
 //          println("------------test original predicates-------")
-//          new HornPredAbs(simplifiedClauses,
+//          new HornPredAbs(simplePredicatesGeneratorClauses,
 //            originalPredicates,//need Map[Predicate, Seq[IFormula]]
 //            predGenerator,predicateFlag=false).result
 
@@ -393,7 +401,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             try {
               GlobalParameters.parameters.withValue(toParams) {
                 println("----------------------------------- CEGAR --------------------------------------")
-                new HornPredAbs(simplifiedClauses,
+                new HornPredAbs(simplePredicatesGeneratorClauses,
                   currentPredicate,
                   exceptionalPredGen).result
                 //not timeout
@@ -441,7 +449,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
         println("\n------------test selected predicates-------------------------")
-        val test = new HornPredAbs(simplifiedClauses, // loop
+        val test = new HornPredAbs(simplePredicatesGeneratorClauses, // loop
           optimizedPredicate,
           //selectedPredicates.toInitialPredicates,
           exceptionalPredGen).result
@@ -449,17 +457,14 @@ object TrainDataGeneratorPredicatesSmt2 {
 
         if (!selectedPredicates.isEmpty){
           val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
-          val clausesInCE=getClausesInCounterExamples(test,simplifiedClauses)
-          val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
+          val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
+          val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
           //Output graphs
-          val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+          val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toList
           val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
           GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
-
-
         }
-
       }
     }
   }

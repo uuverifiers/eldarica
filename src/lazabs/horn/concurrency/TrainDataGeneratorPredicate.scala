@@ -31,7 +31,6 @@ package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
 import java.lang.System.currentTimeMillis
-
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
@@ -44,7 +43,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, TemplateInterpolator}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import scala.collection.immutable.ListMap
 //import scala.collection.mutable.Seq
@@ -142,6 +141,11 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
   val timeOut = GlobalParameters.get.threadTimeout //timeout
   val solvabilityTimeout=GlobalParameters.get.solvabilityTimeout
 
+
+  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+    case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simpClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+    case _ => simpClauses
+  }
   val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]] =
@@ -158,7 +162,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
   }
   try{
     GlobalParameters.parameters.withValue(toParamsCEGAR) {
-      new HornPredAbs(simpClauses, simpHints.toInitialPredicates, interpolator)
+      new HornPredAbs(simplifiedClausesForGraph, simpHints.toInitialPredicates, interpolator)
     }
   }
   catch {
@@ -167,7 +171,8 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     }
   }
 
-  val cegar = new HornPredAbs(simpClauses,
+
+  val cegar = new HornPredAbs(simplifiedClausesForGraph,
     simpHints.toInitialPredicates,
     interpolator)
 
@@ -281,7 +286,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
             println(
               "----------------------------------- CEGAR --------------------------------------")
 
-            new HornPredAbs(simpClauses, // loop
+            new HornPredAbs(simplifiedClausesForGraph, // loop
               currentPredicate, //emptyHints currentPredicate CurrentTemplates
               exceptionalPredGen).result
             //not timeout
@@ -343,7 +348,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     println("timeout:"+GlobalParameters.get.threadTimeout)
 
     println("\n------------test selected predicates-------------------------")
-    val test=new HornPredAbs(simpClauses, // loop
+    val test=new HornPredAbs(simplifiedClausesForGraph, // loop
       selectedTemplates.toInitialPredicates, //emptyHints
       exceptionalPredGen).result
     println("-----------------test finished-----------------------")
@@ -364,21 +369,21 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       //not write horn clauses to file
     }else{
       //write horn clauses to file
-      HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simpClauses)
+      HintsSelection.writeHornClausesToFile(GlobalParameters.get.fileName,simplifiedClausesForGraph)
       //write smt2 format to file
       if(GlobalParameters.get.fileName.endsWith(".c")){ //if it is a c file
         val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
-        HintsSelection.writeSMTFormatToFile(simpClauses,filePath)  //write smt2 format to file
-        //HintsSelection.writeSMTFormatToFile(simpClauses,"../trainData/")  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,filePath)  //write smt2 format to file
+        //HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,"../trainData/")  //write smt2 format to file
       }
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
       }
-      val argumentList=(for (p <- HornClauses.allPredicates(simpClauses)) yield (p, p.arity)).toList
+      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
       val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedTemplates,simpHints.filterPredicates(selectedTemplates.predicateHints.keySet))
-      val clausesInCE=getClausesInCounterExamples(test,simpClauses)
-      val clauseCollection = new ClauseInfo(simpClauses,clausesInCE)
+      val clausesInCE=getClausesInCounterExamples(test,simplifiedClausesForGraph)
+      val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,clausesInCE)
       //Output graphs
       GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 

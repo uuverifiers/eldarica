@@ -863,11 +863,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 */
 
       val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
-      if (states exists (backwardSubsumedStates contains _)) { //(error "key not found: P2")
+      if (states exists (backwardSubsumedStates contains _)) {
         postponedExpansions += expansion
       } else {
         try {
-          for (e <- genEdge(clause, states, assumptions))
+          for (e <- genEdge(clause, states, assumptions)) //(error "key not found: P2")
             addEdge(e)
         } catch {
           case Counterexample(from, clause) => {
@@ -875,7 +875,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
             // the extract counterexample might not be the only one
             // leading to this abstract state
             nextToProcess.enqueue(states, clause, assumptions)
-
             val clauseDag = extractCounterexample(from, clause)
             iterationNum = iterationNum + 1
 
@@ -1489,7 +1488,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     val reducer = sf reducer assumptions
     implicationChecksSetupTime =
       implicationChecksSetupTime + (System.currentTimeMillis - startTime)
-    
     val predConsequences =
       (for (pred <- predicates(rs).iterator;
             if predIsConsequenceWithHasher(pred, rsOcc,

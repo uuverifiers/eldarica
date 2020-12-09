@@ -384,12 +384,17 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
+  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+    case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simplifiedClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+    case _ => simplifiedClauses
+  }
+
   if (GlobalParameters.get.getHornGraph == true) {
-    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
     //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
-    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClauses,simpHints,predGenerator)
+    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
-    val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
+    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
     if (GlobalParameters.get.getAllHornGraph==true) {
       GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
     }
@@ -402,8 +407,19 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     sys.exit()
   }
   //todo: generate simple predicates
+  if(GlobalParameters.get.generateSimplePredicates==true){
+    //GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
+  }
   //todo: output generated graph with simple predicates
   //todo: read selected predicates from JSON file
+//  import play.api.libs.json._
+//  val input_file = GlobalParameters.get.fileName
+//  val json_content = scala.io.Source.fromFile(input_file+".JSON").mkString
+//  val json_data = Json.parse(json_content)
+//  val argumentScoreList=(json_data \ "predictedArgumentScores").validate[ListBuffer[Double]] match {
+//    case JsSuccess(predictedArgumentScores,_)=>{
+//      predictedArgumentScores}
+//  }
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -421,7 +437,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         "----------------------------------- CEGAR --------------------------------------")
 
       val predAbs =
-        new HornPredAbs(simplifiedClauses,
+        new HornPredAbs(simplifiedClausesForGraph,
           simpHints.toInitialPredicates, predGenerator,
           counterexampleMethod)
       val result =
@@ -429,12 +445,12 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
       //todo: add clause in hyperedge graph
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
-        val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
+        val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)
 
-        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
         val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
         val hintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
-        val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
+        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,clausesInCE)
         GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         sys.exit()
       }

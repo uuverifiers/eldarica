@@ -227,6 +227,11 @@ object TrainDataGeneratorSmt2 {
           if (simpHints.isEmpty) Map()
           else absBuilder.loopDetector hints2AbstractionRecord simpHints
 
+
+        val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+          case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simplifiedClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+          case _ => simplifiedClauses
+        }
         val sortedHints = HintsSelection.sortHints(absBuilder.abstractionHints)
         var optimizedHints = sortedHints
         if (sortedHints.isEmpty) {
@@ -240,7 +245,7 @@ object TrainDataGeneratorSmt2 {
           }
 
           val (selectedHint,result) = HintsSelection.tryAndTestSelectionTemplatesSmt(sortedHints,
-            simplifiedClauses, GlobalParameters.get.fileName, InitialHintsWithID, counterexampleMethod, hintsAbstraction)
+            simplifiedClausesForGraph, GlobalParameters.get.fileName, InitialHintsWithID, counterexampleMethod, hintsAbstraction)
           optimizedHints = selectedHint
           if (selectedHint.isEmpty) { //when no hint available
             println("No hints selected (no need for hints)")
@@ -250,11 +255,11 @@ object TrainDataGeneratorSmt2 {
             val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
 
             //write argument score to file
-            val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toList
+            val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
             val argumentInfo= HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedHint)
             val hintsCollection=new VerificationHintsInfo(simpHints,optimizedHints,simpHints.filterPredicates(optimizedHints.predicateHints.keySet))
-            val clausesInCE=getClausesInCounterExamples(result,simplifiedClauses)
-            val clauseCollection = new ClauseInfo(simplifiedClauses,clausesInCE)
+            val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)
+            val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,clausesInCE)
 
             //Output graphs
             GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
@@ -266,7 +271,7 @@ object TrainDataGeneratorSmt2 {
             //HintsSelection.writeHornClausesToFile(system,GlobalParameters.get.fileName)
             //write smt2 format to file
             if (GlobalParameters.get.fileName.endsWith(".c")) { //if it is a c file
-              HintsSelection.writeSMTFormatToFile(simplifiedClauses, filePath) //write smt2 format to file
+              HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph, filePath) //write smt2 format to file
             }
             if (GlobalParameters.get.fileName.endsWith(".smt2")) { //if it is a smt2 file
               //copy smt2 file
@@ -326,7 +331,7 @@ object TrainDataGeneratorSmt2 {
               println
               println(
                 "----------------------------------- CEGAR --------------------------------------")
-              (new HornPredAbs(simplifiedClauses,
+              (new HornPredAbs(simplifiedClausesForGraph,
                 simpHints.toInitialPredicates, predGenerator,
                 counterexampleMethod)).result
             }
