@@ -508,13 +508,16 @@ object TrainDataGeneratorPredicatesSmt2 {
             //todo: add this to training dataset
             val sourceFilename=GlobalParameters.get.fileName
             val destinationFilename= "../trainData/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
-            HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
+            HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
           }
 
         }catch{
           case lazabs.Main.TimeoutException =>{
             println(Console.RED + "--test timeout--")
             //todo: not include this to training example? because it can only provide negative training data
+            val sourceFilename=GlobalParameters.get.fileName
+            val destinationFilename= "../non-trainData/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+            HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
           }
         }
 

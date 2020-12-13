@@ -62,6 +62,18 @@ object HintsSelection {
 
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
+    val path = Files.move(
+      Paths.get(sourceFilename),
+      Paths.get(destinationFilename),
+      StandardCopyOption.REPLACE_EXISTING
+    )
+    if (path != null) {
+      println(s"moved the file $sourceFilename successfully")
+    } else {
+      println(s"could NOT move the file $sourceFilename")
+    }
+  }
+  def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(
       Paths.get(sourceFilename),
       Paths.get(destinationFilename),
