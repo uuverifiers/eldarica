@@ -60,6 +60,20 @@ case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
 
+
+  def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
+    val path = Files.copy(
+      Paths.get(sourceFilename),
+      Paths.get(destinationFilename),
+      StandardCopyOption.REPLACE_EXISTING
+    )
+    if (path != null) {
+      println(s"moved the file $sourceFilename successfully")
+    } else {
+      println(s"could NOT move the file $sourceFilename")
+    }
+  }
+
   def getClausesInCounterExamples(result: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]], clauses: Clauses): Clauses = {
     if (result.isRight)
     (result match {
@@ -1166,14 +1180,6 @@ object HintsSelection {
 
   }
 
-  def moveRenameFile(source: String, destination: String): Unit = {
-    val path = Files.copy(
-      Paths.get(source),
-      Paths.get(destination),
-      StandardCopyOption.REPLACE_EXISTING
-    )
-    // could return `path`
-  }
 
   def getArgumentInfo(argumentList: List[(IExpression.Predicate, Int)]): ListBuffer[argumentInfo] = {
     var argID = 0
