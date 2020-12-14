@@ -287,6 +287,9 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
       catch {
         case lazabs.Main.TimeoutException => {
+          val sourceFilename=GlobalParameters.get.fileName
+          val destinationFilename= "../solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
           throw TimeoutException
         }
       }
@@ -297,88 +300,31 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
 
 
-
       val originalPredicates =
-      (if(GlobalParameters.get.generateSimplePredicates==true) {
-        //todo: simple generator, use noInterval for training data generating
-        for (clause <- simplePredicatesGeneratorClauses)
-          println(Console.BLUE + clause.toPrologString)
-
-        //constrains in clauses as initial predicates
-        //        val constraintPredicates = (for (clause <- simplePredicatesGeneratorClauses; pred <- clause.predicates) yield
-        //          pred -> (for (constraint <- LineariseVisitor(clause.constraint, IBinJunctor.And)) yield constraint)).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
-        //        println(Console.RED + "constraintPredicates: " + constraintPredicates)
-        //transform predicates'argument to canonical names i.e. _0,_1,...
-        //const<-clause.constants ++ SymbolCollector.constants(clause.constraint);
-        val constantsCrossClauses = for (clause <- simplePredicatesGeneratorClauses;const<-clause.constants) yield const
-        val substCollection = (for (clause <- simplePredicatesGeneratorClauses;const<-constantsCrossClauses;atom<-clause.allAtoms;(arg,n)<- atom.args.zipWithIndex ;if const.name==arg.toString) yield {
-          const->IVariable(n)}).toMap
-        println(Console.YELLOW + "substCollection: "+substCollection)
-//        val substCollection = (for (clause <- simplePredicatesGeneratorClauses;const<-clause.constants) yield {
-//          (for ( atom<-clause.allAtoms;(arg,n)<- atom.args.zipWithIndex ;if const.name==arg.toString) yield (const->IVariable(n))).toMap
-//        }).reduce((x,y)=>x++y)
-//        println(Console.YELLOW + "substCollection: "+substCollection)
-        //todo: two option, predicate share constraints within clause. predicates share constraints cross all clauses
-//        val constraintCrossClauses= for(clause <- simplePredicatesGeneratorClauses) yield clause.constraint
-//        val cononicalizedcConstraintPredicates = (for (clause <- simplePredicatesGeneratorClauses;atom <- clause.allAtoms) yield {
-//          atom.pred->(for (oneConstraint<-constraintCrossClauses;constraint <- LineariseVisitor(ConstantSubstVisitor(oneConstraint,substCollection), IBinJunctor.And)) yield constraint)
-//        }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
-        val cononicalizedcConstraintPredicates = (for (clause <- simplePredicatesGeneratorClauses;atom <- clause.allAtoms) yield {
-          atom.pred->(for (constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,substCollection), IBinJunctor.And)) yield constraint)
-        }).groupBy(_._1).mapValues(_.flatMap(_._2))
-        println(Console.GREEN + "cononicalizedcConstraintPredicates: ")
-        for(cc<-cononicalizedcConstraintPredicates; b<-cc._2) println(b)
-
-        //todo: replace free variable
-        // quanConsts(quan: Quantifier, consts: Iterable[ConstantTerm], f: IFormula): IFormula
-//        val substFreeVariables = (for((head,preds)<-cononicalizedcConstraintPredicates;p<-preds;const<-SymbolCollector.constants(p)) yield (Quantifier.EX,const)).toSeq
-//        println("substFreeVariables: ",substFreeVariables)
-        val cononicalizedcConstraintPredicatesWithoutFreeVariable = for((head,preds)<-cononicalizedcConstraintPredicates) yield
-          head-> (for(p<-preds) yield {
-            val constants=SymbolCollector.constants(p)
-            if(constants.isEmpty) p
-             else
-              IExpression.quanConsts(Quantifier.EX,constants,p)
-          })
-        println("cononicalizedcConstraintPredicatesWithoutFreeVariable; ")
-        for(cc<-cononicalizedcConstraintPredicatesWithoutFreeVariable;b<-cc._2) println(b)
-        //generate arguments =/<=/>= a constant as predicates
-        val eqConstant: IdealInt = IdealInt(42)
-//        val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; at <- clause.allAtoms) yield at.pred -> (for (arg <- at.args) yield Set(Eq(arg, eqConstant), Geq(arg, eqConstant), Geq(eqConstant, arg))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
-//        println(Console.RED + "argumentConstantEqualPredicate: " + argumentConstantEqualPredicate)
-        val concantilizedArgumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; at <- clause.allAtoms) yield at.pred -> (for (arg <- at.args;const<-clause.constants;if const.name==arg.toString) yield Set(Eq(substCollection(const), eqConstant), Geq(substCollection(const), eqConstant), Geq(eqConstant, substCollection(const)))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).toSeq)
-        println(Console.RED + "concantilizedArgumentConstantEqualPredicate: " + concantilizedArgumentConstantEqualPredicate)
-
-        //merge constraint and constant predicates
-        val simplelyGeneratedPredicates = (for ((cpKey, cpPredicates) <- cononicalizedcConstraintPredicatesWithoutFreeVariable; (apKey, apPredicates) <- concantilizedArgumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct)
-        println(Console.RED + "simplelyGeneratedPredicates: "+simplelyGeneratedPredicates)
-        //sys.exit()
-        simplelyGeneratedPredicates
-      }else{
-        val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
-          simpHints.toInitialPredicates, predGenerator,
-          counterexampleMethod)
-        val lastPredicates = Cegar.predicates
-        (if (!Cegar.predicates.isEmpty){
-          var numberOfpredicates = 0
-          println("Original predicates:")
-          for ((head, preds) <- lastPredicates) yield{
-            // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-            println("key:" + head.pred)
-            val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-            println(subst)
-            //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-            val predicateSequence = for (p <- preds) yield {
-              val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
-              val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-              println("value:" + varPred)
-              numberOfpredicates = numberOfpredicates + 1
-              varPred
+        if(GlobalParameters.get.generateSimplePredicates==true) {
+          HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
+        }else{
+          val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+            simpHints.toInitialPredicates, predGenerator,
+            counterexampleMethod)
+          val lastPredicates = Cegar.predicates
+          (if (!Cegar.predicates.isEmpty){
+            var numberOfpredicates = 0
+            for ((head, preds) <- lastPredicates) yield{
+              // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+              val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+              println(subst)
+              //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+              val predicateSequence = for (p <- preds) yield {
+                val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+                val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+                numberOfpredicates = numberOfpredicates + 1
+                varPred
+              }
+              (head.pred -> predicateSequence.distinct)
             }
-            (head.pred -> predicateSequence.distinct)
-          }
-        } else Map()).asInstanceOf[Map[Predicate,Seq[IFormula]]]
-      })
+          } else Map()).asInstanceOf[Map[Predicate,Seq[IFormula]]]
+        }
 
 
 
@@ -407,7 +353,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             Dag[(IAtom, HornPredAbs.NormClause)]] =
           (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
             //throw new RuntimeException("interpolator exception")
-            throw lazabs.Main.TimeoutException //if need new predicate throw timeout exception?
+            throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
 
         var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
         var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
@@ -490,7 +436,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
         try{
           println("\n------------test selected predicates-------------------------")
-          val test = new HornPredAbs(simplePredicatesGeneratorClauses, // loop
+          val test = new HornPredAbs(simplePredicatesGeneratorClauses,
             optimizedPredicate,
             //selectedPredicates.toInitialPredicates,
             exceptionalPredGen).result
@@ -504,11 +450,6 @@ object TrainDataGeneratorPredicatesSmt2 {
             val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toList
             val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
             GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
-
-            //todo: add this to training dataset
-            val sourceFilename=GlobalParameters.get.fileName
-            val destinationFilename= "../trainData/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
-            HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
           }
 
         }catch{
@@ -516,7 +457,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             println(Console.RED + "--test timeout--")
             //todo: not include this to training example? because it can only provide negative training data
             val sourceFilename=GlobalParameters.get.fileName
-            val destinationFilename= "../non-trainData/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+            val destinationFilename= "../test-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
             HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
           }
         }

@@ -406,20 +406,29 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }
     sys.exit()
   }
-  //todo: generate simple predicates
+
   if(GlobalParameters.get.generateSimplePredicates==true){
-    //GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
+    //todo: generate simple predicates
+    val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+    //todo: output generated graph with simple predicates
+    val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates),VerificationHints(Map()),VerificationHints(Map()))
+    GlobalParameters.get.getAllHornGraph=true
+    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
+    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+    GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
+
+    //todo: read selected predicates from JSON file
+    //  import play.api.libs.json._
+    //  val input_file = GlobalParameters.get.fileName
+    //  val json_content = scala.io.Source.fromFile(input_file+".JSON").mkString
+    //  val json_data = Json.parse(json_content)
+    //  val argumentScoreList=(json_data \ "predictedArgumentScores").validate[ListBuffer[Double]] match {
+    //    case JsSuccess(predictedArgumentScores,_)=>{
+    //      predictedArgumentScores}
+    //  }
   }
-  //todo: output generated graph with simple predicates
-  //todo: read selected predicates from JSON file
-//  import play.api.libs.json._
-//  val input_file = GlobalParameters.get.fileName
-//  val json_content = scala.io.Source.fromFile(input_file+".JSON").mkString
-//  val json_data = Json.parse(json_content)
-//  val argumentScoreList=(json_data \ "predictedArgumentScores").validate[ListBuffer[Double]] match {
-//    case JsSuccess(predictedArgumentScores,_)=>{
-//      predictedArgumentScores}
-//  }
+
 
 
   //////////////////////////////////////////////////////////////////////////////

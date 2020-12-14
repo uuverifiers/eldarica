@@ -51,15 +51,48 @@ import lazabs.horn.bottomup.HornClauses
 
 import java.lang.System.currentTimeMillis
 import ap.PresburgerTools
+import ap.basetypes.IdealInt
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFactory}
+import lazabs.horn.preprocessor.HornPreprocessor
 
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
 
+  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):  Map[Predicate, Seq[IFormula]] ={
+    for (clause <- simplePredicatesGeneratorClauses)
+      println(Console.BLUE + clause.toPrologString)
+
+    //todo: two option, predicate share constraints within clause. predicates share constraints cross all clauses
+    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
+      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
+      val freeVariableReplacedPredicates= for(p<-argumentReplacedPredicates) yield{
+        val constants=SymbolCollector.constants(p)
+        if(constants.isEmpty)
+          p
+        else
+          IExpression.quanConsts(Quantifier.EX,constants,p)
+      }
+      atom.pred-> freeVariableReplacedPredicates
+    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    for(cc<-constraintPredicates; b<-cc._2) println(cc._1,b)
+    println("-----------------")
+
+    //generate arguments =/<=/>= a constant as predicates
+    val eqConstant: IdealInt = IdealInt(42)
+    val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield Seq(Eq(IVariable(n),eqConstant),Geq(IVariable(n),eqConstant),Geq(eqConstant,IVariable(n)))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
+
+    //merge constraint and constant predicates
+    val simplelyGeneratedPredicates = for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
+    for(cc<-simplelyGeneratedPredicates; b<-cc._2) println(Console.RED + cc._1,b)
+    //sys.exit()
+    simplelyGeneratedPredicates
+  }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.move(
