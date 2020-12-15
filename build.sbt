@@ -142,7 +142,7 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
 //
     resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-    libraryDependencies += "uuverifiers" %% "princess" % "2020-11-19"
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    libraryDependencies += "uuverifiers" %% "princess" % "2020-11-19"
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 //

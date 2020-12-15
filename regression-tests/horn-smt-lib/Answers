@@ -281,7 +281,7 @@ sat
 
 inconclusive.smt2
 Warning: ignoring get-model
-Theories: SimpleArray(1)
+Theories: ExtArray[int, int]
 sat
 (define-fun INV_MAIN_0 ((A Int) (B Int)) Bool true)
 

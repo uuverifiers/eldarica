@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
-                    MulTheory, ModuloArithmetic}
+                    MulTheory, ModuloArithmetic, ExtArray}
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -266,7 +266,14 @@ class SMTHornReader protected[parser] (
                       quanCnt = quanCnt + quanNum
                       for (_ <- 0 until quanNum*2) yield Sort.Integer
                     }
-                    case SimpleArray.ArraySort(_) =>
+                    case ExtArray.ArraySort(theory)
+                      if (theory.indexSorts == Seq(Sort.Integer) &&
+                          theory.objSort == Sort.Integer) => {
+                      // replace every array argument with 2*quanNum arguments
+                      quanCnt = quanCnt + quanNum
+                      for (_ <- 0 until quanNum*2) yield Sort.Integer
+                    }
+                    case SimpleArray.ArraySort(_) | ExtArray.ArraySort(_) =>
                       throw new Exception (
                         "Only unary arrays over integers are supported")
                     case s => List(s)
@@ -291,6 +298,12 @@ class SMTHornReader protected[parser] (
                              t <- List(v(qi),
                                        SimpleArray(1).select(
                                          v(n + quanCnt), v(qi))))
+                        yield t
+                      case ExtArray.ArraySort(theory) =>
+                        for (k <- 0 until quanNum;
+                             qi = { quanInd = quanInd + 1; quanInd - 1 };
+                             t <- List(v(qi),
+                                       theory.select(v(n + quanCnt), v(qi))))
                         yield t
                       case _ =>
                         Iterator single v(n + quanCnt)
@@ -348,6 +361,7 @@ class SMTHornReader protected[parser] (
         // ok
       case theories if (theories forall {
                           case _ : SimpleArray => true
+                          case _ : ExtArray    => true
                           case TypeTheory      => true
                           case _               => false
                         }) => {
@@ -523,11 +537,11 @@ class SMTHornReader protected[parser] (
     val containsArraySymbol =
       ContainsSymbol(clause, (e : IExpression) => e match {
         case IFunApp(f, _) => (TheoryRegistry lookupSymbol f) match {
-          case Some(_ : SimpleArray) => true
+          case Some(_ : SimpleArray | _ : ExtArray) => true
           case _ => false
         }
         case IAtom(p, _) => (TheoryRegistry lookupSymbol p) match {
-          case Some(_ : SimpleArray) => true
+          case Some(_ : SimpleArray | _ : ExtArray) => true
           case _ => false
         }
         case _ => false
