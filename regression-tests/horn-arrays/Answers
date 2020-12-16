@@ -200,7 +200,7 @@ sat
 
 
 array-elim.smt2
-Theories: SimpleArray(1)
+Theories: ExtArray[int, int]
 sat
 (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
 (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
