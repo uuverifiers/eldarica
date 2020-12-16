@@ -411,10 +411,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     //todo: generate simple predicates
     val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
     //todo: output generated graph with simple predicates
-    val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates),VerificationHints(Map()),VerificationHints(Map()))
+    val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates) ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
     GlobalParameters.get.getAllHornGraph=true
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
-    val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+    //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+    val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
     GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
 

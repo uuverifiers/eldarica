@@ -67,6 +67,8 @@ object HintsSelection {
       println(Console.BLUE + clause.toPrologString)
 
     //todo: two option, predicate share constraints within clause. predicates share constraints cross all clauses
+    //todo: negate constrain for body
+    //todo:SimpleAPI.simplify()
     val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
