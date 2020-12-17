@@ -417,17 +417,39 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-    GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
+    //GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
 
     //todo: read selected predicates from JSON file
-    //  import play.api.libs.json._
-    //  val input_file = GlobalParameters.get.fileName
-    //  val json_content = scala.io.Source.fromFile(input_file+".JSON").mkString
-    //  val json_data = Json.parse(json_content)
-    //  val argumentScoreList=(json_data \ "predictedArgumentScores").validate[ListBuffer[Double]] match {
-    //    case JsSuccess(predictedArgumentScores,_)=>{
-    //      predictedArgumentScores}
-    //  }
+    import play.api.libs.json._
+    val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
+    val json_content = scala.io.Source.fromFile(input_file).mkString
+    val json_data = Json.parse(json_content)
+    val predictedLabel=(json_data \ "predictedLabel").validate[Array[Int]] match {
+      case JsSuccess(templateLabel,_)=> templateLabel
+    }
+
+    println("predictedLabel",predictedLabel.toList)
+
+    val mapLengthList=for ((k,v)<-initialHintsCollection.initialHints.getPredicateHints) yield v.length
+    var splitTail=predictedLabel
+    val splitedPredictedLabel = for(l<-mapLengthList) yield {
+      val temp=splitTail.splitAt(l)._1
+      splitTail=splitTail.splitAt(l)._2
+      temp
+    }
+    for (x<-splitedPredictedLabel)
+      println(x.toSeq)
+
+    val labeledPredicates=for (((k,v),label)<-initialHintsCollection.initialHints.getPredicateHints zip splitedPredictedLabel) yield {
+      k-> (for ((p,l)<-v zip label if l==1) yield p)
+    }
+
+    //todo: recover predicted label
+    for((k,v)<-labeledPredicates;p<-v)
+      println(k,p)
+
+
+
   }
 
 
