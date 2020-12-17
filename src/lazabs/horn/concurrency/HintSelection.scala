@@ -61,12 +61,9 @@ import lazabs.horn.preprocessor.HornPreprocessor
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
-
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):  Map[Predicate, Seq[IFormula]] ={
     for (clause <- simplePredicatesGeneratorClauses)
       println(Console.BLUE + clause.toPrologString)
-
-    //todo: negate constrain for body
 //    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
 //      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
 //      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
@@ -92,19 +89,21 @@ object HintsSelection {
       atom.pred-> Seq(freeVariableReplacedPredicates)
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
-
+    println("--------predicates from constrains---------")
     for((k,v)<-constraintPredicates;p<-v) println(k,p)
-    println("-----------------")
 
     //generate arguments =/<=/>= a constant as predicates
     val eqConstant: IdealInt = IdealInt(42)
     val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield Seq(Eq(IVariable(n),eqConstant),Geq(IVariable(n),eqConstant),Geq(eqConstant,IVariable(n)))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    println("--------predicates from constant and argumenteuqation---------")
     for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
 
     //merge constraint and constant predicates
     val simplelyGeneratedPredicates = for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
     //for(cc<-simplelyGeneratedPredicates; b<-cc._2) println(Console.RED + cc._1,b)
-    for((k,v)<-simplelyGeneratedPredicates) println(k,v)
+    //todo:get rid of true and false
+    println("--------all generated predicates---------")
+    for((k,v)<-simplelyGeneratedPredicates;p<-v) println(k,p)
     //sys.exit()
     simplelyGeneratedPredicates
   }

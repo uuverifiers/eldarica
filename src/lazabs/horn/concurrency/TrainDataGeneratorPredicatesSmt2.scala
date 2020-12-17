@@ -300,39 +300,34 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
 
 
-      val originalPredicates =
-        if(GlobalParameters.get.generateSimplePredicates==true) {
-          HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
-        }else{
-          val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
-            simpHints.toInitialPredicates, predGenerator,
-            counterexampleMethod)
-          val lastPredicates = Cegar.predicates
-          (if (!Cegar.predicates.isEmpty){
-            var numberOfpredicates = 0
-            for ((head, preds) <- lastPredicates) yield{
-              // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-              val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-              println(subst)
-              //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-              val predicateSequence = for (p <- preds) yield {
-                val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
-                val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-                numberOfpredicates = numberOfpredicates + 1
-                varPred
-              }
-              (head.pred -> predicateSequence.distinct)
-            }
-          } else Map()).asInstanceOf[Map[Predicate,Seq[IFormula]]]
+      val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+        simpHints.toInitialPredicates, predGenerator,
+        counterexampleMethod)
+      val lastPredicates = Cegar.predicates
+      var numberOfpredicates = 0
+      val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
+        // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+        val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+        //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+        val predicateSequence = for (p <- preds) yield {
+          val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+          val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+          numberOfpredicates = numberOfpredicates + 1
+          varPred
         }
+        head.pred -> predicateSequence.distinct
+      }
+      val originalPredicates =
+        if(GlobalParameters.get.generateSimplePredicates==true)
+          (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).toList)
+        else
+          predicateFromCEGAR
 
-
-
+      
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
         //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
         val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
-
         val sortedHints = HintsSelection.sortHints(initialPredicates)
         //write selected hints with IDs to file
         val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
