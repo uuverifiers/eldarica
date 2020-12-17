@@ -417,8 +417,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-    //GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
+    GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
+  }
 
+  val hintsFromFile =
+  if(GlobalParameters.get.readHints==true){
+    //simpHints.printHints() this is empty set
+    val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+    val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates) ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
     //todo: read selected predicates from JSON file
     import play.api.libs.json._
     val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
@@ -448,9 +454,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     for((k,v)<-labeledPredicates;p<-v)
       println(k,p)
 
-
-
-  }
+    HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates) ++ simpHints
+  }else simpHints
 
 
 
@@ -470,7 +475,9 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
       val predAbs =
         new HornPredAbs(simplifiedClausesForGraph,
-          simpHints.toInitialPredicates, predGenerator,
+          //simpHints.toInitialPredicates,
+          hintsFromFile.toInitialPredicates,
+          predGenerator,
           counterexampleMethod)
       val result =
         predAbs.result

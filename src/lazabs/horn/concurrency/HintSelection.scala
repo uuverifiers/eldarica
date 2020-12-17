@@ -50,7 +50,7 @@ import IExpression._
 import lazabs.horn.bottomup.HornClauses
 
 import java.lang.System.currentTimeMillis
-import ap.PresburgerTools
+import ap.{PresburgerTools, SimpleAPI}
 import ap.basetypes.IdealInt
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
@@ -66,22 +66,34 @@ object HintsSelection {
     for (clause <- simplePredicatesGeneratorClauses)
       println(Console.BLUE + clause.toPrologString)
 
-    //todo: two option, predicate share constraints within clause. predicates share constraints cross all clauses
     //todo: negate constrain for body
-    //todo:SimpleAPI.simplify()
-    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+//    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+//      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
+//      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
+//      val freeVariableReplacedPredicates= for(p<-argumentReplacedPredicates) yield{
+//        val constants=SymbolCollector.constants(p)
+//        if(constants.isEmpty)
+//          p
+//        else
+//          IExpression.quanConsts(Quantifier.EX,constants,p)
+//      }
+//      atom.pred-> freeVariableReplacedPredicates
+//    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+
+    val constraintPredicates= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
-      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
-      val freeVariableReplacedPredicates= for(p<-argumentReplacedPredicates) yield{
-        val constants=SymbolCollector.constants(p)
-        if(constants.isEmpty)
-          p
+      val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
+      val constants=SymbolCollector.constants(argumentReplacedPredicates)
+      val freeVariableReplacedPredicates=
+        if(clause.body.contains(atom))
+          SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)).unary_!
         else
-          IExpression.quanConsts(Quantifier.EX,constants,p)
-      }
-      atom.pred-> freeVariableReplacedPredicates
+          SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
+      atom.pred-> Seq(freeVariableReplacedPredicates)
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
-    for(cc<-constraintPredicates; b<-cc._2) println(cc._1,b)
+
+
+    for((k,v)<-constraintPredicates;p<-v) println(k,p)
     println("-----------------")
 
     //generate arguments =/<=/>= a constant as predicates
@@ -91,7 +103,8 @@ object HintsSelection {
 
     //merge constraint and constant predicates
     val simplelyGeneratedPredicates = for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
-    for(cc<-simplelyGeneratedPredicates; b<-cc._2) println(Console.RED + cc._1,b)
+    //for(cc<-simplelyGeneratedPredicates; b<-cc._2) println(Console.RED + cc._1,b)
+    for((k,v)<-simplelyGeneratedPredicates) println(k,v)
     //sys.exit()
     simplelyGeneratedPredicates
   }
