@@ -319,11 +319,11 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
       val originalPredicates =
         if(GlobalParameters.get.generateSimplePredicates==true)
-          (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).toList)
+          (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
         else
           predicateFromCEGAR
 
-      
+
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
         //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
