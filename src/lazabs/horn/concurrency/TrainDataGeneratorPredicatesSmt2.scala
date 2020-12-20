@@ -270,29 +270,6 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       /////////////////////////predicates extracting begin///////////////////////////////
 
-      println("extract original predicates")
-      //check solvability
-      val startTimeCEGAR = currentTimeMillis
-      val toParamsCEGAR = GlobalParameters.get.clone
-      toParamsCEGAR.timeoutChecker = () => {
-        if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
-          throw lazabs.Main.TimeoutException //Main.TimeoutException
-      }
-      try{
-        GlobalParameters.parameters.withValue(toParamsCEGAR) {
-          new HornPredAbs(simplifiedClauses,
-            simpHints.toInitialPredicates, predGenerator,
-            counterexampleMethod)
-          }
-        }
-      catch {
-        case lazabs.Main.TimeoutException => {
-          val sourceFilename=GlobalParameters.get.fileName
-          val destinationFilename= "../solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
-          HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
-          throw TimeoutException
-        }
-      }
 
       val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
         case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-simplifiedClauses) yield clause.normalize()
@@ -325,11 +302,34 @@ object TrainDataGeneratorPredicatesSmt2 {
         else
           predicateFromCEGAR
 
+      //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
+      val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
+
+      println("check solvability using current predicates")
+      val startTimeCEGAR = currentTimeMillis
+      val toParamsCEGAR = GlobalParameters.get.clone
+      toParamsCEGAR.timeoutChecker = () => {
+        if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
+          throw lazabs.Main.TimeoutException //Main.TimeoutException
+      }
+      try{
+        GlobalParameters.parameters.withValue(toParamsCEGAR) {
+          new HornPredAbs(simplifiedClauses,
+            initialPredicates.toInitialPredicates, predGenerator,
+            counterexampleMethod)
+        }
+      }
+      catch {
+        case lazabs.Main.TimeoutException => {
+          val sourceFilename=GlobalParameters.get.fileName
+          val destinationFilename= "../solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
+          throw TimeoutException
+        }
+      }
 
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
-        //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-        val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
         val sortedHints = HintsSelection.sortHints(initialPredicates)
         //write selected hints with IDs to file
         val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
