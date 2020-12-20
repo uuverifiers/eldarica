@@ -103,7 +103,7 @@ object HintsSelection {
     //for(cc<-simplelyGeneratedPredicates; b<-cc._2) println(Console.RED + cc._1,b)
     //todo:get rid of true and false
     println("--------all generated predicates---------")
-    for((k,v)<-simplelyGeneratedPredicates;p<-v) println(k,p)
+    for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     //sys.exit()
     simplelyGeneratedPredicates
   }

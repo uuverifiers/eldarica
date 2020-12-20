@@ -68,7 +68,7 @@ class GlobalParameters extends Cloneable {
   var getAllHornGraph=false
   var getLabelFromCounterExample=false
   var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
-  var hornGraphWithHints=false
+  var onlySimplePredicates=false
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -223,7 +223,7 @@ class GlobalParameters extends Cloneable {
     that.getHornGraph=this.getHornGraph
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
-    that.hornGraphWithHints=this.hornGraphWithHints
+    that.onlySimplePredicates=this.onlySimplePredicates
     that.generateSimplePredicates=this.generateSimplePredicates
   }
 
@@ -366,7 +366,7 @@ object Main {
         hornGraphType = HornGraphType.concretizedHyperedgeGraph
         arguments(rest)
       }
-      case "-hornGraphWithHints" :: rest => hornGraphWithHints = true; arguments(rest)
+      case "-onlySimplePredicates" :: rest => onlySimplePredicates = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
@@ -564,15 +564,15 @@ object Main {
           " -pIntermediate\t Dump Horn clauses encoding concurrent programs\n"+
           " -extractTemplates\t extract templates training data\n"+
           " -extractPredicates\t extract predicates from CEGAR process\n"+
-          " -generateSimplePredicates\t extract predicates using simply generated predicates\n"+
+          " -generateSimplePredicates\t extract predicates using cegar and simply generated predicates\n"+
+          " -onlySimplePredicates\t extract predicates using only simply generated predicates\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -getSMT2\t get SMT2 file\n"+
           " -getHornGraph\t get all types of horn graph file and GNN input\n"+
           " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph, hyperEdgeGraph, equivalentHyperedgeGraph, concretizedHyperedgeGraph\n" +
-          " -getLabelFromCE \t get label from counter example\n" +
-          " -hornGraphWithHints\t get horn graph file with hints\n"
+          " -getLabelFromCE \t get label from counter example\n"
 
 
           )

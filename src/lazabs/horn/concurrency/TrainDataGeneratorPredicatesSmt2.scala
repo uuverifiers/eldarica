@@ -320,6 +320,8 @@ object TrainDataGeneratorPredicatesSmt2 {
       val originalPredicates =
         if(GlobalParameters.get.generateSimplePredicates==true)
           (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+        else if (GlobalParameters.get.onlySimplePredicates==true)
+          HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
         else
           predicateFromCEGAR
 

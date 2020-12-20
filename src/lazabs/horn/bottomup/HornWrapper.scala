@@ -432,7 +432,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       case JsSuccess(templateLabel,_)=> templateLabel
     }
 
-    println("predictedLabel",predictedLabel.toList)
+    println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
 
     val mapLengthList=for ((k,v)<-initialHintsCollection.initialHints.getPredicateHints) yield v.length
     var splitTail=predictedLabel
