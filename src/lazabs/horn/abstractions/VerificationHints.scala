@@ -161,11 +161,11 @@ object VerificationHints {
     }
 
     def pretyPrintHints() = {
-      println("-----------------------------------")
+      println(Console.BLUE+"-----------------------------------")
       for((key,value)<-predicateHints){
-        println(key.toString())
+        println(Console.BLUE+key.toString())
         for(v<-value){
-          println(v)
+          println(Console.BLUE+v)
 
         }
       }

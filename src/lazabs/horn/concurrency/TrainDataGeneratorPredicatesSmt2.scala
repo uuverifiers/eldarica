@@ -428,9 +428,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
           println("\n------------predicates selection end-------------------------")
           println("\nOptimized Hints:")
-          println("!@@@@")
           selectedPredicates.pretyPrintHints()
-          println("@@@@!")
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
           try{
@@ -463,7 +461,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
         else{
           val sourceFilename=GlobalParameters.get.fileName
-          val destinationFilename= "../no-need-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          val destinationFilename= "../no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
           HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
         }
 
