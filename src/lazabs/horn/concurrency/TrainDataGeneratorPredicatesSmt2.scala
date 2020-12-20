@@ -421,47 +421,57 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("critical predicates:", criticalPredicatesSeq.toString())
           println("redundant predicates", redundantPredicatesSeq.toString())
         }
-        //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-        val selectedPredicates= HintsSelection.transformPredicateMapToVerificationHints(optimizedPredicate)
 
-        println("\n------------predicates selection end-------------------------")
-        println("\nOptimized Hints:")
-        println("!@@@@")
-        selectedPredicates.pretyPrintHints()
-        println("@@@@!")
-        println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
+        if(!optimizedPredicate.isEmpty){
+          //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
+          val selectedPredicates= HintsSelection.transformPredicateMapToVerificationHints(optimizedPredicate)
 
-        try{
-          println("\n------------test selected predicates-------------------------")
-          val test = new HornPredAbs(simplePredicatesGeneratorClauses,
-            optimizedPredicate,
-            //selectedPredicates.toInitialPredicates,
-            exceptionalPredGen).result
-          println("-----------------test finished-----------------------")
+          println("\n------------predicates selection end-------------------------")
+          println("\nOptimized Hints:")
+          println("!@@@@")
+          selectedPredicates.pretyPrintHints()
+          println("@@@@!")
+          println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
-          if (!selectedPredicates.isEmpty){
-            val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
-            val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
-            val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
-            //Output graphs
-            val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toList
-            val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
-            GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+          try{
+            println("\n------------test selected predicates-------------------------")
+            val test = new HornPredAbs(simplePredicatesGeneratorClauses,
+              optimizedPredicate,
+              //selectedPredicates.toInitialPredicates,
+              exceptionalPredGen).result
+            println("-----------------test finished-----------------------")
+
+            if (!selectedPredicates.isEmpty){
+              val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
+              val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
+              val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
+              //Output graphs
+              val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toList
+              val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
+              GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+            }
+
+          }catch{
+            case lazabs.Main.TimeoutException =>{
+              println(Console.RED + "--test timeout--")
+              //todo: not include this to training example? because it can only provide negative training data
+              val sourceFilename=GlobalParameters.get.fileName
+              val destinationFilename= "../test-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+              HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
+            }
           }
-
-        }catch{
-          case lazabs.Main.TimeoutException =>{
-            println(Console.RED + "--test timeout--")
-            //todo: not include this to training example? because it can only provide negative training data
-            val sourceFilename=GlobalParameters.get.fileName
-            val destinationFilename= "../test-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
-            HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
-          }
+        }
+        else{
+          val sourceFilename=GlobalParameters.get.fileName
+          val destinationFilename= "../no-need-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
         }
 
 
 
+
       }
+
     }
   }
 }
