@@ -323,7 +323,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         case lazabs.Main.TimeoutException => {
           val sourceFilename=GlobalParameters.get.fileName
           val destinationFilename= "../solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
-          HintsSelection.copyRenameFile(sourceFilename,destinationFilename)
+          HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
           throw TimeoutException
         }
       }
