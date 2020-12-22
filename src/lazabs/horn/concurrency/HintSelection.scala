@@ -31,7 +31,7 @@ package lazabs.horn.concurrency
 import ap.terfor.preds.Predicate
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.{AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.abstractions.{AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup._
 
 import scala.io.Source
@@ -46,7 +46,7 @@ import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import ap.parser._
-import IExpression._
+import IExpression.{Predicate, _}
 import lazabs.horn.bottomup.HornClauses
 
 import java.lang.System.currentTimeMillis
@@ -61,6 +61,38 @@ import lazabs.horn.preprocessor.HornPreprocessor
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
+
+  def readHints(filename : String,
+                name2Pred : Map[String, Predicate])
+  : VerificationHints = filename match {
+    case "" =>
+      EmptyVerificationHints
+    case hintsFile => {
+      val reader = new AbsReader (
+        new java.io.BufferedReader (
+          new java.io.FileReader(hintsFile)))
+      val hints =
+        (for ((predName, hints) <- reader.allHints.iterator;
+              pred = name2Pred get predName;
+              if {
+                if (pred.isDefined) {
+                  if (pred.get.arity != reader.predArities(predName))
+                    throw new Exception(
+                      "Hints contain predicate with wrong arity: " +
+                        predName + " (should be " + pred.get.arity + " but is " +
+                        reader.predArities(predName) + ")")
+                } else {
+                  Console.err.println(
+                    "   Ignoring hints for " + predName + "\n")
+                }
+                pred.isDefined
+              }) yield {
+          (pred.get, hints)
+        }).toMap
+      VerificationHints(hints)
+    }
+  }
+
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):  Map[Predicate, Seq[IFormula]] ={
     for (clause <- simplePredicatesGeneratorClauses)
       println(Console.BLUE + clause.toPrologString)
@@ -86,7 +118,9 @@ object HintsSelection {
           SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)).unary_!
         else
           SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
-      atom.pred-> Seq(freeVariableReplacedPredicates)
+      //todo: decide negation sequence
+      //atom.pred-> Seq(freeVariableReplacedPredicates)
+      atom.pred-> LineariseVisitor(freeVariableReplacedPredicates,IBinJunctor.And)
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     println("--------predicates from constrains---------")

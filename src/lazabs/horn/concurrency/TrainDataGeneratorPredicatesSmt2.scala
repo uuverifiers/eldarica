@@ -386,7 +386,7 @@ object TrainDataGeneratorPredicatesSmt2 {
                 println("----------------------------------- CEGAR --------------------------------------")
                 new HornPredAbs(simplePredicatesGeneratorClauses,
                   currentPredicate,
-                  exceptionalPredGen).result
+                  exceptionalPredGen,counterexampleMethod).result
                 //not timeout
                 redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
                 //add useless hint to NegativeHintsWithID   //ID:head->hint
@@ -431,12 +431,18 @@ object TrainDataGeneratorPredicatesSmt2 {
           selectedPredicates.pretyPrintHints()
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
+//          val predicateGeneratorForTest =
+//            if(GlobalParameters.get.onlySimplePredicates==true)
+//              predGenerator
+//            else
+//              exceptionalPredGen
+
           try{
             println("\n------------test selected predicates-------------------------")
             val test = new HornPredAbs(simplePredicatesGeneratorClauses,
               optimizedPredicate,
               //selectedPredicates.toInitialPredicates,
-              exceptionalPredGen).result
+              exceptionalPredGen,counterexampleMethod).result
             println("-----------------test finished-----------------------")
 
             if (!selectedPredicates.isEmpty){
@@ -447,8 +453,13 @@ object TrainDataGeneratorPredicatesSmt2 {
               val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toList
               val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, selectedPredicates,countOccurrence=true)
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
-            }
+              //Output selected predicates:
+              val output = new java.io.FileOutputStream(GlobalParameters.get.fileName+".tpl")
+              Console.withOut(output) {
+                AbsReader.printHints(selectedPredicates)
+              }
 
+            }
           }catch{
             case lazabs.Main.TimeoutException =>{
               println(Console.RED + "--test timeout--")
@@ -460,6 +471,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           }
         }
         else{
+          println(Console.RED + "--optimizedPredicate is empty--")
           val sourceFilename=GlobalParameters.get.fileName
           val destinationFilename= "../no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
           HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
