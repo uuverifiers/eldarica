@@ -121,14 +121,16 @@ object HintsSelection {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
-      val freeVariableReplacedPredicates=
+      val freeVariableReplacedPredicates= {
         if(clause.body.contains(atom))
           SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)).unary_!
         else
           SimpleAPI.spawn.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
+      }
+      println(Console.GREEN + atom.pred.name+","+freeVariableReplacedPredicates.toString)
       //todo: decide negation sequence
       //atom.pred-> Seq(freeVariableReplacedPredicates)
-      atom.pred-> LineariseVisitor(freeVariableReplacedPredicates,IBinJunctor.And)
+      atom.pred-> LineariseVisitor(SimpleAPI.spawn.simplify(freeVariableReplacedPredicates),IBinJunctor.And).filter(!_.isTrue).filter(!_.isFalse)
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     println("--------predicates from constrains---------")
