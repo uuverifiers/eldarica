@@ -62,6 +62,14 @@ case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
 
+  def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause]):VerificationHints={
+    val name2Pred =
+      (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
+            IAtom(p, _) <- (head :: body).iterator)
+        yield (p.name -> p)).toMap
+    HintsSelection.readHints(GlobalParameters.get.fileName+".tpl", name2Pred)
+  }
+
   def readHints(filename : String,
                 name2Pred : Map[String, Predicate])
   : VerificationHints = filename match {

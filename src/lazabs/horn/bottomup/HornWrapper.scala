@@ -423,13 +423,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     //generate predicate again
     //val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
     //todo:read from file
-    val simplePredicates : VerificationHints = {
-      val name2Pred =
-        (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
-              IAtom(p, _) <- (head :: body).iterator)
-          yield (p.name -> p)).toMap
-      HintsSelection.readHints(GlobalParameters.get.fileName+".tpl", name2Pred)
-    }
+    val simplePredicates=HintsSelection.wrappedReadHints(simplifiedClausesForGraph)
+//    val simplePredicates : VerificationHints = {
+//      val name2Pred =
+//        (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
+//              IAtom(p, _) <- (head :: body).iterator)
+//          yield (p.name -> p)).toMap
+//      HintsSelection.readHints(GlobalParameters.get.fileName+".tpl", name2Pred)
+//    }
     simplePredicates.pretyPrintHints()
     //simpHints.printHints() this is empty set
     val initialHintsCollection=new VerificationHintsInfo(simplePredicates ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))

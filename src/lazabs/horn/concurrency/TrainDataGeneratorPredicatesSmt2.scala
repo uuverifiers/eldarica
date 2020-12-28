@@ -330,19 +330,22 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
-        val sortedHints = HintsSelection.sortHints(initialPredicates)
-        //write selected hints with IDs to file
-        val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
-        println("---initialHints-----")
-        for (wrappedHint <- InitialHintsWithID) {
-          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
-        }
+//        val sortedHints = HintsSelection.sortHints(initialPredicates)
+//        //write selected hints with IDs to file
+//        val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
+//        println("---initialHints-----")
+//        for (wrappedHint <- InitialHintsWithID) {
+//          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
+//        }
 
 //          println("------------test original predicates-------")
 //          new HornPredAbs(simplePredicatesGeneratorClauses,
 //            originalPredicates,//need Map[Predicate, Seq[IFormula]]
 //            predGenerator,predicateFlag=false).result
 
+        println("---initialHints-----")
+        for((k,v)<-originalPredicates;p<-v)
+          println(k,p)
         //Predicate selection begin
         println("------Predicates selection begin----")
         val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
@@ -390,12 +393,12 @@ object TrainDataGeneratorPredicatesSmt2 {
                 //not timeout
                 redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
                 //add useless hint to NegativeHintsWithID   //ID:head->hint
-                for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
-                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                  if (head.name == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
-                    NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
-                  }
-                }
+//                for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
+//                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+//                  if (head.name == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+//                    NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
+//                  }
+//                }
               }
             } catch {
               case lazabs.Main.TimeoutException => { //need new predicate or timeout
@@ -404,12 +407,12 @@ object TrainDataGeneratorPredicatesSmt2 {
                 currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
                 currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq ++ Seq(p))) //add the head with deleted predicate
                 //add useful hint to PositiveHintsWithID
-                for(wrappedHint<-InitialHintsWithID){
-                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-                  if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
-                    PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
-                  }
-                }
+//                for(wrappedHint<-InitialHintsWithID){
+//                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+//                  if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+//                    PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
+//                  }
+//                }
               }
             }
           }
@@ -456,7 +459,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               //Output selected predicates:
               val output = new java.io.FileOutputStream(GlobalParameters.get.fileName+".tpl")
               Console.withOut(output) {
-                AbsReader.printHints(selectedPredicates)
+                AbsReader.printHints(initialPredicates)
               }
 
             }
