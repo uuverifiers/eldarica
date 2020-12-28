@@ -434,18 +434,18 @@ object TrainDataGeneratorPredicatesSmt2 {
           selectedPredicates.pretyPrintHints()
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
-//          val predicateGeneratorForTest =
-//            if(GlobalParameters.get.onlySimplePredicates==true)
-//              predGenerator
-//            else
-//              exceptionalPredGen
+          val predicateGeneratorForTest =
+            if(GlobalParameters.get.onlySimplePredicates==true)
+              predGenerator
+            else
+              exceptionalPredGen
 
           try{
             println("\n------------test selected predicates-------------------------")
             val test = new HornPredAbs(simplePredicatesGeneratorClauses,
               optimizedPredicate,
               //selectedPredicates.toInitialPredicates,
-              exceptionalPredGen,counterexampleMethod).result
+              predicateGeneratorForTest,counterexampleMethod).result
             println("-----------------test finished-----------------------")
 
             if (!selectedPredicates.isEmpty){
