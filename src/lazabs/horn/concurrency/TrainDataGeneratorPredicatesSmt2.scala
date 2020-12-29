@@ -483,6 +483,11 @@ object TrainDataGeneratorPredicatesSmt2 {
 
 
 
+      }else{
+        println(Console.RED + "--originalPredicate is empty--")
+        val sourceFilename=GlobalParameters.get.fileName
+        val destinationFilename= "../no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+        HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
       }
 
     }
