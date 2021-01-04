@@ -107,7 +107,7 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       }
 
       //write argument score to file
-      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
+      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
       val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedHint,simpHints.filterPredicates(selectedHint.predicateHints.keySet))
       val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)

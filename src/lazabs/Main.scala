@@ -829,7 +829,6 @@ object Main {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("stack overflow", GlobalParameters.get.format)
     }
-
     case t : Exception =>
       printError(t.getMessage, GlobalParameters.get.format)
   }

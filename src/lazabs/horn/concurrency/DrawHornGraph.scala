@@ -38,7 +38,7 @@ import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 
-import scala.collection.mutable.{ListBuffer, HashMap => MHashMap, Map => MuMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
 object DrawHornGraph {
 
@@ -76,14 +76,14 @@ class Adjacency(edge_name: String, edge_number: Int) {
   val edgeNumber = edge_number
 
   //var edgeList=new ListBuffer[ListBuffer[Int]]()
-  var binaryEdge = Array[Pair[Int, Int]]()
-  var ternaryEdge = Array[Triple[Int, Int, Int]]()
+  var binaryEdge = Array[Tuple2[Int, Int]]()
+  var ternaryEdge = Array[Tuple3[Int, Int, Int]]()
 
   def incrementBinaryEdge(from: Int, to: Int): Unit =
-    binaryEdge :+= Pair(from, to)
+    binaryEdge :+= Tuple2(from, to)
 
   def incrementTernaryEdge(from: Int, to1: Int, to2: Int): Unit =
-    ternaryEdge :+= Triple(from, to1, to2)
+    ternaryEdge :+= Tuple3(from, to1, to2)
 }
 
 class GNNInput(clauseCollection:ClauseInfo) {
@@ -158,7 +158,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   var predicateOccurrenceInClause = Array[Int]()
   var clausesOccurrenceInCounterExample = Array[Int]()
   var predicateStrongConnectedComponent = Array[Int]()
-  var argumentInfoHornGraphList = new ListBuffer[argumentInfoHronGraph]
+  var argumentInfoHornGraphList = new ArrayBuffer[argumentInfoHronGraph]
   var nodeNameToIDMap = MuMap[String, Int]()
 
   val learningLabel= new FormLearningLabels(clauseCollection)
@@ -366,7 +366,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   }
 }
 
-class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   val simpClauses = clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
@@ -667,8 +667,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     rootName
   }
 
-  def writeGNNInputToJSONFile(argumentIDList: ListBuffer[Int], argumentNameList: ListBuffer[String],
-                              argumentOccurrenceList: ListBuffer[Int],argumentBoundList:ListBuffer[(String, String)],argumentIndicesList:ListBuffer[Int],argumentBinaryOccurrenceList:ListBuffer[Int]): Unit = {
+  def writeGNNInputToJSONFile(argumentIDList: ArrayBuffer[Int], argumentNameList: ArrayBuffer[String],
+                              argumentOccurrenceList: ArrayBuffer[Int],argumentBoundList:ArrayBuffer[(String, String)],argumentIndicesList:ArrayBuffer[Int],argumentBinaryOccurrenceList:ArrayBuffer[Int]): Unit = {
     println("Write GNNInput to file")
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
@@ -744,7 +744,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writer.close()
   }
 
-  def matchArguments(): (ListBuffer[Int], ListBuffer[String], ListBuffer[Int], ListBuffer[(String, String)],ListBuffer[Int],ListBuffer[Int]) = {
+  def matchArguments(): (ArrayBuffer[Int], ArrayBuffer[String], ArrayBuffer[Int], ArrayBuffer[(String, String)],ArrayBuffer[Int],ArrayBuffer[Int]) = {
     //match by argument name
     for (argHornGraph <- gnn_input.argumentInfoHornGraphList; arg <- argumentInfoList) {
       if (arg.headName == argHornGraph.head && arg.index == argHornGraph.index) {
@@ -865,8 +865,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
     writer.write("]")
   }
-  def drawTemplates(pre:Predicate): List[String] ={
-    var templateNameList:List[String]=List()
+  def drawTemplates(pre:Predicate): Array[String] ={
+    var templateNameList:Array[String]=Array()
     for((hp,templates)<-hints.initialHints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
       constantNodeSetInOneClause.clear()
       for (t<-templates){

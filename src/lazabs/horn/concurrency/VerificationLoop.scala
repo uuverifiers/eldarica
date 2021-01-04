@@ -315,7 +315,7 @@ class VerificationLoop(system : ParametricEncoder.System,
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
         //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
         HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,GlobalParameters.get.fileName)  //write smt2 format to file
-        val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
+        val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
         //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
         val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
         val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))

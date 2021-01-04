@@ -35,7 +35,7 @@ import lazabs.horn.abstractions.{AbsReader, AbstractionRecord, EmptyVerification
 import lazabs.horn.bottomup._
 
 import scala.io.Source
-import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import java.io.{File, FileWriter, PrintWriter}
 import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
@@ -954,7 +954,7 @@ object HintsSelection {
     // Print parsed JSON
     option match {
       case None => println("observations JSON invalid")
-      case Some(elements: Map[String, List[String]]) => {
+      case Some(elements: Map[String, Array[String]]) => {
         //println(elements)
         for ((key, list) <- elements) {
           println(key + "/" + list.length)
@@ -1279,9 +1279,9 @@ object HintsSelection {
   }
 
 
-  def getArgumentInfo(argumentList: List[(IExpression.Predicate, Int)]): ListBuffer[argumentInfo] = {
+  def getArgumentInfo(argumentList: Array[(IExpression.Predicate, Int)]): ArrayBuffer[argumentInfo] = {
     var argID = 0
-    var arguments: ListBuffer[argumentInfo] = ListBuffer[argumentInfo]()
+    var arguments: ArrayBuffer[argumentInfo] = ArrayBuffer[argumentInfo]()
     for ((arg, i) <- argumentList.zipWithIndex) {
       for ((a, j) <- (0 to arg._2 - 1).zipWithIndex) {
         arguments += new argumentInfo(argID, arg._1, a)
@@ -1291,7 +1291,7 @@ object HintsSelection {
     arguments
   }
 
-  def getArgumentInfoFromFile(argumentList: List[(IExpression.Predicate, Int)]): ListBuffer[argumentInfo] = {
+  def getArgumentInfoFromFile(argumentList: Array[(IExpression.Predicate, Int)]): ArrayBuffer[argumentInfo] = {
     val arguments = getArgumentInfo(argumentList)
     val argumentFileName = GlobalParameters.get.fileName + ".arguments"
     if (scala.reflect.io.File(argumentFileName).exists) {
@@ -1306,8 +1306,8 @@ object HintsSelection {
     arguments
   }
 
-  def getArgumentBoundForSmt(argumentList: List[(IExpression.Predicate, Int)], disjunctive: Boolean, simplifiedClauses: Seq[Clause], simpHints: VerificationHints
-                             , predGenerator: Dag[DisjInterpolator.AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]]): ListBuffer[argumentInfo] = {
+  def getArgumentBoundForSmt(argumentList: Array[(IExpression.Predicate, Int)], disjunctive: Boolean, simplifiedClauses: Seq[Clause], simpHints: VerificationHints
+                             , predGenerator: Dag[DisjInterpolator.AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]]): ArrayBuffer[argumentInfo] = {
     val counterexampleMethod =
       if (disjunctive)
         HornPredAbs.CounterexampleMethod.AllShortest
@@ -1320,7 +1320,7 @@ object HintsSelection {
     getArgumentBound(argumentList, simpPredAbs.argumentBounds)
   }
 
-  def getArgumentBound(argumentList: List[(IExpression.Predicate, Int)], argumentBounds: scala.collection.mutable.Map[Predicate, List[(String, String)]]): ListBuffer[argumentInfo] = {
+  def getArgumentBound(argumentList: Array[(IExpression.Predicate, Int)], argumentBounds: scala.collection.mutable.Map[Predicate, Array[(String, String)]]): ArrayBuffer[argumentInfo] = {
     val arguments = getArgumentInfo(argumentList)
     for ((k, v) <- argumentBounds; arg <- arguments) if (arg.location.toString() == k.toString()) {
       arg.bound = v(arg.index)
@@ -1329,13 +1329,13 @@ object HintsSelection {
   }
 
   def getArgumentOccurrenceInHints(file: String,
-                                   argumentList: List[(IExpression.Predicate, Int)],
+                                   argumentList: Array[(IExpression.Predicate, Int)],
                                    positiveHints: VerificationHints,
-                                   countOccurrence: Boolean = true): ListBuffer[argumentInfo] ={
+                                   countOccurrence: Boolean = true): ArrayBuffer[argumentInfo] ={
     val arguments = getArgumentInfo(argumentList)
     if (countOccurrence == true) {
       //get hint info list
-      var positiveHintInfoList: ListBuffer[hintInfo] = ListBuffer[hintInfo]()
+      var positiveHintInfoList: ArrayBuffer[hintInfo] = ArrayBuffer[hintInfo]()
       for ((head, hintList) <- positiveHints.getPredicateHints()) {
         for (h <- hintList) h match {
           case VerifHintInitPred(p) => {
@@ -1378,9 +1378,9 @@ object HintsSelection {
 
   }
   def writeArgumentOccurrenceInHintsToFile(file: String,
-                               argumentList: List[(IExpression.Predicate, Int)],
+                               argumentList: Array[(IExpression.Predicate, Int)],
                                positiveHints: VerificationHints,
-                               countOccurrence: Boolean = true): ListBuffer[argumentInfo]  = {
+                               countOccurrence: Boolean = true): ArrayBuffer[argumentInfo]  = {
     val arguments = getArgumentOccurrenceInHints(file,argumentList,positiveHints,countOccurrence)
     println("Write arguments to file")
     val writer = new PrintWriter(new File(file + ".arguments")) //python path
@@ -1469,16 +1469,16 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
     }
   }
   // print argument bounds
-  var argumentBounds: scala.collection.mutable.Map[Predicate, List[Pair[String, String]]] = scala.collection.mutable.Map()
+  var argumentBounds: scala.collection.mutable.Map[Predicate, Array[Tuple2[String, String]]] = scala.collection.mutable.Map()
   for ((rs, bounds) <- relationSymbolBounds; if (rs.pred.name != "FALSE")) { //don't learn from FALSE predicate
     //println(rs.pred.name + ":")
-    var argumentBoundList: List[Pair[String, String]] = List()
+    var argumentBoundList: Array[Tuple2[String, String]] = Array()
     if (bounds.isTrue) { //FALSE's bounds is true
       for (s <- rs.arguments(0))
-        argumentBoundList :+= Pair("\"None\"", "\"None\"")
+        argumentBoundList :+= Tuple2("\"None\"", "\"None\"")
     } else if (bounds.isFalse) {
       for (s <- rs.arguments(0))
-        argumentBoundList :+= Pair("\"False\"", "\"False\"")
+        argumentBoundList :+= Tuple2("\"False\"", "\"False\"")
     } else {
       for (s <- rs.arguments(0)) {
         //print("  " + s + ": ")
@@ -1492,7 +1492,7 @@ class simplifiedHornPredAbsForArgumentBounds[CC <% HornClauses.ConstraintClause]
           case Some(x) => x.toString()
           case _ => "\"None\""
         }
-        argumentBoundList :+= Pair(lowerBound, upperBound)
+        argumentBoundList :+= Tuple2(lowerBound, upperBound)
         //println()
       }
     }

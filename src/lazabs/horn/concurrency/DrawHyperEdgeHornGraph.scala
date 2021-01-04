@@ -42,7 +42,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer}
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
 
 object DrawHyperEdgeHornGraph {
@@ -61,7 +61,7 @@ class hyperEdgeInfo(name: String, from: String = "", to: String, nodeType: Hyper
   val hyperEdgeType = nodeType
 }
 
-class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   println("Write " + GlobalParameters.get.hornGraphType.toString + " to file")
   edgeNameMap += ("controlFlowHyperEdge" -> "CFHE")
   edgeNameMap += ("dataFlowHyperEdge" -> "DFHE")
@@ -103,7 +103,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
   var tempID = 0
   var clauseNumber = 0
-  var hyperEdgeList = scala.collection.mutable.ListBuffer[hyperEdgeInfo]()
+  var hyperEdgeList = scala.collection.mutable.ArrayBuffer[hyperEdgeInfo]()
 
   for (clause <- simpClauses) {
     hyperEdgeList.clear()

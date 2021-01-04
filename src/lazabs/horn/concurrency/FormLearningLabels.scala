@@ -125,7 +125,6 @@ class FormLearningLabels (clauseCollection: ClauseInfo){
 }
 
 class TarjanRecursive {
-
   /**
    * The algorithm takes a directed graph as input, a
    * nd produces a partition of the graph's vertices into the graph's strongly connected components.

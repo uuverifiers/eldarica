@@ -35,9 +35,9 @@ import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.Json
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer}
 
-class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ListBuffer[argumentInfo]) {
+class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   println("Write " + GlobalParameters.get.hornGraphType.toString + " to file")
   GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => {
@@ -129,7 +129,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   var predicateNameMap = Map[String, predicateInfo]() //original name -> canonical name
   class predicateInfo(predicateName: String) {
     val predicateCanonicalName = predicateName
-    var argumentCanonicalNameList = new ListBuffer[Pair[String, Int]]() //(canonicalName, ID)
+    var argumentCanonicalNameList = new ArrayBuffer[Pair[String, Int]]() //(canonicalName, ID)
   }
 
   for (clause <- simpClauses; a <- clause.allAtoms) {

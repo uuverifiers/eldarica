@@ -379,7 +379,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
       if(GlobalParameters.get.fileName.endsWith(".smt2")){ //if it is a smt2 file
         //copy smt2 file
       }
-      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toList
+      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
       val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedTemplates)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedTemplates,simpHints.filterPredicates(selectedTemplates.predicateHints.keySet))
       val clausesInCE=getClausesInCounterExamples(test,simplifiedClausesForGraph)
