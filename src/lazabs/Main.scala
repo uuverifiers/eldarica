@@ -35,8 +35,8 @@ import lazabs.prover._
 import lazabs.viewer._
 import lazabs.nts._
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType}
-import lazabs.horn.concurrency.CCReader
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.{CCReader, HintsSelection}
 import ap.util.Debug
 
 object GlobalParameters {
@@ -825,8 +825,11 @@ object Main {
       // nothing
     case _ : java.lang.OutOfMemoryError =>
       printError("out of memory", GlobalParameters.get.format)
-    case _ : java.lang.StackOverflowError =>
+    case _ : java.lang.StackOverflowError =>{
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("stack overflow", GlobalParameters.get.format)
+    }
+
     case t : Exception =>
       printError(t.getMessage, GlobalParameters.get.format)
   }

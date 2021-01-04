@@ -269,8 +269,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           HornPredAbs.CounterexampleMethod.FirstBestShortest
 
       /////////////////////////predicates extracting begin///////////////////////////////
-
-
+      val predicatesExtractingBeginTime=System.currentTimeMillis
       val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
         case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-simplifiedClauses) yield clause.normalize()
         case _ => simplifiedClauses
@@ -322,7 +321,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       catch {
         case lazabs.Main.TimeoutException => {
           val sourceFilename=GlobalParameters.get.fileName
-          val destinationFilename= "../solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          val destinationFilename= "../benchmarks/solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
           HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
           throw TimeoutException
         }
@@ -425,6 +424,8 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("redundant predicates", redundantPredicatesSeq.toString())
         }
 
+        println(Console.BLUE + "predicates extracting time: ",System.currentTimeMillis-predicatesExtractingBeginTime)
+
         if(!optimizedPredicate.isEmpty){
           //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
           val selectedPredicates= HintsSelection.transformPredicateMapToVerificationHints(optimizedPredicate)
@@ -446,8 +447,8 @@ object TrainDataGeneratorPredicatesSmt2 {
               optimizedPredicate,
               //selectedPredicates.toInitialPredicates,
               predicateGeneratorForTest,counterexampleMethod).result
-            println("-----------------test finished-----------------------")
-
+            println("-"*10 + "test finished" + "-"*10)
+            val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
             if (!selectedPredicates.isEmpty){
               val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
@@ -461,14 +462,14 @@ object TrainDataGeneratorPredicatesSmt2 {
               Console.withOut(output) {
                 AbsReader.printHints(initialPredicates)
               }
-
             }
+            println(Console.GREEN + "Time for drawing graph and form labels: ", System.currentTimeMillis-drawGraphAndWriteLabelsBegin)
           }catch{
             case lazabs.Main.TimeoutException =>{
               println(Console.RED + "--test timeout--")
               //todo: not include this to training example? because it can only provide negative training data
               val sourceFilename=GlobalParameters.get.fileName
-              val destinationFilename= "../test-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+              val destinationFilename= "../benchmarks/test-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
               HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
             }
           }
@@ -476,7 +477,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         else{
           println(Console.RED + "--optimizedPredicate is empty--")
           val sourceFilename=GlobalParameters.get.fileName
-          val destinationFilename= "../no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+          val destinationFilename= "../benchmarks/no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
           HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
         }
 
@@ -486,7 +487,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       }else{
         println(Console.RED + "--originalPredicate is empty--")
         val sourceFilename=GlobalParameters.get.fileName
-        val destinationFilename= "../no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+        val destinationFilename= "../benchmarks/no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
         HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
       }
 
