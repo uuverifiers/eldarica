@@ -821,10 +821,14 @@ object Main {
     //if(drawRTree) DrawGraph(rTree, absInFile)
 
   } catch {
-    case TimeoutException | StoppedException =>
+    case TimeoutException | StoppedException =>{
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+    }
       // nothing
-    case _ : java.lang.OutOfMemoryError =>
+    case _ : java.lang.OutOfMemoryError =>{
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/out-of-memory/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("out of memory", GlobalParameters.get.format)
+    }
     case _ : java.lang.StackOverflowError =>{
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("stack overflow", GlobalParameters.get.format)
