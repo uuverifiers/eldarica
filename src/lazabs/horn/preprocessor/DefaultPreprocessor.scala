@@ -54,6 +54,7 @@ class DefaultPreprocessor extends HornPreprocessor {
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner,
+         new HeapSizeArgumentExtender,
          new SizeArgumentExtender)
 
   def postStages : List[HornPreprocessor] =
