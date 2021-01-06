@@ -44,16 +44,30 @@ import ap.util.Seqs
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
 
+object ClauseInliner {
+
+  val DAG_SIZE_LIMIT        = 100
+  val CONSTRAINT_SIZE_LIMIT = 10000
+
+}
+
 /**
  * Inline linear definitions.
  */
 class ClauseInliner extends HornPreprocessor {
   import HornPreprocessor._
+  import ClauseInliner._
 
   val name : String = "clause inlining"
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
+    for (clause <- clauses)
+      if (SizeVisitor(clause.constraint) > CONSTRAINT_SIZE_LIMIT)
+        blockedPreds ++= clause.predicates
+
+    blockedPreds += HornClauses.FALSE
+
     val (newClauses, newHints) = elimLinearDefs(clauses, hints)
 
     val translator = new BackTranslator {
@@ -222,6 +236,7 @@ class ClauseInliner extends HornPreprocessor {
 
     originalInlinedClauses.clear
     clauseBackMapping.clear
+    blockedPreds.clear
 
     (newClauses, newHints, translator)
   }
@@ -233,6 +248,9 @@ class ClauseInliner extends HornPreprocessor {
 
   // mapping from the newly produced clauses to trees of the orginal clauses
   private val clauseBackMapping = new MHashMap[Clause, Dag[Option[Clause]]]
+
+  // predicates that will never be considered for inlining
+  private val blockedPreds = new MHashSet[Predicate]
 
   private def defaultBackMapping(c : Clause) = {
     val N = c.body.size
@@ -279,7 +297,7 @@ class ClauseInliner extends HornPreprocessor {
   private def extractUniqueDefs(clauses : Iterable[Clause]) = {
     val uniqueDefs = new MHashMap[Predicate, Clause]
     val badHeads = new MHashSet[Predicate]
-    badHeads += FALSE
+    badHeads ++= blockedPreds
 
     for (clause@Clause(head, body, _) <- clauses)
       if (!(badHeads contains head.pred)) {
@@ -385,6 +403,11 @@ class ClauseInliner extends HornPreprocessor {
           (leafIndexes.iterator zip inlinedClauses.iterator).toMap)
 
       clauseBackMapping.put(res, newMapping)
+
+      if (newMapping.size > DAG_SIZE_LIMIT ||
+            SizeVisitor(res.constraint) > CONSTRAINT_SIZE_LIMIT)
+        blockedPreds ++= res.predicates
+
       res
     } else {
       clause

@@ -88,7 +88,7 @@ SAFE
 
 inconclusive.smt2
 Warning: ignoring get-model
-Theories: SimpleArray(1)
+Theories: ExtArray[bv[32], bv[32]]
 sat
 
 loop.smt2

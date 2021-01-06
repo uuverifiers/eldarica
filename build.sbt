@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0.4-heap",
+    version := "2.0.5-heap",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
@@ -18,7 +18,7 @@ lazy val parserSettings = Seq(
     publishArtifact in packageDoc := false,
     publishArtifact in packageSrc := false,
     exportJars := true,
-    crossPaths := true
+    crossPaths := true 
 )
 
 // Parser generation
@@ -27,32 +27,32 @@ lazy val parserGen = Seq(
   sourceGenerators in Compile += Def.task {
           val outputDir = (sourceManaged in Compile).value / "parser"
           val base = baseDirectory.value
-
+          
           val cacheDir = outputDir / ".cache"
 
           val parserDir = base / "src" / "lazabs" / "parser"
           val parserOutputDir = outputDir / "normal"
-
+		
           val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
           val hornParserOutputDir = outputDir / "horn"
-
+		
           // generated Java files
           val lexerFile =  parserOutputDir / "Lexer.java"
           val hornLexerFile =  hornParserOutputDir / "HornLexer.java"
-
+		
           val parserFile = parserOutputDir / "Parser.java"
           val hornParserFile = hornParserOutputDir / "Parser.java"
-
+		
           val symFile = parserOutputDir / "Symbols.java"
           val hornSymFile = hornParserOutputDir / "Symbols.java"
-
+		
           // grammar file
           val flex = parserDir / "Lexer.jflex"
           val hornFlex = hornParserDir / "HornLexer.jflex"
-
+		
           val cup =  parserDir / "Parser.cup"
           val hornCup =  hornParserDir / "HornParser.cup"
-
+		
           val jflexLib = "./tools/JFlex.jar"
           val cupLib = "./tools/java-cup-11a.jar"
 
@@ -127,7 +127,7 @@ lazy val root = (project in file(".")).
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
       case "2.12.10" => "-opt:_"
-    }}).value,
+    }}).value,	
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
