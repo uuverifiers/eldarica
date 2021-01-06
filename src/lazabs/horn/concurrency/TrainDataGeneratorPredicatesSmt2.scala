@@ -300,7 +300,8 @@ object TrainDataGeneratorPredicatesSmt2 {
             val sourceFilename=GlobalParameters.get.fileName
             val destinationFilename= "../benchmarks/solvability-timeout/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
             HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
-            throw TimeoutException
+            sys.exit()
+            //throw TimeoutException
           }
         }
 
