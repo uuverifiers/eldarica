@@ -267,7 +267,7 @@ class VerificationLoop(system : ParametricEncoder.System,
 
       //get smt
       if(GlobalParameters.get.getSMT2==true){
-        HintsSelection.writeSMTFormatToFile(encoder.allClauses,GlobalParameters.get.fileName)  //write smt2 format to file
+        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
         println(encoder.allClauses)
       }
 

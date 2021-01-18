@@ -393,8 +393,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val gnn_input = new GNNInput(clausesCollection)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
 
-  edgeNameMap += ("templateAST"->"tAST")
-  edgeNameMap += ("template"->"template")
+  edgeNameMap += ("templateAST"->"pAST")
+  edgeNameMap += ("template"->"predicate")
   edgeDirectionMap += ("templateAST"->false)
   edgeDirectionMap += ("template" -> false)
   nodeShapeMap += ("template" -> "component")
@@ -871,9 +871,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       constantNodeSetInOneClause.clear()
       for (t<-templates){
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
+        val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         templateNameList:+=templateNodeName
         val hintLabel = if (hints.positiveHints.predicateHints.keySet.contains(hp) && hints.positiveHints.predicateHints(hp).contains(t)) true else false
-        createNode(templateNodeName,templateNodeName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
+        createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
           case VerifHintInitPred(e)=>{
             drawAST(e,templateNodeName)

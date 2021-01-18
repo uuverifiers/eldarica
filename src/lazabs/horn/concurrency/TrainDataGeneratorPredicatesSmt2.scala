@@ -481,6 +481,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               //selectedPredicates.toInitialPredicates,
               predicateGeneratorForTest,counterexampleMethod).result
             println("-"*10 + "test finished" + "-"*10)
+            simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
             if (!selectedPredicates.isEmpty){
               val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
