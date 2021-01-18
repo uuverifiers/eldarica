@@ -139,8 +139,7 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
-    
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
     //resolvers += "Typesafe Public Repo" at "http://repo.typesafe.com/typesafe/releases",
     //libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5",
     libraryDependencies +=  "org.apache.commons" % "commons-lang3" % "3.5",
