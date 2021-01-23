@@ -393,18 +393,21 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
     //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
+    val hintCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
     if (GlobalParameters.get.getAllHornGraph==true) {
-      GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
+      GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo)
     }
     else{
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph|HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
-        case _=> new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph|HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintCollection,argumentInfo)
+        case _=> new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintCollection,argumentInfo)
       }
     }
     sys.exit()
+  }
+  if(GlobalParameters.get.getSMT2==true){
+    HintsSelection.writeSMTFormatToFile(for (c<-simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c),GlobalParameters.get.fileName+"-simplified")
   }
 
   if(GlobalParameters.get.generateSimplePredicates==true){
@@ -427,12 +430,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     simplePredicates.pretyPrintHints()
     //simpHints.printHints() this is empty set
     val initialHintsCollection=new VerificationHintsInfo(simplePredicates ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
-    //read selected predicates label from JSON file
+    //read positive (selected) predicates label from JSON file
     import play.api.libs.json._
+    val readLabel="templateRelevanceLabel" //predictedLabel
     val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
     val json_content = scala.io.Source.fromFile(input_file).mkString
     val json_data = Json.parse(json_content)
-    val predictedLabel=(json_data \ "predictedLabel").validate[Array[Int]] match {
+    val predictedLabel=(json_data \ readLabel).validate[Array[Int]] match {
       case JsSuccess(templateLabel,_)=> templateLabel
     }
 
@@ -456,7 +460,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     for((k,v)<-labeledPredicates;p<-v)
       println(k,p)
 
-    simplePredicates ++ simpHints
+    //simplePredicates ++ simpHints
+    VerificationHints(labeledPredicates)
   }else simpHints
 
 

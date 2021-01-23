@@ -268,6 +268,26 @@ object TrainDataGeneratorPredicatesSmt2 {
         else
           HornPredAbs.CounterexampleMethod.FirstBestShortest
 
+      //read hint from file
+      if (GlobalParameters.get.readHints==true){
+        println("-"*10 + "read predicate from .tpl" + "-"*10)
+        //read initial predicates from .tpl
+        val initialPredicates =HintsSelection.wrappedReadHints(simplifiedClauses)
+        initialPredicates.pretyPrintHints()
+        val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
+        //read label from JSON
+        val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
+        val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
+
+        val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
+        //Output graphs
+        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toArray
+        val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, positiveHints,countOccurrence=true)
+        GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
+        sys.exit()
+      }
+
       /////////////////////////predicates extracting begin///////////////////////////////
       val timeConsumptionBeforePredicateExtractingProcess=(System.currentTimeMillis-timeStart)/1000
       var generatingInitialPredicatesTime:Long=0

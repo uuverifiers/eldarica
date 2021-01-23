@@ -62,6 +62,39 @@ case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 object HintsSelection {
 
+  def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
+    import play.api.libs.json._
+    val readLabel=labelName
+    val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
+    val json_content = scala.io.Source.fromFile(input_file).mkString
+    val json_data = Json.parse(json_content)
+    val predictedLabel=(json_data \ readLabel).validate[Array[Int]] match {
+      case JsSuccess(templateLabel,_)=> templateLabel
+    }
+    println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
+
+    val mapLengthList=for ((k,v)<-initialHintsCollection.initialHints.getPredicateHints) yield v.length
+    var splitTail=predictedLabel
+    val splitedPredictedLabel = for(l<-mapLengthList) yield {
+      val temp=splitTail.splitAt(l)._1
+      splitTail=splitTail.splitAt(l)._2
+      temp
+    }
+    for (x<-splitedPredictedLabel)
+      println(x.toSeq)
+
+    val labeledPredicates=for (((k,v),label)<-initialHintsCollection.initialHints.getPredicateHints zip splitedPredictedLabel) yield {
+      k-> (for ((p,l)<-v zip label if l==1) yield p)
+    }
+
+    println("--------Filtered initial predicates---------")
+    for((k,v)<-labeledPredicates;p<-v)
+      println(k,p)
+
+    //simplePredicates ++ simpHints
+    VerificationHints(labeledPredicates)
+  }
+
   def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause]):VerificationHints={
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
@@ -80,7 +113,7 @@ object HintsSelection {
         new java.io.BufferedReader (
           new java.io.FileReader(hintsFile)))
       val hints =
-        (for ((predName, hints) <- reader.allHints.iterator;
+        (for ((predName, hints) <- reader.allHints.toSeq.sortBy(_._1).iterator;
               pred = name2Pred get predName;
               if {
                 if (pred.isDefined) {

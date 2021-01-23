@@ -196,11 +196,9 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
   astEdgeType = "templateAST"
-  for (p <- HornClauses.allPredicates(simpClauses)) {
-    val templateNameList = drawTemplates(p)
-    for (templateNodeName <- templateNameList)
-      addBinaryEdge(predicateNameMap(p.name).predicateCanonicalName, templateNodeName, "template")
-  }
+  val templateNameList = drawTemplates()
+  for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList)
+    addBinaryEdge(predicateNameMap(head).predicateCanonicalName,templateNodeName,"template")
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

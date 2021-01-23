@@ -367,6 +367,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
 }
 
 class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
+  val sp = new Simplifier()
   val simpClauses = clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
@@ -865,14 +866,15 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
     writer.write("]")
   }
-  def drawTemplates(pre:Predicate): Array[String] ={
-    var templateNameList:Array[String]=Array()
-    for((hp,templates)<-hints.initialHints.predicateHints) if(hp.name==pre.name &&hp.arity==pre.arity){
+  def drawTemplates(): Seq[(String,Seq[String])] ={
+    val tempHeadMap=
+    for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
       constantNodeSetInOneClause.clear()
-      for (t<-templates){
+      val templateNameList=
+      for (t<-templates) yield {
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
-        templateNameList:+=templateNodeName
+        //templateNameList:+=templateNodeName
         val hintLabel = if (hints.positiveHints.predicateHints.keySet.contains(hp) && hints.positiveHints.predicateHints(hp).contains(t)) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
@@ -881,9 +883,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           }
           case _=>{println("__")}
         }
+        templateNodeName
       }
+      hp.name->templateNameList
     }
-    templateNameList
+    tempHeadMap
   }
 
   def updateArgumentInfoHornGraphList(pre:String,tempID:Int,argumentnodeName:String,arg:ITerm): Unit ={
