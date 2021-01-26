@@ -39,7 +39,7 @@ import bottomup.Util.Dag
 import ap.parser._
 import lazabs.GlobalParameters
 import lazabs.Main.TimeoutException
-import preprocessor.{DefaultPreprocessor, HornPreprocessor}
+import preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
 import bottomup.HornClauses._
 import global._
 import abstractions._
@@ -268,6 +268,14 @@ object TrainDataGeneratorPredicatesSmt2 {
         else
           HornPredAbs.CounterexampleMethod.FirstBestShortest
 
+      //simplify clauses. get rid of some redundancy
+      val sp=new Simplifier
+      val cs=new ConstraintSimplifier
+      val (csSimplifiedClauses,_,_)=cs.process(simplifiedClauses,hints)
+      val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
+        case _ => csSimplifiedClauses
+      }
       //read hint from file
       if (GlobalParameters.get.readHints==true){
         println("-"*10 + "read predicate from .tpl" + "-"*10)
@@ -279,9 +287,11 @@ object TrainDataGeneratorPredicatesSmt2 {
         val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
 
-        val clauseCollection = new ClauseInfo(simplifiedClauses,Seq())
+        val (furtherSimplifiedClauses, _, _)=cs.process(simplifiedClauses, initialPredicates)
+
+        val clauseCollection = new ClauseInfo(furtherSimplifiedClauses,Seq())
         //Output graphs
-        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClauses)) yield (p, p.arity)).toArray
+        val argumentList = (for (p <- HornClauses.allPredicates(furtherSimplifiedClauses)) yield (p, p.arity)).toArray
         val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, positiveHints,countOccurrence=true)
         GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
@@ -294,11 +304,6 @@ object TrainDataGeneratorPredicatesSmt2 {
       var drawingGraphAndFormLabelsTime:Long=0
       var predicatesExtractingTime:Long=0
       val predicatesExtractingBeginTime=System.currentTimeMillis
-      val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-simplifiedClauses) yield clause.normalize()
-        case _ => simplifiedClauses
-      }
-
 
       val startTimePredicateGenerator = currentTimeMillis
       val toParamsPredicateGenerator= GlobalParameters.get.clone
@@ -337,7 +342,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
         //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
         val predicateSequence = for (p <- preds) yield {
-          val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+          val simplifiedPredicate = sp(Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
           val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
           numberOfpredicates = numberOfpredicates + 1
           varPred
@@ -346,11 +351,11 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
       val originalPredicates =
         if(GlobalParameters.get.generateSimplePredicates==true)
-          (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+          (HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).toSeq ++ predicateFromCEGAR.toSeq).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).mapValues(_.map(sp(_)))
         else if (GlobalParameters.get.onlySimplePredicates==true)
-          HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
+          HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses).mapValues(_.map(sp(_)))
         else
-          predicateFromCEGAR
+          predicateFromCEGAR.mapValues(_.map(sp(_)))
 
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
@@ -504,6 +509,9 @@ object TrainDataGeneratorPredicatesSmt2 {
             simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
             if (!selectedPredicates.isEmpty){
+
+              val (furtherSimplifiedClauses, _, _)=cs.process(simplifiedClauses, initialPredicates)
+
               val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
               val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)

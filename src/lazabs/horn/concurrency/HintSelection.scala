@@ -88,8 +88,11 @@ object HintsSelection {
     }
 
     println("--------Filtered initial predicates---------")
-    for((k,v)<-labeledPredicates;p<-v)
-      println(k,p)
+    for((k,v)<-labeledPredicates) {
+      println(k)
+      for(p<-v)
+        println(p)
+    }
 
     //simplePredicates ++ simpHints
     VerificationHints(labeledPredicates)

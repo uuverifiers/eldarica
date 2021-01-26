@@ -29,8 +29,9 @@
  */
 package lazabs.horn.concurrency
 
-import java.io.{File, PrintWriter}
+import ap.SimpleAPI
 
+import java.io.{File, PrintWriter}
 import ap.parser.IExpression.{ConstantTerm, Eq, Predicate}
 import ap.parser.{IAtom, IBinJunctor, IConstant, IExpression, IFormula, ITerm, IVariable, LineariseVisitor, Simplifier, SymbolCollector}
 import ap.types.Sort.Integer.newConstant
@@ -42,8 +43,9 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
-import scala.collection.mutable.{ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
+import lazabs.horn.preprocessor.ConstraintSimplifier
 
 object DrawHyperEdgeHornGraph {
 
@@ -132,7 +134,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     hyperEdgeList.clear()
     constantNodeSetInOneClause.clear()
     val (dataFlowSet, guardSet,normalizedClause) = getDataFlowAndGuard(clause, clause.normalize(), dataFlowInfoWriter)
-
     //draw head predicate node and argument node
     val headNodeName=
     if (normalizedClause.head.pred.name == "FALSE") {
@@ -296,13 +297,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val templateNameList=drawTemplates()
   for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList)
     addBinaryEdge(controlFlowNodeSetInOneClause(head),templateNodeName,"template")
-//  for(p<-HornClauses.allPredicates(simpClauses)){
-//    //val templateNameList=drawTemplates(p)
-//    //println(Console.GREEN + "hint: "+p)
-//    for (templateNodeName<-templateNameList if templateNodeName._1==p.name)
-//      addBinaryEdge(controlFlowNodeSetInOneClause(p.name),templateNodeName._2,"template")
-//  }
-
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
@@ -411,8 +405,16 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         val dataFlowHyperedgeName = dataFlowHyperEdgeNodePrefix + gnn_input.dataFlowHyperEdgeCanonicalID.toString
         matchAndCreateHyperEdgeNode(dataFlowHyperedgeName,"guarded DFHE Clause " + clauseNumber.toString,"dataFlowHyperEdge")
         astEdgeType = "dataFlowAST"
-        val dataFlowRoot = drawAST(coefficient*rhs)
+        val dataFlowRoot=
+        if (coefficient.isOne) {
+          println(Console.BLUE + SimpleAPI.spawn.abbrev(rhs))
+          drawAST(rhs)
+        } else {
+          println((coefficient*rhs).minusSimplify)
+          drawAST((coefficient*rhs).minusSimplify)
+        }
         //store data flow hyperedge connection
+        println(Console.GREEN + dataFlowRoot)
         hyperEdgeList :+= new hyperEdgeInfo(dataFlowHyperedgeName, dataFlowRoot, constantNodeSetInOneClause(arg.toString), HyperEdgeType.dataFlow)
       }
       case _ => {}
@@ -460,12 +462,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df.asInstanceOf[IFormula])
+    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df.asInstanceOf[IFormula]).map(sp(_))
 
     //todo: delete some redundant predicates
-    val redundantFormulas = for(g<-guardList if SymbolCollector.constants(g).map(_.toString).toSet.diff(replacedClause.head.args.map(_.toString).toSet).intersect(bodySymbolsSet.map(_.toString)).isEmpty) yield {
-      g
-    }
+//    val redundantFormulas = for(g<-guardList if SymbolCollector.constants(g).map(_.toString).toSet.diff(replacedClause.head.args.map(_.toString).toSet).intersect(bodySymbolsSet.map(_.toString)).isEmpty) yield {
+//      g
+//    }
 
     dataFlowInfoWriter.write("--------------------\n")
     dataFlowInfoWriter.write("original clause:\n")

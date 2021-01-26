@@ -162,7 +162,7 @@ object VerificationHints {
 
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
-      for((key,value)<-predicateHints){
+      for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
         println(Console.BLUE+key.toString())
         for(v<-value){
           println(Console.BLUE+v)

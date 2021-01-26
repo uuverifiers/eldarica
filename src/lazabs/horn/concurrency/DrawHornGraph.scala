@@ -368,6 +368,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
 
 class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   val sp = new Simplifier()
+
   val simpClauses = clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
