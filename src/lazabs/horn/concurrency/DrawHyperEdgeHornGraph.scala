@@ -406,15 +406,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         matchAndCreateHyperEdgeNode(dataFlowHyperedgeName,"guarded DFHE Clause " + clauseNumber.toString,"dataFlowHyperEdge")
         astEdgeType = "dataFlowAST"
         val dataFlowRoot=
-        if (coefficient.isOne) {
-          println(Console.BLUE + SimpleAPI.spawn.abbrev(rhs))
+        if (coefficient.isOne)
           drawAST(rhs)
-        } else {
-          println((coefficient*rhs).minusSimplify)
+        else
           drawAST((coefficient*rhs).minusSimplify)
-        }
         //store data flow hyperedge connection
-        println(Console.GREEN + dataFlowRoot)
         hyperEdgeList :+= new hyperEdgeInfo(dataFlowHyperedgeName, dataFlowRoot, constantNodeSetInOneClause(arg.toString), HyperEdgeType.dataFlow)
       }
       case _ => {}

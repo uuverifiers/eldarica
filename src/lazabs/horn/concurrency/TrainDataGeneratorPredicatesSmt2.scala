@@ -280,14 +280,14 @@ object TrainDataGeneratorPredicatesSmt2 {
       if (GlobalParameters.get.readHints==true){
         println("-"*10 + "read predicate from .tpl" + "-"*10)
         //read initial predicates from .tpl
-        val initialPredicates =HintsSelection.wrappedReadHints(simplifiedClauses)
+        val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
         initialPredicates.pretyPrintHints()
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read label from JSON
         val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
 
-        val (furtherSimplifiedClauses, _, _)=cs.process(simplifiedClauses, initialPredicates)
+        val (furtherSimplifiedClauses, _, _)=cs.process(simplePredicatesGeneratorClauses, initialPredicates)
 
         val clauseCollection = new ClauseInfo(furtherSimplifiedClauses,Seq())
         //Output graphs
@@ -371,7 +371,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
       try{
         GlobalParameters.parameters.withValue(toParamsCEGAR) {
-          new HornPredAbs(simplifiedClauses,
+          new HornPredAbs(csSimplifiedClauses,
             initialPredicates.toInitialPredicates, predGenerator,
             counterexampleMethod)
         }
@@ -509,9 +509,6 @@ object TrainDataGeneratorPredicatesSmt2 {
             simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
             if (!selectedPredicates.isEmpty){
-
-              val (furtherSimplifiedClauses, _, _)=cs.process(simplifiedClauses, initialPredicates)
-
               val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
               val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
