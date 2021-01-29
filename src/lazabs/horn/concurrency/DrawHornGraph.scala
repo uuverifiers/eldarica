@@ -630,7 +630,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
       case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
       case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
-      case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
       //case SignConst(t)=>{println("SignConst")}
       //case SimpleTerm(t)=>{println("SimpleTerm")}
       //      case LeafFormula(t)=>{
@@ -655,6 +654,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond)
       case IFunApp(fun, args) => {""}
       case IIntLit(v) => drawASTEndNode(v.toString(), previousNodeName, "constant")
+      case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
       case IPlus(t1, t2) =>  drawASTBinaryRelation("+", previousNodeName, t1, t2)
       case ITermITE(cond, left, right) => {
         drawAST(cond, previousNodeName)
@@ -662,7 +662,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         drawAST(left, previousNodeName)
       }
       case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
-      case IVariable(index) => drawASTEndNode("_"+index.toString(), previousNodeName, "constant") ////add _ to differentiate index with other constants
+      case IVariable(index) => drawASTEndNode("_"+index.toString(), previousNodeName, "symbolicConstant")//constant////add _ to differentiate index with other constants
       case _ => drawASTEndNode("unknown", previousNodeName, "constant")
 
     }

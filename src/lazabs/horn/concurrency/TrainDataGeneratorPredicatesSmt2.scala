@@ -350,9 +350,9 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
         head.pred -> predicateSequence.distinct
       }
-      println(Console.BLUE + "predicateFromCEGAR")
-      for ((k,v)<-predicateFromCEGAR)
-        println(k,v)
+//      println(Console.BLUE + "predicateFromCEGAR")
+//      for ((k,v)<-predicateFromCEGAR)
+//        println(k,v)
       val originalPredicates =
         if(GlobalParameters.get.onlySimplePredicates==true)
           simpleGeneratedPredicates.mapValues(_.map(sp(_)))
