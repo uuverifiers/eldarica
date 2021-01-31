@@ -138,8 +138,8 @@ object HintsSelection {
   }
 
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):  Map[Predicate, Seq[IFormula]] ={
-    for (clause <- simplePredicatesGeneratorClauses)
-      println(Console.BLUE + clause.toPrologString)
+//    for (clause <- simplePredicatesGeneratorClauses)
+//      println(Console.BLUE + clause.toPrologString)
 //    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
 //      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
 //      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
@@ -154,15 +154,21 @@ object HintsSelection {
 //    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     val constraintPredicates= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+      //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
-        val simplifier=SimpleAPI.spawn
-        val simplifiedPredicates = simplifier.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
-        if(clause.body.contains(atom))
-          (for (p<-LineariseVisitor(simplifier.simplify(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield simplifier.simplify(p.unary_!))
-        else
+        //val simplifier=SimpleAPI.spawn
+        val sp =new Simplifier
+        val simplifiedPredicates =
+          if(constants.isEmpty)
+            sp(argumentReplacedPredicates)
+          else
+            sp(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
+        if(clause.body.contains(atom)) {
+          (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
+        } else
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
       }
       atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse) //get rid of true and false

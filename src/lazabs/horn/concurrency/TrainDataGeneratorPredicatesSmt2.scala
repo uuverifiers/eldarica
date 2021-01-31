@@ -336,7 +336,6 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
 
 
-
       var numberOfpredicates = 0
       val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
         // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
