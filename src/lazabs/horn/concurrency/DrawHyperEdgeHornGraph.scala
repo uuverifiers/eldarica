@@ -30,6 +30,7 @@
 package lazabs.horn.concurrency
 
 import ap.SimpleAPI
+import ap.basetypes.IdealInt
 
 import java.io.{File, PrintWriter}
 import ap.parser.IExpression.{ConstantTerm, Eq, Predicate}
@@ -408,6 +409,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         val dataFlowRoot=
         if (coefficient.isOne)
           drawAST(rhs)
+        else if(coefficient>IdealInt(1))
+          drawAST(rhs*coefficient)
         else
           drawAST((coefficient*rhs).minusSimplify)
         //store data flow hyperedge connection

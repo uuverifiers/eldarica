@@ -176,10 +176,10 @@ object HintsSelection {
 
     println("--------predicates from constrains---------")
     for((k,v)<-constraintPredicates;p<-v) println(k,p)
-    //generate arguments =/<=/>= a constant as predicates
-    val eqConstant: IdealInt = IdealInt(42)
-    val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield Seq(Eq(IVariable(n),eqConstant),Geq(IVariable(n),eqConstant),Geq(eqConstant,IVariable(n)))).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
-    println("--------predicates from constant and argumenteuqation---------")
+    //todo: generate arguments =/<=/>= a constant from current clause as predicates instead of 42
+    val eqConstant: IdealInt = IdealInt(0)
+    val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n,eqConstant)).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    println("--------predicates from constant and argumenteEqation---------")
     for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
 
     //merge constraint and constant predicates
@@ -187,6 +187,10 @@ object HintsSelection {
     println("--------all generated predicates---------")
     for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     simplelyGeneratedPredicates
+  }
+
+  def argumentEquationGenerator(n:Int,eqConstant:IdealInt): Seq[IFormula] ={
+    Seq(Eq(IVariable(n),eqConstant),Geq(IVariable(n),eqConstant),Geq(eqConstant,IVariable(n)))
   }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
