@@ -1426,14 +1426,16 @@ object HintsSelection {
   def writeArgumentOccurrenceInHintsToFile(file: String,
                                argumentList: Array[(IExpression.Predicate, Int)],
                                positiveHints: VerificationHints,
-                               countOccurrence: Boolean = true): ArrayBuffer[argumentInfo]  = {
+                               countOccurrence: Boolean = true,writeToFile:Boolean=false): ArrayBuffer[argumentInfo]  = {
     val arguments = getArgumentOccurrenceInHints(file,argumentList,positiveHints,countOccurrence)
-    println("Write arguments to file")
-    val writer = new PrintWriter(new File(file + ".arguments")) //python path
-    for (arg <- arguments) {
-      writer.write(arg.ID + ":" + arg.location.toString() + ":" + "argument" + arg.index + ":" + arg.score + "\n")
+    if (writeToFile==true){
+      println("Write arguments to file")
+      val writer = new PrintWriter(new File(file + ".arguments")) //python path
+      for (arg <- arguments) {
+        writer.write(arg.ID + ":" + arg.location.toString() + ":" + "argument" + arg.index + ":" + arg.score + "\n")
+      }
+      writer.close()
     }
-    writer.close()
     arguments
   }
 

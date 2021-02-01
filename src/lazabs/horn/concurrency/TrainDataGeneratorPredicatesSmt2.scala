@@ -531,6 +531,9 @@ object TrainDataGeneratorPredicatesSmt2 {
               Console.withOut(output) {
                 AbsReader.printHints(initialPredicates)
               }
+              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
+                AbsReader.printHints(selectedPredicates)
+              }
             }
             drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
           }catch{
