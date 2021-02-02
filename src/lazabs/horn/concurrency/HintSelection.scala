@@ -60,7 +60,18 @@ import lazabs.horn.preprocessor.HornPreprocessor
 
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
+class LiteralCollector extends CollectingVisitor[Unit, Unit] {
+  val literals = new MHashSet[IdealInt]
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[Unit]) : Unit = t match {
+    case IIntLit(v)  =>
+      literals += v
+    case _ => ()
+  }
+}
+
 object HintsSelection {
+  val sp =new Simplifier
 
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
     import play.api.libs.json._
@@ -153,6 +164,7 @@ object HintsSelection {
 //      atom.pred-> freeVariableReplacedPredicates
 //    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
+    //generate predicates from constraint
     val constraintPredicates= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
@@ -160,7 +172,6 @@ object HintsSelection {
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
         //val simplifier=SimpleAPI.spawn
-        val sp =new Simplifier
         val simplifiedPredicates =
           if(constants.isEmpty)
             sp(argumentReplacedPredicates)
@@ -176,9 +187,16 @@ object HintsSelection {
 
     println("--------predicates from constrains---------")
     for((k,v)<-constraintPredicates;p<-v) println(k,p)
-    //todo: generate arguments =/<=/>= a constant from current clause as predicates instead of 42
-    val eqConstant: IdealInt = IdealInt(0)
-    val argumentConstantEqualPredicate = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n,eqConstant)).flatten).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    //generate predicates from clause's integer constants
+    val integerConstantVisitor = new LiteralCollector
+    val argumentConstantEqualPredicate = (
+      for (clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+        integerConstantVisitor.visitWithoutResult(clause.constraint, ()) //collect integer constant in clause
+        val eqConstant= integerConstantVisitor.literals.toSeq
+        integerConstantVisitor.literals.clear()
+         atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n,eqConstant)).flatten}
+      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+
     println("--------predicates from constant and argumenteEqation---------")
     for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
 
@@ -189,8 +207,8 @@ object HintsSelection {
     simplelyGeneratedPredicates
   }
 
-  def argumentEquationGenerator(n:Int,eqConstant:IdealInt): Seq[IFormula] ={
-    Seq(Eq(IVariable(n),eqConstant),Geq(IVariable(n),eqConstant),Geq(eqConstant,IVariable(n)))
+  def argumentEquationGenerator(n:Int,eqConstant:Seq[IdealInt]): Seq[IFormula] ={
+    (for (c<-eqConstant) yield Seq(sp(Eq(IVariable(n),c)),sp(Geq(c,IVariable(n))),sp(Geq(c,IVariable(n))))).flatten
   }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
