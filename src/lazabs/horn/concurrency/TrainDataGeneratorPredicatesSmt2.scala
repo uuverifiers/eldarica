@@ -426,6 +426,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
         var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
         var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
+        val startTimeForExtraction = System.currentTimeMillis()
         for ((head, preds) <- originalPredicates) {
           var criticalPredicatesSeq: Seq[IFormula] = Seq()
           var redundantPredicatesSeq: Seq[IFormula] = Seq()
@@ -466,6 +467,8 @@ object TrainDataGeneratorPredicatesSmt2 {
 //                    NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
 //                  }
 //                }
+                if(currentTimeMillis-startTimeForExtraction>GlobalParameters.get.mainTimeout)
+                  throw lazabs.Main.MainTimeoutException
               }
             } catch {
               case lazabs.Main.TimeoutException => { //need new predicate or timeout
@@ -481,6 +484,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 //                  }
 //                }
               }
+              case _ =>{throw lazabs.Main.MainTimeoutException }
             }
           }
           //store selected predicate

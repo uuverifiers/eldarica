@@ -38,6 +38,7 @@ import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.{CCReader, HintsSelection}
 import ap.util.Debug
+import scala.concurrent._
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
@@ -59,6 +60,7 @@ class GlobalParameters extends Cloneable {
   var totalHints=0
   var threadTimeout = 60000
   var solvabilityTimeout=60000
+  var mainTimeout=60000
   var extractTemplates=false
   var extractPredicates=false
   var readHints=false
@@ -214,6 +216,7 @@ class GlobalParameters extends Cloneable {
     that.timeoutChecker = this.timeoutChecker
     that.threadTimeout = this.threadTimeout
     that.solvabilityTimeout=this.solvabilityTimeout
+    that.mainTimeout=this.mainTimeout
     that.rank = this.rank
     //that.printHints = this.printHints
     that.extractTemplates=this.extractTemplates
@@ -259,6 +262,7 @@ object Main {
 
   class MainException(msg : String) extends Exception(msg)
   object TimeoutException extends MainException("timeout")
+  object MainTimeoutException extends MainException("mainTimeOut")
   object StoppedException extends MainException("stopped")
 
   def openInputFile {
@@ -425,17 +429,21 @@ object Main {
         templateBasedInterpolationTimeout =
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-absTimeout:")) =>
+      case _threadTimeout :: rest if (_threadTimeout.startsWith("-absTimeout:")) =>
         threadTimeout =
-          (java.lang.Float.parseFloat(tTimeout.drop("-absTimeout:".length)) *1000).toInt;
+          (java.lang.Float.parseFloat(_threadTimeout.drop("-absTimeout:".length)) *1000).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-solvabilityTimeout:")) =>
+      case _solvabilityTimeout :: rest if (_solvabilityTimeout.startsWith("-solvabilityTimeout:")) =>
         solvabilityTimeout =
-          (java.lang.Float.parseFloat(tTimeout.drop("-solvabilityTimeout:".length))*1000 ).toInt;
+          (java.lang.Float.parseFloat(_solvabilityTimeout.drop("-solvabilityTimeout:".length))*1000 ).toInt;
         arguments(rest)
-      case tTimeout :: rest if (tTimeout.startsWith("-rank:")) =>
+      case _mainTimeout :: rest if (_mainTimeout.startsWith("-mainTimeout:")) =>
+        mainTimeout =
+          (java.lang.Float.parseFloat(_mainTimeout.drop("-mainTimeout:".length)) *1000).toInt;
+        arguments(rest)
+      case _rank :: rest if (_rank.startsWith("-rank:")) =>
         rank =
-          (java.lang.Float.parseFloat(tTimeout.drop(6))); //parse input string
+          (java.lang.Float.parseFloat(_rank.drop(6))); //parse input string
         arguments(rest)
 
       case tFile :: rest if (tFile.startsWith("-hints:")) => {
@@ -704,7 +712,7 @@ object Main {
       if(extractPredicates){
         //do selection
         lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
-          drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
+              drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
         return
       }
 
@@ -821,8 +829,9 @@ object Main {
     //if(drawRTree) DrawGraph(rTree, absInFile)
 
   } catch {
-    case TimeoutException | StoppedException =>{
+    case TimeoutException | StoppedException | MainTimeoutException =>{
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      printError("main timeout", GlobalParameters.get.format)
     }
       // nothing
     case _ : java.lang.OutOfMemoryError =>{
