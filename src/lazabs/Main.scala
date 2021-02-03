@@ -63,6 +63,7 @@ class GlobalParameters extends Cloneable {
   var mainTimeout=60000
   var extractTemplates=false
   var extractPredicates=false
+  var varyGeneratedPredicates=false
   var readHints=false
   var rank=0.0
   var getSMT2=false
@@ -221,6 +222,7 @@ class GlobalParameters extends Cloneable {
     //that.printHints = this.printHints
     that.extractTemplates=this.extractTemplates
     that.extractPredicates=this.extractPredicates
+    that.varyGeneratedPredicates=this.varyGeneratedPredicates
     that.readHints=this.readHints
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
@@ -321,6 +323,7 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-extractTemplates" :: rest => extractTemplates = true; arguments(rest)
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
+      case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
@@ -572,6 +575,7 @@ object Main {
           " -pIntermediate\t Dump Horn clauses encoding concurrent programs\n"+
           " -extractTemplates\t extract templates training data\n"+
           " -extractPredicates\t extract predicates from CEGAR process\n"+
+          " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t extract predicates using cegar and simply generated predicates\n"+
           " -onlySimplePredicates\t extract predicates using only simply generated predicates\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+

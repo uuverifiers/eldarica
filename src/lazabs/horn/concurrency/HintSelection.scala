@@ -100,6 +100,21 @@ object HintsSelection {
     }
   }
 
+  def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+    transformPredicateMapToVerificationHints(optimizedPredicate).pretyPrintHints()
+    //optimizedPredicate.foreach(k=>{println(k._1);k._2.foreach(println)})
+
+    val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
+    transformPredicateMapToVerificationHints(transformedPredicates).pretyPrintHints()
+    //transformedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
+
+    val mergedPredicates=for ((cpKey, cpPredicates) <- transformedPredicates; (apKey, apPredicates) <- optimizedPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
+    transformPredicateMapToVerificationHints(mergedPredicates).pretyPrintHints()
+    //mergedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
+
+    mergedPredicates
+  }
+
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
     import play.api.libs.json._
     val readLabel=labelName
