@@ -542,6 +542,9 @@ object TrainDataGeneratorPredicatesSmt2 {
                 else
                   selectedPredicates
 
+              println("-"*10 + "predicatesForLearning" + "-"*10)
+              predicatesForLearning.pretyPrintHints()
+
 
               val hintsCollection=new VerificationHintsInfo(initialPredicates,predicatesForLearning,initialPredicates.filterPredicates(predicatesForLearning.predicateHints.keySet))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
