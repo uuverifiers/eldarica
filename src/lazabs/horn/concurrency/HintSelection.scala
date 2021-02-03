@@ -175,7 +175,7 @@ object HintsSelection {
     }
   }
 
-  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):  Map[Predicate, Seq[IFormula]] ={
+  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  Map[Predicate, Seq[IFormula]] ={
 //    for (clause <- simplePredicatesGeneratorClauses)
 //      println(Console.BLUE + clause.toPrologString)
 //    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
@@ -211,8 +211,6 @@ object HintsSelection {
       atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse) //get rid of true and false
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
-    println("--------predicates from constrains---------")
-    for((k,v)<-constraintPredicates;p<-v) println(k,p)
     //generate predicates from clause's integer constants
     val integerConstantVisitor = new LiteralCollector
     val argumentConstantEqualPredicate = (
@@ -223,13 +221,20 @@ object HintsSelection {
          atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n,eqConstant)).flatten}
       ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
-    println("--------predicates from constant and argumenteEqation---------")
-    for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
 
     //merge constraint and constant predicates
     val simplelyGeneratedPredicates = for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
-    println("--------all generated predicates---------")
-    for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
+
+
+    if (verbose==true){
+      println("--------predicates from constrains---------")
+      for((k,v)<-constraintPredicates;p<-v) println(k,p)
+      println("--------predicates from constant and argumenteEqation---------")
+      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
+      println("--------all generated predicates---------")
+      for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
+    }
+
     simplelyGeneratedPredicates
   }
 
