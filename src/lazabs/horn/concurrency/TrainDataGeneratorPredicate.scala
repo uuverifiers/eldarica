@@ -449,7 +449,7 @@ class TrainDataGeneratorPredicate(smallSystem : ParametricEncoder.System, system
     var counter=0
 
     for((head)<-simpHints.getPredicateHints().keys.toList) { //loop for head
-      for(oneHint <- simpHints.getValue(head)) { //loop for every template in the head
+      for(oneHint <- simpHints.predicateHints(head)) { //loop for every template in the head
         HintsIDMap ++= Map(counter.toString+":"+head.name.toString()->oneHint.toString) //map(ID:head->hint)
         counter=counter+1
         val oneWrappedHint=new wrappedHintWithID(counter,head.name.toString,oneHint.toString)

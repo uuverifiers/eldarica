@@ -282,6 +282,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         //read initial predicates from .tpl
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
         initialPredicates.pretyPrintHints()
+        //todo:vary selected predicates but not change its logic
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read label from JSON
         val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
@@ -520,9 +521,20 @@ object TrainDataGeneratorPredicatesSmt2 {
               //selectedPredicates.toInitialPredicates,
               predicateGeneratorForTest,counterexampleMethod).result
             println("-"*10 + "test finished" + "-"*10)
-            simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
+            //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
             if (!selectedPredicates.isEmpty){
+              //todo:vary selected predicates but not change its logic
+              selectedPredicates.pretyPrintHints()
+              //optimizedPredicate.foreach(k=>{println(k._1);k._2.foreach(println)})
+              val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
+              HintsSelection.transformPredicateMapToVerificationHints(transformedPredicates).pretyPrintHints()
+              //transformedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
+
+              val mergedPredicates=for ((cpKey, cpPredicates) <- transformedPredicates; (apKey, apPredicates) <- optimizedPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
+              HintsSelection.transformPredicateMapToVerificationHints(mergedPredicates).pretyPrintHints()
+              //mergedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
+              
               val hintsCollection=new VerificationHintsInfo(initialPredicates,selectedPredicates,initialPredicates.filterPredicates(selectedPredicates.predicateHints.keySet))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
               val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)

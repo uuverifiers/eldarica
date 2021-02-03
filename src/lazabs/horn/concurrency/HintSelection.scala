@@ -27,8 +27,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
-
-import ap.terfor.preds.Predicate
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.{AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
@@ -72,6 +70,35 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 
 object HintsSelection {
   val sp =new Simplifier
+
+  def varyPredicateWithOutLogicChanges(f:IFormula): IFormula = {
+    //todo:associativity
+    //todo:replace a-b to -1*x + b
+    f match {
+      case Eq(a,b)=>{
+        //println(a.toString,"=",b.toString)
+        Eq(varyTerm(a),varyTerm(b))
+      }
+      case Geq(a,b)=>{
+        //println(a.toString,">=",b.toString)
+        Geq(varyTerm(a),varyTerm(b))
+      }
+      case INot(subformula)=> INot(varyPredicateWithOutLogicChanges(subformula))
+      case IQuantified(quan, subformula) =>  IQuantified(quan, varyPredicateWithOutLogicChanges(subformula))
+      case IBinFormula(j, f1, f2) => IBinFormula(j, varyPredicateWithOutLogicChanges(f1), varyPredicateWithOutLogicChanges(f2))
+      case _=> f
+    }
+  }
+
+
+  def varyTerm(e:ITerm): ITerm = {
+    e match {
+      case IPlus(t1,t2)=> IPlus(varyTerm(t2),varyTerm(t1))
+      case Difference(t1,t2)=> IPlus(varyTerm(-1*t1),varyTerm(t2))
+      case ITimes(coeff, subterm) => ITimes(coeff, varyTerm(subterm))
+      case _=> e
+    }
+  }
 
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
     import play.api.libs.json._
@@ -171,7 +198,6 @@ object HintsSelection {
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
-        //val simplifier=SimpleAPI.spawn
         val simplifiedPredicates =
           if(constants.isEmpty)
             sp(argumentReplacedPredicates)
@@ -313,7 +339,7 @@ object HintsSelection {
       val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
       //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
       val predicateSequence = for (p <- preds) yield {
-        val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+        val simplifiedPredicate = sp (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
         //println("value:"+simplifiedPredicate)
         val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
         println("value:" + varPred)
@@ -409,7 +435,7 @@ object HintsSelection {
         val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
         //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
         val predicateSequence = for (p <- preds) yield {
-          val simplifiedPredicate = (new Simplifier) (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+          val simplifiedPredicate = sp (Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
           //println("value:"+simplifiedPredicate)
           val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
           println("value:" + varPred)
@@ -605,7 +631,7 @@ object HintsSelection {
         var redundantTemplatesSeq: Seq[VerifHintElement] = Seq()
         for (p <- preds) {
           //delete on template in a head
-          val currentTemplatesList = currentTemplates.getValue(head).filter(_ != p)
+          val currentTemplatesList = currentTemplates.predicateHints(head).filter(_ != p)
           currentTemplates = currentTemplates.filterNotPredicates(Set(head))
 
           currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentTemplatesList))
@@ -796,9 +822,9 @@ object HintsSelection {
         println(oneHintValue)
         var criticalHintsList: Seq[VerifHintElement] = Seq()
         var redundantHintsList: Seq[VerifHintElement] = Seq()
-        var currentHintsList = simpHints.getValue(head) //extract hints in this head
+        var currentHintsList = simpHints.predicateHints(head) //extract hints in this head
 
-        for (oneHint <- simpHints.getValue(head)) { //loop for every hint in one head
+        for (oneHint <- simpHints.predicateHints(head)) { //loop for every hint in one head
           println("Current hints:")
           currentTemplates.pretyPrintHints()
 
@@ -1091,7 +1117,7 @@ object HintsSelection {
           val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
           if (head == keyTemp) {
             var usfulHintsList: Seq[VerifHintElement] = Seq()
-            for (oneHint <- originalHints.getValue(key)) {
+            for (oneHint <- originalHints.predicateHints(key)) {
               if (keyTemp == head && oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
                 usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
                 //println(element(0),usfulHintsList)

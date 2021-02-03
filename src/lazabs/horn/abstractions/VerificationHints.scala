@@ -147,36 +147,17 @@ object VerificationHints {
 
     val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
     /////////////////DEBUG///////////
-
-
-    def getValue(key:IExpression.Predicate)={
-      predicateHints(key)
-    }
-
-    def printHints() = {
-      for((key,value)<-predicateHints){
-        println(key)
-        println(value)
-      }
-    }
-
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
         println(Console.BLUE+key.toString())
         for(v<-value){
           println(Console.BLUE+v)
-
         }
       }
     }
-
     def getPredicateHints() = {
       predicateHints
-    }
-
-    def numberOfHeads():Int={
-      predicateHints.size
     }
     /////////////////DEBUG///////////
 
