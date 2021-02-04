@@ -579,7 +579,7 @@ object Main {
           return
         }
       }
-      
+
       if(prettyPrint) {
         println(HornPrinter(clauseSet))
         //println(clauseSet.map(lazabs.viewer.HornPrinter.printDebug(_)).mkString("\n\n"))

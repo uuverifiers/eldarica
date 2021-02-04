@@ -139,12 +139,10 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 //
-    resolvers += "uuverifiers" at "http://logicrunch.research.it.uu.se/maven/",
-//    libraryDependencies += "uuverifiers" %% "princess" % "2020-07-13"
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
-//    libraryDependencies += "uuverifiers" %% "princess" % "unstable-SNAPSHOT"
-      libraryDependencies += "uuverifiers" %% "princess" % "heap-SNAPSHOT"
+    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+//    libraryDependencies += "uuverifiers" %% "princess" % "2020-11-19"
+    libraryDependencies += "uuverifiers" %% "princess" % "heap-SNAPSHOT"
 )
 //

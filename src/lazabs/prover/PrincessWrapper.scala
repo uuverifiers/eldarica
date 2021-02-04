@@ -104,7 +104,6 @@ object PrincessWrapper {
     case ArrayType(IntegerType()) => SimpleArray.ArraySort(1)
     case HeapType(s)              => s
     case HeapAddressType(hs)      => hs.AddressSort
-    case HeapObjectType(hs)       => hs.ObjectSort
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
