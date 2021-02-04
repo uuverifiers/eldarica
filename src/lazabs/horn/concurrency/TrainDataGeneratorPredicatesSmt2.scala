@@ -49,6 +49,7 @@ import ap.terfor.conjunctions.Conjunction
 import concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
 import concurrency._
 import ap.basetypes.IdealInt
+import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, Formula}
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
@@ -520,10 +521,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
           val predicateGeneratorForTest =
-            if(GlobalParameters.get.onlySimplePredicates==true)
-              predGenerator
-            else
-              exceptionalPredGen
+            if(GlobalParameters.get.onlySimplePredicates==true) predGenerator else exceptionalPredGen
 
           try{
             println("\n------------test selected predicates-------------------------")
@@ -532,37 +530,54 @@ object TrainDataGeneratorPredicatesSmt2 {
               //selectedPredicates.toInitialPredicates,
               predicateGeneratorForTest,counterexampleMethod).result
             println("-"*10 + "test finished" + "-"*10)
+
+            //todo:vary selected predicates but not change its logic
+            val predicatesForLearning =
+              if(GlobalParameters.get.varyGeneratedPredicates==true)
+                HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(optimizedPredicate))
+              else
+                selectedPredicates
+
+            val (unlabeledPredicates,labeledPredicates)=
+              if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
+                val tempLabel=HintsSelection.labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate,simpleGeneratedPredicates)
+                val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel.filterKeys(k => !tempLabel(k).isEmpty))
+                Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
+                  AbsReader.printHints(labeledSimpleGeneratedPredicates)
+                }
+                (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),labeledSimpleGeneratedPredicates)
+              } else
+                (initialPredicates,predicatesForLearning)
+
+//            println("-"*10 + "unlabeledPredicates" + "-"*10)
+//            unlabeledPredicates.pretyPrintHints()
+//            println("-"*10 + "labeledPredicates" + "-"*10)
+//            labeledPredicates.pretyPrintHints()
+
             //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
-            if (!selectedPredicates.isEmpty){
-              //todo:vary selected predicates but not change its logic
-              val predicatesForLearning =
-                if(GlobalParameters.get.varyGeneratedPredicates==true)
-                  HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(optimizedPredicate))
-                else
-                  selectedPredicates
-
-              println("-"*10 + "predicatesForLearning" + "-"*10)
-              predicatesForLearning.pretyPrintHints()
-
-
-              val hintsCollection=new VerificationHintsInfo(initialPredicates,predicatesForLearning,initialPredicates.filterPredicates(predicatesForLearning.predicateHints.keySet))
+            if (!labeledPredicates.isEmpty){
+              val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
               val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
               //Output graphs
               val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
-              val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, predicatesForLearning,countOccurrence=true)
+              val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledPredicates,countOccurrence=true)
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
-              //Output selected predicates:
-              val output = new java.io.FileOutputStream(GlobalParameters.get.fileName+".tpl")
-              Console.withOut(output) {
+
+              //write predicates to files:
+              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".tpl")) {
                 AbsReader.printHints(initialPredicates)
               }
               Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
                 AbsReader.printHints(predicatesForLearning)
               }
+              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
+                AbsReader.printHints(HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates))
+              }
             }
             drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
+
           }catch{
             case lazabs.Main.TimeoutException =>{
               println(Console.RED + "--test timeout--")
@@ -572,8 +587,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               HintsSelection.moveRenameFile(sourceFilename,destinationFilename)
             }
           }
-        }
-        else{
+        } else{
           println(Console.RED + "--optimizedPredicate is empty--")
           val sourceFilename=GlobalParameters.get.fileName
           val destinationFilename= "../benchmarks/no-predicates-selected/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)

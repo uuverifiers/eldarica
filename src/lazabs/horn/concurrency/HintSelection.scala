@@ -71,6 +71,12 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
 
+  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+    for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
+      ko->(for (p<-vs if vo.contains(p))yield p)
+    }
+  }
+
   def varyPredicateWithOutLogicChanges(f:IFormula): IFormula = {
     //todo:associativity
     //todo:replace a-b to -1*x + b
@@ -1032,18 +1038,6 @@ object HintsSelection {
   }
 
 
-  def neuralNetworkSelection(encoder: ParametricEncoder, simpHints: VerificationHints, simpClauses: Clauses): VerificationHints = {
-    //write redundant hints to JSON
-
-    //call NNs
-
-    //read predicted hints from JSON
-
-    //write to optimized Hints
-
-    val optimizedHints = simpHints
-    return optimizedHints
-  }
 
   def readHintsFromJSON(fileName: String): VerificationHints = {
 
@@ -1109,17 +1103,6 @@ object HintsSelection {
     return optimizedHints
   }
 
-  def readHintsIDFromJSON(fileName: String, originalHints: VerificationHints): VerificationHints = {
-    //    for((key,value)<-originalHints){
-    //      for(v<-value){
-    //      }
-    //    }
-
-
-    var readHints = VerificationHints(Map())
-
-    return readHints
-  }
 
   def storeHintsToVerificationHints_binary(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints) = {
     //store read hints to VerificationHints
