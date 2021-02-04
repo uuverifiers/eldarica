@@ -37,7 +37,8 @@ import lazabs.nts._
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.{CCReader, HintsSelection}
-import ap.util.Debug
+import ap.util.{Debug, Timeout}
+
 import scala.concurrent._
 
 object GlobalParameters {
@@ -713,15 +714,21 @@ object Main {
         //do selection
         lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
           drawRTree, lbe) //generate train data
-
-
         return
       }
       if(extractPredicates){
         //do selection
-        lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
+        try{
+          Timeout.withChecker(timeoutChecker){
+            lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
               drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
-        return
+            return
+          }
+        }catch {
+          case _=> throw MainTimeoutException
+        }
+
+
       }
 
       if(solFileName != "") {
