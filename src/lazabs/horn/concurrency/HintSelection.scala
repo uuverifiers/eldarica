@@ -265,7 +265,8 @@ object HintsSelection {
     (for (c<-eqConstant) yield Seq(sp(Eq(IVariable(n),c)),sp(Geq(c,IVariable(n))),sp(Geq(c,IVariable(n))))).flatten
   }
 
-  def moveRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
+  def moveRenameFile(sourceFilename: String, destinationFilename: String,message:String=""): Unit = {
+    println(Console.RED+"-"*5+message+"-"*5)
     val path = Files.move(
       Paths.get(sourceFilename),
       Paths.get(destinationFilename),
