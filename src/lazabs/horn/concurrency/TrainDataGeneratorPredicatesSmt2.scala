@@ -333,8 +333,6 @@ object TrainDataGeneratorPredicatesSmt2 {
                 counterexampleMethod)
               Cegar.predicates
             }
-
-
           }
           catch {
             case _ =>{
@@ -342,7 +340,6 @@ object TrainDataGeneratorPredicatesSmt2 {
               sys.exit()
             }
           }
-
       }
 
       var numberOfpredicates = 0
@@ -358,9 +355,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         }
         head.pred -> predicateSequence.distinct
       }
-//      println(Console.BLUE + "predicateFromCEGAR")
-//      for ((k,v)<-predicateFromCEGAR)
-//        println(k,v)
+
       val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)))
 
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
@@ -543,7 +538,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
               //write predicates to files:
-              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".tpl")) {
+              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
                 AbsReader.printHints(initialPredicates)
               }
               Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
@@ -555,10 +550,11 @@ object TrainDataGeneratorPredicatesSmt2 {
               Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
                 AbsReader.printHints(labeledPredicates)
               }
+              drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
             } else{
               HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"labeledPredicates is empty")
             }
-            drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
+
 
           }catch{
             case lazabs.Main.TimeoutException =>{
