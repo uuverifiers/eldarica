@@ -58,6 +58,7 @@ import bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornPredAbs.{RelationSymbol, RelationSymbolPred, SymbolFactory}
 import lazabs.horn.bottomup.PrincessFlataWrappers.MHashMap
 
+import java.io.{File, PrintWriter}
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -320,7 +321,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         if ((currentTimeMillis - startTimePredicateGenerator) > (GlobalParameters.get.solvabilityTimeout * 5) ) //timeout seconds
           throw lazabs.Main.TimeoutException //Main.TimeoutException
       }
-      val simpleGeneratedPredicates =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
+      val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
 
       val lastPredicates= {
           try //GlobalParameters.parameters.withValue(toParamsPredicateGenerator)
@@ -538,23 +539,11 @@ object TrainDataGeneratorPredicatesSmt2 {
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
               //write predicates to files:
-              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
-                AbsReader.printHints(initialPredicates)
-              }
-              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
-                AbsReader.printHints(predicatesForLearning)
-              }
-              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
-                AbsReader.printHints(HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates))
-              }
-              Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
-                AbsReader.printHints(labeledPredicates)
-              }
+              HintsSelection.writePredicateDistributionToFiles(initialPredicates,predicatesForLearning,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate))
               drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
             } else{
               HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"labeledPredicates is empty")
             }
-
 
           }catch{
             case lazabs.Main.TimeoutException =>{

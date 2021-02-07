@@ -411,7 +411,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
 
   if(GlobalParameters.get.generateSimplePredicates==true){
-    val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+    val (generatedSimplePredicates,constraintPredicates,argumentConstantEqualPredicate) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
     val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates) ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
     GlobalParameters.get.getAllHornGraph=true
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray

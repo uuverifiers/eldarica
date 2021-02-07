@@ -71,6 +71,33 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
 
+  def writePredicateDistributionToFiles(initialPredicates:VerificationHints,predicatesForLearning:VerificationHints,
+                                        labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
+                                        constraintPredicates:VerificationHints,argumentConstantEqualPredicate:VerificationHints): Unit ={
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
+      AbsReader.printHints(initialPredicates)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
+      AbsReader.printHints(predicatesForLearning)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
+      AbsReader.printHints(labeledPredicates)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
+      AbsReader.printHints(simpleGeneratedPredicates)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
+      AbsReader.printHints(constraintPredicates)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
+      AbsReader.printHints(argumentConstantEqualPredicate)}
+    val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
+    writer.println("Predicate distributions: ")
+    writer.println("initialPredicates (simpleGeneratedPredicates + predicatesFromCEGAR):"+initialPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("predicatesForLearning (initialPredicates go through CEGAR Filter):"+predicatesForLearning.predicateHints.values.flatten.size.toString)
+    writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.predicateHints.values.flatten.size.toString)
+    writer.println("unlabeledPredicates:"+unlabeledPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("labeledPredicates:"+labeledPredicates.predicateHints.values.flatten.size.toString)
+    writer.close()
+  }
+
   def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
     for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
       ko->(for (p<-vs if vo.contains(p))yield p)
@@ -198,7 +225,7 @@ object HintsSelection {
     }
   }
 
-  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  Map[Predicate, Seq[IFormula]] ={
+  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
 //    for (clause <- simplePredicatesGeneratorClauses)
 //      println(Console.BLUE + clause.toPrologString)
 //    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
@@ -258,7 +285,7 @@ object HintsSelection {
       for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }
 
-    simplelyGeneratedPredicates
+    (simplelyGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate)
   }
 
   def argumentEquationGenerator(n:Int,eqConstant:Seq[IdealInt]): Seq[IFormula] ={
