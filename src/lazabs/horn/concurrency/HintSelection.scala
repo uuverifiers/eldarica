@@ -86,13 +86,23 @@ object HintsSelection {
       AbsReader.printHints(constraintPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
       AbsReader.printHints(argumentConstantEqualPredicate)}
+    val positiveConstraintPredicates= for ((ck,cv)<-constraintPredicates.predicateHints;(lk,lv)<-labeledPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.contains(p)) yield p)
+    val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
+    val positiveArgumentConstantEqualPredicate = for ((ck,cv)<-argumentConstantEqualPredicate.predicateHints;(lk,lv)<-labeledPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.contains(p)) yield p)
+    val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
+    val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield ks->(for(p<-vi if !vs.contains(p))yield p)
     val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
     writer.println("Predicate distributions: ")
     writer.println("initialPredicates (simpleGeneratedPredicates + predicatesFromCEGAR):"+initialPredicates.predicateHints.values.flatten.size.toString)
     writer.println("predicatesForLearning (initialPredicates go through CEGAR Filter):"+predicatesForLearning.predicateHints.values.flatten.size.toString)
     writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
     writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("       positiveConstraintPredicates:"+predicateNumberOfPositiveConstraintPredicates.toString)
+    writer.println("       negativeConstraintPredicates:"+ (constraintPredicates.predicateHints.values.flatten.size - predicateNumberOfPositiveConstraintPredicates).toString)
     writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.predicateHints.values.flatten.size.toString)
+    writer.println("       positiveArgumentConstantEqualPredicate:"+predicateNumberOfPositiveArgumentConstantEqualPredicate.toString)
+    writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.predicateHints.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
+    writer.println("predicatesFromCEGAR:"+predicatesFromCEGAR.values.flatten.size.toString)
     writer.println("unlabeledPredicates:"+unlabeledPredicates.predicateHints.values.flatten.size.toString)
     writer.println("labeledPredicates:"+labeledPredicates.predicateHints.values.flatten.size.toString)
     writer.close()

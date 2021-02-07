@@ -719,10 +719,10 @@ object Main {
             lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
               drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
           }
-          return
         }catch {
           case _=> throw MainTimeoutException
         }
+        return
       }
 
       if(solFileName != "") {
