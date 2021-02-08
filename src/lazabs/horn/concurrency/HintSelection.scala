@@ -137,13 +137,13 @@ object HintsSelection {
   def varyTerm(e:ITerm): ITerm = {
     e match {
       case IPlus(t1,t2)=> IPlus(varyTerm(t2),varyTerm(t1))
-      case Difference(t1,t2)=> IPlus(varyTerm(-1*t1),varyTerm(t2))
-      case ITimes(coeff, subterm) => ITimes(coeff, varyTerm(subterm))
+      case Difference(t1,t2)=> IPlus(varyTerm(t1),varyTerm(-1*t2))
+      //case ITimes(coeff, subterm) => ITimes(coeff, varyTerm(subterm))
       case _=> e
     }
   }
 
-  def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=false): Map[Predicate, Seq[IFormula]] ={
+  def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=true): Map[Predicate, Seq[IFormula]] ={
     val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
     val mergedPredicates=for ((cpKey, cpPredicates) <- transformedPredicates; (apKey, apPredicates) <- optimizedPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
     if (verbose==true){
@@ -157,7 +157,11 @@ object HintsSelection {
       transformPredicateMapToVerificationHints(mergedPredicates).pretyPrintHints()
       //mergedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
     }
-    mergedPredicates
+    for ((k,v)<-mergedPredicates) yield{ //de-duplicate by string
+      val predicateStrings = new MHashSet[String]
+      k->v.filter(x=>predicateStrings.add(x.toString))
+    }
+    //mergedPredicates
   }
 
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={

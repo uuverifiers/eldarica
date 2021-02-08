@@ -35,10 +35,9 @@ import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
-
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException}
+import lazabs.Main.{StoppedException, TimeoutException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -49,20 +48,20 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.{RelationSymbol}
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-  StaticAbstractionBuilder, AbstractionRecord,
-  VerificationHints, EmptyVerificationHints}
+import HornPredAbs.RelationSymbol
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-  LinkedHashMap}
-
+import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
+
+import java.util
+import scala.collection.immutable.Set
+import scala.collection.mutable
 
 
 object HornWrapper {

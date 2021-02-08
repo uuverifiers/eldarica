@@ -38,29 +38,18 @@ import bottomup.HornClauses.Clause
 import bottomup.Util.Dag
 import ap.parser._
 import lazabs.GlobalParameters
-import lazabs.Main.TimeoutException
 import preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
 import bottomup.HornClauses._
 import global._
 import abstractions._
 import AbstractionRecord.AbstractionMap
-import ap.SimpleAPI
 import ap.terfor.conjunctions.Conjunction
 import concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
 import concurrency._
-import ap.basetypes.IdealInt
 import ap.terfor.preds.Predicate
-import ap.terfor.{ConstantTerm, Formula}
-import ap.theories.TheoryCollector
-import ap.types.TypeTheory
 import ap.util.Timeout
 import bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.bottomup.HornPredAbs.{RelationSymbol, RelationSymbolPred, SymbolFactory}
-import lazabs.horn.bottomup.PrincessFlataWrappers.MHashMap
-
-import java.io.{File, PrintWriter}
-import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.mutable.{HashSet => MHashSet}
 
 object TrainDataGeneratorPredicatesSmt2 {
   def apply(clauseSet: Seq[HornClause],
@@ -277,7 +266,10 @@ object TrainDataGeneratorPredicatesSmt2 {
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
       val cs=new ConstraintSimplifier
-      val (csSimplifiedClauses,_,_)=cs.process(simplifiedClauses,hints)
+      val clauseStrings = new MHashSet[String]
+      val uniqueClauses = simplifiedClauses filter {clause => clauseStrings.add(clause.toString)} //de-duplicate clauses
+      val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
+
       val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
         case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
         case _ => csSimplifiedClauses
