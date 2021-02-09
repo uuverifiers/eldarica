@@ -278,18 +278,18 @@ object TrainDataGeneratorPredicatesSmt2 {
       if (GlobalParameters.get.readHints==true){
         println("-"*10 + "read predicate from .tpl" + "-"*10)
         //read initial predicates from .tpl
-        val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
+        val initialPredicatesTemp =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         //vary selected predicates but not change its logic
-        val predicatesForLearning =
+        val initialPredicates =
           if(GlobalParameters.get.varyGeneratedPredicates==true)
-            HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(initialPredicates.toInitialPredicates))
+            HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(initialPredicatesTemp.toInitialPredicates))
           else
-            initialPredicates
+            initialPredicatesTemp
 
-        val initialHintsCollection=new VerificationHintsInfo(predicatesForLearning,VerificationHints(Map()),VerificationHints(Map()))
+        val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read label from JSON
         val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
-        val hintsCollection=new VerificationHintsInfo(predicatesForLearning,positiveHints,predicatesForLearning.filterPredicates(positiveHints.predicateHints.keySet))
+        val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
 
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
         //Output graphs
@@ -352,7 +352,12 @@ object TrainDataGeneratorPredicatesSmt2 {
       val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)))
 
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
-      val initialPredicates = HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
+      val initialPredicates =
+        if(GlobalParameters.get.varyGeneratedPredicates==true)
+          HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(originalPredicates))
+        else
+          HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
+
 
       generatingInitialPredicatesTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
 
@@ -499,12 +504,6 @@ object TrainDataGeneratorPredicatesSmt2 {
               exceptionalPredGen,counterexampleMethod).result
             println("-"*10 + "test finished" + "-"*10)
 
-            //todo:vary selected predicates but not change its logic
-            val predicatesForLearning =
-              if(GlobalParameters.get.varyGeneratedPredicates==true)
-                HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(optimizedPredicate))
-              else
-                selectedPredicates
 
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
@@ -512,7 +511,8 @@ object TrainDataGeneratorPredicatesSmt2 {
                 val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel.filterKeys(k => !tempLabel(k).isEmpty))
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),labeledSimpleGeneratedPredicates)
               } else
-                (initialPredicates,predicatesForLearning)
+                (initialPredicates,selectedPredicates)
+
 
             println("-"*10 + "unlabeledPredicates" + "-"*10)
             unlabeledPredicates.pretyPrintHints()
@@ -531,7 +531,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
               //write predicates to files:
-              HintsSelection.writePredicateDistributionToFiles(initialPredicates,predicatesForLearning,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate))
+              HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate))
               drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
             } else{
               HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"labeledPredicates is empty")

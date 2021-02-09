@@ -71,13 +71,13 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
 
-  def writePredicateDistributionToFiles(initialPredicates:VerificationHints,predicatesForLearning:VerificationHints,
+  def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
                                         labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
                                         constraintPredicates:VerificationHints,argumentConstantEqualPredicate:VerificationHints): Unit ={
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
       AbsReader.printHints(initialPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
-      AbsReader.printHints(predicatesForLearning)}
+      AbsReader.printHints(selectedPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
       AbsReader.printHints(labeledPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
@@ -92,9 +92,10 @@ object HintsSelection {
     val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
     val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield ks->(for(p<-vi if !vs.contains(p))yield p)
     val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
+    writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
     writer.println("Predicate distributions: ")
     writer.println("initialPredicates (simpleGeneratedPredicates + predicatesFromCEGAR):"+initialPredicates.predicateHints.values.flatten.size.toString)
-    writer.println("predicatesForLearning (initialPredicates go through CEGAR Filter):"+predicatesForLearning.predicateHints.values.flatten.size.toString)
+    writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.predicateHints.values.flatten.size.toString)
     writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
     writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
     writer.println("       positiveConstraintPredicates:"+predicateNumberOfPositiveConstraintPredicates.toString)
@@ -143,7 +144,7 @@ object HintsSelection {
     }
   }
 
-  def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=true): Map[Predicate, Seq[IFormula]] ={
+  def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=false): Map[Predicate, Seq[IFormula]] ={
     val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
     val mergedPredicates=for ((cpKey, cpPredicates) <- transformedPredicates; (apKey, apPredicates) <- optimizedPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
     if (verbose==true){
@@ -256,7 +257,7 @@ object HintsSelection {
 //    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     //generate predicates from constraint
-    val constraintPredicates= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
+    val constraintPredicatesTemp= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
@@ -274,6 +275,12 @@ object HintsSelection {
       }
       atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse) //get rid of true and false
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+
+    val constraintPredicates=
+      if(GlobalParameters.get.varyGeneratedPredicates==true)
+        HintsSelection.varyPredicates(constraintPredicatesTemp)
+      else
+        constraintPredicatesTemp
 
     //generate predicates from clause's integer constants
     val integerConstantVisitor = new LiteralCollector
