@@ -86,16 +86,20 @@ object HintsSelection {
       AbsReader.printHints(constraintPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
       AbsReader.printHints(argumentConstantEqualPredicate)}
-    val positiveConstraintPredicates= for ((ck,cv)<-constraintPredicates.predicateHints;(lk,lv)<-labeledPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.contains(p)) yield p)
-    val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
-    val positiveArgumentConstantEqualPredicate = for ((ck,cv)<-argumentConstantEqualPredicate.predicateHints;(lk,lv)<-labeledPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.contains(p)) yield p)
-    val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
-    val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield ks->(for(p<-vi if !vs.contains(p))yield p)
     val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
+    val positiveConstraintPredicates= for ((ck,cv)<-constraintPredicates.predicateHints;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+    val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
+    val positiveArgumentConstantEqualPredicate = for ((ck,cv)<-argumentConstantEqualPredicate.predicateHints;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+    val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
+    val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield {ki->vi.map(_.toString).diff(vs.map(_.toString))}
+    val positivePredicatesFromCEGAR = for ((ck,cv)<-predicatesFromCEGAR;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+    val predicateNumberOfPositivePredicatesFromCEGAR=positivePredicatesFromCEGAR.values.flatten.size
+
     writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
     writer.println("Predicate distributions: ")
-    writer.println("initialPredicates (simpleGeneratedPredicates + predicatesFromCEGAR):"+initialPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("initialPredicates (initial predicatesFromCEGAR, heuristic simpleGeneratedPredicates):"+initialPredicates.predicateHints.values.flatten.size.toString)
     writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.predicateHints.values.flatten.size.toString)
+    writer.println(selectedPredicates.predicateHints.toString)
     writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
     writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
     writer.println("       positiveConstraintPredicates:"+predicateNumberOfPositiveConstraintPredicates.toString)
@@ -103,7 +107,9 @@ object HintsSelection {
     writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.predicateHints.values.flatten.size.toString)
     writer.println("       positiveArgumentConstantEqualPredicate:"+predicateNumberOfPositiveArgumentConstantEqualPredicate.toString)
     writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.predicateHints.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
-    writer.println("predicatesFromCEGAR:"+predicatesFromCEGAR.values.flatten.size.toString)
+    writer.println("initialPredicates - simpleGeneratedPredicates:"+predicatesFromCEGAR.values.flatten.size.toString)
+    writer.println("       positive(initialPredicates - simpleGeneratedPredicates)):"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
+    writer.println("       negative(initialPredicates - simpleGeneratedPredicates)):"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
     writer.println("unlabeledPredicates:"+unlabeledPredicates.predicateHints.values.flatten.size.toString)
     writer.println("labeledPredicates:"+labeledPredicates.predicateHints.values.flatten.size.toString)
     writer.close()
@@ -111,7 +117,7 @@ object HintsSelection {
 
   def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
     for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
-      ko->(for (p<-vs if vo.contains(p))yield p)
+      ko->(for (p<-vs if vo.map(_.toString).contains(p.toString))yield p)
     }
   }
 
@@ -268,7 +274,7 @@ object HintsSelection {
             sp(argumentReplacedPredicates)
           else
             sp(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
-        if(clause.body.contains(atom)) {
+        if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
         } else
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
@@ -295,7 +301,10 @@ object HintsSelection {
 
     //merge constraint and constant predicates
     val simplelyGeneratedPredicates = for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
-
+//    val simplelyGeneratedPredicates=for ((k,v)<-simplelyGeneratedPredicatesTemp) yield{ //de-duplicate by string
+//      val predicateStrings = new MHashSet[String]
+//      k->v.filter(x=>predicateStrings.add(x.toString))
+//    }
 
     if (verbose==true){
       println("--------predicates from constrains---------")

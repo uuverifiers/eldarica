@@ -250,7 +250,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
     clauseIndices :+=GNNNodeID
-    if (!clauseInfo.isEmpty && clausesInCE.contains(clauseInfo.head)) {
+    if (!clauseInfo.isEmpty && clausesInCE.map(_.toString).contains(clauseInfo.head.toString)) {
       clausesOccurrenceInCounterExample :+=1
     } else
       clausesOccurrenceInCounterExample :+=0
@@ -876,7 +876,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         //templateNameList:+=templateNodeName
-        val hintLabel = if (hints.positiveHints.predicateHints.keySet.contains(hp) && hints.positiveHints.predicateHints(hp).contains(t)) true else false
+        val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
           case VerifHintInitPred(e)=>{
