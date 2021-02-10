@@ -28,14 +28,10 @@
  */
 package lazabs.horn.concurrency
 
-import ap.parser.{IAtom, IBinFormula, IBinJunctor, IBoolLit, IConstant, IEpsilon, IExpression, IFormulaITE, IFunApp, IIntFormula, IIntLit, INamedPart, INot, IPlus, IQuantified, ITerm, ITermITE, ITimes, ITrigger, IVariable, LineariseVisitor}
+import ap.parser.{IAtom, IBinJunctor, LineariseVisitor}
 import lazabs.GlobalParameters
-import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import play.api.libs.json.Json
 
-import scala.collection.mutable.{ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) extends DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   println("Write " + GlobalParameters.get.hornGraphType.toString + " to file")

@@ -29,24 +29,16 @@
  */
 package lazabs.horn.concurrency
 
-import ap.SimpleAPI
 import ap.basetypes.IdealInt
-
-import java.io.{File, PrintWriter}
-import ap.parser.IExpression.{ConstantTerm, Eq, Predicate}
-import ap.parser.{IAtom, IBinJunctor, IConstant, IExpression, IFormula, ITerm, IVariable, LineariseVisitor, Simplifier, SymbolCollector}
+import ap.parser._
 import ap.types.Sort.Integer.newConstant
-import jdk.nashorn.internal.objects.Global
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
-import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-
-import scala.collection.mutable.ArrayBuffer
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
-import lazabs.horn.preprocessor.ConstraintSimplifier
+
+import java.io.{File, PrintWriter}
+import scala.collection.mutable.ArrayBuffer
 
 object DrawHyperEdgeHornGraph {
 

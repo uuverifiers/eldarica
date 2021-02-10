@@ -28,29 +28,25 @@
  */
 
 package lazabs.horn
-import java.lang.System.currentTimeMillis
-import lazabs.ast.ASTree._
-import bottomup.{HornTranslator, _}
-import abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, VerificationHints}
 import ap.parser._
-import IExpression.{ConstantTerm, Eq, Geq, Predicate, Quantifier}
-import bottomup.HornClauses.Clause
-import bottomup.Util.Dag
-import ap.parser._
-import lazabs.GlobalParameters
-import preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
-import bottomup.HornClauses._
-import global._
-import abstractions._
-import AbstractionRecord.AbstractionMap
 import ap.terfor.conjunctions.Conjunction
-import concurrency.HintsSelection.{getClausesInCounterExamples, initialIDForHints}
-import concurrency._
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
-import bottomup.DisjInterpolator.AndOrNode
+import lazabs.GlobalParameters
+import lazabs.ast.ASTree._
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, VerificationHints, _}
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.bottomup.HornClauses.{Clause, _}
+import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.{HornTranslator, _}
+import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
+import lazabs.horn.concurrency._
+import lazabs.horn.global._
+import lazabs.horn.preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
 
 import java.io.{File, PrintWriter}
+import java.lang.System.currentTimeMillis
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object TrainDataGeneratorPredicatesSmt2 {
@@ -283,7 +279,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read predicted hints from JSON
-        val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+        //val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
         //read positive hints from JSON label
         //val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         //read positive hints from .tpl file
@@ -301,20 +297,20 @@ object TrainDataGeneratorPredicatesSmt2 {
           val timeConsumptionWithFullLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
           val timeConsumptionWithEmptyLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val timeConsumptionWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          //val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          //val timeConsumptionWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
           println("timeConsumptionWithTrueLabel",timeConsumptionWithTrueLabel)
           println("timeConsumptionWithFullLabel",timeConsumptionWithFullLabel)
           println("timeConsumptionWithEmptyLabel",timeConsumptionWithEmptyLabel)
-          println("timeConsumptionWithPredictedLabel",timeConsumptionWithPredictedLabel)
+          //println("timeConsumptionWithPredictedLabel",timeConsumptionWithPredictedLabel)
 
           val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "measurement" + ".JSON"))
           writer.write("{\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithTrueLabel")+":"+timeConsumptionWithTrueLabel.toString+"\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithFullLabel")+":"+timeConsumptionWithFullLabel.toString+"\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithEmptyLabel")+":"+timeConsumptionWithEmptyLabel.toString+"\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithPredictedLabel")+":"+timeConsumptionWithPredictedLabel.toString+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithTrueLabel")+":"+timeConsumptionWithTrueLabel.toString+","+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithFullLabel")+":"+timeConsumptionWithFullLabel.toString+","+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithEmptyLabel")+":"+timeConsumptionWithEmptyLabel.toString+","+"\n")
+          //writer.write(DrawHornGraph.addQuotes("timeConsumptionWithPredictedLabel")+":"+timeConsumptionWithPredictedLabel.toString+"\n")
           writer.write("\n}")
           writer.close()
 
@@ -378,7 +374,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         head.pred -> predicateSequence.distinct
       }
 
-      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).transform((k,v)=>v.filterNot(_.isTrue))
+      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).transform((k,v)=>v.filterNot(_.isTrue))
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -508,6 +504,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 //          if (!criticalPredicatesSeq.isEmpty) {
 //            optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
 //          }
+
           optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
           println("current head:", head.toString())
           println("critical predicates:", criticalPredicatesSeq.toString())
@@ -547,6 +544,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             unlabeledPredicates.pretyPrintHints()
             println("-"*10 + "labeledPredicates" + "-"*10)
             labeledPredicates.pretyPrintHints()
+
 
             //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis

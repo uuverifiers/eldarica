@@ -27,35 +27,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
-import ap.parser.{IExpression, _}
-import lazabs.GlobalParameters
-import lazabs.horn.abstractions.{AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
-import lazabs.horn.bottomup._
-
-import scala.io.Source
-import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
-import java.io.{File, FileWriter, PrintWriter}
-import ap.terfor.conjunctions.Conjunction
-import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
-import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
-import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-
-import java.nio.file.{Files, Paths, StandardCopyOption}
-import ap.parser._
-import IExpression.{Predicate, _}
-import lazabs.horn.bottomup.HornClauses
-
-import java.lang.System.currentTimeMillis
-import ap.{PresburgerTools, SimpleAPI}
+import ap.PresburgerTools
 import ap.basetypes.IdealInt
+import ap.parser.IExpression._
+import ap.parser.{IExpression, _}
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
+import lazabs.GlobalParameters
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
+import lazabs.horn.abstractions._
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFactory}
+import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
+
+import java.io.{File, PrintWriter}
+import java.lang.System.currentTimeMillis
+import java.nio.file.{Files, Paths, StandardCopyOption}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashSet => MHashSet}
+import scala.io.Source
 
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
@@ -298,7 +294,7 @@ object HintsSelection {
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
       }
       atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse).map(spAPI.simplify(_)).filterNot(_.isTrue) //get rid of true and false
-    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)
 
     val constraintPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -314,7 +310,7 @@ object HintsSelection {
         val eqConstant= integerConstantVisitor.literals.toSeq
         integerConstantVisitor.literals.clear()
          atom.pred ->(for((arg,n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n,eqConstant)).flatten}
-      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
+      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)
 
 
     //merge constraint and constant predicates

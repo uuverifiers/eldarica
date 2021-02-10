@@ -29,17 +29,16 @@
  */
 
 package lazabs
-import java.io.{File, FileInputStream, FileNotFoundException, InputStream, PrintWriter}
+import ap.util.{Debug, Timeout}
 import lazabs.art.SearchMethod._
-import lazabs.prover._
-import lazabs.viewer._
-import lazabs.nts._
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.{CCReader, HintsSelection}
-import ap.util.{Debug, Timeout}
+import lazabs.nts._
+import lazabs.prover._
+import lazabs.viewer._
 
-import scala.concurrent._
+import java.io.{FileInputStream, InputStream}
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
@@ -315,8 +314,8 @@ object Main {
     // work-around: make the Princess wrapper thread-safe
     lazabs.prover.PrincessWrapper.newWrapper
 
-    import params._
     import GlobalParameters.InputFormat
+    import params._
 
     def arguments(args: List[String]): Boolean = args match {
       case Nil => true
