@@ -70,6 +70,7 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 
 object HintsSelection {
   val sp =new Simplifier
+  val spAPI = ap.SimpleAPI.spawn
 
   def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
                                         labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
@@ -78,7 +79,9 @@ object HintsSelection {
       AbsReader.printHints(initialPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
       AbsReader.printHints(selectedPredicates)}
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledSimpleGenerated.tpl")) {
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
+      AbsReader.printHints(unlabeledPredicates)}
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledPredicates.tpl")) {
       AbsReader.printHints(labeledPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
       AbsReader.printHints(simpleGeneratedPredicates)}
@@ -99,7 +102,6 @@ object HintsSelection {
     writer.println("Predicate distributions: ")
     writer.println("initialPredicates (initial predicatesFromCEGAR, heuristic simpleGeneratedPredicates):"+initialPredicates.predicateHints.values.flatten.size.toString)
     writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.predicateHints.values.flatten.size.toString)
-    writer.println(selectedPredicates.predicateHints.toString)
     writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
     writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
     writer.println("       positiveConstraintPredicates:"+predicateNumberOfPositiveConstraintPredicates.toString)
@@ -173,6 +175,7 @@ object HintsSelection {
 
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
     import play.api.libs.json._
+    val initialHints=initialHintsCollection.initialHints.getPredicateHints.toSeq sortBy (_._1.name)
     val readLabel=labelName
     val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
     val json_content = scala.io.Source.fromFile(input_file).mkString
@@ -182,7 +185,7 @@ object HintsSelection {
     }
     println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
 
-    val mapLengthList=for ((k,v)<-initialHintsCollection.initialHints.getPredicateHints) yield v.length
+    val mapLengthList=for ((k,v)<-initialHints) yield v.length
     var splitTail=predictedLabel
     val splitedPredictedLabel = for(l<-mapLengthList) yield {
       val temp=splitTail.splitAt(l)._1
@@ -190,9 +193,9 @@ object HintsSelection {
       temp
     }
     for (x<-splitedPredictedLabel)
-      println(x.toSeq)
+      println(x.toSeq,x.size)
 
-    val labeledPredicates=for (((k,v),label)<-initialHintsCollection.initialHints.getPredicateHints zip splitedPredictedLabel) yield {
+    val labeledPredicates=for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
       k-> (for ((p,l)<-v zip label if l==1) yield p)
     }
 
@@ -204,15 +207,15 @@ object HintsSelection {
     }
 
     //simplePredicates ++ simpHints
-    VerificationHints(labeledPredicates)
+    VerificationHints(labeledPredicates.toMap)
   }
 
-  def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause]):VerificationHints={
+  def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause],hintType:String=""):VerificationHints={
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
             IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
-    HintsSelection.readHints(GlobalParameters.get.fileName+".tpl", name2Pred)
+    HintsSelection.readHints(GlobalParameters.get.fileName+"."+hintType+".tpl", name2Pred)
   }
 
   def readHints(filename : String,
@@ -279,7 +282,7 @@ object HintsSelection {
         } else
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
       }
-      atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse) //get rid of true and false
+      atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse).map(spAPI.simplify(_)).filterNot(_.isTrue) //get rid of true and false
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     val constraintPredicates=

@@ -49,6 +49,8 @@ import concurrency._
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
 import bottomup.DisjInterpolator.AndOrNode
+
+import java.io.File
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object TrainDataGeneratorPredicatesSmt2 {
@@ -276,26 +278,33 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
       //read hint from file
       if (GlobalParameters.get.readHints==true){
-        println("-"*10 + "read predicate from .tpl" + "-"*10)
-        //read initial predicates from .tpl
-        val initialPredicatesTemp =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
-        //vary selected predicates but not change its logic
-        val initialPredicates =
-          if(GlobalParameters.get.varyGeneratedPredicates==true)
-            HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(initialPredicatesTemp.toInitialPredicates))
-          else
-            initialPredicatesTemp
-
+        val hintType="unlabeledPredicates" //no
+        println("-"*10 + "read predicate from ."+hintType+".tpl" + "-"*10)
+        val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read label from JSON
         val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
-
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
-        //Output graphs
-        val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
-        val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, positiveHints,countOccurrence=true)
-        GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
+        if(GlobalParameters.get.measurePredictedPredicates){
+          val startCEGARTime=currentTimeMillis()
+          val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+            positiveHints.toInitialPredicates,
+            predGenerator,
+            counterexampleMethod)
+          val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)/1000
+          println(Console.GREEN + "timeConsumptionForCEGAR",timeConsumptionForCEGAR)
+
+
+
+        } else{
+          //Output graphs
+          val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
+          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, positiveHints,countOccurrence=true)
+          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+        }
+
 
         sys.exit()
       }
@@ -349,8 +358,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         head.pred -> predicateSequence.distinct
       }
 
-      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)))
-
+      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).transform((k,v)=>v.filterNot(_.isTrue))
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -477,9 +485,10 @@ object TrainDataGeneratorPredicatesSmt2 {
             }
           }
           //store selected predicate
-          if (!criticalPredicatesSeq.isEmpty) {
-            optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
-          }
+//          if (!criticalPredicatesSeq.isEmpty) {
+//            optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
+//          }
+          optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
           println("current head:", head.toString())
           println("critical predicates:", criticalPredicatesSeq.toString())
           println("redundant predicates", redundantPredicatesSeq.toString())
@@ -508,7 +517,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
                 val tempLabel=HintsSelection.labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate,simpleGeneratedPredicates)
-                val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel.filterKeys(k => !tempLabel(k).isEmpty))
+                val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel)//.filterKeys(k => !tempLabel(k).isEmpty)
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),labeledSimpleGeneratedPredicates)
               } else
                 (initialPredicates,selectedPredicates)
