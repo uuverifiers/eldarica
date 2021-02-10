@@ -843,7 +843,7 @@ object Main {
 
   } catch {
     case TimeoutException | StoppedException | MainTimeoutException =>{
-      //HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("main timeout", GlobalParameters.get.format)
     }
       // nothing

@@ -50,7 +50,7 @@ import ap.terfor.preds.Predicate
 import ap.util.Timeout
 import bottomup.DisjInterpolator.AndOrNode
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object TrainDataGeneratorPredicatesSmt2 {
@@ -282,26 +282,46 @@ object TrainDataGeneratorPredicatesSmt2 {
         println("-"*10 + "read predicate from ."+hintType+".tpl" + "-"*10)
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
-        //read label from JSON
-        val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
-        val hintsCollection=new VerificationHintsInfo(initialPredicates,positiveHints,initialPredicates.filterPredicates(positiveHints.predicateHints.keySet))
+        //read predicted hints from JSON
+        val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+        //read positive hints from JSON label
+        //val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
+        //read positive hints from .tpl file
+        val verifyPositiveHints =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+
+        val hintsCollection=new VerificationHintsInfo(initialPredicates,verifyPositiveHints,initialPredicates.filterPredicates(verifyPositiveHints.predicateHints.keySet))
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          val startCEGARTime=currentTimeMillis()
-          val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
-            positiveHints.toInitialPredicates,
-            predGenerator,
-            counterexampleMethod)
-          val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)/1000
-          println(Console.GREEN + "timeConsumptionForCEGAR",timeConsumptionForCEGAR)
+          //todo: write results to JSON file
+          //eliminate time differences by first time call
+          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          val timeConsumptionWithTrueLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+          val timeConsumptionWithFullLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+          val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          val timeConsumptionWithEmptyLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val timeConsumptionWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
+          println("timeConsumptionWithTrueLabel",timeConsumptionWithTrueLabel)
+          println("timeConsumptionWithFullLabel",timeConsumptionWithFullLabel)
+          println("timeConsumptionWithEmptyLabel",timeConsumptionWithEmptyLabel)
+          println("timeConsumptionWithPredictedLabel",timeConsumptionWithPredictedLabel)
 
+          val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "measurement" + ".JSON"))
+          writer.write("{\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithTrueLabel")+":"+timeConsumptionWithTrueLabel.toString+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithFullLabel")+":"+timeConsumptionWithFullLabel.toString+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithEmptyLabel")+":"+timeConsumptionWithEmptyLabel.toString+"\n")
+          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithPredictedLabel")+":"+timeConsumptionWithPredictedLabel.toString+"\n")
+          writer.write("\n}")
+          writer.close()
 
         } else{
           //Output graphs
           val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
-          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, positiveHints,countOccurrence=true)
+          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, verifyPositiveHints,countOccurrence=true)
           GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         }
 

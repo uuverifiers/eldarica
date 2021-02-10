@@ -50,6 +50,7 @@ import lazabs.horn.bottomup.HornClauses
 import java.lang.System.currentTimeMillis
 import ap.{PresburgerTools, SimpleAPI}
 import ap.basetypes.IdealInt
+import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
 import lazabs.horn.bottomup.HornClauses.Clause
@@ -71,6 +72,20 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
   val spAPI = ap.SimpleAPI.spawn
+
+  def measureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
+  HornPredAbs.CounterexampleMethod.FirstBestShortest): Long ={
+    val startCEGARTime=currentTimeMillis()
+    val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+      initialHints,
+      predicateGenerator,
+      counterexampleMethod)
+    val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)
+    println(Console.GREEN + "timeConsumptionForCEGAR (ms)",timeConsumptionForCEGAR)
+    timeConsumptionForCEGAR
+  }
 
   def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
                                         labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
@@ -195,9 +210,9 @@ object HintsSelection {
     for (x<-splitedPredictedLabel)
       println(x.toSeq,x.size)
 
-    val labeledPredicates=for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-      k-> (for ((p,l)<-v zip label if l==1) yield p)
-    }
+    val labeledPredicates=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
+      k-> (for ((p,l)<-v zip label if l==1) yield p) //match labels with predicates
+    }).filterNot(_._2.isEmpty) //delete empty head
 
     println("--------Filtered initial predicates---------")
     for((k,v)<-labeledPredicates) {
