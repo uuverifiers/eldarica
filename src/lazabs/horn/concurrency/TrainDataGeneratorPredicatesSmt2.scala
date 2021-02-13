@@ -280,11 +280,12 @@ object TrainDataGeneratorPredicatesSmt2 {
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read predicted hints from JSON
         val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+        Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predictedHints.tpl")) {
+          AbsReader.printHints(predictedPositiveHints)}
         //read positive hints from JSON label
         //val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         //read positive hints from .tpl file
         val verifyPositiveHints =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
-
         val hintsCollection=new VerificationHintsInfo(initialPredicates,verifyPositiveHints,initialPredicates.filterPredicates(verifyPositiveHints.predicateHints.keySet))
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
