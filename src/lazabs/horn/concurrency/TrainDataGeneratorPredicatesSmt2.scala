@@ -279,7 +279,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read predicted hints from JSON
-        //val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+        val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
         //read positive hints from JSON label
         //val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
         //read positive hints from .tpl file
@@ -289,30 +289,24 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          //todo: write results to JSON file
           //eliminate time differences by first time call
           val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val timeConsumptionWithTrueLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithTrueLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
-          val timeConsumptionWithFullLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithFullLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val timeConsumptionWithEmptyLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          //val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          //val timeConsumptionWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithEmptyLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
-          println("timeConsumptionWithTrueLabel",timeConsumptionWithTrueLabel)
-          println("timeConsumptionWithFullLabel",timeConsumptionWithFullLabel)
-          println("timeConsumptionWithEmptyLabel",timeConsumptionWithEmptyLabel)
-          //println("timeConsumptionWithPredictedLabel",timeConsumptionWithPredictedLabel)
+          println("measurementWithTrueLabel",measurementWithTrueLabel)
+          println("measurementWithFullLabel",measurementWithFullLabel)
+          println("measurementWithEmptyLabel",measurementWithEmptyLabel)
+          println("measurementWithPredictedLabel",measurementWithPredictedLabel)
 
-          val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "measurement" + ".JSON"))
-          writer.write("{\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithTrueLabel")+":"+timeConsumptionWithTrueLabel.toString+","+"\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithFullLabel")+":"+timeConsumptionWithFullLabel.toString+","+"\n")
-          writer.write(DrawHornGraph.addQuotes("timeConsumptionWithEmptyLabel")+":"+timeConsumptionWithEmptyLabel.toString+","+"\n")
-          //writer.write(DrawHornGraph.addQuotes("timeConsumptionWithPredictedLabel")+":"+timeConsumptionWithPredictedLabel.toString+"\n")
-          writer.write("\n}")
-          writer.close()
+          val measurementList=Seq(("measurementWithTrueLabel",measurementWithTrueLabel),("measurementWithFullLabel",measurementWithFullLabel),
+            ("measurementWithEmptyLabel",measurementWithEmptyLabel),("measurementWithPredictedLabel",measurementWithPredictedLabel))
+          HintsSelection.writeMeasurementToJSON(measurementList)
 
         } else{
           //Output graphs
@@ -320,7 +314,6 @@ object TrainDataGeneratorPredicatesSmt2 {
           val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, verifyPositiveHints,countOccurrence=true)
           GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         }
-
 
         sys.exit()
       }

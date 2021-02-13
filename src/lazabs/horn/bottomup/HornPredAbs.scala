@@ -554,6 +554,11 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   var implicationChecksSetup = 0
   var implicationChecksSetupTime : Long = 0
 
+  //statistics for GNN
+  var itearationNumber = 0
+  var generatedPredicateNumber = 0
+  var averagePredicateSize:Double = 0
+
   var hasherChecksHit, hasherChecksMiss = 0
   var matchCount = 0
   var matchTime : Long = 0  
@@ -973,7 +978,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     println("Time for implication checks (setup, ms):               " + implicationChecksSetupTime)
     println("Time for implication checks (positive, ms):            " + implicationChecksPosTime)
     println("Time for implication checks (negative, ms):            " + implicationChecksNegTime)
-
+    itearationNumber=iterationNum
+    generatedPredicateNumber=predNum
+    averagePredicateSize=averagePredSize
     if (hasher.isActive) {
 //      println
 //      println("Number of state/clause matchings:                      " + matchCount)

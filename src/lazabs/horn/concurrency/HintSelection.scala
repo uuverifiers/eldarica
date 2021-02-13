@@ -69,10 +69,34 @@ object HintsSelection {
   val sp =new Simplifier
   val spAPI = ap.SimpleAPI.spawn
 
+  def writeMeasurementToJSON(measurementList:Seq[(String,Seq[(String, Double)])]): Unit ={
+    val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "measurement" + ".JSON"))
+    writer.write("{\n")
+    for(m<-measurementList.dropRight(1)){
+      writer.write(DrawHornGraph.addQuotes(m._1)+": {\n")
+      writeFildToJSON(writer,m._2)
+      writer.write("},\n")
+    }
+    val last=measurementList.last
+    writer.write(DrawHornGraph.addQuotes(last._1)+": {\n")
+    writeFildToJSON(writer,last._2)
+    writer.write("}\n")
+
+    writer.write("\n}")
+    writer.close()
+  }
+  def writeFildToJSON(writer:PrintWriter,fields:Seq[(String, Double)]): Unit ={
+    for (field<-fields.dropRight(1)){
+      writer.write(DrawHornGraph.addQuotes(field._1)+":"+DrawHornGraph.addQuotes(field._2.toString)+",\n")
+    }
+    val last=fields.last
+    writer.write(DrawHornGraph.addQuotes(last._1)+":"+DrawHornGraph.addQuotes(last._2.toString)+"\n")
+  }
+
   def measureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
-  HornPredAbs.CounterexampleMethod.FirstBestShortest): Long ={
+  HornPredAbs.CounterexampleMethod.FirstBestShortest): Seq[Tuple2[String,Double]] ={
     val startCEGARTime=currentTimeMillis()
     val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
       initialHints,
@@ -80,7 +104,10 @@ object HintsSelection {
       counterexampleMethod)
     val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)
     println(Console.GREEN + "timeConsumptionForCEGAR (ms)",timeConsumptionForCEGAR)
-    timeConsumptionForCEGAR
+    val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",timeConsumptionForCEGAR),Tuple2("itearationNumber",Cegar.itearationNumber),
+      Tuple2("generatedPredicateNumber",Cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",Cegar.averagePredicateSize),
+      Tuple2("predicateGeneratorTime",Cegar.predicateGeneratorTime),Tuple2("averagePredicateSize",Cegar.averagePredicateSize))
+    measurementList
   }
 
   def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
