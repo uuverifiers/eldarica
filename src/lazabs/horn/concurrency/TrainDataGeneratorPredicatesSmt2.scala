@@ -538,11 +538,12 @@ object TrainDataGeneratorPredicatesSmt2 {
             unlabeledPredicates.pretyPrintHints()
             println("-"*10 + "labeledPredicates" + "-"*10)
             labeledPredicates.pretyPrintHints()
+            println(labeledPredicates.predicateHints.values.flatten)
 
 
             //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
             val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
-            if (!labeledPredicates.isEmpty){
+            if (!labeledPredicates.predicateHints.values.flatten.isEmpty){
               val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))
               val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
               val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
