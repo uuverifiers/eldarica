@@ -290,6 +290,8 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
+          //todo:check solvability
+          HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,fileName)
           //eliminate time differences by first time call
           val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
           val measurementWithTrueLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
@@ -368,7 +370,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         head.pred -> predicateSequence.distinct
       }
 
-      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).transform((k,v)=>v.filterNot(_.isTrue))
+      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).transform((k,v)=>v.filterNot(_.isTrue)).mapValues(_.toSeq)
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -386,27 +388,9 @@ object TrainDataGeneratorPredicatesSmt2 {
           //throw new RuntimeException("interpolator exception")
           throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
 
-      println("check solvability using current predicates")
-      val startTimeCEGAR = currentTimeMillis
-      val toParamsCEGAR = GlobalParameters.get.clone
-      toParamsCEGAR.timeoutChecker = () => {
-        if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
-          throw lazabs.Main.TimeoutException //Main.TimeoutException
-      }
-      try{
-        Timeout.withChecker(toParamsCEGAR.timeoutChecker) {
-          new HornPredAbs(simplePredicatesGeneratorClauses,
-            originalPredicates, exceptionalPredGen,
-            counterexampleMethod)
-        }
-      }
-      catch {
-        case lazabs.Main.TimeoutException => {
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/"+fileName)
-          sys.exit()//throw TimeoutException
-        }
-        case _ =>{println(Console.RED + "-----------solvability-debug------")}
-      }
+
+      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,originalPredicates,exceptionalPredGen,counterexampleMethod,fileName)
+
 
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
@@ -538,7 +522,6 @@ object TrainDataGeneratorPredicatesSmt2 {
             unlabeledPredicates.pretyPrintHints()
             println("-"*10 + "labeledPredicates" + "-"*10)
             labeledPredicates.pretyPrintHints()
-            println(labeledPredicates.predicateHints.values.flatten)
 
 
             //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))

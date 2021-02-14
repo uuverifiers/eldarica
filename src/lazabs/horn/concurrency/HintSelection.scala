@@ -35,6 +35,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
 import ap.types.TypeTheory
+import ap.util.Timeout
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
@@ -68,6 +69,33 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
   val spAPI = ap.SimpleAPI.spawn
+
+  def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,originalPredicates:Map[Predicate, Seq[IFormula]],predicateGen:Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,fileName:String): Unit ={
+    println("check solvability using current predicates")
+    val startTimeCEGAR = currentTimeMillis
+    val toParamsCEGAR = GlobalParameters.get.clone
+    toParamsCEGAR.timeoutChecker = () => {
+      if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
+        throw lazabs.Main.TimeoutException //Main.TimeoutException
+    }
+    try{
+      Timeout.withChecker(toParamsCEGAR.timeoutChecker) {
+        new HornPredAbs(simplePredicatesGeneratorClauses,
+          originalPredicates, predicateGen,
+          counterexampleMethod)
+      }
+    }
+    catch {
+      case lazabs.Main.TimeoutException => {
+        println(Console.RED + "-----------solvability-timeout------")
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/"+fileName)
+        sys.exit()//throw TimeoutException
+      }
+      case _ =>{println(Console.RED + "-----------solvability-debug------")}
+    }
+  }
 
   def writeMeasurementToJSON(measurementList:Seq[(String,Seq[(String, Double)])]): Unit ={
     val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "measurement" + ".JSON"))
