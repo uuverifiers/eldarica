@@ -72,7 +72,7 @@ object HintsSelection {
 
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,originalPredicates:Map[Predicate, Seq[IFormula]],predicateGen:Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,fileName:String): Unit ={
+      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,fileName:String,moveFile:Boolean=true): Unit ={
     println("check solvability using current predicates")
     val startTimeCEGAR = currentTimeMillis
     val toParamsCEGAR = GlobalParameters.get.clone
@@ -90,7 +90,8 @@ object HintsSelection {
     catch {
       case lazabs.Main.TimeoutException => {
         println(Console.RED + "-----------solvability-timeout------")
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/"+fileName)
+        if (moveFile==true)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/"+fileName)
         sys.exit()//throw TimeoutException
       }
       case _ =>{println(Console.RED + "-----------solvability-debug------")}
@@ -140,21 +141,12 @@ object HintsSelection {
 
   def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
                                         labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
-                                        constraintPredicates:VerificationHints,argumentConstantEqualPredicate:VerificationHints): Unit ={
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
-      AbsReader.printHints(initialPredicates)}
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
-      AbsReader.printHints(selectedPredicates)}
+                                        constraintPredicates:VerificationHints,argumentConstantEqualPredicate:VerificationHints,outputAllPredocates:Boolean=false): Unit ={
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(unlabeledPredicates)}
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".labeledPredicates.tpl")) {
       AbsReader.printHints(labeledPredicates)}
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
-      AbsReader.printHints(simpleGeneratedPredicates)}
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
-      AbsReader.printHints(constraintPredicates)}
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
-      AbsReader.printHints(argumentConstantEqualPredicate)}
+
     val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
     val positiveConstraintPredicates= for ((ck,cv)<-constraintPredicates.predicateHints;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
     val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
@@ -163,6 +155,36 @@ object HintsSelection {
     val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield {ki->vi.map(_.toString).diff(vs.map(_.toString))}
     val positivePredicatesFromCEGAR = for ((ck,cv)<-predicatesFromCEGAR;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
     val predicateNumberOfPositivePredicatesFromCEGAR=positivePredicatesFromCEGAR.values.flatten.size
+
+
+    if (outputAllPredocates==true){
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
+        AbsReader.printHints(simpleGeneratedPredicates)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
+        AbsReader.printHints(constraintPredicates)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".positiveConstraintPredicates.tpl")) {
+        AbsReader.printHints(VerificationHints(positiveConstraintPredicates))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
+        AbsReader.printHints(argumentConstantEqualPredicate)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".positiveArgumentConstantEqualPredicate.tpl")) {
+        AbsReader.printHints(VerificationHints(positiveArgumentConstantEqualPredicate))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
+        AbsReader.printHints(initialPredicates)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
+        AbsReader.printHints(selectedPredicates)}
+//      println("-------------"+"predicatesFromCEGAR"+"-----------------")
+//      for((k,v)<-predicatesFromCEGAR){
+//        println(k)
+//        for (vv<-v)
+//          println(vv)
+//      }
+//      println("-------------"+"positivePredicatesFromCEGAR"+"-----------------")
+//      for((k,v)<-positivePredicatesFromCEGAR){
+//        println(k)
+//        for (vv<-v)
+//          println(vv)
+//      }
+    }
 
     writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
     writer.println("Predicate distributions: ")
@@ -176,8 +198,8 @@ object HintsSelection {
     writer.println("       positiveArgumentConstantEqualPredicate:"+predicateNumberOfPositiveArgumentConstantEqualPredicate.toString)
     writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.predicateHints.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
     writer.println("initialPredicates - simpleGeneratedPredicates:"+predicatesFromCEGAR.values.flatten.size.toString)
-    writer.println("       positive(initialPredicates - simpleGeneratedPredicates)):"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
-    writer.println("       negative(initialPredicates - simpleGeneratedPredicates)):"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
+    writer.println("       positive(initialPredicates - simpleGeneratedPredicates):"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
+    writer.println("       negative(initialPredicates - simpleGeneratedPredicates):"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
     writer.println("unlabeledPredicates:"+unlabeledPredicates.predicateHints.values.flatten.size.toString)
     writer.println("labeledPredicates:"+labeledPredicates.predicateHints.values.flatten.size.toString)
     writer.close()
@@ -190,8 +212,8 @@ object HintsSelection {
   }
 
   def varyPredicateWithOutLogicChanges(f:IFormula): IFormula = {
-    //todo:associativity
-    //todo:replace a-b to -1*x + b
+    //associativity
+    //replace a-b to -1*x + b
     f match {
       case Eq(a,b)=>{
         //println(a.toString,"=",b.toString)
