@@ -858,6 +858,10 @@ object Main {
       printError(t.getMessage, GlobalParameters.get.format)
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
     }
+    case _=>{
+      printError("other-error", GlobalParameters.get.format)
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+    }
 
   }
 
