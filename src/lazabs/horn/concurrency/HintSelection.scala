@@ -271,17 +271,24 @@ object HintsSelection {
     //mergedPredicates
   }
 
-  def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,labelName:String="predictedLabel"): VerificationHints ={
+  def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,readLabel:String="predictedLabel"): VerificationHints ={
     import play.api.libs.json._
     val initialHints=initialHintsCollection.initialHints.getPredicateHints.toSeq sortBy (_._1.name)
-    val readLabel=labelName
     val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
     val json_content = scala.io.Source.fromFile(input_file).mkString
     val json_data = Json.parse(json_content)
-    val predictedLabel=(json_data \ readLabel).validate[Array[Int]] match {
+
+    try{(json_data \ readLabel).validate[Array[Int]] match {
+      case JsSuccess(templateLabel,_)=> templateLabel}}catch {
+      case _=>{println("read json file field error")
+      sys.exit()}
+    }
+
+    val predictedLabel= (json_data \ readLabel).validate[Array[Int]] match {
       case JsSuccess(templateLabel,_)=> templateLabel
     }
     println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
+
 
     val mapLengthList=for ((k,v)<-initialHints) yield v.length
     var splitTail=predictedLabel
