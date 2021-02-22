@@ -80,12 +80,10 @@ object HintsSelection {
       if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
         throw lazabs.Main.TimeoutException //Main.TimeoutException
     }
-    try{
-      Timeout.withChecker(toParamsCEGAR.timeoutChecker) {
+    try GlobalParameters.parameters.withValue(toParamsCEGAR){
         new HornPredAbs(simplePredicatesGeneratorClauses,
           originalPredicates, predicateGen,
           counterexampleMethod)
-      }
     }
     catch {
       case lazabs.Main.TimeoutException => {
@@ -120,6 +118,18 @@ object HintsSelection {
     }
     val last=fields.last
     writer.write(DrawHornGraph.addQuotes(last._1)+":"+DrawHornGraph.addQuotes(last._2.toString)+"\n")
+  }
+
+  def averageMeasureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
+                   HornPredAbs.CounterexampleMethod.FirstBestShortest,adverageTime:Int=20): Seq[Tuple2[String,Double]] ={
+    val avg=(for (i<-Range(0,adverageTime,1)) yield{
+      val mList=measureCEGAR(simplePredicatesGeneratorClauses,initialHints,predicateGenerator,counterexampleMethod)
+      for (x<-mList) yield x._2
+    }).transpose.map(_.sum/adverageTime)
+    val measurementNameList=Seq("timeConsumptionForCEGAR","itearationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","averagePredicateSize")
+    for((m,name)<-avg.zip(measurementNameList)) yield Tuple2(name,m)
   }
 
   def measureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>

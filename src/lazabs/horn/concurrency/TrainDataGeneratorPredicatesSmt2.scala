@@ -293,22 +293,26 @@ object TrainDataGeneratorPredicatesSmt2 {
         if(GlobalParameters.get.measurePredictedPredicates){
           //todo:check solvability
           HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,fileName,false)
-          //eliminate time differences by first time call
-          //todo: first run all trials
-          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+
+          //run trails to reduce time consumption deviation
+          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
           val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
-          val measurementWithTrueLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithFullLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithEmptyLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val measurementWithPredictedLabel=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          //val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithTrueLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          //val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithFullLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+          //val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          val measurementWithEmptyLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+          //val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithPredictedLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
-          println("measurementWithTrueLabel",measurementWithTrueLabel)
-          println("measurementWithFullLabel",measurementWithFullLabel)
-          println("measurementWithEmptyLabel",measurementWithEmptyLabel)
-          println("measurementWithPredictedLabel",measurementWithPredictedLabel)
+//          println("measurementWithTrueLabel",measurementWithTrueLabel)
+//          println("measurementWithFullLabel",measurementWithFullLabel)
+//          println("measurementWithEmptyLabel",measurementWithEmptyLabel)
+//          println("measurementWithPredictedLabel",measurementWithPredictedLabel)
 
           val measurementList=Seq(("measurementWithTrueLabel",measurementWithTrueLabel),("measurementWithFullLabel",measurementWithFullLabel),
             ("measurementWithEmptyLabel",measurementWithEmptyLabel),("measurementWithPredictedLabel",measurementWithPredictedLabel))
@@ -332,15 +336,15 @@ object TrainDataGeneratorPredicatesSmt2 {
       val predicatesExtractingBeginTime=System.currentTimeMillis
 
       val startTimePredicateGenerator = currentTimeMillis
-      val toParamsSolvability= GlobalParameters.get.clone
-      toParamsSolvability.timeoutChecker = () => {
+      val toParamsPredicateGenerator= GlobalParameters.get.clone
+      toParamsPredicateGenerator.timeoutChecker = () => {
         //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
         if ((currentTimeMillis - startTimePredicateGenerator) > (GlobalParameters.get.solvabilityTimeout * 5) ) //timeout seconds
           throw lazabs.Main.TimeoutException //Main.TimeoutException
       }
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
       val lastPredicates= {
-          try GlobalParameters.parameters.withValue(toParamsSolvability)
+          try GlobalParameters.parameters.withValue(toParamsPredicateGenerator)
           {
               val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
                 simpleGeneratedPredicates,
@@ -506,7 +510,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           val toParamsSolvabilityTest= GlobalParameters.get.clone
           toParamsSolvabilityTest.timeoutChecker = () => {
             //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
-            if ((currentTimeMillis - startTimeTest) > (GlobalParameters.get.solvabilityTimeout * 5) ) //timeout seconds
+            if ((currentTimeMillis - startTimeTest) > (GlobalParameters.get.solvabilityTimeout * 2) ) //timeout seconds
               throw lazabs.Main.TimeoutException //Main.TimeoutException
           }
           try GlobalParameters.parameters.withValue(toParamsSolvabilityTest){
