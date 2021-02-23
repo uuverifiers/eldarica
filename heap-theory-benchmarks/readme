@@ -1,7 +1,19 @@
 # Date    : 2021-02-23
 # Author  : Zafer Esen <zafer.esen@it.uu.se>
 
-Original benchmarks (not part of this release) are from:
+./heap contains 111 SMT-LIB (v2.6) benchmarks encoded automatically by the
+tool TriCera (info below).
+
+./array contains the array encodings of the same benchmarks from ./heap. The
+benchmarks under the heap folder can be fed into eldarica by using the
+command:
+  ./eld -abstract:off <filename>
+
+The benchmarks from the array encoding are provided as examples, and as of
+writing this document we could not find a CHC-solver capable of handling the
+theory combination of arrays and ADTs.
+
+Original benchmark sources (not provided in this repository) are from SV-COMP:
 https://github.com/sosy-lab/sv-benchmarks/
 
 Information on how to regenerate the benchmarks is given below, please do not
