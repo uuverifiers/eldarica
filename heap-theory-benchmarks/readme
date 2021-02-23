@@ -1,0 +1,150 @@
+# Date    : 2021-02-23
+# Author  : Zafer Esen <zafer.esen@it.uu.se>
+
+Original benchmarks (not part of this release) are from:
+https://github.com/sosy-lab/sv-benchmarks/
+
+Information on how to regenerate the benchmarks is given below, please do not
+hesitate to get in touch if you need assistance in reproducing the encodings.
+
+Regenerating the files under the heap folder
+================================================================================
+TriCera was used to generate the original SMT-LIB files, which uses the APIs
+of Eldarica and Princess for this purpose (unfortunately no official release as
+of preparing this document, as the heap versions of its dependencies, i.e.,
+Eldarica and Princess are not officially released either):
+
+https://github.com/uuverifiers/tricera/tree/heaptheory
+(used commit in the provided files: 67d7a87 from 2021-02-19)
+
+Eldarica-2.0.5-heap dependency is needed for the build, the jar from 2.0.5-heap
+pre-release of Eldarica can be put under the lib folder for this (and dependency
+removed from build.sbt). After the dependencies are satisfied the build process
+is as simple as calling "sbt assembly".
+
+After the build TriCera can be executed on the SV-COMP input files using the
+command "tri -dumpClauses -t:0". Without the "-t:0" parameter it will also
+attempt solving the benchmarks directly through Eldarica.
+
+Regenerating the files under the array folder
+================================================================================
+The tool heap2array was used to generate the array encodings. It can be built
+and run by following the instructions on the page.
+https://github.com/zafer-esen/heap2array
+
+The set-status information (i.e., expected sat or unsat) was obtained from the
+accompanying YAML files (.yml) provided by SV-COMP by TriCera.
+
+List of benchmarks (rooted at sosy-lab/sv-benchmarks/)
+======================================================
+c/forester-heap/dll-01-1.i
+c/forester-heap/dll-01-2.i
+c/forester-heap/dll-circular-1.i
+c/forester-heap/dll-circular-2.i
+c/forester-heap/dll-optional-2.i
+c/forester-heap/dll-queue-2.i
+c/forester-heap/dll-rb-sentinel-1.i
+c/forester-heap/dll-rb-sentinel-2.i
+c/forester-heap/dll-reverse.i
+c/forester-heap/dll-simple-white-blue-1.i
+c/forester-heap/dll-token-1.i
+c/forester-heap/dll-token-2.i
+c/forester-heap/sll-01-2.i
+c/forester-heap/sll-circular-1.i
+c/forester-heap/sll-circular-2.i
+c/forester-heap/sll-optional-1.i
+c/forester-heap/sll-optional-2.i
+c/forester-heap/sll-queue-1.i
+c/forester-heap/sll-queue-2.i
+c/forester-heap/sll-rb-cnstr_1-2.i
+c/forester-heap/sll-rb-sentinel-1.i
+c/forester-heap/sll-rb-sentinel-2.i
+c/forester-heap/sll-reverse_simple.i
+c/forester-heap/sll-simple-white-blue-1.i
+c/forester-heap/sll-simple-white-blue-2.i
+c/forester-heap/sll-sorted-1.i
+c/forester-heap/sll-sorted-2.i
+c/heap-data/cart.i
+c/heap-data/hash_fun.i
+c/heap-data/min_max.i
+c/heap-data/quick_sort_split.i
+c/heap-manipulation/sll_to_dll_rev-1.i
+c/heap-manipulation/sll_to_dll_rev-2.i
+c/heap-manipulation/tree-3.i
+c/heap-manipulation/tree-4.i
+c/list-ext2-properties/list_and_tree_cnstr-1.i
+c/list-ext2-properties/simple_and_skiplist_2lvl-1.i
+c/list-ext2-properties/simple_and_skiplist_2lvl-2.i
+c/list-ext2-properties/simple_search_value-1.i
+c/list-ext3-properties/dll_circular_traversal-1.i
+c/list-ext3-properties/dll_circular_traversal-2.i
+c/list-ext3-properties/dll_nondet_free_order-2.i
+c/list-ext3-properties/dll_nullified-2.i
+c/list-ext3-properties/sll_circular_traversal-1.i
+c/list-ext3-properties/sll_circular_traversal-2.i
+c/list-ext3-properties/sll_length_check-1.i
+c/list-ext3-properties/sll_length_check-2.i
+c/list-ext3-properties/sll_nondet_insert-1.i
+c/list-ext3-properties/sll_nondet_insert-2.i
+c/list-ext3-properties/sll_of_sll_nondet_append-1.i
+c/list-ext3-properties/sll_of_sll_nondet_append-2.i
+c/list-ext3-properties/sll_shallow_copy-1.i
+c/list-ext3-properties/sll_shallow_copy-2.i
+c/list-ext-properties/list-ext_1.i
+c/list-ext-properties/list-ext_flag_1.i
+c/list-ext-properties/list-ext.i
+c/list-ext-properties/simple-ext_1.i
+c/list-ext-properties/simple-ext.i
+c/list-ext-properties/test-0019_1-1.i
+c/list-ext-properties/test-0019_1-2.i
+c/list-ext-properties/test-0232_1-1.i
+c/list-properties/alternating_list-1.i
+c/list-properties/alternating_list-2.i
+c/list-properties/list-1.i
+c/list-properties/list-2.i
+c/list-properties/list_flag-1.i
+c/list-properties/list_flag-2.i
+c/list-properties/list_search-1.i
+c/list-properties/list_search-2.i
+c/list-properties/simple-2.i
+c/list-properties/simple_built_from_end.i
+c/list-properties/splice-1.i
+c/list-properties/splice-2.i
+c/list-simple/dll2c_append_equal.i
+c/list-simple/dll2c_prepend_equal.i
+c/list-simple/dll2c_prepend_unequal.i
+c/list-simple/dll2c_remove_all.i
+c/list-simple/dll2c_update_all.i
+c/list-simple/dll2n_append_equal.i
+c/list-simple/dll2n_insert_equal.i
+c/list-simple/dll2n_prepend_equal.i
+c/list-simple/dll2n_remove_all.i
+c/list-simple/dll2n_remove_all_reverse.i
+c/list-simple/dll2n_update_all_reverse.i
+c/list-simple/sll2c_append_equal.i
+c/list-simple/sll2c_insert_equal.i
+c/list-simple/sll2c_insert_unequal.i
+c/list-simple/sll2c_prepend_equal.i
+c/list-simple/sll2c_remove_all.i
+c/list-simple/sll2c_remove_all_reverse.i
+c/list-simple/sll2c_update_all.i
+c/list-simple/sll2c_update_all_reverse.i
+c/list-simple/sll2n_append_unequal.i
+c/list-simple/sll2n_insert_unequal.i
+c/list-simple/sll2n_prepend_equal.i
+c/list-simple/sll2n_remove_all_reverse.i
+c/list-simple/sll2n_update_all.i
+c/list-simple/sll2n_update_all_reverse.i
+c/memsafety-ext2/length_test03-1.i
+c/memsafety-ext2/split_list_test05-1.i
+c/memsafety-ext/tree_cnstr.i
+c/memsafety-ext/tree_of_cslls.i
+c/memsafety-ext/tree_stack.i
+c/memsafety/lockfree-3.1.i
+c/memsafety/lockfree-3.2.i
+c/memsafety/lockfree-3.3.i
+c/memsafety/test-0232-1.i
+c/memsafety/test-0232-2.i
+c/memsafety/test-0232-3.i
+c/verifythis/tree_max.c
+c/verifythis/tree_max_incorrect.c
