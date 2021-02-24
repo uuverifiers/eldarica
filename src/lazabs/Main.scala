@@ -610,7 +610,7 @@ object Main {
 
     timeoutChecker = timeout match {
       case Some(to) => () => {
-        //println("time check point", ((System.currentTimeMillis - startTime)/1000).toString)
+        println("time check point", ((System.currentTimeMillis - startTime)/1000).toString+"/"+(to/1000).toString)
         if (System.currentTimeMillis - startTime > to.toLong)
           throw TimeoutException
         if (stoppingCond)
@@ -721,7 +721,10 @@ object Main {
           lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
             drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
         } catch {
-          case _ => throw MainTimeoutException
+          case x:Any => {
+            println(Console.RED + x.toString)
+            throw MainTimeoutException
+          }
         }
         return
       }
@@ -839,7 +842,11 @@ object Main {
     //if(drawRTree) DrawGraph(rTree, absInFile)
 
   } catch {
-    case TimeoutException | StoppedException | MainTimeoutException =>{
+    case TimeoutException | StoppedException =>{
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      printError(" timeout", GlobalParameters.get.format)
+    }
+    case  MainTimeoutException =>{
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("main timeout", GlobalParameters.get.format)
     }

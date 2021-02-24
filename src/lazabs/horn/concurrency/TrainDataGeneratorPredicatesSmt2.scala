@@ -265,8 +265,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
       val cs=new ConstraintSimplifier
-      val clauseStrings = new MHashSet[String]
-      val uniqueClauses = simplifiedClauses filter {clause => clauseStrings.add(clause.toString)} //de-duplicate clauses
+      val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
       val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
 
       val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
@@ -275,7 +274,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       }
       //read hint from file
       if (GlobalParameters.get.readHints==true){
-        val hintType="unlabeledPredicates" //no
+        val hintType="simpleGenerated" //no
         println("-"*10 + "read predicate from ."+hintType+".tpl" + "-"*10)
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
@@ -291,7 +290,6 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          //todo:check solvability
           HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,fileName,false)
 
           //run trails to reduce time consumption deviation
@@ -431,18 +429,18 @@ object TrainDataGeneratorPredicatesSmt2 {
           var redundantPredicatesSeq: Seq[IFormula] = Seq()
 
           for (p <- preds) {
-            println("before delete")
-            println("head", head)
-            println("predicates", currentPredicate(head)) //key not found
-            //delete one predicate
-            println("delete predicate", p)
+//            println("before delete")
+//            println("head", head)
+//            println("predicates", currentPredicate(head)) //key not found
+//            //delete one predicate
+//            println("delete predicate", p)
             val currentPredicateSeq = currentPredicate(head).filter(_ != p) //delete one predicate
             currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
             currentPredicate = currentPredicate ++ Map(head -> currentPredicateSeq) //add the head with deleted predicate
-            println("after delete")
-            println("head", head)
-            println("predicates", currentPredicate(head))
-            println("currentPredicate",currentPredicate)
+//            println("after delete")
+//            println("head", head)
+//            println("predicates", currentPredicate(head))
+//            println("currentPredicate",currentPredicate)
 
             //try cegar
             val startTime = System.currentTimeMillis()

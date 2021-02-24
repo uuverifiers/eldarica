@@ -343,7 +343,7 @@ class SMTHornReader protected[parser] (
       symMap = symMap + (const -> name)
       const
     }
-
+    lazabs.GlobalParameters.get.timeoutChecker()
     if (ContainsSymbol(clause, (x:IExpression) => x match {
           case IFunApp(f, _) => !(TheoryRegistry lookupSymbol f).isDefined
           case _ => false
@@ -370,7 +370,7 @@ class SMTHornReader protected[parser] (
       case _ =>
         throw new Exception ("Combination of theories is not supported")
     }
-
+    lazabs.GlobalParameters.get.timeoutChecker()
     clause =
       if (QuantifiedBodyPredsVisitor(clause)) {
         // need full preprocessing, in particular to introduce triggers
@@ -385,12 +385,12 @@ class SMTHornReader protected[parser] (
       } else {
         EquivExpander(PartialEvaluator(clause))
       }
-
+    lazabs.GlobalParameters.get.timeoutChecker()
 //    println
 //    println(clause)
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
-
+    lazabs.GlobalParameters.get.timeoutChecker()
     var sorts  = List[Sort]()
 
     while (clause.isInstanceOf[IQuantified]) {
@@ -398,7 +398,7 @@ class SMTHornReader protected[parser] (
       clause = d
       sorts = sort :: sorts
     }
-
+    lazabs.GlobalParameters.get.timeoutChecker()
     val groundClause =
       if (!sorts.isEmpty) {
         val parameterConsts =
@@ -408,7 +408,7 @@ class SMTHornReader protected[parser] (
       } else {
         clause
       }
-
+    lazabs.GlobalParameters.get.timeoutChecker()
 //    println
 //    println(groundClause)
     
@@ -449,7 +449,7 @@ class SMTHornReader protected[parser] (
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
         litsTodo = litsTodo.tail
-
+        lazabs.GlobalParameters.get.timeoutChecker()
         lit match {
           case INot(a@IAtom(p, _)) if (TheoryRegistry lookupSymbol p).isEmpty =>
             body = translateAtom(a) :: body
