@@ -383,16 +383,20 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
-  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simplifiedClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
-    case _ => simplifiedClauses
-  }
+  val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
 
   if (GlobalParameters.get.getHornGraph == true) {
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
     //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    val hintCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
+    val initialPredicates=
+      if (GlobalParameters.get.labelSimpleGeneratedPredicates==true){
+        val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+        VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
+      }else{
+        VerificationHints(Map())
+      }
+    val hintCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
     if (GlobalParameters.get.getAllHornGraph==true) {
       GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo)

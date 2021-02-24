@@ -264,14 +264,8 @@ object TrainDataGeneratorPredicatesSmt2 {
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
-      val cs=new ConstraintSimplifier
-      val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
-      val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
+      val simplePredicatesGeneratorClauses=HintsSelection.simplifyClausesForGraphs(simplifiedClauses,hints)
 
-      val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
-        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
-        case _ => csSimplifiedClauses
-      }
       //read hint from file
       if (GlobalParameters.get.readHints==true){
         val hintType="simpleGenerated" //no

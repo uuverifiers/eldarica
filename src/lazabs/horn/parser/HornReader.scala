@@ -89,6 +89,7 @@ object HornReader {
   // conjunctive normal form (quantified subformulas are considered as atoms)
   private def ccnf(aF : ap.parser.IFormula) : List[ap.parser.IFormula] = {
     var cnf : List[IFormula] = Nil
+    lazabs.GlobalParameters.get.timeoutChecker()
     aF match {
       case IBinFormula(j,f1,f2) =>
         val cnf1 = ccnf(f1)

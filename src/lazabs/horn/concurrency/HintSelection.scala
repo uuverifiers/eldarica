@@ -45,7 +45,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFactory}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
-import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
 import java.io.{File, PrintWriter}
@@ -69,6 +69,18 @@ class LiteralCollector extends CollectingVisitor[Unit, Unit] {
 object HintsSelection {
   val sp =new Simplifier
   val spAPI = ap.SimpleAPI.spawn
+  val cs=new ConstraintSimplifier
+
+  def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
+    val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
+    val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
+
+    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
+      case _ => csSimplifiedClauses
+    }
+    simplePredicatesGeneratorClauses
+  }
 
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,originalPredicates:Map[Predicate, Seq[IFormula]],predicateGen:Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
@@ -406,7 +418,7 @@ object HintsSelection {
     //merge constraint and constant predicates
     val simplelyGeneratedPredicates = (for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey ->(cpPredicates ++ apPredicates)).mapValues(distinctByString(_))
 
-    if (verbose==false){
+    if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
       println("--------predicates from constant and argumenteEqation---------")
