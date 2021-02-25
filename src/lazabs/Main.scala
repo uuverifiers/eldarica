@@ -610,7 +610,7 @@ object Main {
 
     timeoutChecker = timeout match {
       case Some(to) => () => {
-        println("time check point", ((System.currentTimeMillis - startTime)/1000).toString+"/"+(to/1000).toString)
+        //println("time check point", ((System.currentTimeMillis - startTime)/1000).toString+"/"+(to/1000).toString)
         if (System.currentTimeMillis - startTime > to.toLong)
           throw TimeoutException
         if (stoppingCond)

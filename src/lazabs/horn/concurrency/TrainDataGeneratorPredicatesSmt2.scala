@@ -268,7 +268,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //read hint from file
       if (GlobalParameters.get.readHints==true){
-        val hintType="simpleGenerated" //no
+        val hintType="unlabeledPredicates"
         println("-"*10 + "read predicate from ."+hintType+".tpl" + "-"*10)
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
@@ -276,24 +276,23 @@ object TrainDataGeneratorPredicatesSmt2 {
         val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predictedHints.tpl")) {
           AbsReader.printHints(predictedPositiveHints)}
-        //read positive hints from JSON label
-        //val positiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"templateRelevanceLabel")
-        //read positive hints from .tpl file
-        val verifyPositiveHints =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
-        val hintsCollection=new VerificationHintsInfo(initialPredicates,verifyPositiveHints,initialPredicates.filterPredicates(verifyPositiveHints.predicateHints.keySet))
+        val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
+          VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+        else HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "templateRelevanceLabel")
+        val hintsCollection=new VerificationHintsInfo(initialPredicates,truePositiveHints,initialPredicates.filterPredicates(truePositiveHints.predicateHints.keySet))
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
           HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,fileName,false)
 
           //run trails to reduce time consumption deviation
-          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,truePositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
           val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
 
           //val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithTrueLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+          val measurementWithTrueLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,truePositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
           //val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           val measurementWithFullLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
           //val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
@@ -313,7 +312,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         } else{
           //Output graphs
           val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
-          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, verifyPositiveHints,countOccurrence=true)
+          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, truePositiveHints,countOccurrence=true)
           GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         }
 

@@ -392,7 +392,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val initialPredicates=
       if (GlobalParameters.get.labelSimpleGeneratedPredicates==true){
         val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-        VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
+        val initialPres=VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
+        Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
+          AbsReader.printHints(initialPres)}
+        initialPres
       }else{
         VerificationHints(Map())
       }
