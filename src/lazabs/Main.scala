@@ -56,6 +56,7 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
+  var checkSolvability=false
   var generateSimplePredicates=false
   var totalHints=0
   var threadTimeout = 120000
@@ -232,6 +233,7 @@ class GlobalParameters extends Cloneable {
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.generateSimplePredicates=this.generateSimplePredicates
+    that.checkSolvability=this.checkSolvability
   }
 
   override def clone : GlobalParameters = {
@@ -329,6 +331,7 @@ object Main {
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
+      case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
@@ -582,6 +585,7 @@ object Main {
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t extract predicates using cegar and simply generated predicates\n"+
+          " -checkSolvability \t check solvability for different initial predicate settings\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+

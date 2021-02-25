@@ -390,7 +390,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val initialPredicates=
-      if (GlobalParameters.get.labelSimpleGeneratedPredicates==true){
+      if (GlobalParameters.get.generateSimplePredicates==true){
         val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
         val initialPres=VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
@@ -415,59 +415,22 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   if(GlobalParameters.get.getSMT2==true){
     HintsSelection.writeSMTFormatToFile(for (c<-simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c),GlobalParameters.get.fileName+"-simplified")
   }
-
-  if(GlobalParameters.get.generateSimplePredicates==true){
-    val (generatedSimplePredicates,constraintPredicates,argumentConstantEqualPredicate) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-    val initialHintsCollection=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(generatedSimplePredicates) ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
-    GlobalParameters.get.getAllHornGraph=true
-    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
-    //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
-    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-    GraphTranslator.drawAllHornGraph(clauseCollection, initialHintsCollection ,argumentInfo)
+  if (GlobalParameters.get.checkSolvability==true){
+    //todo: full initial predicates
+    //empty initial predicates
+    //predicted initial predicates
+    //output results
   }
 
-  val hintsFromFile =
+  val initialPredicatesForCEGAR =
   if(GlobalParameters.get.readHints==true){
-    //generate predicate again
-    //val generatedSimplePredicates = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-    //read from file
-    val simplePredicates=HintsSelection.wrappedReadHints(simplifiedClausesForGraph)
-    simplePredicates.pretyPrintHints()
-    //simpHints.printHints() this is empty set
-    val initialHintsCollection=new VerificationHintsInfo(simplePredicates ++ simpHints,VerificationHints(Map()),VerificationHints(Map()))
-    //read positive (selected) predicates label from JSON file
-    import play.api.libs.json._
-    val readLabel="templateRelevanceLabel" //predictedLabel
-    val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
-    val json_content = scala.io.Source.fromFile(input_file).mkString
-    val json_data = Json.parse(json_content)
-    val predictedLabel=(json_data \ readLabel).validate[Array[Int]] match {
-      case JsSuccess(templateLabel,_)=> templateLabel
-    }
-
-    println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
-
-    val mapLengthList=for ((k,v)<-initialHintsCollection.initialHints.getPredicateHints) yield v.length
-    var splitTail=predictedLabel
-    val splitedPredictedLabel = for(l<-mapLengthList) yield {
-      val temp=splitTail.splitAt(l)._1
-      splitTail=splitTail.splitAt(l)._2
-      temp
-    }
-    for (x<-splitedPredictedLabel)
-      println(x.toSeq)
-
-    val labeledPredicates=for (((k,v),label)<-initialHintsCollection.initialHints.getPredicateHints zip splitedPredictedLabel) yield {
-      k-> (for ((p,l)<-v zip label if l==1) yield p)
-    }
-
-    println("--------Filtered initial predicates---------")
-    for((k,v)<-labeledPredicates;p<-v)
-      println(k,p)
-
-    //simplePredicates ++ simpHints
-    VerificationHints(labeledPredicates)
+    val sp=new Simplifier
+    val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
+    val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
+    val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
+      VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+    else HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "templateRelevanceLabel")
+    truePositiveHints
   }else simpHints
 
 
@@ -489,7 +452,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       val predAbs =
         new HornPredAbs(simplifiedClausesForGraph,
           //simpHints.toInitialPredicates,
-          hintsFromFile.toInitialPredicates,
+          initialPredicatesForCEGAR.toInitialPredicates,
           predGenerator,
           counterexampleMethod)
       val result =
