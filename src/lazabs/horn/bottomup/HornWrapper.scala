@@ -384,7 +384,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
   val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
-
+  val sp=new Simplifier
+  simpHints.pretyPrintHints()
   if (GlobalParameters.get.getHornGraph == true) {
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
     //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
@@ -392,7 +393,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val initialPredicates=
       if (GlobalParameters.get.generateSimplePredicates==true){
         val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-        val initialPres=VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
+        val initialPres=VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_)))).++(simpHints)
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
           AbsReader.printHints(initialPres)}
         initialPres
@@ -415,16 +416,37 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   if(GlobalParameters.get.getSMT2==true){
     HintsSelection.writeSMTFormatToFile(for (c<-simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c),GlobalParameters.get.fileName+"-simplified")
   }
-  if (GlobalParameters.get.checkSolvability==true){
-    //todo: full initial predicates
-    //empty initial predicates
-    //predicted initial predicates
-    //output results
+  if (GlobalParameters.get.checkSolvability == true) {
+    val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+    val simpleGeneratedInitialPredicates = VerificationHints(simpleGeneratedPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
+    val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
+    val emptyInitialPredicates = VerificationHints(Map())
+    val predictedPredicates =
+      if (new java.io.File(GlobalParameters.get.fileName + "." + "predictedHints" + ".tpl").exists == true)
+        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      else {
+        println(Console.RED+"no predicted predicates")
+        VerificationHints(Map())
+      }
+    val predictedInitialpredicates = predictedPredicates ++ simpHints
+
+    val counterexampleMethod =
+      if (disjunctive)
+        HornPredAbs.CounterexampleMethod.AllShortest
+      else
+        HornPredAbs.CounterexampleMethod.FirstBestShortest
+    val dataFold=Map("fullInitialPredicates"->fullInitialPredicates,"emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates)
+
+    val solvabilityList=(for((fildName,fild)<-dataFold) yield{
+      val solveTime=HintsSelection.checkSolvability(simplifiedClausesForGraph,fild.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false)
+      val solvability=if (solveTime>=GlobalParameters.get.solvabilityTimeout) false else true
+      Seq(("solveTime"+fildName,solveTime),("solvability"+fildName,solvability))
+    }).flatten.toSeq
+    HintsSelection.writeSolvabilityToJSON(solvabilityList)
   }
 
   val initialPredicatesForCEGAR =
   if(GlobalParameters.get.readHints==true){
-    val sp=new Simplifier
     val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
     val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
     val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)

@@ -283,7 +283,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,fileName,false)
+          HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false)
 
           //run trails to reduce time consumption deviation
           val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,truePositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
@@ -326,16 +326,11 @@ object TrainDataGeneratorPredicatesSmt2 {
       var predicatesExtractingTime:Long=0
       val predicatesExtractingBeginTime=System.currentTimeMillis
 
-      val startTimePredicateGenerator = currentTimeMillis
-      val toParamsPredicateGenerator= GlobalParameters.get.clone
-      toParamsPredicateGenerator.timeoutChecker = () => {
-        //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
-        if ((currentTimeMillis - startTimePredicateGenerator) > (GlobalParameters.get.solvabilityTimeout * 5) ) //timeout seconds
-          throw lazabs.Main.TimeoutException //Main.TimeoutException
-      }
+
+      val timeoutCheckerForPredicateGenerator=HintsSelection.clonedTimeChecker(GlobalParameters.get.solvabilityTimeout * 5)
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
       val lastPredicates= {
-          try GlobalParameters.parameters.withValue(toParamsPredicateGenerator)
+          try GlobalParameters.parameters.withValue(timeoutCheckerForPredicateGenerator)
           {
               val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
                 simpleGeneratedPredicates,
@@ -390,19 +385,6 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //predicates selection begin
       if (!originalPredicates.isEmpty) {
-//        val sortedHints = HintsSelection.sortHints(initialPredicates)
-//        //write selected hints with IDs to file
-//        val InitialHintsWithID =  HintsSelection.initialIDForHints(sortedHints) //ID:head->hint
-//        println("---initialHints-----")
-//        for (wrappedHint <- InitialHintsWithID) {
-//          println(wrappedHint.ID.toString,wrappedHint.head,wrappedHint.hint)
-//        }
-
-//          println("------------test original predicates-------")
-//          new HornPredAbs(simplePredicatesGeneratorClauses,
-//            originalPredicates,//need Map[Predicate, Seq[IFormula]]
-//            predGenerator,predicateFlag=false).result
-
         println("---initialHints-----")
         for((k,v)<-originalPredicates;p<-v)
           println(k,p)
@@ -436,13 +418,8 @@ object TrainDataGeneratorPredicatesSmt2 {
 //            println("currentPredicate",currentPredicate)
 
             //try cegar
-            val startTime = System.currentTimeMillis()
-            val toParams = GlobalParameters.get.clone
-            toParams.timeoutChecker = () => {
-              if ((currentTimeMillis - startTime) > GlobalParameters.get.threadTimeout)
-                throw lazabs.Main.TimeoutException //Main.TimeoutException
-            }
-            try GlobalParameters.parameters.withValue(toParams){
+            val predicateUsefulnessTimeoutChecker=HintsSelection.clonedTimeChecker(GlobalParameters.get.threadTimeout)
+            try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
                 println("----------------------------------- CEGAR --------------------------------------")
                 new HornPredAbs(simplePredicatesGeneratorClauses,
                   currentPredicate,
@@ -497,14 +474,8 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
           GlobalParameters.get.timeoutChecker()
 
-          val startTimeTest = currentTimeMillis
-          val toParamsSolvabilityTest= GlobalParameters.get.clone
-          toParamsSolvabilityTest.timeoutChecker = () => {
-            //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
-            if ((currentTimeMillis - startTimeTest) > (GlobalParameters.get.solvabilityTimeout * 2) ) //timeout seconds
-              throw lazabs.Main.TimeoutException //Main.TimeoutException
-          }
-          try GlobalParameters.parameters.withValue(toParamsSolvabilityTest){
+          val solvabilityTimeoutChecker = HintsSelection.clonedTimeChecker(GlobalParameters.get.solvabilityTimeout * 2)
+          try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker){
             println("\n------------test selected predicates-------------------------")
             val test = new HornPredAbs(simplePredicatesGeneratorClauses,
               optimizedPredicate,

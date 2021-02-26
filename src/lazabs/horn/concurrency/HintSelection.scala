@@ -71,6 +71,17 @@ object HintsSelection {
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
 
+  def clonedTimeChecker(to:Int): GlobalParameters ={
+    val startTimePredicateGenerator = currentTimeMillis
+    val clonedGlovalParameter= GlobalParameters.get.clone
+    clonedGlovalParameter.timeoutChecker = () => {
+      //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
+      if ((currentTimeMillis - startTimePredicateGenerator) > (to * 5) ) //timeout seconds
+        throw lazabs.Main.TimeoutException //Main.TimeoutException
+    }
+    clonedGlovalParameter
+  }
+
   def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
     val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
@@ -82,30 +93,38 @@ object HintsSelection {
     simplePredicatesGeneratorClauses
   }
 
-  def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,originalPredicates:Map[Predicate, Seq[IFormula]],predicateGen:Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+  def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,fileName:String,moveFile:Boolean=true): Unit ={
+      Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value, fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true): Int = {
     println("check solvability using current predicates")
-    val startTimeCEGAR = currentTimeMillis
-    val toParamsCEGAR = GlobalParameters.get.clone
-    toParamsCEGAR.timeoutChecker = () => {
-      if ((currentTimeMillis - startTimeCEGAR) > GlobalParameters.get.solvabilityTimeout ) //timeout seconds
-        throw lazabs.Main.TimeoutException //Main.TimeoutException
-    }
-    try GlobalParameters.parameters.withValue(toParamsCEGAR){
-        new HornPredAbs(simplePredicatesGeneratorClauses,
-          originalPredicates, predicateGen,
-          counterexampleMethod)
+    var solveTime = GlobalParameters.get.solvabilityTimeout
+    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout)
+    val startTime=currentTimeMillis()
+    try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
+      new HornPredAbs(simplePredicatesGeneratorClauses,
+        originalPredicates, predicateGen,
+        counterexampleMethod)
+      solveTime= ((currentTimeMillis-startTime)/1000).toInt
     }
     catch {
       case lazabs.Main.TimeoutException => {
         println(Console.RED + "-----------solvability-timeout------")
-        if (moveFile==true)
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/"+fileName)
-        sys.exit()//throw TimeoutException
+        if (moveFile == true)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/solvability-timeout/" + fileName)
+        if (exit == true)
+          sys.exit() //throw TimeoutException
       }
-      case _ =>{println(Console.RED + "-----------solvability-debug------")}
+      case _ => println(Console.RED + "-----------solvability-debug------")
     }
+    solveTime
+  }
+
+  def writeSolvabilityToJSON[A](fields:Seq[(String, A)]): Unit ={
+    val writer = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "solvability" + ".JSON"))
+    writer.write("{\n")
+    writeFildToJSON(writer,fields)
+    writer.write("}")
+    writer.close()
   }
 
   def writeMeasurementToJSON(measurementList:Seq[(String,Seq[(String, Double)])]): Unit ={
@@ -124,7 +143,7 @@ object HintsSelection {
     writer.write("\n}")
     writer.close()
   }
-  def writeFildToJSON(writer:PrintWriter,fields:Seq[(String, Double)]): Unit ={
+  def writeFildToJSON[A](writer:PrintWriter,fields:Seq[(String, A)]): Unit ={
     for (field<-fields.dropRight(1)){
       writer.write(DrawHornGraph.addQuotes(field._1)+":"+DrawHornGraph.addQuotes(field._2.toString)+",\n")
     }
