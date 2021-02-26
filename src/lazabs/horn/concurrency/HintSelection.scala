@@ -283,7 +283,7 @@ object HintsSelection {
 
   def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=false): Map[Predicate, Seq[IFormula]] ={
     val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
-    val mergedPredicates=for ((cpKey, cpPredicates) <- transformedPredicates; (apKey, apPredicates) <- optimizedPredicate; if cpKey.equals(apKey)) yield cpKey -> (cpPredicates ++ apPredicates).distinct
+    val mergedPredicates= mergePredicateMaps(transformedPredicates,optimizedPredicate)
     if (verbose==true){
       println("predicates before transform")
       transformPredicateMapToVerificationHints(optimizedPredicate).pretyPrintHints()
@@ -340,6 +340,17 @@ object HintsSelection {
 
     //simplePredicates ++ simpHints
     VerificationHints(labeledPredicates.toMap)
+  }
+
+  def transformVerificationHintsToPredicateMap(hints:VerificationHints): Map[Predicate,Seq[IFormula]] ={
+    for ((head, hintList) <- hints.getPredicateHints) yield{
+      head-> (for (h <- hintList) yield {
+        h match {
+          case VerifHintInitPred(p)=>p
+          case _=>{IExpression.i(true)}
+        }
+      })
+    }
   }
 
   def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause],hintType:String=""):VerificationHints={
@@ -435,8 +446,7 @@ object HintsSelection {
       ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)
 
     //merge constraint and constant predicates
-    val simplelyGeneratedPredicates = (for ((cpKey, cpPredicates) <- constraintPredicates; (apKey, apPredicates) <- argumentConstantEqualPredicate; if cpKey.equals(apKey)) yield cpKey ->(cpPredicates ++ apPredicates)).mapValues(distinctByString(_))
-
+    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate)
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
@@ -447,6 +457,14 @@ object HintsSelection {
     }
 
     (simplelyGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate)
+  }
+  def mergePredicateMaps(first:Map[Predicate,Seq[IFormula]],second:Map[Predicate,Seq[IFormula]]): Map[Predicate,Seq[IFormula]] ={
+    if (first.isEmpty)
+      second
+    else if (second.isEmpty)
+      first
+    else
+      (for ((cpKey, cpPredicates) <- first; (apKey, apPredicates) <- second; if cpKey.equals(apKey)) yield cpKey ->(cpPredicates ++ apPredicates)).mapValues(distinctByString(_))
   }
 
   def distinctByString[A](formulas:Seq[A]): Seq[A] ={
@@ -1525,10 +1543,7 @@ object HintsSelection {
   }
 
   def transformPredicateMapToVerificationHints(originalPredicates:Map[Predicate, Seq[IFormula]]):  VerificationHints ={
-    VerificationHints(
-      for ((head, preds) <- originalPredicates) yield
-        head -> (for (p <- preds) yield VerificationHints.VerifHintInitPred(p))
-    )
+    VerificationHints(originalPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))
   }
 
   def initialIDForHints(simpHints: VerificationHints): Seq[wrappedHintWithID] = {
