@@ -57,7 +57,7 @@ import lazabs.horn.concurrency.ReaderMain
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, transformPredicateMapToVerificationHints, transformVerificationHintsToPredicateMap}
 
 import java.util
 import scala.collection.immutable.Set
@@ -392,6 +392,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val initialPredicates=
       if (GlobalParameters.get.generateSimplePredicates==true){
+        //todo:check canonical names
         val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
         val initialPres=HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++(simpHints)
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
@@ -417,6 +418,9 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     HintsSelection.writeSMTFormatToFile(for (c<-simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c),GlobalParameters.get.fileName+"-simplified")
   }
   if (GlobalParameters.get.checkSolvability == true) {
+    //read from unlabeled .tpl file
+    //val simpleGeneratedInitialPredicates=VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+    //generate by simple generator
     val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
     val simpleGeneratedInitialPredicates = HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
@@ -435,14 +439,36 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         HornPredAbs.CounterexampleMethod.AllShortest
       else
         HornPredAbs.CounterexampleMethod.FirstBestShortest
-    val dataFold=Map("fullInitialPredicates"->fullInitialPredicates,"emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates)
+    val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates,"fullInitialPredicates"->fullInitialPredicates)
 
-    val solvabilityList=(for((fildName,fild)<-dataFold) yield{
-      val solveTime=HintsSelection.checkSolvability(simplifiedClausesForGraph,fild.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false)
-      val solvability=if (solveTime>=GlobalParameters.get.solvabilityTimeout) false else true
-      Seq(("solveTime"+fildName,solveTime),("solvability"+fildName,solvability))
+    val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
+      //todo:solvabilityTimeout check
+      val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false)
+      val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
+      println(solveTime)
+      println(solvability)
+      println(GlobalParameters.get.solvabilityTimeout)
+      val initialPredicatesUsedInCEGAR=for((pfcHead,pfcBody)<-predicateFromCegar;(ipHead,ipBody)<-transformVerificationHintsToPredicateMap(initialPredicate);if pfcHead.equals(ipHead))yield {
+        //        println(pfcHead)
+//        for (x<-pfcBody)
+//          println(Console.YELLOW+sp(x))
+//        for (x<-ipBody)
+//          println(Console.GREEN+sp(x))
+        //for (x<-pfcBody;y<-ipBody if x.equals(y)) println(x)
+        pfcHead->(for(p<-ipBody; if pfcBody.contains(p)) yield p)
+      }
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {AbsReader.printHints(initialPredicate)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predicateFromCegar.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(predicateFromCegar))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInCEGAR.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInCEGAR))}
+      //todo:check canonical names
+      Seq(("solveTime"+fieldName,solveTime),("solvability"+fieldName,solvability),
+        ("numberOfinitialPredicates"+fieldName,initialPredicate.predicateHints.values.flatten.size),
+        ("numberOfPredicateFromCegar"+fieldName,predicateFromCegar.values.flatten.size),
+        ("numberOfInitialPredicatesUsedInCEGAR"+fieldName,initialPredicatesUsedInCEGAR.values.flatten.size))
     }).flatten.toSeq
+
     HintsSelection.writeSolvabilityToJSON(solvabilityList)
+
   }
 
   val initialPredicatesForCEGAR =

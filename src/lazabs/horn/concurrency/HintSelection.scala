@@ -76,7 +76,7 @@ object HintsSelection {
     val clonedGlovalParameter= GlobalParameters.get.clone
     clonedGlovalParameter.timeoutChecker = () => {
       //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
-      if ((currentTimeMillis - startTimePredicateGenerator) > (to * 5) ) //timeout seconds
+      if ((currentTimeMillis - startTimePredicateGenerator) > (to) ) //timeout seconds
         throw lazabs.Main.TimeoutException //Main.TimeoutException
     }
     clonedGlovalParameter
@@ -93,18 +93,39 @@ object HintsSelection {
     simplePredicatesGeneratorClauses
   }
 
+  def transformPredicatesToCanonical( lastPredicates:Map[HornPredAbs.RelationSymbol, ArrayBuffer[HornPredAbs.RelationSymbolPred]]):  Map[Predicate, Seq[IFormula]] ={
+    var numberOfpredicates = 0
+    val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
+      // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
+      val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
+      //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
+      val predicateSequence = for (p <- preds) yield {
+        val simplifiedPredicate = sp(Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
+        val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
+        numberOfpredicates = numberOfpredicates + 1
+        varPred
+      }
+      head.pred -> predicateSequence.distinct.toSeq
+    }
+    predicateFromCEGAR
+  }
+
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value, fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true): Int = {
+      Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
+                       fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true): (Int,Map[Predicate,Seq[IFormula]]) = {
     println("check solvability using current predicates")
-    var solveTime = GlobalParameters.get.solvabilityTimeout
+    var solveTime = (GlobalParameters.get.solvabilityTimeout/1000).toInt
     val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout)
     val startTime=currentTimeMillis()
+    var cegarGeneratedPredicates:Map[Predicate,Seq[IFormula]]=Map()
     try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
-      new HornPredAbs(simplePredicatesGeneratorClauses,
+      val cegar=new HornPredAbs(simplePredicatesGeneratorClauses,
         originalPredicates, predicateGen,
         counterexampleMethod)
       solveTime= ((currentTimeMillis-startTime)/1000).toInt
+      val predicateFromCEGAR = HintsSelection.transformPredicatesToCanonical(cegar.predicates)
+      cegarGeneratedPredicates=predicateFromCEGAR
     }
     catch {
       case lazabs.Main.TimeoutException => {
@@ -113,10 +134,11 @@ object HintsSelection {
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/solvability-timeout/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
+        solveTime= ((currentTimeMillis-startTime)/1000).toInt
       }
       case _ => println(Console.RED + "-----------solvability-debug------")
     }
-    solveTime
+    (solveTime,cegarGeneratedPredicates)
   }
 
   def writeSolvabilityToJSON[A](fields:Seq[(String, A)]): Unit ={

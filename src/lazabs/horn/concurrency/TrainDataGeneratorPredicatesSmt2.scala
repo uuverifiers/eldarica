@@ -347,19 +347,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           }
       }
 
-      var numberOfpredicates = 0
-      val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
-        // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-        val subst = (for ((c, n) <- head.arguments.head.iterator.zipWithIndex) yield (c, IVariable(n))).toMap
-        //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
-        val predicateSequence = for (p <- preds) yield {
-          val simplifiedPredicate = sp(Internal2InputAbsy(p.rawPred, p.rs.sf.getFunctionEnc().predTranslation))
-          val varPred = ConstantSubstVisitor(simplifiedPredicate, subst) //transform variables to _1,_2,_3...
-          numberOfpredicates = numberOfpredicates + 1
-          varPred
-        }
-        head.pred -> predicateSequence.distinct
-      }
+      val predicateFromCEGAR = HintsSelection.transformPredicatesToCanonical(lastPredicates)
 
       val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).transform((k,v)=>v.filterNot(_.isTrue)).mapValues(_.toSeq)
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
