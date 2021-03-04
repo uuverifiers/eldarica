@@ -30,7 +30,7 @@ package lazabs.horn.concurrency
 import ap.PresburgerTools
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
-import ap.parser.{IExpression, _}
+import ap.parser.{IExpression, IFormula, _}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
@@ -102,13 +102,11 @@ object HintsSelection {
         var uselessPredicatesInCurrentHead:Seq[IFormula]=Seq()
         for (p <- preds) {
           //delete p and useless predicates
-          var tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
+          val tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
           val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
           try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
             println("----------------------------------- CEGAR --------------------------------------")
-            new HornPredAbs(simplePredicatesGeneratorClauses,
-              tempPredicates,
-              exceptionalPredGen,counterexampleMethod).result
+            new HornPredAbs(simplePredicatesGeneratorClauses, tempPredicates, exceptionalPredGen,counterexampleMethod).result
             //p is useless
             uselessPredicatesInCurrentHead=uselessPredicatesInCurrentHead.:+(p)
             mainTimeoutChecker()//check total used time for minimizing process
@@ -125,6 +123,51 @@ object HintsSelection {
     }
     val predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
     (minimumSetPredicate,predicatesExtractingTime)
+  }
+
+  def getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicates:Map[Predicate, Seq[IFormula]],
+                                                     minimizedPredicatesFromCegar:Map[Predicate, Seq[IFormula]],
+                                                     simplePredicatesGeneratorClauses:Clauses,
+                                                     exceptionalPredGen: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]=getExceptionalPredicatedGenerator(),
+                                                     counterexampleMethod: HornPredAbs.CounterexampleMethod.Value=getCounterexampleMethod(GlobalParameters.get.disjunctive)): Map[Predicate, Seq[IFormula]] ={
+    val mergedPredicates=mergePredicateMaps(initialPredicates,minimizedPredicatesFromCegar).mapValues(distinctByString(_))
+    //delete predicates from minimizedPredicatesFromCegar
+    var usefulPredicatesInInitialPredicatesFormat: Map[Predicate, Seq[IFormula]]=Map()
+    val startTimeForExtraction = System.currentTimeMillis()
+    val mainTimeoutChecker = () => {
+      if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
+        throw lazabs.Main.MainTimeoutException //Main.TimeoutException
+    }
+    for ((head,preds)<-mergedPredicates){
+      var uselessPredicatesInMinimizedPredicatesFromCegarHead:Seq[IFormula]=Seq()
+      var usefulPredicatesInCurrentHead:Seq[IFormula]=
+        if(initialPredicates.exists(_._1.equals(head)))
+          initialPredicates(head)
+        else
+          Seq()
+      for(p<-minimizedPredicatesFromCegar(head)){
+        val tempPredicates=mergedPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInMinimizedPredicatesFromCegarHead.contains(x)))
+        val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
+        try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
+          println("----------------------------------- CEGAR --------------------------------------")
+          new HornPredAbs(simplePredicatesGeneratorClauses, tempPredicates, exceptionalPredGen,counterexampleMethod).result
+          //p is useless
+          uselessPredicatesInMinimizedPredicatesFromCegarHead=uselessPredicatesInMinimizedPredicatesFromCegarHead.:+(p)
+          mainTimeoutChecker()//check total used time for minimizing process
+        }catch{
+          case lazabs.Main.TimeoutException=>{
+            //p is useful
+            usefulPredicatesInCurrentHead=usefulPredicatesInCurrentHead.:+(p)
+          }
+          case _=>{throw lazabs.Main.MainTimeoutException}
+        }
+      }
+      usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->usefulPredicatesInCurrentHead)
+    }
+    //minimized
+    val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+    //intersect
+    intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
   }
 
   def clonedTimeChecker(to: Int, coefficient: Int = 1): GlobalParameters = {
@@ -170,19 +213,19 @@ object HintsSelection {
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
-                       fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true,coefficient:Int=5): (Int,Map[Predicate,Seq[IFormula]]) = {
+                       fileName: String = "noFileName", moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 5): (Int, Map[Predicate, Seq[IFormula]]) = {
     println("check solvability using current predicates")
-    var solveTime = (GlobalParameters.get.solvabilityTimeout/1000).toInt
-    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout,coefficient)
-    val startTime=currentTimeMillis()
-    var cegarGeneratedPredicates:Map[Predicate,Seq[IFormula]]=Map()
+    var solveTime = (GlobalParameters.get.solvabilityTimeout / 1000).toInt
+    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, coefficient)
+    val startTime = currentTimeMillis()
+    var cegarGeneratedPredicates: Map[Predicate, Seq[IFormula]] = Map()
     try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
-      val cegar=new HornPredAbs(simplePredicatesGeneratorClauses,
+      val cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
         originalPredicates, predicateGen,
         counterexampleMethod)
-      solveTime= ((currentTimeMillis-startTime)/1000).toInt
+      solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       val predicateFromCEGAR = HintsSelection.transformPredicatesToCanonical(cegar.predicates)
-      cegarGeneratedPredicates=predicateFromCEGAR
+      cegarGeneratedPredicates = predicateFromCEGAR
     }
     catch {
       case lazabs.Main.TimeoutException => {
@@ -191,11 +234,11 @@ object HintsSelection {
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/solvability-timeout/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
-        solveTime= ((currentTimeMillis-startTime)/1000).toInt
+        solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       }
       case _ => println(Console.RED + "-----------solvability-debug------")
     }
-    (solveTime,cegarGeneratedPredicates)
+    (solveTime, cegarGeneratedPredicates)
   }
 
   def writeSolvabilityToJSON[A](fields:Seq[(String, A)]): Unit ={
@@ -325,9 +368,16 @@ object HintsSelection {
     writer.close()
   }
 
-  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
-    for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
-      ko->(for (p<-vs if vo.map(_.toString).contains(p.toString))yield p)
+//  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],
+//                                                         simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+//    for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
+//      ko->(for (p<-vs if vo.map(_.toString).contains(p.toString))yield p)
+//    }
+//  }
+  def intersectPredicatesByString(first: Map[Predicate, Seq[IFormula]],
+                                  second:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+    for ((fk,fv)<-first;(sk,sv)<-second;if fk.equals(sk)) yield {
+      fk->(for (p<-fv if sv.map(_.toString).contains(p.toString)) yield p)
     }
   }
 

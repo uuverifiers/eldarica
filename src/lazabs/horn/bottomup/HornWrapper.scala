@@ -434,11 +434,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       }
     val predictedInitialpredicates = predictedPredicates ++ simpHints
 
-    val counterexampleMethod =
-      if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
-      else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
+    val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
     val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates,"fullInitialPredicates"->fullInitialPredicates)
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
@@ -446,30 +442,18 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
       println("solveTime",solveTime)
       println("solvability",solvability)
-      //todo: perform cegar minimize process then we know which one in essentially useful
-      //todo:cegar minimize process
-      val minimizedPredicateFromCegar=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph)
-      //todo:minimized predicates intersect initialPredicate
-      val initialPredicatesUsedInMinimizedPredicateFromCegar=0
-      val initialPredicatesUsedInCEGAR=for((pfcHead,pfcBody)<-predicateFromCegar;(ipHead,ipBody)<-transformVerificationHintsToPredicateMap(initialPredicate);if pfcHead.equals(ipHead))yield {
-        //check when using minimizing process
-        println(pfcHead)
-        println("predicates from cegar")
-        for (x <- pfcBody)
-          println(Console.YELLOW + sp(x))
-        println("predicates from simple generator")
-        for (x <- ipBody)
-          println(Console.GREEN + sp(x))
-        for (x <- pfcBody; y <- ipBody if x==(y)) println(x)
-        pfcHead->(for(p<-ipBody; if pfcBody.contains(p)) yield p)
-      }
+      //get minimized useful set and see how many initial predicates are in it
+      val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
+      //minimized predicates intersect initialPredicate
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(HintsSelection.transformVerificationHintsToPredicateMap(initialPredicate),
+        minimizedPredicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {AbsReader.printHints(initialPredicate)}
-      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predicateFromCegar.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(predicateFromCegar))}
-      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInCEGAR.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInCEGAR))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInMinimizedPredicateFromCegar.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInMinimizedPredicateFromCegar))}
       Seq(("solveTime"+fieldName,solveTime),("solvability"+fieldName,solvability),
         ("numberOfinitialPredicates"+fieldName,initialPredicate.predicateHints.values.flatten.size),
-        ("numberOfPredicateFromCegar"+fieldName,predicateFromCegar.values.flatten.size),
-        ("numberOfInitialPredicatesUsedInCEGAR"+fieldName,initialPredicatesUsedInCEGAR.values.flatten.size))
+        ("minimizedPredicateFromCegar"+fieldName,minimizedPredicateFromCegar.values.flatten.size),
+        ("initialPredicatesUsedInMinimizedPredicateFromCegar"+fieldName,initialPredicatesUsedInMinimizedPredicateFromCegar.values.flatten.size))
     }).flatten.toSeq
 
     HintsSelection.writeSolvabilityToJSON(solvabilityList)
@@ -477,14 +461,19 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
 
   val initialPredicatesForCEGAR =
-  if(GlobalParameters.get.readHints==true){
-    val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
-    val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
-    val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
-      VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
-    else HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "templateRelevanceLabel")
-    truePositiveHints
-  }else simpHints
+    if (GlobalParameters.get.readHints == true) {
+      val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
+      val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
+      val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
+        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      else HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "templateRelevanceLabel")
+      truePositiveHints
+    }
+    else if (GlobalParameters.get.generateSimplePredicates == true) {
+      val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+      HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
+    }
+    else simpHints
 
 
 
