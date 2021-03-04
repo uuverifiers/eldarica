@@ -252,11 +252,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       //////////////////////////////////////////////////////////////////////////////
 
 
-      val counterexampleMethod =
-        if (disjunctive)
-          HornPredAbs.CounterexampleMethod.AllShortest
-        else
-          HornPredAbs.CounterexampleMethod.FirstBestShortest
+      val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
 
       GlobalParameters.get.timeoutChecker()
 
@@ -376,80 +372,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         println("---initialHints-----")
         for((k,v)<-originalPredicates;p<-v)
           println(k,p)
-        //Predicate selection begin
-        println("------Predicates selection begin----")
-        var PositiveHintsWithID:Seq[wrappedHintWithID]=Seq()
-        var NegativeHintsWithID:Seq[wrappedHintWithID]=Seq()
-        var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
-        var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
-        val startTimeForExtraction = System.currentTimeMillis()
-        val mainTimeoutChecker = () => {
-          if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
-            throw lazabs.Main.MainTimeoutException //Main.TimeoutException
-        }
-        for ((head, preds) <- originalPredicates) {
-          var criticalPredicatesSeq: Seq[IFormula] = Seq()
-          var redundantPredicatesSeq: Seq[IFormula] = Seq()
-
-          for (p <- preds) {
-//            println("before delete")
-//            println("head", head)
-//            println("predicates", currentPredicate(head)) //key not found
-//            //delete one predicate
-//            println("delete predicate", p)
-            val currentPredicateSeq = currentPredicate(head).filter(_ != p) //delete one predicate
-            currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
-            currentPredicate = currentPredicate ++ Map(head -> currentPredicateSeq) //add the head with deleted predicate
-//            println("after delete")
-//            println("head", head)
-//            println("predicates", currentPredicate(head))
-//            println("currentPredicate",currentPredicate)
-
-            //try cegar
-            val predicateUsefulnessTimeoutChecker=HintsSelection.clonedTimeChecker(GlobalParameters.get.threadTimeout)
-            try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
-                println("----------------------------------- CEGAR --------------------------------------")
-                new HornPredAbs(simplePredicatesGeneratorClauses,
-                  currentPredicate,
-                  exceptionalPredGen,counterexampleMethod).result
-                //not timeout
-                redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
-                //add useless hint to NegativeHintsWithID   //ID:head->hint
-//                for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
-//                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-//                  if (head.name == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
-//                    NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
-//                  }
-//                }
-              mainTimeoutChecker()
-            } catch {
-              case lazabs.Main.TimeoutException => { //need new predicate or timeout
-                criticalPredicatesSeq = criticalPredicatesSeq ++ Seq(p)
-                //add deleted predicate back to curren predicate
-                currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
-                currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq ++ Seq(p))) //add the head with deleted predicate
-                //add useful hint to PositiveHintsWithID
-//                for(wrappedHint<-InitialHintsWithID){
-//                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
-//                  if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
-//                    PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
-//                  }
-//                }
-              }
-              case _ =>{throw lazabs.Main.MainTimeoutException }
-            }
-          }
-          //store selected predicate
-//          if (!criticalPredicatesSeq.isEmpty) {
-//            optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
-//          }
-
-          optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
-          println("current head:", head.toString())
-          println("critical predicates:", criticalPredicatesSeq.toString())
-          println("redundant predicates", redundantPredicatesSeq.toString())
-        }
-
+        val (optimizedPredicate,_)=HintsSelection.getMinimumSetPredicates(originalPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
         predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
 
         if(!optimizedPredicate.isEmpty){
@@ -475,6 +398,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
                 val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(HintsSelection.transformVerificationHintsToPredicateMap(simpHints),simpleGeneratedPredicates)
+                //todo: debug labelSimpleGeneratedPredicatesBySelectedPredicates because IFormula and string compare cannot fully check equality
                 val tempLabel=HintsSelection.labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate,simpleGeneratedAndAbstractGeneratedPredicates)
                 val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel)//.filterKeys(k => !tempLabel(k).isEmpty)
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++simpHints,labeledSimpleGeneratedPredicates)

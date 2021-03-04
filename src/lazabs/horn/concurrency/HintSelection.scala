@@ -71,12 +71,68 @@ object HintsSelection {
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
 
-  def clonedTimeChecker(to:Int): GlobalParameters ={
+  def getExceptionalPredicatedGenerator():  Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]] ={
+      (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+        //throw new RuntimeException("interpolator exception")
+        throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
+  }
+  def getCounterexampleMethod(disjunctive:Boolean):  HornPredAbs.CounterexampleMethod.Value ={
+    if (disjunctive)
+      HornPredAbs.CounterexampleMethod.AllShortest
+    else
+      HornPredAbs.CounterexampleMethod.FirstBestShortest
+  }
+  def getMinimumSetPredicates(originalPredicates: Map[Predicate, Seq[IFormula]],simplePredicatesGeneratorClauses:Clauses,
+                              exceptionalPredGen: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]=getExceptionalPredicatedGenerator(),
+                              counterexampleMethod: HornPredAbs.CounterexampleMethod.Value=getCounterexampleMethod(GlobalParameters.get.disjunctive)):
+  (Map[Predicate, Seq[IFormula]],Long) ={
+    var minimumSetPredicate: Map[Predicate, Seq[IFormula]] = Map()
+//    val exceptionalPredGen=getExceptionalPredicatedGenerator()
+//    val counterexampleMethod=getCounterexampleMethod(GlobalParameters.get.disjunctive)
+    val startTimeForExtraction = System.currentTimeMillis()
+    val mainTimeoutChecker = () => {
+      if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
+        throw lazabs.Main.MainTimeoutException //Main.TimeoutException
+    }
+    val predicatesExtractingBeginTime=System.currentTimeMillis
+    if (!originalPredicates.isEmpty) {
+
+      for ((head, preds) <- originalPredicates) {
+        var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
+        var uselessPredicatesInCurrentHead:Seq[IFormula]=Seq()
+        for (p <- preds) {
+          //delete p and useless predicates
+          var tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
+          val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
+          try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
+            println("----------------------------------- CEGAR --------------------------------------")
+            new HornPredAbs(simplePredicatesGeneratorClauses,
+              tempPredicates,
+              exceptionalPredGen,counterexampleMethod).result
+            //p is useless
+            uselessPredicatesInCurrentHead=uselessPredicatesInCurrentHead.:+(p)
+            mainTimeoutChecker()//check total used time for minimizing process
+          }catch{
+            case lazabs.Main.TimeoutException=>{
+              //p is useful,append p to usefulPredicatesInCurrentHead
+              usefulPredicatesInCurrentHead=usefulPredicatesInCurrentHead.:+(p)
+            }
+            case _=>{throw lazabs.Main.MainTimeoutException}
+          }
+        }
+        minimumSetPredicate=minimumSetPredicate++Map(head->usefulPredicatesInCurrentHead)
+      }
+    }
+    val predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
+    (minimumSetPredicate,predicatesExtractingTime)
+  }
+
+  def clonedTimeChecker(to: Int, coefficient: Int = 1): GlobalParameters = {
     val startTimePredicateGenerator = currentTimeMillis
-    val clonedGlovalParameter= GlobalParameters.get.clone
+    val clonedGlovalParameter = GlobalParameters.get.clone
     clonedGlovalParameter.timeoutChecker = () => {
       //println("time check point:solvabilityTimeout", ((System.currentTimeMillis - startTimePredicateGenerator)/1000).toString + "/" + ((GlobalParameters.get.solvabilityTimeout * 5)/1000).toString)
-      if ((currentTimeMillis - startTimePredicateGenerator) > (to) ) //timeout seconds
+      if ((currentTimeMillis - startTimePredicateGenerator) > (to * coefficient)) //timeout seconds
         throw lazabs.Main.TimeoutException //Main.TimeoutException
     }
     clonedGlovalParameter
@@ -93,7 +149,8 @@ object HintsSelection {
     simplePredicatesGeneratorClauses
   }
 
-  def transformPredicatesToCanonical( lastPredicates:Map[HornPredAbs.RelationSymbol, ArrayBuffer[HornPredAbs.RelationSymbolPred]]):  Map[Predicate, Seq[IFormula]] ={
+  def transformPredicatesToCanonical( lastPredicates:Map[HornPredAbs.RelationSymbol, ArrayBuffer[HornPredAbs.RelationSymbolPred]]):
+  Map[Predicate, Seq[IFormula]] ={
     var numberOfpredicates = 0
     val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
       // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
@@ -113,10 +170,10 @@ object HintsSelection {
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
-                       fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true): (Int,Map[Predicate,Seq[IFormula]]) = {
+                       fileName: String="noFileName", moveFile: Boolean = true, exit: Boolean = true,coefficient:Int=5): (Int,Map[Predicate,Seq[IFormula]]) = {
     println("check solvability using current predicates")
     var solveTime = (GlobalParameters.get.solvabilityTimeout/1000).toInt
-    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout)
+    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout,coefficient)
     val startTime=currentTimeMillis()
     var cegarGeneratedPredicates:Map[Predicate,Seq[IFormula]]=Map()
     try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
@@ -1728,6 +1785,90 @@ object HintsSelection {
     arguments
   }
 
+}
+
+object ArchivedHintSelection {
+  def oldGetMinimumPredicateSet(originalPredicates: Map[Predicate, Seq[IFormula]],simplePredicatesGeneratorClauses:Clauses,exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod: HornPredAbs.CounterexampleMethod.Value): Map[Predicate, Seq[IFormula]]  = {
+
+    //Predicate selection begin
+    println("------Predicates selection begin----")
+    var PositiveHintsWithID: Seq[wrappedHintWithID] = Seq()
+    var NegativeHintsWithID: Seq[wrappedHintWithID] = Seq()
+    var optimizedPredicate: Map[Predicate, Seq[IFormula]] = Map()
+    var currentPredicate: Map[Predicate, Seq[IFormula]] = originalPredicates
+    val startTimeForExtraction = System.currentTimeMillis()
+    val mainTimeoutChecker = () => {
+      if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
+        throw lazabs.Main.MainTimeoutException //Main.TimeoutException
+    }
+    for ((head, preds) <- originalPredicates) {
+      var criticalPredicatesSeq: Seq[IFormula] = Seq()
+      var redundantPredicatesSeq: Seq[IFormula] = Seq()
+
+      for (p <- preds) {
+        //            println("before delete")
+        //            println("head", head)
+        //            println("predicates", currentPredicate(head)) //key not found
+        //            //delete one predicate
+        //            println("delete predicate", p)
+        val currentPredicateSeq = currentPredicate(head).filter(_ != p) //delete one predicate
+        currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
+        currentPredicate = currentPredicate ++ Map(head -> currentPredicateSeq) //add the head with deleted predicate
+        //            println("after delete")
+        //            println("head", head)
+        //            println("predicates", currentPredicate(head))
+        //            println("currentPredicate",currentPredicate)
+
+        //try cegar
+        val predicateUsefulnessTimeoutChecker = HintsSelection.clonedTimeChecker(GlobalParameters.get.threadTimeout)
+        try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker) {
+          println("----------------------------------- CEGAR --------------------------------------")
+          new HornPredAbs(simplePredicatesGeneratorClauses,
+            currentPredicate,
+            exceptionalPredGen, counterexampleMethod).result
+          //not timeout
+          redundantPredicatesSeq = redundantPredicatesSeq ++ Seq(p)
+          //add useless hint to NegativeHintsWithID   //ID:head->hint
+          //                for (wrappedHint <- InitialHintsWithID) { //add useless hint to NegativeHintsWithID   //ID:head->hint
+          //                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+          //                  if (head.name == wrappedHint.head && wrappedHint.hint == pVerifHintInitPred) {
+          //                    NegativeHintsWithID =NegativeHintsWithID++Seq(wrappedHint)
+          //                  }
+          //                }
+          mainTimeoutChecker()
+        } catch {
+          case lazabs.Main.TimeoutException => { //need new predicate or timeout
+            criticalPredicatesSeq = criticalPredicatesSeq ++ Seq(p)
+            //add deleted predicate back to curren predicate
+            currentPredicate = currentPredicate.filterKeys(_ != head) //delete original head
+            currentPredicate = currentPredicate ++ Map(head -> (currentPredicateSeq ++ Seq(p))) //add the head with deleted predicate
+            //add useful hint to PositiveHintsWithID
+            //                for(wrappedHint<-InitialHintsWithID){
+            //                  val pVerifHintInitPred="VerifHintInitPred("+p.toString+")"
+            //                  if(head.name.toString()==wrappedHint.head && wrappedHint.hint==pVerifHintInitPred){
+            //                    PositiveHintsWithID=PositiveHintsWithID++Seq(wrappedHint)
+            //                  }
+            //                }
+          }
+          case _ => {
+            throw lazabs.Main.MainTimeoutException
+          }
+        }
+      }
+      //store selected predicate
+      //          if (!criticalPredicatesSeq.isEmpty) {
+      //            optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
+      //          }
+
+      optimizedPredicate = optimizedPredicate ++ Map(head -> criticalPredicatesSeq)
+      println("current head:", head.toString())
+      println("critical predicates:", criticalPredicatesSeq.toString())
+      println("redundant predicates", redundantPredicatesSeq.toString())
+    }
+    optimizedPredicate
+  }
 }
 
 class VerificationHintsInfo(val initialHints: VerificationHints, val positiveHints: VerificationHints, val negativeHints: VerificationHints)

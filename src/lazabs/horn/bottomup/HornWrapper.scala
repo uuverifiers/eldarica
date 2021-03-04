@@ -442,25 +442,30 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates,"fullInitialPredicates"->fullInitialPredicates)
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
-      //todo:solvabilityTimeout check
-      val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false)
+      val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
       val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
-      println(solveTime)
-      println(solvability)
-      println(GlobalParameters.get.solvabilityTimeout)
+      println("solveTime",solveTime)
+      println("solvability",solvability)
+      //todo: perform cegar minimize process then we know which one in essentially useful
+      //todo:cegar minimize process
+      val minimizedPredicateFromCegar=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph)
+      //todo:minimized predicates intersect initialPredicate
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=0
       val initialPredicatesUsedInCEGAR=for((pfcHead,pfcBody)<-predicateFromCegar;(ipHead,ipBody)<-transformVerificationHintsToPredicateMap(initialPredicate);if pfcHead.equals(ipHead))yield {
-        //        println(pfcHead)
-//        for (x<-pfcBody)
-//          println(Console.YELLOW+sp(x))
-//        for (x<-ipBody)
-//          println(Console.GREEN+sp(x))
-        //for (x<-pfcBody;y<-ipBody if x.equals(y)) println(x)
+        //check when using minimizing process
+        println(pfcHead)
+        println("predicates from cegar")
+        for (x <- pfcBody)
+          println(Console.YELLOW + sp(x))
+        println("predicates from simple generator")
+        for (x <- ipBody)
+          println(Console.GREEN + sp(x))
+        for (x <- pfcBody; y <- ipBody if x==(y)) println(x)
         pfcHead->(for(p<-ipBody; if pfcBody.contains(p)) yield p)
       }
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {AbsReader.printHints(initialPredicate)}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predicateFromCegar.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(predicateFromCegar))}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInCEGAR.tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInCEGAR))}
-      //todo:check canonical names
       Seq(("solveTime"+fieldName,solveTime),("solvability"+fieldName,solvability),
         ("numberOfinitialPredicates"+fieldName,initialPredicate.predicateHints.values.flatten.size),
         ("numberOfPredicateFromCegar"+fieldName,predicateFromCegar.values.flatten.size),
