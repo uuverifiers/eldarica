@@ -51,10 +51,10 @@ object TypeCheck{
    */
   def globalEnviron(so: Sobject): Environ = so.defs match {
     case Nil => Environ(Map.empty,Map.empty)
-    case VarDeclaration(name, ArrayType(t), ScArray(_, Some(aLength))) :: ds =>
+    case VarDeclaration(name, ArrayType(IntegerType(), t), ScArray(_, Some(aLength))) :: ds =>
       val Environ(gTpe, gArrSize) = globalEnviron(Sobject(so.preds, so.name, ds))
       Environ(gTpe + (name -> ArrayType(t)), gArrSize + (name -> aLength))
-    case VarDeclaration(name, ArrayType(t), ArrayConst(l)) :: ds =>
+    case VarDeclaration(name, ArrayType(IntegerType(), t), ArrayConst(l)) :: ds =>
       val Environ(gTpe, gArrSize) = globalEnviron(Sobject(so.preds, so.name, ds))
       Environ(gTpe + (name -> ArrayType(t)), gArrSize + (name -> NumericalConst(l.size)))
     case VarDeclaration(name, t, value) :: ds => 
@@ -86,9 +86,9 @@ object TypeCheck{
   
   def typeCheck(declList : List[ASTree], env: Environ): List[ASTree] = declList match {
     case Nil => Nil
-    case VarDeclaration(name, ArrayType(t), ScArray(_, Some(aLength))) :: rest =>
+    case VarDeclaration(name, ArrayType(IntegerType(), t), ScArray(_, Some(aLength))) :: rest =>
       declList.head :: typeCheck(rest, Environ(env.tpe + (name -> ArrayType(t)), env.arrSize + (name -> aLength)))
-    case VarDeclaration(name, ArrayType(t), ArrayConst(l)) :: rest =>
+    case VarDeclaration(name, ArrayType(IntegerType(), t), ArrayConst(l)) :: rest =>
       declList.head :: typeCheck(rest, Environ(env.tpe + (name -> ArrayType(t)), env.arrSize + (name -> NumericalConst(l.size))))
     case VarDeclaration(name, t, value) :: rest =>
       VarDeclaration(name, t, typeCheck(value,env)) :: typeCheck(rest, Environ(env.tpe + (name -> t), env.arrSize))

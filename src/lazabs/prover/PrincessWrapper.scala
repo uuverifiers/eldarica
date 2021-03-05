@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -99,7 +99,7 @@ object PrincessWrapper {
     case BooleanType()            => Sort.MultipleValueBool
     case AdtType(s)               => s //??? sorts are in ADT.sorts
     case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
-    case ArrayType(IntegerType()) => SimpleArray.ArraySort(1)
+    case ArrayType(index, obj)    => ExtArray(List(type2Sort(index)), type2Sort(obj)).sort
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -114,7 +114,9 @@ object PrincessWrapper {
     case ModuloArithmetic.UnsignedBVSort(n) =>
       BVType(n)
     case SimpleArray.ArraySort(1) =>
-      ArrayType(IntegerType())
+      ArrayType(IntegerType(), IntegerType())
+    case ExtArray.ArraySort(theory) if theory.indexSorts.size == 1 =>
+      ArrayType(sort2Type(theory.indexSorts.head), sort2Type(theory.objSort))
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -125,6 +127,7 @@ class PrincessWrapper {
   
   private val api = new PrincessAPI_v1
   import api._
+  import PrincessWrapper.{type2Sort, sort2Type}
 
   /**
    * converts a list of formulas in Eldarica format to a list of formulas in Princess format
@@ -136,10 +139,10 @@ class PrincessWrapper {
     val symbolMap = initialSymbolMap
 
     def f2p(ex: Expression): IExpression = ex match {
-      case lazabs.ast.ASTree.ArraySelect(array, ind) =>
-        SimpleArray(1).select(f2pterm(array), f2pterm(ind))
-      case ArrayUpdate(array, index, value) =>
-        SimpleArray(1).store(f2pterm(array), f2pterm(index), f2pterm(value))
+      case lazabs.ast.ASTree.ArraySelect(ArrayWithType(array, t), ind) =>
+        theoryForArrayType(t).select(f2pterm(array), f2pterm(ind))
+      case ArrayUpdate(ArrayWithType(array, t), index, value) =>
+        theoryForArrayType(t).store(f2pterm(array), f2pterm(index), f2pterm(value))
 
 /*      case ScArray(None, None) =>
         0
@@ -168,9 +171,9 @@ class PrincessWrapper {
         singleton(f2pterm(x))).foldLeft[ITerm](emptyset)((a,b) => union(a,b))
         
       case lazabs.ast.ASTree.Universal(v: BinderVariable, qe: Expression) =>
-        IQuantified(Quantifier.ALL, f2pformula(qe))
+        ISortedQuantified(Quantifier.ALL, type2Sort(v.stype), f2pformula(qe))
       case lazabs.ast.ASTree.Existential(v: BinderVariable, qe: Expression) =>
-        IQuantified(Quantifier.EX, f2pformula(qe))
+        ISortedQuantified(Quantifier.EX, type2Sort(v.stype), f2pformula(qe))
       case lazabs.ast.ASTree.Conjunction(e1, e2) =>
         f2pformula(e1) & f2pformula(e2)
       case lazabs.ast.ASTree.Disjunction(e1, e2) =>
@@ -218,7 +221,7 @@ class PrincessWrapper {
         }
       case s@lazabs.ast.ASTree.Variable(vname,None) =>
         symbolMap.getOrElseUpdate(vname, {
-          PrincessWrapper.type2Sort(s.stype) newConstant vname
+          type2Sort(s.stype) newConstant vname
         })
 
       // ADT conversion to Princess
@@ -316,6 +319,21 @@ class PrincessWrapper {
       case _           => None
     }
   }
+
+  private object ArrayWithType {
+    def unapply(expr : Expression) : Option[(Expression, Type)] =
+      expr.stype match {
+        case t : ArrayType => Some((expr, t))
+        case _ => None
+      }
+  }
+
+  private def theoryForArrayType(t : Type) : ExtArray = t match {
+    case t : ArrayType =>
+      type2Sort(t).asInstanceOf[ExtArray.ArraySort].theory
+    case _ =>
+      throw new Exception ("" + t + " is not an array type")
+  }
   
   /**
    * reduces all the debruijn indices by one
@@ -342,7 +360,6 @@ class PrincessWrapper {
                        symMap : Map[ConstantTerm, String],
                        removeVersions: Boolean): Expression = {
     import Sort.:::
-    import PrincessWrapper.sort2Type
     def rvT(t: ITerm): Expression = t match {
       case IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2)) =>
         lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType()))
@@ -385,7 +402,18 @@ class PrincessWrapper {
         lazabs.ast.ASTree.ArrayUpdate(
           rvT(ar),
           rvT(ind).stype(IntegerType()),
-          rvT(value).stype(IntegerType())).stype(ArrayType(IntegerType()))
+          rvT(value).stype(IntegerType())).stype(ArrayType(IntegerType(), IntegerType()))
+
+      // Unary arrays
+      case IFunApp(ExtArray.Select(theory), Seq(ar, ind)) =>
+        lazabs.ast.ASTree.ArraySelect(
+          rvT(ar).stype(sort2Type(theory.sort)),
+          rvT(ind)).stype(sort2Type(theory.objSort))
+      case IFunApp(ExtArray.Store(theory), Seq(ar, ind, value)) =>
+        lazabs.ast.ASTree.ArrayUpdate(
+          rvT(ar).stype(sort2Type(theory.sort)),
+          rvT(ind).stype(sort2Type(theory.indexSorts.head)),
+          rvT(value).stype(sort2Type(theory.objSort))).stype(sort2Type(theory.sort))
 
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
@@ -547,10 +575,10 @@ class PrincessWrapper {
          lazabs.ast.ASTree.Modulo(reduceDeBruijn(rvT(remainder)).stype(IntegerType()),
                                   rvT(varCoeff.abs).stype(IntegerType())),
          NumericalConst(0)).stype(BooleanType())
-      case ISortedQuantified(Quantifier.EX, Sort.Integer, e) =>
-        lazabs.ast.ASTree.Existential(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
-      case ISortedQuantified(Quantifier.ALL, Sort.Integer, e) =>
-        lazabs.ast.ASTree.Universal(BinderVariable("i").stype(IntegerType()), rvF(e).stype(BooleanType()))
+      case ISortedQuantified(Quantifier.EX, s, e) =>
+        lazabs.ast.ASTree.Existential(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BooleanType()))
+      case ISortedQuantified(Quantifier.ALL, s, e) =>
+        lazabs.ast.ASTree.Universal(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BooleanType()))
       case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
       case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
 

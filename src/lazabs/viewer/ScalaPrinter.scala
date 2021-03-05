@@ -111,7 +111,7 @@ object ScalaPrinter {
     case IntegerType() => "Int"
     case StringType() => "String"
     case BooleanType() => "Boolean"   
-    case ArrayType(t) => "Array[" + this(t) + "]"
+    case ArrayType(IntegerType(), t) => "Array[" + this(t) + "]"
     case _ => t.toString
   }
   def apply(d: Parameter): String = d.name + " : " + this(d.typ)  

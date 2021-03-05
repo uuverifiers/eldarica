@@ -60,7 +60,8 @@ object HornPrinter {
       curVarCounter
     }
     def printHornLiteral(hl: HornLiteral): String = hl match {
-      case Interp(v) => printExp(v)
+      case Interp(v) =>
+        printExp(v)(List())
       case RelVar(varName, params) =>
         val removePrefix = if(varName.startsWith("_")) {  // for string that begins with underline or capital letter      
           (0 until varName.prefixLength(_ == '_')).map(_ => "und").mkString + varName.dropWhile(_ == '_')
@@ -76,11 +77,15 @@ object HornPrinter {
     }
 
 
-    def printExp(e: Expression): String = e match {
-      case Existential(v, qe) =>
-        "EX " + getAlphabeticChar(0) + " (" + printExp(qe) + ")"
-      case Universal(v, qe) =>
-        "ALL " + getAlphabeticChar(0) + " (" + printExp(qe) + ")"
+    def printExp(e: Expression)(implicit vars : List[String]): String = e match {
+      case Existential(v, qe) => {
+        val name = "VAR" + vars.size
+        "EX " + name + " (" + printExp(qe)(name :: vars) + ")"
+      }
+      case Universal(v, qe) => {
+        val name = "VAR" + vars.size
+        "ALL " + name + " (" + printExp(qe)(name :: vars) + ")"
+      }
       case Conjunction(e1, e2) => "(" + printExp(e1) + ", " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
 
@@ -107,7 +112,7 @@ object HornPrinter {
         "_size(" + printExp(v) + ")"
       case Not(e) => "\\" + "+(" + printExp(e) + ")"
       case UnaryExpression(op, e) => op.st + "(" + printExp(e) + ")"
-      case Variable(name,None) => varMap.get(name) match {
+      case Variable(name, None) => varMap.get(name) match {
         case Some(i) => getAlphabeticChar(i)
         case None =>
           val newIndex = getNewVarCounter
@@ -116,7 +121,10 @@ object HornPrinter {
       }
       // TODO: ??
       case Variable(_,Some(index)) => 
-        getAlphabeticChar(index)  // variable from Princess
+        if (index < vars.size)
+          vars(index)
+        else
+          getAlphabeticChar(index - vars.size)
       case NumericalConst(num) => num.toString
       case BoolConst(v) => "" + v
       case BVconst(bits, v) => "" + v
