@@ -134,7 +134,7 @@ class DefaultPreprocessor extends HornPreprocessor {
       if (curClauses != oldClauses)
         condenseClauses
     }
-    
+
     // Clone relation symbols with consistently concrete arguments
     {
       val oldClauses = curClauses

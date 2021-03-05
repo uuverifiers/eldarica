@@ -450,7 +450,6 @@ class SMTHornReader protected[parser] (
       while (!litsTodo.isEmpty) {
         val lit = litsTodo.head
         litsTodo = litsTodo.tail
-        lazabs.GlobalParameters.get.timeoutChecker()
         lit match {
           case INot(a@IAtom(p, _)) if (TheoryRegistry lookupSymbol p).isEmpty =>
             body = translateAtom(a) :: body
