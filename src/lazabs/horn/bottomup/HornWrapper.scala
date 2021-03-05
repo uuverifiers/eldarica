@@ -426,8 +426,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates =
-      if (new java.io.File(GlobalParameters.get.fileName + "." + "predictedHints" + ".tpl").exists == true)
+      if (new java.io.File(GlobalParameters.get.fileName + "." + "predictedHints" + ".tpl").exists == true) {
         VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      } 
+      else if (HintsSelection.detectIfAJSONFieldExists("predictedLabel")){
+        val initialHintsCollection=new VerificationHintsInfo(fullInitialPredicates,VerificationHints(Map()),VerificationHints(Map()))
+        HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+      }
       else {
         println(Console.RED+"no predicted predicates")
         VerificationHints(Map())

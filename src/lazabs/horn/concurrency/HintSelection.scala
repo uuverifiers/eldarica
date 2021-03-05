@@ -53,6 +53,7 @@ import java.lang.System.currentTimeMillis
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashSet => MHashSet}
 import scala.io.Source
+import play.api.libs.json._
 
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
@@ -360,6 +361,7 @@ object HintsSelection {
     writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.predicateHints.values.flatten.size.toString)
     writer.println("       positiveArgumentConstantEqualPredicate:"+predicateNumberOfPositiveArgumentConstantEqualPredicate.toString)
     writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.predicateHints.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
+    //todo:see if we can get this in HornPredAbs
     writer.println("initialPredicates - simpleGeneratedPredicates:"+predicatesFromCEGAR.values.flatten.size.toString)
     writer.println("       positive(initialPredicates - simpleGeneratedPredicates):"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
     writer.println("       negative(initialPredicates - simpleGeneratedPredicates):"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
@@ -427,16 +429,29 @@ object HintsSelection {
     mergedPredicates.mapValues(distinctByString(_))
   }
 
+  def detectIfAJSONFieldExists(readLabel: String = "predictedLabel"): Boolean ={
+    val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
+    val json_content = scala.io.Source.fromFile(input_file).mkString
+    val json_data = Json.parse(json_content)
+    try{(json_data \ readLabel).validate[Array[Int]] match {
+      case JsSuccess(templateLabel,_)=> true}
+    }catch {
+      case _=>{
+        println("read json file field error")
+        false}
+    }
+  }
   def readPredicateLabelFromJSON(initialHintsCollection: VerificationHintsInfo,readLabel:String="predictedLabel"): VerificationHints ={
-    import play.api.libs.json._
     val initialHints=initialHintsCollection.initialHints.getPredicateHints.toSeq sortBy (_._1.name)
     val input_file = GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
     val json_content = scala.io.Source.fromFile(input_file).mkString
     val json_data = Json.parse(json_content)
 
     try{(json_data \ readLabel).validate[Array[Int]] match {
-      case JsSuccess(templateLabel,_)=> templateLabel}}catch {
-      case _=>{println("read json file field error")
+      case JsSuccess(templateLabel,_)=> }
+    }catch {
+      case _=>{
+        println("read json file field error")
       sys.exit()}
     }
 

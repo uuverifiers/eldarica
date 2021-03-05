@@ -398,8 +398,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
                 val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(HintsSelection.transformVerificationHintsToPredicateMap(simpHints),simpleGeneratedPredicates)
-                //todo: debug intersectPredicatesByString cannot differentiate predicates from different source
-                val tempLabel=HintsSelection.intersectPredicatesByString(optimizedPredicate,simpleGeneratedAndAbstractGeneratedPredicates)
+                val tempLabel=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(simpleGeneratedAndAbstractGeneratedPredicates,optimizedPredicate,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
                 val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel)//.filterKeys(k => !tempLabel(k).isEmpty)
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++simpHints,labeledSimpleGeneratedPredicates)
               } else
