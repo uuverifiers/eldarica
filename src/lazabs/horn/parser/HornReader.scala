@@ -170,8 +170,12 @@ object HornReader {
 
     override def preVisit(t : IExpression,
                           arg : Context[Unit]) : PreVisitResult = t match {
-      case _ : IAtom if (!arg.binders.isEmpty) => throw FoundPredUnderQuantifier
-      case _ => super.preVisit(t, arg)
+      case a : IAtom
+          if !arg.binders.isEmpty &&
+             (TheoryRegistry lookupSymbol a.pred).isEmpty =>
+        throw FoundPredUnderQuantifier
+      case _ =>
+        super.preVisit(t, arg)
     }
    
     def postVisit(t : IExpression,
@@ -196,9 +200,10 @@ object HornReader {
 
     override def preVisit(t : IExpression,
                           ctxt : Context[Unit]) : PreVisitResult = t match {
-      case _ : IAtom
-        if ctxt.polarity < 0 && (ctxt.binders contains Context.EX)  =>
-          throw FoundPredUnderQuantifier
+      case a : IAtom
+        if ctxt.polarity < 0 && (ctxt.binders contains Context.EX) &&
+           (TheoryRegistry lookupSymbol a.pred).isEmpty =>
+        throw FoundPredUnderQuantifier
       case _ =>
         super.preVisit(t, ctxt)
     }
@@ -362,6 +367,16 @@ class SMTHornReader protected[parser] (
       // ok
   }
 
+  val elimArrays =
+    lazabs.GlobalParameters.get.arrayQuantification.isDefined ||
+    (clauses exists (QuantifiedBodyPredsVisitor(_)))
+
+  if (elimArrays && !canEliminateBodyQuantifiers)
+    throw new Exception ("Cannot eliminate arrays in clauses due to theories")
+
+  if (elimArrays)
+    Console.err.println("Eliminating arrays using instantiation (incomplete)")
+
   private val eldClauses = for (cc <- clauses) yield {
     var symMap = Map[ConstantTerm, String]()
     var clause = cc
@@ -379,11 +394,8 @@ class SMTHornReader protected[parser] (
       throw new Exception ("Uninterpreted functions are not supported")
 
     clause =
-      if (QuantifiedBodyPredsVisitor(clause)) {
+      if (elimArrays) {
         // need full preprocessing, in particular to introduce triggers
-        if (!canEliminateBodyQuantifiers)
-          throw new Exception ("Cannot handle quantifiers in clause bodies" +
-                                 " due to theories present")
         val (List(INamedPart(_, processedClause_aux)), _, _) =
           Preprocessing(clause,
                         List(),
@@ -426,7 +438,8 @@ class SMTHornReader protected[parser] (
     for (conjunctRaw <- cnf_if_needed(groundClause);
          conjunct <- elimQuansTheories(conjunctRaw,
                                        unintPredicates,
-                                       signature.theories)) yield {
+                                       signature.theories,
+                                       elimArrays)) yield {
 
       for (c <- SymbolCollector constantsSorted conjunct;
            if (!(symMap contains c)))
@@ -542,7 +555,8 @@ class SMTHornReader protected[parser] (
   private def elimQuansTheories(
                 clause : IFormula,
                 unintPredicates : LinkedHashSet[Predicate],
-                allTheories : Seq[Theory]) : Seq[IFormula] = {
+                allTheories : Seq[Theory],
+                elimArrays : Boolean) : Seq[IFormula] = {
 
     val containsArraySymbol =
       ContainsSymbol(clause, (e : IExpression) => e match {
@@ -559,9 +573,7 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    if (quanNum == 0 &&
-        !(containsArraySymbol &&
-          lazabs.GlobalParameters.get.arrayQuantification.isDefined))
+    if (quanNum == 0 && !(containsArraySymbol && elimArrays))
       return List(clause)
 
     if (containsArraySymbol || PredUnderQuantifierVisitor(clause))
