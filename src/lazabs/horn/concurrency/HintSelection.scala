@@ -72,6 +72,32 @@ object HintsSelection {
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
 
+  def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
+                        predictedPredicates:Map[Predicate, Seq[IFormula]],
+                        fullPredicates:Map[Predicate, Seq[IFormula]],
+                        minimizedPredicates:Map[Predicate, Seq[IFormula]]): Unit ={
+    HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod,moveFile = false)
+
+    //run trails to reduce time consumption deviation
+    val trial_1=measureCEGAR(simplePredicatesGeneratorClauses,minimizedPredicates,predGenerator,counterexampleMethod)
+    val trial_2=measureCEGAR(simplePredicatesGeneratorClauses,fullPredicates,predGenerator,counterexampleMethod)
+    val trial_3=measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+    val trial_4=measureCEGAR(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod)
+
+    //val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+    val measurementWithTrueLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,minimizedPredicates,predGenerator,counterexampleMethod)
+    //val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
+    val measurementWithFullLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,fullPredicates,predGenerator,counterexampleMethod)
+    //val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+    val measurementWithEmptyLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
+    //val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
+    val measurementWithPredictedLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod)
+
+
+    val measurementList=Seq(("measurementWithTrueLabel",measurementWithTrueLabel),("measurementWithFullLabel",measurementWithFullLabel),
+      ("measurementWithEmptyLabel",measurementWithEmptyLabel),("measurementWithPredictedLabel",measurementWithPredictedLabel))
+    HintsSelection.writeMeasurementToJSON(measurementList)
+  }
   def getExceptionalPredicatedGenerator():  Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]] ={
       (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
         //throw new RuntimeException("interpolator exception")

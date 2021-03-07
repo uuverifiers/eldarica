@@ -279,31 +279,8 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false)
-
-          //run trails to reduce time consumption deviation
-          val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,truePositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
-          val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-
-          //val trial_1=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,verifyPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithTrueLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,truePositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          //val trial_2=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithFullLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,predGenerator,counterexampleMethod)
-          //val trial_3=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          val measurementWithEmptyLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
-          //val trial_4=HintsSelection.measureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-          val measurementWithPredictedLabel=HintsSelection.averageMeasureCEGAR(simplePredicatesGeneratorClauses,predictedPositiveHints.toInitialPredicates,predGenerator,counterexampleMethod)
-
-//          println("measurementWithTrueLabel",measurementWithTrueLabel)
-//          println("measurementWithFullLabel",measurementWithFullLabel)
-//          println("measurementWithEmptyLabel",measurementWithEmptyLabel)
-//          println("measurementWithPredictedLabel",measurementWithPredictedLabel)
-
-          val measurementList=Seq(("measurementWithTrueLabel",measurementWithTrueLabel),("measurementWithFullLabel",measurementWithFullLabel),
-            ("measurementWithEmptyLabel",measurementWithEmptyLabel),("measurementWithPredictedLabel",measurementWithPredictedLabel))
-          HintsSelection.writeMeasurementToJSON(measurementList)
+          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,
+            predictedPositiveHints.toInitialPredicates,initialPredicates.toInitialPredicates,truePositiveHints.toInitialPredicates)
 
         } else{
           //Output graphs
