@@ -325,6 +325,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       val timeoutCheckerForPredicateGenerator=HintsSelection.clonedTimeChecker(GlobalParameters.get.solvabilityTimeout * 5)
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
+      HintsSelection.checkSatisfiability(simplePredicatesGeneratorClauses,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),predGenerator,counterexampleMethod)
       val lastPredicates= {
           try GlobalParameters.parameters.withValue(timeoutCheckerForPredicateGenerator)
           {
