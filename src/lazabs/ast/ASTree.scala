@@ -261,12 +261,12 @@ object ASTree {
     if(elems1.size != 1 || elems2.size != 1) {
       throw new Exception("Error in selecting an element from a two dimensional array")
     }
-    ArraySelect(ArraySelect(ScArray(Some(Variable(aName,None).stype(ArrayType(ArrayType(IntegerType())))), None), elems1.head), elems2.head)
+    ArraySelect(ArraySelect(ScArray(Some(Variable(aName,None).stype(ArrayType(IntegerType(), ArrayType(IntegerType(), IntegerType())))), None), elems1.head), elems2.head)
   }
   
   def makeArrayConst(elems_java: java.util.List[Expression]): Expression = {
     val elems = elems_java.toArray.toList   // convert java list to scala list
-    elems.asInstanceOf[List[Expression]].zipWithIndex.foldLeft[Expression](ScArray(None, Some(NumericalConst(elems.length))).stype(ArrayType(IntegerType())))((x,y) => (ArrayUpdate(x,NumericalConst(y._2),y._1))).stype(ArrayType(IntegerType()))
+    elems.asInstanceOf[List[Expression]].zipWithIndex.foldLeft[Expression](ScArray(None, Some(NumericalConst(elems.length))).stype(ArrayType(IntegerType(), IntegerType())))((x,y) => (ArrayUpdate(x,NumericalConst(y._2),y._1))).stype(ArrayType(IntegerType(), IntegerType()))
   }
    
   def makeSetConst(elems_java: java.util.List[Expression]): Expression = {

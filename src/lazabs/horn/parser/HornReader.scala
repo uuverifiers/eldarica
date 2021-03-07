@@ -353,6 +353,8 @@ class SMTHornReader protected[parser] (
 
     signature.theories match {
       case theories if (theories forall {
+                          case _ : SimpleArray  => true
+                          case _ : ExtArray     => true
                           case _ : ADT          => true
                           case _ : MulTheory    => true
                           case TypeTheory       => true
@@ -365,9 +367,8 @@ class SMTHornReader protected[parser] (
                           case _ : ExtArray    => true
                           case TypeTheory      => true
                           case _               => false
-                        }) => {
+                        }) =>
         // ok
-      }
       case _ =>
         throw new Exception ("Combination of theories is not supported")
     }

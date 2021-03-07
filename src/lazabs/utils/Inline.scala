@@ -93,7 +93,7 @@ object Inline {
       case _ => false
     }).asInstanceOf[List[Declaration]]  // specification variables defined in the predicates section
     funcs = Map[String,FunctionDefinition]() ++ (for (f@FunctionDefinition(funcName, ps, t, e, post) <- (predsVarDec ++ o.defs)) yield (funcName -> f))
-    val globalArrays = for (VarDeclaration(name, lazabs.types.ArrayType(t), value) <- (predsVarDec ++ o.defs)) yield Variable(name).stype(lazabs.types.ArrayType(t))
+    val globalArrays = for (VarDeclaration(name, lazabs.types.ArrayType(IntegerType(), t), value) <- (predsVarDec ++ o.defs)) yield Variable(name).stype(lazabs.types.ArrayType(t))
     val inlinedBody = inline(predsVarDec ++ o.defs, globalArrays).asInstanceOf[List[Declaration]]
     Sobject(o.preds.diff(predsVarDec).asInstanceOf[List[Predicate]].map(inline(_, globalArrays)), o.name, inlinedBody)
   }
@@ -101,11 +101,11 @@ object Inline {
     case Nil => Nil
     case FunctionDefinition(funcName, ps, t, e, _) :: ds => 
       val localArrays: List[Variable] = ps.filter(_.typ match {
-        case ArrayType(_)  => true
+        case ArrayType(_, _)  => true
         case _ => false
       }).map(p => Variable(p.name).stype(p.typ))
       FunctionDefinition(funcName, ps, t, unblock(inline(e, localArrays ::: arrays))) :: inline(ds, arrays)
-    case VarDeclaration(name, t@lazabs.types.ArrayType(at), value) :: ds =>
+    case VarDeclaration(name, t@lazabs.types.ArrayType(IntegerType(), at), value) :: ds =>
         var localArray = (Variable(name).stype(lazabs.types.ArrayType(at)))
         var inlinedDeclaration: List[ASTree] = List(VarDeclaration(name, t, inline(value, localArray :: arrays)))
         val havocedVars: List[Variable] = for (FunctionCall("sc_havoc", List(v@Variable(_,_))) <- assumptions) yield (v)
@@ -193,7 +193,7 @@ object Inline {
           case Some((binding,post)) =>
             val fresh = Variable(freshName).stype(f.t)
             val assume: Expression = fresh.stype match {
-              case ArrayType(_) => inline(FunctionCall("sc_assume", List(substitute(post, Map(binding -> fresh)))),fresh :: arrays)
+              case ArrayType(_, _) => inline(FunctionCall("sc_assume", List(substitute(post, Map(binding -> fresh)))),fresh :: arrays)
               case _ => inline(FunctionCall("sc_assume", List(substitute(post, Map(binding -> fresh)))),arrays)
             }
             assumptions :::= List(FunctionCall("sc_havoc", List(fresh)),

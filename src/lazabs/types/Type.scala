@@ -39,12 +39,16 @@ case class RangeType(val lower: Int, val upper: Int) extends Type
 case class BooleanType() extends Type
 case class StringType() extends Type
 case class AnyType() extends Type
-case class ArrayType(t: Type) extends Type
+case class ArrayType(index : Type, obj : Type) extends Type
 case class SetType(t: Type) extends Type
 case class AdtType(s: Sort) extends Type
 case class BVType(bits: Int) extends Type
 case object ActorType extends Type
 case class ClassType(id: String) extends Type
+
+object ArrayType {
+  def apply(obj : Type) : ArrayType = ArrayType(IntegerType(), obj)
+}
 
 trait ScalaType {
 	self =>      // this-aliasing

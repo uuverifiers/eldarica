@@ -60,7 +60,7 @@ case class NtsSubsystem(
   def toNTSType(t: Type): String = t match {
     case IntegerType() => "int"
     case BooleanType() => "bool"
-    case ArrayType(lt)  => "" // TO-DO
+    case ArrayType(_, _)  => "" // TO-DO
     case SetType(lt)  => "" // "TO-DO
     case _ =>
       println("unsupported type " + t + " in NTS conversion")

@@ -16,10 +16,22 @@ done
 
 LAZABS=../../eld
 
+# Tests with the quantified array encoding
+
 TESTS="array-elim.smt2"
 
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -cex -ssol -abstract:off "$@" $name 2>&1 | grep -v 'at '
+    $LAZABS -cex -ssol -abstract:off -arrayQuans:1 "$@" $name 2>&1 | grep -v 'at '
+done
+
+# Tests with the native array theory
+
+TESTS="array-elim.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -ssol -abstract:off -arrayQuans:off "$@" $name 2>&1 | grep -v 'at '
 done

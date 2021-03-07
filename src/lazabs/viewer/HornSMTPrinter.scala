@@ -58,11 +58,11 @@ object HornSMTPrinter {
     /*"?" +*/ ((i % 26 + 65).toChar + (if(alpha > 0) alpha.toString else "")).toString
   }
   
-  def type2String(t: Type) = t match {
+  def type2String(t: Type) : String = t match {
     case AdtType(s) => s.name
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
-    case ArrayType(IntegerType()) => "(Array Int Int)"
+    case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
     case _ => "Int"
   }
   
@@ -79,7 +79,7 @@ object HornSMTPrinter {
     }
 
     def printHornLiteral(hl: HornLiteral): String = hl match {
-      case Interp(v) => printExp(v)
+      case Interp(v) => printExp(v)(List())
       case RelVar(varName, params) =>
         if(params.isEmpty) quoteIdentifier(varName) else
         "(" + quoteIdentifier(varName) + " " +
@@ -94,15 +94,17 @@ object HornSMTPrinter {
         getAlphabeticChar(newIndex)
     }
 
-    def printExp(e: Expression): String = e match {
-      case Existential(v, qe) =>
-        // TODO: this is not going to work for nested quantifiers
-        "(exists ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
-        ")) " + printExp(qe) + ")"
-      case Universal(v, qe) =>
-        // TODO: this is not going to work for nested quantifiers
-        "(forall ((" + getAlphabeticChar(0) + " " + type2String(v.stype) +
-        ")) " + printExp(qe) + ")"
+    def printExp(e: Expression)(implicit vars : List[String]): String = e match {
+      case Existential(v, qe) => {
+        val name = "var" + vars.size
+        ("(exists ((" + name + " " + type2String(v.stype) + ")) " +
+           printExp(qe)(name :: vars) + ")")
+      }
+      case Universal(v, qe) => {
+        val name = "var" + vars.size
+        ("(forall ((" + name + " " + type2String(v.stype) + ")) " +
+           printExp(qe)(name :: vars) + ")")
+      }
       case Conjunction(e1, e2) => "(and " + printExp(e1) + " " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
 
@@ -144,7 +146,11 @@ object HornSMTPrinter {
           varMap += (name -> (newIndex,v.stype))
           getAlphabeticChar(newIndex)
       }
-      case Variable(_,Some(index)) => getAlphabeticChar(index)
+      case Variable(_,Some(index)) =>
+        if (index < vars.size)
+          vars(index)
+        else
+          getAlphabeticChar(index - vars.size)
       case NumericalConst(num) =>
         if (num<0) {
           "(- "+(num.abs)+")"
