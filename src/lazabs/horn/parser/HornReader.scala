@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -334,6 +334,34 @@ class SMTHornReader protected[parser] (
   if (!signature.theories.isEmpty)
     Console.err.println("Theories: " + (signature.theories mkString ", "))
 
+  if (signature.theories exists {
+        case _ : SimpleArray  => false
+        case _ : ExtArray     => false
+        case _ : ADT          => false
+        case _ : MulTheory    => false
+        case TypeTheory       => false
+        case ModuloArithmetic => false
+        case _                => true
+      })
+    throw new Exception ("Combination of theories is not supported")
+
+  val canEliminateBodyQuantifiers =
+    signature.theories forall {
+      case _ : SimpleArray => true
+      case _ : ExtArray    => true
+      case TypeTheory      => true
+      case _               => false
+    }
+
+  lazabs.GlobalParameters.get.arrayQuantification match {
+    case Some(num) if !canEliminateBodyQuantifiers =>
+      throw new Exception ("Option -arrayQuans:" + num +
+                             " is not supported in combination with" +
+                             " the given theories. Use -arrayQuans:off")
+    case _ =>
+      // ok
+  }
+
   private val eldClauses = for (cc <- clauses) yield {
     var symMap = Map[ConstantTerm, String]()
     var clause = cc
@@ -350,31 +378,12 @@ class SMTHornReader protected[parser] (
         }))
       throw new Exception ("Uninterpreted functions are not supported")
 
-    signature.theories match {
-      case theories if (theories forall {
-                          case _ : SimpleArray  => true
-                          case _ : ExtArray     => true
-                          case _ : ADT          => true
-                          case _ : MulTheory    => true
-                          case TypeTheory       => true
-                          case ModuloArithmetic => true
-                          case _                => false
-                        }) =>
-        // ok
-      case theories if (theories forall {
-                          case _ : SimpleArray => true
-                          case _ : ExtArray    => true
-                          case TypeTheory      => true
-                          case _               => false
-                        }) =>
-        // ok
-      case _ =>
-        throw new Exception ("Combination of theories is not supported")
-    }
-
     clause =
       if (QuantifiedBodyPredsVisitor(clause)) {
         // need full preprocessing, in particular to introduce triggers
+        if (!canEliminateBodyQuantifiers)
+          throw new Exception ("Cannot handle quantifiers in clause bodies" +
+                                 " due to theories present")
         val (List(INamedPart(_, processedClause_aux)), _, _) =
           Preprocessing(clause,
                         List(),
