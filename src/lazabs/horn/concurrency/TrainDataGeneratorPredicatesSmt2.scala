@@ -269,7 +269,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read predicted hints from JSON
-        val predictedPositiveHints= HintsSelection.readPredicateLabelFromJSON(initialHintsCollection,"predictedLabel")
+        val predictedPositiveHints= HintsSelection.readPredictedHints(simplePredicatesGeneratorClauses,initialPredicates)
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predictedHints.tpl")) {
           AbsReader.printHints(predictedPositiveHints)}
         val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
@@ -431,7 +431,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
           }catch{
             case lazabs.Main.TimeoutException =>{
-              //todo: not include this to training example? because it can only provide negative training data
+              //not include this to training example? because it can only provide negative training data
               HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/test-timeout/" +fileName,"test timeout")
             }
           }

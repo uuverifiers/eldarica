@@ -39,7 +39,7 @@ import ap.util.Timeout
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
-import lazabs.horn.abstractions._
+import lazabs.horn.abstractions.{VerificationHints, _}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFactory}
@@ -336,18 +336,6 @@ object HintsSelection {
         AbsReader.printHints(initialPredicates)}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
         AbsReader.printHints(selectedPredicates)}
-//      println("-------------"+"predicatesFromCEGAR"+"-----------------")
-//      for((k,v)<-predicatesFromCEGAR){
-//        println(k)
-//        for (vv<-v)
-//          println(vv)
-//      }
-//      println("-------------"+"positivePredicatesFromCEGAR"+"-----------------")
-//      for((k,v)<-positivePredicatesFromCEGAR){
-//        println(k)
-//        for (vv<-v)
-//          println(vv)
-//      }
     }
 
     writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
@@ -427,6 +415,29 @@ object HintsSelection {
       //mergedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
     }
     mergedPredicates.mapValues(distinctByString(_))
+  }
+
+
+  def readPredictedHints(simplifiedClausesForGraph: Clauses, fullInitialPredicates: VerificationHints): VerificationHints = {
+    val predictedHints = {
+      if (new java.io.File(GlobalParameters.get.fileName + "." + "predictedHints" + ".tpl").exists == true) {
+        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      }
+      else if (HintsSelection.detectIfAJSONFieldExists("predictedLabel")) {
+        val initialHintsCollection = new VerificationHintsInfo(fullInitialPredicates, VerificationHints(Map()), VerificationHints(Map()))
+        HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "predictedLabel")
+      }
+      else {
+        println(Console.RED + "no predicted predicates")
+        VerificationHints(Map())
+      }
+    }
+    if (GlobalParameters.get.log == true)
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".predictedHints.tpl")) {
+        AbsReader.printHints(predictedHints)
+      }
+
+    predictedHints
   }
 
   def detectIfAJSONFieldExists(readLabel: String = "predictedLabel"): Boolean ={
