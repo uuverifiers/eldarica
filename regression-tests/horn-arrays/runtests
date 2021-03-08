@@ -28,7 +28,7 @@ done
 
 # Tests with the native array theory
 
-TESTS="array-elim.smt2"
+TESTS="array-elim.smt2 leos-example.smt2"
 
 for name in $TESTS; do
     echo
