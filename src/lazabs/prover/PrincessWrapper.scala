@@ -143,6 +143,8 @@ class PrincessWrapper {
         theoryForArrayType(t).select(f2pterm(array), f2pterm(ind))
       case ArrayUpdate(ArrayWithType(array, t), index, value) =>
         theoryForArrayType(t).store(f2pterm(array), f2pterm(index), f2pterm(value))
+      case ex@ConstArray(value) =>
+        theoryForArrayType(ex.stype).const(f2pterm(value))
 
 /*      case ScArray(None, None) =>
         0
@@ -414,6 +416,9 @@ class PrincessWrapper {
           rvT(ar).stype(sort2Type(theory.sort)),
           rvT(ind).stype(sort2Type(theory.indexSorts.head)),
           rvT(value).stype(sort2Type(theory.objSort))).stype(sort2Type(theory.sort))
+      case IFunApp(ExtArray.Const(theory), Seq(value)) =>
+        lazabs.ast.ASTree.ConstArray(
+          rvT(value)).stype(sort2Type(theory.sort))
 
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
