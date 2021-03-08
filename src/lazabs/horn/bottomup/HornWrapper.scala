@@ -462,7 +462,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }).flatten.toSeq
 
     HintsSelection.writeSolvabilityToJSON(solvabilityList)
-    
+
     if (GlobalParameters.get.measurePredictedPredicates==true){
       HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,
         predictedPredicates.toInitialPredicates,fullInitialPredicates.toInitialPredicates,Map())
