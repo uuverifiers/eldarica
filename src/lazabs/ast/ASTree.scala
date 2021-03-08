@@ -191,6 +191,7 @@ object ASTree {
   sealed abstract class UnaryOperator(val st: String)
   case class MinusOp() extends UnaryOperator ("-")
   case class NotOp() extends UnaryOperator ("!")
+  case class ArrayConstOp() extends UnaryOperator ("const")
   case class SetHeadOp() extends UnaryOperator ("head")
   case class SetSizeOp() extends UnaryOperator ("size")
   case class UnaryExpression(op: UnaryOperator, e: Expression) extends Expression  
@@ -341,6 +342,15 @@ object ASTree {
     def unapply(exp: Expression) : Option[(Expression,Expression)] = 
       exp match {
         case BinaryExpression(left, ArraySelectOp(), right) => Some((left, right))
+        case _ => None
+      }
+  }
+  
+  object ConstArray {
+    def apply(e: Expression) = UnaryExpression(ArrayConstOp(), e)
+    def unapply(exp: Expression) : Option[Expression] = 
+      exp match {
+        case UnaryExpression(ArrayConstOp(), e) => Some(e)
         case _ => None
       }
   }

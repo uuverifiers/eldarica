@@ -1,11 +1,13 @@
 array-exception.smt2
 Warning: ignoring get-model
 Theories: ExtArray[int, int]
+Eliminating arrays using instantiation (incomplete)
 unknown
 
 fib.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 Theories: ExtArray[int, int]
+Eliminating arrays using instantiation (incomplete)
 ---------------------------- Loading CEGAR hints -------------------------------
 sat

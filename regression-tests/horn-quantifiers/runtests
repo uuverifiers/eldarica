@@ -8,7 +8,7 @@ TESTS="simple-init.smt2 heaps.smt2 double-heap.smt2 \
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -pngNo -ssol -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -pngNo -ssol -abstract:off -arrayQuans:1 "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
 TESTS="init.cleaned.smt2"
@@ -16,6 +16,6 @@ TESTS="init.cleaned.smt2"
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -abstract -splitClauses -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -abstract -splitClauses -arrayQuans:1 -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 

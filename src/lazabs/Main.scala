@@ -113,7 +113,7 @@ class GlobalParameters extends Cloneable {
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
-  var arrayQuantification : Option[Int] = Some(1)
+  var arrayQuantification : Option[Int] = None
   var princess = false
   var staticAccelerate = false
   var dynamicAccelerate = false
@@ -549,7 +549,7 @@ object Main {
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
-          " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
+          " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: off)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -noIntervals\tDisable interval analysis\n" +
           " -hints:f\tRead hints (initial predicates and abstraction templates) from a file\n" +
