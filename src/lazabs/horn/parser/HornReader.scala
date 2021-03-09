@@ -89,7 +89,6 @@ object HornReader {
   // conjunctive normal form (quantified subformulas are considered as atoms)
   private def ccnf(aF : ap.parser.IFormula) : List[ap.parser.IFormula] = {
     var cnf : List[IFormula] = Nil
-    lazabs.GlobalParameters.get.timeoutChecker()
     aF match {
       case IBinFormula(j,f1,f2) =>
         val cnf1 = ccnf(f1)
@@ -387,14 +386,14 @@ class SMTHornReader protected[parser] (
       symMap = symMap + (const -> name)
       const
     }
-    lazabs.GlobalParameters.get.timeoutChecker()
+
     if (ContainsSymbol(clause, (x:IExpression) => x match {
           case IFunApp(f, _) => !(TheoryRegistry lookupSymbol f).isDefined
           case _ => false
         }))
       throw new Exception ("Uninterpreted functions are not supported")
 
-<<<<<<< HEAD
+
     signature.theories match {
       case theories if (theories forall {
                           case _ : SimpleArray  => true
@@ -416,7 +415,7 @@ class SMTHornReader protected[parser] (
       case _ =>
         throw new Exception ("Combination of theories is not supported")
     }
-    lazabs.GlobalParameters.get.timeoutChecker()
+
 
     clause =
       if (elimArrays) {
@@ -432,12 +431,12 @@ class SMTHornReader protected[parser] (
       } else {
         EquivExpander(PartialEvaluator(clause))
       }
-    lazabs.GlobalParameters.get.timeoutChecker()
+
 //    println
 //    println(clause)
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
-    lazabs.GlobalParameters.get.timeoutChecker()
+
     var sorts  = List[Sort]()
 
     while (clause.isInstanceOf[IQuantified]) {
@@ -445,7 +444,7 @@ class SMTHornReader protected[parser] (
       clause = d
       sorts = sort :: sorts
     }
-    lazabs.GlobalParameters.get.timeoutChecker()
+
     val groundClause =
       if (!sorts.isEmpty) {
         val parameterConsts =
@@ -455,7 +454,7 @@ class SMTHornReader protected[parser] (
       } else {
         clause
       }
-    lazabs.GlobalParameters.get.timeoutChecker()
+
 //    println
 //    println(groundClause)
     
