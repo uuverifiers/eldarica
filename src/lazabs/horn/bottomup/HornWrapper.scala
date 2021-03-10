@@ -57,7 +57,7 @@ import lazabs.horn.concurrency.ReaderMain
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, transformPredicateMapToVerificationHints, transformVerificationHintsToPredicateMap}
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, transformPredicateMapToVerificationHints}
 
 import java.util
 import scala.collection.immutable.Set
@@ -406,7 +406,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no initial predicates")
       sys.exit()
     }
-    HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = true,exit=true )
+    HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = false,exit=true )
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(initialPredicates)}
 
@@ -438,7 +438,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val predictedInitialpredicates = predictedPredicates ++ simpHints
 
     val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
-    val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates,"fullInitialPredicates"->fullInitialPredicates)
+    val dataFold=Map(//"emptyInitialPredicates"->emptyInitialPredicates,"predictedInitialpredicates"->predictedInitialpredicates,
+      "fullInitialPredicates"->fullInitialPredicates)
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
       val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
@@ -448,8 +449,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       //get minimized useful set and see how many initial predicates are in it
       val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //minimized predicates intersect initialPredicate
-      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(HintsSelection.transformVerificationHintsToPredicateMap(initialPredicate),
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicate.toInitialPredicates,
         minimizedPredicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
+      //todo:debug use A u B - B
+//      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(
+//  initialPredicate.toInitialPredicates, predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       if (GlobalParameters.get.log==true){
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial-"+fieldName+".tpl")) {AbsReader.printHints(initialPredicate)}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
@@ -467,7 +471,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,
         predictedPredicates.toInitialPredicates,fullInitialPredicates.toInitialPredicates,Map())
     }
-
+    sys.exit()
 
   }
 
@@ -522,6 +526,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
         sys.exit()
       }
+      //todo: debug A is not subset of B
+//      HintsSelection.printPredicateInMapFormat(initialPredicatesForCEGAR.toInitialPredicates,"A")
+//      HintsSelection.printPredicateInMapFormat(HintsSelection.transformPredicatesToCanonical(predAbs.predicates),"B")
+
 
       lazabs.GlobalParameters.get.predicateOutputFile match {
         case "" =>

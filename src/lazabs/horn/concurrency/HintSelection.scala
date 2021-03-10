@@ -162,8 +162,9 @@ object HintsSelection {
         throw lazabs.Main.MainTimeoutException //Main.TimeoutException
     }
     for ((head,preds)<-mergedPredicates){
+      var leftPredicates=preds
       var uselessPredicatesInMinimizedPredicatesFromCegarHead:Seq[IFormula]=Seq()
-      var usefulPredicatesInCurrentHead:Seq[IFormula]=
+      var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         if(initialPredicates.exists(_._1.equals(head)))
           initialPredicates(head)
         else
@@ -176,6 +177,7 @@ object HintsSelection {
           new HornPredAbs(simplePredicatesGeneratorClauses, tempPredicates, exceptionalPredGen,counterexampleMethod).result
           //p is useless
           uselessPredicatesInMinimizedPredicatesFromCegarHead=uselessPredicatesInMinimizedPredicatesFromCegarHead.:+(p)
+          leftPredicates=leftPredicates.filterNot(_==p)
           mainTimeoutChecker()//check total used time for minimizing process
         }catch{
           case lazabs.Main.TimeoutException=>{
@@ -185,12 +187,34 @@ object HintsSelection {
           case _=>{throw lazabs.Main.MainTimeoutException}
         }
       }
-      usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->usefulPredicatesInCurrentHead)
+      //usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->usefulPredicatesInCurrentHead)
+      usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->leftPredicates)
     }
     //minimized
     val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+
+    //todo:begin with different input predicates (even if the relation is subset) will generate different predicate set
+//    val (minimizedMergedPredicates,_)=getMinimumSetPredicates(mergedPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+//    val (minimizedB,_)=getMinimumSetPredicates(minimizedPredicatesFromCegar,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+//    printPredicateInMapFormat(initialPredicates,"A")
+//    printPredicateInMapFormat(minimizedPredicatesFromCegar,"B")
+//    printPredicateInMapFormat(mergedPredicates,"A u B")
+//    printPredicateInMapFormat(minimizedMergedPredicates,"minimized A u B")
+//    printPredicateInMapFormat(minimizedB,"minimized B")
+//    printPredicateInMapFormat(usefulPredicatesInInitialPredicatesFormat,"A u B -B")
+//    printPredicateInMapFormat(minimizedUsefulPredicatesInInitialPredicateFormat,"minimized A u B -B")
+//    intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
     //intersect
     intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
+  }
+
+  def printPredicateInMapFormat(p:Map[Predicate,Seq[IFormula]],message:String=""): Unit ={
+    println(message)
+    for ((h,b)<-p) {
+      println(h)
+      for (bb<-b)
+        println(bb)
+    }
   }
 
   def clonedTimeChecker(to: Int, coefficient: Int = 1): GlobalParameters = {
@@ -556,17 +580,6 @@ object HintsSelection {
     VerificationHints(labeledPredicates.toMap)
   }
 
-  def transformVerificationHintsToPredicateMap(hints:VerificationHints): Map[Predicate,Seq[IFormula]] ={
-    for ((head, hintList) <- hints.getPredicateHints) yield{
-      head-> (for (h <- hintList) yield {
-        h match {
-          case VerifHintInitPred(p)=>p
-          case _=>{IExpression.i(true)}
-        }
-      })
-    }
-  }
-
   def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause],hintType:String=""):VerificationHints={
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
@@ -736,15 +749,24 @@ object HintsSelection {
       Seq()
   }
 
-  def sortHints(hints: VerificationHints): VerificationHints = {
-    var tempHints = VerificationHints(Map()) //sort the hints
-    for ((oneHintKey, oneHintValue) <- hints.getPredicateHints()) {
-      val tempSeq = oneHintValue.sortBy(oneHintValue => (oneHintValue.toString, oneHintValue.toString))
-      tempHints = tempHints.addPredicateHints(Map(oneHintKey -> tempSeq))
+  def sortHints[A](hints: A): A = {
+    hints match {
+      case h:VerificationHints=>{
+        var tempHints = VerificationHints(Map()) //sort the hints
+        for ((oneHintKey, oneHintValue) <- h.getPredicateHints()) {
+          val tempSeq = oneHintValue.sortBy(oneHintValue => (oneHintValue.toString, oneHintValue.toString))
+          tempHints = tempHints.addPredicateHints(Map(oneHintKey -> tempSeq))
+        }
+        tempHints.asInstanceOf[A]
+      }
+      case h:Map[Predicate,Seq[IFormula]]=>{
+        (for ((oneHintKey, oneHintValue) <- h) yield {
+          val tempSeq = oneHintValue.sortBy(oneHintValue => (oneHintValue.toString, oneHintValue.toString))
+          oneHintKey->tempSeq
+        }).toMap.asInstanceOf[A]
+      }
     }
-    //    println("tempHints")
-    //    tempHints.pretyPrintHints()
-    return tempHints
+
   }
 
 
