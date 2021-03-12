@@ -119,13 +119,16 @@ object HintsSelection {
     }
     val predicatesExtractingBeginTime=System.currentTimeMillis
     if (!originalPredicates.isEmpty) {
-
+      //todo: check this mechanism
       for ((head, preds) <- originalPredicates) {
         var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         var uselessPredicatesInCurrentHead:Seq[IFormula]=Seq()
+        var leftPredicates:Seq[IFormula]=preds
         for (p <- preds) {
           //delete p and useless predicates
-          val tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
+          //val tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
+          leftPredicates=leftPredicates.filterNot(_==p)
+          val tempPredicates=sortHints(originalPredicates.filterNot(_._1==head)  ++ Map(head->leftPredicates))
           val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
           try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
             println("----------------------------------- CEGAR --------------------------------------")
@@ -135,13 +138,15 @@ object HintsSelection {
             mainTimeoutChecker()//check total used time for minimizing process
           }catch{
             case lazabs.Main.TimeoutException=>{
-              //p is useful,append p to usefulPredicatesInCurrentHead
+              //p is useful,append p to usefulPredicatesInCurrentHead, add it back to left predicates
               usefulPredicatesInCurrentHead=usefulPredicatesInCurrentHead.:+(p)
+              leftPredicates=leftPredicates.:+(p)
             }
             case _=>{throw lazabs.Main.MainTimeoutException}
           }
         }
-        minimumSetPredicate=minimumSetPredicate++Map(head->usefulPredicatesInCurrentHead)
+        //minimumSetPredicate=minimumSetPredicate++Map(head->usefulPredicatesInCurrentHead)
+        minimumSetPredicate=minimumSetPredicate++Map(head->leftPredicates)
       }
     }
     val predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
@@ -162,7 +167,8 @@ object HintsSelection {
         throw lazabs.Main.MainTimeoutException //Main.TimeoutException
     }
     for ((head,preds)<-mergedPredicates){
-      var leftPredicates=preds
+      //todo: check this mechanism again
+      var leftPredicates:Seq[IFormula]=preds
       var uselessPredicatesInMinimizedPredicatesFromCegarHead:Seq[IFormula]=Seq()
       var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         if(initialPredicates.exists(_._1.equals(head)))
@@ -170,19 +176,21 @@ object HintsSelection {
         else
           Seq()
       for(p<-minimizedPredicatesFromCegar(head)){
-        val tempPredicates=mergedPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInMinimizedPredicatesFromCegarHead.contains(x)))
+        leftPredicates=leftPredicates.filterNot(_==p)
+        val tempPredicates=sortHints(mergedPredicates.filterNot(_._1==head) ++ Map(head->leftPredicates))
+        //val tempPredicates=mergedPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInMinimizedPredicatesFromCegarHead.contains(x)))
         val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
         try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
           println("----------------------------------- CEGAR --------------------------------------")
           new HornPredAbs(simplePredicatesGeneratorClauses, tempPredicates, exceptionalPredGen,counterexampleMethod).result
           //p is useless
           uselessPredicatesInMinimizedPredicatesFromCegarHead=uselessPredicatesInMinimizedPredicatesFromCegarHead.:+(p)
-          leftPredicates=leftPredicates.filterNot(_==p)
           mainTimeoutChecker()//check total used time for minimizing process
         }catch{
           case lazabs.Main.TimeoutException=>{
             //p is useful
             usefulPredicatesInCurrentHead=usefulPredicatesInCurrentHead.:+(p)
+            leftPredicates=leftPredicates.:+(p)
           }
           case _=>{throw lazabs.Main.MainTimeoutException}
         }
@@ -191,21 +199,37 @@ object HintsSelection {
       usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->leftPredicates)
     }
     //minimized
-    val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+    //val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+    //intersect
+    //intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
+    // use AuB-B without minimize
+    intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
 
-    //todo:begin with different input predicates (even if the relation is subset) will generate different predicate set
+    //debug:begin with different input predicates (even if the relation is subset) will generate different predicate set
 //    val (minimizedMergedPredicates,_)=getMinimumSetPredicates(mergedPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
 //    val (minimizedB,_)=getMinimumSetPredicates(minimizedPredicatesFromCegar,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
-//    printPredicateInMapFormat(initialPredicates,"A")
-//    printPredicateInMapFormat(minimizedPredicatesFromCegar,"B")
-//    printPredicateInMapFormat(mergedPredicates,"A u B")
-//    printPredicateInMapFormat(minimizedMergedPredicates,"minimized A u B")
-//    printPredicateInMapFormat(minimizedB,"minimized B")
-//    printPredicateInMapFormat(usefulPredicatesInInitialPredicatesFormat,"A u B -B")
-//    printPredicateInMapFormat(minimizedUsefulPredicatesInInitialPredicateFormat,"minimized A u B -B")
-//    intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
-    //intersect
-    intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
+//
+//    println("A",initialPredicates.values.flatten.size)
+//    //printPredicateInMapFormat(initialPredicates,"A")
+//    println("B",minimizedPredicatesFromCegar.values.flatten.size)
+//    //printPredicateInMapFormat(minimizedPredicatesFromCegar,"B")
+//    println("A u B",mergedPredicates.values.flatten.size)
+//    //printPredicateInMapFormat(mergedPredicates,"A u B")
+//    println("minimized A u B",minimizedMergedPredicates.values.flatten.size)
+//    //printPredicateInMapFormat(minimizedMergedPredicates,"minimized A u B")
+//    println("minimized B",minimizedB.values.flatten.size)
+//    //printPredicateInMapFormat(minimizedB,"minimized B")
+//    println("A u B -B",usefulPredicatesInInitialPredicatesFormat.values.flatten.size)
+//    //printPredicateInMapFormat(usefulPredicatesInInitialPredicatesFormat,"A u B -B")
+//    println("minimized A u B -B",minimizedUsefulPredicatesInInitialPredicateFormat.values.flatten.size)
+//    //printPredicateInMapFormat(minimizedUsefulPredicatesInInitialPredicateFormat,"minimized A u B -B")
+//
+//    val res=intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
+//    //printPredicateInMapFormat(res,"A wedge F")
+//    println("A wedge F",res.values.flatten.size)
+//    res
+
+
   }
 
   def printPredicateInMapFormat(p:Map[Predicate,Seq[IFormula]],message:String=""): Unit ={
