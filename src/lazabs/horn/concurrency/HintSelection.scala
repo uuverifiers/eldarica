@@ -119,8 +119,8 @@ object HintsSelection {
     }
     val predicatesExtractingBeginTime=System.currentTimeMillis
     if (!originalPredicates.isEmpty) {
-      //todo: check this mechanism
-      for ((head, preds) <- originalPredicates) {
+      //todo: check this mechanism,sort the key name first by directly to Seq, then sorted by name. to Seq[Pair[Predicates,Seq[IFormula]]]
+      for ((head, preds) <- sortHints(originalPredicates)) {
         var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         var uselessPredicatesInCurrentHead:Seq[IFormula]=Seq()
         var leftPredicates:Seq[IFormula]=preds
@@ -166,7 +166,7 @@ object HintsSelection {
       if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
         throw lazabs.Main.MainTimeoutException //Main.TimeoutException
     }
-    for ((head,preds)<-mergedPredicates){
+    for ((head,preds)<-sortHints(mergedPredicates)){
       //todo: check this mechanism again
       var leftPredicates:Seq[IFormula]=preds
       var uselessPredicatesInMinimizedPredicatesFromCegarHead:Seq[IFormula]=Seq()
@@ -199,11 +199,11 @@ object HintsSelection {
       usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->leftPredicates)
     }
     //minimized
-    //val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+    val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
     //intersect
-    //intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
+    intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
     // use AuB-B without minimize
-    intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
+    //intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
 
     //debug:begin with different input predicates (even if the relation is subset) will generate different predicate set
 //    val (minimizedMergedPredicates,_)=getMinimumSetPredicates(mergedPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
@@ -784,7 +784,8 @@ object HintsSelection {
         tempHints.asInstanceOf[A]
       }
       case h:Map[Predicate,Seq[IFormula]]=>{
-        (for ((oneHintKey, oneHintValue) <- h) yield {
+        val sortedByKey=h.toSeq.sortBy(_._1.name)
+        (for ((oneHintKey, oneHintValue) <- sortedByKey) yield {
           val tempSeq = oneHintValue.sortBy(oneHintValue => (oneHintValue.toString, oneHintValue.toString))
           oneHintKey->tempSeq
         }).toMap.asInstanceOf[A]
