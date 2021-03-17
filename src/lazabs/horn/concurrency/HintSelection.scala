@@ -119,7 +119,6 @@ object HintsSelection {
     }
     val predicatesExtractingBeginTime=System.currentTimeMillis
     if (!originalPredicates.isEmpty) {
-      //todo: check this mechanism,sort the key name first by directly to Seq, then sorted by name. to Seq[Pair[Predicates,Seq[IFormula]]]
       for ((head, preds) <- sortHints(originalPredicates)) {
         var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         var uselessPredicatesInCurrentHead:Seq[IFormula]=Seq()
@@ -127,7 +126,8 @@ object HintsSelection {
         for (p <- preds) {
           //delete p and useless predicates
           //val tempPredicates=originalPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInCurrentHead.contains(x)))
-          leftPredicates=leftPredicates.filterNot(_==p)
+          //leftPredicates=leftPredicates.filterNot(_==p)
+          leftPredicates=leftPredicates.filterNot(x=>x.toString==p.toString)
           val tempPredicates=sortHints(originalPredicates.filterNot(_._1==head)  ++ Map(head->leftPredicates))
           val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
           try GlobalParameters.parameters.withValue(predicateUsefulnessTimeoutChecker){
@@ -153,6 +153,7 @@ object HintsSelection {
     (minimumSetPredicate,predicatesExtractingTime)
   }
 
+
   def getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicates:Map[Predicate, Seq[IFormula]],
                                                      minimizedPredicatesFromCegar:Map[Predicate, Seq[IFormula]],
                                                      simplePredicatesGeneratorClauses:Clauses,
@@ -168,7 +169,8 @@ object HintsSelection {
     }
     for ((head,preds)<-sortHints(mergedPredicates)){
       //todo: check this mechanism again
-      var leftPredicates:Seq[IFormula]=preds
+      //var leftPredicates:Seq[IFormula]=preds
+      var leftPredicates:Seq[IFormula]=minimizedPredicatesFromCegar(head)
       var uselessPredicatesInMinimizedPredicatesFromCegarHead:Seq[IFormula]=Seq()
       var usefulPredicatesInCurrentHead:Seq[IFormula]=Seq()
         if(initialPredicates.exists(_._1.equals(head)))
@@ -176,7 +178,8 @@ object HintsSelection {
         else
           Seq()
       for(p<-minimizedPredicatesFromCegar(head)){
-        leftPredicates=leftPredicates.filterNot(_==p)
+        //leftPredicates=leftPredicates.filterNot(_==p)
+        leftPredicates=leftPredicates.filterNot(x=>x.toString==p.toString)
         val tempPredicates=sortHints(mergedPredicates.filterNot(_._1==head) ++ Map(head->leftPredicates))
         //val tempPredicates=mergedPredicates.filterNot(_._1==head) ++ Map(head->preds.filterNot(x=>x==p||uselessPredicatesInMinimizedPredicatesFromCegarHead.contains(x)))
         val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
@@ -199,11 +202,11 @@ object HintsSelection {
       usefulPredicatesInInitialPredicatesFormat=usefulPredicatesInInitialPredicatesFormat++Map(head->leftPredicates)
     }
     //minimized
-    val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+    //val (minimizedUsefulPredicatesInInitialPredicateFormat,_)=getMinimumSetPredicates(usefulPredicatesInInitialPredicatesFormat,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
     //intersect
-    intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
+    //intersectPredicatesByString(minimizedUsefulPredicatesInInitialPredicateFormat,initialPredicates).mapValues(distinctByString(_))
     // use AuB-B without minimize
-    //intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
+    intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
 
     //debug:begin with different input predicates (even if the relation is subset) will generate different predicate set
 //    val (minimizedMergedPredicates,_)=getMinimumSetPredicates(mergedPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
@@ -223,9 +226,9 @@ object HintsSelection {
 //    //printPredicateInMapFormat(usefulPredicatesInInitialPredicatesFormat,"A u B -B")
 //    println("minimized A u B -B",minimizedUsefulPredicatesInInitialPredicateFormat.values.flatten.size)
 //    //printPredicateInMapFormat(minimizedUsefulPredicatesInInitialPredicateFormat,"minimized A u B -B")
-//
+    // use AuB-B with minimize
 //    val res=intersectPredicatesByString(usefulPredicatesInInitialPredicatesFormat,initialPredicates).mapValues(distinctByString(_))
-//    //printPredicateInMapFormat(res,"A wedge F")
+//    printPredicateInMapFormat(res,"A wedge F")
 //    println("A wedge F",res.values.flatten.size)
 //    res
 

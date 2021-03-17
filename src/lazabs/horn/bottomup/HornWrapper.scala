@@ -451,11 +451,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       //get minimized useful set and see how many initial predicates are in it
       val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //minimized predicates intersect initialPredicate
-      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicate.toInitialPredicates,
-        minimizedPredicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
+//      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicate.toInitialPredicates,
+//        minimizedPredicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //debug use A u B - B
-//      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(
-//  initialPredicate.toInitialPredicates, predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(
+  initialPredicate.toInitialPredicates, predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       if (GlobalParameters.get.log==true){
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial-"+fieldName+".tpl")) {AbsReader.printHints(initialPredicate)}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
