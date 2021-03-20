@@ -117,12 +117,16 @@ object HintsSelection {
     }
     val predicatesExtractingBeginTime=System.currentTimeMillis
     var currentInitialPredicates:Map[Predicate,Seq[IFormula]]=sortHints(originalPredicates)
+    var pIndex = 0
     if (!originalPredicates.isEmpty) {
       for ((head, preds) <- sortHints(originalPredicates)) {
         //var leftPredicates:Seq[IFormula]=preds
         for (p <- preds) {
           //delete p and useless predicates
-          currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if (k==head) v.filterNot(x=>x.toString==p.toString) else v)
+          currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if (k.name==head.name) {
+            pIndex = v.indexWhere(x=>x.toString==p.toString)
+            v.filterNot(x=>x.toString==p.toString)
+          } else v)
           //leftPredicates=leftPredicates.filterNot(x=>x.toString==p.toString)
           //currentInitialPredicates=sortHints(currentInitialPredicates.filterNot(_._1==head)  ++ Map(head->leftPredicates))
           val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
@@ -135,7 +139,10 @@ object HintsSelection {
             case lazabs.Main.TimeoutException=>{
               //p is useful,append p to usefulPredicatesInCurrentHead, add it back to left predicates
               //leftPredicates=leftPredicates.:+(p)
-              currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if(k==head) v.:+(p) else v)
+              currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if(k.name==head.name) {
+                v.take(pIndex).:+(p) ++ v.drop(pIndex)
+                //v.:+(p)
+              } else v)
             }
             case _=>{throw lazabs.Main.MainTimeoutException}
           }
@@ -162,12 +169,17 @@ object HintsSelection {
       if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
         throw lazabs.Main.MainTimeoutException //Main.TimeoutException
     }
+    var pIndex=0
     var currentInitialPredicates:Map[Predicate,Seq[IFormula]]=sortHints(mergedPredicates)
     for ((head,preds)<-sortHints(mergedPredicates)){
       //todo: check this when varyGeneratedPredicates is on
       //var leftPredicates:Seq[IFormula]=preds
       for(p<-minimizedPredicatesFromCegar(head)){
-        currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if (k==head) v.filterNot(x=>x.toString==p.toString) else v)
+        //delete p
+        currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if (k.name==head.name) {
+          pIndex = v.indexWhere(x=>x.toString==p.toString)
+          v.filterNot(x=>x.toString==p.toString)
+        } else v)
 //        leftPredicates=leftPredicates.filterNot(x=>x.toString==p.toString)
 //        currentInitialPredicates=sortHints(currentInitialPredicates.filterNot(_._1.name==head.name) ++ Map(head->leftPredicates))
         val predicateUsefulnessTimeoutChecker=clonedTimeChecker(GlobalParameters.get.threadTimeout)
@@ -180,7 +192,11 @@ object HintsSelection {
           case lazabs.Main.TimeoutException=>{
             //p is useful
             //leftPredicates=leftPredicates.:+(p)
-            currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if(k==head) v.:+(p) else v)
+            //todo: intert it back in exact position where it is deleted
+            currentInitialPredicates=currentInitialPredicates.transform((k,v)=>if(k.name==head.name) {
+              v.take(pIndex).:+(p) ++ v.drop(pIndex)
+              //v.:+(p)
+            } else v)
           }
           case _=>{throw lazabs.Main.MainTimeoutException}
         }
@@ -304,7 +320,7 @@ object HintsSelection {
           satisfiability = false
           println(Console.RED + "-"*10+"unsat"+"-"*10)
           if (moveFile == true)
-            HintsSelection.moveRenameFile(filePath, "../benchmarks/unsat/" + fileName)
+            HintsSelection.moveRenameFile(filePath, "../benchmarks/exceptions/unsat/" + fileName)
           if (exit == true)
             sys.exit()
         }
@@ -312,7 +328,7 @@ object HintsSelection {
     } catch {
       case lazabs.Main.TimeoutException => {
         println(Console.RED + "-"*10 +"solvability-timeout"+"-"*10)
-        HintsSelection.moveRenameFile(filePath, "../benchmarks/solvability-timeout/" + fileName)
+        HintsSelection.moveRenameFile(filePath, "../benchmarks/exceptions/solvability-timeout/" + fileName)
         sys.exit()
       }
     }
@@ -341,7 +357,7 @@ object HintsSelection {
       case lazabs.Main.TimeoutException => {
         println(Console.RED + "-"*10 +"solvability-timeout"+"-"*10)
         if (moveFile == true)
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/solvability-timeout/" + fileName)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/solvability-timeout/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
         solveTime = ((currentTimeMillis - startTime) / 1000).toInt
@@ -738,17 +754,20 @@ object HintsSelection {
   }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String,message:String=""): Unit = {
-    println(Console.RED+"-"*5+message+"-"*5)
-    val path = Files.move(
-      Paths.get(sourceFilename),
-      Paths.get(destinationFilename),
-      StandardCopyOption.REPLACE_EXISTING
-    )
-    if (path != null) {
-      println(s"moved the file $sourceFilename successfully")
-    } else {
-      println(s"could NOT move the file $sourceFilename")
+    if (GlobalParameters.get.moveFile==true){
+      println(Console.RED+"-"*5+message+"-"*5)
+      val path = Files.move(
+        Paths.get(sourceFilename),
+        Paths.get(destinationFilename),
+        StandardCopyOption.REPLACE_EXISTING
+      )
+      if (path != null) {
+        println(s"moved the file $sourceFilename successfully")
+      } else {
+        println(s"could NOT move the file $sourceFilename")
+      }
     }
+
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(

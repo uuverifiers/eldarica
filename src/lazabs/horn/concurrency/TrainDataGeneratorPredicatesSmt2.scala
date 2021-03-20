@@ -315,7 +315,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           }
           catch {
             case _ =>{
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/solvability-timeout/" + fileName)
+              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/solvability-timeout/" + fileName)
               sys.exit()
             }
           }
@@ -404,21 +404,21 @@ object TrainDataGeneratorPredicatesSmt2 {
               HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate),outputAllPredicates=false)
               drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
             } else{
-              //HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"labeledPredicates is empty")
+              //HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")
             }
 
           }catch{
             case lazabs.Main.TimeoutException =>{
               //not include this to training example? because it can only provide negative training data
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/test-timeout/" +fileName,"test timeout")
+              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/test-timeout/" +fileName,"test timeout")
             }
           }
         } else{
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"optimizedPredicate is empty")
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"optimizedPredicate is empty")
         }
 
       }else{
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/no-predicates-selected/"+fileName,"originalPredicate is empty")
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"originalPredicate is empty")
       }
       println(Console.GREEN + "time consumption before predicate extracting process: " + timeConsumptionBeforePredicateExtractingProcess + "s")
       println(Console.GREEN + "time for generating initial predicates: "+ generatingInitialPredicatesTime + "s")

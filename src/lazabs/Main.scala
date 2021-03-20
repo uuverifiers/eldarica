@@ -58,7 +58,8 @@ class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
   var checkSolvability=false
   var generateSimplePredicates=false
-  var totalHints=0
+  var moveFile = false
+  var maxNode=1000000
   var threadTimeout = 120000
   var solvabilityTimeout=120000
   var mainTimeout=120000
@@ -218,6 +219,7 @@ class GlobalParameters extends Cloneable {
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
     that.threadTimeout = this.threadTimeout
+    that.maxNode = this.maxNode
     that.solvabilityTimeout=this.solvabilityTimeout
     that.mainTimeout=this.mainTimeout
     that.rank = this.rank
@@ -234,6 +236,7 @@ class GlobalParameters extends Cloneable {
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.generateSimplePredicates=this.generateSimplePredicates
     that.checkSolvability=this.checkSolvability
+    that.moveFile = this.moveFile
   }
 
   override def clone : GlobalParameters = {
@@ -330,6 +333,7 @@ object Main {
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
+      case "-moveFile" :: rest => moveFile = true; arguments(rest)
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
@@ -440,6 +444,9 @@ object Main {
       case _threadTimeout :: rest if (_threadTimeout.startsWith("-absTimeout:")) =>
         threadTimeout =
           (java.lang.Float.parseFloat(_threadTimeout.drop("-absTimeout:".length)) *1000).toInt;
+        arguments(rest)
+      case _maxNode :: rest if (_maxNode.startsWith("-maxNode:")) =>
+        maxNode = java.lang.Integer.parseInt(_maxNode.drop("-maxNode:".length));
         arguments(rest)
       case _solvabilityTimeout :: rest if (_solvabilityTimeout.startsWith("-solvabilityTimeout:")) =>
         solvabilityTimeout =
@@ -584,10 +591,12 @@ object Main {
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t extract predicates using cegar and simply generated predicates\n"+
+          " -moveFile\t if exception occur, move file to excepion directory\n"+
           " -checkSolvability \t check solvability for different initial predicate settings\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
+          " -maxNode:n\t if the node number exceeded this number, stop drawing\n"+
           " -getSMT2\t get SMT2 file\n"+
           " -getHornGraph\t get all types of horn graph file and GNN input\n"+
           " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph, hyperEdgeGraph, equivalentHyperedgeGraph, concretizedHyperedgeGraph\n" +
@@ -846,30 +855,30 @@ object Main {
 
   } catch {
     case TimeoutException | StoppedException =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError(" timeout", GlobalParameters.get.format)
     }
     case  MainTimeoutException =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("main timeout", GlobalParameters.get.format)
     }
       // nothing
     case _ : java.lang.OutOfMemoryError =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/out-of-memory/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/out-of-memory/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("out of memory", GlobalParameters.get.format)
     }
     case _ : java.lang.StackOverflowError =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
       printError("stack overflow", GlobalParameters.get.format)
     }
     case t : Exception =>{
       printError(t.getMessage, GlobalParameters.get.format)
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
     }
     case x:Any=>{
       printError("other-error", GlobalParameters.get.format)
       println(Console.RED + x.toString)
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
     }
 
   }

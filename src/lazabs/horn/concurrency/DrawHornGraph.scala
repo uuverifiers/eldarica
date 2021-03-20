@@ -278,6 +278,12 @@ class GNNInput(clauseCollection:ClauseInfo) {
   }
 
   def incrementNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
+    //check if total node number larger than max_node
+    if(nodeIds.size>GlobalParameters.get.maxNode){
+      println(Console.RED + "-"*10 +"node number >= maxNode" + "-"*10)
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/exceed-max-node/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      sys.exit()
+    }
     nodeIds +:= GNNNodeID
     nodeNameToIDMap(nodeUniqueName) = GNNNodeID
     GNNNodeID += 1

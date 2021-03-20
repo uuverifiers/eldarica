@@ -279,6 +279,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         addBinaryEdge(bodyNodeName,clauseNodeName,"clause")
     }
     clauseNumber += 1
+
   }
 
 
