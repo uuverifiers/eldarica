@@ -282,6 +282,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
     if(nodeIds.size>GlobalParameters.get.maxNode){
       println(Console.RED + "-"*10 +"node number >= maxNode" + "-"*10)
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/exceed-max-node/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
       sys.exit()
     }
     nodeIds +:= GNNNodeID
@@ -882,6 +883,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         //templateNameList:+=templateNodeName
+        //todo: differentiate clause not only by string?
         val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {

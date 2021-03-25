@@ -109,7 +109,6 @@ object HintsSelection {
                               exceptionalPredGen: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]=getExceptionalPredicatedGenerator(),
                               counterexampleMethod: HornPredAbs.CounterexampleMethod.Value=getCounterexampleMethod(GlobalParameters.get.disjunctive)):
   (Map[Predicate, Seq[IFormula]],Long) ={
-    var minimumSetPredicate: Map[Predicate, Seq[IFormula]] = Map()
     val startTimeForExtraction = System.currentTimeMillis()
     val mainTimeoutChecker = () => {
       if ((currentTimeMillis - startTimeForExtraction) > GlobalParameters.get.mainTimeout)
@@ -161,7 +160,7 @@ object HintsSelection {
                                                      exceptionalPredGen: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]=getExceptionalPredicatedGenerator(),
                                                      counterexampleMethod: HornPredAbs.CounterexampleMethod.Value=getCounterexampleMethod(GlobalParameters.get.disjunctive)):
   (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
-    val mergedPredicates=mergePredicateMaps(initialPredicates,minimizedPredicatesFromCegar)
+    val mergedPredicates=sortHints(mergePredicateMaps(initialPredicates,minimizedPredicatesFromCegar))
     //delete predicates from minimizedPredicatesFromCegar
     var usefulPredicatesInInitialPredicatesFormat: Map[Predicate, Seq[IFormula]]=Map()
     val startTimeForExtraction = System.currentTimeMillis()
@@ -170,8 +169,8 @@ object HintsSelection {
         throw lazabs.Main.MainTimeoutException //Main.TimeoutException
     }
     var pIndex=0
-    var currentInitialPredicates:Map[Predicate,Seq[IFormula]]=sortHints(mergedPredicates)
-    for ((head,preds)<-sortHints(mergedPredicates)){
+    var currentInitialPredicates:Map[Predicate,Seq[IFormula]]=mergedPredicates
+    for ((head,preds)<-mergedPredicates){
       //todo: check this when varyGeneratedPredicates is on
       //var leftPredicates:Seq[IFormula]=preds
       for(p<-minimizedPredicatesFromCegar(head)){
@@ -222,7 +221,7 @@ object HintsSelection {
 //    val (minimizedVariedMinimizedB,_)=getMinimumSetPredicates(variedMinimizedB,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
 //
 //    println("A",initialPredicates.values.flatten.size)
-//    //printPredicateInMapFormat(initialPredicates,"A")
+//    printPredicateInMapFormat(initialPredicates,"A")
 //    println("B",minimizedPredicatesFromCegar.values.flatten.size)
 //    printPredicateInMapFormat(sortHints(minimizedPredicatesFromCegar),"B")
 //    println("A u B",mergedPredicates.values.flatten.size)
@@ -230,7 +229,7 @@ object HintsSelection {
 //    println("minimized A u B",minimizedMergedPredicates.values.flatten.size)
 //    printPredicateInMapFormat(minimizedMergedPredicates,"minimized A u B")
 //    println("minimized A",minimizedA.values.flatten.size)
-//    //printPredicateInMapFormat(minimizedA,"minimized A")
+//    printPredicateInMapFormat(minimizedA,"minimized A")
 //    println("minimized B",minimizedB.values.flatten.size)
 //    //printPredicateInMapFormat(minimizedB,"minimized B")
 //    println("variedMinimized B",variedMinimizedB.values.flatten.size)
@@ -693,9 +692,8 @@ object HintsSelection {
         } else
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
       }
-      atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse).map(spAPI.simplify(_)).filterNot(_.isTrue).map(sp(_)) //get rid of true and false
+      atom.pred-> freeVariableReplacedPredicates.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)//map(spAPI.simplify(_)) //get rid of true and false
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)
-
     val constraintPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
         HintsSelection.varyPredicates(constraintPredicatesTemp)
@@ -767,7 +765,12 @@ object HintsSelection {
         println(s"could NOT move the file $sourceFilename")
       }
     }
-
+  }
+  def removeRelativeFiles(fileName:String): Unit ={
+    Files.delete(Paths.get(fileName+".circles.gv"))
+    Files.delete(Paths.get(fileName+".HornGraph"))
+    Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.gv"))
+    Files.delete(Paths.get(fileName+".unlabeledPredicates.tpl"))
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(

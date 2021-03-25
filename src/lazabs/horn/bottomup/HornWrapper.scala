@@ -406,7 +406,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no initial predicates")
       sys.exit()
     }
-    HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = false,exit=true )
+    HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = true,exit=true )
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(initialPredicates)}
 
@@ -434,13 +434,16 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val simpleGeneratedInitialPredicates = HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
     val emptyInitialPredicates = VerificationHints(Map())
-    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates)
-    val predictedInitialpredicates = predictedPredicates ++ simpHints
+    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates) ++ simpHints
+    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
+      VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+    else emptyInitialPredicates
 
     val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
     val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,
-      "predictedInitialpredicates"->predictedInitialpredicates,
-      "fullInitialPredicates"->fullInitialPredicates
+      "predictedInitialPredicates"->predictedPredicates,
+      "fullInitialPredicates"->fullInitialPredicates,
+      "trueInitialPredicates"->truePredicates
     )
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
@@ -471,7 +474,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
     if (GlobalParameters.get.measurePredictedPredicates==true){
       HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,
-        predictedPredicates.toInitialPredicates,fullInitialPredicates.toInitialPredicates,Map())
+        predictedPredicates.toInitialPredicates,fullInitialPredicates.toInitialPredicates,truePredicates.toInitialPredicates)
     }
     sys.exit()
 
@@ -487,7 +490,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       truePositiveHints
     }
     else if (GlobalParameters.get.generateSimplePredicates == true) {
-      val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+      val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false)
       HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
     }
     else simpHints
