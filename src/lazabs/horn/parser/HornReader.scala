@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -170,8 +170,12 @@ object HornReader {
 
     override def preVisit(t : IExpression,
                           arg : Context[Unit]) : PreVisitResult = t match {
-      case _ : IAtom if (!arg.binders.isEmpty) => throw FoundPredUnderQuantifier
-      case _ => super.preVisit(t, arg)
+      case a : IAtom
+          if !arg.binders.isEmpty &&
+             (TheoryRegistry lookupSymbol a.pred).isEmpty =>
+        throw FoundPredUnderQuantifier
+      case _ =>
+        super.preVisit(t, arg)
     }
    
     def postVisit(t : IExpression,
@@ -196,9 +200,10 @@ object HornReader {
 
     override def preVisit(t : IExpression,
                           ctxt : Context[Unit]) : PreVisitResult = t match {
-      case _ : IAtom
-        if ctxt.polarity < 0 && (ctxt.binders contains Context.EX)  =>
-          throw FoundPredUnderQuantifier
+      case a : IAtom
+        if ctxt.polarity < 0 && (ctxt.binders contains Context.EX) &&
+           (TheoryRegistry lookupSymbol a.pred).isEmpty =>
+        throw FoundPredUnderQuantifier
       case _ =>
         super.preVisit(t, ctxt)
     }
@@ -334,6 +339,44 @@ class SMTHornReader protected[parser] (
   if (!signature.theories.isEmpty)
     Console.err.println("Theories: " + (signature.theories mkString ", "))
 
+  if (signature.theories exists {
+        case _ : SimpleArray  => false
+        case _ : ExtArray     => false
+        case _ : ADT          => false
+        case _ : MulTheory    => false
+        case TypeTheory       => false
+        case ModuloArithmetic => false
+        case _                => true
+      })
+    throw new Exception ("Combination of theories is not supported")
+
+  val canEliminateBodyQuantifiers =
+    signature.theories forall {
+      case _ : SimpleArray => true
+      case _ : ExtArray    => true
+      case TypeTheory      => true
+      case _               => false
+    }
+
+  lazabs.GlobalParameters.get.arrayQuantification match {
+    case Some(num) if !canEliminateBodyQuantifiers =>
+      throw new Exception ("Option -arrayQuans:" + num +
+                             " is not supported in combination with" +
+                             " the given theories. Use -arrayQuans:off")
+    case _ =>
+      // ok
+  }
+
+  val elimArrays =
+    lazabs.GlobalParameters.get.arrayQuantification.isDefined ||
+    (clauses exists (QuantifiedBodyPredsVisitor(_)))
+
+  if (elimArrays && !canEliminateBodyQuantifiers)
+    throw new Exception ("Cannot eliminate arrays in clauses due to theories")
+
+  if (elimArrays)
+    Console.err.println("Eliminating arrays using instantiation (incomplete)")
+
   private val eldClauses = for (cc <- clauses) yield {
     var symMap = Map[ConstantTerm, String]()
     var clause = cc
@@ -350,30 +393,8 @@ class SMTHornReader protected[parser] (
         }))
       throw new Exception ("Uninterpreted functions are not supported")
 
-    signature.theories match {
-      case theories if (theories forall {
-                          case _ : ADT          => true
-                          case _ : MulTheory    => true
-                          case TypeTheory       => true
-                          case ModuloArithmetic => true
-                          case _ : Heap         => true
-                          case _                => false
-                        }) =>
-        // ok
-      case theories if (theories forall {
-                          case _ : SimpleArray => true
-                          case _ : ExtArray    => true
-                          case TypeTheory      => true
-                          case _               => false
-                        }) => {
-        // ok
-      }
-      case _ =>
-        throw new Exception ("Combination of theories is not supported")
-    }
-
     clause =
-      if (QuantifiedBodyPredsVisitor(clause)) {
+      if (elimArrays) {
         // need full preprocessing, in particular to introduce triggers
         val (List(INamedPart(_, processedClause_aux)), _, _) =
           Preprocessing(clause,
@@ -417,7 +438,8 @@ class SMTHornReader protected[parser] (
     for (conjunctRaw <- cnf_if_needed(groundClause);
          conjunct <- elimQuansTheories(conjunctRaw,
                                        unintPredicates,
-                                       signature.theories)) yield {
+                                       signature.theories,
+                                       elimArrays)) yield {
 
       for (c <- SymbolCollector constantsSorted conjunct;
            if (!(symMap contains c)))
@@ -533,7 +555,8 @@ class SMTHornReader protected[parser] (
   private def elimQuansTheories(
                 clause : IFormula,
                 unintPredicates : LinkedHashSet[Predicate],
-                allTheories : Seq[Theory]) : Seq[IFormula] = {
+                allTheories : Seq[Theory],
+                elimArrays : Boolean) : Seq[IFormula] = {
 
     val containsArraySymbol =
       ContainsSymbol(clause, (e : IExpression) => e match {
@@ -550,9 +573,7 @@ class SMTHornReader protected[parser] (
 
     val quanNum = QuantifierCountVisitor(clause)
 
-    if (quanNum == 0 &&
-        !(containsArraySymbol &&
-          lazabs.GlobalParameters.get.arrayQuantification.isDefined))
+    if (quanNum == 0 && !(containsArraySymbol && elimArrays))
       return List(clause)
 
     if (containsArraySymbol || PredUnderQuantifierVisitor(clause))

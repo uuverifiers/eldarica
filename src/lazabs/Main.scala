@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -102,7 +102,7 @@ class GlobalParameters extends Cloneable {
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
-  var arrayQuantification : Option[Int] = Some(1)
+  var arrayQuantification : Option[Int] = None
   var princess = false
   var staticAccelerate = false
   var dynamicAccelerate = false
@@ -276,7 +276,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0.5-heap.\n(C) Copyright 2012-2020 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.6.\n(C) Copyright 2012-2021 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -444,7 +444,7 @@ object Main {
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
-          " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: 1)\n" +
+          " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: off)\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -noIntervals\tDisable interval analysis\n" +
           " -hints:f\tRead hints (initial predicates and abstraction templates) from a file\n" +

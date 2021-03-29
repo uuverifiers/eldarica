@@ -337,7 +337,7 @@ Param             ::= ID:id COLON Type:t
 Type              ::= UNIT
                    {: RESULT = new UnitType(); :}
                    |  ARRAY LSQUAREBRACKET Type:t RSQUAREBRACKET
-                   {: RESULT = new ArrayType(t); :}
+                   {: RESULT = new ArrayType(new IntegerType(), t); :}
                    |  SET LSQUAREBRACKET Type:t RSQUAREBRACKET
                    {: RESULT = new SetType(t); :}                   
                    |  INT

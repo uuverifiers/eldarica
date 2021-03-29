@@ -162,7 +162,7 @@ object UppReader {
     val localIntVars: List[String] = UppCParser((template \ "declaration").text).map {_ match {
       case VarDeclaration(v, IntegerType(), _) => List("upp_" + name + "_" + v.drop(4))
       case VarDeclaration(v, ClassType(ct), _) if (ct != "chan" && ct != "clock") => List("upp_" + name + "_" + v.drop(4))
-      case VarDeclaration(arr, ArrayType(IntegerType()), ScArray(None, Some(NumericalConst(size)))) => (0 until size.intValue).map(i => ("upp_" + i + "_" + arr.drop(4))).toList
+      case VarDeclaration(arr, ArrayType(IntegerType(), IntegerType()), ScArray(None, Some(NumericalConst(size)))) => (0 until size.intValue).map(i => ("upp_" + i + "_" + arr.drop(4))).toList
       case _ => List()
     }}.flatten
     
@@ -244,7 +244,7 @@ object UppReader {
       case VarDeclaration(ch, ClassType("chan"), _) => channels ::= ch
       case VarDeclaration(v, ClassType(_), _) => globalIntVars ::= v
       case VarDeclaration(v, IntegerType(), _) => globalIntVars ::= v
-      case VarDeclaration(arr, ArrayType(IntegerType()), ScArray(None, Some(NumericalConst(size)))) =>
+      case VarDeclaration(arr, ArrayType(IntegerType(), IntegerType()), ScArray(None, Some(NumericalConst(size)))) =>
         globalIntVars :::= (0 until size.intValue).map(i => ("upp_" + i + "_" + arr.drop(4))).toList
       case fast@FunctionDefinition(funcName, params, t, body, None) =>
         globalFunctions += (funcName -> funcToHornCls(fast))

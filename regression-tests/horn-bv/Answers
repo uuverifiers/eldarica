@@ -149,7 +149,7 @@ unsat
 
 quantifier.smt2
 Theories: GroebnerMultiplication, ModuloArithmetic
-unknown
+unsat
 
 0: FALSE -> 1
 1: inv_main5(mod_cast(0, 4294967295, 0), mod_cast(0, 4294967295, 4294967295)) -> 2
