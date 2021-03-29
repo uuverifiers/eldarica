@@ -29,7 +29,7 @@
 
 package lazabs.types
 
-import ap.theories.ADT
+import ap.theories.{ADT, Heap}
 import ap.types._
 
 sealed abstract class Type
