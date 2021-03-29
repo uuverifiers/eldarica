@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -138,7 +138,10 @@ object HornSMTPrinter {
       case ArrayUpdate(ar, ind, value) =>
         "(store " + printExp(ar) + " " + printExp(ind) + " " + printExp(value) + ")"
       case HeapFun(heap, name, exprList) =>
-        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+        if (exprList.isEmpty)
+          name
+        else
+          "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case HeapPred(heap, name, exprList) =>
         "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
       case Not(e) => "(not " + printExp(e) + ")"

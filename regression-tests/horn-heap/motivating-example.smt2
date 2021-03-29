@@ -39,4 +39,4 @@
 (assert (forall ((h Heap) (l Addr))
   (=> (and (I4 h l) (not (is-O_Cons (read h l)))) false)))
 (assert (forall ((h Heap) (l Addr))
-  (=> (and (I4 h l) (not (isAlloc h l))) false))) ; (isAlloc = valid) in the paper
+  (=> (and (I4 h l) (not (valid h l))) false)))
