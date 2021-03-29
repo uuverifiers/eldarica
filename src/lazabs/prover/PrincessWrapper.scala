@@ -121,8 +121,10 @@ object PrincessWrapper {
       ArrayType(IntegerType(), IntegerType())
     case ExtArray.ArraySort(theory) if theory.indexSorts.size == 1 =>
       ArrayType(sort2Type(theory.indexSorts.head), sort2Type(theory.objSort))
-    case s : HeapSort => HeapType(s)
-    case s : AddressSort => HeapAddressType(s.heapTheory)
+    case s : HeapSort =>
+      HeapType(s)
+    case s : AddressSort =>
+      HeapAddressType(s.heapTheory)
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -617,12 +619,6 @@ class PrincessWrapper {
       // Heap theory
       case IAtom(pred@Heap.HeapPredExtractor(h), e) =>
         HeapPred(h, pred.name, e.map(rvT(_)))
-      case ISortedQuantified(Quantifier.EX, hs: HeapSort, e) =>
-        lazabs.ast.ASTree.Existential(BinderVariable("v").stype(HeapType(hs)), rvF(e).stype(BooleanType()))
-      case ISortedQuantified(Quantifier.EX, p: AddressSort, e) =>
-        lazabs.ast.ASTree.Existential(BinderVariable("v").stype(HeapAddressType(p.heapTheory)), rvF(e).stype(BooleanType()))
-      case ISortedQuantified(Quantifier.EX, o: ADT.ADTProxySort, e)  =>
-        lazabs.ast.ASTree.Existential(BinderVariable("v").stype(AdtType(o)), rvF(e).stype(BooleanType()))
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " subclass of " + t.getClass)
         BoolConst(false)

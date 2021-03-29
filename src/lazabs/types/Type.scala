@@ -40,6 +40,8 @@ case class BooleanType() extends Type
 case class StringType() extends Type
 case class AnyType() extends Type
 case class ArrayType(index : Type, obj : Type) extends Type
+case class HeapType(s: Sort) extends Type
+case class HeapAddressType(h: Heap) extends Type
 case class SetType(t: Type) extends Type
 case class AdtType(s: Sort) extends Type
 case class BVType(bits: Int) extends Type
