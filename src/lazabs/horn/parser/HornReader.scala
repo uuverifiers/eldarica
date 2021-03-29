@@ -342,6 +342,7 @@ class SMTHornReader protected[parser] (
   if (signature.theories exists {
         case _ : SimpleArray  => false
         case _ : ExtArray     => false
+        case _ : Heap         => false
         case _ : ADT          => false
         case _ : MulTheory    => false
         case TypeTheory       => false
