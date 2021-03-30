@@ -375,8 +375,8 @@ object TrainDataGeneratorPredicatesSmt2 {
 
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
-                val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(simpHints.toInitialPredicates,simpleGeneratedPredicates)
-                val (tempLabel,_)=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(simpleGeneratedAndAbstractGeneratedPredicates,optimizedPredicate,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+                val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(simpHints.toInitialPredicates,simpleGeneratedPredicates).mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse))
+                val tempLabel=HintsSelection.getUsedInitialPredicatesInCEGAR(simpleGeneratedAndAbstractGeneratedPredicates,optimizedPredicate)
                 val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel)//.filterKeys(k => !tempLabel(k).isEmpty)
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++simpHints,labeledSimpleGeneratedPredicates)
               } else

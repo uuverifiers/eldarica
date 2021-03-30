@@ -428,10 +428,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
   if (GlobalParameters.get.checkSolvability == true) {
     //read from unlabeled .tpl file
-    //val simpleGeneratedInitialPredicates=VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+    val simpleGeneratedInitialPredicates=HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse)))
+    simpleGeneratedInitialPredicates.pretyPrintHints()
     //generate by simple generator
-    val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-    val simpleGeneratedInitialPredicates = HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
+    //val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+    //val simpleGeneratedInitialPredicates = HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates) ++ simpHints
@@ -447,6 +448,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     )
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
+      //val simplifiedInitialpredicates
       val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
       val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
       println("solveTime",solveTime)
@@ -454,11 +456,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       //get minimized useful set and see how many initial predicates are in it
       val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //minimized predicates intersect initialPredicate
-//      val (initialPredicatesUsedInMinimizedPredicateFromCegar,_)=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(initialPredicate.toInitialPredicates,
-//        minimizedPredicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
-      //debug use A u B - B
-      val (initialPredicatesUsedInMinimizedPredicateFromCegar,_)=HintsSelection.getPredicatesUsedInMinimizedPredicateFromCegar(
-  initialPredicate.toInitialPredicates, predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getUsedInitialPredicatesInCEGAR(initialPredicate.toInitialPredicates, minimizedPredicateFromCegar)
       if (GlobalParameters.get.log==true){
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial-"+fieldName+".tpl")) {AbsReader.printHints(initialPredicate)}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
