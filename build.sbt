@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0.5",
+    version := "2.0.6",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
@@ -152,7 +152,7 @@ lazy val root = (project in file(".")).
       
 //
     resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-//    libraryDependencies += "uuverifiers" %% "princess" % "2020-11-19"
+//    libraryDependencies += "uuverifiers" %% "princess" % "2021-03-10"
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 //

@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
-                    MulTheory, ModuloArithmetic, ExtArray}
+                    MulTheory, ModuloArithmetic, ExtArray, Heap}
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -342,6 +342,7 @@ class SMTHornReader protected[parser] (
   if (signature.theories exists {
         case _ : SimpleArray  => false
         case _ : ExtArray     => false
+        case _ : Heap         => false
         case _ : ADT          => false
         case _ : MulTheory    => false
         case TypeTheory       => false
