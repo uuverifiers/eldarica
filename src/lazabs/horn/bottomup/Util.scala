@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,6 @@
 package lazabs.horn.bottomup
 
 import lazabs.prover.Tree
-
-import scala.collection.mutable.{HashMap => MHashMap}
 
 object Util {
 
@@ -304,56 +302,6 @@ object Util {
 //    proc.waitFor
       }
     }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  class UnionFind[D] extends Cloneable {
-    private val parent = new MHashMap[D, D]
-    private val rank   = new MHashMap[D, Int]
-
-    def apply(d : D) : D = {
-      val p = parent(d)
-      if (p == d) {
-        p
-      } else {
-        val res = apply(p)
-        parent.put(d, res)
-        res
-      }
-    }
-
-    def makeSet(d : D) : Unit = {
-      parent.put(d, d)
-      rank.put(d, 0)
-    }
-
-    def union(d : D, e : D) : Unit = {
-      val dp = apply(d)
-      val ep = apply(e)
-      
-      if (dp != ep) {
-        val dr = rank(dp)
-        val er = rank(ep)
-        if (dr < er) {
-          parent.put(dp, ep)
-        } else if (dr > er) {
-          parent.put(ep, dp)
-        } else {
-          parent.put(ep, dp)
-          rank.put(dp, dr + 1)
-        }
-      }
-    }
-
-    override def clone : UnionFind[D] = {
-      val res = new UnionFind[D]
-      res.parent ++= this.parent
-      res.rank ++= this.rank
-      res
-    }
-
-    override def toString : String = parent.toString
   }
 
   //////////////////////////////////////////////////////////////////////////////

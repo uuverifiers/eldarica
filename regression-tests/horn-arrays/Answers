@@ -223,13 +223,13 @@ array-elim.smt2
 Theories: ExtArray[int, int]
 sat
 (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (and (= (select B 0) 1) (= (select C 0) 1))))))
-(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (and (= (select B 0) 1) (= (select C 0) 1))))) (= 1 A)))
-(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) B) (and (<= D 0) (and (= D 1) (and (= (select var0 0) 1) (= (select C 0) 1))))))) (= 1 A)))
-(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) C)) (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0)))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) C) (exists ((var1 (Array Int Int))) (and (= (store var1 D 1) B) (and (<= D 0) (and (= D 1) (and (= (select var1 0) 1) (= (select var0 0) 1))))))))) (= 1 A)))
-(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (and (= (select B 0) 1) (= (select C 0) 1)) (= 1 A)))
-(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (and (= (select B 0) 1) (= (select C 0) 1)))))
-(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (and (= (select B 0) 1) (= (select C 0) 1)))) (= 1 A)))
+(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
+(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
+(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) B) (and (<= D 0) (and (= D 1) (= (select C 0) (select var0 0))))))) (= 1 A)))
+(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) C)) (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0)))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) C) (exists ((var1 (Array Int Int))) (and (= (store var1 D 1) B) (and (<= D 0) (and (= D 1) (= (select var0 0) (select var1 0))))))))) (= 1 A)))
+(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
+(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
 (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 
 leos-example.smt2
@@ -255,4 +255,4 @@ sat
 constant.smt2
 Theories: ExtArray[int, int]
 sat
-(define-fun inv ((A (Array Int Int))) Bool (and (forall ((var0 Int)) (or (= var0 1) (>= (select A var0) 10))) (or (= (select A 1) 5) (forall ((var0 Int)) (>= (select A var0) 10)))))
+(define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))
