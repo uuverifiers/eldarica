@@ -342,15 +342,15 @@ object TrainDataGeneratorPredicatesSmt2 {
           throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
 
 
-      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,originalPredicates,exceptionalPredGen,counterexampleMethod,fileName)
+      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,exceptionalPredGen,counterexampleMethod,fileName)
 
 
       //predicates selection begin
-      if (!originalPredicates.isEmpty) {
+      if (!initialPredicates.isEmpty) {
         println("---initialHints-----")
-        for((k,v)<-originalPredicates;p<-v)
+        for((k,v)<-initialPredicates.toInitialPredicates;p<-v)
           println(k,p)
-        val (optimizedPredicate,_)=HintsSelection.getMinimumSetPredicates(originalPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
+        val (optimizedPredicate,_)=HintsSelection.getMinimumSetPredicates(initialPredicates.toInitialPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
         predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
 
         if(!optimizedPredicate.isEmpty){
@@ -376,7 +376,7 @@ object TrainDataGeneratorPredicatesSmt2 {
             val (unlabeledPredicates,labeledPredicates)=
               if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
                 val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(simpHints.toInitialPredicates,simpleGeneratedPredicates).mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse))
-                val tempLabel=HintsSelection.getUsedInitialPredicatesInCEGAR(simpleGeneratedAndAbstractGeneratedPredicates,optimizedPredicate)
+                val tempLabel=HintsSelection.conjunctTwoPredicates(simpleGeneratedAndAbstractGeneratedPredicates,optimizedPredicate)
                 val labeledSimpleGeneratedPredicates = HintsSelection.transformPredicateMapToVerificationHints(tempLabel)//.filterKeys(k => !tempLabel(k).isEmpty)
                 (HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++simpHints,labeledSimpleGeneratedPredicates)
               } else

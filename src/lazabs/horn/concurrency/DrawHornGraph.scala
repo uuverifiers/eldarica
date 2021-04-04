@@ -411,7 +411,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   writerGraph.write("digraph dag {" + "\n")
 
 
-  def addBinaryEdge(from: String, to: String, label: String, biDirection:Boolean=false): Unit = {
+  def addBinaryEdge(from: String, to: String, label: String, biDirection: Boolean = false): Unit =
     biDirection match {
       case true => {
         writerGraph.write(addQuotes(from) + " -> " + addQuotes(to) +
@@ -425,7 +425,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         gnn_input.incrementBinaryEdge(from, to, label)
       }
     }
-  }
 
   def drawTernaryEdge(from: String, guard: String, to: String, hyperEdgeName: String, label: String): Unit ={
     //fromNode to hyperedge
@@ -466,15 +465,15 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     gnn_input.incrementBinaryEdge(hyperEdgeName,to,label)
   }
 
-  def addEdgeInSubTerm(from: String, to: String, fromNodeLabel:String = ""): Unit = {
+  def addEdgeInSubTerm(from: String, to: String, fromNodeLabel: String = ""): Unit = {
     if (!to.isEmpty) {
       GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph |HornGraphType.concretizedHyperedgeGraph => addBinaryEdge(from, to, astEdgeType,edgeDirectionMap(astEdgeType))
-        case HornGraphType.clauseRelatedTaskLayerGraph=>{
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => addBinaryEdge(from, to, astEdgeType, edgeDirectionMap(astEdgeType))
+        case HornGraphType.clauseRelatedTaskLayerGraph => {
           astEdgeType match {
-            case "templateAST"=>addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))
-            case "data"=>addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
-            case "guard"=>addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+            case "templateAST" => addBinaryEdge(from, to, "templateAST", edgeDirectionMap("templateAST"))
+            case "data" => addBinaryEdge(from, to, "data", edgeDirectionMap("data"))
+            case "guard" => addBinaryEdge(from, to, "guard", edgeDirectionMap("guard"))
           }
         }
         case HornGraphType.fineGrainedEdgeTypeLayerGraph => {
@@ -482,42 +481,44 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           toNodeClass match {
             case "clause" => {
               fromNodeLabel match {
-                case "operator"=>addBinaryEdge(from, to, "guardOperator",edgeDirectionMap("guardOperator"))
-                case "constant"=>addBinaryEdge(from, to, "guardConstant",edgeDirectionMap("guardConstant"))
-                case "symbolicConstant"=>addBinaryEdge(from, to, "guardSc",edgeDirectionMap("guardSc"))
-                case _=>addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+                case "operator" => addBinaryEdge(from, to, "guardOperator", edgeDirectionMap("guardOperator"))
+                case "constant" => addBinaryEdge(from, to, "guardConstant", edgeDirectionMap("guardConstant"))
+                case "symbolicConstant" => addBinaryEdge(from, to, "guardSc", edgeDirectionMap("guardSc"))
+                case _ => addBinaryEdge(from, to, "guard", edgeDirectionMap("guard"))
               }
             }
             case "clauseArgument" => {
               //addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
               astEndNodeType match {
-                case "clauseHead"=> {
+                case "clauseHead" => {
                   fromNodeLabel match {
-                    case "constant"=>addBinaryEdge(to, from, "dataConstant",edgeDirectionMap("dataConstant"))
-                    case "operator"=>addBinaryEdge(to, from, "dataOperator",edgeDirectionMap("dataOperator"))
-                    case "symbolicConstant"=>addBinaryEdge(to, from, "dataSc",edgeDirectionMap("dataSc"))
-                    case _ => addBinaryEdge(to, from, "data",edgeDirectionMap("data"))
+                    case "constant" => addBinaryEdge(to, from, "dataConstant", edgeDirectionMap("dataConstant"))
+                    case "operator" => addBinaryEdge(to, from, "dataOperator", edgeDirectionMap("dataOperator"))
+                    case "symbolicConstant" => addBinaryEdge(to, from, "dataSc", edgeDirectionMap("dataSc"))
+                    case _ => addBinaryEdge(to, from, "data", edgeDirectionMap("data"))
                   }
                 }
-                case "clauseBody"=> {
+                case "clauseBody" => {
                   fromNodeLabel match {
-                    case "constant"=>addBinaryEdge(from, to, "dataConstant",edgeDirectionMap("dataConstant"))
-                    case "operator"=>addBinaryEdge(from, to, "dataOperator",edgeDirectionMap("dataOperator"))
-                    case "symbolicConstant"=>addBinaryEdge(from, to, "dataSc",edgeDirectionMap("dataSc"))
-                    case _ => addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+                    case "constant" => addBinaryEdge(from, to, "dataConstant", edgeDirectionMap("dataConstant"))
+                    case "operator" => addBinaryEdge(from, to, "dataOperator", edgeDirectionMap("dataOperator"))
+                    case "symbolicConstant" => addBinaryEdge(from, to, "dataSc", edgeDirectionMap("dataSc"))
+                    case _ => addBinaryEdge(from, to, "data", edgeDirectionMap("data"))
                   }
                 }
               }
             }
             case _ => {
               astEdgeType match {
-                case "templateAST"=>{addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))}
-                case _=>{
+                case "templateAST" => {
+                  addBinaryEdge(from, to, "templateAST", edgeDirectionMap("templateAST"))
+                }
+                case _ => {
                   fromNodeLabel match {
-                    case "constant"=>addBinaryEdge(from, to, "subTermConstantOperator",edgeDirectionMap("subTermConstantOperator"))
-                    case "operator"=>addBinaryEdge(from, to, "subTermOperatorOperator",edgeDirectionMap("subTermOperatorOperator"))
-                    case "symbolicConstant"=>addBinaryEdge(from, to, "subTermScOperator",edgeDirectionMap("subTermScOperator"))
-                    case _ => addBinaryEdge(from, to, "subTerm",edgeDirectionMap("subTerm"))
+                    case "constant" => addBinaryEdge(from, to, "subTermConstantOperator", edgeDirectionMap("subTermConstantOperator"))
+                    case "operator" => addBinaryEdge(from, to, "subTermOperatorOperator", edgeDirectionMap("subTermOperatorOperator"))
+                    case "symbolicConstant" => addBinaryEdge(from, to, "subTermScOperator", edgeDirectionMap("subTermScOperator"))
+                    case _ => addBinaryEdge(from, to, "subTerm", edgeDirectionMap("subTerm"))
                   }
                 }
               }
@@ -527,18 +528,22 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         case _ => { //mono, hybrid layer graph
           val toNodeClass = to.substring(0, to.indexOf("_"))
           toNodeClass match {
-            case "clause" => addBinaryEdge(from, to, "guard",edgeDirectionMap("guard"))
+            case "clause" => addBinaryEdge(from, to, "guard", edgeDirectionMap("guard"))
             case "clauseArgument" => {
               //addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
               astEndNodeType match {
-                case "clauseHead"=> addBinaryEdge(to, from, "data",edgeDirectionMap("data"))
-                case "clauseBody"=> addBinaryEdge(from, to, "data",edgeDirectionMap("data"))
+                case "clauseHead" => addBinaryEdge(to, from, "data", edgeDirectionMap("data"))
+                case "clauseBody" => addBinaryEdge(from, to, "data", edgeDirectionMap("data"))
               }
             }
             case _ => {
               astEdgeType match {
-                case "templateAST"=>{addBinaryEdge(from, to, "templateAST",edgeDirectionMap("templateAST"))}
-                case _=>{addBinaryEdge(from, to, "subTerm",edgeDirectionMap("subTerm"))}
+                case "templateAST" => {
+                  addBinaryEdge(from, to, "templateAST", edgeDirectionMap("templateAST"))
+                }
+                case _ => {
+                  addBinaryEdge(from, to, "subTerm", edgeDirectionMap("subTerm"))
+                }
               }
             }
           }

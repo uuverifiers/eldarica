@@ -200,11 +200,17 @@ object HintsSelection {
     res
   }
 
-  def getUsedInitialPredicatesInCEGAR(initialPredicates:Map[Predicate, Seq[IFormula]],
-                                      minimizedPredicatesFromCegar:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
-    //val simplifiedInitialPredicates=initialPredicates.mapValues(_.map(sp(_)).filterNot(_.isFalse).filterNot(_.isTrue))
-    for ((h,preds)<-initialPredicates)yield{
-      h->(for(p<-preds;if wrappedContainsPred(p,minimizedPredicatesFromCegar(h))) yield p)
+  def conjunctTwoPredicates(A:Map[Predicate, Seq[IFormula]],
+                            B:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+    for ((h,preds)<-A)yield{
+      h->(for(p<-preds;if B.exists(_._1==h)&&wrappedContainsPred(p,B(h))) yield p)
+    }
+  }
+
+  def differentTwoPredicated(A:Map[Predicate, Seq[IFormula]],
+                            B:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
+    for ((h,preds)<-A)yield{
+      h->(for(p<-preds;if B.exists(_._1==h) && !wrappedContainsPred(p,B(h))) yield p)
     }
   }
  
@@ -397,31 +403,33 @@ object HintsSelection {
       AbsReader.printHints(labeledPredicates)}
 
     val writer=new PrintWriter(new File(GlobalParameters.get.fileName + ".predicateDistribution"))
-    val positiveConstraintPredicates= for ((ck,cv)<-constraintPredicates.predicateHints;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+    val positiveSimpleGeneratedPredicates=conjunctTwoPredicates(simpleGeneratedPredicates.toInitialPredicates,selectedPredicates.toInitialPredicates)
+    val positiveConstraintPredicates = conjunctTwoPredicates(constraintPredicates.toInitialPredicates,selectedPredicates.toInitialPredicates)
     val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
-    val positiveArgumentConstantEqualPredicate = for ((ck,cv)<-argumentConstantEqualPredicate.predicateHints;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+    val positiveArgumentConstantEqualPredicate = conjunctTwoPredicates(argumentConstantEqualPredicate.toInitialPredicates,selectedPredicates.toInitialPredicates)
     val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
-    val predicatesFromCEGAR = for((ki,vi)<-initialPredicates.predicateHints;(ks,vs)<-simpleGeneratedPredicates.predicateHints if ki.equals(ks)) yield {ki->vi.map(_.toString).diff(vs.map(_.toString))}
-    val positivePredicatesFromCEGAR = for ((ck,cv)<-predicatesFromCEGAR;(lk,lv)<-selectedPredicates.predicateHints if ck.equals(lk)) yield ck->(for (p<-cv if lv.map(_.toString).contains(p.toString)) yield p)
+
+    val predicatesFromCEGAR = differentTwoPredicated(initialPredicates.toInitialPredicates,simpleGeneratedPredicates.toInitialPredicates)
+    val positivePredicatesFromCEGAR = conjunctTwoPredicates(predicatesFromCEGAR,selectedPredicates.toInitialPredicates)
     val predicateNumberOfPositivePredicatesFromCEGAR=positivePredicatesFromCEGAR.values.flatten.size
 
     writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
     writer.println("Predicate distributions: ")
-    writer.println("initialPredicates (initial predicatesFromCEGAR, heuristic simpleGeneratedPredicates):"+initialPredicates.predicateHints.values.flatten.size.toString)
-    writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.predicateHints.values.flatten.size.toString)
-    writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.predicateHints.values.flatten.size.toString)
-    writer.println("   constraintPredicates:"+constraintPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("initialPredicates (initial predicatesFromCEGAR, heuristic simpleGeneratedPredicates):"+initialPredicates.toInitialPredicates.values.flatten.size.toString)
+    writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.toInitialPredicates.values.flatten.size.toString)
+    writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.toInitialPredicates.values.flatten.size.toString)
+    writer.println("positiveSimpleGeneratedPredicates:"+positiveSimpleGeneratedPredicates.values.flatten.size.toString)
+    writer.println("   constraintPredicates:"+constraintPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.println("       positiveConstraintPredicates:"+predicateNumberOfPositiveConstraintPredicates.toString)
-    writer.println("       negativeConstraintPredicates:"+ (constraintPredicates.predicateHints.values.flatten.size - predicateNumberOfPositiveConstraintPredicates).toString)
-    writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.predicateHints.values.flatten.size.toString)
+    writer.println("       negativeConstraintPredicates:"+ (constraintPredicates.toInitialPredicates.values.flatten.size - predicateNumberOfPositiveConstraintPredicates).toString)
+    writer.println("   argumentConstantEqualPredicate:"+argumentConstantEqualPredicate.toInitialPredicates.values.flatten.size.toString)
     writer.println("       positiveArgumentConstantEqualPredicate:"+predicateNumberOfPositiveArgumentConstantEqualPredicate.toString)
-    writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.predicateHints.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
-    //todo:see if we can get this in HornPredAbs?
-    writer.println("initialPredicates - simpleGeneratedPredicates:"+predicatesFromCEGAR.values.flatten.size.toString)
-    writer.println("       positive(initialPredicates - simpleGeneratedPredicates):"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
-    writer.println("       negative(initialPredicates - simpleGeneratedPredicates):"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
-    writer.println("unlabeledPredicates:"+unlabeledPredicates.predicateHints.values.flatten.size.toString)
-    writer.println("labeledPredicates:"+labeledPredicates.predicateHints.values.flatten.size.toString)
+    writer.println("       negativeArgumentConstantEqualPredicate:"+ (argumentConstantEqualPredicate.toInitialPredicates.values.flatten.size - predicateNumberOfPositiveArgumentConstantEqualPredicate).toString)
+    writer.println("predicatesFromCEGAR(initialPredicates - simpleGeneratedPredicates):"+predicatesFromCEGAR.values.flatten.size.toString)
+    writer.println("       positivePredicatesFromCEGAR:"+predicateNumberOfPositivePredicatesFromCEGAR.toString)
+    writer.println("       negativePredicatesFromCEGAR:"+(predicatesFromCEGAR.values.flatten.size-predicateNumberOfPositivePredicatesFromCEGAR).toString)
+    writer.println("unlabeledPredicates:"+unlabeledPredicates.toInitialPredicates.values.flatten.size.toString)
+    writer.println("labeledPredicates:"+labeledPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.close()
 
     if (outputAllPredicates==true){
@@ -430,13 +438,15 @@ object HintsSelection {
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
         AbsReader.printHints(constraintPredicates)}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".positiveConstraintPredicates.tpl")) {
-        AbsReader.printHints(VerificationHints(positiveConstraintPredicates))}
+        AbsReader.printHints(transformPredicateMapToVerificationHints(positiveConstraintPredicates))}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".argumentConstantEqualPredicate.tpl")) {
         AbsReader.printHints(argumentConstantEqualPredicate)}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".positiveArgumentConstantEqualPredicate.tpl")) {
-        AbsReader.printHints(VerificationHints(positiveArgumentConstantEqualPredicate))}
+        AbsReader.printHints(transformPredicateMapToVerificationHints(positiveArgumentConstantEqualPredicate))}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial.tpl")) {
         AbsReader.printHints(initialPredicates)}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predicatesFromCEGAR.tpl")) {
+        AbsReader.printHints(transformPredicateMapToVerificationHints(predicatesFromCEGAR))}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
         AbsReader.printHints(selectedPredicates)}
     }
@@ -455,34 +465,33 @@ object HintsSelection {
     }
   }
 
-  def varyPredicateWithOutLogicChanges(f:IFormula): IFormula = {
-    //associativity
-    //replace a-b to -1*x + b
+  //associativity
+  //replace a-b to -1*x + b
+  def varyPredicateWithOutLogicChanges(f: IFormula): IFormula =
     f match {
-      case Eq(a,b)=>{
+      case Eq(a, b) => {
         //println(a.toString,"=",b.toString)
-        Eq(varyTerm(a),varyTerm(b))
+        Eq(varyTerm(a), varyTerm(b))
       }
-      case Geq(a,b)=>{
+      case Geq(a, b) => {
         //println(a.toString,">=",b.toString)
-        Geq(varyTerm(a),varyTerm(b))
+        Geq(varyTerm(a), varyTerm(b))
       }
-      case INot(subformula)=> INot(varyPredicateWithOutLogicChanges(subformula))
-      case IQuantified(quan, subformula) =>  IQuantified(quan, varyPredicateWithOutLogicChanges(subformula))
+      case INot(subformula) => INot(varyPredicateWithOutLogicChanges(subformula))
+      case IQuantified(quan, subformula) => IQuantified(quan, varyPredicateWithOutLogicChanges(subformula))
       case IBinFormula(j, f1, f2) => IBinFormula(j, varyPredicateWithOutLogicChanges(f1), varyPredicateWithOutLogicChanges(f2))
-      case _=> f
+      case _ => f
     }
-  }
 
 
-  def varyTerm(e:ITerm): ITerm = {
+  def varyTerm(e: ITerm): ITerm =
     e match {
-      case IPlus(t1,t2)=> IPlus(varyTerm(t2),varyTerm(t1))
-      case Difference(t1,t2)=> IPlus(varyTerm(t1),varyTerm(-1*t2))
+      case IPlus(t1, t2) => IPlus(varyTerm(t2), varyTerm(t1))
+      case Difference(t1, t2) => IPlus(varyTerm(t1), varyTerm(-1 * t2))
       //case ITimes(coeff, subterm) => ITimes(coeff, varyTerm(subterm))
-      case _=> e
+      case _ => e
     }
-  }
+
 
   def varyPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],verbose:Boolean=false): Map[Predicate, Seq[IFormula]] ={
     val transformedPredicates=optimizedPredicate.mapValues(_.map(HintsSelection.varyPredicateWithOutLogicChanges(_)).map(sp(_)))
@@ -699,12 +708,17 @@ object HintsSelection {
     val uniqueFormulas= formulas filter {f => FormulaStrings.add(f.toString)} //de-duplicate formulas
     uniqueFormulas
   }
-  def isArgBoolean(arg:ITerm): Boolean ={
+
+  def isArgBoolean(arg: ITerm): Boolean =
     Sort.sortOf(arg) match {
-      case Sort.MultipleValueBool=>{true}
-      case _=>{false}
+      case Sort.MultipleValueBool => {
+        true
+      }
+      case _ => {
+        false
+      }
     }
-  }
+
   def argumentEquationGenerator(n:Int,eqConstant:Seq[IdealInt],arg:ITerm): Seq[IFormula] ={
     if(isArgBoolean(arg))
       Seq()
@@ -757,9 +771,9 @@ object HintsSelection {
       Seq()
   }
 
-  def sortHints[A](hints: A): A = {
+  def sortHints[A](hints: A): A =
     hints match {
-      case h:VerificationHints=>{
+      case h: VerificationHints => {
         var tempHints = VerificationHints(Map()) //sort the hints
         for ((oneHintKey, oneHintValue) <- h.getPredicateHints()) {
           val tempSeq = oneHintValue.sortBy(_.toString)
@@ -767,16 +781,16 @@ object HintsSelection {
         }
         tempHints.asInstanceOf[A]
       }
-      case h:Map[Predicate,Seq[IFormula]]=>{
-        val sortedByKey=h.toSeq.sortBy(_._1.name)
+      case h: Map[Predicate, Seq[IFormula]] => {
+        val sortedByKey = h.toSeq.sortBy(_._1.name)
         (for ((oneHintKey, oneHintValue) <- sortedByKey) yield {
           val tempSeq = oneHintValue.sortBy(_.toString)
-          oneHintKey->tempSeq
+          oneHintKey -> tempSeq
         }).toMap.asInstanceOf[A]
       }
     }
 
-  }
+
 
 
   def getInitialPredicates(encoder: ParametricEncoder, simpHints: VerificationHints, simpClauses: Clauses): VerificationHints = {
@@ -1570,43 +1584,6 @@ object HintsSelection {
   }
 
 
-  def storeHintsToVerificationHints_binary(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints) = {
-    //store read hints to VerificationHints
-    println("---selected hints--")
-    var readHints = VerificationHints(Map())
-    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
-    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
-    var parsedHintsCount = 0
-
-    for (element <- parsedHintslist) {
-      //println(element)
-      if (element(3).toFloat.toInt == 1) { //element(3)==1 means useful, element(4) is score
-        val head = element(1).toString
-        //element(1) is head
-        val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
-        for ((key, value) <- originalHints.getPredicateHints()) {
-          val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
-          if (head == keyTemp) {
-            var usfulHintsList: Seq[VerifHintElement] = Seq()
-            for (oneHint <- originalHints.predicateHints(key)) {
-              if (keyTemp == head && oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
-                usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
-                //println(element(0),usfulHintsList)
-                readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
-                parsedHintsCount = parsedHintsCount + 1
-              }
-            }
-            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
-          }
-        }
-      } else {} //useless hint
-
-    }
-
-    println("selected hint count=" + parsedHintsCount)
-    (readHints, readHintsTempList)
-
-  }
 
   def storeHintsToVerificationHints_score(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints, rankTreshold: Float) = {
     //store read hints to VerificationHints
@@ -1683,109 +1660,6 @@ object HintsSelection {
 
   }
 
-  def readHintsIDFromFile(fileName: String, originalHints: VerificationHints, rank: String = ""): VerificationHints = {
-    var parsedHintslist = Seq[Seq[String]]() //store parsed hints
-    val f = fileName + ".optimizedHints" //python file
-    for (line <- Source.fromFile(f).getLines) {
-      var parsedHints = Seq[String]() //store parsed hints
-      //parse read file
-      var lineTemp = line.toString
-      val ID = lineTemp.substring(0, lineTemp.indexOf(":"))
-      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
-      val head = lineTemp.substring(0, lineTemp.indexOf(":"))
-      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
-      val hint = lineTemp.substring(0, lineTemp.indexOf(":"))
-      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
-      val usefulness = lineTemp.substring(0, lineTemp.indexOf(":")) //1=useful,0=useless
-      val score = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length) //1=useful,0=useless
-      parsedHints = parsedHints :+ ID :+ head :+ hint :+ usefulness :+ score //ID,head,hint,usefulness,score
-      //println(parsedHints)
-      parsedHintslist = parsedHintslist :+ parsedHints
-    }
-    println("parsed hints count=" + parsedHintslist.size)
-
-    println("---readInitialHints-----")
-    var readInitialHintsWithID: Map[String, String] = Map()
-    //val fInitial = "predictedHints/"+fileNameShorter+".initialHints" //read file
-    val fInitial = fileName + ".initialHints" //python file
-    for (line <- Source.fromFile(fInitial).getLines) {
-      var parsedHints = Seq[String]() //store parsed hints
-      //parse read file
-      var lineTemp = line.toString
-      val ID = lineTemp.substring(0, lineTemp.indexOf(":"))
-      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
-      val head = lineTemp.substring(0, lineTemp.indexOf(":"))
-      lineTemp = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length)
-      val hint = lineTemp
-      readInitialHintsWithID = readInitialHintsWithID + (ID + ":" + head -> hint)
-    }
-    for ((key, value) <- readInitialHintsWithID) { //print initial hints
-      println(key, value)
-    }
-    println("readInitialHints count=" + readInitialHintsWithID.size)
-
-    //store read hints to VerificationHints
-    var readHints = VerificationHints(Map())
-    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
-    if (rank.isEmpty) { //read rank option, no need for rank
-      val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_binary(parsedHintslist, readInitialHintsWithID, originalHints)
-      readHints = readHints_temp
-      readHintsTempList = readHintsTempList_temp
-    } else { //need rank
-      //parse rank information
-      var lineTemp = rank.toString
-      val rankThreshold = lineTemp.substring(lineTemp.indexOf(":") + 1, lineTemp.length).toFloat
-
-      if (rankThreshold > 1) {
-        //rank by top n
-        println("use top " + rankThreshold.toInt + " hints")
-        val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_topN(parsedHintslist, readInitialHintsWithID, originalHints, rankThreshold.toInt)
-        readHints = readHints_temp
-        readHintsTempList = readHintsTempList_temp
-      }
-      if (rankThreshold < 1) {
-        //rank by score
-        println("use score threshold " + rankThreshold)
-        val (readHints_temp, readHintsTempList_temp) = storeHintsToVerificationHints_score(parsedHintslist, readInitialHintsWithID, originalHints, rankThreshold)
-        readHints = readHints_temp
-        readHintsTempList = readHintsTempList_temp
-      }
-
-    }
-
-    //store heads to set
-    var heads: Set[IExpression.Predicate] = Set()
-    for (value <- readHintsTempList) {
-      println(value)
-      val tempValue = value.toSeq
-      //tempValue.to
-      heads = heads + tempValue(0)._1
-    }
-
-
-    for (head <- heads) {
-      var hintList: Seq[VerifHintElement] = Seq()
-      for (value <- readHintsTempList) {
-        //value=Map(head->hint)
-        val tempValue = value.toSeq
-        if (tempValue(0)._1 == head) {
-          //println(hintList)
-          hintList = hintList :+ tempValue(0)._2
-        }
-      }
-      readHints = readHints.addPredicateHints(Map(head -> hintList))
-    }
-
-    println("----readHints-----")
-    for ((key, value) <- readHints.getPredicateHints()) {
-      println(key)
-      for (v <- value) {
-        println(v)
-      }
-    }
-
-    readHints
-  }
 
   def transformPredicateMapToVerificationHints(originalPredicates:Map[Predicate, Seq[IFormula]]):  VerificationHints ={
     VerificationHints(originalPredicates.mapValues(_.map(VerificationHints.VerifHintInitPred(_))))

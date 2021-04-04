@@ -385,7 +385,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
   val sp=new Simplifier
-  //println(simplifiedClauses)
   if (GlobalParameters.get.getHornGraph == true) {
     if (simplifiedClausesForGraph.isEmpty){
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-simplified-clauses/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no simplified clauses")
@@ -406,7 +405,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no initial predicates")
       sys.exit()
     }
-    HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = true,exit=true )
+    //HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = true,exit=true )
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(initialPredicates)}
 
@@ -437,7 +436,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates) ++ simpHints
     val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
-      VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates")
+      //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
     else emptyInitialPredicates
 
     val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
@@ -456,14 +456,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       //get minimized useful set and see how many initial predicates are in it
       val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //minimized predicates intersect initialPredicate
-      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.getUsedInitialPredicatesInCEGAR(initialPredicate.toInitialPredicates, minimizedPredicateFromCegar)
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.conjunctTwoPredicates(initialPredicate.toInitialPredicates, minimizedPredicateFromCegar)
       if (GlobalParameters.get.log==true){
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial-"+fieldName+".tpl")) {AbsReader.printHints(initialPredicate)}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInMinimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInMinimizedPredicateFromCegar))}
       }
       Seq(("solveTime"+fieldName,solveTime),("solvability"+fieldName,solvability),
-        ("numberOfinitialPredicates"+fieldName,initialPredicate.predicateHints.values.flatten.size),
+        ("numberOfinitialPredicates"+fieldName,initialPredicate.toInitialPredicates.values.flatten.size),
         ("minimizedPredicateFromCegar"+fieldName,minimizedPredicateFromCegar.values.flatten.size),
         ("initialPredicatesUsedInMinimizedPredicateFromCegar"+fieldName,initialPredicatesUsedInMinimizedPredicateFromCegar.values.flatten.size))
     }).flatten.toSeq

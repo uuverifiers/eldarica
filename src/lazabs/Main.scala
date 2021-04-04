@@ -60,9 +60,9 @@ class GlobalParameters extends Cloneable {
   var generateSimplePredicates=false
   var moveFile = false
   var maxNode=1000000
-  var threadTimeout = 120000
-  var solvabilityTimeout=120000
-  var mainTimeout=120000
+  var threadTimeout = 300000
+  var solvabilityTimeout=300000
+  var mainTimeout=300000
   var extractTemplates=false
   var extractPredicates=false
   var measurePredictedPredicates=false
@@ -622,7 +622,7 @@ object Main {
 
     timeoutChecker = timeout match {
       case Some(to) => () => {
-        println("time check point", ((System.currentTimeMillis - startTime)/1000).toString+"/"+(to/1000).toString)
+        //println("time check point", ((System.currentTimeMillis - startTime)/1000).toString+"/"+(to/1000).toString)
         if (System.currentTimeMillis - startTime > to.toLong)
           throw TimeoutException
         if (stoppingCond)

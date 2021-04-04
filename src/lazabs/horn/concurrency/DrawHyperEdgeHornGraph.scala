@@ -299,14 +299,13 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList) = matchArguments()
   writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
 
-  def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName:String,labelName:String,className:String): Unit ={
+  def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName:String,labelName:String,className:String): Unit =
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.hyperEdgeGraph => createHyperEdgeNode(controlFlowHyperedgeName, labelName, className, nodeShapeMap(className))
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph =>
       case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>createConcretinizedHyperEdgeNode(controlFlowHyperedgeName,labelName,className,nodeShapeMap(className))
     }
-  }
-  def drawHyperEdgeWithTrueGuard(middleNodeName:String): Unit ={
+  def drawHyperEdgeWithTrueGuard(middleNodeName:String): Unit =
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph =>{
         for (hyperEdgeNode <- hyperEdgeList) {
@@ -341,9 +340,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-  }
 
-  def drawHyperEdge(hyperEdgeNode:hyperEdgeInfo,guardRootNodeName:String,f: (String,String,String,String,String) => Unit): Unit ={
+  def drawHyperEdge(hyperEdgeNode:hyperEdgeInfo,guardRootNodeName:String,f: (String,String,String,String,String) => Unit): Unit =
     hyperEdgeNode.hyperEdgeType match {
       case HyperEdgeType.controlFlow => {
         GlobalParameters.get.hornGraphType match {
@@ -368,7 +366,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-  }
 
   def drawArgumentNodeForPredicate(pre:IAtom,controlFlowNodeName:String): Unit ={
     var argumentNodeArray = Array[String]()

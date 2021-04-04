@@ -257,13 +257,7 @@ class VerificationLoop(system : ParametricEncoder.System,
       //No hints selection
       var optimizedHints=HintsSelection.sortHints(simpHints) //if there is no readHints flag, use simpHints
 
-      if(GlobalParameters.get.readHints==true){
-        //Read selected hints from file (NNs)
-        println("simpHints:")
-        simpHints.pretyPrintHints()
-        optimizedHints=HintsSelection.readHintsIDFromFile(GlobalParameters.get.fileName,simpHints,rank="rank:"+GlobalParameters.get.rank.toString)
-        // inconsistency between encoder.globalHints and simpHints
-      }
+
 
       //get smt
       if(GlobalParameters.get.getSMT2==true){
@@ -308,6 +302,18 @@ class VerificationLoop(system : ParametricEncoder.System,
       val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
         case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simpClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
         case _ => simpClauses
+      }
+
+      if(GlobalParameters.get.readHints==true){
+        //Read selected hints from file (NNs)
+        println("simpHints:")
+        simpHints.pretyPrintHints()
+        val emptyInitialPredicates = VerificationHints(Map())
+        val optimizedHints = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates")
+        //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+        else emptyInitialPredicates
+        // inconsistency between encoder.globalHints and simpHints
       }
       if(GlobalParameters.get.getHornGraph==true){
         val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simplifiedClausesForGraph, simpHints.toInitialPredicates, interpolator)
