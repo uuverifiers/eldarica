@@ -448,7 +448,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
       //val simplifiedInitialpredicates
-      val (solveTime,predicateFromCegar)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
+      val (solveTime,predicateFromCegar,_)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,predGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
       val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
       println("solveTime",solveTime)
       println("solvability",solvability)

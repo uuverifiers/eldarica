@@ -267,20 +267,21 @@ object HintsSelection {
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
-                       fileName: String = "noFileName", moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]]) = {
+                       fileName: String = "noFileName", moveFileFolder:String="solvability-timeout",moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]],Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     println("check solvability using current predicates")
     var solveTime = (GlobalParameters.get.solvabilityTimeout / 1000).toInt
     var satisfiability=false
     val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, coefficient)
     val startTime = currentTimeMillis()
     var cegarGeneratedPredicates: Map[Predicate, Seq[IFormula]] = Map()
+    var res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]= Left(Map())
     try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
       val cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
         originalPredicates, predicateGen,
         counterexampleMethod)
       solveTime = ((currentTimeMillis - startTime) / 1000).toInt
-
-      cegar.result match {
+      res=cegar.result
+      res match {
         case Left(a) => {
           satisfiability = true
           cegarGeneratedPredicates  = HintsSelection.transformPredicatesToCanonical(cegar.predicates)
@@ -297,16 +298,16 @@ object HintsSelection {
     }
     catch {
       case lazabs.Main.TimeoutException => {
-        println(Console.RED + "-"*10 +"solvability-timeout"+"-"*10)
+        println(Console.RED + "-"*10 +moveFileFolder+"-"*10)
         if (moveFile == true)
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/solvability-timeout/" + fileName)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/"+moveFileFolder+"/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
         solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       }
       case _ => println(Console.RED + "-"*10+"solvability-debug"+"-"*10)
     }
-    (solveTime, cegarGeneratedPredicates)
+    (solveTime, cegarGeneratedPredicates,res)
   }
 
   def writeSolvabilityToJSON[A](fields:Seq[(String, A)]): Unit ={
