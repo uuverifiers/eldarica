@@ -264,50 +264,13 @@ object HintsSelection {
     predicateFromCEGAR
   }
 
-  def checkSatisfiability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,
-                          originalPredicates: VerificationHints,
-                          predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
-                            Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
-                          moveFile: Boolean = true, exit: Boolean = true): Boolean = {
-    val filePath = GlobalParameters.get.fileName
-    val fileName=filePath.substring(filePath.lastIndexOf("/"),filePath.length)
-    val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, 1)
-    var satisfiability = true
-    try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
-      val cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
-        originalPredicates.toInitialPredicates, predicateGen,
-        counterexampleMethod)
-      cegar.result match {
-        case Left(a) => {
-          satisfiability = true
-        }
-        case Right(b) => {
-          satisfiability = false
-          println(Console.RED + "-"*10+"unsat"+"-"*10)
-          if (moveFile == true)
-            HintsSelection.moveRenameFile(filePath, "../benchmarks/exceptions/unsat/" + fileName)
-          if (exit == true)
-            sys.exit()
-        }
-      }
-    } catch {
-      case lazabs.Main.TimeoutException => {
-        println(Console.RED + "-"*10 +"solvability-timeout"+"-"*10)
-        HintsSelection.moveRenameFile(filePath, "../benchmarks/exceptions/solvability-timeout/" + fileName)
-        sys.exit()
-      }
-    }
-
-    satisfiability
-  }
-
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
-                       fileName: String = "noFileName", moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 5): (Int, Map[Predicate, Seq[IFormula]]) = {
+                       fileName: String = "noFileName", moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]]) = {
     println("check solvability using current predicates")
     var solveTime = (GlobalParameters.get.solvabilityTimeout / 1000).toInt
+    var satisfiability=false
     val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, coefficient)
     val startTime = currentTimeMillis()
     var cegarGeneratedPredicates: Map[Predicate, Seq[IFormula]] = Map()
@@ -316,8 +279,21 @@ object HintsSelection {
         originalPredicates, predicateGen,
         counterexampleMethod)
       solveTime = ((currentTimeMillis - startTime) / 1000).toInt
-      val predicateFromCEGAR = HintsSelection.transformPredicatesToCanonical(cegar.predicates)
-      cegarGeneratedPredicates = predicateFromCEGAR
+
+      cegar.result match {
+        case Left(a) => {
+          satisfiability = true
+          cegarGeneratedPredicates  = HintsSelection.transformPredicatesToCanonical(cegar.predicates)
+        }
+        case Right(b) => {
+          println(Console.RED + "-"*10+"unsat"+"-"*10)
+          if (moveFile == true)
+            HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + fileName)
+          if (exit == true)
+            sys.exit()
+        }
+      }
+
     }
     catch {
       case lazabs.Main.TimeoutException => {

@@ -405,7 +405,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no initial predicates")
       sys.exit()
     }
-    //HintsSelection.checkSatisfiability(simplifiedClausesForGraph,initialPredicates,predGenerator,HintsSelection.getCounterexampleMethod(disjunctive),moveFile = true,exit=true )
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(initialPredicates)}
 

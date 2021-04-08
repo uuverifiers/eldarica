@@ -292,6 +292,8 @@ object TrainDataGeneratorPredicatesSmt2 {
         sys.exit()
       }
 
+
+
       /////////////////////////predicates extracting begin///////////////////////////////
       val timeConsumptionBeforePredicateExtractingProcess=(System.currentTimeMillis-timeStart)/1000
       var generatingInitialPredicatesTime:Long=0
@@ -299,29 +301,16 @@ object TrainDataGeneratorPredicatesSmt2 {
       var predicatesExtractingTime:Long=0
       val predicatesExtractingBeginTime=System.currentTimeMillis
 
+      val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
+        Either[Seq[(Predicate, Seq[Conjunction])],
+          Dag[(IAtom, HornPredAbs.NormClause)]] =
+        (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+          //throw new RuntimeException("interpolator exception")
+          throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
 
-      val timeoutCheckerForPredicateGenerator=HintsSelection.clonedTimeChecker(GlobalParameters.get.solvabilityTimeout * 5)
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
-      HintsSelection.checkSatisfiability(simplePredicatesGeneratorClauses,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),predGenerator,counterexampleMethod)
-      val lastPredicates= {
-          try GlobalParameters.parameters.withValue(timeoutCheckerForPredicateGenerator)
-          {
-              val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
-                simpleGeneratedPredicates,
-                //simpHints.toInitialPredicates, //use simple generated predicates as initial predicates
-                predGenerator,
-                counterexampleMethod)
-              Cegar.predicates
-          }
-          catch {
-            case _ =>{
-              HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/solvability-timeout/" + fileName)
-              sys.exit()
-            }
-          }
-      }
 
-      val predicateFromCEGAR = HintsSelection.transformPredicatesToCanonical(lastPredicates)
+      val (solvability,predicateFromCEGAR)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predGenerator,counterexampleMethod,fileName,coefficient = 5)
 
       val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).transform((k,v)=>v.filterNot(_.isTrue)).mapValues(_.toSeq)
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
@@ -333,14 +322,6 @@ object TrainDataGeneratorPredicatesSmt2 {
 
 
       generatingInitialPredicatesTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
-
-      val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
-        Either[Seq[(Predicate, Seq[Conjunction])],
-          Dag[(IAtom, HornPredAbs.NormClause)]] =
-        (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
-          //throw new RuntimeException("interpolator exception")
-          throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
-
 
       HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,exceptionalPredGen,counterexampleMethod,fileName)
 
