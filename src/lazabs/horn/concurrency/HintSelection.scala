@@ -388,7 +388,6 @@ object HintsSelection {
     val predicateNumberOfPositiveConstraintPredicates = positiveConstraintPredicates.values.flatten.size
     val positiveArgumentConstantEqualPredicate = conjunctTwoPredicates(argumentConstantEqualPredicate.toInitialPredicates,selectedPredicates.toInitialPredicates)
     val predicateNumberOfPositiveArgumentConstantEqualPredicate=positiveArgumentConstantEqualPredicate.values.flatten.size
-
     val predicatesFromCEGAR = differentTwoPredicated(initialPredicates.toInitialPredicates,simpleGeneratedPredicates.toInitialPredicates)
     val positivePredicatesFromCEGAR = conjunctTwoPredicates(predicatesFromCEGAR,selectedPredicates.toInitialPredicates)
     val predicateNumberOfPositivePredicatesFromCEGAR=positivePredicatesFromCEGAR.values.flatten.size
@@ -411,7 +410,6 @@ object HintsSelection {
     writer.println("unlabeledPredicates:"+unlabeledPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.println("labeledPredicates:"+labeledPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.close()
-
     if (outputAllPredicates==true){
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".simpleGenerated.tpl")) {
         AbsReader.printHints(simpleGeneratedPredicates)}
@@ -487,7 +485,7 @@ object HintsSelection {
       transformPredicateMapToVerificationHints(mergedPredicates).pretyPrintHints()
       //mergedPredicates.foreach(k=>{println(k._1);k._2.foreach(println)})
     }
-    mergedPredicates.mapValues(distinctByString(_))
+    mergedPredicates.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isFalse).filterNot(_.isTrue))
   }
 
 
