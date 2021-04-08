@@ -492,7 +492,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }
     else simpHints
 
-
+  if (GlobalParameters.get.onlyInitialPredicates == true){
+    val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
+    val localCounterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
+    HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicatesForCEGAR.toInitialPredicates,exceptionalPredGen,localCounterexampleMethod,HintsSelection.getFileName())
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

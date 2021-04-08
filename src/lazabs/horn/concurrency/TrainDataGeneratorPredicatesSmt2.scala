@@ -256,7 +256,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       GlobalParameters.get.timeoutChecker()
 
-      val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+      val fileName=HintsSelection.getFileName()
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
@@ -301,12 +301,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       var predicatesExtractingTime:Long=0
       val predicatesExtractingBeginTime=System.currentTimeMillis
 
-      val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>  //not generate new predicates
-        Either[Seq[(Predicate, Seq[Conjunction])],
-          Dag[(IAtom, HornPredAbs.NormClause)]] =
-        (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
-          //throw new RuntimeException("interpolator exception")
-          throw lazabs.Main.TimeoutException //if catch Counterexample and generate predicates, throw timeout exception
+      val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
 
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
       //todo: only initial predicates
