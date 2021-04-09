@@ -312,9 +312,9 @@ object TrainDataGeneratorPredicatesSmt2 {
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
-          HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(originalPredicates))
+          HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.varyPredicates(originalPredicates)) ++simpHints
         else
-          HintsSelection.transformPredicateMapToVerificationHints(originalPredicates)
+          HintsSelection.transformPredicateMapToVerificationHints(originalPredicates) ++simpHints
 
 
       generatingInitialPredicatesTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000

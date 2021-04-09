@@ -395,7 +395,7 @@ object HintsSelection {
     writer.println("vary predicates: " + (if(GlobalParameters.get.varyGeneratedPredicates==true) "on" else "off"))
     writer.println("Predicate distributions: ")
     writer.println("initialPredicates (initial predicatesFromCEGAR, heuristic simpleGeneratedPredicates):"+initialPredicates.toInitialPredicates.values.flatten.size.toString)
-    writer.println("selectedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.toInitialPredicates.values.flatten.size.toString)
+    writer.println("minimizedPredicates (initialPredicates go through CEGAR Filter):"+selectedPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.println("simpleGeneratedPredicates:"+simpleGeneratedPredicates.toInitialPredicates.values.flatten.size.toString)
     writer.println("positiveSimpleGeneratedPredicates:"+positiveSimpleGeneratedPredicates.values.flatten.size.toString)
     writer.println("   constraintPredicates:"+constraintPredicates.toInitialPredicates.values.flatten.size.toString)
@@ -425,6 +425,8 @@ object HintsSelection {
         AbsReader.printHints(initialPredicates)}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predicatesFromCEGAR.tpl")) {
         AbsReader.printHints(transformPredicateMapToVerificationHints(predicatesFromCEGAR))}
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".positivePredicatesFromCEGAR.tpl")) {
+        AbsReader.printHints(transformPredicateMapToVerificationHints(positivePredicatesFromCEGAR))}
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
         AbsReader.printHints(selectedPredicates)}
     }
