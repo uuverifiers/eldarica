@@ -648,7 +648,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       //        //println("LeafFormula")
       //        drawAST(t,previousNodeName)
       //      }
-      case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2)
       case IAtom(pred, args) => {""}
       case IBinFormula(j, f1, f2) => drawASTBinaryRelation(j.toString, previousNodeName, f1, f2)
       case IBoolLit(v) =>  drawASTEndNode(v.toString(), previousNodeName, "constant")
@@ -675,6 +674,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
       case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
       case IVariable(index) => drawASTEndNode("_"+index.toString(), previousNodeName, "symbolicConstant")//constant////add _ to differentiate index with other constants
+      case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2)
       case _ => drawASTEndNode("unknown", previousNodeName, "constant")
 
     }
@@ -699,7 +699,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseBinaryOccurrenceInCounterExampleList", IntArray(gnn_input.clausesOccurrenceInCounterExample), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("binaryAdjacentList", PairArray(gnn_input.binaryAdjacency.binaryEdge), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("binaryAdjacentList", PairArray(gnn_input.binaryAdjacency.binaryEdge.sorted), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("ternaryAdjacencyList", TripleArray(gnn_input.ternaryAdjacency.ternaryEdge), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("unknownEdges", PairArray(gnn_input.unknownEdges.binaryEdge), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIDList", IntArray(argumentIDList.toArray), writer, lastFiledFlag)

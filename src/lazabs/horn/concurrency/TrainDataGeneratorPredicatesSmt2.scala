@@ -260,7 +260,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
-      val simplePredicatesGeneratorClauses=HintsSelection.simplifyClausesForGraphs(simplifiedClauses,hints)
+      val simplePredicatesGeneratorClauses=HintsSelection.simplifyClausesForGraphs(simplifiedClauses,simpHints)//hints
 
       //read hint from file
       if (GlobalParameters.get.readHints==true){
@@ -362,16 +362,18 @@ object TrainDataGeneratorPredicatesSmt2 {
           //simplePredicatesGeneratorClauses.map(_.toPrologString).foreach(x=>println(Console.BLUE + x))
           val drawGraphAndWriteLabelsBegin=System.currentTimeMillis
           if (!labeledPredicates.predicateHints.values.flatten.isEmpty){
-            val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))
-            val clausesInCE=getClausesInCounterExamples(test,simplePredicatesGeneratorClauses)
+            val clausesInCE= if (GlobalParameters.get.getLabelFromCounterExample ==true)
+              getClausesInCounterExamples(test,simplePredicatesGeneratorClauses) else Seq()
             val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
+            val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))//labeledPredicates
             //Output graphs
-            val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
+            val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray.sortBy(_._1.name)
+            //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
             val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledPredicates,countOccurrence=true)
             GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
 
             //write predicates to files:
-            HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate),outputAllPredicates=false)
+            HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate),outputAllPredicates=GlobalParameters.get.log)
             drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
           } else{
             HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")

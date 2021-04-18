@@ -430,6 +430,8 @@ object HintsSelection {
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
         AbsReader.printHints(selectedPredicates)}
     }
+    println("-"*10 + "positive predicates found by CEGAR" +"-"*10)
+    transformPredicateMapToVerificationHints(positivePredicatesFromCEGAR).pretyPrintHints()
   }
 
 //  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],

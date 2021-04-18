@@ -152,7 +152,10 @@ object VerificationHints {
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
         println(Console.BLUE+key.toString())
         for(v<-value){
-          println(Console.BLUE+v)
+          v match {
+            case VerifHintInitPred(f) =>{println(Console.BLUE+ f )}
+            case _ =>{println(Console.BLUE+v)}
+          }
         }
       }
     }
