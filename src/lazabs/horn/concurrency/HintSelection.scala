@@ -306,7 +306,7 @@ object HintsSelection {
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/"+moveFileFolder+"/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
-        solveTime = ((currentTimeMillis - startTime) / 1000).toInt
+        //solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       }
       case _ => println(Console.RED + "-"*10+"solvability-debug"+"-"*10)
     }
@@ -645,7 +645,7 @@ object HintsSelection {
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
       }
       atom.pred-> freeVariableReplacedPredicates.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)//map(spAPI.simplify(_)) //get rid of true and false
-    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)
+    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)//.mapValues(distinctByLogic(_))
     val constraintPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
         HintsSelection.varyPredicates(constraintPredicatesTemp)
@@ -653,28 +653,48 @@ object HintsSelection {
         constraintPredicatesTemp
 
     //generate predicates from clause's integer constants
+//    val integerConstantVisitor = new LiteralCollector
+//    val argumentConstantEqualPredicate = (
+//      for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield {
+//        integerConstantVisitor.visitWithoutResult(clause.constraint,()) //collect integer constant in clause
+//        val eqConstant = integerConstantVisitor.literals.toSeq
+//        integerConstantVisitor.literals.clear()
+//        atom.pred -> (for ((arg, n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n, eqConstant,arg)).flatten
+//      }
+//      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)//.mapValues(distinctByLogic(_))
+
+    //generate predicates with pairwise variables
     val integerConstantVisitor = new LiteralCollector
-    val argumentConstantEqualPredicate = (
-      for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield {
-        integerConstantVisitor.visitWithoutResult(clause.constraint,()) //collect integer constant in clause
-        val eqConstant = integerConstantVisitor.literals.toSeq
-        integerConstantVisitor.literals.clear()
-        atom.pred -> (for ((arg, n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n, eqConstant,arg)).flatten
-      }
-      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)
+    //val variableConstantPairs=Seq(0,1,1,-1,-1).map(IdealInt(_)).combinations(2).toSeq.map(listToTuple2(_))
+    val variableConstantPairs=Seq((-1,-1),(1,1),(0,1),(1,0),(-1,1),(1,-1),(0,-1),(-1,0)).map(x=>Tuple2(IdealInt(x._1),IdealInt(x._2)))
+    val pairWiseVariablePredicates = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield {
+      val pairVariables=(for ((arg, n) <- atom.args.zipWithIndex) yield (arg,n)).combinations(2).map(listToTuple2(_)).toSeq
+      integerConstantVisitor.visitWithoutResult(clause.constraint,()) //collect integer constant in clause
+      val constantList = (integerConstantVisitor.literals.toSeq ++ Seq(IdealInt(0),IdealInt(-1),IdealInt(1)) ++ (for (x<-integerConstantVisitor.literals.toSeq ) yield x.*(-1))).distinct
+      integerConstantVisitor.literals.clear()
+
+      if (pairVariables.isEmpty)
+        atom.pred -> (for ((arg, n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n, constantList,arg)).flatten
+      else
+        atom.pred -> (for ((v1,v2)<-pairVariables) yield pairWiseEquationGenerator(v1,v2,variableConstantPairs,constantList)).flatten
+    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)//.mapValues(distinctByLogic(_))
+
 
     //merge constraint and constant predicates
-    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse))
+    //val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse))
+    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_))//.mapValues(distinctByLogic(_))
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
-      println("--------predicates from constant and argumenteEqation---------")
-      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
+//      println("--------predicates from constant and argumenteEqation---------")
+//      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
+      println("--------predicates from pairwise variables---------")
+      for(cc<-pairWiseVariablePredicates; b<-cc._2) println(cc._1,b)
       println("--------all generated predicates---------")
       for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }
 
-    (simplelyGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate)
+    (simplelyGeneratedPredicates,constraintPredicates,pairWiseVariablePredicates)
   }
   def mergePredicateMaps(first:Map[Predicate,Seq[IFormula]],second:Map[Predicate,Seq[IFormula]]): Map[Predicate,Seq[IFormula]] ={
     if (first.isEmpty)
@@ -689,6 +709,12 @@ object HintsSelection {
     val FormulaStrings = new MHashSet[String]
     val uniqueFormulas= formulas filter {f => FormulaStrings.add(f.toString)} //de-duplicate formulas
     uniqueFormulas
+  }
+  def distinctByLogic(formulas:Seq[IFormula]):Seq[IFormula]={
+    var distinctedFormulas=formulas
+    for (f<-formulas; if wrappedContainsPred(f,distinctedFormulas.filterNot(_==f)))
+      distinctedFormulas.filterNot(_==f)
+    distinctedFormulas
   }
 
   def isArgBoolean(arg: ITerm): Boolean =
@@ -705,8 +731,20 @@ object HintsSelection {
     if(isArgBoolean(arg))
       Seq()
     else
-      (for (c<-eqConstant) yield Seq(sp(Eq(IVariable(n),c)),sp(Geq(c,IVariable(n))),sp(Geq(c,IVariable(n))))).flatten
+      (for (c<-eqConstant) yield Seq(Eq(IVariable(n),c),Geq(c,IVariable(n)),Geq(c,IVariable(n)))).flatten.map(sp(_))
   }
+
+  def pairWiseEquationGenerator(v1: Tuple2[ITerm,Int], v2: Tuple2[ITerm,Int],variableConstantPairs: Seq[(IdealInt, IdealInt)],constantList: Seq[IdealInt]): Seq[IFormula] ={
+    if(isArgBoolean(v1._1) || isArgBoolean(v2._1))
+      Seq()
+    else {
+
+      (for ((v1Const,v2Const)<-variableConstantPairs;c<-constantList) yield Seq(Eq(IPlus(IVariable(v1._2).*(v1Const),IVariable(v2._2).*(v2Const)),c),Geq(IPlus(IVariable(v1._2).*(v1Const),IVariable(v2._2).*(v2Const)),c))).flatten.map(sp(_))
+    }
+  }
+  def listToTuple2[A](x:Seq[A]): Tuple2[A,A] = x match {
+      case Seq(a, b) => Tuple2(a, b)
+    }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String,message:String=""): Unit = {
     if (GlobalParameters.get.moveFile==true){

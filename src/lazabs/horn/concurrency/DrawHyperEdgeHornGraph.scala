@@ -451,7 +451,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df.asInstanceOf[IFormula]).map(sp(_))
+    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
 
     //todo: delete some redundant predicates
 //    val redundantFormulas = for(g<-guardList if SymbolCollector.constants(g).map(_.toString).toSet.diff(replacedClause.head.args.map(_.toString).toSet).intersect(bodySymbolsSet.map(_.toString)).isEmpty) yield {

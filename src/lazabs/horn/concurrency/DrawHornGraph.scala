@@ -635,11 +635,12 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
     val rootName = e match {
-      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
       case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
       case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit)
-      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, IdealInt.ZERO)
+      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
       case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
+      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, IdealInt.ZERO)
+
       case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
       case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
       //case SignConst(t)=>{println("SignConst")}
