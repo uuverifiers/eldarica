@@ -634,6 +634,10 @@ object HintsSelection {
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
+        /*todo:debug on quantifiers on constants
+        run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -generateSimplePredicates  -getHornGraph:hyperEdgeGraph
+        run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -checkSolvability -onlyInitialPredicates
+        */
         val simplifiedPredicates =
           if(constants.isEmpty)
             sp(argumentReplacedPredicates)
