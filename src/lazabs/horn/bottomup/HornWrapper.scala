@@ -426,6 +426,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     HintsSelection.writeSMTFormatToFile(for (c<-simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c),GlobalParameters.get.fileName+"-simplified")
   }
   if (GlobalParameters.get.checkSolvability == true) {
+    println("ap.CmdlMain.version",ap.CmdlMain.version)
+
     //read from unlabeled .tpl file
     val debugX=HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates")
     val simpleGeneratedInitialPredicates=HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse)))

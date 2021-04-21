@@ -209,6 +209,7 @@ class AbsReader(input : java.io.Reader) {
        val (predName, varNum) = translatePredRef(initPreds.predrefc_)
 
        val preds = (for (term <- initPreds.listterm_.iterator) yield {
+         println("parseExpr",printer print term)
          parseExpr(printer print term).asInstanceOf[IFormula]
        }).toList
 
