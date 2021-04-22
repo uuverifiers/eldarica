@@ -642,10 +642,11 @@ object HintsSelection {
 //        println("constants",constants)
 //        println(spAPI.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)))
         val simplifiedPredicates =
-          if(constants.isEmpty)
-            sp(argumentReplacedPredicates)
-          else
-            sp(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
+          if(constants.isEmpty) {
+            spAPI.simplify(sp(argumentReplacedPredicates))
+          } else {
+            spAPI.simplify(sp(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)))
+          }
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
         } else
