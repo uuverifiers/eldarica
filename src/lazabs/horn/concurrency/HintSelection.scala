@@ -638,6 +638,9 @@ object HintsSelection {
         run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -generateSimplePredicates  -getHornGraph:hyperEdgeGraph
         run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -checkSolvability -onlyInitialPredicates
         */
+//        println("argumentReplacedPredicates",argumentReplacedPredicates)
+//        println("constants",constants)
+//        println(spAPI.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)))
         val simplifiedPredicates =
           if(constants.isEmpty)
             sp(argumentReplacedPredicates)
@@ -686,7 +689,7 @@ object HintsSelection {
 
     //merge constraint and constant predicates
     //val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse))
-    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_))//.mapValues(distinctByLogic(_))
+    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.map(sp(_)).map(spAPI.simplify(_)).filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_))//.mapValues(distinctByLogic(_))
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
