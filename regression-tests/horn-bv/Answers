@@ -87,6 +87,7 @@ bitwise3.hcc
 SAFE
 
 inconclusive.smt2
+Warning: arrays over finite domains are not fully supported yet
 Warning: ignoring get-model
 Theories: ExtArray[bv[32], bv[32]]
 sat
