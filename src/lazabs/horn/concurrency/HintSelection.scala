@@ -430,8 +430,8 @@ object HintsSelection {
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".selected.tpl")) {
         AbsReader.printHints(selectedPredicates)}
     }
-    println("-"*10 + "positive predicates found by CEGAR" +"-"*10)
-    transformPredicateMapToVerificationHints(positivePredicatesFromCEGAR).pretyPrintHints()
+//    println("-"*10 + "positive predicates found by CEGAR" +"-"*10)
+//    transformPredicateMapToVerificationHints(positivePredicatesFromCEGAR).pretyPrintHints()
   }
 
 //  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],
@@ -628,6 +628,7 @@ object HintsSelection {
 //    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     //generate predicates from constraint
+
     val constraintPredicatesTemp= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
@@ -638,28 +639,30 @@ object HintsSelection {
         run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -generateSimplePredicates  -getHornGraph:hyperEdgeGraph
         run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -checkSolvability -onlyInitialPredicates
         */
-//        println("argumentReplacedPredicates",argumentReplacedPredicates)
-//        println("constants",constants)
-//        println(spAPI.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)))
-        val simplifiedPredicates =
+        println("argumentReplacedPredicates",argumentReplacedPredicates)
+        println("constants",constants)
+        val simplifiedPredicates = {
           if(constants.isEmpty) {
-            spAPI.simplify(sp(argumentReplacedPredicates))
+            (argumentReplacedPredicates)
           } else {
-            spAPI.simplify(sp(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates)))
+            spAPI.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
           }
+        }
+        println("simplifiedPredicates",simplifiedPredicates)
+
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
-        } else
+        } else {
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
+        }
       }
-      atom.pred-> freeVariableReplacedPredicates.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)//map(spAPI.simplify(_)) //get rid of true and false
+      atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse)//map(spAPI.simplify(_)) //get rid of true and false
     }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)//.mapValues(distinctByLogic(_))
     val constraintPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
         HintsSelection.varyPredicates(constraintPredicatesTemp)
       else
         constraintPredicatesTemp
-
     //generate predicates from clause's integer constants
 //    val integerConstantVisitor = new LiteralCollector
 //    val argumentConstantEqualPredicate = (
@@ -672,6 +675,7 @@ object HintsSelection {
 //      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)//.mapValues(distinctByLogic(_))
 
     //generate predicates with pairwise variables
+    //const1*v1 + const2*v2 + const =|!=|>= 0
     val integerConstantVisitor = new LiteralCollector
     //val variableConstantPairs=Seq(0,1,1,-1,-1).map(IdealInt(_)).combinations(2).toSeq.map(listToTuple2(_))
     val variableConstantPairs=Seq((-1,-1),(1,1),(0,1),(1,0),(-1,1),(1,-1),(0,-1),(-1,0)).map(x=>Tuple2(IdealInt(x._1),IdealInt(x._2)))

@@ -285,7 +285,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
       HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
       sys.exit()
     }
-    nodeIds +:= GNNNodeID
+    nodeIds :+= GNNNodeID
     nodeNameToIDMap(nodeUniqueName) = GNNNodeID
     GNNNodeID += 1
     nodeClass match {

@@ -122,7 +122,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   var tempID = 0
   var clauseNumber = 0
   var hyperEdgeList = scala.collection.mutable.ArrayBuffer[hyperEdgeInfo]()
-  //for (clause <- Seq(simpClauses.head)) {
+  //todo: create unique Initial and FALSE node
+  val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+  createNode(canonicalName=initialControlFlowNodeName, labelName="Initial", className="CONTROL", shape=nodeShapeMap("CONTROL"))
+  controlFlowNodeSetInOneClause("Initial") = initialControlFlowNodeName
+//  val falseControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+//  createNode(canonicalName=falseControlFlowNodeName, labelName="FALSE", className="CONTROL", shape=nodeShapeMap("CONTROL"))
+//  controlFlowNodeSetInOneClause("FALSE") = falseControlFlowNodeName
+
   for (clause <- simpClauses) {
     hyperEdgeList.clear()
     constantNodeSetInOneClause.clear()
@@ -133,6 +140,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       //draw predicate node
       drawPredicateNode("FALSE", "FALSE", "FALSE")
       "FALSE"
+      //falseControlFlowNodeName
     } else {
       if (!controlFlowNodeSetInOneClause.keySet.contains(normalizedClause.head.pred.name)) {
         //draw predicate node
@@ -155,8 +163,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     var bodyNodeNameList:Array[String]=Array()
     if (normalizedClause.body.isEmpty) {
       //draw predicate node
-      val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
-      drawPredicateNode(initialControlFlowNodeName, "Initial", "CONTROL")
+      //val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+      //drawPredicateNode(initialControlFlowNodeName, "Initial", "CONTROL")
+
       //draw control flow hyperedge node between body and head
       val controlFlowHyperedgeName = controlFlowHyperEdgeNodePrefix + gnn_input.controlFlowHyperEdgeCanonicalID.toString
       matchAndCreateHyperEdgeNode(controlFlowHyperedgeName,"guarded CFHE Clause " + clauseNumber.toString,"controlFlowHyperEdge")
