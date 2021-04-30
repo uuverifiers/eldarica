@@ -611,6 +611,12 @@ object HintsSelection {
     }
   }
 
+  def predicateQuantify(p: IFormula): IFormula = {
+    val constants = SymbolCollector.constants(p)
+    if (constants.isEmpty) p
+    else
+      spAPI.simplify(IExpression.quanConsts(Quantifier.EX, constants, p))
+  }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
 //    for (clause <- simplePredicatesGeneratorClauses)
 //      println(Console.BLUE + clause.toPrologString)
@@ -635,21 +641,7 @@ object HintsSelection {
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val constants=SymbolCollector.constants(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
-        /*todo:debug on quantifiers on constants
-        run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -generateSimplePredicates  -getHornGraph:hyperEdgeGraph
-        run ../predicted_arguments/chc-lia-lin-0015_000.smt2 -abstract -noIntervals -checkSolvability -onlyInitialPredicates
-        */
-        println("argumentReplacedPredicates",argumentReplacedPredicates)
-        println("constants",constants)
-        val simplifiedPredicates = {
-          if(constants.isEmpty) {
-            (argumentReplacedPredicates)
-          } else {
-            spAPI.simplify(IExpression.quanConsts(Quantifier.EX,constants,argumentReplacedPredicates))
-          }
-        }
-        println("simplifiedPredicates",simplifiedPredicates)
-
+        val simplifiedPredicates = predicateQuantify(argumentReplacedPredicates)
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
         } else {

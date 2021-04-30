@@ -37,6 +37,7 @@ import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
 import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, spAPI}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -392,7 +393,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
-  val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
+  val binaryOperatorSubGraphSetInOneClause = scala.collection.mutable.Map[String, Tuple2[String,String]]()
+  val unaryOperatorSubGraphSetInOneClause = scala.collection.mutable.Map[String, String]()
+  val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]()
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
   val argumentNodeSetInPredicates = scala.collection.mutable.Map[String, String]() //map[argumentConstantName->argumentNameWithCanonicalNumber]
   val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
@@ -553,52 +556,76 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawASTBinaryRelation(op: String, previousNodeName: String, e1: IExpression, e2: IExpression): String = {
-    val condName = op + "_" + gnn_input.GNNNodeID
-    createNode(condName, op, "operator", nodeShapeMap("operator"))
-    if (previousNodeName != "") addEdgeInSubTerm(condName, previousNodeName,"operator")
-    drawAST(e1, condName)
-    drawAST(e2, condName)
+    val e1Peek = peekAST(e1)
+    val e2Peek = peekAST(e2)
+    val existedNodeName = for ((k, v) <- binaryOperatorSubGraphSetInOneClause; if v._1 == e1Peek && v._2 == e2Peek && k.substring(0,k.indexOf("_"))==op) yield k
+    val condName = if (existedNodeName.isEmpty) {
+      val operatorNodeName=op + "_" + gnn_input.GNNNodeID
+      createNode(operatorNodeName, op, "operator", nodeShapeMap("operator"))
+      //if (previousNodeName != "") addEdgeInSubTerm(operatorNodeName, previousNodeName, "operator")
+      val e1Name=drawAST(e1, operatorNodeName)
+      val e2Name=drawAST(e2, operatorNodeName)
+      //remember sub-graph
+      binaryOperatorSubGraphSetInOneClause(operatorNodeName)=Tuple2(e1Name,e2Name)//condName->Tuple2(e1Name,e2Name)
+      operatorNodeName
+    } else {
+      existedNodeName.head}
+    if (previousNodeName != "") addEdgeInSubTerm(condName, previousNodeName, "operator")
     condName
   }
 
   def drawASTUnaryRelation(op: String, previousNodeName: String, e: IExpression): String = {
-    val opName = op + "_" + gnn_input.GNNNodeID
-    createNode(opName, op, "operator", nodeShapeMap("operator"))
+    val ePeek = peekAST(e)
+    val existedNodeName = for ((k, v) <- unaryOperatorSubGraphSetInOneClause; if v == ePeek && k.substring(0,k.indexOf("_"))==op) yield k
+
+    val opName = if (existedNodeName.isEmpty) {
+      val operatorNodeName = op + "_" + gnn_input.GNNNodeID
+      createNode(operatorNodeName, op, "operator", nodeShapeMap("operator"))
+      //if (previousNodeName != "") addEdgeInSubTerm(operatorNodeName, previousNodeName,"operator")
+      val eName=drawAST(e, operatorNodeName)
+      unaryOperatorSubGraphSetInOneClause(operatorNodeName)=eName
+      operatorNodeName
+    } else {existedNodeName.head}
     if (previousNodeName != "") addEdgeInSubTerm(opName, previousNodeName,"operator")
-    drawAST(e, opName)
     opName
   }
 
-  def drawASTEndNode(constantStr: String, previousNodeName: String, className: String): String = {
-    //println("constantStr",constantStr,"className",className)
+  def drawASTEndNode(constantStr: String, previousNodeName: String, className: String,draw:Boolean=true): String = {
     if (argumentNodeSetInPredicates.isEmpty){ //not drawing templates
-      drawAndMergeConstantNode(constantStr,previousNodeName,className)
+      drawAndMergeConstantNode(constantStr,previousNodeName,className,draw)
     }else{ //when create template nodes, argumentNodeSetInPredicates store argument node name
       if(argumentNodeSetInPredicates.keySet.contains(constantStr)){//if this node is a argument, merge argument
-        addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName,className)
+        if (draw==true)
+          addEdgeInSubTerm(argumentNodeSetInPredicates(constantStr), previousNodeName,className)
         argumentNodeSetInPredicates(constantStr)
       }else{//if this node is a constant, treat with regular constant. constantNodeSetInOneClause range in one predicate
-        drawAndMergeConstantNode(constantStr,previousNodeName,className)
+        drawAndMergeConstantNode(constantStr,previousNodeName,className,draw)
       }
     }
   }
 
-  def drawAndMergeConstantNode(constantStr:String,previousNodeName:String,className:String): String = {
+  def drawAndMergeConstantNode(constantStr:String,previousNodeName:String,className:String,draw:Boolean=true): String = {
     if (constantNodeSetCrossGraph.keySet.contains(constantStr)){ //if a constant is a global constant
-      addEdgeInSubTerm(constantNodeSetCrossGraph(constantStr), previousNodeName,className)
+      if (draw==true)
+        addEdgeInSubTerm(constantNodeSetCrossGraph(constantStr), previousNodeName,className)
       constantNodeSetCrossGraph(constantStr)
     } else if (constantNodeSetInOneClause.keySet.contains(constantStr)) { //if a constant is a local clause constant
-      addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName,className)
+      if (draw==true)
+        addEdgeInSubTerm(constantNodeSetInOneClause(constantStr), previousNodeName,className)
       constantNodeSetInOneClause(constantStr)
     } else {
-      val constantName = constantStr + "_" + gnn_input.GNNNodeID
-      createNode(constantName, constantStr, className, nodeShapeMap(className))
-      addEdgeInSubTerm(constantName, previousNodeName,className)
-      //constantNodeSetInOneClause(constantStr) = constantName
-      className match {
-        case "constant" => constantNodeSetCrossGraph(constantStr) = constantName
-        case _ => constantNodeSetInOneClause(constantStr) = constantName
-      }
+      val constantName =
+      if (draw==true){
+        val constantNodeName=constantStr + "_" + gnn_input.GNNNodeID
+        createNode(constantNodeName, constantStr, className, nodeShapeMap(className))
+        addEdgeInSubTerm(constantNodeName, previousNodeName,className)
+        //constantNodeSetInOneClause(constantStr) = constantNodeName
+        className match {
+          case "constant" => constantNodeSetCrossGraph(constantStr) = constantNodeName
+          case _ => constantNodeSetInOneClause(constantStr) = constantNodeName
+        }
+        constantNodeName
+      } else ""
       constantName
     }
   }
@@ -633,13 +660,24 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
   }
 
+  def peekAST(e: IExpression):String=
+    e match {
+      case IBoolLit(v) =>  drawASTEndNode(v.toString(), "", "constant",draw = false)
+      case IConstant(c) => drawASTEndNode(c.name, "", "symbolicConstant",draw = false)
+      case IIntLit(v) => drawASTEndNode(v.toString(), "", "constant",draw = false)
+      case Const(t) => drawASTEndNode(t.toString(), "", "constant",draw = false)
+      case IVariable(index) => drawASTEndNode("_"+index.toString(), "", "symbolicConstant",draw = false)
+      case _ => "other than single node"
+    }
+
   def drawAST(e: IExpression, previousNodeName: String = ""): String = {
     val rootName = e match {
       case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
       case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit)
       case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
+
+      case GeqZ(t) => drawASTBinaryRelation(">=", previousNodeName, t, IdealInt.ZERO)
       case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
-      case GeqZ(t) => drawASTBinaryRelation("=>", previousNodeName, t, IdealInt.ZERO)
 
       case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
       case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
@@ -880,7 +918,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
     writer.write("]")
   }
-  def drawTemplates(): Seq[(String,Seq[String])] ={
+  def drawTemplates(clauseGuardMap: Map[Predicate, Seq[Tuple2[String,IFormula]]]=Map()): Seq[(String,Seq[String])] ={
+    val quantifiedClauseGuardMap = {
+      for ((k, v) <- clauseGuardMap) yield k -> {
+        for (p <- v) yield Tuple2(p._1,HintsSelection.predicateQuantify(p._2))
+      }.filter(!_._2.isTrue).filter(!_._2.isFalse)
+    }
+
     val tempHeadMap=
     for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
       constantNodeSetInOneClause.clear()
@@ -893,8 +937,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         t match {
-          case VerifHintInitPred(e)=>{
-            drawAST(e,templateNodeName)
+          case VerifHintInitPred(e)=> {
+            //drawAST(e,templateNodeName)
+            val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.wrappedContainsPred(e, Seq(f)))) yield s
+            if (existedSubGraphRoot.isEmpty)
+              drawAST(e,templateNodeName)
+            else
+              addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")
           }
           case _=>{println("__")}
         }
