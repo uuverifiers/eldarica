@@ -111,6 +111,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         lastSize = curSize
         applyStage(SimplePropagators.EqualityPropagator)
         applyStage(SimplePropagators.ConstantPropagator)
+        applyStage(SimplePropagators.HeapDefinednessPropagator)
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
