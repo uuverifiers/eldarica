@@ -303,8 +303,9 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
 
+      println("begin generating initial predicates")
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
-      //todo: only initial predicates
+      println("end generating initial predicates")
       val predicateGenerator= if (GlobalParameters.get.onlyInitialPredicates) exceptionalPredGen else predGenerator
       val (solvability,predicateFromCEGAR,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predicateGenerator,counterexampleMethod,fileName = fileName,coefficient = 5)
 
@@ -324,9 +325,9 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //predicates selection begin
       if (!initialPredicates.isEmpty) {
-        println("---initialHints-----")
-        for((k,v)<-initialPredicates.toInitialPredicates;p<-v)
-          println(k,p)
+//        println("---initialHints-----")
+//        for((k,v)<-initialPredicates.toInitialPredicates;p<-v)
+//          println(k,p)
         val (optimizedPredicate,_)=HintsSelection.getMinimumSetPredicates(initialPredicates.toInitialPredicates,simplePredicatesGeneratorClauses,exceptionalPredGen,counterexampleMethod)
         predicatesExtractingTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
 

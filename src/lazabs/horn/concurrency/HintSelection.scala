@@ -242,11 +242,12 @@ object HintsSelection {
     val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
 
-    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
-      case _ => csSimplifiedClauses
-    }
-    simplePredicatesGeneratorClauses
+//    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
+//      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
+//      case _ => csSimplifiedClauses
+//    }
+//    simplePredicatesGeneratorClauses
+    csSimplifiedClauses
   }
 
   def transformPredicatesToCanonical( lastPredicates:Map[HornPredAbs.RelationSymbol, ArrayBuffer[HornPredAbs.RelationSymbolPred]]):
@@ -639,9 +640,8 @@ object HintsSelection {
       //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
-      val constants=SymbolCollector.constants(argumentReplacedPredicates)
+      val simplifiedPredicates = predicateQuantify(argumentReplacedPredicates)
       val freeVariableReplacedPredicates= {
-        val simplifiedPredicates = predicateQuantify(argumentReplacedPredicates)
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
         } else {

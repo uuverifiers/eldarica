@@ -114,6 +114,9 @@ class GNNInput(clauseCollection:ClauseInfo) {
   //edge category for hyperedge horn graph
   val dataFlowASTEdges = new Adjacency("dataFlowASTEdge", 2)
   val guardASTEdges = new Adjacency("guardASTEdge", 2)
+  val ASTEdges = new Adjacency("ASTEdge", 2)
+  val AST_1Edges = new Adjacency("AST_1Edges", 2)
+  val AST_2Edges = new Adjacency("AST_2Edges", 2)
   val templateASTEdges = new Adjacency("templateASTEdge", 2)
   val templateEdges = new Adjacency("templateEdge", 2)
   //val dataFlowEdges = new Adjacency("dataFlowEdge", 2)
@@ -175,6 +178,9 @@ class GNNInput(clauseCollection:ClauseInfo) {
           // hyperedge graph
           case "dataFlowAST" => dataFlowASTEdges.incrementBinaryEdge(fromID, toID)
           case "guardAST" => guardASTEdges.incrementBinaryEdge(fromID, toID)
+          case "AST" => ASTEdges.incrementBinaryEdge(fromID, toID)
+          case "AST_1" => AST_1Edges.incrementBinaryEdge(fromID, toID)
+          case "AST_2" => AST_2Edges.incrementBinaryEdge(fromID, toID)
           case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
           case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "argument" => argumentEdges.incrementBinaryEdge(fromID, toID)
@@ -248,6 +254,14 @@ class GNNInput(clauseCollection:ClauseInfo) {
       case false =>templateRelevanceLabel:+=0
     }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
+  }
+  def updateTemplateIndicesAndNodeIds(nodeUniqueName:String,hintLabel:Boolean): Unit ={
+    templateIndices :+= nodeNameToIDMap(nodeUniqueName)
+    hintLabel match {
+      case true =>templateRelevanceLabel:+=1
+      case false =>templateRelevanceLabel:+=0
+    }
+    templateCanonicalID += 1
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
     clauseIndices :+=GNNNodeID
@@ -376,7 +390,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
 
 class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   val sp = new Simplifier()
-
+  val spAPI = ap.SimpleAPI.spawn
   val simpClauses = clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
@@ -555,34 +569,34 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
   }
 
-  def drawASTBinaryRelation(op: String, previousNodeName: String, e1: IExpression, e2: IExpression): String = {
+  def drawASTBinaryRelation(op: String, previousNodeName: String, e1: IExpression, e2: IExpression,astArity:String=""): String = {
     val e1Peek = peekAST(e1)
     val e2Peek = peekAST(e2)
     val existedNodeName = for ((k, v) <- binaryOperatorSubGraphSetInOneClause; if v._1 == e1Peek && v._2 == e2Peek && k.substring(0,k.indexOf("_"))==op) yield k
     val condName = if (existedNodeName.isEmpty) {
       val operatorNodeName=op + "_" + gnn_input.GNNNodeID
       createNode(operatorNodeName, op, "operator", nodeShapeMap("operator"))
-      //if (previousNodeName != "") addEdgeInSubTerm(operatorNodeName, previousNodeName, "operator")
-      val e1Name=drawAST(e1, operatorNodeName)
-      val e2Name=drawAST(e2, operatorNodeName)
+      astEdgeType="AST_1"
+      val e1Name=drawAST(e1, operatorNodeName,"AST_1")
+      astEdgeType="AST_2"
+      val e2Name=drawAST(e2, operatorNodeName,"AST_2")
       //remember sub-graph
       binaryOperatorSubGraphSetInOneClause(operatorNodeName)=Tuple2(e1Name,e2Name)//condName->Tuple2(e1Name,e2Name)
       operatorNodeName
-    } else {
-      existedNodeName.head}
+    } else {existedNodeName.head}
+    astEdgeType=astArity
     if (previousNodeName != "") addEdgeInSubTerm(condName, previousNodeName, "operator")
     condName
   }
 
-  def drawASTUnaryRelation(op: String, previousNodeName: String, e: IExpression): String = {
+  def drawASTUnaryRelation(op: String, previousNodeName: String, e: IExpression,astArity:String="AST_1"): String = {
     val ePeek = peekAST(e)
     val existedNodeName = for ((k, v) <- unaryOperatorSubGraphSetInOneClause; if v == ePeek && k.substring(0,k.indexOf("_"))==op) yield k
-
+    astEdgeType="AST_1"
     val opName = if (existedNodeName.isEmpty) {
       val operatorNodeName = op + "_" + gnn_input.GNNNodeID
       createNode(operatorNodeName, op, "operator", nodeShapeMap("operator"))
-      //if (previousNodeName != "") addEdgeInSubTerm(operatorNodeName, previousNodeName,"operator")
-      val eName=drawAST(e, operatorNodeName)
+      val eName=drawAST(e, operatorNodeName,"AST_1")
       unaryOperatorSubGraphSetInOneClause(operatorNodeName)=eName
       operatorNodeName
     } else {existedNodeName.head}
@@ -670,50 +684,52 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case _ => "other than single node"
     }
 
-  def drawAST(e: IExpression, previousNodeName: String = ""): String = {
+  def drawAST(e: IExpression, previousNodeName: String = "",astArity:String="AST_1"): String = {
     val rootName = e match {
-      case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2)
-      case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit)
-      case EqZ(t) =>  drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
+      case Eq(t1, t2) => drawASTBinaryRelation("=", previousNodeName, t1, t2,astArity)
+      case EqLit(term, lit) => drawASTBinaryRelation("=", previousNodeName, term, lit,astArity)
+      case EqZ(t) =>  drawASTUnaryRelation("=0", previousNodeName, t,astArity)//drawASTBinaryRelation("=", previousNodeName, t, IdealInt.ZERO)
 
-      case GeqZ(t) => drawASTBinaryRelation(">=", previousNodeName, t, IdealInt.ZERO)
-      case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2)
 
-      case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b)
-      case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b)
+      case Geq(t1, t2) => drawASTBinaryRelation(">=", previousNodeName, t1, t2,astArity)
+      case GeqZ(t) => drawASTUnaryRelation(">=0", previousNodeName, t,astArity)//drawASTBinaryRelation(">=", previousNodeName, t, IdealInt.ZERO)
+
+
+      case Conj(a, b) => drawASTBinaryRelation("&", previousNodeName, a, b,astArity)
+      case Disj(a, b) => drawASTBinaryRelation("|", previousNodeName, a, b,astArity)
       //case SignConst(t)=>{println("SignConst")}
       //case SimpleTerm(t)=>{println("SimpleTerm")}
       //      case LeafFormula(t)=>{
       //        //println("LeafFormula")
       //        drawAST(t,previousNodeName)
       //      }
-      case IAtom(pred, args) => {""}
       case IBinFormula(j, f1, f2) => drawASTBinaryRelation(j.toString, previousNodeName, f1, f2)
-      case IBoolLit(v) =>  drawASTEndNode(v.toString(), previousNodeName, "constant")
       case IFormulaITE(cond, left, right) => {
         drawAST(cond, previousNodeName)
         drawAST(right, previousNodeName)
         drawAST(left, previousNodeName)
       }
-      case IIntFormula(rel, term) => drawASTUnaryRelation(rel.toString, previousNodeName, term)
-      case INamedPart(pname, subformula) => drawASTUnaryRelation(pname.toString, previousNodeName, subformula)
-      case INot(subformula) =>  drawASTUnaryRelation("!", previousNodeName, subformula)
-      case IQuantified(quan, subformula) =>  drawASTUnaryRelation(quan.toString, previousNodeName, subformula)
-      case ITrigger(patterns, subformula) => {""}
+      case INot(subformula) =>  drawASTUnaryRelation("!", previousNodeName, subformula,astArity)
+      case IQuantified(quan, subformula) =>  drawASTUnaryRelation(quan.toString, previousNodeName, subformula,astArity)
+      case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond,astArity)
       case IConstant(c) => drawASTEndNode(c.name, previousNodeName, "symbolicConstant")
-      case IEpsilon(cond) => drawASTUnaryRelation("eps", previousNodeName, cond)
-      case IFunApp(fun, args) => {""}
+      case IBoolLit(v) =>  drawASTEndNode(v.toString(), previousNodeName, "constant")
       case IIntLit(v) => drawASTEndNode(v.toString(), previousNodeName, "constant")
       case Const(t) => drawASTEndNode(t.toString(), previousNodeName, "constant")
-      case IPlus(t1, t2) =>  drawASTBinaryRelation("+", previousNodeName, t1, t2)
+      case IPlus(t1, t2) =>  drawASTBinaryRelation("+", previousNodeName, t1, t2,astArity)
+      case IIntFormula(rel, term) => drawASTUnaryRelation(rel.toString, previousNodeName, term,astArity)
       case ITermITE(cond, left, right) => {
         drawAST(cond, previousNodeName)
         drawAST(right, previousNodeName)
         drawAST(left, previousNodeName)
       }
-      case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff)
+      case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff,astArity)
       case IVariable(index) => drawASTEndNode("_"+index.toString(), previousNodeName, "symbolicConstant")//constant////add _ to differentiate index with other constants
-      case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2)
+      case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2,astArity)
+      case INamedPart(pname, subformula) => drawASTUnaryRelation(pname.toString, previousNodeName, subformula,astArity)
+      case IFunApp(fun, args) => {""}
+      case ITrigger(patterns, subformula) => {""}
+      case IAtom(pred, args) => {""}
       case _ => drawASTEndNode("unknown", previousNodeName, "constant")
 
     }
@@ -750,6 +766,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case DrawHornGraph.HornGraphType.hyperEdgeGraph=> {
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("ASTEdges", PairArray(gnn_input.ASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("AST_1Edges", PairArray(gnn_input.AST_1Edges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("AST_2Edges", PairArray(gnn_input.AST_2Edges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
@@ -759,6 +778,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph| DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>{
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("ASTEdges", PairArray(gnn_input.ASTEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("AST_1Edges", PairArray(gnn_input.AST_1Edges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("AST_2Edges", PairArray(gnn_input.AST_2Edges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateASTEdges", PairArray(gnn_input.templateASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("templateEdges", PairArray(gnn_input.templateEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
@@ -940,10 +962,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           case VerifHintInitPred(e)=> {
             //drawAST(e,templateNodeName)
             val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.wrappedContainsPred(e, Seq(f)))) yield s
-            if (existedSubGraphRoot.isEmpty)
-              drawAST(e,templateNodeName)
-            else
-              addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")
+            if (existedSubGraphRoot.isEmpty) {
+              val predicateASTRootName=drawAST(e)
+              addBinaryEdge(predicateASTRootName,templateNodeName,"templateAST")
+            } else
+              addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")//astEdgeType
           }
           case _=>{println("__")}
         }
@@ -951,6 +974,29 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
       hp.name->templateNameList
     }
+    tempHeadMap
+  }
+
+  def drawPredicate(): Seq[(String,Seq[String])] ={
+
+    val tempHeadMap=
+      for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
+        constantNodeSetInOneClause.clear()
+        val templateNameList=
+          for (t<-templates) yield {
+            val predicateASTRootName=
+              t match {
+                case VerifHintInitPred(e)=>
+                  drawAST(e)
+                case _=>{"__"}
+              }
+            //update JSON
+            val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
+            gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)
+            predicateASTRootName
+          }
+        hp.name->templateNameList
+      }
     tempHeadMap
   }
 
