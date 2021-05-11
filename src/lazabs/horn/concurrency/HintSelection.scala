@@ -167,8 +167,8 @@ object HintsSelection {
     //    val preds = List(v(1) === 42, v(0) >= 2, v(1) === v(2) + 1)
     //    val newPred1 = v(0) > 1
     //    val newPred2 = v(1) > 1
-    SimpleAPI.withProver { p =>
-      import p._
+    SimpleAPI.withProver { prover =>
+      import prover._
       import IExpression._
 
       def containsPred(p: IFormula,
@@ -615,31 +615,18 @@ object HintsSelection {
   def predicateQuantify(p: IFormula): IFormula = {
     val constants = SymbolCollector.constants(p)
     if (constants.isEmpty) p
-    else spAPI.simplify(IExpression.quanConsts(Quantifier.EX, constants, p))
+    else IExpression.quanConsts(Quantifier.EX, constants, p)
   }
   def clauseConstraintQuantify(clause: Clause): IFormula ={
-    //todo: collect constants from body and head
-    println(clause.toPrologString)
     val projectedConstraint=
     SimpleAPI.withProver { p=>
       p.scope{
         p.addConstantsRaw(clause.constants)
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-        p.simplify(p.projectEx(clause.constraint,constants))
+        p.projectEx(clause.constraint,constants)
       }
     }
     projectedConstraint
-//    println(spAPI.projectEx(clause.constraint,constants))
-//    spAPI.projectEx(clause.constraint,constants)
-
-//    val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-//    val freeVariables= SymbolCollector.constants(clause.constraint).toSeq.filterNot(constants.contains(_))
-//    println("freeVariables",freeVariables)
-//    val quantifiedConstrants=IExpression.quanConsts(Quantifier.EX, freeVariables, clause.constraint)
-//    println(quantifiedConstrants)
-//    println(spAPI.simplify(quantifiedConstrants))
-//    println("debug")
-//    IExpression.quanConsts(Quantifier.EX, freeVariables, clause.constraint)
   }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
 //    for (clause <- simplePredicatesGeneratorClauses)
@@ -658,12 +645,19 @@ object HintsSelection {
 //    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
     //generate predicates from constraint
-
     val constraintPredicatesTemp= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
       //println(Console.BLUE + clause.toPrologString)
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
-      val simplifiedPredicates = predicateQuantify(argumentReplacedPredicates)
+      val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
+      val simplifiedPredicates = spAPI.simplify(quantifiedConstraints)
+//      println("argumentReplacedPredicates")
+//      println(argumentReplacedPredicates)
+//      println("quantifiedConstraints")
+//      println(quantifiedConstraints)
+//      println("simplifiedPredicates")
+//      println(simplifiedPredicates)
+
       val freeVariableReplacedPredicates= {
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
@@ -678,16 +672,6 @@ object HintsSelection {
         HintsSelection.varyPredicates(constraintPredicatesTemp)
       else
         constraintPredicatesTemp
-    //generate predicates from clause's integer constants
-//    val integerConstantVisitor = new LiteralCollector
-//    val argumentConstantEqualPredicate = (
-//      for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield {
-//        integerConstantVisitor.visitWithoutResult(clause.constraint,()) //collect integer constant in clause
-//        val eqConstant = integerConstantVisitor.literals.toSeq
-//        integerConstantVisitor.literals.clear()
-//        atom.pred -> (for ((arg, n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n, eqConstant,arg)).flatten
-//      }
-//      ).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)//.mapValues(distinctByLogic(_))
 
     //generate predicates with pairwise variables
     //const1*v1 + const2*v2 + const =|!=|>= 0
@@ -709,7 +693,7 @@ object HintsSelection {
 
     //merge constraint and constant predicates
     //val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse))
-    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.map(sp(_)).map(spAPI.simplify(_)).filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_))//.mapValues(distinctByLogic(_))
+    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_)).mapValues(distinctByLogic(_))//.mapValues(_.map(spAPI.simplify(_)))
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
@@ -717,8 +701,8 @@ object HintsSelection {
 //      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
       println("--------predicates from pairwise variables---------")
       for(cc<-pairWiseVariablePredicates; b<-cc._2) println(cc._1,b)
-      println("--------predicates from pairwise variables simplified---------")
-      for(cc<-pairWiseVariablePredicates.mapValues(_.map(spAPI.simplify(_))); b<-cc._2) println(cc._1,b)
+//      println("--------predicates from pairwise variables simplified---------")
+//      for(cc<-pairWiseVariablePredicates.mapValues(_.map(spAPI.simplify(_))); b<-cc._2) println(cc._1,b)
       println("--------all generated predicates---------")
       for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }
@@ -731,7 +715,7 @@ object HintsSelection {
     else if (second.isEmpty)
       first
     else
-      (for ((cpKey, cpPredicates) <- first; (apKey, apPredicates) <- second; if cpKey.name==apKey.name) yield cpKey ->(cpPredicates ++ apPredicates)).mapValues(distinctByString(_))
+      (for ((cpKey, cpPredicates) <- first; (apKey, apPredicates) <- second; if cpKey.name==apKey.name) yield cpKey ->(cpPredicates ++ apPredicates))
   }
 
   def distinctByString[A](formulas:Seq[A]): Seq[A] ={
@@ -742,7 +726,7 @@ object HintsSelection {
   def distinctByLogic(formulas:Seq[IFormula]):Seq[IFormula]={
     var distinctedFormulas=formulas
     for (f<-formulas; if wrappedContainsPred(f,distinctedFormulas.filterNot(_==f)))
-      distinctedFormulas.filterNot(_==f)
+      distinctedFormulas=distinctedFormulas.filterNot(_==f)
     distinctedFormulas
   }
 

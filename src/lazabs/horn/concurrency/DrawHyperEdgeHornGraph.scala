@@ -432,10 +432,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         matchAndCreateHyperEdgeNode(dataFlowHyperedgeName, "guarded DFHE Clause " + clauseNumber.toString, "dataFlowHyperEdge")
         //astEdgeType = "dataFlowAST"
         astEdgeType = "AST"
+//        println("df",df)
 //        println("coefficient",coefficient)
 //        println("rhs",rhs)
-//        println("coefficient * rhs",coefficient * rhs)
-//        println("(coefficient * rhs).minusSimplify",(coefficient * rhs).minusSimplify)
         val dataFlowRoot =
           if (coefficient.isOne)
             drawAST(rhs)
@@ -446,7 +445,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         //store data flow hyperedge connection
         hyperEdgeList :+= new hyperEdgeInfo(dataFlowHyperedgeName, dataFlowRoot, constantNodeSetInOneClause(arg.toString), HyperEdgeType.dataFlow)
       }
-      case _ => {}
+      case _ => {
+        //println("debug df",df)
+      }
     }
   }
 
@@ -465,15 +466,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val normalizedClause=clause.normalize()
     //replace intersect arguments in body and add arg=arg' to constrains
     val replacedClause = DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(normalizedClause)
-//    val argumentCanonilizedClauses=getArgumentReplacedClause(replacedClause)
-//    val simplifiedArgumentCanonilizedClauses=getSimplifiedClauses(argumentCanonilizedClauses)
+    //val argumentCanonilizedClauses=getArgumentReplacedClause(replacedClause)
+    //val simplifiedArgumentCanonilizedClauses=getSimplifiedClauses(argumentCanonilizedClauses)
     val simplifyedClauses=getSimplifiedClauses(replacedClause)
+    val finalSimplifiedClauses=simplifyedClauses //change to replacedClause see not simplified constraints
 
-    val finalSimplifiedClauses=simplifyedClauses
-
-
+    //var guardList = Set[IFormula]()
     var dataflowList = Set[IFormula]()
-    var dataflowEquationList = Set[IExpression]()
+    //var dataflowEquationList = Set[IExpression]()
     var bodySymbolsSet = (for (body <- finalSimplifiedClauses.body; arg <- body.args) yield arg).toSet
     //var bodySymbolsSet = bodySymbols.toSet
     //println(Console.GREEN + finalSimplifiedClauses)
@@ -481,13 +481,13 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       //println(Console.RED + x)
       val SE = IExpression.SymbolEquation(x)
       for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) f match {
-        case SE(coefficient, rhs) => { //<1>
+        case SE(coefficient, rhs) if !coefficient.isZero=> { //<1>
           //println(Console.YELLOW + rhs)
           //println(Console.GREEN + bodySymbolsSet)
           if (!(dataflowList.map(_.toString) contains f.toString) // f is not in dataflowList
             //&& !SymbolCollector.constants(rhs).map(_.toString).contains(x.toString) // x is not in y
             && SymbolCollector.constants(rhs).map(_.toString).subsetOf(bodySymbolsSet.map(_.toString)) // <2>
-          //&& (for (s <- SymbolCollector.constants(f)) yield s.name).contains(x.toString)// because match SE will match f that does not have head' arguments
+            //&& (for (s <- SymbolCollector.constants(f)) yield s.name).contains(x.toString)// because match SE will match f that does not have head' arguments, make sure the whole dataflow formula includes x
           ) {
             // discovered dataflow from body to x
             //println(Console.RED + f)
@@ -496,10 +496,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
             //bodySymbolsSet += x
           }
         }
-        case _ => { //println(Console.BLUE + f)//guardList+=f}
-        }
+        case _ => { //guardList+=f//println(Console.BLUE + f)
+        }//guardList+=f
       }
     }
+
     val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
 
 
@@ -542,7 +543,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   }
 
   def getSimplifiedClauses(clause: Clause): Clause = {
-    val simplifyedConstraints = (sp(HintsSelection.clauseConstraintQuantify(clause)))
+    val simplifyedConstraints = HintsSelection.clauseConstraintQuantify(clause)
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
 

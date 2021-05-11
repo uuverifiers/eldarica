@@ -308,8 +308,8 @@ object TrainDataGeneratorPredicatesSmt2 {
       println("end generating initial predicates")
       val predicateGenerator= if (GlobalParameters.get.onlyInitialPredicates) exceptionalPredGen else predGenerator
       val (solvability,predicateFromCEGAR,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predicateGenerator,counterexampleMethod,fileName = fileName,coefficient = 5)
-
-      val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).mapValues(_.filterNot(_.isFalse).filterNot(_.isTrue).toSeq)
+      val originalPredicates = HintsSelection.mergePredicateMaps(HintsSelection.differentTwoPredicated(simpleGeneratedPredicates,predicateFromCEGAR).mapValues(_.map(sp(_)).map(spAPI.simplify(_))),simpleGeneratedPredicates).filterKeys(_.arity!=0).mapValues(_.filterNot(_.isFalse).filterNot(_.isTrue).toSeq)
+      //val originalPredicates = predicateFromCEGAR.mapValues(_.map(sp(_)).map(spAPI.simplify(_))).filterKeys(_.arity!=0).mapValues(_.filterNot(_.isFalse).filterNot(_.isTrue).toSeq)
       //transform Map[Predicate,Seq[IFomula] to VerificationHints:[Predicate,VerifHintElement]
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
