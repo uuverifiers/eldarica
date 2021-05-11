@@ -343,7 +343,6 @@ object TrainDataGeneratorPredicatesSmt2 {
 
           val(_,_,test)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,optimizedPredicate,exceptionalPredGen,counterexampleMethod,fileName,moveFileFolder = "test-timeout")
 
-
           val (unlabeledPredicates,labeledPredicates)=
             if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {
               val simpleGeneratedAndAbstractGeneratedPredicates=HintsSelection.mergePredicateMaps(simpHints.toInitialPredicates,simpleGeneratedPredicates).mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse))

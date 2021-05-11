@@ -29,6 +29,7 @@
  */
 package lazabs.horn.concurrency
 
+import ap.SimpleAPI
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parser.smtlib.Absyn.ConstantTerm
@@ -147,8 +148,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 //    unaryOperatorSubGraphSetInOneClause.clear()
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
     val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause, dataFlowInfoWriter)
-    //val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause, clause.normalize(), dataFlowInfoWriter)
-    //val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(getSimplifiedClauses(clause), getSimplifiedClauses(clause.normalize()), dataFlowInfoWriter)
     //draw head predicate node and argument node
     val headNodeName =
       if (normalizedClause.head.pred.name == "FALSE") {
@@ -318,8 +317,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   for (argInfo <- gnn_input.argumentInfoHornGraphList) {
     argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
-  astEdgeType = "AST"
-  //astEdgeType = "templateAST"
+  astEdgeType = "AST"//"templateAST"
   //val templateNameList = drawTemplates(guardSubGraph)
   val templateNameList=drawPredicate()
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
@@ -465,20 +463,24 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
    */
 
     val normalizedClause=clause.normalize()
-    val argumentCanonilizedClauses=getArgumentReplacedClause(normalizedClause)
     //replace intersect arguments in body and add arg=arg' to constrains
     val replacedClause = DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(normalizedClause)
+//    val argumentCanonilizedClauses=getArgumentReplacedClause(replacedClause)
+//    val simplifiedArgumentCanonilizedClauses=getSimplifiedClauses(argumentCanonilizedClauses)
     val simplifyedClauses=getSimplifiedClauses(replacedClause)
+
+    val finalSimplifiedClauses=simplifyedClauses
+
 
     var dataflowList = Set[IFormula]()
     var dataflowEquationList = Set[IExpression]()
-    var bodySymbolsSet = (for (body <- replacedClause.body; arg <- body.args) yield arg).toSet
+    var bodySymbolsSet = (for (body <- finalSimplifiedClauses.body; arg <- body.args) yield arg).toSet
     //var bodySymbolsSet = bodySymbols.toSet
-    //println(Console.GREEN + replacedClause)
-    for (x <- replacedClause.head.args) {
+    //println(Console.GREEN + finalSimplifiedClauses)
+    for (x <- finalSimplifiedClauses.head.args) {
       //println(Console.RED + x)
       val SE = IExpression.SymbolEquation(x)
-      for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) f match {
+      for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) f match {
         case SE(coefficient, rhs) => { //<1>
           //println(Console.YELLOW + rhs)
           //println(Console.GREEN + bodySymbolsSet)
@@ -498,7 +500,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-    val guardList = (for (f <- LineariseVisitor(replacedClause.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
+    val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
 
 
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
@@ -507,12 +509,16 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     dataFlowInfoWriter.write("--------------------\n")
     dataFlowInfoWriter.write("original clause:\n")
     dataFlowInfoWriter.write(clause.toPrologString + "\n")
-    dataFlowInfoWriter.write("normalized replaced clause:\n")
+    dataFlowInfoWriter.write("normalized clause:\n")
     dataFlowInfoWriter.write(normalizedClause.toPrologString + "\n")
     dataFlowInfoWriter.write("replaceIntersectArgumentInBody clause:\n")
     dataFlowInfoWriter.write(replacedClause.toPrologString + "\n")
-    dataFlowInfoWriter.write("simplifyedClauses clause:\n")
+    dataFlowInfoWriter.write("simplified clause:\n")
     dataFlowInfoWriter.write(simplifyedClauses.toPrologString + "\n")
+//    dataFlowInfoWriter.write("argument canonicalized  clauses:\n")
+//    dataFlowInfoWriter.write(argumentCanonilizedClauses.toPrologString + "\n")
+//    dataFlowInfoWriter.write("simplified argument canonilized clauses:\n")
+//    dataFlowInfoWriter.write(simplifiedArgumentCanonilizedClauses.toPrologString + "\n")
     dataFlowInfoWriter.write("dataflow:\n")
     for (df <- dataFlowSeq)
       dataFlowInfoWriter.write(df.toString + "\n")
@@ -522,7 +528,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     //    dataFlowInfoWriter.write("redundant:\n")
     //    for (r <- redundantFormulas)
     //      dataFlowInfoWriter.write(r.toString + "\n")
-    (dataFlowSeq, guardSeq, replacedClause)
+    (dataFlowSeq, guardSeq, simplifyedClauses)
   }
 
   def getArgumentReplacedClause(clause:Clause): Clause ={
@@ -536,7 +542,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   }
 
   def getSimplifiedClauses(clause: Clause): Clause = {
-    val simplifyedConstraints = spAPI.simplify(sp(HintsSelection.predicateQuantify(clause.constraint)))
+    val simplifyedConstraints = (sp(HintsSelection.clauseConstraintQuantify(clause)))
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
 

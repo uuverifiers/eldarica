@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
-import ap.PresburgerTools
+import ap.{PresburgerTools, Prover, SimpleAPI}
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, IFormula, _}
@@ -46,7 +46,7 @@ import lazabs.horn.bottomup.HornPredAbs.{NormClause, RelationSymbol, SymbolFacto
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
 
 import java.io.{File, PrintWriter}
 import java.lang.System.currentTimeMillis
@@ -615,8 +615,31 @@ object HintsSelection {
   def predicateQuantify(p: IFormula): IFormula = {
     val constants = SymbolCollector.constants(p)
     if (constants.isEmpty) p
-    else
-      spAPI.simplify(IExpression.quanConsts(Quantifier.EX, constants, p))
+    else spAPI.simplify(IExpression.quanConsts(Quantifier.EX, constants, p))
+  }
+  def clauseConstraintQuantify(clause: Clause): IFormula ={
+    //todo: collect constants from body and head
+    println(clause.toPrologString)
+    val projectedConstraint=
+    SimpleAPI.withProver { p=>
+      p.scope{
+        p.addConstantsRaw(clause.constants)
+        val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
+        p.simplify(p.projectEx(clause.constraint,constants))
+      }
+    }
+    projectedConstraint
+//    println(spAPI.projectEx(clause.constraint,constants))
+//    spAPI.projectEx(clause.constraint,constants)
+
+//    val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
+//    val freeVariables= SymbolCollector.constants(clause.constraint).toSeq.filterNot(constants.contains(_))
+//    println("freeVariables",freeVariables)
+//    val quantifiedConstrants=IExpression.quanConsts(Quantifier.EX, freeVariables, clause.constraint)
+//    println(quantifiedConstrants)
+//    println(spAPI.simplify(quantifiedConstrants))
+//    println("debug")
+//    IExpression.quanConsts(Quantifier.EX, freeVariables, clause.constraint)
   }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
 //    for (clause <- simplePredicatesGeneratorClauses)
@@ -694,6 +717,8 @@ object HintsSelection {
 //      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
       println("--------predicates from pairwise variables---------")
       for(cc<-pairWiseVariablePredicates; b<-cc._2) println(cc._1,b)
+      println("--------predicates from pairwise variables simplified---------")
+      for(cc<-pairWiseVariablePredicates.mapValues(_.map(spAPI.simplify(_))); b<-cc._2) println(cc._1,b)
       println("--------all generated predicates---------")
       for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }

@@ -948,28 +948,22 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
 
     val tempHeadMap=
-    for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
+    for((hp,templates)<-hints.initialHints.toInitialPredicates.toSeq.sortBy(_._1.name)) yield {
       constantNodeSetInOneClause.clear()
       val templateNameList=
       for (t<-templates) yield {
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         //templateNameList:+=templateNodeName
-        //todo: differentiate clause not only by string?
-        val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
+        val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.wrappedContainsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
-        t match {
-          case VerifHintInitPred(e)=> {
-            //drawAST(e,templateNodeName)
-            val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.wrappedContainsPred(e, Seq(f)))) yield s
-            if (existedSubGraphRoot.isEmpty) {
-              val predicateASTRootName=drawAST(e)
-              addBinaryEdge(predicateASTRootName,templateNodeName,"templateAST")
-            } else
-              addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")//astEdgeType
-          }
-          case _=>{println("__")}
-        }
+        //drawAST(e,templateNodeName)
+        val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.wrappedContainsPred(t, Seq(f)))) yield s
+        if (existedSubGraphRoot.isEmpty) {
+          val predicateASTRootName=drawAST(t)
+          addBinaryEdge(predicateASTRootName,templateNodeName,"templateAST")
+        } else
+          addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")//astEdgeType
         templateNodeName
       }
       hp.name->templateNameList
@@ -978,20 +972,14 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawPredicate(): Seq[(String,Seq[String])] ={
-
     val tempHeadMap=
-      for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
+      for((hp,templates)<-hints.initialHints.toInitialPredicates.toSeq.sortBy(_._1.name)) yield {
         constantNodeSetInOneClause.clear()
         val templateNameList=
           for (t<-templates) yield {
-            val predicateASTRootName=
-              t match {
-                case VerifHintInitPred(e)=>
-                  drawAST(e)
-                case _=>{"__"}
-              }
+            val predicateASTRootName=drawAST(t)
             //update JSON
-            val hintLabel = if (hints.positiveHints.predicateHints.keySet.map(_.toString).contains(hp.toString) && hints.positiveHints.predicateHints(hp).map(_.toString).contains(t.toString)) true else false
+            val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.wrappedContainsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)
             predicateASTRootName
           }
