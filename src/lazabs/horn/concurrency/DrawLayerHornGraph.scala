@@ -127,7 +127,6 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     val predicateCanonicalName = predicateName
     var argumentCanonicalNameList = new ArrayBuffer[Pair[String, Int]]() //(canonicalName, ID)
   }
-
   for (clause <- simpClauses; a <- clause.allAtoms) {
     createPredicateLayerNodesAndEdges(a)
   }
@@ -191,8 +190,11 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   for (argInfo <- gnn_input.argumentInfoHornGraphList) {
     argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
+
+  println("debug")
   astEdgeType = "templateAST"
-  val templateNameList = drawTemplates()
+  //val templateNameList = drawTemplates()
+  val templateNameList=drawPredicate()
   for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList)
     addBinaryEdge(predicateNameMap(head).predicateCanonicalName,templateNodeName,"template")
 
