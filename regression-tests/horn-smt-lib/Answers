@@ -281,7 +281,6 @@ sat
 
 inconclusive.smt2
 Warning: ignoring get-model
-Theories: ExtArray[int, int]
 sat
 (define-fun INV_MAIN_0 ((A Int) (B Int)) Bool true)
 
@@ -293,12 +292,10 @@ unsat
 2: inv_main4(0, 0)
 
 nonlinear.smt2
-Theories: GroebnerMultiplication
 sat
 (define-fun Inv ((A Int) (B Int)) Bool (and (= A 5) (>= B 1)))
 
 nonlinear2.smt2
-Theories: GroebnerMultiplication
 sat
 (define-fun Inv ((A Int) (B Int)) Bool (and (and (<= A 5) (>= A 2)) (>= B 1)))
 
@@ -312,7 +309,6 @@ sat
 (define-fun p ((A Int) (B Int)) Bool (>= A B))
 
 clause-shortener-bug.smt2
-Theories: ADT(parent), ADT(child)
 unsat
 
 0: FALSE -> 12, 5, 1
@@ -332,7 +328,6 @@ unsat
 14: inv_main2(1)
 
 extract.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 Warning: type clash during inference: bv[4] vs int
 Warning: type clash during inference: bv[4] vs int
 Warning: type clash during inference: bv[4] vs int
@@ -361,7 +356,6 @@ sat
 
 groebner-bug.smt2
 Warning: ignoring exit
-Theories: GroebnerMultiplication
 unsat
 
 0: FALSE

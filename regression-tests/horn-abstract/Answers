@@ -173,7 +173,6 @@ sat
 
 loopDetectorBug2.smt2
 Warning: ignoring exit
-Theories: GroebnerMultiplication
 sat
 (define-fun |bot$unknown:2| ((A Int) (B Int)) Bool false)
 (define-fun |f_1035$unknown:8| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= B 0) (= C 0)) (= E 0)) (= F 0)))
@@ -189,7 +188,6 @@ sat
 (define-fun |succ_without_checking_1117$unknown:32| ((A Int) (B Int) (C Int) (D Int)) Bool (= (- B A) (- 1)))
 
 palindrome_bv32.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 listcounter.correct.nts.smt2
