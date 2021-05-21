@@ -33,7 +33,6 @@ import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
 import ap.theories.Heap
 import ap.theories.Heap._
-//import lazabs.horn.Heap._
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornClauses

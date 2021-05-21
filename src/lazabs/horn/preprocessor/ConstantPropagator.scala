@@ -433,40 +433,13 @@ object SimplePropagators {
 
       //////////////////////////////////////////////////////////////////////////
       // helper objects, classes, functions etc., move out?
-      object ExtendedHeapFunExtractor {
-        def unapply(fun: IFunction): Option[Heap] =
-          (TheoryRegistry lookupSymbol fun) match {
-            case Some(t: Heap) => Some(t)
-            case Some(_: ADT) if fun.isInstanceOf[MonoSortedIFunction] =>
-              val sortedFun = fun.asInstanceOf[MonoSortedIFunction]
-              // we are only interested in newHeap(ar : AllocRes) and newAddr(ar)
-              sortedFun.resSort match {
-                case s: Heap.HeapSort =>
-                  if (sortedFun == s.heapTheory.newHeap)
-                    Some(s.heapTheory)
-                  else None
-                case s: Heap.AddressSort =>
-                  if (sortedFun == s.heapTheory.newAddr)
-                    Some(s.heapTheory)
-                  else None
-                case t if sortedFun.arity == 2 => // check for AllocRes constructor
-                  sortedFun.argSorts.head match {
-                    case s: Heap.HeapSort =>
-                      if (t == s.heapTheory.AllocResSort)
-                        Some(s.heapTheory)
-                      else None
-                    case _ => None
-                  }
-                case _ => None
-              }
-            case _ => None
-          }
-      }
       // helper for handling heap equality, returns false for contradiction
-      def handleHeapEquality (h1 : ConstantTerm, h2 : ConstantTerm) : Boolean = {
+      // some addresses can be passed to be excluded from the comparison
+      def handleHeapEquality (h1 : ConstantTerm, h2 : ConstantTerm,
+                            exclusions : List[ConstantTerm] = Nil) : Boolean = {
         val subMap =
           localDefinednessMap.filter(e => e._1.heap == h1  ||
-            e._1.heap == h2)
+            e._1.heap == h2 && !exclusions.contains(e._1.addr))
         val handledAddresses = new ArrayBuffer[ConstantTerm]
         for ((key, elem) <- subMap
              if !(handledAddresses contains key.addr)) {
@@ -498,9 +471,14 @@ object SimplePropagators {
         new MHashMap[HeapAddressPair, LatticeElement]
 
       // updates localDefinednessMap using the meet operation
-      def updateLocalMap (key : HeapAddressPair, elem : LatticeElement) {
-        localDefinednessMap.put(key,
-          localDefinednessMap.getOrElse(key, UnknownElem) meet elem)
+      def updateLocalMap (key : HeapAddressPair, elem : LatticeElement) : Boolean = {
+        val meetValue = localDefinednessMap.getOrElse(key, UnknownElem) meet elem
+        localDefinednessMap.put(key, meetValue)
+        if (meetValue == BottomElem) {
+          println("contradiction!")
+          false
+        }
+        else true
       }
 
       private val conjuncts =
@@ -532,142 +510,134 @@ object SimplePropagators {
              if hSort.isInstanceOf[Heap.HeapSort])
           updateLocalMap(HeapAddressPair(heapTerm, addrTerm), UnknownElem)
 
+        // a map from the original heap to the newly allocated addr
+        val heapAllocAddrMap = new MHashMap[ConstantTerm, ConstantTerm]
+
         var outputChanged : Boolean = true
         // analyze the constraint and calculate the fixed point
         while(outputChanged) {
+          outputChanged = false
           val oldMap = localDefinednessMap.clone
           for (f <- conjuncts) {
               f match {
-                // a = nullAddr()
-                case Eq(IConstant(a), IFunApp(fun@ExtendedHeapFunExtractor(heap), _))
-                  if fun == heap.nullAddr =>
-                  println("case null.1")
-                  for (key <- localDefinednessMap.keys.filter(_.addr == a))
-                    localDefinednessMap.put(key,
-                      localDefinednessMap(key) meet NullElem)
-
                 // nullAddr() = a
                 case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap), _), IConstant(a))
                   if fun == heap.nullAddr =>
                   println("case null.2")
                   for (key <- localDefinednessMap.keys.filter(_.addr == a))
-                    localDefinednessMap.put(key,
-                      localDefinednessMap(key) meet NullElem)
+                    if (!updateLocalMap(key, NullElem))
+                      return None
 
                 // valid(h, a)
                 case IAtom(pred@Heap.HeapPredExtractor(heap),
                 Seq(IConstant(h), IConstant(a))) if pred == heap.isAlloc =>
-                  println("case valid")
-                  val key = HeapAddressPair(h, a)
-                  localDefinednessMap.put(key,
-                    localDefinednessMap(key) meet ValidElem)
+                  println("case valid" + HeapAddressPair(h, a))
+                  if (!updateLocalMap(HeapAddressPair(h, a), ValidElem))
+                    return None
 
                 // !valid(h, a)
                 case INot(IAtom(pred@Heap.HeapPredExtractor(heap),
                 Seq(IConstant(h), IConstant(a)))) if pred == heap.isAlloc =>
-                  println("case valid")
-                  val key = HeapAddressPair(h, a)
-                  localDefinednessMap.put(key,
-                    localDefinednessMap(key) meet NullOrNotAllocElem)
+                  println("case !valid " + HeapAddressPair(h, a))
+                  if(!updateLocalMap(HeapAddressPair(h, a), NullOrNotAllocElem))
+                    return None
 
                 // write(h1, _, _) = h2
                 case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap),
                                 Seq(IConstant(h1), _, _)), IConstant(h2))
                   if fun == heap.write =>
-                  println("case write.1")
+                  println("case write.1 " + h1 + ", " + h2)
                   if (!handleHeapEquality(h1, h2)) return None
 
-                // h2 = write(h1, _, _)
-                case Eq(IConstant(h2),
-                        IFunApp(fun@ExtendedHeapFunExtractor(heap),
-                                Seq(IConstant(h1), _, _)))
-                  if fun == heap.write =>
-                  println("case write.2")
-                  if (!handleHeapEquality(h1, h2)) return None
-
-                // AllocRes(h2,a) = alloc(h1,_)
-                case Eq(IFunApp(fun1, Seq(IConstant(
+                // AllocRes(h2,a) = alloc(h1,_) -> this case doesn't happen due to rhs being replaced with a constant
+                /*case Eq(IFunApp(_, Seq(IConstant(
                 SortedConstantTerm(h2, h2Sort)), IConstant(a))),
                         IFunApp(fun2@ExtendedHeapFunExtractor(heap),
                                      Seq(IConstant(h1), _)))
                   if h2Sort == heap.HeapSort && fun2 == heap.alloc =>
-                  // todo : this check can probably be done better
                   println("case alloc.1")
-                  ???
-                // alloc(h1,_) = AllocRes(h2,a)
-                case Eq(IFunApp(fun2@ExtendedHeapFunExtractor(heap),
+                  if (!handleHeapEquality(h1, h2)) return None
+                  updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)*/
+
+                // alloc(h1,_) = AllocRes(h2,a)  -> this case doesn't happen
+                /*case Eq(IFunApp(fun2@ExtendedHeapFunExtractor(heap),
                                 Seq(IConstant(h1), _)),
-                        IFunApp(fun1, Seq(IConstant(SortedConstantTerm(
+                        IFunApp(_, Seq(IConstant(SortedConstantTerm(
                                             h2, h2Sort)), IConstant(a))))
                   if h2Sort == heap.HeapSort && fun2 == heap.alloc =>
-                  // todo : this check can probably be done better
-                  // todo: can we extract allocResADT functions from heap theory?
                   println("case alloc.2")
-                  ???
+                  if (!handleHeapEquality(h1, h2)) return None
+                  updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)*/
 
                 // AllocRes(h,a) = ar / alloc(h,a) = ar
-                case Eq(IFunApp(ExtendedHeapFunExtractor(heap),
-                                Seq(IConstant(h), IConstant(a))),
-                        IConstant(SortedConstantTerm(_, sort)))
-                  if sort == heap.AllocResSort =>
-                  println("case AllocRes.1")
-                  ???
+//                case Eq(IFunApp(ExtendedHeapFunExtractor(heap),
+//                                Seq(IConstant(h), IConstant(a))),
+//                        IConstant(SortedConstantTerm(_, sort)))
+//                  if sort == heap.AllocResSort =>
+//                  println("case AllocRes.1")
+//                  ???
                 // ar = AllocRes(h,a) / ar = alloc(h,a)
-                case Eq(IConstant(SortedConstantTerm(_, sort)),
-                IFunApp(ExtendedHeapFunExtractor(heap),
-                Seq(IConstant(h), IConstant(a))))
-                  if sort == heap.AllocResSort =>
-                  println("case AllocRes.2")
-                  ???
+//                case Eq(IConstant(SortedConstantTerm(_, sort)),
+//                IFunApp(ExtendedHeapFunExtractor(heap),
+//                Seq(IConstant(h), IConstant(a))))
+//                  if sort == heap.AllocResSort =>
+//                  println("case AllocRes.2")
+//                  ???
 
-                // newHeap(ar) = h
-                case Eq(IFunApp(fun,
-                                Seq(IConstant(SortedConstantTerm(ar, arSort)))),
-                        IConstant(SortedConstantTerm(h, hSort)))
-                  // todo: below check would be easier if we could check for newHeap
-                  if hSort.isInstanceOf[Heap.HeapSort] &&
-                     arSort == hSort.asInstanceOf[Heap.HeapSort].
-                       heapTheory.AllocResSort =>
-                  println("case newHeap.1")
-                  ???
-                // h = newHeap(ar)
-                case Eq(IConstant(SortedConstantTerm(h, hSort)),
-                        IFunApp(fun,
-                                Seq(IConstant(SortedConstantTerm(ar, arSort)))))
-                  if hSort.isInstanceOf[Heap.HeapSort] &&
-                    arSort == hSort.asInstanceOf[Heap.HeapSort].
-                      heapTheory.AllocResSort =>
-                  println("case newHeap.2")
-                  ???
+                // newHeap(alloc(h1,_)) = h2 -> this case shouldn't happen due to HeapAllocResExpander getting rid of newHeaps
+                /*case Eq(IFunApp(fun1@ExtendedHeapFunExtractor(heap1),
+                                Seq(IFunApp(fun2@Heap.HeapFunExtractor(heap2),
+                                            Seq(IConstant(h1), _)))), IConstant(h2))
+                  if fun1 == heap1.newHeap && fun2 == heap2.alloc =>
+                  println("case newHeap.1")*/
+                  /*if (!handleHeapEquality(h1, h2)) return None
+                  updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)*/
 
-                // newAddr(ar) = a
-                case Eq(IFunApp(fun,
-                                Seq(IConstant(SortedConstantTerm(ar, arSort)))),
-                        IConstant(SortedConstantTerm(a, aSort)))
-                  // todo: below check would be easier if we could check for newHeap
-                  if aSort.isInstanceOf[Heap.AddressSort] &&
-                    arSort == aSort.asInstanceOf[Heap.AddressSort].
-                      heapTheory.AllocResSort =>
-                  println("case newAddr.1")
-                  ???
-                // a = newAddr(ar)
-                case Eq(IConstant(SortedConstantTerm(a, aSort)),
-                        IFunApp(fun,
-                                Seq(IConstant(SortedConstantTerm(ar, arSort)))))
-                  if aSort.isInstanceOf[Heap.AddressSort] &&
-                    arSort == aSort.asInstanceOf[Heap.AddressSort].
-                      heapTheory.AllocResSort =>
-                  println("case newAddr.2")
-                  ???
+                // newAddr(alloc(h,_)) = a
+                case Eq(IFunApp(fun1@ExtendedHeapFunExtractor(heap),
+                                Seq(IFunApp(fun2, Seq(IConstant(h), _)))),
+                        IConstant(a))
+                  if fun1 == heap.newAddr && fun2 == heap.alloc =>
+                  println("case newAddr.1 " + HeapAddressPair(h, a))
+                  if (!updateLocalMap(HeapAddressPair(h, a), NotAllocElem))
+                    return None
+                  if (!(heapAllocAddrMap contains h)) {
+                    heapAllocAddrMap += ((h, a))
+                    outputChanged = true
+                  }
 
-                // h = emptyHeap()
-                case Eq(IConstant(h),
-                        IFunApp(fun@ExtendedHeapFunExtractor(heap), _))
-                  if fun == heap.emptyHeap =>
-                  println("case emptyHeap.1")
-                  ???
+                // allocHeap(h1,_) = h2
+                case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap),
+                                Seq(IConstant(h1), _)), IConstant(h2))
+                  if fun == heap.allocHeap =>
+                  println("case allocHeap.1 old:" + h1 + ", new:" + h2)
+                  heapAllocAddrMap get h1 match {
+                    case Some(a) =>
+                      println("address found: " + a)
+                      // h1 and h2 are equal everywhere except a
+                      if (!handleHeapEquality(h1, h2, List(a))) return None
+                      // h2 is valid in a
+                      if (!updateLocalMap(HeapAddressPair(h2, a), ValidElem))
+                        return None
+                      // h1 is not yet alloc in a (handled in newAddr case)
+                      //updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)
+                    case _ => println("address not found")
+                    // nothing
+                  }
+
+                  // newAddr(ar) = a
+//                case Eq(IFunApp(fun,
+//                                Seq(IConstant(SortedConstantTerm(ar, arSort)))),
+//                        IConstant(SortedConstantTerm(a, aSort)))
+//                  // todo: use extractor
+//                  if aSort.isInstanceOf[Heap.AddressSort] &&
+//                    arSort == aSort.asInstanceOf[Heap.AddressSort].
+//                      heapTheory.AllocResSort =>
+//                  println("case newAddr.1")
+//                  ???
+
                 // emptyHeap() = h
-                case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap), _),
+                case Eq(IFunApp(fun@Heap.HeapFunExtractor(heap), _),
                         IConstant(h))
                   if fun == heap.emptyHeap =>
                   println("case emptyHeap.2")
@@ -685,18 +655,13 @@ object SimplePropagators {
                   println("case heapEq")
                   ???
 
-                // ar1 == ar2 (both are allocation results)
-                //case Eq(IConstant(SortedConstantTerm(ar1, sort)),
-                //        IConstant(ar2)) if ... how to get AllocResSort? =>
-                //  println("case heapEq")
-                //  ???
-
                 case f =>
                   println("undhandled case: " + f)
                 // nothing
               }
             }
-            outputChanged = !(oldMap equals localDefinednessMap)
+            if (!(oldMap equals localDefinednessMap))
+              outputChanged = true
         }
 
         // a map to convert from terms to head argument indices
@@ -706,8 +671,10 @@ object SimplePropagators {
           }).toMap
 
         // convert localDefinednessMap to the element for the head
+        // (for the pairs that exist in the head)
         Some (
-          (for ((HeapAddressPair(h, a), elem) <- localDefinednessMap) yield {
+          (for ((HeapAddressPair(h, a), elem) <- localDefinednessMap
+            if term2HeadArgInd.contains(h) && term2HeadArgInd.contains(a)) yield {
             (HeapAddressIndPair(term2HeadArgInd(h), term2HeadArgInd(a)), elem)
           }).toMap
         )
@@ -732,30 +699,33 @@ object SimplePropagators {
           return (a, false)
         case Some(map) =>
           for((pair, elem) <- map) {
+            println(pair + " -> " + elem)
             val PairInfo(addrTerm, heapTerm, theory) = extractPairInfo(pair)
             val nullAddr = theory.nullAddr
             val valid = theory.isAlloc
             elem match {
               case UnknownElem => // top, no information
               case NullOrValidElem =>
-              // add constraint a === nullAddr() || valid(h,a) ?
-                newConstraint = newConstraint &&&
-                  ((addrTerm === nullAddr()) ||| valid(heapTerm, addrTerm))
+              // a === nullAddr() || valid(h,a) ? -> the disjunction might cause an infinite loop here
+                newConstraint = newConstraint &&& // do not add anything valid
+                  ((addrTerm === nullAddr()) ||| valid(heapTerm, addrTerm)) //  later on split the clause into two possible cases,
+                // or not add anything? experiment if we get an infinite loop
               case NullOrNotAllocElem =>  // a.k.a. invalid
                 newConstraint = newConstraint &&&
                   INot(valid(heapTerm, addrTerm))
               case ValidOrNotAllocElem =>  // a.k.a. not null
-                newConstraint = newConstraint &&& addrTerm =/= nullAddr()
+                newConstraint = newConstraint &&& addrTerm =/= nullAddr() // add this as a case as well to the propagator
               case NullElem =>
-                newConstraint = newConstraint &&&
-                  (addrTerm === nullAddr()) &&& INot(valid(heapTerm, addrTerm))
+                newConstraint = newConstraint &&& (addrTerm === nullAddr())
               case ValidElem =>
                 newConstraint = newConstraint &&& valid(heapTerm, addrTerm)
               case NotAllocElem =>
-                newConstraint = newConstraint &&& // not sure about this case
-                  INot(valid(heapTerm, addrTerm))
-                ???
-              case _ => // bottom
+                newConstraint = newConstraint &&& // not so sure about this case
+                  (addrTerm =/= nullAddr()) &&& INot(valid(heapTerm, addrTerm))
+                // this implies heapSize(h) > a
+              case _ =>
+                assert(false) // should not be possible
+              // bottom
             }
           }
       }
@@ -765,7 +735,7 @@ object SimplePropagators {
     def augmentSolution(sol: IFormula, value: Element): IFormula =
       value match {
         case None => sol
-        case Some(map) => ???
+        case Some(map) => ??? // todo: how?
       }
   }
 //////////////////////////////////////////////////////////////////////////////

@@ -54,6 +54,7 @@ class DefaultPreprocessor extends HornPreprocessor {
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner,
+         new HeapAllocResExtender,
          new HeapSizeArgumentExtender,
          new SizeArgumentExtender)
 

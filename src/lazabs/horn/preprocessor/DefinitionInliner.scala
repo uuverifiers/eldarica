@@ -33,7 +33,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
-import ap.theories.{ModuloArithmetic, ADT}
+import ap.theories.{ModuloArithmetic, ADT, Heap}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -571,6 +571,51 @@ class ConstraintSimplifier extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Eliminate heap theory AllocRes ADTs (heap,address) by expansion
+   */
+  private def elimAllocResADTs(
+                               headSyms : scala.collection.Set[ConstantTerm],
+                               body : List[IAtom],
+                               conjuncts : Seq[IFormula])
+                             : Option[Seq[IFormula]] = {
+    // first expand the body atoms B(...,ar,...) to B(...,h_B, a_B,...)
+    for (atom <- body) {
+
+    }
+
+
+    val blockedConsts = new MHashSet[ConstantTerm]
+    val defConsts     = new MHashSet[ConstantTerm]
+
+    blockedConsts ++= headSyms
+    for (a <- body)
+      blockedConsts ++= SymbolCollector constants a
+
+    for (f <- conjuncts) f match {
+      case Eq(left : IFunApp, right@IConstant(c)) =>
+        if ((Sort sortOf left) == (Sort sortOf right) && (defConsts add c))
+          blockedConsts ++= SymbolCollector constants left
+        else
+          blockedConsts ++= SymbolCollector constants f
+      case f =>
+        blockedConsts ++= SymbolCollector constants f
+    }
+
+    val newConjuncts = conjuncts filter {
+      case Eq(_ : IFunApp, IConstant(c)) =>
+        blockedConsts contains c
+      case _ =>
+        true
+    }
+
+    if (newConjuncts.size < conjuncts.size)
+      Some(newConjuncts)
+    else
+      None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  /**
    * Simplify equations of the clause
    */
   private def equationalRewriting(clause : Clause) : Clause = {
@@ -628,6 +673,16 @@ class ConstraintSimplifier extends HornPreprocessor {
         // check whether function applications can be eliminated
 
         for (newConjuncts <- gcFunctionApplications(headSyms, body, conjuncts)){
+          conjuncts = newConjuncts
+          changed   = true
+          cont      = true
+        }
+      }
+
+      if (!cont && containsFunctions) {
+        // replace heap theory AllocRes ADTs with allocHeap and allocAddr
+
+        for (newConjuncts <- elimAllocResADTs(headSyms, body, conjuncts)){
           conjuncts = newConjuncts
           changed   = true
           cont      = true
