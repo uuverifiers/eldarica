@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1720,6 +1720,9 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         predsToAdd.put(rs, rsPreds)
       }
     }
+
+    if (predsToAdd.isEmpty)
+      throw new Exception("Predicate generation failed")
 
     // update the edges of the reachability graph with the new predicates;
     // but only consider the edges that will still be reachable afterwards

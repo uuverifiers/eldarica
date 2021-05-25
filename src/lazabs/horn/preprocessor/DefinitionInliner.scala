@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,6 +94,20 @@ object ConstraintSimplifier {
   }
 
   object EqBinaryIntFormula extends BinaryIntFormula(_ == IIntRelation.EqZero)
+
+  /**
+   * Identify literals equivalent to <code>lit1 == lit2</code>.
+   */
+  object EqLitLitTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[IdealInt] =
+      t match {
+        case (IIntRelation.EqZero, null, null, offset) =>
+          Some(offset)
+        case _ =>
+          None
+      }
+  }
 
   /**
    * Identify literals equivalent to <code>a == lit</code>.
@@ -332,6 +346,14 @@ class ConstraintSimplifier extends HornPreprocessor {
           false
         }
 
+        case EqLitLitTuple(offset) =>
+          if (offset.isZero) {
+            false
+          } else {
+            // contradiction
+            throw InconsistencyException
+          }
+
         case EqOffsetTuple(left@IConstant(c), right@IConstant(d), offset) =>
           if (c == d) {
 
@@ -452,24 +474,36 @@ class ConstraintSimplifier extends HornPreprocessor {
    */
   private def adtRewriting(conjuncts : Seq[IFormula])
                          : Option[Seq[IFormula]] = {
-    val ctors =
-      (for (Eq(IFunApp(ADT.Constructor(adt, num), args),
-               c : IConstant) <- conjuncts)
-       yield (c -> (adt, num, args))).toMap
+    val ctors = new MHashMap[IConstant, (ADT, Int, Seq[ITerm])]
+
+    val (ctorConjuncts, otherConjuncts) =
+      conjuncts partition {
+        case Eq(IFunApp(ADT.Constructor(adt, num), args), c : IConstant)
+            if !(ctors contains c) => {
+              ctors.put(c, (adt, num, args))
+              true
+            }
+        case _ =>
+          false
+      }
 
     val simp = new ADTSimplifier(ctors)
     var changed = false
 
-    val newConjuncts =
-      for (f <- conjuncts) yield {
-        val newF = simp.visit(f, ()).asInstanceOf[IFormula]
-        if (!(newF eq f))
-          changed = true
-        newF
+    val newConjuncts = new ArrayBuffer[IFormula]
+
+    for (f <- otherConjuncts) {
+      val newF = simp.visit(f, ()).asInstanceOf[IFormula]
+      if (newF eq f) {
+        newConjuncts += f
+      } else {
+        newConjuncts ++= LineariseVisitor(newF, IBinJunctor.And)
+        changed = true
       }
+    }
 
     if (changed)
-      Some(newConjuncts ++
+      Some(ctorConjuncts ++ newConjuncts ++
             (for ((s, t) <- simp.sizeExpressions.iterator) yield s === t))
     else
       None
@@ -508,23 +542,33 @@ class ConstraintSimplifier extends HornPreprocessor {
       case (IFunApp(ADT.Selector(adt, ctorNum, selNum), _),
             Seq(c : IConstant)) =>
         (ctors get c) match {
-          case Some((`adt`, `ctorNum`, args)) =>
-            args(selNum)
-          case _ =>
-            t update subres
+          case Some((`adt`, `ctorNum`, args)) => args(selNum)
+          case _                              => t update subres
         }
 
       case (IFunApp(ADT.TermSize(adt, sortNum), _),
             Seq(c : IConstant)) =>
         evalCtorTermSize(c, adt, sortNum, true) match {
-          case null =>
-            t update subres
-          case s =>
-            s
+          case null => t update subres
+          case s    => s
         }
 
       case _ =>
-        t update subres
+        (t update subres) match {
+          case s @ Eq(IFunApp(ADT.Constructor(adt, ctorNum), args),
+                      c : IConstant) =>
+            (ctors get c) match {
+              case Some((`adt`, ctorNum2, args2)) =>
+                if (ctorNum == ctorNum2)
+                  args === args2
+                else
+                  false
+              case _ =>
+                s
+            }
+
+          case s => s
+        }
     }
   }
 

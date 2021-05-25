@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 
 package lazabs.horn.bottomup
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, UnionFind}
 import ap.parser._
 import ap.Signature
 import ap.theories.{Theory, TheoryCollector}

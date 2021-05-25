@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,11 +52,11 @@ object SizeArgumentExtender {
     def expand(pred : Predicate,
                argNum : Int,
                sort : ADT.ADTProxySort)
-             : Option[Seq[(ITerm, Sort, String)]] =
+             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
       if (sort.adtTheory.termSize != null &&
           recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
         val sizefun = sort.adtTheory.termSize(sort.sortNum)
-        Some(List((sizefun(v(0)), Sort.Nat, "adt_size")))
+        Some((List((sizefun(v(0)), Sort.Nat, "adt_size")), None))
       } else {
         None
       }

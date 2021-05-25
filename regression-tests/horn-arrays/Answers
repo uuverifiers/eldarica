@@ -46,6 +46,7 @@ Clause(i1(p(2 * left(p), (1 + -1 * right(p)))),List(i2(p)),true)
 Clause(FALSE,List(i1(p)),(!(left(p) >= 0) | !(right(p) = true)))
 
 Solving ...
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             4         2
@@ -83,6 +84,7 @@ Clause(FALSE,List(S(x, n)),!((2 * n + 1) = clist_size(x)))
 Clause(FALSE,List(C(x, y, r)),((!(r = nil) & !(head(x) = head(r))) & !(head(y) = head(r))))
 
 Solving ...
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             9         2
@@ -113,6 +115,7 @@ Clause(i1(bv_add(8, x, mod_cast(0, 255, 2))),List(i2(x)),true)
 Clause(FALSE,List(i1(x)),!bv_ult(8, x, mod_cast(0, 255, 200)))
 
 Solving ...
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             4         2
@@ -143,6 +146,7 @@ Clause(i1(bv_add(8, x, mod_cast(0, 255, 2))),List(i2(x)),true)
 Clause(FALSE,List(i1(x)),!bv_ult(8, x, mod_cast(0, 255, 200)))
 
 Solving ...
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             5         2
@@ -171,6 +175,7 @@ Average predicate size (# of sub-formulas):            1.19
 Left(
 
 lazabs.horn.tests.MainBV2
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             4         2
@@ -200,8 +205,6 @@ sat
 
 
 array-elim.smt2
-Theories: ExtArray[int, int]
-Eliminating arrays using instantiation (incomplete)
 sat
 (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
 (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
@@ -214,27 +217,23 @@ sat
 (define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)
 
 constant.smt2
-Theories: ExtArray[int, int]
-Eliminating arrays using instantiation (incomplete)
 sat
 (define-fun inv ((A Int) (B Int)) Bool (and (<= B 10) (>= B 5)))
 
 array-elim.smt2
-Theories: ExtArray[int, int]
 sat
 (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (and (= (select B 0) 1) (= (select C 0) 1))))))
-(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (and (= (select B 0) 1) (= (select C 0) 1))))) (= 1 A)))
-(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) B) (and (<= D 0) (and (= D 1) (and (= (select var0 0) 1) (= (select C 0) 1))))))) (= 1 A)))
-(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) C)) (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0)))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) C) (exists ((var1 (Array Int Int))) (and (= (store var1 D 1) B) (and (<= D 0) (and (= D 1) (and (= (select var1 0) 1) (= (select var0 0) 1))))))))) (= 1 A)))
-(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (and (= (select B 0) 1) (= (select C 0) 1)) (= 1 A)))
-(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (and (= (select B 0) 1) (= (select C 0) 1)))))
-(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (and (= (select B 0) 1) (= (select C 0) 1)))) (= 1 A)))
+(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
+(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
+(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) B) (and (<= D 0) (and (= D 1) (= (select C 0) (select var0 0))))))) (= 1 A)))
+(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) C)) (and (exists ((var0 (Array Int Int))) (= (store var0 D 1) B)) (and (<= D 0) (= D 0)))) (exists ((var0 (Array Int Int))) (and (= (store var0 D 1) C) (exists ((var1 (Array Int Int))) (and (= (store var1 D 1) B) (and (<= D 0) (and (= D 1) (= (select var0 0) (select var1 0))))))))) (= 1 A)))
+(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
+(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
 (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 
 leos-example.smt2
 Warning: ignoring get-model
-Theories: ADT(tx_type), ADT(bytes_tuple), ExtArray[int, int]
 sat
 (define-fun block_3_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool true)
 (define-fun block_4_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (= I G) (= H F)) (= A 0))))
@@ -252,7 +251,22 @@ sat
 (define-fun summary_2_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int)) Bool (and (and (= H F) (= I G)) (or (and (= A 1) (and (exists ((var0 Int)) (exists ((var1 Int)) (exists ((var2 Int)) (and (and (and (and (and (and (<= var2 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= var2 var1)) (>= var2 0)) (>= var0 var1)) (>= var1 0)) (<= var0 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (and (and (and (and (<= var1 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= (- var1 var0) 1)) (>= var0 0)) (<= var2 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= var2 0)))))) (= abi_type C))) (and (= A 0) (= C abi_type)))))
 (define-fun summary_constructor_C_40_0_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (and (= G F) (= A 0)))
 
+leos-example-2.smt2
+unsat
+
+0: FALSE -> 1
+1: error_target_2_0 -> 6, 2
+2: summary_3_function_g__12_13_0(1, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(store(store(store(store(const(0), 1, 8), 2, 143), 0, 171), 3, 189), 4), 1461501637330902918203684832716283019655932542975, 2869465021, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), 0, state_type(const(0)), 0) -> 3
+3: block_7_function_g__12_13_0(1, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(store(store(store(store(const(0), 1, 8), 2, 143), 0, 171), 3, 189), 4), 1461501637330902918203684832716283019655932542975, 2869465021, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), 0, state_type(const(0)), 0) -> 4
+4: block_5_g_11_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(store(store(store(store(const(0), 1, 8), 2, 143), 0, 171), 3, 189), 4), 1461501637330902918203684832716283019655932542975, 2869465021, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), 0, state_type(const(0)), 0) -> 5
+5: block_4_function_g__12_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(store(store(store(store(const(0), 1, 8), 2, 143), 0, 171), 3, 189), 4), 1461501637330902918203684832716283019655932542975, 2869465021, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), 0, state_type(const(0)), 0)
+6: interface_0_C_13_0(0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), state_type(const(0))) -> 7
+7: summary_constructor_2_C_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(const(0), 0), 1461501637330902918203684832716283019655932542975, 17, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), state_type(const(0))) -> 8, 11
+8: contract_initializer_8_C_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(const(0), 0), 1461501637330902918203684832716283019655932542975, 17, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), state_type(const(0))) -> 9
+9: contract_initializer_after_init_10_C_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(const(0), 0), 1461501637330902918203684832716283019655932542975, 17, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), state_type(const(0))) -> 10
+10: contract_initializer_entry_9_C_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(const(0), 0), 1461501637330902918203684832716283019655932542975, 17, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), state_type(const(0)))
+11: implicit_constructor_entry_11_C_13_0(0, 0, abi_type, crypto_type(const(0), const(0), const(0), const(0)), tx_type(115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 115792089237316195423570985008687907853269984665640564039457584007913129639935, const(1), bytes_tuple(const(0), 0), 1461501637330902918203684832716283019655932542975, 17, 0, 115792089237316195423570985008687907853269984665640564039457584007913129639935, 1461501637330902918203684832716283019655932542975), state_type(const(0)), state_type(const(0)))
+
 constant.smt2
-Theories: ExtArray[int, int]
 sat
-(define-fun inv ((A (Array Int Int))) Bool (and (forall ((var0 Int)) (or (= var0 1) (>= (select A var0) 10))) (or (= (select A 1) 5) (forall ((var0 Int)) (>= (select A var0) 10)))))
+(define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))

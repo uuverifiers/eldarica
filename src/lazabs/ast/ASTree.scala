@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -599,7 +599,16 @@ object ASTree {
         case _ => None
       }
   }
-  
+
+  object Int2BitVec {
+    def apply(bits : Int, e: Expression) = UnaryExpression(Int2BV(bits), e)
+    def unapply(exp: Expression) : Option[(Int, Expression)] = 
+      exp match {
+        case UnaryExpression(Int2BV(bits), e) => Some((bits, e))
+        case _ => None
+      }
+  }
+
   object MemberAccess {
     def apply(left: Expression, right: Expression) = BinaryExpression(left, AccessOp(), right) 
     def unapply(exp: Expression) : Option[(Expression,Expression)] = 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2020-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,10 @@ package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.HornClauses
 import HornClauses.Clause
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.abstractions.VerificationHints
 
+import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression.{Predicate, Sort, and}
 import ap.theories.ADT
@@ -39,12 +42,15 @@ import ap.types.MonoSortedPredicate
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  LinkedHashMap}
+import scala.collection.{Map => GMap}
 
-object UniqueConstructorExtender {
+object UniqueConstructorExpander {
 
   import ADTExpander._
   import AbstractAnalyser._
   import IExpression._
+  import HornPreprocessor._
+  import Sort.:::
 
   /**
    * Preprocessor that adds explicit size arguments for each predicate
@@ -52,10 +58,29 @@ object UniqueConstructorExtender {
    */
   class CtorExpansion extends Expansion {
 
+    private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _
+
+    def prepare(clauses : Clauses, hints : VerificationHints) : Unit = {
+      ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain)).result
+      println(ctorElements)
+    }
+
     def expand(pred : Predicate,
                argNum : Int,
                sort : ADT.ADTProxySort)
-             : Option[Seq[(ITerm, Sort, String)]] =
+             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
+      for (value     <- ctorElements get pred;
+           someValue <- value;
+           ctorIndex <- someValue(argNum)) yield {
+        val adt  = sort.adtTheory
+        val ctor = adt constructors ctorIndex
+        val sels = adt selectors ctorIndex
+        (for (f <- sels) yield (f(v(0)), f.resSort, f.name),
+         Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
+      }
+
+
+/*
       if (sort.adtTheory.termSize != null &&
           recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
         val sizefun = sort.adtTheory.termSize(sort.sortNum)
@@ -63,36 +88,17 @@ object UniqueConstructorExtender {
       } else {
         None
       }
-
-    private val recursiveADTSorts = new MHashMap[ADT.ADTProxySort, Boolean]
-
-    private def isRecursive(sort : ADT.ADTProxySort) : Boolean =
-      isRecursive(sort.sortNum, List(), sort.adtTheory)
-
-    private def isRecursive(sortNum : Int,
-                            seenSorts : List[Int],
-                            adt : ADT)  : Boolean =
-      if (seenSorts contains sortNum) {
-        true
-      } else {
-        val newSeen = sortNum :: seenSorts
-        (for (ctor <- adt.constructors.iterator;
-              sort <- ctor.argSorts.iterator)
-         yield sort) exists {
-           case sort : ADT.ADTProxySort if sort.adtTheory == adt =>
-             isRecursive(sort.sortNum, newSeen, adt)
-           case _ =>
-             false
-         }
-      }
+ */
   }
 
   /**
    * Abstract domain to infer the constructor type of ADT arguments.
    */
-  class CtorTypeDomain extends AbstractDomain {
+  object CtorTypeDomain extends AbstractDomain {
     val name = "constructor type"
 
+    // For each argument, store the index of the unique constructor that
+    // was identified
     type Element = Option[Seq[Option[Int]]]
 
     def bottom(p : Predicate) : Element = None
@@ -111,8 +117,18 @@ object UniqueConstructorExtender {
         }
       }
 
+    object InconsistencyException extends Exception
+
     def transformerFor(clause : Clause) = new AbstractTransformer[Element] {
-      private val Clause(head, body, constraint) = clause
+      val Clause(head, body, constraint) = clause
+      val headSorts = predArgumentSorts(head.pred)
+      val bodySorts = for (b <- body) yield predArgumentSorts(b.pred)
+
+      val adtConsts =
+        for (c <- clause.constants;
+             sort = Sort sortOf c;
+             if sort.isInstanceOf[ADT.ADTProxySort])
+        yield c
 
       // we only use equations for propagation
       val literals =
@@ -123,9 +139,95 @@ object UniqueConstructorExtender {
                  }))
         yield f
 
-      def transform(bodyVals : Seq[Element]) : Element = {
-        None
-      }
+      val initialValueMap =
+        (for (c <- adtConsts.iterator;
+              adtSort = (Sort sortOf c).asInstanceOf[ADT.ADTProxySort];
+              ctorIds = adtSort.adtTheory.ctorIdsPerSort(adtSort.sortNum);
+              if ctorIds.size == 1)
+         yield (c, ctorIds.head)).toIndexedSeq
+
+      /**
+       * The abstract values used for constraint propagation map constants
+       * to a constructor index of the corresponding ADT.
+       */
+      private val constValueMap = new MHashMap[ConstantTerm, Int]
+      private var changed = false
+
+      def addConstValue(c : ConstantTerm, adt : ADT, ctorIndex : Int) : Unit =
+        if (adtConsts contains c) {
+          (Sort sortOf c) match {
+            case adt.SortNum(num) if num == adt.sortOfCtor(ctorIndex) =>
+              // ok
+            case s =>
+              return // inconsistent sorts, we ignore this constraint
+          }
+
+          (constValueMap get c) match {
+            case None => {
+              constValueMap.put(c, ctorIndex)
+              changed = true
+            }
+            case Some(oldIndex) =>
+              if (ctorIndex != oldIndex)
+                throw InconsistencyException
+          }
+        }
+
+      def transform(bodyVals : Seq[Element]) : Element =
+        if (bodyVals exists (_.isEmpty)) {
+          None
+        } else try {
+          constValueMap.clear
+          constValueMap ++= initialValueMap
+/*
+println("starting")
+println(body)
+ */
+          for (((IAtom(pred, args), cArgs), sorts) <-
+                 body.iterator zip bodyVals.iterator zip bodySorts.iterator;
+               ((IConstant(c), Some(ind)), s : ADT.ADTProxySort) <-
+                 args.iterator zip cArgs.get.iterator zip sorts.iterator)
+            addConstValue(c, s.adtTheory, ind)
+
+          changed = true
+          while (changed) {
+            changed = false
+
+            for (lit <- literals)
+              lit match {
+                case Eq(IFunApp(ADT.Constructor(adt, ind), _),
+                        IConstant(c)) =>
+                  addConstValue(c, adt, ind)
+                case Eq(IFunApp(ADT.CtorId(adt, sortInd), Seq(IConstant(c))),
+                        Const(IdealInt(perSortId))) =>
+                  addConstValue(c, adt, adt.ctorIdsPerSort(sortInd)(perSortId))
+                case Eq(IConstant(c) ::: (cs : ADT.ADTProxySort),
+                        IConstant(d) ::: (ds : ADT.ADTProxySort)) if cs == ds => {
+                  for (ind <- constValueMap get c)
+                    addConstValue(d, cs.adtTheory, ind)
+                  for (ind <- constValueMap get d)
+                    addConstValue(c, cs.adtTheory, ind)
+                }
+                case lit =>
+//                  println("cannot handle: " + lit)
+              }
+          }
+
+          val headVals =
+            for ((t, s) <- head.args zip headSorts) yield t match {
+              case IConstant(c) ::: cs if s == cs => constValueMap get c
+              case _                              => None
+            }
+/*
+println(head.pred)
+println(headSorts)
+println(headVals)
+ */
+          Some(headVals)
+        } catch {
+          case InconsistencyException => None
+        }
+        
     }
   }
 }
@@ -136,8 +238,18 @@ object UniqueConstructorExtender {
  *
  * Work in progress.
  */
-class UniqueConstructorExtender
-      extends ADTExpander("inlining ADT constructors",
-                          new UniqueConstructorExtender.CtorExpansion) {
+class UniqueConstructorExpander extends {
+
+  val expansion = new UniqueConstructorExpander.CtorExpansion
+
+} with ADTExpander("inlining ADT constructors", expansion) {
+
+  import HornPreprocessor._
+
+  override def process(clauses : Clauses, hints : VerificationHints)
+                    : (Clauses, VerificationHints, BackTranslator) = {
+    expansion.prepare(clauses, hints)
+    super.process(clauses, hints)
+  }
 
 }

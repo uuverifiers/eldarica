@@ -50,7 +50,7 @@ palindrome.nts.horn
 SOLVABLE
 main_q0(A,B,C,D,E,F) :- (((F = C), (E = B)), (D = A)).
 main_q1(A,B,C,D,E,F) :- ((E >= F), (F >= 0)).
-main_q2(A,B,C,D,E,F) :- ((F >= 0), ((((((F - E) >= 1); (((E + (-2 * D)) - F) >= -3)); (F =< -1)), ((((F - E) >= 1); (F =< -1)); (D >= 1))), ((E >= F); (F =< -1)))).
+main_q2(A,B,C,D,E,F) :- ((F >= 0), (((((F - E) >= 1); (((E + (-2 * D)) - F) >= -3)), (((F - E) >= 1); (D >= 1))), (E >= F))).
 main_qf :- true.
 palindrome_q0(A,B,C,D,E,F,G,H) :- (((((E = A), (F = B)), (G = C)), (H = D)), ((B >= 0), (C >= 0))).
 palindrome_q1(A,B,C,D,E,F,G,H) :- (((((H = D), (G = C)), (F = B)), (E = A)), (((B - C) >= 1), (C >= 0))).
@@ -210,6 +210,7 @@ NOT SOLVABLE
 52: iTestggvoidgmainoJayArray_java_lang_Stringpk_pre(0)
 zero-iterations.horn
 ---------------------------- Loading CEGAR hints -------------------------------
+
 ------------------------------- Preprocessing ----------------------------------
                                                        #clauses  #relation syms
 Initially:                                             7         3

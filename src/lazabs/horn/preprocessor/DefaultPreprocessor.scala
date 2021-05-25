@@ -79,6 +79,7 @@ class DefaultPreprocessor extends HornPreprocessor {
                           predNum)
     }
 
+    Console.err.println
     Console.err.println(
          "------------------------------- Preprocessing ----------------------------------")
    

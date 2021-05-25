@@ -226,6 +226,17 @@ class SMTHornReader protected[parser] (
   import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor,
                      QuantifiedBodyPredsVisitor}
 
+  private val outStream =
+     if (lazabs.GlobalParameters.get.logStat)
+       Console.err
+     else
+       lazabs.horn.bottomup.HornWrapper.NullStream
+
+  Console.withOut(outStream) {
+    println(
+      "---------------------------------- Parsing -------------------------------------")
+  }
+
   private val reader = new java.io.BufferedReader (
                  new java.io.FileReader(new java.io.File (fileName)))
   private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
@@ -337,7 +348,9 @@ class SMTHornReader protected[parser] (
   val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
 
   if (!signature.theories.isEmpty)
-    Console.err.println("Theories: " + (signature.theories mkString ", "))
+    Console.withOut(outStream) {
+      println("Theories: " + (signature.theories mkString ", "))
+    }
 
   if (signature.theories exists {
         case _ : SimpleArray  => false
@@ -376,7 +389,9 @@ class SMTHornReader protected[parser] (
     throw new Exception ("Cannot eliminate arrays in clauses due to theories")
 
   if (elimArrays)
-    Console.err.println("Eliminating arrays using instantiation (incomplete)")
+    Console.withOut(outStream) {
+      println("Eliminating arrays using instantiation (incomplete)")
+    }
 
   private val eldClauses = for (cc <- clauses) yield {
     var symMap = Map[ConstantTerm, String]()

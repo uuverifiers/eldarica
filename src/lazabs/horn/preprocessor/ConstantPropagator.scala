@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,14 +30,16 @@
 package lazabs.horn.preprocessor
 
 import ap.parser._
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, UnionFind}
 import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories.{ADT, TheoryRegistry}
 import ap.types.{MonoSortedIFunction,SortedConstantTerm}
-import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.bottomup.Util.{IntUnionFind, UnionFind}
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap}
+import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.Util.IntUnionFind
+
+import scala.collection.mutable.{HashMap => MHashMap,
+                                 ArrayBuffer, LinkedHashMap}
 
 object SimplePropagators {
   import HornClauses.Clause
