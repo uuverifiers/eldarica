@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,8 +53,10 @@ class DefaultPreprocessor extends HornPreprocessor {
     List(ReachabilityChecker,
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         new ClauseInliner,
-         new HeapSizeArgumentExtender,
+         new ClauseInliner)
+
+  def extendingStages : List[HornPreprocessor] =
+    List(new HeapSizeArgumentExtender,
          new SizeArgumentExtender)
 
   def postStages : List[HornPreprocessor] =
@@ -87,7 +89,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     val translators = new ArrayBuffer[BackTranslator]
 
-    def applyStage(stage : HornPreprocessor) =
+    def applyStage(stage : HornPreprocessor) : Boolean =
       if (!curClauses.isEmpty && stage.isApplicable(curClauses)) {
         lazabs.GlobalParameters.get.timeoutChecker()
 
@@ -102,7 +104,18 @@ class DefaultPreprocessor extends HornPreprocessor {
         printStats("After " + stage.name + " (" + time + "):")
 
         translators += translator
+
+        true
+      } else {
+        false
       }
+
+    def applyStages(stages : Iterable[HornPreprocessor]) : Boolean = {
+      var applied = false
+      for (s <- stages)
+        applied = applyStage(s) || applied
+      applied
+    }
 
     // Apply clause simplification and inlining repeatedly, if necessary
     def condenseClauses = {
@@ -112,6 +125,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         lastSize = curSize
         applyStage(SimplePropagators.EqualityPropagator)
         applyStage(SimplePropagators.ConstantPropagator)
+        applyStage(new UniqueConstructorExpander)
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
@@ -124,10 +138,13 @@ class DefaultPreprocessor extends HornPreprocessor {
     val startTime = System.currentTimeMillis
 
     // First set of processors
-    for (stage <- preStages)
-      applyStage(stage)
+    applyStages(preStages)
 
     condenseClauses
+
+    // check whether any ADT or Heap arguments can be extended
+    if (applyStages(extendingStages))
+      condenseClauses
 
     // Possibly split disjunctive clause constraints, and the condense again
     {
@@ -146,8 +163,7 @@ class DefaultPreprocessor extends HornPreprocessor {
     }
 
     // Last set of processors
-    for (stage <- postStages)
-      applyStage(stage)
+    applyStages(postStages)
 
     Console.err.println
     Console.err.println("Total preprocessing time (ms): " +

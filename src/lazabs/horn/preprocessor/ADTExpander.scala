@@ -132,10 +132,13 @@ class ADTExpander(val name : String,
                                     sort.asInstanceOf[ADT.ADTProxySort])) {
               val (addArgs, addSorts, _) = newArguments.unzip3
 
-              if (oldArgReconstr.isDefined) {
+              for (reconstr <- oldArgReconstr) {
                 // in that case we can remove the old argument
                 solSubst.reduceToSize(solSubst.size - 1)
                 newSorts.reduceToSize(newSorts.size - 1)
+                argMapping -= argNum
+                cexArgs(cexArgs.size - 1) =
+                  IExpression.shiftVars(reconstr, newSorts.size)
               }
 
               newSorts ++= addSorts

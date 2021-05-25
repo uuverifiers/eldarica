@@ -60,10 +60,8 @@ object UniqueConstructorExpander {
 
     private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _
 
-    def prepare(clauses : Clauses, hints : VerificationHints) : Unit = {
+    def prepare(clauses : Clauses, hints : VerificationHints) : Unit =
       ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain)).result
-      println(ctorElements)
-    }
 
     def expand(pred : Predicate,
                argNum : Int,
@@ -78,17 +76,6 @@ object UniqueConstructorExpander {
         (for (f <- sels) yield (f(v(0)), f.resSort, f.name),
          Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
       }
-
-
-/*
-      if (sort.adtTheory.termSize != null &&
-          recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
-        val sizefun = sort.adtTheory.termSize(sort.sortNum)
-        Some(List((sizefun(v(0)), Sort.Nat, "adt_size")))
-      } else {
-        None
-      }
- */
   }
 
   /**
@@ -179,10 +166,7 @@ object UniqueConstructorExpander {
         } else try {
           constValueMap.clear
           constValueMap ++= initialValueMap
-/*
-println("starting")
-println(body)
- */
+
           for (((IAtom(pred, args), cArgs), sorts) <-
                  body.iterator zip bodyVals.iterator zip bodySorts.iterator;
                ((IConstant(c), Some(ind)), s : ADT.ADTProxySort) <-
@@ -218,11 +202,6 @@ println(body)
               case IConstant(c) ::: cs if s == cs => constValueMap get c
               case _                              => None
             }
-/*
-println(head.pred)
-println(headSorts)
-println(headVals)
- */
           Some(headVals)
         } catch {
           case InconsistencyException => None
@@ -235,8 +214,6 @@ println(headVals)
 /**
  * Preprocessor that adds expands ADT arguments when their constructor
  * type is fixed.
- *
- * Work in progress.
  */
 class UniqueConstructorExpander extends {
 

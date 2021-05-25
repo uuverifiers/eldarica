@@ -1,7 +1,7 @@
 
 simple-adt-horn.smt2
 sat
-(define-fun I1 ((A Pair)) Bool (or (and (= (right A) true) (= (left A) 0)) (and (= (right A) true) (>= (left A) 2))))
+(define-fun I1 ((A Pair)) Bool (and (= (right A) true) (>= (left A) 0)))
 (define-fun I2 ((A Pair)) Bool (and (not (= (right A) true)) (>= (left A) 1)))
 
 bool.smt2
@@ -59,6 +59,21 @@ unsat
 testers.smt2
 sat
 (define-fun p1 ((A XS)) Bool (is-XS_cons A))
+
+tuple.smt2
+sat
+(define-fun p1 ((A Pair) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+
+tuple2.smt2
+unsat
+
+0: FALSE -> 1
+1: p1(Pair(6, -3), 0) -> 2
+2: p1(Pair(5, -2), 1) -> 3
+3: p1(Pair(4, -1), 2) -> 4
+4: p1(Pair(3, 0), 3) -> 5
+5: p1(Pair(2, 1), 4) -> 6
+6: p1(Pair(1, 2), 5)
 
 list-synasc-unsat.smt2
 unsat
