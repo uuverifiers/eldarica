@@ -624,45 +624,20 @@ class ConstraintSimplifier extends HornPreprocessor {
                           conjuncts : Seq[IFormula]) : Option[Seq[IFormula]] = {
     case class AllocInfo(
            allocFunApp   : IFunApp,   // associated alloc which produced this ar
-           theory        : Heap)      // associated heap theory
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
     case class NewHeapInfo(
            h             : IConstant, // the heap of this AllocRes
-           theory        : Heap)      // associated heap theory
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
     case class NewAddrInfo(
            a             : IConstant, // the addr of this AllocRes
-           theory        : Heap)      // associated heap theory
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
     ////////////////////////////////////////////////////////////////////////
     val allocs = new MHashMap[IConstant, AllocInfo]
     val allocNewHeaps = new MHashMap[IConstant, NewHeapInfo]
     val allocNewAddrs = new MHashMap[IConstant, NewAddrInfo]
-
-    for (conjunct <- conjuncts) conjunct match {
-      // alloc(_,_) = ar
-      case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
-      ar@IConstant(_)) if fun == heap.alloc =>
-        allocs += ((ar, AllocInfo(allocApp, heap)))
-
-      // newHeap(ar) = h
-      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
-      Seq(ar@IConstant(_))),
-      h@IConstant(_)) if fun == heap.newHeap =>
-        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
-
-      // newAddr(ar) = a
-      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
-      Seq(ar@IConstant(_))),
-      a@IConstant(_)) if fun == heap.newAddr =>
-        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
-
-      // AllocRes(h, a) = ar
-      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
-      Seq(h@IConstant(_), a@IConstant(_))),
-      ar@IConstant(_)) if fun == heap.AllocResADT.constructors.head =>
-        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
-        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
-
-      case _ => // nothing
-    }
 
     val newConjuncts = new ArrayBuffer[IFormula]
 
@@ -671,52 +646,63 @@ class ConstraintSimplifier extends HornPreprocessor {
       // alloc(_,_) = ar
       case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
                      ar@IConstant(_)) if fun == heap.alloc =>
-        allocs += ((ar, AllocInfo(allocApp, heap)))
+        allocs += ((ar, AllocInfo(allocApp, heap, conjunct)))
 
       // newHeap(ar) = h
       case IEquation(IFunApp(fun@HeapFunExtractor(heap),
                      Seq(ar@IConstant(_))), h@IConstant(_))
                                                        if fun == heap.newHeap =>
-        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap, conjunct)))
 
       // newAddr(ar) = a
       case IEquation(IFunApp(fun@HeapFunExtractor(heap),
                      Seq(ar@IConstant(_))), a@IConstant(_))
                                                        if fun == heap.newAddr =>
-        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap, conjunct)))
 
       // AllocRes(h, a) = ar
       case IEquation(IFunApp(fun@HeapFunExtractor(heap),
                      Seq(h@IConstant(_), a@IConstant(_))), ar@IConstant(_))
                                  if fun == heap.AllocResADT.constructors.head =>
-        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
-        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap, conjunct)))
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap, conjunct)))
 
       case _ => newConjuncts += conjunct // conjunct unchanged
     }
 
     var changed = false
 
-    for ((ar, AllocInfo(allocApp, theory)) <- allocs) {
-      val NewHeapInfo(h, _) = allocNewHeaps(ar) // todo: will fail if ar is accessed in another clause
-      val NewAddrInfo(a, _) = allocNewAddrs(ar) // todo: " "
-      newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
-      newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+    for ((ar, AllocInfo(allocApp, theory, conjunct)) <- allocs) {
+      (allocNewHeaps get ar, allocNewAddrs get ar) match {
+        case (Some(NewHeapInfo(h, _, _)), Some(NewAddrInfo(a, _, _))) =>
+          newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+          newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+        case _ => // if we do not know to which <h,a> pair this alloc refers to
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
       changed = true
     }
 
     // newHeap(ar) = h --> allocHeap(h',_) = h
-    for ((ar, NewHeapInfo(h, theory)) <- allocNewHeaps) {
-      val AllocInfo(allocApp,_) = allocs(ar)
-      newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
-      changed = true
+    for ((ar, NewHeapInfo(h, theory, conjunct)) <- allocNewHeaps) {
+      allocs get ar match {
+        case Some(AllocInfo(allocApp,_,_)) =>
+          newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+          changed = true
+        case _ =>
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
     }
 
     // newAddr(ar) = a --> allocAddr(alloc(h',_)) = a
-    for ((ar, NewAddrInfo(a, theory)) <- allocNewAddrs) {
-      val AllocInfo(allocApp,_) = allocs(ar)
-      newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
-      changed = true
+    for ((ar, NewAddrInfo(a, theory, conjunct)) <- allocNewAddrs) {
+      allocs get ar match {
+        case Some(AllocInfo(allocApp,_,_)) =>
+          newConjuncts += IFunApp (theory.allocAddr, allocApp.args) === a
+          changed = true
+        case _ =>
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
     }
 
     println ("original constraint: " + conjuncts.fold(i(true))(_ &&& _))

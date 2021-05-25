@@ -380,8 +380,8 @@ object SimplePropagators {
         case 0 => BottomElem
         case 1 => NullElem
         case 2 => ValidElem
-        case 3 => NotAllocElem
-        case 4 => NullOrValidElem
+        case 3 => NullOrValidElem
+        case 4 => NotAllocElem
         case 5 => NullOrNotAllocElem
         case 6 => ValidOrNotAllocElem
         case 7 => UnknownElem
@@ -439,8 +439,8 @@ object SimplePropagators {
       def handleHeapEquality (h1 : ConstantTerm, h2 : ConstantTerm,
                             exclusions : List[ConstantTerm] = Nil) : Boolean = {
         val subMap =
-          localDefinednessMap.filter(e => e._1.heap == h1  ||
-            e._1.heap == h2 && !exclusions.contains(e._1.addr))
+          localDefinednessMap.filter(e => (e._1.heap == h1  || e._1.heap == h2)
+            && !exclusions.contains(e._1.addr))
         val handledAddresses = new ArrayBuffer[ConstantTerm]
         for ((key, elem) <- subMap
              if !(handledAddresses contains key.addr)) {
@@ -539,7 +539,7 @@ object SimplePropagators {
                 // !valid(h, a)
                 case INot(IAtom(pred@Heap.HeapPredExtractor(heap),
                 Seq(IConstant(h), IConstant(a)))) if pred == heap.isAlloc =>
-                  println("case !valid " + HeapAddressPair(h, a))
+                  println("case !valid(" + h + ", " + a + ")")
                   if(!updateLocalMap(HeapAddressPair(h, a), NullOrNotAllocElem))
                     return None
 
@@ -594,12 +594,11 @@ object SimplePropagators {
                   /*if (!handleHeapEquality(h1, h2)) return None
                   updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)*/
 
-                // newAddr(alloc(h,_)) = a
-                case Eq(IFunApp(fun1@HeapFunExtractor(heap),
-                                Seq(IFunApp(fun2, Seq(IConstant(h), _)))),
-                        IConstant(a))
-                  if fun1 == heap.newAddr && fun2 == heap.alloc =>
-                  println("case newAddr.1 " + HeapAddressPair(h, a))
+                // allocAddr(h,_) = a
+                case Eq(IFunApp(fun@HeapFunExtractor(heap),
+                                Seq(IConstant(h), _)), IConstant(a))
+                  if fun == heap.allocAddr =>
+                  println("case allocAddr(" + h + ") = " + a)
                   if (!updateLocalMap(HeapAddressPair(h, a), NotAllocElem))
                     return None
                   if (!(heapAllocAddrMap contains h)) {
@@ -611,18 +610,18 @@ object SimplePropagators {
                 case Eq(IFunApp(fun@HeapFunExtractor(heap),
                                 Seq(IConstant(h1), _)), IConstant(h2))
                   if fun == heap.allocHeap =>
-                  println("case allocHeap.1 old:" + h1 + ", new:" + h2)
+                  println("case allocHeap(" + h1 + ") = " + h2)
                   heapAllocAddrMap get h1 match {
                     case Some(a) =>
-                      println("address found: " + a)
+                      println("  address found for " + h1 + ": " + a)
                       // h1 and h2 are equal everywhere except a
                       if (!handleHeapEquality(h1, h2, List(a))) return None
                       // h2 is valid in a
                       if (!updateLocalMap(HeapAddressPair(h2, a), ValidElem))
                         return None
-                      // h1 is not yet alloc in a (handled in newAddr case)
+                      // h1 is not yet alloc in a (handled in allocAddr case)
                       //updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)
-                    case _ => println("address not found")
+                    case _ => println("  alloc address not found for " + h1)
                     // nothing
                   }
 
