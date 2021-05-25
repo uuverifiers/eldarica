@@ -30,10 +30,9 @@
 package lazabs.horn.preprocessor
 
 import ap.parser._
-import ap.basetypes.{IdealInt, UnionFind}
-import ap.theories.Heap.{AddressSort, HeapSort}
-import ap.theories.{ADT, TheoryRegistry}
-import ap.types.{MonoSortedIFunction,SortedConstantTerm}
+import ap.basetypes.UnionFind
+import ap.theories.Heap._
+import ap.types.SortedConstantTerm
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.Util.IntUnionFind
@@ -523,7 +522,7 @@ object SimplePropagators {
           for (f <- conjuncts) {
               f match {
                 // nullAddr() = a
-                case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap), _), IConstant(a))
+                case Eq(IFunApp(fun@HeapFunExtractor(heap), _), IConstant(a))
                   if fun == heap.nullAddr =>
                   println("case null.2")
                   for (key <- localDefinednessMap.keys.filter(_.addr == a))
@@ -545,7 +544,7 @@ object SimplePropagators {
                     return None
 
                 // write(h1, _, _) = h2
-                case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap),
+                case Eq(IFunApp(fun@HeapFunExtractor(heap),
                                 Seq(IConstant(h1), _, _)), IConstant(h2))
                   if fun == heap.write =>
                   println("case write.1 " + h1 + ", " + h2)
@@ -580,14 +579,14 @@ object SimplePropagators {
 //                  ???
                 // ar = AllocRes(h,a) / ar = alloc(h,a)
 //                case Eq(IConstant(SortedConstantTerm(_, sort)),
-//                IFunApp(ExtendedHeapFunExtractor(heap),
+//                IFunApp(HeapFunExtractor(heap),
 //                Seq(IConstant(h), IConstant(a))))
 //                  if sort == heap.AllocResSort =>
 //                  println("case AllocRes.2")
 //                  ???
 
                 // newHeap(alloc(h1,_)) = h2 -> this case shouldn't happen due to HeapAllocResExpander getting rid of newHeaps
-                /*case Eq(IFunApp(fun1@ExtendedHeapFunExtractor(heap1),
+                /*case Eq(IFunApp(fun1@HeapFunExtractor(heap1),
                                 Seq(IFunApp(fun2@Heap.HeapFunExtractor(heap2),
                                             Seq(IConstant(h1), _)))), IConstant(h2))
                   if fun1 == heap1.newHeap && fun2 == heap2.alloc =>
@@ -596,7 +595,7 @@ object SimplePropagators {
                   updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)*/
 
                 // newAddr(alloc(h,_)) = a
-                case Eq(IFunApp(fun1@ExtendedHeapFunExtractor(heap),
+                case Eq(IFunApp(fun1@HeapFunExtractor(heap),
                                 Seq(IFunApp(fun2, Seq(IConstant(h), _)))),
                         IConstant(a))
                   if fun1 == heap.newAddr && fun2 == heap.alloc =>
@@ -609,7 +608,7 @@ object SimplePropagators {
                   }
 
                 // allocHeap(h1,_) = h2
-                case Eq(IFunApp(fun@ExtendedHeapFunExtractor(heap),
+                case Eq(IFunApp(fun@HeapFunExtractor(heap),
                                 Seq(IConstant(h1), _)), IConstant(h2))
                   if fun == heap.allocHeap =>
                   println("case allocHeap.1 old:" + h1 + ", new:" + h2)

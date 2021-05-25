@@ -29,11 +29,11 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
-import ap.theories.{ModuloArithmetic, ADT, Heap}
+import ap.theories.{ADT, Heap}
+import Heap.HeapFunExtractor
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -615,44 +615,114 @@ class ConstraintSimplifier extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Eliminate heap theory AllocRes ADTs (heap,address) by expansion
+   * Eliminate heap theory AllocRes ADTs (heap,address) by rewriting them as
+   * allocHeap, allocAddr pairs.
    */
   private def elimAllocResADTs(
-                               headSyms : scala.collection.Set[ConstantTerm],
-                               body : List[IAtom],
-                               conjuncts : Seq[IFormula])
-                             : Option[Seq[IFormula]] = {
-    // first expand the body atoms B(...,ar,...) to B(...,h_B, a_B,...)
-    for (atom <- body) {
+                          headSyms : scala.collection.Set[ConstantTerm],
+                          body : List[IAtom],
+                          conjuncts : Seq[IFormula]) : Option[Seq[IFormula]] = {
+    case class AllocInfo(
+           allocFunApp   : IFunApp,   // associated alloc which produced this ar
+           theory        : Heap)      // associated heap theory
+    case class NewHeapInfo(
+           h             : IConstant, // the heap of this AllocRes
+           theory        : Heap)      // associated heap theory
+    case class NewAddrInfo(
+           a             : IConstant, // the addr of this AllocRes
+           theory        : Heap)      // associated heap theory
+    ////////////////////////////////////////////////////////////////////////
+    val allocs = new MHashMap[IConstant, AllocInfo]
+    val allocNewHeaps = new MHashMap[IConstant, NewHeapInfo]
+    val allocNewAddrs = new MHashMap[IConstant, NewAddrInfo]
 
+    for (conjunct <- conjuncts) conjunct match {
+      // alloc(_,_) = ar
+      case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
+      ar@IConstant(_)) if fun == heap.alloc =>
+        allocs += ((ar, AllocInfo(allocApp, heap)))
+
+      // newHeap(ar) = h
+      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
+      Seq(ar@IConstant(_))),
+      h@IConstant(_)) if fun == heap.newHeap =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
+
+      // newAddr(ar) = a
+      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
+      Seq(ar@IConstant(_))),
+      a@IConstant(_)) if fun == heap.newAddr =>
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+
+      // AllocRes(h, a) = ar
+      case IEquation(funApp@IFunApp(fun@HeapFunExtractor(heap),
+      Seq(h@IConstant(_), a@IConstant(_))),
+      ar@IConstant(_)) if fun == heap.AllocResADT.constructors.head =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+
+      case _ => // nothing
     }
 
+    val newConjuncts = new ArrayBuffer[IFormula]
 
-    val blockedConsts = new MHashSet[ConstantTerm]
-    val defConsts     = new MHashSet[ConstantTerm]
+    // do a first pass to partition the conjuncts and collect alloc infos
+    for (conjunct <- conjuncts) conjunct match {
+      // alloc(_,_) = ar
+      case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
+                     ar@IConstant(_)) if fun == heap.alloc =>
+        allocs += ((ar, AllocInfo(allocApp, heap)))
 
-    blockedConsts ++= headSyms
-    for (a <- body)
-      blockedConsts ++= SymbolCollector constants a
+      // newHeap(ar) = h
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(ar@IConstant(_))), h@IConstant(_))
+                                                       if fun == heap.newHeap =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
 
-    for (f <- conjuncts) f match {
-      case Eq(left : IFunApp, right@IConstant(c)) =>
-        if ((Sort sortOf left) == (Sort sortOf right) && (defConsts add c))
-          blockedConsts ++= SymbolCollector constants left
-        else
-          blockedConsts ++= SymbolCollector constants f
-      case f =>
-        blockedConsts ++= SymbolCollector constants f
+      // newAddr(ar) = a
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(ar@IConstant(_))), a@IConstant(_))
+                                                       if fun == heap.newAddr =>
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+
+      // AllocRes(h, a) = ar
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(h@IConstant(_), a@IConstant(_))), ar@IConstant(_))
+                                 if fun == heap.AllocResADT.constructors.head =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap)))
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap)))
+
+      case _ => newConjuncts += conjunct // conjunct unchanged
     }
 
-    val newConjuncts = conjuncts filter {
-      case Eq(_ : IFunApp, IConstant(c)) =>
-        blockedConsts contains c
-      case _ =>
-        true
+    var changed = false
+
+    for ((ar, AllocInfo(allocApp, theory)) <- allocs) {
+      val NewHeapInfo(h, _) = allocNewHeaps(ar) // todo: will fail if ar is accessed in another clause
+      val NewAddrInfo(a, _) = allocNewAddrs(ar) // todo: " "
+      newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+      newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+      changed = true
     }
 
-    if (newConjuncts.size < conjuncts.size)
+    // newHeap(ar) = h --> allocHeap(h',_) = h
+    for ((ar, NewHeapInfo(h, theory)) <- allocNewHeaps) {
+      val AllocInfo(allocApp,_) = allocs(ar)
+      newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+      changed = true
+    }
+
+    // newAddr(ar) = a --> allocAddr(alloc(h',_)) = a
+    for ((ar, NewAddrInfo(a, theory)) <- allocNewAddrs) {
+      val AllocInfo(allocApp,_) = allocs(ar)
+      newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+      changed = true
+    }
+
+    println ("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
+    println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+
+    if (changed)
       Some(newConjuncts)
     else
       None

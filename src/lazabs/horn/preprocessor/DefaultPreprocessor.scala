@@ -54,7 +54,6 @@ class DefaultPreprocessor extends HornPreprocessor {
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner,
-         new HeapAllocResExtender,
          new HeapSizeArgumentExtender,
          new SizeArgumentExtender)
 
@@ -113,8 +112,8 @@ class DefaultPreprocessor extends HornPreprocessor {
         lastSize = curSize
         applyStage(SimplePropagators.EqualityPropagator)
         applyStage(SimplePropagators.ConstantPropagator)
-        applyStage(SimplePropagators.HeapDefinednessPropagator)
         applyStage(new ConstraintSimplifier)
+        applyStage(SimplePropagators.HeapDefinednessPropagator)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
         if (lazabs.GlobalParameters.get.slicing)
