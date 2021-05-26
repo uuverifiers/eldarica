@@ -742,15 +742,30 @@ object SimplePropagators {
       value match {
         case None => sol
         case Some(map) =>
-          val newConjuncts = new ArrayBuffer[IFormula]
+          var newSol = sol
           for((HeapAddressIndPair(h, a, theory), elem) <- map) {
+            val (heapTerm, addrTerm)= (v(h), v(a))
+            val nullAddr = theory.nullAddr
+            val valid = theory.isAlloc
             elem match {
+              case NullOrValidElem =>
+                newSol = newSol & // do not add anything valid
+                  ((addrTerm === nullAddr()) ||| valid(heapTerm, addrTerm))
+              case NullOrNotAllocElem =>  // a.k.a. invalid
+                newSol = newSol & INot(valid(heapTerm, addrTerm))
+              case ValidOrNotAllocElem =>  // a.k.a. not null
+                newSol = newSol & addrTerm =/= nullAddr() // add this as a case as well to the propagator
+              case NullElem =>
+                newSol = newSol & (addrTerm === nullAddr())
               case ValidElem =>
-                newConjuncts += theory.isAlloc(v(h), v(a))
-              case _ => // todo: add other cases
+                newSol = newSol & valid(heapTerm, addrTerm)
+              case NotAllocElem =>
+                newSol = newSol &
+                  (addrTerm =/= nullAddr()) & INot(valid(heapTerm, addrTerm))
+              case _ => // nothing
             }
           }
-          newConjuncts.fold(sol)(_ &&& _)
+          newSol
       }
   }
 //////////////////////////////////////////////////////////////////////////////
