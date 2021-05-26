@@ -36,6 +36,7 @@ import ap.types.SortedConstantTerm
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.Util.IntUnionFind
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import scala.collection.mutable.{HashMap => MHashMap,
                                  ArrayBuffer, LinkedHashMap}
@@ -110,11 +111,13 @@ object SimplePropagators {
           (a, false)
         case Some(cArgs) => {
           val IAtom(p, args) = a
+          val sorts = predArgumentSorts(p)
           var newConstraint = i(true)
 
           val newArgs =
-            (for (((a, ca), n) <-
-                    (args.iterator zip cArgs.iterator).zipWithIndex)
+            (for ((((a, ca), s), n) <-
+                    ((args.iterator zip cArgs.iterator) zip
+                       sorts.iterator).zipWithIndex)
              yield ca match {
                case None => a
                case Some(t) => {
@@ -123,7 +126,7 @@ object SimplePropagators {
                  // constant, its value is determined anyway
                  val name = p.name + "_anon_" + symCounter
                  symCounter = symCounter + 1
-                 IConstant(new ConstantTerm (name))
+                 IConstant(s newConstant name)
                }
              }).toVector
 
@@ -313,6 +316,7 @@ object SimplePropagators {
           (a, false)
         case Some(partitioning) => {
           val IAtom(p, args) = a
+          val sorts = predArgumentSorts(p)
 
           // map equivalent arguments to the left-most argument of the
           // equivalence class; anonymise all other arguments
@@ -324,11 +328,12 @@ object SimplePropagators {
              yield n).toSet
 
           val newArgs =
-            (for ((arg, n) <- args.iterator.zipWithIndex) yield {
+            (for (((arg, s), n) <-
+                  (args.iterator zip sorts.iterator).zipWithIndex) yield {
                if (redundantArgs contains n) {
                  val name = p.name + "_anon_" + symCounter
                  symCounter = symCounter + 1
-                 IConstant(new ConstantTerm (name))
+                 IConstant(s newConstant name)
                } else {
                  arg
                }

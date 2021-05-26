@@ -9,7 +9,9 @@ TESTS="simple-adt-horn.smt2 \
        unbounded-tree.smt2 \
        record-cex.smt2 \
        strings2-unsat.smt2 \
-       testers.smt2"
+       testers.smt2 \
+       tuple.smt2 \
+       tuple2.smt2"
 
 for name in $TESTS; do
     echo
