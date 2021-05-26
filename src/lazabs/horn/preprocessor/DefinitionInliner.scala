@@ -677,10 +677,10 @@ class ConstraintSimplifier extends HornPreprocessor {
         case (Some(NewHeapInfo(h, _, _)), Some(NewAddrInfo(a, _, _))) =>
           newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
           newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+          changed = true
         case _ => // if we do not know to which <h,a> pair this alloc refers to
           newConjuncts += conjunct // do not rewrite the constraint
       }
-      changed = true
     }
 
     // newHeap(ar) = h --> allocHeap(h',_) = h
@@ -705,8 +705,10 @@ class ConstraintSimplifier extends HornPreprocessor {
       }
     }
 
-    println ("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
-    println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+    if(changed) {
+      println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
+      println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+    }
 
     if (changed)
       Some(newConjuncts)

@@ -412,7 +412,9 @@ object SimplePropagators {
     private case object ValidOrNotAllocElem extends LatticeElement(6) // 110
     private case object UnknownElem         extends LatticeElement(7) // 111
 
-    private[preprocessor] case class HeapAddressIndPair(heapInd: Int, addrInd: Int)
+    private[preprocessor] case class HeapAddressIndPair(heapInd: Int,
+                                                        addrInd: Int,
+                                                        theory : Heap)
     type Element = Option[Map[HeapAddressIndPair, LatticeElement]]
 
     val name = "heap-definedness"
@@ -452,9 +454,9 @@ object SimplePropagators {
           handledAddresses += key.addr
           val otherKey =
             if (key.heap == h1)
-              HeapAddressPair(h2, key.addr)
+              HeapAddressPair(h2, key.addr, key.theory)
             else
-              HeapAddressPair(h1, key.addr)
+              HeapAddressPair(h1, key.addr, key.theory)
           val meetValue = subMap.getOrElse(otherKey, UnknownElem) meet elem
           if (meetValue == BottomElem) {
             println("contradiction!")
@@ -478,9 +480,9 @@ object SimplePropagators {
           handledHeaps += key.heap
           val otherKey =
             if (key.addr == a1)
-              HeapAddressPair(key.heap, a2)
+              HeapAddressPair(key.heap, a2, key.theory)
             else
-              HeapAddressPair(key.heap, a1)
+              HeapAddressPair(key.heap, a1, key.theory)
           val meetValue = subMap.getOrElse(otherKey, UnknownElem) meet elem
           if (meetValue == BottomElem) {
             println("contradiction!")
@@ -493,7 +495,9 @@ object SimplePropagators {
         true
       }
 
-      case class HeapAddressPair(heap: ConstantTerm, addr: ConstantTerm)
+      case class HeapAddressPair(heap   : ConstantTerm,
+                                 addr   : ConstantTerm,
+                                 theory : Heap)
       //////////////////////////////////////////////////////////////////////////
 
       val Clause(head, body, constraint) = clause
@@ -539,7 +543,7 @@ object SimplePropagators {
              (pair, pairValue) <- bodyElement.get) {
           val IConstant(heapTerm) = bodyAtom.args(pair.heapInd)
           val IConstant(addrTerm) = bodyAtom.args(pair.addrInd)
-          updateLocalMap(HeapAddressPair(heapTerm, addrTerm), pairValue)
+          updateLocalMap(HeapAddressPair(heapTerm, addrTerm, pair.theory), pairValue)
         }
         // 2nd step: collect all possible pairs from the head atom, and fill
         // in the localDefinednessMap. This is required since we have cases
@@ -547,8 +551,10 @@ object SimplePropagators {
         for (IConstant(SortedConstantTerm(addrTerm, aSort)) <- head.args
              if aSort.isInstanceOf[Heap.AddressSort];
              IConstant(SortedConstantTerm(heapTerm, hSort)) <- head.args
-             if hSort.isInstanceOf[Heap.HeapSort])
-          updateLocalMap(HeapAddressPair(heapTerm, addrTerm), UnknownElem)
+             if hSort.isInstanceOf[Heap.HeapSort]) {
+          val theory = hSort.asInstanceOf[HeapSort].heapTheory
+          updateLocalMap(HeapAddressPair(heapTerm, addrTerm, theory), UnknownElem)
+        }
 
         // a map from the original heap to the newly allocated addr
         val heapAllocAddrMap = new MHashMap[ConstantTerm, ConstantTerm]
@@ -571,15 +577,15 @@ object SimplePropagators {
                 // valid(h, a)
                 case IAtom(pred@Heap.HeapPredExtractor(heap),
                 Seq(IConstant(h), IConstant(a))) if pred == heap.isAlloc =>
-                  println("case valid" + HeapAddressPair(h, a))
-                  if (!updateLocalMap(HeapAddressPair(h, a), ValidElem))
+                  println("case valid" + HeapAddressPair(h, a, heap))
+                  if (!updateLocalMap(HeapAddressPair(h, a, heap), ValidElem))
                     return None
 
                 // !valid(h, a)
                 case INot(IAtom(pred@Heap.HeapPredExtractor(heap),
                 Seq(IConstant(h), IConstant(a)))) if pred == heap.isAlloc =>
                   println("case !valid(" + h + ", " + a + ")")
-                  if(!updateLocalMap(HeapAddressPair(h, a), NullOrNotAllocElem))
+                  if(!updateLocalMap(HeapAddressPair(h, a, heap), NullOrNotAllocElem))
                     return None
 
                 // write(h1, _, _) = h2
@@ -594,7 +600,7 @@ object SimplePropagators {
                                 Seq(IConstant(h), _)), IConstant(a))
                   if fun == heap.allocAddr =>
                   println("case allocAddr(" + h + ") = " + a)
-                  if (!updateLocalMap(HeapAddressPair(h, a), NotAllocElem))
+                  if (!updateLocalMap(HeapAddressPair(h, a, heap), NotAllocElem))
                     return None
                   if (!(heapAllocAddrMap contains h)) {
                     heapAllocAddrMap += ((h, a))
@@ -612,10 +618,10 @@ object SimplePropagators {
                       // h1 and h2 are equal everywhere except a
                       if (!handleHeapEquality(h1, h2, List(a))) return None
                       // h2 is valid in a
-                      if (!updateLocalMap(HeapAddressPair(h2, a), ValidElem))
+                      if (!updateLocalMap(HeapAddressPair(h2, a, heap), ValidElem))
                         return None
                       // h1 is not yet alloc in a (handled in allocAddr case)
-                      //updateLocalMap(HeapAddressPair(h1, a), NotAllocElem)
+                      //updateLocalMap(HeapAddressPair(h1, a, heap), NotAllocElem)
                     case _ => println("  alloc address not found for " + h1)
                     // nothing
                   }
@@ -634,9 +640,18 @@ object SimplePropagators {
                   handleAddressEquality(a1, a2)
 
                 // h1 == h2 (both are heaps)
+                  // todo: sometimes one side of the equality is unsorted (just ConstantTerm), why is this so?
+                  // todo: the next case is added to cover this, can be removed if resolved.
+                  // this happens when "ar" is in the predicate, for example test.smt2 vs test2.smt2
                 case Eq(IConstant(SortedConstantTerm(h1, sort)),
                         IConstant(h2)) if sort.isInstanceOf[Heap.HeapSort] =>
-                  println("case heapEq")
+                  println("case heapEq.1")
+                  if (!handleHeapEquality(h1, h2)) return None
+
+                // h1 == h2 (both are heaps)
+                case Eq(IConstant(h1), IConstant(SortedConstantTerm(h2, sort)))
+                  if sort.isInstanceOf[Heap.HeapSort] =>
+                  println("case heapEq.2")
                   if (!handleHeapEquality(h1, h2)) return None
 
                 case f =>
@@ -657,9 +672,9 @@ object SimplePropagators {
         // convert localDefinednessMap to the element for the head
         // (for the pairs that exist in the head)
         Some (
-          (for ((HeapAddressPair(h, a), elem) <- localDefinednessMap
+          (for ((HeapAddressPair(h, a, theory), elem) <- localDefinednessMap
             if term2HeadArgInd.contains(h) && term2HeadArgInd.contains(a)) yield {
-            (HeapAddressIndPair(term2HeadArgInd(h), term2HeadArgInd(a)), elem)
+            (HeapAddressIndPair(term2HeadArgInd(h), term2HeadArgInd(a), theory), elem)
           }).toMap
         )
       }
@@ -726,7 +741,16 @@ object SimplePropagators {
     def augmentSolution(sol: IFormula, value: Element): IFormula =
       value match {
         case None => sol
-        case Some(map) => ??? // todo: how?
+        case Some(map) =>
+          val newConjuncts = new ArrayBuffer[IFormula]
+          for((HeapAddressIndPair(h, a, theory), elem) <- map) {
+            elem match {
+              case ValidElem =>
+                newConjuncts += theory.isAlloc(v(h), v(a))
+              case _ => // todo: add other cases
+            }
+          }
+          newConjuncts.fold(sol)(_ &&& _)
       }
   }
 //////////////////////////////////////////////////////////////////////////////
