@@ -191,7 +191,6 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
     argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
 
-  println("debug")
   astEdgeType = "templateAST"
   //val templateNameList = drawTemplates()
   val templateNameList=drawPredicate()

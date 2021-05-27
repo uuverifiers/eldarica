@@ -509,7 +509,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         HornPredAbs.CounterexampleMethod.AllShortest
       else
         HornPredAbs.CounterexampleMethod.FirstBestShortest
-
     val result = Console.withOut(outStream) {
       println
       println(

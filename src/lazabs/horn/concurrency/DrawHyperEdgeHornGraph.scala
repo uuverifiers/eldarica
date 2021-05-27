@@ -39,6 +39,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
+import lazabs.horn.concurrency.HintsSelection.timeoutForPredicateDistinct
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable.ArrayBuffer

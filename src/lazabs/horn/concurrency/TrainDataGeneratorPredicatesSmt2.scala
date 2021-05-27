@@ -306,6 +306,8 @@ object TrainDataGeneratorPredicatesSmt2 {
       println("begin generating initial predicates")
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
       println("end generating initial predicates")
+      //println("simpleGeneratedPredicates size",simpleGeneratedPredicates.size)
+      //println("total genereated initial predicates",(for ((k,v)<-simpleGeneratedPredicates) yield v).flatten.size)
       val predicateGenerator= if (GlobalParameters.get.onlyInitialPredicates) exceptionalPredGen else predGenerator
       val (solvability,predicateFromCEGAR,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predicateGenerator,counterexampleMethod,fileName = fileName,coefficient = 5)
       val originalPredicates = HintsSelection.mergePredicateMaps(HintsSelection.differentTwoPredicated(simpleGeneratedPredicates,predicateFromCEGAR).mapValues(_.map(sp(_)).map(spAPI.simplify(_))),simpleGeneratedPredicates).filterKeys(_.arity!=0).mapValues(_.filterNot(_.isFalse).filterNot(_.isTrue).toSeq)

@@ -955,10 +955,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         //templateNameList:+=templateNodeName
-        val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.wrappedContainsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
+        val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         //drawAST(e,templateNodeName)
-        val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.wrappedContainsPred(t, Seq(f)))) yield s
+        val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.containsPred(t, Seq(f)))) yield s
         if (existedSubGraphRoot.isEmpty) {
           val predicateASTRootName=drawAST(t)
           addBinaryEdge(predicateASTRootName,templateNodeName,"templateAST")
@@ -979,7 +979,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t)
             //update JSON
-            val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.wrappedContainsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
+            val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)
             predicateASTRootName
           }

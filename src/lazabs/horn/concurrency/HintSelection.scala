@@ -27,6 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
+import ap.SimpleAPI.ProverStatus
 import ap.{PresburgerTools, Prover, SimpleAPI}
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
@@ -35,7 +36,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
 import ap.types.{SortedPredicate, TypeTheory}
-import ap.util.Timeout
+import ap.util.{Seqs, Timeout}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
@@ -71,6 +72,7 @@ object HintsSelection {
   val sp =new Simplifier
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
+  val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
   def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, HornPredAbs.NormClause)]], counterexampleMethod: HornPredAbs.CounterexampleMethod.Value,
                         predictedPredicates:Map[Predicate, Seq[IFormula]],
@@ -156,64 +158,18 @@ object HintsSelection {
     (currentInitialPredicates.mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse)),predicatesExtractingTime)
   }
 
-  def wrappedContainsPred(onePred: IFormula,
-                          preds: Iterable[IFormula]): Boolean = {
-    import ap.SimpleAPI
-    import SimpleAPI.ProverStatus
-    import ap.parser._
-    var res: Boolean = true
-//    println("preds", preds)
-//    println("onePred", onePred)
-    //    val preds = List(v(1) === 42, v(0) >= 2, v(1) === v(2) + 1)
-    //    val newPred1 = v(0) > 1
-    //    val newPred2 = v(1) > 1
-    SimpleAPI.withProver { prover =>
-      import prover._
-      import IExpression._
-
-      def containsPred(p: IFormula,
-                       otherPreds: Iterable[IFormula]): Boolean =
-        otherPreds exists {
-          q =>
-            scope {
-              val c = p <=> q
-
-              val vars =
-                SymbolCollector.variables(c)
-
-              // replace variables with constants
-              val varSorts =
-                (for (ISortedVariable(n, s) <- vars.iterator)
-                  yield (n -> s)).toMap
-              val maxVar =
-                (for (IVariable(n) <- vars.iterator) yield n).max
-              val varSubst =
-                (for (n <- 0 to maxVar) yield (varSorts get n) match {
-                  case Some(s) => createConstant(s)
-                  case None => v(n)
-                }).toList
-
-              ??(subst(c, varSubst, 0))
-              ??? == ProverStatus.Valid
-            }
-        }
-
-      res = containsPred(onePred, preds)
-    }
-    res
-  }
 
   def conjunctTwoPredicates(A:Map[Predicate, Seq[IFormula]],
                             B:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
     for ((h,preds)<-A)yield{
-      h->(for(p<-preds;if B.exists(_._1==h)&&wrappedContainsPred(p,B(h))) yield p)
+      h->(for(p<-preds;if B.exists(_._1==h)&&containsPred(p,B(h))) yield p)
     }
   }
 
   def differentTwoPredicated(A:Map[Predicate, Seq[IFormula]],
                             B:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
     for ((h,preds)<-A)yield{
-      h->(for(p<-preds;if B.exists(_._1==h) && !wrappedContainsPred(p,B(h))) yield p)
+      h->(for(p<-preds;if B.exists(_._1==h) && !containsPred(p,B(h))) yield p)
     }
   }
  
@@ -239,15 +195,25 @@ object HintsSelection {
   }
 
   def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
+    //if the body has two same predicates not move this example
+    for (c<-simplifiedClauses){
+      val pbodyStrings= new MHashSet[String]
+      for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
+          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/lia-lin-multiple-predicates-in-body/"+getFileName())
+          sys.exit()
+      }
+    }
     val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
 
-//    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
-//      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => for(clause<-csSimplifiedClauses) yield clause.normalize()
-//      case _ => csSimplifiedClauses
-//    }
-//    simplePredicatesGeneratorClauses
-    csSimplifiedClauses
+    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => {
+        for(clause<-csSimplifiedClauses) yield clause.normalize()
+      }
+      case _ => csSimplifiedClauses
+    }
+    simplePredicatesGeneratorClauses
+    //csSimplifiedClauses
   }
 
   def transformPredicatesToCanonical( lastPredicates:Map[HornPredAbs.RelationSymbol, ArrayBuffer[HornPredAbs.RelationSymbolPred]]):
@@ -618,45 +584,38 @@ object HintsSelection {
     else IExpression.quanConsts(Quantifier.EX, constants, p)
   }
   def clauseConstraintQuantify(clause: Clause): IFormula ={
-    val projectedConstraint=
     SimpleAPI.withProver { p=>
       p.scope{
         p.addConstantsRaw(clause.constants)
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-        p.projectEx(clause.constraint,constants)
+        try{p.withTimeout(5000){p.projectEx(clause.constraint,constants)}}
+        catch {case SimpleAPI.TimeoutException=>clause.constraint}
+        //p.projectEx(clause.constraint,constants)
       }
     }
-    projectedConstraint
   }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
-//    for (clause <- simplePredicatesGeneratorClauses)
-//      println(Console.BLUE + clause.toPrologString)
-//    val constraintPredicates = (for(clause <- simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
-//      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
-//      val argumentReplacedPredicates= for(constraint <- LineariseVisitor(ConstantSubstVisitor(clause.constraint,subst), IBinJunctor.And)) yield constraint
-//      val freeVariableReplacedPredicates= for(p<-argumentReplacedPredicates) yield{
-//        val constants=SymbolCollector.constants(p)
-//        if(constants.isEmpty)
-//          p
-//        else
-//          IExpression.quanConsts(Quantifier.EX,constants,p)
-//      }
-//      atom.pred-> freeVariableReplacedPredicates
-//    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct)
 
+    var constraintPredicates:Map[Predicate,Seq[IFormula]]=Map()
+    var pairWiseVariablePredicates:Map[Predicate,Seq[IFormula]]=Map()
+    var predicateMap:Map[Predicate,Seq[IFormula]]=Map()
+
+    def addNewPredicateList(pMap: Map[Predicate, Seq[IFormula]], atom: IAtom, newList: Seq[IFormula]): Map[Predicate, Seq[IFormula]] = {
+      val distinctedNewList=distinctByString(newList)
+      var startMap:Map[Predicate,Seq[IFormula]]=pMap
+      if (pMap.keys.map(_.name).toSeq.contains(atom.pred.name)) {
+        startMap = pMap.updated(atom.pred, nonredundantSet(pMap(atom.pred), distinctedNewList))
+      } else {
+        startMap += (atom.pred -> distinctedNewList)
+      }
+      startMap
+    }
     //generate predicates from constraint
-    val constraintPredicatesTemp= (for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms) yield {
-      //println(Console.BLUE + clause.toPrologString)
+    for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
       val simplifiedPredicates = spAPI.simplify(quantifiedConstraints)
-//      println("argumentReplacedPredicates")
-//      println(argumentReplacedPredicates)
-//      println("quantifiedConstraints")
-//      println(quantifiedConstraints)
-//      println("simplifiedPredicates")
-//      println(simplifiedPredicates)
 
       val freeVariableReplacedPredicates= {
         if(clause.body.map(_.toString).contains(atom.toString)) {
@@ -665,35 +624,41 @@ object HintsSelection {
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
         }
       }
-      atom.pred-> freeVariableReplacedPredicates.filter(!_.isTrue).filter(!_.isFalse)//map(spAPI.simplify(_)) //get rid of true and false
-    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity!=0)//.mapValues(distinctByLogic(_))
-    val constraintPredicates=
-      if(GlobalParameters.get.varyGeneratedPredicates==true)
-        HintsSelection.varyPredicates(constraintPredicatesTemp)
-      else
-        constraintPredicatesTemp
-
-    //generate predicates with pairwise variables
-    //const1*v1 + const2*v2 + const =|!=|>= 0
+      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates)
+      //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
+    }
+    //println(Console.BLUE + "constraintPredicates",(for (k<-constraintPredicates) yield k._2).flatten.size)
+    //println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+    //generate pairwise predicates from constraint
     val integerConstantVisitor = new LiteralCollector
-    //val variableConstantPairs=Seq(0,1,1,-1,-1).map(IdealInt(_)).combinations(2).toSeq.map(listToTuple2(_))
     val variableConstantPairs=Seq((-1,-1),(1,1),(0,1),(1,0),(-1,1),(1,-1),(0,-1),(-1,0)).map(x=>Tuple2(IdealInt(x._1),IdealInt(x._2)))
-    val pairWiseVariablePredicates = (for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms) yield {
-      val pairVariables=(for ((arg, n) <- atom.args.zipWithIndex) yield (arg,n)).combinations(2).map(listToTuple2(_)).toSeq
+    for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms; if !atom.args.isEmpty){
+      val pairVariables=(for ((arg, n) <- atom.args.zipWithIndex) yield (arg,n)).combinations(2).map(listToTuple2(_))
       integerConstantVisitor.visitWithoutResult(clause.constraint,()) //collect integer constant in clause
       val constantList = (integerConstantVisitor.literals.toSeq ++ Seq(IdealInt(0),IdealInt(-1),IdealInt(1)) ++ (for (x<-integerConstantVisitor.literals.toSeq ) yield x.*(-1))).distinct
       integerConstantVisitor.literals.clear()
-
+      val preList=
       if (pairVariables.isEmpty)
-        atom.pred -> (for ((arg, n) <- atom.args.zipWithIndex) yield argumentEquationGenerator(n, constantList,arg)).flatten
+        (for ((arg, n) <- atom.args.zipWithIndex; if !isArgBoolean(arg)) yield argumentEquationGenerator(n, constantList,arg)).flatten
       else
-        atom.pred -> (for ((v1,v2)<-pairVariables) yield pairWiseEquationGenerator(v1,v2,variableConstantPairs,constantList)).flatten
-    }).groupBy(_._1).mapValues(_.flatMap(_._2).distinct).filterKeys(_.arity != 0)//.mapValues(distinctByLogic(_))
+        (for ((v1,v2)<-pairVariables;if !isArgBoolean(v1._1) && !isArgBoolean(v2._1)) yield pairWiseEquationGenerator(v1,v2,variableConstantPairs,constantList)).flatten.toSeq
+      predicateMap=addNewPredicateList(predicateMap,atom,preList)
+      //pairWiseVariablePredicates=addNewPredicateList(pairWiseVariablePredicates,atom,preList)
+    }
+    val merge=mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates)
+    //println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
+    //println(Console.BLUE + "merged",(for (k<-merge) yield k._2).flatten.size)
+    predicateMap=predicateMap.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse))
+    //println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+
+    val variedPredicates=
+      if(GlobalParameters.get.varyGeneratedPredicates==true)
+        HintsSelection.varyPredicates(predicateMap)
+      else
+        predicateMap
 
 
-    //merge constraint and constant predicates
-    //val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,argumentConstantEqualPredicate).mapValues(_.map(sp(_)).filter(!_.isTrue).filter(!_.isFalse))
-    val simplelyGeneratedPredicates = mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates).mapValues(_.filter(!_.isTrue).filter(!_.isFalse)).mapValues(distinctByString(_)).mapValues(distinctByLogic(_))//.mapValues(_.map(spAPI.simplify(_)))
+    println("end of predicate generating")
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
@@ -701,13 +666,12 @@ object HintsSelection {
 //      for(cc<-argumentConstantEqualPredicate; b<-cc._2) println(cc._1,b)
       println("--------predicates from pairwise variables---------")
       for(cc<-pairWiseVariablePredicates; b<-cc._2) println(cc._1,b)
-//      println("--------predicates from pairwise variables simplified---------")
-//      for(cc<-pairWiseVariablePredicates.mapValues(_.map(spAPI.simplify(_))); b<-cc._2) println(cc._1,b)
+      println("--------predicates from merged---------")
+      for(cc<-merge; b<-cc._2) println(cc._1,b)
       println("--------all generated predicates---------")
-      for((k,v)<-simplelyGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
+      for((k,v)<-variedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }
-
-    (simplelyGeneratedPredicates,constraintPredicates,pairWiseVariablePredicates)
+    (variedPredicates,constraintPredicates,pairWiseVariablePredicates)
   }
   def mergePredicateMaps(first:Map[Predicate,Seq[IFormula]],second:Map[Predicate,Seq[IFormula]]): Map[Predicate,Seq[IFormula]] ={
     if (first.isEmpty)
@@ -715,7 +679,7 @@ object HintsSelection {
     else if (second.isEmpty)
       first
     else
-      (for ((cpKey, cpPredicates) <- first; (apKey, apPredicates) <- second; if cpKey.name==apKey.name) yield cpKey ->(cpPredicates ++ apPredicates))
+      (first.toSeq ++ second.toSeq).groupBy(_._1).map{case(k, v) => k -> v.flatMap(_._2)}
   }
 
   def distinctByString[A](formulas:Seq[A]): Seq[A] ={
@@ -723,12 +687,71 @@ object HintsSelection {
     val uniqueFormulas= formulas filter {f => FormulaStrings.add(f.toString)} //de-duplicate formulas
     uniqueFormulas
   }
-  def distinctByLogic(formulas:Seq[IFormula]):Seq[IFormula]={
-    var distinctedFormulas=formulas
-    for (f<-formulas; if wrappedContainsPred(f,distinctedFormulas.filterNot(_==f)))
-      distinctedFormulas=distinctedFormulas.filterNot(_==f)
-    distinctedFormulas
+
+  def nonredundantSet(startSet : Seq[IFormula], newElements : Seq[IFormula]): Seq[IFormula] = {
+    val res = new ArrayBuffer[IFormula]
+    res ++= startSet
+
+    for (q <- newElements) {
+      //println(Console.YELLOW + q)
+      //println(Console.YELLOW + res.size)
+      if (!containsPred(q, res))
+        res += q
+    }
+    res.toSeq
   }
+
+  def containsPred(pred : IFormula,
+                   otherPreds : Iterable[IFormula]): Boolean = try {
+    SimpleAPI.withProver { p =>
+      implicit val _ = p
+      import p._
+      import IExpression._
+
+      val predSyms =
+        SymbolCollector.variables(pred) ++ SymbolCollector.constants(pred)
+
+      withTimeout(timeoutForPredicateDistinct) {
+        otherPreds exists {
+          q => {
+            val qSyms =
+              SymbolCollector.variables(q) ++ SymbolCollector.constants(q)
+
+            if (!predSyms.isEmpty && !qSyms.isEmpty &&
+              Seqs.disjoint(predSyms, qSyms)) {
+              // if the predicates do not share any symbols, we can
+              // assume they are not equivalent
+              false
+            } else scope {
+              val c = pred <=> q
+
+              val vars =
+                SymbolCollector.variables(c)
+
+              // replace variables with constants
+              val varSorts =
+                (for (ISortedVariable(n, s) <- vars.iterator)
+                  yield (n -> s)).toMap
+              val maxVar =
+                (for (IVariable(n) <- vars.iterator) yield n).max
+              val varSubst =
+                (for (n <- 0 to maxVar) yield (varSorts get n) match {
+                  case Some(s) => createConstant(s)
+                  case None => v(n)
+                }).toList
+
+              ??(subst(c, varSubst, 0))
+              ??? == ProverStatus.Valid
+            }
+          }
+        }
+      }
+    }
+  } catch
+    {
+      case SimpleAPI.TimeoutException => false
+    }
+
 
   def isArgBoolean(arg: ITerm): Boolean =
     Sort.sortOf(arg) match {
@@ -751,7 +774,6 @@ object HintsSelection {
     if(isArgBoolean(v1._1) || isArgBoolean(v2._1))
       Seq()
     else {
-
       (for ((v1Const,v2Const)<-variableConstantPairs;c<-constantList) yield Seq(Eq(IPlus(IVariable(v1._2).*(v1Const),IVariable(v2._2).*(v2Const)),c),Geq(IPlus(IVariable(v1._2).*(v1Const),IVariable(v2._2).*(v2Const)),c))).flatten.map(sp(_))
     }
   }
@@ -768,7 +790,7 @@ object HintsSelection {
         StandardCopyOption.REPLACE_EXISTING
       )
       if (path != null) {
-        println(s"moved the file $sourceFilename successfully")
+        println(s"moved the file $sourceFilename to $destinationFilename successfully")
       } else {
         println(s"could NOT move the file $sourceFilename")
       }
