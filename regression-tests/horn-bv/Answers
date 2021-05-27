@@ -87,16 +87,14 @@ bitwise3.hcc
 SAFE
 
 inconclusive.smt2
+Warning: arrays over finite domains are not fully supported yet
 Warning: ignoring get-model
-Theories: ExtArray[bv[32], bv[32]]
 sat
 
 loop.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 loop2.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -113,19 +111,15 @@ unsat
 11: Inv(mod_cast(0, 4294967295, 19), mod_cast(0, 4294967295, 0))
 
 mccarthy91_bv8.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 mccarthy91_bv32.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 multiplication.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 sat
 
 nonlinear.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -148,7 +142,6 @@ unsat
 17: Inv(mod_cast(0, 4294967295, 5), mod_cast(0, 4294967295, 1))
 
 quantifier.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -156,7 +149,6 @@ unsat
 2: inv_main4(mod_cast(0, 4294967295, 0), mod_cast(0, 4294967295, 4294967295))
 
 substring.error.nts.smt2
-Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE -> 1
@@ -181,7 +173,9 @@ unsat
 
 conjunctElimBug.smt2
 Warning: ignoring exit
-Theories: GroebnerMultiplication, ModuloArithmetic
 unsat
 
 0: FALSE
+
+int2bv.smt2
+unsat

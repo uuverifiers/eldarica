@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,12 +54,15 @@ object ADTExpander {
      * Decide whether to expand an ADT sort should be expanded. In
      * this case, the method returns a list of new terms and their sorts
      * to be added as. The new terms can contain the variable <code>_0</code>
-     * which has to be substituted with the actual argument.
+     * which has to be substituted with the actual argument. The last optional
+     * describes how to recompute the original term from the newly introduced
+     * terms; the last term can contain variables <code>_0, _1, ...</code>
+     * for this purpose.
      */
     def expand(pred : Predicate,
                argNum : Int,
                sort : ADT.ADTProxySort)
-             : Option[Seq[(ITerm, Sort, String)]]
+             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
   }
 
 }
@@ -87,7 +90,8 @@ class ADTExpander(val name : String,
     val newPreds =
       new MHashMap[Predicate,
                    (Predicate,                         // new predicate
-                    Seq[Option[Seq[(ITerm, Sort, String)]]], // additional arguments
+                    Seq[Option[(Seq[(ITerm, Sort, String)],
+                                Option[ITerm])]],      // additional arguments
                     Map[Int, Int])]                    // argument mapping,
                                                        //   needed for
                                                        //   VerifHintElement
@@ -107,7 +111,8 @@ class ADTExpander(val name : String,
     for (pred <- predicates) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
-      val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, Sort, String)]]]
+      val addedArgs  = new ArrayBuffer[Option[(Seq[(ITerm, Sort, String)],
+                                               Option[ITerm])]]
       val argMapping = new MHashMap[Int, Int]
       val solSubst   = new ArrayBuffer[ITerm]
       val cexArgs    = new ArrayBuffer[ITerm]
@@ -122,15 +127,28 @@ class ADTExpander(val name : String,
 
         sort match {
           case sort : ADT.ADTProxySort =>
-            for (newArguments <-
+            for ((newArguments, oldArgReconstr) <-
                    expansion.expand(pred, argNum,
                                     sort.asInstanceOf[ADT.ADTProxySort])) {
               val (addArgs, addSorts, _) = newArguments.unzip3
+
+              for (reconstr <- oldArgReconstr) {
+                // in that case we can remove the old argument
+                solSubst.reduceToSize(solSubst.size - 1)
+                newSorts.reduceToSize(newSorts.size - 1)
+                argMapping -= argNum
+                cexArgs(cexArgs.size - 1) =
+                  IExpression.shiftVars(reconstr, newSorts.size)
+              }
+
               newSorts ++= addSorts
-              addedArgs(addedArgs.size - 1) = Some(newArguments)
-              val subst = (List(solSubst.last), 1)
+              addedArgs(addedArgs.size - 1) =
+                Some((newArguments, oldArgReconstr))
+
+              val subst = (List(IVariable(argNum)), 1)
               for (t <- addArgs)
                 solSubst += VariableSubstVisitor(t, subst)
+
               changed = true
             }
           case _ => // nothing
@@ -174,7 +192,10 @@ class ADTExpander(val name : String,
 
               for ((t, maybeArgs) <- a.args.iterator zip addedArgs.iterator){
                 newArgs += t
-                for (newArgSpecs <- maybeArgs) {
+                for ((newArgSpecs, oldArgReconstr) <- maybeArgs) {
+                  if (oldArgReconstr.isDefined)
+                    newArgs.reduceToSize(newArgs.size - 1)
+
                   val subst = (List(t), 1)
                   for ((s, sort, name) <- newArgSpecs) {
                     val instArg =
@@ -183,8 +204,12 @@ class ADTExpander(val name : String,
                       newTerms.getOrElseUpdate(instArg, newConst(name, sort))
                   }
 
-//                  if (!constraint.isTrue)
-//                    additionalConstraints += constraint
+                  for (reconstr <- oldArgReconstr) {
+                    val arity = newArgSpecs.size
+                    val args  = (newArgs takeRight arity).toList
+                    val rec   = VariableSubstVisitor(reconstr, (args, arity))
+                    additionalConstraints += (rec === t)
+                  }
                 }
               }
 

@@ -126,24 +126,26 @@ object HornSMTPrinter {
       case Division(e1, e2) => "(div " + printExp(e1) + " " + printExp(e2) + ")"
       case ADTctor(adt, name, exprList) =>
         if (exprList.isEmpty)
-          name
+          quoteIdentifier(name)
         else
-          "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+          "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsel(adt, name, exprList) =>
-        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+        "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
       case ADTsize(adt, _, v) =>
         "(_size " + printExp(v) + ")"
       case ArraySelect(ar, ind) =>
         "(select " + printExp(ar) + " " + printExp(ind) + ")"
       case ArrayUpdate(ar, ind, value) =>
         "(store " + printExp(ar) + " " + printExp(ind) + " " + printExp(value) + ")"
+      case ConstArray(value) =>
+        "((as const " + type2String(e.stype) + ") " + printExp(value) + ")"
       case HeapFun(heap, name, exprList) =>
         if (exprList.isEmpty)
-          name
+          quoteIdentifier(name)
         else
-          "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+          "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
       case HeapPred(heap, name, exprList) =>
-        "(" + name + " " + exprList.map(printExp).mkString(" ") + ")"
+        "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {
@@ -165,7 +167,11 @@ object HornSMTPrinter {
           num.toString
         }
       case BoolConst(v) => quoteIdentifier(v.toString)
+
       case BVconst(bits, v) => "(_ bv" + v + " " + bits + ")"
+      case Int2BitVec(bits, e) => "((_ int2bv " + bits + ") " + printExp(e) +")"
+      case UnaryExpression(op : BVneg, e) => "(" + op.st + " " + printExp(e) + ")"
+
       case _ =>
         throw new Exception("Invalid expression " + e)
         ""
