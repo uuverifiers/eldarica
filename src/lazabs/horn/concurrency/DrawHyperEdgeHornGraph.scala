@@ -516,7 +516,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
 
     //todo:check overlap rate between guard and positive hints
-//    var guardPositiveHintsOverlapCount=0
+    var guardPositiveHintsOverlapCount=0
 //    for((k,v)<-hints.positiveHints.toInitialPredicates;a<-clause.allAtoms;if a.pred.name==k.name){
 //      val replacedGuardSet=for (g<-guardList) yield{
 //        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
