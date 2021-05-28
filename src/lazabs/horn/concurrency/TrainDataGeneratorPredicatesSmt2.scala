@@ -303,9 +303,9 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
 
-      println("begin generating initial predicates")
+
       val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
-      println("end generating initial predicates")
+
       //println("simpleGeneratedPredicates size",simpleGeneratedPredicates.size)
       //println("total genereated initial predicates",(for ((k,v)<-simpleGeneratedPredicates) yield v).flatten.size)
       val predicateGenerator= if (GlobalParameters.get.onlyInitialPredicates) exceptionalPredGen else predGenerator

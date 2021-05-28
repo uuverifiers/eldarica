@@ -595,7 +595,7 @@ object HintsSelection {
     }
   }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
-
+    println("begin generating initial predicates")
     var constraintPredicates:Map[Predicate,Seq[IFormula]]=Map()
     var pairWiseVariablePredicates:Map[Predicate,Seq[IFormula]]=Map()
     var predicateMap:Map[Predicate,Seq[IFormula]]=Map()
@@ -616,7 +616,7 @@ object HintsSelection {
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
       val simplifiedPredicates = spAPI.simplify(quantifiedConstraints)
-
+      //println("predicateMap",predicateMap)
       val freeVariableReplacedPredicates= {
         if(clause.body.map(_.toString).contains(atom.toString)) {
           (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
@@ -624,7 +624,7 @@ object HintsSelection {
           LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
         }
       }
-      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates)
+      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates.filterNot(_.isFalse).filterNot(_.isTrue))
       //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
     }
     //println(Console.BLUE + "constraintPredicates",(for (k<-constraintPredicates) yield k._2).flatten.size)
@@ -658,7 +658,7 @@ object HintsSelection {
         predicateMap
 
 
-    println("end of predicate generating")
+    println("end generating initial predicates")
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)

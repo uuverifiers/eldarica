@@ -39,7 +39,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
-import lazabs.horn.concurrency.HintsSelection.timeoutForPredicateDistinct
+import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, timeoutForPredicateDistinct}
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable.ArrayBuffer
@@ -140,7 +140,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  createNode(canonicalName=falseControlFlowNodeName, labelName="FALSE", className="CONTROL", shape=nodeShapeMap("CONTROL"))
   //  controlFlowNodeSetInOneClause("FALSE") = falseControlFlowNodeName
   var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
-
+  var totalGuardSize=0
+  var totalGuardOverlap=0
   for (clause <- simpClauses) {
     hyperEdgeList.clear()
     constantNodeSetInOneClause.clear()
@@ -148,7 +149,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 //    binaryOperatorSubGraphSetInOneClause.clear()
 //    unaryOperatorSubGraphSetInOneClause.clear()
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
-    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause, dataFlowInfoWriter)
+    val (dataFlowSet, guardSet, normalizedClause,overlap) = getDataFlowAndGuard(clause, dataFlowInfoWriter)
+    totalGuardSize=totalGuardSize+guardSet.size
+    totalGuardOverlap=totalGuardOverlap+overlap
     //draw head predicate node and argument node
     val headNodeName =
       if (normalizedClause.head.pred.name == "FALSE") {
@@ -328,6 +331,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   writerGraph.close()
   dataFlowInfoWriter.close()
 
+  println("totalGuardSize",totalGuardSize)
+  println("totalGuardOverlap",totalGuardOverlap)
+  println("positive predicate size",hints.positiveHints.toInitialPredicates.values.flatten.size)
+  println("initial predicate size",hints.initialHints.toInitialPredicates.values.flatten.size)
+
+
   val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
   writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
 
@@ -453,7 +462,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   }
 
 
-  def getDataFlowAndGuard(clause: Clause, dataFlowInfoWriter: PrintWriter): (Seq[IFormula], Seq[IFormula], Clause) = {
+  def getDataFlowAndGuard(clause: Clause, dataFlowInfoWriter: PrintWriter):
+  (Seq[IFormula], Seq[IFormula], Clause,Int) = {
     /*
     Replace arguments in argumentInHead.intersect(argumentInBody) to arg' and add arg=arg' to constrains
 
@@ -505,6 +515,22 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
 
 
+    //todo:check overlap rate between guard and positive hints
+//    var guardPositiveHintsOverlapCount=0
+//    for((k,v)<-hints.positiveHints.toInitialPredicates;a<-clause.allAtoms;if a.pred.name==k.name){
+//      val replacedGuardSet=for (g<-guardList) yield{
+//        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
+//        //ConstantSubstVisitor(g,sub)
+//        predicateQuantify(ConstantSubstVisitor(g,sub))
+//      }
+//      println(a.pred)
+//      println("replacedGuardSet",replacedGuardSet)
+//      println("positiveHints",v)
+//      for (pp<-v; if HintsSelection.containsPred(pp,replacedGuardSet)) guardPositiveHintsOverlapCount=guardPositiveHintsOverlapCount+1
+//    }
+//    println("guardPositiveHintsOverlapCount",guardPositiveHintsOverlapCount)
+//
+
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
     val guardSeq = guardList.toSeq.sortBy(_.toString)
 
@@ -530,7 +556,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     //    dataFlowInfoWriter.write("redundant:\n")
     //    for (r <- redundantFormulas)
     //      dataFlowInfoWriter.write(r.toString + "\n")
-    (dataFlowSeq, guardSeq, simplifyedClauses)
+    (dataFlowSeq, guardSeq, simplifyedClauses,guardPositiveHintsOverlapCount)
   }
 
   def getArgumentReplacedClause(clause:Clause): Clause ={
