@@ -29,6 +29,7 @@
 
 package lazabs.horn.preprocessor
 
+import ap.parser
 import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
 import ap.theories.Heap
@@ -226,7 +227,7 @@ class HeapExpander(val name : String,
           (for (alloc <- allocs) yield {
             val h = alloc.args(0)
             val o = alloc.args(1)
-            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + 1
+            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + i(1)
           }).fold(i(true))((f1, f2) => Conj(f1, f2))
         val constraintsFromWrites : IFormula =
           (for (write <- writes) yield {

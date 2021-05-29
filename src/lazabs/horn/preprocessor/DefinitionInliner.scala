@@ -634,10 +634,16 @@ class ConstraintSimplifier extends HornPreprocessor {
            a             : IConstant, // the addr of this AllocRes
            theory        : Heap,      // associated heap theory
            conjunct      : IFormula)  // the conjunct this fun app was extracted
+
+    case class HeapAddressPair(h : ITerm, a : ITerm)
+
     ////////////////////////////////////////////////////////////////////////
     val allocs = new MHashMap[IConstant, AllocInfo]
     val allocNewHeaps = new MHashMap[IConstant, NewHeapInfo]
     val allocNewAddrs = new MHashMap[IConstant, NewAddrInfo]
+
+    val reads  = new ArrayBuffer[(HeapAddressPair, (ITerm, IFormula))]
+    val pairToObject = new MHashMap[HeapAddressPair, ITerm]
 
     val newConjuncts = new ArrayBuffer[IFormula]
 
@@ -667,7 +673,29 @@ class ConstraintSimplifier extends HornPreprocessor {
         allocNewHeaps += ((ar, NewHeapInfo(h, heap, conjunct)))
         allocNewAddrs += ((ar, NewAddrInfo(a, heap, conjunct)))
 
+      // write(_, a, o) = h2
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap), Seq(_, a, o)), h2)
+        if fun == heap.write =>
+        // fill the map from <h,a> pairs to contained objects using writes
+        // pairToObject += ((HeapAddressPair(h2, a), o)) todo: is this unsound?
+        newConjuncts += conjunct // writes are not removed
+
+      // read(h, a) = o
+      case f@IEquation(IFunApp(fun@HeapFunExtractor(heap), Seq(h, a)), o)
+        if fun == heap.read =>
+        reads += ((HeapAddressPair(h, a), (o, f)))
+
       case _ => newConjuncts += conjunct // conjunct unchanged
+    }
+
+    // fill the map from <h,a> pairs to contained objects using allocs
+    for(alloc <- allocs) {
+      val heapInfo = allocNewHeaps.get(alloc._1)
+      val addrInfo = allocNewAddrs.get(alloc._1)
+      val Seq(_,o) = alloc._2.allocFunApp.args
+      if (heapInfo.nonEmpty && addrInfo.nonEmpty)
+        pairToObject.put(
+          HeapAddressPair(heapInfo.get.h, addrInfo.get.a), o)
     }
 
     var changed = false
@@ -705,10 +733,21 @@ class ConstraintSimplifier extends HornPreprocessor {
       }
     }
 
-    if(changed) {
-      println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
-      println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+    // read(h,a) = o -> o = o2 (if we know what is at <h,a>)
+    for ((pair, (o, conjunct)) <- reads) {
+      pairToObject get pair match {
+        case Some(o2) =>
+          println("replacing " + conjunct + " with " + (o2 === o))
+          newConjuncts += o2 === o // replace read
+          changed = true
+        case _ => newConjuncts += conjunct // use old conjunct
+      }
     }
+
+    //if(changed) {
+    //  println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
+    //  println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+   // }
 
     if (changed)
       Some(newConjuncts)
@@ -783,6 +822,8 @@ class ConstraintSimplifier extends HornPreprocessor {
 
       if (!cont && containsFunctions) {
         // replace heap theory AllocRes ADTs with allocHeap and allocAddr
+        // also rewrites simple reads from locations written to/allocated within
+        // the same constraint
 
         for (newConjuncts <- elimAllocResADTs(headSyms, body, conjuncts)){
           conjuncts = newConjuncts
