@@ -141,6 +141,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  controlFlowNodeSetInOneClause("FALSE") = falseControlFlowNodeName
   var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
   var totalGuardSize=0
+  //var guardsSeq:Seq[IFormula]=Seq()
   var totalGuardOverlap=0
   for (clause <- simpClauses) {
     hyperEdgeList.clear()
@@ -151,6 +152,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
     val (dataFlowSet, guardSet, normalizedClause,overlap) = getDataFlowAndGuard(clause, dataFlowInfoWriter)
     totalGuardSize=totalGuardSize+guardSet.size
+    //guardsSeq=guardsSeq ++ guardSet
     totalGuardOverlap=totalGuardOverlap+overlap
     //draw head predicate node and argument node
     val headNodeName =
@@ -332,13 +334,16 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   dataFlowInfoWriter.close()
 
   println("totalGuardSize",totalGuardSize)
+  //println("guardsSeq",guardsSeq)
   println("totalGuardOverlap",totalGuardOverlap)
   println("positive predicate size",hints.positiveHints.toInitialPredicates.values.flatten.size)
   println("initial predicate size",hints.initialHints.toInitialPredicates.values.flatten.size)
 
 
   val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
+  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,
+    argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList,Array(totalGuardOverlap),
+    Array(hints.positiveHints.toInitialPredicates.values.flatten.size),Array(hints.initialHints.toInitialPredicates.values.flatten.size))
 
   def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName: String, labelName: String, className: String): Unit =
     GlobalParameters.get.hornGraphType match {
@@ -517,19 +522,19 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
     //todo:check overlap rate between guard and positive hints
     var guardPositiveHintsOverlapCount=0
-//    for((k,v)<-hints.positiveHints.toInitialPredicates;a<-clause.allAtoms;if a.pred.name==k.name){
-//      val replacedGuardSet=for (g<-guardList) yield{
-//        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
-//        //ConstantSubstVisitor(g,sub)
-//        predicateQuantify(ConstantSubstVisitor(g,sub))
-//      }
+    for((k,v)<-hints.positiveHints.toInitialPredicates;a<-clause.allAtoms;if a.pred.name==k.name){
+      val replacedGuardSet=for (g<-guardList) yield{
+        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
+        //ConstantSubstVisitor(g,sub)
+        predicateQuantify(ConstantSubstVisitor(g,sub))
+      }
 //      println(a.pred)
 //      println("replacedGuardSet",replacedGuardSet)
 //      println("positiveHints",v)
-//      for (pp<-v; if HintsSelection.containsPred(pp,replacedGuardSet)) guardPositiveHintsOverlapCount=guardPositiveHintsOverlapCount+1
-//    }
-//    println("guardPositiveHintsOverlapCount",guardPositiveHintsOverlapCount)
-//
+      for (pp<-v; if HintsSelection.containsPred(pp,replacedGuardSet)) guardPositiveHintsOverlapCount=guardPositiveHintsOverlapCount+1
+    }
+    //println("guardPositiveHintsOverlapCount",guardPositiveHintsOverlapCount)
+
 
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
     val guardSeq = guardList.toSeq.sortBy(_.toString)

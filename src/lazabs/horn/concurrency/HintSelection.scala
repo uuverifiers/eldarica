@@ -85,7 +85,6 @@ object HintsSelection {
     val trial_2=measureCEGAR(simplePredicatesGeneratorClauses,fullPredicates,predGenerator,counterexampleMethod)
     val trial_3=measureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
     val trial_4=measureCEGAR(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod)
-
     val measurementWithEmptyLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,Map(),predGenerator,counterexampleMethod)
     val measurementWithTrueLabel=if (minimizedPredicates.isEmpty) measurementWithEmptyLabel else averageMeasureCEGAR(simplePredicatesGeneratorClauses,minimizedPredicates,predGenerator,counterexampleMethod)
     val measurementWithFullLabel=averageMeasureCEGAR(simplePredicatesGeneratorClauses,fullPredicates,predGenerator,counterexampleMethod)
@@ -329,15 +328,33 @@ object HintsSelection {
       Dag[(IAtom, HornPredAbs.NormClause)]],counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
   HornPredAbs.CounterexampleMethod.FirstBestShortest): Seq[Tuple2[String,Double]] ={
     val startCEGARTime=currentTimeMillis()
+//    val measurementList:Seq[Tuple2[String,Double]]=
+//    try{
+//      val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+//        initialHints,
+//        predicateGenerator,
+//        counterexampleMethod)
+//      val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)
+//      //println(Console.GREEN + "timeConsumptionForCEGAR (ms)",timeConsumptionForCEGAR)
+//      Seq(Tuple2("timeConsumptionForCEGAR",timeConsumptionForCEGAR),Tuple2("itearationNumber",Cegar.itearationNumber),
+//        Tuple2("generatedPredicateNumber",Cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",Cegar.averagePredicateSize),
+//        Tuple2("predicateGeneratorTime",Cegar.predicateGeneratorTime),Tuple2("averagePredicateSize",Cegar.averagePredicateSize))
+//    }catch{
+//      case _ =>Seq(Tuple2("timeConsumptionForCEGAR",GlobalParameters.get.solvabilityTimeout),Tuple2("itearationNumber",-1),
+//        Tuple2("generatedPredicateNumber",-1),Tuple2("averagePredicateSize",-1),
+//        Tuple2("predicateGeneratorTime",-1),Tuple2("averagePredicateSize",-1))
+//    }
+
     val Cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
       initialHints,
       predicateGenerator,
       counterexampleMethod)
     val timeConsumptionForCEGAR=(currentTimeMillis()-startCEGARTime)
-    println(Console.GREEN + "timeConsumptionForCEGAR (ms)",timeConsumptionForCEGAR)
+    //println(Console.GREEN + "timeConsumptionForCEGAR (ms)",timeConsumptionForCEGAR)
     val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",timeConsumptionForCEGAR),Tuple2("itearationNumber",Cegar.itearationNumber),
       Tuple2("generatedPredicateNumber",Cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",Cegar.averagePredicateSize),
       Tuple2("predicateGeneratorTime",Cegar.predicateGeneratorTime),Tuple2("averagePredicateSize",Cegar.averagePredicateSize))
+
     measurementList
   }
 
@@ -589,7 +606,10 @@ object HintsSelection {
         p.addConstantsRaw(clause.constants)
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
         try{p.withTimeout(5000){p.projectEx(clause.constraint,constants)}}
-        catch {case SimpleAPI.TimeoutException=>clause.constraint}
+        catch {
+          case SimpleAPI.TimeoutException=>clause.constraint
+          case _ => clause.constraint
+        }
         //p.projectEx(clause.constraint,constants)
       }
     }
@@ -604,7 +624,11 @@ object HintsSelection {
       val distinctedNewList=distinctByString(newList)
       var startMap:Map[Predicate,Seq[IFormula]]=pMap
       if (pMap.keys.map(_.name).toSeq.contains(atom.pred.name)) {
-        startMap = pMap.updated(atom.pred, nonredundantSet(pMap(atom.pred), distinctedNewList))
+        if(!distinctedNewList.isEmpty) {
+//          println("start list",pMap(atom.pred))
+//          println("distinctedNewList",distinctedNewList)
+          startMap = pMap.updated(atom.pred, nonredundantSet(pMap(atom.pred), distinctedNewList))
+        }
       } else {
         startMap += (atom.pred -> distinctedNewList)
       }
@@ -615,20 +639,23 @@ object HintsSelection {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
-      val simplifiedPredicates = spAPI.simplify(quantifiedConstraints)
-      //println("predicateMap",predicateMap)
+      val simplifiedConstraint = try{spAPI.simplify(quantifiedConstraints)}catch {case _=>quantifiedConstraints}
+      //val simplifiedConstraint=ConstantSubstVisitor(clauseConstraintQuantify(clause),subst)
+//      println("constraint",clause.constraint)
+//      println("quantified",clauseConstraintQuantify(clause))
+
       val freeVariableReplacedPredicates= {
         if(clause.body.map(_.toString).contains(atom.toString)) {
-          (for (p<-LineariseVisitor(sp(simplifiedPredicates.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedPredicates,IBinJunctor.And)) yield sp(p.unary_!))
+          (for (p<-LineariseVisitor(sp(simplifiedConstraint.unary_!),IBinJunctor.And)) yield p) ++ (for (p<-LineariseVisitor(simplifiedConstraint,IBinJunctor.And)) yield sp(p.unary_!))
         } else {
-          LineariseVisitor(simplifiedPredicates,IBinJunctor.And)
+          LineariseVisitor(simplifiedConstraint,IBinJunctor.And)
         }
-      }
-      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates.filterNot(_.isFalse).filterNot(_.isTrue))
+      }.filterNot(_.isFalse).filterNot(_.isTrue)
+      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates)
       //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
     }
-    //println(Console.BLUE + "constraintPredicates",(for (k<-constraintPredicates) yield k._2).flatten.size)
-    //println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+
+    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
     //generate pairwise predicates from constraint
     val integerConstantVisitor = new LiteralCollector
     val variableConstantPairs=Seq((-1,-1),(1,1),(0,1),(1,0),(-1,1),(1,-1),(0,-1),(-1,0)).map(x=>Tuple2(IdealInt(x._1),IdealInt(x._2)))
@@ -648,8 +675,9 @@ object HintsSelection {
     val merge=mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates)
     //println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
     //println(Console.BLUE + "merged",(for (k<-merge) yield k._2).flatten.size)
+    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
     predicateMap=predicateMap.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse))
-    //println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
 
     val variedPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -692,9 +720,10 @@ object HintsSelection {
     val res = new ArrayBuffer[IFormula]
     res ++= startSet
 
-    for (q <- newElements) {
-      //println(Console.YELLOW + q)
-      //println(Console.YELLOW + res.size)
+    for (q <- newElements;if SymbolCollector.variables(q).size>0) {
+//      println("newElements",Console.YELLOW + q)
+//      println("res",Console.YELLOW + res)
+//      println("res.size",Console.YELLOW + res.size)
       if (!containsPred(q, res))
         res += q
     }
@@ -707,13 +736,15 @@ object HintsSelection {
       implicit val _ = p
       import p._
       import IExpression._
-
+      var qCounter=0
       val predSyms =
         SymbolCollector.variables(pred) ++ SymbolCollector.constants(pred)
 
       withTimeout(timeoutForPredicateDistinct) {
         otherPreds exists {
           q => {
+            //println(Console.GREEN + "q",qCounter,q)
+            qCounter=qCounter+1
             val qSyms =
               SymbolCollector.variables(q) ++ SymbolCollector.constants(q)
 
@@ -739,8 +770,10 @@ object HintsSelection {
                   case Some(s) => createConstant(s)
                   case None => v(n)
                 }).toList
-
               ??(subst(c, varSubst, 0))
+//              println("pred",pred)
+//              println("vars",vars)
+//              println("c",c)
               ??? == ProverStatus.Valid
             }
           }
@@ -791,6 +824,7 @@ object HintsSelection {
       )
       if (path != null) {
         println(s"moved the file $sourceFilename to $destinationFilename successfully")
+        removeRelativeFiles(sourceFilename)
       } else {
         println(s"could NOT move the file $sourceFilename")
       }
@@ -800,7 +834,10 @@ object HintsSelection {
     Files.delete(Paths.get(fileName+".circles.gv"))
     Files.delete(Paths.get(fileName+".HornGraph"))
     Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.gv"))
+    Files.delete(Paths.get(fileName+".labeledPredicates.tpl"))
     Files.delete(Paths.get(fileName+".unlabeledPredicates.tpl"))
+    Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.JSON"))
+    Files.delete(Paths.get(fileName+".predicateDistribution"))
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(
