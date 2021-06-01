@@ -625,8 +625,8 @@ object HintsSelection {
       var startMap:Map[Predicate,Seq[IFormula]]=pMap
       if (pMap.keys.map(_.name).toSeq.contains(atom.pred.name)) {
         if(!distinctedNewList.isEmpty) {
-//          println("start list",pMap(atom.pred))
-//          println("distinctedNewList",distinctedNewList)
+          println("start list",pMap(atom.pred).size)
+          println("distinctedNewList",distinctedNewList.size)
           startMap = pMap.updated(atom.pred, nonredundantSet(pMap(atom.pred), distinctedNewList))
         }
       } else {
@@ -639,7 +639,15 @@ object HintsSelection {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
-      val simplifiedConstraint = try{spAPI.simplify(quantifiedConstraints)}catch {case _=>quantifiedConstraints}
+      //val simplifiedConstraintsimplifiedConstraint = try{spAPI.simplify(quantifiedConstraints)}catch {case _=>quantifiedConstraints}
+      val simplifiedConstraint=
+      try{
+        spAPI.withTimeout(1000){
+          spAPI.simplify(quantifiedConstraints)
+        }
+      }
+      catch {case _=> quantifiedConstraints}
+
       //val simplifiedConstraint=ConstantSubstVisitor(clauseConstraintQuantify(clause),subst)
 //      println("constraint",clause.constraint)
 //      println("quantified",clauseConstraintQuantify(clause))
@@ -651,7 +659,13 @@ object HintsSelection {
           LineariseVisitor(simplifiedConstraint,IBinJunctor.And)
         }
       }.filterNot(_.isFalse).filterNot(_.isTrue)
-      predicateMap=addNewPredicateList(predicateMap,atom,freeVariableReplacedPredicates)
+
+      predicateMap =
+        if (!freeVariableReplacedPredicates.isEmpty)
+          addNewPredicateList(predicateMap, atom, freeVariableReplacedPredicates)
+        else
+          predicateMap
+
       //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
     }
 
@@ -720,10 +734,10 @@ object HintsSelection {
     val res = new ArrayBuffer[IFormula]
     res ++= startSet
 
-    for (q <- newElements;if SymbolCollector.variables(q).size>0) {
-//      println("newElements",Console.YELLOW + q)
-//      println("res",Console.YELLOW + res)
+    for (q <- newElements) {
+      //println("newElements",Console.YELLOW + q)
 //      println("res.size",Console.YELLOW + res.size)
+//      println("res",Console.YELLOW + res)
       if (!containsPred(q, res))
         res += q
     }
@@ -754,8 +768,8 @@ object HintsSelection {
               // assume they are not equivalent
               false
             } else scope {
-              val c = pred <=> q
-
+              //val c = pred <=> q
+              val c = (pred <=> q) ||| (pred==q)
               val vars =
                 SymbolCollector.variables(c)
 
@@ -763,7 +777,7 @@ object HintsSelection {
               val varSorts =
                 (for (ISortedVariable(n, s) <- vars.iterator)
                   yield (n -> s)).toMap
-              val maxVar =
+              val maxVar = if(vars.isEmpty) 0 else
                 (for (IVariable(n) <- vars.iterator) yield n).max
               val varSubst =
                 (for (n <- 0 to maxVar) yield (varSorts get n) match {
@@ -831,13 +845,16 @@ object HintsSelection {
     }
   }
   def removeRelativeFiles(fileName:String): Unit ={
-    Files.delete(Paths.get(fileName+".circles.gv"))
-    Files.delete(Paths.get(fileName+".HornGraph"))
-    Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.gv"))
-    Files.delete(Paths.get(fileName+".labeledPredicates.tpl"))
-    Files.delete(Paths.get(fileName+".unlabeledPredicates.tpl"))
-    Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.JSON"))
-    Files.delete(Paths.get(fileName+".predicateDistribution"))
+    try{
+      Files.delete(Paths.get(fileName+".circles.gv"))
+      Files.delete(Paths.get(fileName+".HornGraph"))
+      Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.gv"))
+      Files.delete(Paths.get(fileName+".labeledPredicates.tpl"))
+      Files.delete(Paths.get(fileName+".unlabeledPredicates.tpl"))
+      Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.JSON"))
+      Files.delete(Paths.get(fileName+".predicateDistribution"))
+    }catch {case _ => println("no relative files")}
+
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(
