@@ -600,17 +600,24 @@ object HintsSelection {
     if (constants.isEmpty) p
     else IExpression.quanConsts(Quantifier.EX, constants, p)
   }
-  def clauseConstraintQuantify(clause: Clause): IFormula ={
-    SimpleAPI.withProver { p=>
-      p.scope{
+
+  def clauseConstraintQuantify(clause: Clause): IFormula = {
+    println(Console.BLUE + "clauseConstraintQuantify begin")
+    SimpleAPI.withProver { p =>
+      p.scope {
         p.addConstantsRaw(clause.constants)
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-        try{p.withTimeout(5000){p.projectEx(clause.constraint,constants)}}
-        catch {
-          case SimpleAPI.TimeoutException=>clause.constraint
-          case _ => clause.constraint
-        }
-        //p.projectEx(clause.constraint,constants)
+        println("current clause",clause.toPrologString)
+        p.projectEx(clause.constraint,constants)
+//        try {
+//          p.withTimeout(5000) {
+//            p.projectEx(clause.constraint, constants)
+//          }
+//        }
+//        catch {
+//          case SimpleAPI.TimeoutException => clause.constraint
+//          case _ => clause.constraint
+//        }
       }
     }
   }
@@ -639,7 +646,6 @@ object HintsSelection {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
-      //val simplifiedConstraintsimplifiedConstraint = try{spAPI.simplify(quantifiedConstraints)}catch {case _=>quantifiedConstraints}
       val simplifiedConstraint=
       try{
         spAPI.withTimeout(1000){

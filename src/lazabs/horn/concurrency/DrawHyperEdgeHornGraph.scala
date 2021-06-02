@@ -570,12 +570,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val head=IAtom(clause.head.pred,for(arg<-clause.head.args) yield substKeyString(arg.toString))
     val body = for (b<-clause.body) yield IAtom(b.pred, for(arg<-b.args) yield substKeyString(arg.toString))
     val argumentReplacedConstraint= ConstantSubstVisitor(clause.constraint,subst)
-    //val quantifyAndSimplifyedConstraints=spAPI.simplify(sp(HintsSelection.predicateQuantify(argumentReplacedConstraint)))
     Clause(head, body, argumentReplacedConstraint)
   }
 
   def getSimplifiedClauses(clause: Clause): Clause = {
     val simplifyedConstraints = HintsSelection.clauseConstraintQuantify(clause)
+    println(Console.BLUE + "clauseConstraintQuantify finished")
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
 
