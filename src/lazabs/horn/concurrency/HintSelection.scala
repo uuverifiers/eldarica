@@ -198,7 +198,7 @@ object HintsSelection {
     for (c<-simplifiedClauses){
       val pbodyStrings= new MHashSet[String]
       for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
-          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/lia-lin-multiple-predicates-in-body/"+getFileName())
+          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName())
           sys.exit()
       }
     }
@@ -602,22 +602,22 @@ object HintsSelection {
   }
 
   def clauseConstraintQuantify(clause: Clause): IFormula = {
-    println(Console.BLUE + "clauseConstraintQuantify begin")
+    //println(Console.BLUE + "clauseConstraintQuantify begin")
     SimpleAPI.withProver { p =>
       p.scope {
         p.addConstantsRaw(clause.constants)
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-        println("current clause",clause.toPrologString)
-        p.projectEx(clause.constraint,constants)
-//        try {
-//          p.withTimeout(5000) {
-//            p.projectEx(clause.constraint, constants)
-//          }
-//        }
-//        catch {
-//          case SimpleAPI.TimeoutException => clause.constraint
-//          case _ => clause.constraint
-//        }
+        //println("current clause",clause.toPrologString)
+        //p.projectEx(clause.constraint,constants)
+        try {
+          p.withTimeout(5000) {
+            p.projectEx(clause.constraint, constants)
+          }
+        }
+        catch {
+          case SimpleAPI.TimeoutException => clause.constraint
+          case _ => clause.constraint
+        }
       }
     }
   }
@@ -627,17 +627,20 @@ object HintsSelection {
     var pairWiseVariablePredicates:Map[Predicate,Seq[IFormula]]=Map()
     var predicateMap:Map[Predicate,Seq[IFormula]]=Map()
 
-    def addNewPredicateList(pMap: Map[Predicate, Seq[IFormula]], atom: IAtom, newList: Seq[IFormula]): Map[Predicate, Seq[IFormula]] = {
+    def addNewPredicateList(pMap: Map[Predicate, Seq[IFormula]], pred: Predicate, newList: Seq[IFormula]): Map[Predicate, Seq[IFormula]] = {
       val distinctedNewList=distinctByString(newList)
       var startMap:Map[Predicate,Seq[IFormula]]=pMap
-      if (pMap.keys.map(_.name).toSeq.contains(atom.pred.name)) {
+      if (pMap.keys.map(_.name).toSeq.contains(pred.name)) {
         if(!distinctedNewList.isEmpty) {
-          println("start list",pMap(atom.pred).size)
-          println("distinctedNewList",distinctedNewList.size)
-          startMap = pMap.updated(atom.pred, nonredundantSet(pMap(atom.pred), distinctedNewList))
+          println("start list",pMap(pred).size,"atom.pred",pred)
+          println("new list",distinctedNewList.size)
+          val differntiatedNewList=distinctedNewList.diff(pMap(pred))
+          println("differentiated list",differntiatedNewList.size)
+          startMap = pMap.updated(pred, nonredundantSet(pMap(pred), differntiatedNewList))
+          println("after add new list",startMap(pred).size)
         }
       } else {
-        startMap += (atom.pred -> distinctedNewList)
+        startMap += (pred -> distinctedNewList)
       }
       startMap
     }
@@ -646,13 +649,15 @@ object HintsSelection {
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
-      val simplifiedConstraint=
-      try{
-        spAPI.withTimeout(1000){
-          spAPI.simplify(quantifiedConstraints)
-        }
-      }
-      catch {case _=> quantifiedConstraints}
+      println(Console.BLUE + "before simplify quantifiedConstraints:",quantifiedConstraints.toString)
+      val simplifiedConstraint=spAPI.simplify(quantifiedConstraints)
+//      val simplifiedConstraint=
+//      try{
+//        spAPI.withTimeout(1000){
+//          spAPI.simplify(quantifiedConstraints)
+//        }
+//      }
+//      catch {case _=> quantifiedConstraints}
 
       //val simplifiedConstraint=ConstantSubstVisitor(clauseConstraintQuantify(clause),subst)
 //      println("constraint",clause.constraint)
@@ -666,15 +671,23 @@ object HintsSelection {
         }
       }.filterNot(_.isFalse).filterNot(_.isTrue)
 
-      predicateMap =
-        if (!freeVariableReplacedPredicates.isEmpty)
-          addNewPredicateList(predicateMap, atom, freeVariableReplacedPredicates)
-        else
-          predicateMap
+//      predicateMap =
+//        if (!freeVariableReplacedPredicates.isEmpty)
+//          addNewPredicateList(predicateMap, atom.pred, freeVariableReplacedPredicates)
+//        else
+//          predicateMap
+      if (constraintPredicates.keys.map(_.name).toSeq.contains(atom.pred.name))
+        constraintPredicates=constraintPredicates.updated(atom.pred,(constraintPredicates(atom.pred)++freeVariableReplacedPredicates).distinct)
+      else
+        constraintPredicates=constraintPredicates++Map(atom.pred->freeVariableReplacedPredicates)
 
       //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
     }
-
+    println(Console.BLUE + "predicate from constraint",(for (k<-constraintPredicates) yield k._2).flatten.size)
+    //add constraint predicates to predicateMap
+    for ((k,v)<-constraintPredicates){
+      predicateMap=addNewPredicateList(predicateMap,k,v)
+    }
     println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
     //generate pairwise predicates from constraint
     val integerConstantVisitor = new LiteralCollector
@@ -689,13 +702,21 @@ object HintsSelection {
         (for ((arg, n) <- atom.args.zipWithIndex; if !isArgBoolean(arg)) yield argumentEquationGenerator(n, constantList,arg)).flatten
       else
         (for ((v1,v2)<-pairVariables;if !isArgBoolean(v1._1) && !isArgBoolean(v2._1)) yield pairWiseEquationGenerator(v1,v2,variableConstantPairs,constantList)).flatten.toSeq
-      predicateMap=addNewPredicateList(predicateMap,atom,preList)
-      //pairWiseVariablePredicates=addNewPredicateList(pairWiseVariablePredicates,atom,preList)
+
+      if (pairWiseVariablePredicates.keys.map(_.name).toSeq.contains(atom.pred.name))
+        pairWiseVariablePredicates=pairWiseVariablePredicates.updated(atom.pred,(pairWiseVariablePredicates(atom.pred)++preList).distinct)
+      else
+        pairWiseVariablePredicates=pairWiseVariablePredicates++Map(atom.pred->preList)
     }
+    println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
+    //add pairwise variable to predicateMap
+    for ((k,v)<-pairWiseVariablePredicates){
+      predicateMap=addNewPredicateList(predicateMap,k,v)
+    }
+
     val merge=mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates)
     //println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
     //println(Console.BLUE + "merged",(for (k<-merge) yield k._2).flatten.size)
-    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
     predicateMap=predicateMap.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse))
     println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
 

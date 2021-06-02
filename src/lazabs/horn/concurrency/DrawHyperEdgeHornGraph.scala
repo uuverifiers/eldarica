@@ -575,7 +575,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   def getSimplifiedClauses(clause: Clause): Clause = {
     val simplifyedConstraints = HintsSelection.clauseConstraintQuantify(clause)
-    println(Console.BLUE + "clauseConstraintQuantify finished")
+    //println(Console.BLUE + "clauseConstraintQuantify finished")
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
 
