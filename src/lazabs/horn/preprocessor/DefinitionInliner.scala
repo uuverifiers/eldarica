@@ -33,7 +33,7 @@ import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
 import ap.theories.{ADT, Heap}
-import Heap.HeapFunExtractor
+import Heap.{HeapFunExtractor, HeapPredExtractor}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -643,11 +643,14 @@ class ConstraintSimplifier extends HornPreprocessor {
     val allocNewAddrs = new MHashMap[IConstant, NewAddrInfo]
 
     val reads  = new ArrayBuffer[(HeapAddressPair, (ITerm, IFormula))]
+    val validPairs  = new ArrayBuffer[HeapAddressPair]
     val pairToObject = new MHashMap[HeapAddressPair, ITerm]
 
     val newConjuncts = new ArrayBuffer[IFormula]
 
     // do a first pass to partition the conjuncts and collect alloc infos
+    // also collects valid(h,a) information for pairs (if it exists), which
+    // was propagated by ConstantPropagator:heap-definedness
     for (conjunct <- conjuncts) conjunct match {
       // alloc(_,_) = ar
       case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
@@ -677,7 +680,7 @@ class ConstraintSimplifier extends HornPreprocessor {
       case IEquation(IFunApp(fun@HeapFunExtractor(heap), Seq(_, a, o)), h2)
         if fun == heap.write =>
         // fill the map from <h,a> pairs to contained objects using writes
-        // pairToObject += ((HeapAddressPair(h2, a), o)) todo: is this unsound?
+        pairToObject += ((HeapAddressPair(h2, a), o))
         newConjuncts += conjunct // writes are not removed
 
       // read(h, a) = o
@@ -685,7 +688,14 @@ class ConstraintSimplifier extends HornPreprocessor {
         if fun == heap.read =>
         reads += ((HeapAddressPair(h, a), (o, f)))
 
-      case _ => newConjuncts += conjunct // conjunct unchanged
+      // valid(h, a)
+      case IAtom(pred@HeapPredExtractor(heap), Seq(h, a))
+        if pred == heap.isAlloc =>
+        //println("valid(" + h + ", " + a + ")")
+        validPairs += HeapAddressPair(h, a)
+
+      case _ =>
+        newConjuncts += conjunct // conjunct unchanged
     }
 
     // fill the map from <h,a> pairs to contained objects using allocs
@@ -693,9 +703,11 @@ class ConstraintSimplifier extends HornPreprocessor {
       val heapInfo = allocNewHeaps.get(alloc._1)
       val addrInfo = allocNewAddrs.get(alloc._1)
       val Seq(_,o) = alloc._2.allocFunApp.args
-      if (heapInfo.nonEmpty && addrInfo.nonEmpty)
-        pairToObject.put(
-          HeapAddressPair(heapInfo.get.h, addrInfo.get.a), o)
+      if (heapInfo.nonEmpty && addrInfo.nonEmpty) {
+        val pair = HeapAddressPair(heapInfo.get.h, addrInfo.get.a)
+        pairToObject.put(pair, o)
+        validPairs += pair
+      }
     }
 
     var changed = false
@@ -734,10 +746,10 @@ class ConstraintSimplifier extends HornPreprocessor {
     }
 
     // read(h,a) = o -> o = o2 (if we know what is at <h,a>)
-    for ((pair, (o, conjunct)) <- reads) {
+    for ((pair, (o, conjunct)) <- reads if validPairs contains pair) {
       pairToObject get pair match {
         case Some(o2) =>
-          println("replacing " + conjunct + " with " + (o2 === o))
+          //println("replacing " + conjunct + " with " + (o2 === o))
           newConjuncts += o2 === o // replace read
           changed = true
         case _ => newConjuncts += conjunct // use old conjunct

@@ -379,7 +379,7 @@ object SimplePropagators {
 
     import ap.theories.Heap
 
-    val print = true
+    val print = false
     def println(s : Any) : Unit = if (print) Predef.println(s.toString)
 
     private def getElemFromVal(value : Int) : LatticeElement = {
@@ -484,14 +484,14 @@ object SimplePropagators {
                                            p._2 == ValidElem ||
                                            p._2 == NotAllocElem)
         val isNull = subMap.exists(p => p._2 == NullElem)
+        assert(!(isNull & isNotNull))
         val addrVal =
           if (isNull) NullElem
           else if(isNotNull) ValidOrNotAllocElem
           else UnknownElem
 
         val handledHeaps = new ArrayBuffer[ConstantTerm]
-        for ((key, elem) <- subMap
-             if !(handledHeaps contains key.heap)) {
+        for ((key, elem) <- subMap if !(handledHeaps contains key.heap)) {
           handledHeaps += key.heap
           val otherKey =
             if (key.addr == a1)
@@ -594,6 +594,7 @@ object SimplePropagators {
         // 1st step: collect and meet all information from the bodyVals
         // maps the <heap,address> term pairs to the meet of LatticeElements
         // that are extracted from the bodyVals
+        localDefinednessMap.clear
         for ((bodyAtom, bodyElement) <- body zip bodyVals;
              (pair, pairValue) <- bodyElement.get) {
           val IConstant(heapTerm) = bodyAtom.args(pair.heapInd)
@@ -604,9 +605,9 @@ object SimplePropagators {
         // 2nd step: collect all possible pairs from the head atom, and fill
         // in the localDefinednessMap. This is required since we have cases
         // like nullAddr(a), where we do not know which <h,a> pair to update
-        for (IConstant(SortedConstantTerm(addrTerm, aSort)) <- head.args
+        for (IConstant(addrTerm@SortedConstantTerm(_, aSort)) <- head.args
              if aSort.isInstanceOf[Heap.AddressSort];
-             IConstant(SortedConstantTerm(heapTerm, hSort)) <- head.args
+             IConstant(heapTerm@SortedConstantTerm(_, hSort)) <- head.args
              if hSort.isInstanceOf[Heap.HeapSort]) {
           val theory = hSort.asInstanceOf[HeapSort].heapTheory
           if (!updateLocalMap(HeapAddressPair(heapTerm, addrTerm, theory), UnknownElem))
@@ -697,11 +698,11 @@ object SimplePropagators {
                   if (!udpateAllPairsWithHeap(h, NullOrNotAllocElem)) return None // i.e., invalid
 
                 // a1 === a2 (both are addresses)
-                case Eq(IConstant(SortedConstantTerm(a1, sort)),
+                case Eq(IConstant(a1@SortedConstantTerm(_, sort)),
                         IConstant(a2)) if sort.isInstanceOf[Heap.AddressSort] =>
                   println("case addrEq1: " + f)
                   if (!handleAddressEquality(a1, a2)) return None
-                case Eq(IConstant(a1), IConstant(SortedConstantTerm(a2, sort)))
+                case Eq(IConstant(a1), IConstant(a2@SortedConstantTerm(_, sort)))
                   if sort.isInstanceOf[Heap.AddressSort] =>
                   println("case addrEq2: " + f)
                   if (!handleAddressEquality(a1, a2)) return None
@@ -771,7 +772,7 @@ object SimplePropagators {
         val addrTerm@IConstant(SortedConstantTerm(_, sort)) = a.args(pair.addrInd)
         val heapTerm@IConstant(_) = a.args(pair.heapInd)
         val heapTheory = sort.asInstanceOf[Heap.AddressSort].heapTheory
-        PairInfo(heapTerm, addrTerm, heapTheory)
+        PairInfo(heapTerm = heapTerm, addrTerm = addrTerm, heapTheory)
       }
 
       var newConstraint : IFormula = i(true)

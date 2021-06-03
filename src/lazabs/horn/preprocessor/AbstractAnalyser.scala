@@ -122,6 +122,11 @@ class AbstractAnalyser[Domain <: AbstractAnalyser.AbstractDomain]
 
         if (jointEl != oldAbstractEl) {
           abstractValues.put(headPred, jointEl)
+          /*if(domain.name contains "heap-definedness") {
+            println("---------Abstract Values-----------")
+            abstractValues.foreach(p => println(p._1 + ": " + p._2))
+            println("-----------------------------------")
+          }*/
           for ((_, n) <- clausesWithBodyPred.getOrElse(headPred, List()))
             clausesTodo += n
         }
