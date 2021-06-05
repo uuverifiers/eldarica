@@ -73,15 +73,30 @@ object ADTExpander {
  * Class used to expand ADT predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
  */
-class ADTExpander(val name : String,
-                  expansion : ADTExpander.Expansion) extends HornPreprocessor {
+abstract class ADTExpander extends HornPreprocessor {
   import HornPreprocessor._
   import ADTExpander._
+
+  val name : String
 
   override def isApplicable(clauses : Clauses) : Boolean =
     (HornClauses allPredicates clauses) exists {
       p => predArgumentSorts(p) exists (_.isInstanceOf[ADT.ADTProxySort])
     }
+
+  /**
+   * Decide whether to expand an ADT sort should be expanded. In
+   * this case, the method returns a list of new terms and their sorts
+   * to be added as. The new terms can contain the variable <code>_0</code>
+   * which has to be substituted with the actual argument. The last optional
+   * describes how to recompute the original term from the newly introduced
+   * terms; the last term can contain variables <code>_0, _1, ...</code>
+   * for this purpose.
+   */
+  def expand(pred : Predicate,
+             argNum : Int,
+             sort : ADT.ADTProxySort)
+           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
 
   /**
    * Optionally, apply a postprocessor to solution formulas.
@@ -133,8 +148,8 @@ class ADTExpander(val name : String,
         sort match {
           case sort : ADT.ADTProxySort =>
             for ((newArguments, oldArgReconstr) <-
-                   expansion.expand(pred, argNum,
-                                    sort.asInstanceOf[ADT.ADTProxySort])) {
+                   expand(pred, argNum,
+                          sort.asInstanceOf[ADT.ADTProxySort])) {
               val (addArgs, addSorts, _) = newArguments.unzip3
 
               for (reconstr <- oldArgReconstr) {

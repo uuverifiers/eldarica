@@ -41,24 +41,6 @@ object CtorTypeExtender {
 
   import ADTExpander._
 
-  /**
-   * Preprocessor that adds explicit arguments representing the constructor
-   * id of ADT arguments.
-   */
-  class CtorTypeAdder extends Expansion {
-
-    import IExpression._
-
-    def expand(pred : Predicate,
-               argNum : Int,
-               sort : ADT.ADTProxySort)
-             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
-      val idfun = sort.adtTheory.ctorIds(sort.sortNum)
-      Some((List((idfun(v(0)), idfun.resSort, "ctor_id")), None))
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
   // The preprocessor can sometimes cause solution formulas that are illegal
   // according to SMT-LIB because they contain the ADT.CtorId functions in
   // wrong places. We need to rewrite such formulas.
@@ -142,9 +124,11 @@ object CtorTypeExtender {
  * Preprocessor that adds explicit size arguments for each predicate
  * argument for a recursive ADT
  */
-class CtorTypeExtender
-      extends ADTExpander("adding constructor id arguments",
-                          new CtorTypeExtender.CtorTypeAdder) {
+class CtorTypeExtender extends ADTExpander {
+
+  import IExpression._
+
+  val name = "adding constructor id arguments"
 
   /**
    * The preprocessor can sometimes cause solution formulas that are
@@ -153,5 +137,13 @@ class CtorTypeExtender
    */
   override def postprocessSolution(p : Predicate, f : IFormula) : IFormula =
     CtorTypeExtender.CtorIdRewriter.visit(f, ()).asInstanceOf[IFormula]
+
+  def expand(pred : Predicate,
+             argNum : Int,
+             sort : ADT.ADTProxySort)
+           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
+    val idfun = sort.adtTheory.ctorIds(sort.sortNum)
+    Some((List((idfun(v(0)), idfun.resSort, "ctor_id")), None))
+  }
 
 }

@@ -53,32 +53,6 @@ object UniqueConstructorExpander {
   import Sort.:::
 
   /**
-   * Preprocessor that adds explicit size arguments for each predicate
-   * argument for a recursive ADT
-   */
-  class CtorExpansion extends Expansion {
-
-    private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _
-
-    def prepare(clauses : Clauses, hints : VerificationHints) : Unit =
-      ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain)).result
-
-    def expand(pred : Predicate,
-               argNum : Int,
-               sort : ADT.ADTProxySort)
-             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
-      for (value     <- ctorElements get pred;
-           someValue <- value;
-           ctorIndex <- someValue(argNum)) yield {
-        val adt  = sort.adtTheory
-        val ctor = adt constructors ctorIndex
-        val sels = adt selectors ctorIndex
-        (for (f <- sels) yield (f(v(0)), f.resSort, f.name),
-         Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
-      }
-  }
-
-  /**
    * Abstract domain to infer the constructor type of ADT arguments.
    */
   object CtorTypeDomain extends AbstractDomain {
@@ -215,18 +189,34 @@ object UniqueConstructorExpander {
  * Preprocessor that adds expands ADT arguments when their constructor
  * type is fixed.
  */
-class UniqueConstructorExpander extends {
+class UniqueConstructorExpander extends ADTExpander {
 
-  val expansion = new UniqueConstructorExpander.CtorExpansion
-
-} with ADTExpander("inlining ADT constructors", expansion) {
-
+  import IExpression._
   import HornPreprocessor._
+  import UniqueConstructorExpander._
+
+  val name = "inlining ADT constructors"
 
   override def process(clauses : Clauses, hints : VerificationHints)
                     : (Clauses, VerificationHints, BackTranslator) = {
-    expansion.prepare(clauses, hints)
+    ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain)).result
     super.process(clauses, hints)
   }
+
+  private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _
+
+  def expand(pred : Predicate,
+             argNum : Int,
+             sort : ADT.ADTProxySort)
+           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
+    for (value     <- ctorElements get pred;
+         someValue <- value;
+         ctorIndex <- someValue(argNum)) yield {
+      val adt  = sort.adtTheory
+      val ctor = adt constructors ctorIndex
+      val sels = adt selectors ctorIndex
+      (for (f <- sels) yield (f(v(0)), f.resSort, f.name),
+       Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
+    }
 
 }
