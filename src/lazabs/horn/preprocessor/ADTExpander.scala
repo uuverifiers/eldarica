@@ -83,6 +83,11 @@ class ADTExpander(val name : String,
       p => predArgumentSorts(p) exists (_.isInstanceOf[ADT.ADTProxySort])
     }
 
+  /**
+   * Optionally, apply a postprocessor to solution formulas.
+   */
+  def postprocessSolution(p : Predicate, f : IFormula) : IFormula = f
+
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
     val predicates =
@@ -265,8 +270,10 @@ class ADTExpander(val name : String,
       def translate(solution : Solution) =
         (for ((newPred, sol) <- solution.iterator) yield
           (predBackMapping get newPred) match {
-            case Some((pred, subst, _)) =>
-              (pred, VariableSubstVisitor(sol, (subst, 1)))
+            case Some((pred, subst, _)) => {
+              val newSol = VariableSubstVisitor(sol, (subst, 1))
+              (pred, postprocessSolution(pred, newSol))
+            }
             case None =>
               (newPred, sol)
           }).toMap

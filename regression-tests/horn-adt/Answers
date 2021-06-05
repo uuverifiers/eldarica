@@ -17,7 +17,7 @@ unsat
 
 list-synasc.smt2
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= (+ (_size A) (- (_size B) (_size C))) 1) (and (>= (_size C) (_size B)) (>= (_size B) 1))) (= (head C) (head A))) (and (and (and (= (_size A) 1) (= B C)) (= (_size B) (_size C))) (>= (_size C) 1))))
+(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= (+ (_size A) (- (_size B) (_size C))) 1) (and (>= (_size C) (_size B)) (>= (_size B) 1))) (= (head C) (head A))) (and (and (and (= (_size A) 1) (= (_size B) (_size C))) (>= (_size C) 1)) (or (not (is-Cons C)) (and (is-Cons B) (= (head C) (head B)))))))
 
 unbounded-tree.smt2
 sat

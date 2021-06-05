@@ -97,10 +97,10 @@ Unique satisfiable clauses: 8
 --------------------------------- Statistics -----------------------------------
 CEGAR iterations:                                      4
 Final number of abstract states:                       3
-Final number of matched abstract states:               4
-Final number of abstract edges:                        6
-Number of generated predicates:                        7
-Average predicate size (# of sub-formulas):            1.14
+Final number of matched abstract states:               3
+Final number of abstract edges:                        5
+Number of generated predicates:                        5
+Average predicate size (# of sub-formulas):            2.00
 
 --------------------------------------------------------------------------------
 

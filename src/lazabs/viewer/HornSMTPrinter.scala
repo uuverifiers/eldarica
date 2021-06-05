@@ -109,6 +109,9 @@ object HornSMTPrinter {
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
 
       // special handling of the tester predicates of ADTs
+      case e@Equality(NumericalConst(num), ADTtest(adt, sortNum, expr)) =>
+        "(is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
+        " " + printExp(expr) + ")"
       case e@Equality(ADTtest(adt, sortNum, expr), NumericalConst(num)) =>
         "(is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
         " " + printExp(expr) + ")"

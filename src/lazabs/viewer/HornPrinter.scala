@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat. All rights reserved.
+ * Copyright (c) 2011-2021 Hossein Hojjat. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,6 +90,9 @@ object HornPrinter {
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
 
       // special handling of the tester predicates of ADTs
+      case e@Equality(NumericalConst(num), ADTtest(adt, sortNum, expr)) =>
+        "is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
+        "(" + printExp(expr) + ")"
       case e@Equality(ADTtest(adt, sortNum, expr), NumericalConst(num)) =>
         "is-" + adt.getCtorPerSort(sortNum, num.toInt).name +
         "(" + printExp(expr) + ")"
@@ -103,7 +106,8 @@ object HornPrinter {
         "select(" + printExp(ar) + ", " + printExp(ind) + ")"
       case ArrayUpdate(ar, ind, value) =>
         "store(" + printExp(ar) + ", " + printExp(ind) + ", " + printExp(value) + ")"
-      case BinaryExpression(e1, op, e2) => "(" + printExp(e1) + " " + op.st + " " + printExp(e2) + ")"
+      case BinaryExpression(e1, op, e2) =>
+        "(" + printExp(e1) + " " + op.st + " " + printExp(e2) + ")"
       case ADTctor(adt, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
       case ADTsel(adt, name, exprList) =>
@@ -143,7 +147,11 @@ object HornPrinter {
    */
   def printDebug(lit: HornLiteral): String = lit match {
     case Interp(f) => lazabs.viewer.ScalaPrinter(f)
-    case RelVar(name,params) => name + "(" + params.map(p => (if(p.name.startsWith("sc_")) p.name.drop(3) else p.name)).mkString(",") + ")"
+    case RelVar(name,params) =>
+      name + "(" +
+      params.map(p => (if(p.name.startsWith("sc_")) p.name.drop(3) else p.name)).mkString(",") +
+      ")"
   }
-  def printDebug(h: HornClause): String = printDebug(h.head) + " :- " + h.body.map(printDebug(_)).mkString(" , ")
+  def printDebug(h: HornClause): String =
+    printDebug(h.head) + " :- " + h.body.map(printDebug(_)).mkString(" , ")
 }
