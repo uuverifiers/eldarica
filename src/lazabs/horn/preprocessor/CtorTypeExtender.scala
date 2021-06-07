@@ -63,10 +63,12 @@ object CtorTypeExtender {
               val const = collector.faConst
               val sort  = Sort sortOf funapp
               TryAgain(
-                or(for (n <- sort.individuals.iterator) yield {
-                     (funapp === n) &&&
-                     SimplifyingConstantSubstVisitor(newT, Map(const -> n))
-                   }),
+                connectSimplify(
+                  for (n <- sort.individuals.iterator) yield {
+                    (funapp === n) &&&
+                    SimplifyingConstantSubstVisitor(newT, Map(const -> n))
+                  },
+                  IBinJunctor.Or),
                 arg)
             }
           }
