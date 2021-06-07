@@ -32,6 +32,7 @@ package lazabs.horn.preprocessor
 import ap.parser._
 import IExpression._
 
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
 import lazabs.horn.bottomup.Util.Dag
@@ -62,10 +63,14 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def postStages : List[HornPreprocessor] =
     List(new ClauseShortener) ++
-    (if (lazabs.GlobalParameters.get.splitClauses)
+    (if (GlobalParameters.get.splitClauses)
       List(new ClauseSplitter) else List()) ++
-    (if (lazabs.GlobalParameters.get.staticAccelerate)
-      List(Accelerator) else List())
+    (if (GlobalParameters.get.staticAccelerate)
+      List(Accelerator) else List()) ++
+    (GlobalParameters.get.finiteDomainPredBound match {
+       case n if n <= 0 => List()
+       case n           => List(new FiniteDomainPredicates (n))
+     })
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
@@ -92,7 +97,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     def applyStage(stage : HornPreprocessor) : Boolean =
       if (!curClauses.isEmpty && stage.isApplicable(curClauses)) {
-        lazabs.GlobalParameters.get.timeoutChecker()
+        GlobalParameters.get.timeoutChecker()
 
         val startTime = System.currentTimeMillis
 
@@ -130,7 +135,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
-        if (lazabs.GlobalParameters.get.slicing)
+        if (GlobalParameters.get.slicing)
           applyStage(Slicer)
         curSize = curClauses.size
       }
