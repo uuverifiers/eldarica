@@ -198,6 +198,8 @@ object HintsSelection {
     for (c<-simplifiedClauses){
       val pbodyStrings= new MHashSet[String]
       for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
+          println("pbodyStrings",pbodyStrings)
+          println(pbody.pred.toString)
           moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName())
           sys.exit()
       }
@@ -622,7 +624,9 @@ object HintsSelection {
     }
   }
   def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
+    println("ap.CmdlMain.version",ap.CmdlMain.version)
     println("begin generating initial predicates")
+    val generatePredicatesBeginTime=System.currentTimeMillis
     var constraintPredicates:Map[Predicate,Seq[IFormula]]=Map()
     var pairWiseVariablePredicates:Map[Predicate,Seq[IFormula]]=Map()
     var predicateMap:Map[Predicate,Seq[IFormula]]=Map()
@@ -632,12 +636,8 @@ object HintsSelection {
       var startMap:Map[Predicate,Seq[IFormula]]=pMap
       if (pMap.keys.map(_.name).toSeq.contains(pred.name)) {
         if(!distinctedNewList.isEmpty) {
-          println("start list",pMap(pred).size,"atom.pred",pred)
-          println("new list",distinctedNewList.size)
-          val differntiatedNewList=distinctedNewList.diff(pMap(pred))
-          println("differentiated list",differntiatedNewList.size)
+          val differntiatedNewList=distinctedNewList.diff(pMap(pred)) //differentiate existed predicates
           startMap = pMap.updated(pred, nonredundantSet(pMap(pred), differntiatedNewList))
-          println("after add new list",startMap(pred).size)
         }
       } else {
         startMap += (pred -> distinctedNewList)
@@ -645,23 +645,20 @@ object HintsSelection {
       startMap
     }
     //generate predicates from constraint
+    val generatePredicatesFromConstraintBeginTime=System.currentTimeMillis
     for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
-      println(Console.BLUE + "before simplify quantifiedConstraints:",quantifiedConstraints.toString)
-      val simplifiedConstraint=spAPI.simplify(quantifiedConstraints)
-//      val simplifiedConstraint=
-//      try{
-//        spAPI.withTimeout(1000){
-//          spAPI.simplify(quantifiedConstraints)
-//        }
-//      }
-//      catch {case _=> quantifiedConstraints}
-
-      //val simplifiedConstraint=ConstantSubstVisitor(clauseConstraintQuantify(clause),subst)
-//      println("constraint",clause.constraint)
-//      println("quantified",clauseConstraintQuantify(clause))
+      //println(Console.BLUE + "before simplify quantifiedConstraints:",quantifiedConstraints.toString)
+      //val simplifiedConstraint=spAPI.simplify(quantifiedConstraints)
+      val simplifiedConstraint=
+      try{
+        spAPI.withTimeout(1000){
+          spAPI.simplify(quantifiedConstraints)
+        }
+      }
+      catch {case _=> quantifiedConstraints}
 
       val freeVariableReplacedPredicates= {
         if(clause.body.map(_.toString).contains(atom.toString)) {
@@ -671,25 +668,26 @@ object HintsSelection {
         }
       }.filterNot(_.isFalse).filterNot(_.isTrue)
 
-//      predicateMap =
-//        if (!freeVariableReplacedPredicates.isEmpty)
-//          addNewPredicateList(predicateMap, atom.pred, freeVariableReplacedPredicates)
-//        else
-//          predicateMap
       if (constraintPredicates.keys.map(_.name).toSeq.contains(atom.pred.name))
         constraintPredicates=constraintPredicates.updated(atom.pred,(constraintPredicates(atom.pred)++freeVariableReplacedPredicates).distinct)
       else
         constraintPredicates=constraintPredicates++Map(atom.pred->freeVariableReplacedPredicates)
 
-      //constraintPredicates=addNewPredicateList(constraintPredicates,atom,freeVariableReplacedPredicates)
     }
-    println(Console.BLUE + "predicate from constraint",(for (k<-constraintPredicates) yield k._2).flatten.size)
+    val generatePredicatesFromConstraintTime=(System.currentTimeMillis-generatePredicatesFromConstraintBeginTime)/1000
+    println(Console.BLUE + "number of predicates from constraint:"+(for (k<-constraintPredicates) yield k._2).flatten.size,"time consumption:"+generatePredicatesFromConstraintTime+" s")
     //add constraint predicates to predicateMap
+    //todo:when we do prediction no need to differntiate them
+    val deduplicateConstraintPredicateBeginTime=System.currentTimeMillis
     for ((k,v)<-constraintPredicates){
       predicateMap=addNewPredicateList(predicateMap,k,v)
     }
-    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+    val deduplicateConstraintPredicateTime=(System.currentTimeMillis-deduplicateConstraintPredicateBeginTime)/1000
+    println(Console.BLUE +"adding and deduplicating predicates from constraint to predicateMap, time consumption:"+deduplicateConstraintPredicateTime+" s")
+    println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
+    println("-"*10)
     //generate pairwise predicates from constraint
+    val generatePredicatesFromPairwiseBeginTime=System.currentTimeMillis
     val integerConstantVisitor = new LiteralCollector
     val variableConstantPairs=Seq((-1,-1),(1,1),(0,1),(1,0),(-1,1),(1,-1),(0,-1),(-1,0)).map(x=>Tuple2(IdealInt(x._1),IdealInt(x._2)))
     for (clause <- simplePredicatesGeneratorClauses; atom <- clause.allAtoms; if !atom.args.isEmpty){
@@ -708,17 +706,21 @@ object HintsSelection {
       else
         pairWiseVariablePredicates=pairWiseVariablePredicates++Map(atom.pred->preList)
     }
-    println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
+    val generatePredicatesFromPairwiseTime=(System.currentTimeMillis-generatePredicatesFromPairwiseBeginTime)/1000
+    println(Console.BLUE + "number of pairwise predicates:"+(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size,"time consumption:"+generatePredicatesFromPairwiseTime+" s")
     //add pairwise variable to predicateMap
+    val deduplicatePairwisePredicateBeginTime=System.currentTimeMillis
     for ((k,v)<-pairWiseVariablePredicates){
       predicateMap=addNewPredicateList(predicateMap,k,v)
     }
+    val deduplicatePairwisePredicateTime=(System.currentTimeMillis-deduplicatePairwisePredicateBeginTime)/1000
+    println(Console.BLUE +"adding and deduplicating predicates from pairwise predicates to predicateMap, time consumption:"+deduplicatePairwisePredicateTime+" s")
+    println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
 
     val merge=mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates)
-    //println(Console.BLUE + "pairWiseVariablePredicates",(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size)
     //println(Console.BLUE + "merged",(for (k<-merge) yield k._2).flatten.size)
-    predicateMap=predicateMap.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse))
-    println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
+    //predicateMap=predicateMap.mapValues(distinctByString(_)).mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse))
+    //println(Console.BLUE + "predicateMap",(for (k<-predicateMap) yield k._2).flatten.size)
 
     val variedPredicates=
       if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -726,8 +728,8 @@ object HintsSelection {
       else
         predicateMap
 
-
-    println("end generating initial predicates")
+    val initialPredicateGeneratingTime=(System.currentTimeMillis-generatePredicatesBeginTime)/1000
+    println("end generating initial predicates, time consumption",initialPredicateGeneratingTime,"(s)")
     if (verbose==true){
       println("--------predicates from constrains---------")
       for((k,v)<-constraintPredicates;p<-v) println(k,p)
