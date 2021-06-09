@@ -112,6 +112,7 @@ class GlobalParameters extends Cloneable {
   var cegarHintsFile : String = ""
   var cegarPostHintsFile : String = ""
   var predicateOutputFile : String = ""
+  var finiteDomainPredBound : Int = 0
   var arithmeticMode : CCReader.ArithmeticMode.Value =
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
@@ -197,6 +198,7 @@ class GlobalParameters extends Cloneable {
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
     that.predicateOutputFile = this.predicateOutputFile
+    that.finiteDomainPredBound = this.finiteDomainPredBound
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
     that.princess = this.princess
