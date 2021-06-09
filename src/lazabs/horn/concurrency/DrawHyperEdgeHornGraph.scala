@@ -333,11 +333,10 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   writerGraph.close()
   dataFlowInfoWriter.close()
 
-  println("totalGuardSize",totalGuardSize)
-  //println("guardsSeq",guardsSeq)
-  println("totalGuardOverlap",totalGuardOverlap)
-  println("positive predicate size",hints.positiveHints.toInitialPredicates.values.flatten.size)
-  println("initial predicate size",hints.initialHints.toInitialPredicates.values.flatten.size)
+//  println("totalGuardSize",totalGuardSize)
+//  println("totalGuardOverlap",totalGuardOverlap)
+//  println("positive predicate size",hints.positiveHints.toInitialPredicates.values.flatten.size)
+//  println("initial predicate size",hints.initialHints.toInitialPredicates.values.flatten.size)
 
 
   val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()

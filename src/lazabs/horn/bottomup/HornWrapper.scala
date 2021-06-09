@@ -408,19 +408,15 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(initialPredicates)}
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-    val hintCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
     val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    if (GlobalParameters.get.getAllHornGraph==true) {
-      GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo)
-    }
-    else{
-      GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph|HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, hintCollection,argumentInfo)
-        case _=> new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, hintCollection,argumentInfo)
-      }
-    }
+    val hintCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
+    val hintCollection0=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(initialPredicates.toInitialPredicates.transform((k,v)=>v.dropRight(4))),VerificationHints(Map()),VerificationHints(Map()))
+    val hintCollection1=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(initialPredicates.toInitialPredicates.transform((k,v)=>v.drop(4))),VerificationHints(Map()),VerificationHints(Map()))
+    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo,GlobalParameters.get.fileName)
+    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection0,argumentInfo,GlobalParameters.get.fileName+"-0")
+    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection1,argumentInfo,GlobalParameters.get.fileName+"-1")
     sys.exit()
   }
   if(GlobalParameters.get.getSMT2==true){
@@ -452,7 +448,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
       //val simplifiedInitialpredicates
       val solvabilityPredGenerator = if (GlobalParameters.get.onlyInitialPredicates==true) HintsSelection.getExceptionalPredicatedGenerator() else predGenerator
-      val (solveTime,predicateFromCegar,_)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,solvabilityPredGenerator,counterexampleMethod,moveFile = false,exit=false,coefficient=1)
+      val (solveTime,predicateFromCegar,_)=HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicate.toInitialPredicates,solvabilityPredGenerator,counterexampleMethod,moveFile = GlobalParameters.get.moveFile,exit=false,coefficient=1)
       val solvability=if (solveTime>=(GlobalParameters.get.solvabilityTimeout/1000).toInt) false else true
       println("solveTime",solveTime)
       println("solvability",solvability)
