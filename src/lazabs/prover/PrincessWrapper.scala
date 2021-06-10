@@ -141,7 +141,9 @@ class PrincessWrapper {
    * converts a list of formulas in Eldarica format to a list of formulas in Princess format
    * returns both the formulas in Princess format and the symbols used in the formulas
    */
-  def formula2Princess(ts: List[Expression],initialSymbolMap: LinkedHashMap[String, ConstantTerm] = LinkedHashMap[String, ConstantTerm]().empty, 
+  def formula2Princess(ts: List[Expression],
+                       initialSymbolMap: LinkedHashMap[String, ConstantTerm] =
+                         LinkedHashMap[String, ConstantTerm]().empty,
                        keepReservoir: Boolean = false) 
     : (List[IExpression], LinkedHashMap[String, ConstantTerm]) = {
     val symbolMap = initialSymbolMap
@@ -528,7 +530,7 @@ class PrincessWrapper {
 
       // Constants and variables
 
-      case IConstant(cterm) ::: sort =>
+      case IConstant(cterm) ::: sort => {
         val pattern = """x(\d+)(\w+)""".r
         symMap(cterm) match {
           case pattern(cVersion,n) if (removeVersions) =>
@@ -536,6 +538,7 @@ class PrincessWrapper {
           case noVersion@_ =>
             lazabs.ast.ASTree.Variable(noVersion,None).stype(sort2Type(sort))
         }
+      }
       case IVariable(index) =>
         lazabs.ast.ASTree.Variable("_" + index,Some(index)).stype(IntegerType())      
       case IIntLit(value) =>
