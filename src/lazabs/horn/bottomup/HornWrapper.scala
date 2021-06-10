@@ -220,7 +220,7 @@ class HornWrapper(constraints: Seq[HornClause],
       println("Clauses after preprocessing:")
       for (c <- simplifiedClauses)
         println(c.toPrologString)
-
+      println
       //val aux = simplifiedClauses map (horn2Eldarica(_))
 //      val aux = horn2Eldarica(simplifiedClauses)
 //      println(lazabs.viewer.HornPrinter(aux))
@@ -228,6 +228,12 @@ class HornWrapper(constraints: Seq[HornClause],
 //      println("-------------------------------")
 //      printClauses(simplifiedClauses)
 //      println("-------------------------------")
+    }
+    if (GlobalParameters.get.printHornSimplifiedSMT) {
+      println("Clauses after preprocessing (SMT-LIB):")
+      for (c <- simplifiedClauses)
+          println(c.toSMTString)
+      println
     }
 
     (simplifiedClauses, simpPreHints, backTranslator)

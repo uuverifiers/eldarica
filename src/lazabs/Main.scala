@@ -115,6 +115,7 @@ class GlobalParameters extends Cloneable {
   var logCEX = false
   var logStat = false
   var printHornSimplified = false
+  var printHornSimplifiedSMT = false
   var dotSpec = false
   var dotFile : String = null
   var pngNo = true;
@@ -199,6 +200,7 @@ class GlobalParameters extends Cloneable {
     that.logCEX = this.logCEX
     that.logStat = this.logStat
     that.printHornSimplified = this.printHornSimplified
+    that.printHornSimplifiedSMT = this.printHornSimplifiedSMT
     that.dotSpec = this.dotSpec
     that.dotFile = this.dotFile
     that.pngNo = this.pngNo
@@ -416,6 +418,7 @@ object Main {
       case logOption :: rest if (logOption startsWith "-log:") =>
         setLogLevel((logOption drop 5).toInt); arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
+      case "-logSimplifiedSMT" :: rest => printHornSimplifiedSMT = true; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
@@ -443,6 +446,8 @@ object Main {
           " -sp\t\tPretty print the Horn clauses in SMT-LIB format\n" + 
           " -sol\t\tShow solution in Prolog format\n" + 
           " -ssol\t\tShow solution in SMT-LIB format\n" + 
+          " -logSimplified\tShow clauses after preprocessing in Prolog format\n" +
+          " -logSimplifiedSMT\tShow clauses after preprocessing in SMT-LIB format\n" +
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
