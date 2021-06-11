@@ -30,7 +30,7 @@
 package lazabs.horn.bottomup
 
 import ap.basetypes.IdealInt
-import ap.{Signature, DialogUtil, SimpleAPI, PresburgerTools}
+import ap.{Signature, SimpleAPI, PresburgerTools}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
                       ReducerSettings}
@@ -62,117 +62,13 @@ object HornPredAbs {
 
   import HornClauses._
   import TerForConvenience._
-  
-  class SymbolFactory(theories : Seq[Theory]) {
-    private val constantsToAdd = new ArrayBuffer[ConstantTerm]
-
-    val functionalPreds =
-      (for (t <- theories.iterator;
-            p <- t.functionalPredicates.iterator) yield p).toSet
-
-    val reducerSettings = {
-      var rs = ReducerSettings.DEFAULT
-      rs = Param.FUNCTIONAL_PREDICATES.set(
-             rs, functionalPreds)
-      rs = Param.REDUCER_PLUGIN.set(
-             rs, SeqReducerPluginFactory(
-                   for (t <- theories) yield t.reducerPlugin))
-      rs
-    }
-
-    private var orderVar : TermOrder = TermOrder.EMPTY
-    private val functionEnc =
-      new FunctionEncoder(
-        Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
-        Param.GENERATE_TOTALITY_AXIOMS(PreprocessingSettings.DEFAULT))
-
-    for (t <- theories) {
-      orderVar = t extend orderVar
-      functionEnc addTheory t
-    }
-
-    def order : TermOrder = {
-      if (!constantsToAdd.isEmpty) {
-        orderVar = orderVar extend constantsToAdd
-        constantsToAdd.clear
-      }
-      orderVar
-    }
-
-    def postprocessing =
-      new Postprocessing(signature, functionEnc.predTranslation)
-
-    def genConstant(name : String) : ConstantTerm = {
-      val res = new ConstantTerm(name)
-      constantsToAdd += res
-      res
-    }
-
-    private var skolemCounter = 0
-
-    def genSkolemConstant : ConstantTerm = {
-      val num = skolemCounter
-      skolemCounter = skolemCounter + 1
-      genConstant("sk" + num)
-    }
-
-    def addSymbol(c : ConstantTerm) : Unit =
-      constantsToAdd += c
-    def addSymbols(cs : Seq[ConstantTerm]) : Unit =
-      constantsToAdd ++= cs
-    
-    def reducer(assumptions : Conjunction) =
-      ReduceWithConjunction(assumptions, order, reducerSettings)
-    def reduce(c : Conjunction) =
-      reducer(Conjunction.TRUE)(c)
-    
-    def genConstants(prefix : String,
-                     num : Int, suffix : String) : Seq[ConstantTerm] = {
-      val res = for (i <- 0 until num)
-                yield new ConstantTerm(prefix + "_" + i + "_" + suffix)
-      addSymbols(res)
-      res
-    }
-
-    def genConstants(prefix : String,
-                     sorts : Seq[Sort],
-                     suffix : String) : Seq[ConstantTerm] = {
-      val res = (for ((s, i) <- sorts.iterator.zipWithIndex)
-                 yield s.newConstant(prefix + "_" + i + "_" + suffix)).toList
-      addSymbols(res)
-      res
-    }
-
-    def duplicateConstants(cs : Seq[ConstantTerm]) = {
-      val res = for (c <- cs) yield c.clone
-      addSymbols(res)
-      res
-    }
-      
-    def signature =
-      Signature(Set(), Set(), order.orderedConstants, Map(), order, theories)
-
-    def toInternal(f : IFormula) : Conjunction =
-      HornPredAbs.toInternal(f, signature, functionEnc,
-                             normalPreprocSettings)
-
-    def toInternalClausify(f : IFormula) : Conjunction =
-      HornPredAbs.toInternal(f, signature, functionEnc,
-                             clausifyPreprocSettings)
-
-    def preprocess(f : Conjunction) : Conjunction =
-      if (theories.isEmpty) f else !Theory.preprocess(!f, theories, order)
-  }
+  import SymbolFactory.normalPreprocSettings
 
   def predArgumentSorts(pred : Predicate) : Seq[Sort] = pred match {
     // TODO: use function MonoSortedPredicate.argumentSorts for this
     case pred : MonoSortedPredicate => pred.argSorts
     case _ => for (_ <- 0 until pred.arity) yield Sort.Integer
   }
-
-  val normalPreprocSettings = PreprocessingSettings.DEFAULT
-  val clausifyPreprocSettings = Param.CLAUSIFIER.set(normalPreprocSettings,
-                                                     Param.ClausifierOptions.Simple)
 
   def toInternal(f : IFormula, sig : Signature) : Conjunction =
     toInternal(f, sig, null, normalPreprocSettings)
@@ -193,55 +89,6 @@ object HornPredAbs {
   
   //////////////////////////////////////////////////////////////////////////////
   
-  case class RelationSymbol(pred : Predicate)(implicit val sf : SymbolFactory) {
-    def arity = pred.arity
-    def name = pred.name
-    val argumentSorts = predArgumentSorts(pred)
-    val arguments = toStream {
-      case i => sf.genConstants(name, argumentSorts, "" + i)
-    }
-
-    val argumentITerms = arguments map (_.map(IExpression.i(_)))
-    override def toString = toString(0)
-    def toString(occ : Int) = name + "(" + (arguments(occ) mkString ", ") + ")"
-  }
-
-  case class RelationSymbolPred(rawPred : Conjunction,
-                                positive : Conjunction,
-                                negative : Conjunction,
-                                rs : RelationSymbol,
-                                predIndex : Int) {
-    private val sf = rs.sf
-    private val argConsts = rs.arguments.head
-
-    private def substMap(from : Seq[ConstantTerm],
-                         to : Seq[ConstantTerm])
-                       : Map[ConstantTerm, Term] =
-      (for ((oriC, newC) <- from.iterator zip to.iterator)
-       yield (oriC -> l(newC)(sf.order))).toMap
-
-    private def instanceStream(
-                  f : Conjunction) : Stream[Conjunction] =
-      f #:: {
-        for (cs <- rs.arguments.tail) yield {
-          ConstantSubst(substMap(argConsts, cs), sf.order)(f)
-        }
-      }
-
-    val posInstances = instanceStream(positive)
-    val negInstances = instanceStream(negative)
-
-    override def toString = DialogUtil.asString {
-      PrincessLineariser.printExpression(
-        rs.sf.postprocessing.processFormula(rawPred))
- //     print(positive)
- //     print(" / ")
- //     print(negative)
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   case class AbstractState(rs : RelationSymbol, preds : Seq[RelationSymbolPred]) {
     val instances = toStream {
       case i => for (p <- preds) yield (p negInstances i)

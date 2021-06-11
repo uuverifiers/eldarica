@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,6 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  StaticAbstractionBuilder, AbstractionRecord,
                                  VerificationHints, EmptyVerificationHints}

@@ -41,7 +41,6 @@ import lazabs.utils.Inline._
 //import lazabs.cfg.MakeCFG
 import lazabs.nts._
 import lazabs.horn.parser.HornReader
-import lazabs.horn.bottomup.HornPredAbs.RelationSymbol
 import lazabs.horn.abstractions.AbsLattice
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.CCReader
