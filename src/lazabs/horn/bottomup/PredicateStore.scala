@@ -31,15 +31,32 @@ package lazabs.horn.bottomup
 
 import ap.PresburgerTools
 import ap.parser._
+import ap.terfor.{TermOrder, TerForConvenience}
 import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.substitutions.VariableSubst
+import ap.proof.ModelSearchProver
+import ap.util.Seqs
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 class PredicateStore[CC <% HornClauses.ConstraintClause]
                     (context : HornPredAbsContext[CC]) {
 
   import context._
+
+  var implicationChecks = 0
+  var implicationChecksPos = 0
+  var implicationChecksNeg = 0
+  var implicationChecksPosTime : Long = 0
+  var implicationChecksNegTime : Long = 0
+  var implicationChecksSetup = 0
+  var implicationChecksSetupTime : Long = 0
+
+  var matchCount = 0
+  var matchTime : Long = 0  
+
+  var hasherChecksHit, hasherChecksMiss = 0
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -76,7 +93,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       }
   }
 
-  def addPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit =
+  def addIPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit =
     for ((p, preds) <- preds) {
       val rs = relationSymbols(p)
       for ((f, predIndex) <- preds.iterator.zipWithIndex) {
@@ -109,5 +126,170 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
     (rawF, posF, negF)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
 
+  def predIsConsequenceWithHasher(pred : RelationSymbolPred, rsOcc : Int,
+                                  reducer : ReduceWithConjunction,
+                                  prover : => ModelSearchProver.IncProver,
+                                  order : TermOrder) : Boolean = {
+    val hasherId = predicateHashIndexes(pred.rs)(pred.predIndex)(rsOcc)
+
+    if (hasher mightBeImplied hasherId) {
+      val res = predIsConsequence(pred, rsOcc, reducer, prover, order)
+      if (!res)
+        hasherChecksMiss = hasherChecksMiss + 1
+      res
+    } else {
+      hasherChecksHit = hasherChecksHit + 1
+      false
+    }
+  }
+
+  def predIsConsequence(pred : RelationSymbolPred, rsOcc : Int,
+                        reducer : ReduceWithConjunction,
+                        prover : => ModelSearchProver.IncProver,
+                        order : TermOrder) : Boolean = {
+    val startTime = System.currentTimeMillis
+    implicationChecks = implicationChecks + 1
+    val reducedInstance = reducer.tentativeReduce(pred posInstances rsOcc)
+
+    val res =
+      !reducedInstance.isFalse &&
+      (reducedInstance.isTrue ||
+       isValid(prover.conclude(reducedInstance, order)))
+
+    if (res) {
+      implicationChecksPos = implicationChecksPos + 1
+      implicationChecksPosTime =
+        implicationChecksPosTime + (System.currentTimeMillis - startTime)
+    } else {
+      implicationChecksNeg = implicationChecksNeg + 1
+      implicationChecksNegTime =
+        implicationChecksNegTime + (System.currentTimeMillis - startTime)
+    }
+
+    res
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def preparePredicates(preds : Seq[(Predicate, Seq[Conjunction])])
+                      : Map[RelationSymbol, IndexedSeq[RelationSymbolPred]] = {
+    val predsToAdd =
+      new MHashMap[RelationSymbol, IndexedSeq[RelationSymbolPred]]
+
+    for ((p, fors) <- preds) {
+      val rs = relationSymbols(p)
+      val subst = VariableSubst(0, rs.arguments.head, sf.order)
+      val rsReducer = relationSymbolReducers(rs)
+
+      val rsPreds =
+        (for (f <- fors.iterator;
+              substF2 = rsReducer(subst(f));
+              substF <- splitPredicate(substF2);
+              if (reallyAddPredicate(substF, rs));
+              pred = genSymbolPred(substF, rs);
+              if (!(predicates(rs) exists
+                      (_.rawPred == pred.rawPred)))) yield {
+           addRelationSymbolPred(pred)
+           pred
+         }).toVector
+
+      if (!rsPreds.isEmpty) {
+        if (lazabs.GlobalParameters.get.log) {
+          print(p.name + ": ")
+          println(rsPreds mkString ", ")
+        }
+        predsToAdd.put(rs, rsPreds)
+      }
+    }
+
+    predsToAdd.toMap
+  }
+
+  /**
+   * Split a new predicate into conjuncts, which can be treated
+   * then as separate predicates.
+   */
+  def splitPredicate(f : Conjunction) : Iterator[Conjunction] =
+    if (f.quans.isEmpty)
+      f.iterator
+    else
+      Iterator single f
+
+  def reallyAddPredicate(f : Conjunction,
+                         rs : RelationSymbol) : Boolean =
+    !f.isFalse && !f.isTrue &&
+    !(predicates(rs) exists (_.rawPred == f)) && {
+      // check whether the predicate is subsumed by older predicates
+      val reducer = sf reducer f
+      val impliedPreds =
+        for (p <- predicates(rs); if (reducer(p.rawPred).isTrue))
+        yield p.positive
+
+      impliedPreds.isEmpty || {
+        import TerForConvenience._
+        implicit val _ = sf.order
+        val c = sf reduce conj(impliedPreds)
+        !((sf reducer c)(f).isTrue)
+      }
+    }
+
+  def genSymbolPred(f : Conjunction,
+                    rs : RelationSymbol) : RelationSymbolPred =
+    if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
+      RelationSymbolPred(f, f, f, rs, predicates(rs).size)
+    } else {
+      // some simplification, to avoid quantifiers in predicates
+      // as far as possible, or at least provide good triggers
+/*      println(f)
+      val prenex = PresburgerTools toPrenex f
+      println(" -> " + prenex)
+      val cnf = (PresburgerTools toDNF prenex.unquantify(prenex.quans.size).negate).negate
+      val complete = sf reduce Conjunction.quantify(prenex.quans, cnf, f.order)
+      println(" -> " + complete) */
+
+      val iabsy =
+        sf.postprocessing(f, simplify = true)
+      val (rawF, posF, negF) = rsPredsToInternal(iabsy)
+
+//      println(" -> pos: " + posF)
+//      println(" -> neg: " + negF)
+
+      RelationSymbolPred(rawF, posF, negF, rs, predicates(rs).size)
+    }
+
+  /**
+   * Translate solution formulas back to input ASTs. This will first
+   * replace the variables with sorted constants, to to enable
+   * theory-specific back-translation.
+   */
+  def convertToInputAbsy(p : Predicate,
+                         cs : Seq[Conjunction]) : Seq[IFormula] =
+    cs match {
+      case Seq(c) if c.isTrue =>
+        List(IBoolLit(true))
+      case Seq(c) if c.isFalse =>
+        List(IBoolLit(false))
+      case cs => {
+        val consts =
+          for (s <- HornPredAbs.predArgumentSorts(p)) yield (s newConstant "X")
+        val order =
+          sf.order extend consts.reverse
+        val subst =
+          VariableSubst(0, consts, order)
+        // TODO: switch to sorted variables at this point
+        val backSubst =
+          (for ((c, n) <- consts.iterator.zipWithIndex)
+           yield (c -> IVariable(n))).toMap
+
+        for (c <- cs) yield {
+          val raw = sf.postprocessing(subst(c),
+                                      simplify = true,
+                                      int2TermTranslation = true)
+          ConstantSubstVisitor(raw, backSubst)
+        }
+      }
+    }
+  
 }

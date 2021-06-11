@@ -390,9 +390,9 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
+        CEGAR.CounterexampleMethod.AllShortest
       else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
+        CEGAR.CounterexampleMethod.FirstBestShortest
 
     val result = Console.withOut(outStream) {
       println

@@ -279,7 +279,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream)(
       new HornPredAbs(clauses, Map(),
                       DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                      HornPredAbs.CounterexampleMethod.FirstBestShortest).rawResult) match {
+                      CEGAR.CounterexampleMethod.FirstBestShortest).rawResult) match {
       case Left(solution) =>
         Left((for ((p, freshPs) <- predMap.iterator;
                    formulas = for (q <- freshPs;
@@ -295,7 +295,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                                    HornPredAbs.CounterexampleMethod.FirstBestShortest)
+                                    CEGAR.CounterexampleMethod.FirstBestShortest)
       predAbs.rawResult match {
       case Left(_) =>
         // extract the predicates used for the sub-proof
@@ -313,7 +313,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                                    HornPredAbs.CounterexampleMethod.FirstBestShortest)
+                                    CEGAR.CounterexampleMethod.FirstBestShortest)
       predAbs.rawResult match {
       case Left(_) =>
         // extract the predicates used for the sub-proof
