@@ -78,9 +78,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
   import context._
   import predStore._
 
-  val startTime = System.currentTimeMillis
-
   var predicateGeneratorTime : Long = 0
+  var iterationNum = 0
 
   // Abstract states that are used for matching and instantiating clauses
   val activeAbstractStates = 
@@ -116,7 +115,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
   //////////////////////////////////////////////////////////////////////////////
   // The main loop
 
-  val endSetupTime = System.currentTimeMillis
+  val cegarStartTime = System.currentTimeMillis
 
   val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
     /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
@@ -129,7 +128,6 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
     import TerForConvenience._
     var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
-    var iterationNum = 0
 
     while (!nextToProcess.isEmpty && res == null) {
       lazabs.GlobalParameters.get.timeoutChecker()
@@ -170,7 +168,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
         } catch {
           case Counterexample(from, clause) => {
             // we might have to process this case again, since
-            // the extract counterexample might not be the only one
+            // the extracted counterexample might not be the only one
             // leading to this abstract state
             nextToProcess.enqueue(states, clause, assumptions)
 
@@ -236,17 +234,21 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
 //    inferenceAPIProver = null
 
-    val endTime = System.currentTimeMillis
+    res
+  }
 
-    if (lazabs.GlobalParameters.get.log)
-      println
+//  private var inferenceAPIProver : SimpleAPI = null
 
-    println
+  val cegarEndTime = System.currentTimeMillis
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def printStatistics(hornPredAbsStartTime : Long) = {
     println(
          "--------------------------------- Statistics -----------------------------------")
     println("CEGAR iterations:                                      " + iterationNum)
-    println("Total CEGAR time (ms):                                 " + (endTime - startTime))
-    println("Setup time (ms):                                       " + (endSetupTime - startTime))
+    println("Total CEGAR time (ms):                                 " + (cegarEndTime - hornPredAbsStartTime))
+    println("Setup time (ms):                                       " + (cegarStartTime - hornPredAbsStartTime))
     println("Final number of abstract states:                       " +
             (for ((_, s) <- maxAbstractStates.iterator) yield s.size).sum)
     println("Final number of matched abstract states:               " +
@@ -298,17 +300,6 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
                   if (s exists { r => r != t && subsumes(r, t) })) yield t).size) */
     println(
          "--------------------------------------------------------------------------------")
-    println
-
-    res
-  }
-
-//  private var inferenceAPIProver : SimpleAPI = null
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def printStatistics = {
-
   }
 
   //////////////////////////////////////////////////////////////////////////////

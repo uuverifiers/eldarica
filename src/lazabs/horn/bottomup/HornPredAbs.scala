@@ -125,6 +125,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   
   import HornPredAbs._
 
+  val hornPredAbsStartTime = System.currentTimeMillis
+
   lazabs.GlobalParameters.get.setupApUtilDebug
   
   val context = new HornPredAbsContext(iClauses)
@@ -146,6 +148,13 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   import CEGAR._
 
   val rawResult = cegar.rawResult
+
+  if (lazabs.GlobalParameters.get.log)
+    println
+
+  println
+  printStatistics(hornPredAbsStartTime)
+  println
 
   //////////////////////////////////////////////////////////////////////////////
 
