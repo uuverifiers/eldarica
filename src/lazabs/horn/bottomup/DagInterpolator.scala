@@ -153,7 +153,7 @@ object DagInterpolator {
    */
   def interpolatingPredicateGenCEXAndOr(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(IAtom, HornPredAbs.NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     predicateGenerator(clauseDag, 1500) match {
       case Left(preds) =>
         Left(preds)

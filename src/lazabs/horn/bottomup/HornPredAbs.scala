@@ -36,7 +36,7 @@ import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
                       ReducerSettings}
 import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience,
                   Term, Formula}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                SeqReducerPluginFactory}
 import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
@@ -64,11 +64,8 @@ object HornPredAbs {
   import TerForConvenience._
   import SymbolFactory.normalPreprocSettings
 
-  def predArgumentSorts(pred : Predicate) : Seq[Sort] = pred match {
-    // TODO: use function MonoSortedPredicate.argumentSorts for this
-    case pred : MonoSortedPredicate => pred.argSorts
-    case _ => for (_ <- 0 until pred.arity) yield Sort.Integer
-  }
+  def predArgumentSorts(pred : Predicate) : Seq[Sort] =
+    MonoSortedPredicate argumentSorts pred
 
   def toInternal(f : IFormula, sig : Signature) : Conjunction =
     toInternal(f, sig, null, normalPreprocSettings)
@@ -88,256 +85,10 @@ object HornPredAbs {
   }
   
   //////////////////////////////////////////////////////////////////////////////
-  
-  case class AbstractState(rs : RelationSymbol, preds : Seq[RelationSymbolPred]) {
-    val instances = toStream {
-      case i => for (p <- preds) yield (p negInstances i)
-    }
-    val predConjunction = toStream {
-      case i => rs.sf.reduce(Conjunction.conj(instances(i), rs.sf.order))
-    }
-    val predSet = preds.toSet
-    val predHashCodeSet = predSet map (_.hashCode)
-    override val hashCode = rs.hashCode + 3 * preds.hashCode
-    override def equals(that : Any) = that match {
-      case that : AbstractState => this.hashCode == that.hashCode &&
-                                   this.rs == that.rs &&
-                                   this.preds == that.preds
-      case _ => false
-    }
-    override def toString = "(" + rs.name + ", <" + (preds mkString ", ") + ">)"
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  trait StateQueue {
-    type TimeType
-    def isEmpty : Boolean
-    def enqueue(states : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction) : Unit
-    def enqueue(states : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                time : TimeType) : Unit
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType)
-    def removeGarbage(reachableStates : scala.collection.Set[AbstractState])
-    def incTime : Unit = {}
-  }
-
-  class ListStateQueue extends StateQueue {
-    type TimeType = Unit
-    private var states = List[(Seq[AbstractState], NormClause, Conjunction)]()
-    def isEmpty : Boolean =
-      states.isEmpty
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction) : Unit = {
-      states = (s, clause, assumptions) :: states
-//      println("enqueuing ... " +  (s, clause, assumptions))
-    }
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                time : TimeType) : Unit =
-      enqueue(s, clause, assumptions)
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType) = {
-      val res = states.head
-      states = states.tail
-      (res._1, res._2, res._3, ())
-    }
-    def removeGarbage(reachableStates : scala.collection.Set[AbstractState]) = 
-      states = states filter {
-        case (s, _, _) => s forall (reachableStates contains _)
-      }
-  }
-  
-  class PriorityStateQueue extends StateQueue {
-    type TimeType = Int
-
-    private var time = 0
-
-    private def priority(s : (Seq[AbstractState], NormClause, Conjunction, Int)) = {
-      val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _, birthTime) = s
-      (headSym match {
-        case HornClauses.FALSE => -10000
-        case _ => 0
-      }) + (for (AbstractState(_, preds) <- states.iterator) yield preds.size).sum + birthTime
-    }
-
-    private implicit val ord = new Ordering[(Seq[AbstractState], NormClause, Conjunction, Int)] {
-      def compare(s : (Seq[AbstractState], NormClause, Conjunction, Int),
-                  t : (Seq[AbstractState], NormClause, Conjunction, Int)) =
-        priority(t) - priority(s)
-    }
-
-    private val states = new PriorityQueue[(Seq[AbstractState], NormClause, Conjunction, Int)]
-
-    def isEmpty : Boolean =
-      states.isEmpty
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction) : Unit = {
-      states += ((s, clause, assumptions, time))
-    }
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                t : TimeType) : Unit = {
-      states += ((s, clause, assumptions, t))
-    }
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType) =
-      states.dequeue
-    def removeGarbage(reachableStates : scala.collection.Set[AbstractState]) = {
-      val remainingStates = (states.iterator filter {
-        case (s, _, _, _) => s forall (reachableStates contains _)
-      }).toArray
-      states.dequeueAll
-      states ++= remainingStates
-    }
-    override def incTime : Unit =
-      time = time + 1
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
 
   case class AbstractEdge(from : Seq[AbstractState], to : AbstractState,
                           clause : NormClause, assumptions : Conjunction) {
     override def toString = "<" + (from mkString ", ") + "> -> " + to + ", " + clause
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
-
-  object NormClause {
-    def apply[CC](c : CC, predMap : Predicate => RelationSymbol)
-             (implicit sf : SymbolFactory,
-              conv : CC => ConstraintClause)
-             : NormClause = {
-      import IExpression._
-
-      assert(c.localVariableNum == 0) // currently only this case is supported
-
-      var rss = List[RelationSymbol]()
-      
-      val (lits, litSyms) = (for (lit <- c.body ++ List(c.head)) yield {
-        val rs = predMap(lit.predicate)
-        val occ = rss count (_ == rs)
-        rss = rs :: rss
-        ((rs, occ), rs.arguments(occ))
-      }).unzip
-      
-      // use a local order to speed up the conversion in case of many symbols
-//      val syms = (for ((rs, occ) <- lits.iterator;
-//                       c <- rs.arguments(occ).iterator) yield c).toSet
-//      val localOrder = sf.order restrict syms
-
-      val constraint =
-        sf.preprocess(
-          c.instantiateConstraint(litSyms.last, litSyms.init, List(),
-                                  sf.signature))
-
-      val skConstraint =
-        skolemise(constraint, false, List())
-      val finalConstraint =
-        if (skConstraint eq constraint)
-          constraint
-        else
-          sf reduce skConstraint
-
-      NormClause(finalConstraint, lits.init, lits.last)
-    }
-  }
-
-  private def skolemise(c : Conjunction,
-                        negated : Boolean,
-                        substTerms : List[Term])
-                       (implicit sf : SymbolFactory) : Conjunction = {
-    val newSubstTerms = c.quans match {
-      case Seq() =>
-        substTerms
-      case quans => {
-        val N = quans.size
-        Seqs.prepend(
-          for ((q, n) <- quans.zipWithIndex) yield q match {
-            case Quantifier.EX if !negated => sf.genSkolemConstant
-            case Quantifier.ALL if negated => sf.genSkolemConstant
-            case _ => v(n)
-          },
-          for (t <- substTerms) yield t match {
-            case VariableTerm(ind) => VariableTerm(ind + N)
-            case t => t
-          })
-      }
-    }
-
-    val newNegConjs =
-      c.negatedConjs.update(
-        for (d <- c.negatedConjs) yield skolemise(d, !negated, newSubstTerms),
-        sf.order)
-
-    if (newSubstTerms.isEmpty) {
-      c.updateNegatedConjs(newNegConjs)(sf.order)
-    } else {
-      val subst = VariableSubst(0, newSubstTerms, sf.order)
-      Conjunction(c.quans,
-                  subst(c.arithConj),
-                  subst(c.predConj),
-                  newNegConjs,
-                  sf.order)
-    }
-  }
-
-  case class NormClause(constraint : Conjunction,
-                        body : Seq[(RelationSymbol, Int)],
-                        head : (RelationSymbol, Int))
-                       (implicit sf : SymbolFactory) {
-    val headSyms : Seq[ConstantTerm] =
-      head._1.arguments(head._2)
-    val bodySyms : Seq[Seq[ConstantTerm]] =
-      for ((rs, occ) <- body) yield (rs arguments occ)
-    val order = sf.order restrict (
-      constraint.constants ++ headSyms ++ bodySyms.flatten)
-    val localSymbols : Seq[ConstantTerm] =
-      order.sort(constraint.constants -- headSyms -- bodySyms.flatten)
-    val allSymbols =
-      (localSymbols.iterator ++ headSyms.iterator ++ (
-          for (cl <- bodySyms.iterator; c <- cl.iterator) yield c)).toSeq
-
-    // indexes of the bodySyms constants that actually occur in the
-    // constraint and are therefore relevant
-    val relevantBodySyms : Seq[Seq[Int]] =
-      for (syms <- bodySyms) yield
-        (for ((c, i) <- syms.iterator.zipWithIndex;
-              if (constraint.constants contains c)) yield i).toSeq
-
-    def freshConstraint(implicit sf : SymbolFactory)
-                       : (Conjunction, Seq[ConstantTerm], Seq[Seq[ConstantTerm]]) = {
-      val newLocalSyms =
-        sf duplicateConstants localSymbols
-      val newHeadSyms = 
-        sf duplicateConstants headSyms
-      val newBodySyms =
-        for (cs <- bodySyms) yield (sf duplicateConstants cs)
-      
-      val newSyms =
-        newLocalSyms.iterator ++ newHeadSyms.iterator ++ (
-          for (syms <- newBodySyms.iterator; c <- syms.iterator) yield c)
-      val subst = ConstantSubst((allSymbols.iterator zip newSyms).toMap, sf.order)
-      (subst(constraint), newHeadSyms, newBodySyms)
-    }
-
-    def substituteSyms(newLocalSyms : Seq[ConstantTerm],
-                       newHeadSyms : Seq[ConstantTerm],
-                       newBodySyms : Seq[Seq[ConstantTerm]])
-                      (implicit order : TermOrder) : Conjunction = {
-      val newSyms =
-        newLocalSyms.iterator ++ newHeadSyms.iterator ++ (
-          for (syms <- newBodySyms.iterator; c <- syms.iterator) yield c)
-      val subst = ConstantSubst((allSymbols.iterator zip newSyms).toMap, order)
-      subst(constraint)
-    }
-
-    def updateConstraint(newConstraint : Conjunction) =
-      NormClause(newConstraint, body, head)
-
-    override def toString =
-      "" + head._1.toString(head._2) +
-      " :- " + ((for ((rs, occ) <- body) yield rs.toString(occ)) mkString ", ") +
-      " | " + constraint
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -384,9 +135,9 @@ object HornPredAbs {
 class HornPredAbs[CC <% HornClauses.ConstraintClause]
                  (iClauses : Iterable[CC],
                   initialPredicates : Map[Predicate, Seq[IFormula]],
-                  predicateGenerator : Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+                  predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
                                        Either[Seq[(Predicate, Seq[Conjunction])],
-                                              Dag[(IAtom, HornPredAbs.NormClause)]],
+                                              Dag[(IAtom, NormClause)]],
                   counterexampleMethod : HornPredAbs.CounterexampleMethod.Value =
                                            HornPredAbs.CounterexampleMethod.FirstBestShortest) {
   
