@@ -157,22 +157,16 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   var matchCount = 0
   var matchTime : Long = 0  
 
-  val context = new HornPredAbsContext(iClauses, initialPredicates)
+  val context = new HornPredAbsContext(iClauses)
   import context._
+
+  val predStore = new PredicateStore(context)
+  import predStore._
 
   //////////////////////////////////////////////////////////////////////////////
 
   // Initialise with given initial predicates
-  
-  for ((p, preds) <- initialPredicates) {
-    val rs = relationSymbols(p)
-    for ((f, predIndex) <- preds.iterator.zipWithIndex) {
-      val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
-      val (rawF, posF, negF) = rsPredsToInternal(intF)
-      val pred = RelationSymbolPred(rawF, posF, negF, rs, predIndex)
-      addRelationSymbolPred(pred)
-    }
-  }
+  predStore.addPredicates(initialPredicates)
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -213,7 +207,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
     
   // the main loop
 
-  private var inferenceAPIProver : SimpleAPI = null
+//  private var inferenceAPIProver : SimpleAPI = null
 
   val rawResult : Either[Map[Predicate, Conjunction],
                          Dag[(IAtom, CC)]] = /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
@@ -332,7 +326,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
       }).toMap)
     }
 
-    inferenceAPIProver = null
+//    inferenceAPIProver = null
 
     val endTime = System.currentTimeMillis
 
@@ -1232,28 +1226,6 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
         !((sf reducer c)(f).isTrue)
       }
     }
-
-  def elimQuansIfNecessary(c : Conjunction, positive : Boolean) : Conjunction =
-    if (ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
-           if (positive) c else c.negate, Map())) {
-      c
-    } else {
-      val newC = PresburgerTools.elimQuantifiersWithPreds(c)
-      if (!ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
-              if (positive) newC else newC.negate, Map()))
-        throw new Exception("Cannot handle general quantifiers in predicates at the moment")
-      newC
-    }
-
-  def rsPredsToInternal(f : IFormula)
-                     : (Conjunction, Conjunction, Conjunction) = {
-    val rawF = sf.toInternalClausify(f)
-    val posF = elimQuansIfNecessary(sf.preprocess(
-                                      sf.toInternalClausify(~f)).negate, true)
-    val negF = elimQuansIfNecessary(sf.preprocess(
-                                      rawF), false)
-    (rawF, posF, negF)
-  }
 
   def genSymbolPred(f : Conjunction,
                     rs : RelationSymbol) : RelationSymbolPred =

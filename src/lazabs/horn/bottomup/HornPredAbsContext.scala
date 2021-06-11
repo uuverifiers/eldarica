@@ -44,8 +44,7 @@ import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
 import scala.util.Random
 
 class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
-                        (iClauses : Iterable[CC],
-                         initialPredicates : Map[Predicate, Seq[IFormula]]) {
+                        (iClauses : Iterable[CC]) {
 
   import HornPredAbs._
 
@@ -225,39 +224,4 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
     (for ((clause, _) <- normClauses.iterator)
      yield (clause, hasher addFormula clause.constraint)).toMap
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  val predicates =
-    (for (rs <- relationSymbols.values)
-       yield (rs -> new ArrayBuffer[RelationSymbolPred])).toMap
-
-  val predicateHashIndexes =
-    (for (rs <- relationSymbols.values)
-         yield (rs -> new ArrayBuffer[Stream[Int]])).toMap
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def addRelationSymbolPred(pred : RelationSymbolPred) : Unit = {
-    assert(predicates(pred.rs).size == predicateHashIndexes(pred.rs).size &&
-           pred.predIndex == predicates(pred.rs).size)
-
-    predicates(pred.rs) +=
-      pred
-    predicateHashIndexes(pred.rs) +=
-      (for (f <- pred.posInstances) yield (hasher addFormula f))
-  }
-
-  def addRelationSymbolPreds(preds : Seq[RelationSymbolPred]) : Unit =
-    for (pred <- preds) addRelationSymbolPred(pred)
-
-  def addHasherAssertions(clause : NormClause,
-                          from : Seq[AbstractState]) = if (hasher.isActive) {
-    hasher assertFormula clauseHashIndexes(clause)
-    for ((state, (rs, occ)) <- from.iterator zip clause.body.iterator)
-      for (pred <- state.preds) {
-        val id = predicateHashIndexes(rs)(pred.predIndex)(occ)
-        hasher assertFormula id
-      }
-  }
-  
 }
