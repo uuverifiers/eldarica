@@ -38,7 +38,7 @@ import ap.types.MonoSortedPredicate
 
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException}
+import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -158,6 +158,12 @@ class HornWrapper(constraints: Seq[HornClause],
 //    if (GlobalParameters.get.printHornSimplified)
 //      printMonolithic(unsimplifiedClauses)
 
+  if (GlobalParameters.get.smtPrettyPrint) {
+    for (c <- unsimplifiedClauses)
+      println(c.toSMTString)
+    throw PrintingFinishedException
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def readHints(filename : String,
@@ -219,7 +225,8 @@ class HornWrapper(constraints: Seq[HornClause],
       println("Clauses after preprocessing:")
       for (c <- simplifiedClauses)
         println(c.toPrologString)
-      println
+      throw PrintingFinishedException
+
       //val aux = simplifiedClauses map (horn2Eldarica(_))
 //      val aux = horn2Eldarica(simplifiedClauses)
 //      println(lazabs.viewer.HornPrinter(aux))
@@ -228,11 +235,12 @@ class HornWrapper(constraints: Seq[HornClause],
 //      printClauses(simplifiedClauses)
 //      println("-------------------------------")
     }
+
     if (GlobalParameters.get.printHornSimplifiedSMT) {
       println("Clauses after preprocessing (SMT-LIB):")
       for (c <- simplifiedClauses)
           println(c.toSMTString)
-      println
+      throw PrintingFinishedException
     }
 
     (simplifiedClauses, simpPreHints, backTranslator)

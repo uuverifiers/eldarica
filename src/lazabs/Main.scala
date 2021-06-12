@@ -244,6 +244,7 @@ object Main {
   class MainException(msg : String) extends Exception(msg)
   object TimeoutException extends MainException("timeout")
   object StoppedException extends MainException("stopped")
+  object PrintingFinishedException extends Exception
 
   def openInputFile {
     val params = GlobalParameters.parameters.value
@@ -592,10 +593,15 @@ object Main {
         return
       }
 
+/*
+    The HornSMTPrinter will not output sorts correctly, therefore
+    we currently print the clauses in the HornWrapper instead
+
       if(smtPrettyPrint) {
         println(HornSMTPrinter(clauseSet))
         return
       }
+ */
 
       if(solFileName != "") {
         val solution = lazabs.horn.parser.HornReader.apply(solFileName)
@@ -607,8 +613,12 @@ object Main {
         case _ => false
       }*/
 
-      lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                        drawRTree, lbe)
+      try {
+        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
+                          drawRTree, lbe)
+      } catch {
+        case PrintingFinishedException => // nothing more to do
+      }
         
       return
 
