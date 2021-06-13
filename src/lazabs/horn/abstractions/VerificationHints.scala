@@ -150,7 +150,7 @@ object VerificationHints {
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
-        println(Console.BLUE+key.toString())
+        println(key.toString(),value.size)
         for(v<-value){
           v match {
             case VerifHintInitPred(f) =>{println(Console.BLUE+ f )}
@@ -158,6 +158,17 @@ object VerificationHints {
           }
         }
       }
+    }
+    def totalPredicateNumber: Int ={
+      predicateHints.values.flatten.size
+    }
+    def totalHeadNumber:Int={
+      predicateHints.keys.size
+    }
+    def getMaxSizeOfPredicateList(): Int ={
+      (for ((k,v)<-predicateHints)yield{
+        v.size
+      }).max
     }
     def getPredicateHints() = {
       predicateHints

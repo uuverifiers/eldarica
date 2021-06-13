@@ -66,6 +66,7 @@ class GlobalParameters extends Cloneable {
   var mainTimeout=300000
   var extractTemplates=false
   var extractPredicates=false
+  var separateByPredicates=false
   var measurePredictedPredicates=false
   var labelSimpleGeneratedPredicates=false
   var varyGeneratedPredicates=false
@@ -229,6 +230,7 @@ class GlobalParameters extends Cloneable {
     //that.printHints = this.printHints
     that.extractTemplates=this.extractTemplates
     that.extractPredicates=this.extractPredicates
+    that.separateByPredicates=this.separateByPredicates
     that.measurePredictedPredicates=this.measurePredictedPredicates
     that.labelSimpleGeneratedPredicates=this.labelSimpleGeneratedPredicates
     that.varyGeneratedPredicates=this.varyGeneratedPredicates
@@ -333,6 +335,7 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-extractTemplates" :: rest => extractTemplates = true; arguments(rest)
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
+      case "-separateByPredicates" :: rest => separateByPredicates = true; arguments(rest)
       case "-measurePredictedPredicates" :: rest=> measurePredictedPredicates=true; arguments(rest)
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
@@ -592,6 +595,7 @@ object Main {
           " -pIntermediate\t Dump Horn clauses encoding concurrent programs\n"+
           " -extractTemplates\t extract templates training data\n"+
           " -extractPredicates\t extract predicates from CEGAR process\n"+
+          " -separateByPredicates\t separate horn graph by predicates\n"+
           " -measurePredictedPredicates\t output predicted predicate measurements\n"+
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+

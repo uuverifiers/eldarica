@@ -738,16 +738,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
   def writeGNNInputToJSONFile(argumentIDList: ArrayBuffer[Int], argumentNameList: ArrayBuffer[String],
                               argumentOccurrenceList: ArrayBuffer[Int],argumentBoundList:ArrayBuffer[(String, String)],
-                              argumentIndicesList:ArrayBuffer[Int],argumentBinaryOccurrenceList:ArrayBuffer[Int],
-                              totalGuardOverlap:Array[Int]=Array(0),positivePredicateSize:Array[Int]=Array(0),
-                              initialPredicateSize:Array[Int]=Array(0)): Unit = {
+                              argumentIndicesList:ArrayBuffer[Int],argumentBinaryOccurrenceList:ArrayBuffer[Int]): Unit = {
     println("Write GNNInput to file")
     var lastFiledFlag = false
     val writer = new PrintWriter(new File(file + "." + graphType + ".JSON"))
     writer.write("{\n")
-    writeGNNInputFieldToJSONFile("totalGuardOverlap", IntArray(totalGuardOverlap), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("positivePredicateSize", IntArray(positivePredicateSize), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("initialPredicateSize", IntArray(initialPredicateSize), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)

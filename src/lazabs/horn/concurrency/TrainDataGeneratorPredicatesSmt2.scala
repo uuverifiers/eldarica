@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.{Clause, _}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.getClausesInCounterExamples
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, predicateQuantify}
 import lazabs.horn.concurrency._
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
@@ -304,7 +304,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
 
 
-      val (simpleGeneratedPredicates,constraintPredicates,argumentConstantEqualPredicate) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
+      val (simpleGeneratedPredicates,constraintPredicates,pairwisePredicates) =  HintsSelection.getSimplePredicates(simplePredicatesGeneratorClauses)
 
       //println("simpleGeneratedPredicates size",simpleGeneratedPredicates.size)
       //println("total genereated initial predicates",(for ((k,v)<-simpleGeneratedPredicates) yield v).flatten.size)
@@ -367,15 +367,28 @@ object TrainDataGeneratorPredicatesSmt2 {
             val clausesInCE= if (GlobalParameters.get.getLabelFromCounterExample ==true)
               getClausesInCounterExamples(test,simplePredicatesGeneratorClauses) else Seq()
             val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
-            val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))//labeledPredicates
             //Output graphs
             val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray.sortBy(_._1.name)
             //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
             val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledPredicates,countOccurrence=true)
-            GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+
+
+            if (GlobalParameters.get.separateByPredicates==true){
+              GraphTranslator.separateGraphByPredicates(unlabeledPredicates,labeledPredicates,clauseCollection,argumentInfo)
+            }else{
+              val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))//labeledPredicates
+              GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+              HintsSelection.writePredicatesToFiles(unlabeledPredicates,labeledPredicates)
+            }
 
             //write predicates to files:
-            HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,labeledPredicates,unlabeledPredicates,HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),HintsSelection.transformPredicateMapToVerificationHints(argumentConstantEqualPredicate),outputAllPredicates=GlobalParameters.get.log)
+
+            HintsSelection.writePredicateDistributionToFiles(initialPredicates,selectedPredicates,
+              labeledPredicates,unlabeledPredicates,
+              HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates),
+              HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates),
+              HintsSelection.transformPredicateMapToVerificationHints(pairwisePredicates),simplePredicatesGeneratorClauses,
+              outputAllPredicates=GlobalParameters.get.log)
             drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
           } else{
             HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")

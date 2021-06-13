@@ -412,11 +412,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val hintCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
-    val hintCollection0=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(initialPredicates.toInitialPredicates.transform((k,v)=>v.dropRight(4))),VerificationHints(Map()),VerificationHints(Map()))
-    val hintCollection1=new VerificationHintsInfo(HintsSelection.transformPredicateMapToVerificationHints(initialPredicates.toInitialPredicates.transform((k,v)=>v.drop(4))),VerificationHints(Map()),VerificationHints(Map()))
     GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo,GlobalParameters.get.fileName)
-    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection0,argumentInfo,GlobalParameters.get.fileName+"-0")
-    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection1,argumentInfo,GlobalParameters.get.fileName+"-1")
     sys.exit()
   }
   if(GlobalParameters.get.getSMT2==true){
@@ -439,11 +435,15 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates") else emptyInitialPredicates
       //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
     val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
-    val dataFold=Map("emptyInitialPredicates"->emptyInitialPredicates,
+    val dataFold= if (truePredicates.isEmpty)
+    Map("emptyInitialPredicates"->emptyInitialPredicates,
       "predictedInitialPredicates"->predictedPredicates,
-      "fullInitialPredicates"->fullInitialPredicates,
-      "trueInitialPredicates"->truePredicates
-    )
+      "fullInitialPredicates"->fullInitialPredicates)
+    else
+      Map("emptyInitialPredicates"->emptyInitialPredicates,
+        "predictedInitialPredicates"->predictedPredicates,
+        "fullInitialPredicates"->fullInitialPredicates,
+        "trueInitialPredicates"->truePredicates)
 
     val solvabilityList=(for((fieldName,initialPredicate)<-dataFold) yield{
       //val simplifiedInitialpredicates
@@ -467,7 +467,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         ("initialPredicatesUsedInMinimizedPredicateFromCegar"+fieldName,initialPredicatesUsedInMinimizedPredicateFromCegar.values.flatten.size))
     }).flatten.toSeq
 
-    HintsSelection.writeSolvabilityToJSON(solvabilityList)
+    HintsSelection.writeInfoToJSON(solvabilityList,"solvability")
 
     if (GlobalParameters.get.measurePredictedPredicates==true){
       HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,
