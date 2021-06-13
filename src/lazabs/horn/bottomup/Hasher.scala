@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,11 +30,14 @@
 package lazabs.horn.bottomup
 
 import ap.parameters.ReducerSettings
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.linearcombination.LinearCombination
+import ap.types.Sort
 import ap.util.Seqs
 
-import scala.collection.mutable.{ArrayBuffer, BitSet => MBitSet}
+import scala.collection.mutable.{ArrayBuffer, BitSet => MBitSet,
+                                 HashMap => MHashMap}
 
 object IHasher {
 
@@ -149,13 +152,15 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
 
   import Hasher._
   import IHasher._
-  private implicit val _ = globalOrder
+  private implicit val _globalOrder = globalOrder
 
   private val watchedFormulas = new ArrayBuffer[Conjunction]
-  private val evalVectors = new ArrayBuffer[MBitSet]
+  private val evalVectors     = new ArrayBuffer[MBitSet]
 
-  private val models = new ArrayBuffer[Model]
-  private val reducers = new ArrayBuffer[ReduceWithConjunction]
+  private val formula2Id      = new MHashMap[Conjunction, Int]
+
+  private val models          = new ArrayBuffer[Model]
+  private val reducers        = new ArrayBuffer[ReduceWithConjunction]
 
   {
     // set up some default models
@@ -163,17 +168,29 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
 
     // all variables 0
     models +=
-      (globalOrder.orderedConstants.toSeq === 0)
+      (for (c <- globalOrder.orderedConstants.toSeq;
+            sort = Sort sortOf c;
+            constr = sort membershipConstraint LinearCombination.ZERO;
+            if !constr.isFalse)
+       yield c) === 0
 
     // all variables distinct, increasing
     models +=
-      conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex)
-           yield (c === (n+1)))
+      conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex;
+                sort = Sort sortOf c;
+                value = l(n+1);
+                constr = sort membershipConstraint value;
+                if !constr.isFalse)
+           yield (c === value))
 
     // all variables distinct, decreasing
     models +=
-      conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex)
-           yield (c === -(n+1)))
+      conj(for ((c, n) <- globalOrder.orderedConstants.iterator.zipWithIndex;
+                sort = Sort sortOf c;
+                value = l(-(n+1));
+                constr = sort membershipConstraint value;
+                if !constr.isFalse)
+           yield (c === value))
 
     for (m <- models)
       reducers += ReduceWithConjunction(m, globalOrder, reducerSettings)
@@ -209,7 +226,13 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
       None
     } else {
       val res = models(modelIndex) & model2
-      if (res.isFalse) None else Some(res)
+      val res2 =
+        if (res.predicates.isEmpty)
+          res
+        else
+          ReduceWithConjunction(Conjunction.TRUE, globalOrder,
+                                reducerSettings)(res)
+      if (res2.isFalse) None else Some(res2)
     }
   }
 
@@ -219,20 +242,21 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
    * Make the hasher watch the given formula. The formula can be referred
    * to using the returned id.
    */
-  def addFormula(f : Conjunction) : Int = {
-    val res = watchedFormulas.size
-    watchedFormulas += f
+  def addFormula(f : Conjunction) : Int =
+    formula2Id.getOrElseUpdate(f, {
+      val res = watchedFormulas.size
+      watchedFormulas += f
 
-    val evalVector = new MBitSet
-    for (i <- 0 until models.size)
-      if (eval(i, f))
-        evalVector += i
-    evalVectors += evalVector
+      val evalVector = new MBitSet
+      for (i <- 0 until models.size)
+        if (eval(i, f))
+          evalVector += i
+      evalVectors += evalVector
 
 //    println("Adding " + f + ": " + evalVector)
 
-    res
-  }
+      res
+    })
 
   /**
    * Add a new model that is subsequently used for hashing.

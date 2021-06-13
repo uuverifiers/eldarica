@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{StoppedException, TimeoutException}
+import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -48,8 +48,10 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.RelationSymbol
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
+                                 StaticAbstractionBuilder, AbstractionRecord,
+                                 VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
@@ -163,6 +165,12 @@ class HornWrapper(constraints: Seq[HornClause],
   //    if (GlobalParameters.get.printHornSimplified)
   //      printMonolithic(unsimplifiedClauses)
 
+  if (GlobalParameters.get.smtPrettyPrint) {
+    for (c <- unsimplifiedClauses)
+      println(c.toSMTString)
+    throw PrintingFinishedException
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def readHints(filename : String,
@@ -234,8 +242,35 @@ class HornWrapper(constraints: Seq[HornClause],
         //      println("-------------------------------")
       }
 
-      (simplifiedClauses, simpPreHints, backTranslator)
+
+    if (GlobalParameters.get.printHornSimplified) {
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
+
+      println("Clauses after preprocessing:")
+      for (c <- simplifiedClauses)
+        println(c.toPrologString)
+      throw PrintingFinishedException
+
+      //val aux = simplifiedClauses map (horn2Eldarica(_))
+//      val aux = horn2Eldarica(simplifiedClauses)
+//      println(lazabs.viewer.HornPrinter(aux))
+//      simplifiedClauses = aux map (transform(_))
+//      println("-------------------------------")
+//      printClauses(simplifiedClauses)
+//      println("-------------------------------")
     }
+
+    if (GlobalParameters.get.printHornSimplifiedSMT) {
+      println("Clauses after preprocessing (SMT-LIB):")
+      for (c <- simplifiedClauses)
+          println(c.toSMTString)
+      throw PrintingFinishedException
+    }
+
+    (simplifiedClauses, simpPreHints, backTranslator)
+  }
 
   private val postHints : VerificationHints = {
     val name2Pred =
@@ -503,9 +538,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
+        CEGAR.CounterexampleMethod.AllShortest
       else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
+
+        CEGAR.CounterexampleMethod.FirstBestShortest
+
     val result = Console.withOut(outStream) {
       println
       println(

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,10 +33,10 @@ package lazabs.horn
 import lazabs.ast.ASTree._
 import global._
 import bottomup._
-import bottomup.HornPredAbs.RelationSymbol
-import abstractions.AbsLattice
-import lazabs.GlobalParameters
-import lazabs.horn.concurrency.HintsSelection
+
+import bottomup.RelationSymbol
+import abstractions.{AbsLattice}
+
 
 object Solve {
   def apply(clauseSet: Seq[HornClause], 
