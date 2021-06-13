@@ -226,7 +226,13 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
       None
     } else {
       val res = models(modelIndex) & model2
-      if (res.isFalse) None else Some(res)
+      val res2 =
+        if (res.predicates.isEmpty)
+          res
+        else
+          ReduceWithConjunction(Conjunction.TRUE, globalOrder,
+                                reducerSettings)(res)
+      if (res2.isFalse) None else Some(res2)
     }
   }
 
