@@ -80,6 +80,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   var predicateGeneratorTime : Long = 0
   var iterationNum = 0
+  var averagePredicateSize=0.0
+  var generatedPredicateNumber=0
 
   // Abstract states that are used for matching and instantiating clauses
   val activeAbstractStates = 
@@ -257,11 +259,13 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
     val predNum =
       (for ((_, s) <- predicates.iterator) yield s.size).sum
+    generatedPredicateNumber=predNum
     val totalPredSize =
       (for ((_, s) <- predicates.iterator; p <- s.iterator)
        yield TreeInterpolator.nodeCount(p.rawPred)).sum
     val averagePredSize =
       if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
+    averagePredicateSize=averagePredSize
     println("Number of generated predicates:                        " + predNum)
     println(f"Average predicate size (# of sub-formulas):            $averagePredSize%.2f")
     println("Predicate generation time (ms):                        " + predicateGeneratorTime)

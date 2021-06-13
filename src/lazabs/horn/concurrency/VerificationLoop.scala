@@ -36,11 +36,10 @@ import ap.SimpleAPI.ProverStatus
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import lazabs.{GlobalParameters, ParallelComputation}
-import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornWrapper, Util}
+import lazabs.horn.bottomup.{DagInterpolator, DisjInterpolator, HornClauses, HornPredAbs, HornWrapper, NormClause, TemplateInterpolator, Util}
 import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.concurrency.HintsSelection.{initialIDForHints, writeHintsWithIDToFile}
-import lazabs.horn.bottomup.TemplateInterpolator
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -343,10 +342,10 @@ class VerificationLoop(system : ParametricEncoder.System,
       println(
          "----------------------------------- CEGAR --------------------------------------")
       if(GlobalParameters.get.templateBasedInterpolation==false){
-        val exceptionalPredGen: Dag[AndOrNode[HornPredAbs.NormClause, Unit]] =>
+        val exceptionalPredGen:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]]=>
           Either[Seq[(Predicate, Seq[Conjunction])],
-            Dag[(IAtom, HornPredAbs.NormClause)]] =
-          (x: Dag[AndOrNode[HornPredAbs.NormClause, Unit]]) =>
+            Dag[(IAtom, NormClause)]] =
+          (x: Dag[AndOrNode[NormClause, Unit]]) =>
             //throw new RuntimeException("interpolator exception")
             throw lazabs.Main.TimeoutException
 

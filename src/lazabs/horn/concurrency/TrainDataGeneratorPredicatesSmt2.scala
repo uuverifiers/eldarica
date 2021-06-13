@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn
+package lazabs.horn.concurrency
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate

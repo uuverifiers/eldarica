@@ -37,15 +37,6 @@ import lazabs.horn.concurrency.{CCReader, HintsSelection}
 import lazabs.nts._
 import lazabs.prover._
 import lazabs.viewer._
-import lazabs.utils.Inline._
-//import lazabs.utils.PointerAnalysis
-//import lazabs.cfg.MakeCFG
-import lazabs.nts._
-import lazabs.horn.parser.HornReader
-import lazabs.horn.abstractions.AbsLattice
-import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.concurrency.CCReader
-
 
 import java.io.{FileInputStream, InputStream}
 
@@ -100,7 +91,7 @@ class GlobalParameters extends Cloneable {
   var slicing = true
   var intervals = true
   var prettyPrint = false
-  var smtPrettyPrint = false  
+  var smtPrettyPrint = false
 //  var interpolation = false
   var ntsPrint = false
   var printIntermediateClauseSets = false
@@ -259,7 +250,7 @@ class GlobalParameters extends Cloneable {
   override def clone : GlobalParameters = {
     val res = new GlobalParameters
     this copyTo res
-    res    
+    res
   }
 
   def withAndWOTemplates : Seq[GlobalParameters] =
@@ -278,7 +269,7 @@ class GlobalParameters extends Cloneable {
       case _ => as
     }
   }
-  
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -323,7 +314,7 @@ object Main {
   def main(args: Array[String]) : Unit = doMain(args, false)
 
   //def main(args: Array[String]) : Unit = lazabs.horn.FatTest(args(0))
-  
+
 
   val greeting =
     "Eldarica v2.0.6.\n(C) Copyright 2012-2021 Hossein Hojjat and Philipp Ruemmer"
@@ -559,23 +550,21 @@ object Main {
           "General options:\n" +
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
-          " -log\t\tDisplay progress and found invariants\n" + 
-          " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" + 
-          " -statistics\tDisplay statistics (implied by -log)\n" + 
+          " -log\t\tDisplay progress and found invariants\n" +
+          " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" +
+          " -statistics\tDisplay statistics (implied by -log)\n" +
           " -t:time\tSet timeout (in seconds)\n" +
-          " -cex\t\tShow textual counterexamples\n" + 
-          " -dotCEX\tOutput counterexample in dot format\n" + 
-          " -eogCEX\tDisplay counterexample using eog\n" + 
+          " -cex\t\tShow textual counterexamples\n" +
+          " -dotCEX\tOutput counterexample in dot format\n" +
+          " -eogCEX\tDisplay counterexample using eog\n" +
           " -m:func\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +
-          " -horn\t\tEnable this engine\n" + 
+          " -horn\t\tEnable this engine\n" +
           " -p\t\tPretty Print Horn clauses\n" +
-          " -sp\t\tPretty print the Horn clauses in SMT-LIB format\n" + 
-          " -sol\t\tShow solution in Prolog format\n" + 
-          " -ssol\t\tShow solution in SMT-LIB format\n" + 
-          " -logSimplified\tShow clauses after preprocessing in Prolog format\n" +
-          " -logSimplifiedSMT\tShow clauses after preprocessing in SMT-LIB format\n" +
+          " -sp\t\tPretty print the Horn clauses in SMT-LIB format\n" +
+          " -sol\t\tShow solution in Prolog format\n" +
+          " -ssol\t\tShow solution in SMT-LIB format\n" +
           " -disj\t\tUse disjunctive interpolation\n" +
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
@@ -594,9 +583,9 @@ object Main {
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
           " -splitClauses\tTurn clause constraints into pure inequalities\n" +
-          
+
           "\n" +
-          " -hin\t\tExpect input in Prolog Horn format\n" +  
+          " -hin\t\tExpect input in Prolog Horn format\n" +
           " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
           " -ints\t\tExpect input in integer NTS format\n" +
           " -conc\t\tExpect input in C/C++/TA format\n" +
@@ -658,7 +647,7 @@ object Main {
           throw StoppedException
       }
     }
-    
+
     GlobalParameters.get.setupApUtilDebug
 
     if(princess) Prover.setProver(lazabs.prover.TheoremProver.PRINCESS)
@@ -672,8 +661,8 @@ object Main {
         } else if (fileName endsWith ".nts") {
           format = InputFormat.Nts
           // then also choose -horn by default
-          horn = true         
-        } 
+          horn = true
+        }
 //        else if (fileName endsWith ".scala")
 //          format = InputFormat.Scala
 //        else if (fileName endsWith ".bip")
@@ -693,7 +682,7 @@ object Main {
     format match {
       case InputFormat.Prolog | InputFormat.SMTHorn //| InputFormat.Bip |
            //InputFormat.UppaalOG | InputFormat.UppaalRG |
-           //InputFormat.UppaalRelational 
+           //InputFormat.UppaalRelational
       =>
         // those formats can only be handled in Horn mode
         horn = true
@@ -702,14 +691,14 @@ object Main {
     }
 
     if (horn) {
-      
+
 /*      format match {
         case InputFormat.Bip =>
           // BIP mode
 //          lazabs.bip.HornBip.apply(fileName)
           return
         case InputFormat.UppaalRelational =>
-          // uses iterative relational encoding to solve the system 
+          // uses iterative relational encoding to solve the system
           lazabs.upp.Relational.apply(fileName, log)
           return
         case _ =>
@@ -742,25 +731,15 @@ object Main {
         return
       }
 
-/*
-    The HornSMTPrinter will not output sorts correctly, therefore
-    we currently print the clauses in the HornWrapper instead
-
       if(smtPrettyPrint) {
         println(HornSMTPrinter(clauseSet))
-        return
-      }
-      if(extractTemplates){
-        //do selection
-        lazabs.horn.TrainDataGeneratorSmt2(clauseSet, absMap, global, disjunctive,
-          drawRTree, lbe) //generate train data
         return
       }
       if (extractPredicates) {
         //do selection
         try {
           timeoutChecker()
-          lazabs.horn.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
+          lazabs.horn.concurrency.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
             drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
         } catch {
           case x:Any => {
@@ -770,8 +749,6 @@ object Main {
         }
         return
       }
- */
-
 
       if(solFileName != "") {
         val solution = lazabs.horn.parser.HornReader.apply(solFileName)
@@ -783,12 +760,8 @@ object Main {
         case _ => false
       }*/
 
-      try {
-        lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
-                          drawRTree, lbe)
-      } catch {
-        case PrintingFinishedException => // nothing more to do
-      }
+      lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
+                        drawRTree, lbe)
         
       return
 
@@ -821,12 +794,6 @@ object Main {
 
       if(extractTemplates){
         val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data by templates
-        return
-      }
-      if(extractPredicates){
-
-        val predicateGenerator=new lazabs.horn.concurrency.TrainDataGeneratorPredicate(smallSystem,system) //generate train data by predicates
-
         return
       }
 
