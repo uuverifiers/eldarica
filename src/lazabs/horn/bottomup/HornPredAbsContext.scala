@@ -212,6 +212,8 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
 
   // Hashing/sampling to speed up implication checks
 
+  var hasherChecksHit, hasherChecksMiss = 0
+
   val hasher =
     if (useHashing)
       new Hasher(sf.order, sf.reducerSettings)

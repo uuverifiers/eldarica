@@ -38,54 +38,60 @@ import ap.terfor.substitutions.ConstantSubst
 
 import Util._
 
-  case class RelationSymbol(pred : Predicate)(implicit val sf : SymbolFactory) {
-    import HornPredAbs.predArgumentSorts
+case class RelationSymbol(pred : Predicate)(implicit val sf : SymbolFactory) {
+  import HornPredAbs.predArgumentSorts
 
-    def arity = pred.arity
-    def name = pred.name
-    val argumentSorts = predArgumentSorts(pred)
-    val arguments = toStream {
-      case i => sf.genConstants(name, argumentSorts, "" + i)
-    }
-
-    val argumentITerms = arguments map (_.map(IExpression.i(_)))
-    override def toString = toString(0)
-    def toString(occ : Int) = name + "(" + (arguments(occ) mkString ", ") + ")"
+  def arity = pred.arity
+  def name = pred.name
+  val argumentSorts = predArgumentSorts(pred)
+  val arguments = toStream {
+    case i => sf.genConstants(name, argumentSorts, "" + i)
   }
 
-  case class RelationSymbolPred(rawPred : Conjunction,
-                                positive : Conjunction,
-                                negative : Conjunction,
-                                rs : RelationSymbol,
-                                predIndex : Int) {
-    import TerForConvenience._
+  val argumentITerms = arguments map (_.map(IExpression.i(_)))
+  override def toString = toString(0)
+  def toString(occ : Int) = name + "(" + (arguments(occ) mkString ", ") + ")"
+}
 
-    private val sf = rs.sf
-    private val argConsts = rs.arguments.head
+object RelationSymbolPred {
+  def apply(rawPred : Conjunction,
+            positive : Conjunction,
+            negative : Conjunction,
+            rs : RelationSymbol) =
+    new RelationSymbolPred(rawPred, positive, negative, rs)
+}
 
-    private def substMap(from : Seq[ConstantTerm],
-                         to : Seq[ConstantTerm])
-                       : Map[ConstantTerm, Term] =
-      (for ((oriC, newC) <- from.iterator zip to.iterator)
-       yield (oriC -> l(newC)(sf.order))).toMap
+class RelationSymbolPred(val rawPred : Conjunction,
+                         val positive : Conjunction,
+                         val negative : Conjunction,
+                         val rs : RelationSymbol) {
+  import TerForConvenience._
 
-    private def instanceStream(
-                  f : Conjunction) : Stream[Conjunction] =
-      f #:: {
-        for (cs <- rs.arguments.tail) yield {
-          ConstantSubst(substMap(argConsts, cs), sf.order)(f)
-        }
+  private val sf = rs.sf
+  private val argConsts = rs.arguments.head
+
+  private def substMap(from : Seq[ConstantTerm],
+                       to : Seq[ConstantTerm])
+                     : Map[ConstantTerm, Term] =
+    (for ((oriC, newC) <- from.iterator zip to.iterator)
+     yield (oriC -> l(newC)(sf.order))).toMap
+
+  private def instanceStream(f : Conjunction) : Stream[Conjunction] =
+    f #:: {
+      for (cs <- rs.arguments.tail) yield {
+        ConstantSubst(substMap(argConsts, cs), sf.order)(f)
       }
-
-    val posInstances = instanceStream(positive)
-    val negInstances = instanceStream(negative)
-
-    override def toString = DialogUtil.asString {
-      PrincessLineariser.printExpression(
-        rs.sf.postprocessing.processFormula(rawPred))
- //     print(positive)
- //     print(" / ")
- //     print(negative)
     }
+
+  val posInstances = instanceStream(positive)
+  val negInstances = instanceStream(negative)
+
+  override def toString = DialogUtil.asString {
+    PrincessLineariser.printExpression(
+      rs.sf.postprocessing.processFormula(rawPred))
+    //     print(positive)
+    //     print(" / ")
+    //     print(negative)
   }
+}
 

@@ -56,8 +56,6 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
   var matchCount = 0
   var matchTime : Long = 0  
 
-  var hasherChecksHit, hasherChecksMiss = 0
-
   //////////////////////////////////////////////////////////////////////////////
 
   val predicates =
@@ -68,14 +66,22 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
     (for (rs <- relationSymbols.values)
          yield (rs -> new ArrayBuffer[Stream[Int]])).toMap
 
+  val predicate2Index =
+    new MHashMap[RelationSymbolPred, Int]
+
+  private def predicateHashIndexesFor(pred : RelationSymbolPred) : Stream[Int] =
+    predicateHashIndexes(pred.rs)(predicate2Index(pred))
+
   //////////////////////////////////////////////////////////////////////////////
 
   def addRelationSymbolPred(pred : RelationSymbolPred) : Unit = {
-    assert(predicates(pred.rs).size == predicateHashIndexes(pred.rs).size &&
-           pred.predIndex == predicates(pred.rs).size)
+    assert(predicates(pred.rs).size == predicateHashIndexes(pred.rs).size)
 
-    predicates(pred.rs) +=
-      pred
+    val predBuf = predicates(pred.rs)
+
+    predicate2Index.put(pred, predBuf.size)
+    predBuf += pred
+
     predicateHashIndexes(pred.rs) +=
       (for (f <- pred.posInstances) yield (hasher addFormula f))
   }
@@ -88,7 +94,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
     hasher assertFormula clauseHashIndexes(clause)
     for ((state, (rs, occ)) <- from.iterator zip clause.body.iterator)
       for (pred <- state.preds) {
-        val id = predicateHashIndexes(rs)(pred.predIndex)(occ)
+        val id = predicateHashIndexesFor(pred)(occ)
         hasher assertFormula id
       }
   }
@@ -96,15 +102,16 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
   def addIPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit =
     for ((p, preds) <- preds) {
       val rs = relationSymbols(p)
-      for ((f, predIndex) <- preds.iterator.zipWithIndex) {
+      for (f <- preds) {
         val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
         val (rawF, posF, negF) = rsPredsToInternal(intF)
-        val pred = RelationSymbolPred(rawF, posF, negF, rs, predIndex)
+        val pred = RelationSymbolPred(rawF, posF, negF, rs)
         addRelationSymbolPred(pred)
       }
     }
 
-  def elimQuansIfNecessary(c : Conjunction, positive : Boolean) : Conjunction =
+  private def elimQuansIfNecessary(c : Conjunction,
+                                   positive : Boolean) : Conjunction =
     if (ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
            if (positive) c else c.negate, Map())) {
       c
@@ -116,8 +123,8 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       newC
     }
 
-  def rsPredsToInternal(f : IFormula)
-                     : (Conjunction, Conjunction, Conjunction) = {
+  private def rsPredsToInternal(f : IFormula)
+                             : (Conjunction, Conjunction, Conjunction) = {
     val rawF = sf.toInternalClausify(f)
     val posF = elimQuansIfNecessary(sf.preprocess(
                                       sf.toInternalClausify(~f)).negate, true)
@@ -132,7 +139,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
                                   reducer : ReduceWithConjunction,
                                   prover : => ModelSearchProver.IncProver,
                                   order : TermOrder) : Boolean = {
-    val hasherId = predicateHashIndexes(pred.rs)(pred.predIndex)(rsOcc)
+    val hasherId = predicateHashIndexesFor(pred)(rsOcc)
 
     if (hasher mightBeImplied hasherId) {
       val res = predIsConsequence(pred, rsOcc, reducer, prover, order)
@@ -211,14 +218,14 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
    * Split a new predicate into conjuncts, which can be treated
    * then as separate predicates.
    */
-  def splitPredicate(f : Conjunction) : Iterator[Conjunction] =
+  private def splitPredicate(f : Conjunction) : Iterator[Conjunction] =
     if (f.quans.isEmpty)
       f.iterator
     else
       Iterator single f
 
-  def reallyAddPredicate(f : Conjunction,
-                         rs : RelationSymbol) : Boolean =
+  private def reallyAddPredicate(f : Conjunction,
+                                 rs : RelationSymbol) : Boolean =
     !f.isFalse && !f.isTrue &&
     !(predicates(rs) exists (_.rawPred == f)) && {
       // check whether the predicate is subsumed by older predicates
@@ -235,10 +242,10 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       }
     }
 
-  def genSymbolPred(f : Conjunction,
-                    rs : RelationSymbol) : RelationSymbolPred =
+  private def genSymbolPred(f : Conjunction,
+                            rs : RelationSymbol) : RelationSymbolPred =
     if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
-      RelationSymbolPred(f, f, f, rs, predicates(rs).size)
+      RelationSymbolPred(f, f, f, rs)
     } else {
       // some simplification, to avoid quantifiers in predicates
       // as far as possible, or at least provide good triggers
@@ -256,7 +263,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)
 
-      RelationSymbolPred(rawF, posF, negF, rs, predicates(rs).size)
+      RelationSymbolPred(rawF, posF, negF, rs)
     }
 
   /**
