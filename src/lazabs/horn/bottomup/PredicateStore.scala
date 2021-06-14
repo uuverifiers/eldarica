@@ -86,7 +86,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       (for (f <- pred.posInstances) yield (hasher addFormula f))
   }
 
-  def addRelationSymbolPreds(preds : Seq[RelationSymbolPred]) : Unit =
+  def addRelationSymbolPreds(preds : Iterable[RelationSymbolPred]) : Unit =
     for (pred <- preds) addRelationSymbolPred(pred)
 
   def addHasherAssertions(clause : NormClause,
