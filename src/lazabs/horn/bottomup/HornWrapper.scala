@@ -158,12 +158,6 @@ class HornWrapper(constraints: Seq[HornClause],
 //    if (GlobalParameters.get.printHornSimplified)
 //      printMonolithic(unsimplifiedClauses)
 
-  if (GlobalParameters.get.smtPrettyPrint) {
-    for (c <- unsimplifiedClauses)
-      println(c.toSMTString)
-    throw PrintingFinishedException
-  }
-
   //////////////////////////////////////////////////////////////////////////////
 
   private def readHints(filename : String,

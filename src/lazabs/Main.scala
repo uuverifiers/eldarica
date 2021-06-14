@@ -593,15 +593,10 @@ object Main {
         return
       }
 
-/*
-    The HornSMTPrinter will not output sorts correctly, therefore
-    we currently print the clauses in the HornWrapper instead
-
       if(smtPrettyPrint) {
         println(HornSMTPrinter(clauseSet))
         return
       }
- */
 
       if(solFileName != "") {
         val solution = lazabs.horn.parser.HornReader.apply(solFileName)
