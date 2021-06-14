@@ -61,9 +61,9 @@ class GlobalParameters extends Cloneable {
   var generateSimplePredicates=false
   var moveFile = false
   var maxNode=1000000
-  var threadTimeout = 300000
-  var solvabilityTimeout=300000
-  var mainTimeout=300000
+  var threadTimeout = 60*60*1000
+  var solvabilityTimeout=60*60*1000
+  var mainTimeout=60*60*1000
   var extractTemplates=false
   var extractPredicates=false
   var separateByPredicates=false
