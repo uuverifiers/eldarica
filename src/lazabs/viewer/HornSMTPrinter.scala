@@ -63,6 +63,8 @@ object HornSMTPrinter {
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
     case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
+    case HeapType(s) => s.name
+    case HeapAddressType(heap) => heap.AddressSort.name
     case _ => "Int"
   }
   
