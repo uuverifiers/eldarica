@@ -91,7 +91,21 @@ object HornWrapper {
                       i(false)
                     else
                       subst(fullSol(head.pred), head.args.toList, 0))
-                ??? == ProverStatus.Valid
+                ??? match {
+                  case ProverStatus.Valid => true // ok
+                  case ProverStatus.Invalid => {
+                    Console.err.println("Verification of clause failed, clause is not satisfied:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Countermodel: " + partialModel)
+                    false
+                  }
+                  case s => {
+                    Console.err.println("Warning: Verification of clause was not possible:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Checker said: " + s)
+                    true
+                  }
+                }
               }}})
   }
 
