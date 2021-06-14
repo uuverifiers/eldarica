@@ -44,9 +44,9 @@ object HornSMTPrinter {
   def apply(system: Seq[HornClause]): String =
     "(set-info :origin \"Horn problem converted to SMT-LIB2 using Eldarica (https://github.com/uuverifiers/eldarica)\")\n" +
     "(set-logic HORN)\n" +
-    system.map(Horn.getRelVarArities(_)).flatten.distinct
+    system.map(Horn.getRelVarSignatures(_)).flatten.distinct
       .map(rv => "(declare-fun " + quoteIdentifier(rv._1) +
-                 " " + (0 until rv._2).map(_ => "Int").mkString("("," ",")") +
+                 " " + rv._2.map(type2String).mkString("("," ",")") +
                  " Bool)").mkString("\n") + "\n" +
       system.map(print).mkString("\n") + "\n(check-sat)"
 
@@ -63,6 +63,8 @@ object HornSMTPrinter {
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
     case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
+    case HeapType(s) => s.name
+    case HeapAddressType(heap) => heap.AddressSort.name
     case _ => "Int"
   }
   

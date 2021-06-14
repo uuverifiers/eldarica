@@ -735,6 +735,7 @@ object Main {
         println(HornSMTPrinter(clauseSet))
         return
       }
+
       if (extractPredicates) {
         //do selection
         try {
@@ -749,6 +750,7 @@ object Main {
         }
         return
       }
+
 
       if(solFileName != "") {
         val solution = lazabs.horn.parser.HornReader.apply(solFileName)

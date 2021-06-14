@@ -91,15 +91,30 @@ object HornWrapper {
           // nothing
         }
 
-        !! (constraint)
-        for (IAtom(pred, args) <- body)
-          !! (subst(fullSol(pred), args.toList, 0))
-        ?? (if (head.pred == HornClauses.FALSE)
-          i(false)
-        else
-          subst(fullSol(head.pred), head.args.toList, 0))
-        ??? == ProverStatus.Valid
-      }}})
+                !! (constraint)
+                for (IAtom(pred, args) <- body)
+                  !! (subst(fullSol(pred), args.toList, 0))
+                ?? (if (head.pred == HornClauses.FALSE)
+                      i(false)
+                    else
+                      subst(fullSol(head.pred), head.args.toList, 0))
+                ??? match {
+                  case ProverStatus.Valid => true // ok
+                  case ProverStatus.Invalid => {
+                    Console.err.println("Verification of clause failed, clause is not satisfied:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Countermodel: " + partialModel)
+                    false
+                  }
+                  case s => {
+                    Console.err.println("Warning: Verification of clause was not possible:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Checker said: " + s)
+                    true
+                  }
+                }
+              }}})
+
   }
 
   def verifyCEX(fullCEX : HornPreprocessor.CounterExample,
@@ -164,12 +179,6 @@ class HornWrapper(constraints: Seq[HornClause],
 
   //    if (GlobalParameters.get.printHornSimplified)
   //      printMonolithic(unsimplifiedClauses)
-
-  if (GlobalParameters.get.smtPrettyPrint) {
-    for (c <- unsimplifiedClauses)
-      println(c.toSMTString)
-    throw PrintingFinishedException
-  }
 
   //////////////////////////////////////////////////////////////////////////////
 
