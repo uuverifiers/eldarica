@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ import ap.types.MonoSortedPredicate
 
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException}
+import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -49,7 +49,6 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import HornPredAbs.{RelationSymbol}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  StaticAbstractionBuilder, AbstractionRecord,
                                  VerificationHints, EmptyVerificationHints}
@@ -92,7 +91,21 @@ object HornWrapper {
                       i(false)
                     else
                       subst(fullSol(head.pred), head.args.toList, 0))
-                ??? == ProverStatus.Valid
+                ??? match {
+                  case ProverStatus.Valid => true // ok
+                  case ProverStatus.Invalid => {
+                    Console.err.println("Verification of clause failed, clause is not satisfied:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Countermodel: " + partialModel)
+                    false
+                  }
+                  case s => {
+                    Console.err.println("Warning: Verification of clause was not possible:")
+                    Console.err.println(clause.toPrologString)
+                    Console.err.println("Checker said: " + s)
+                    true
+                  }
+                }
               }}})
   }
 
@@ -220,6 +233,7 @@ class HornWrapper(constraints: Seq[HornClause],
       println("Clauses after preprocessing:")
       for (c <- simplifiedClauses)
         println(c.toPrologString)
+      throw PrintingFinishedException
 
       //val aux = simplifiedClauses map (horn2Eldarica(_))
 //      val aux = horn2Eldarica(simplifiedClauses)
@@ -228,6 +242,13 @@ class HornWrapper(constraints: Seq[HornClause],
 //      println("-------------------------------")
 //      printClauses(simplifiedClauses)
 //      println("-------------------------------")
+    }
+
+    if (GlobalParameters.get.printHornSimplifiedSMT) {
+      println("Clauses after preprocessing (SMT-LIB):")
+      for (c <- simplifiedClauses)
+          println(c.toSMTString)
+      throw PrintingFinishedException
     }
 
     (simplifiedClauses, simpPreHints, backTranslator)
@@ -385,9 +406,9 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
-        HornPredAbs.CounterexampleMethod.AllShortest
+        CEGAR.CounterexampleMethod.AllShortest
       else
-        HornPredAbs.CounterexampleMethod.FirstBestShortest
+        CEGAR.CounterexampleMethod.FirstBestShortest
 
     val result = Console.withOut(outStream) {
       println

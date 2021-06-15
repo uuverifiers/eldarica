@@ -53,6 +53,7 @@ Initially:                                             4         2
 
 
 Theories: Types, ADT(true, false)
+State hashing enabled
 Unique satisfiable clauses: 3
    1 clauses with 0 body literals
    2 clauses with 1 body literals
@@ -64,6 +65,7 @@ Final number of matched abstract states:               1
 Final number of abstract edges:                        2
 Number of generated predicates:                        1
 Average predicate size (# of sub-formulas):            1.00
+
 
 --------------------------------------------------------------------------------
 

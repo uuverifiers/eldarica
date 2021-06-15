@@ -34,7 +34,7 @@ import UppAst._
 import lazabs.ast.ASTree._
 import lazabs.utils.Manip._
 import HornUpp._
-import lazabs.horn.bottomup.HornPredAbs.{RelationSymbol}
+import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice}
 
 
