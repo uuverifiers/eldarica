@@ -76,7 +76,7 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
     (theories exists {
        case ap.theories.GroebnerMultiplication  => true
        case ap.theories.ModuloArithmetic        => true
-       case _ : ap.theories.ADT                 => true
+       case adt : ap.theories.ADT               => adt.isEnum contains false
        case _                                   => false
      })
 
