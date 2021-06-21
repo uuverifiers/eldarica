@@ -100,7 +100,7 @@ object HintsSelection {
       res match {
         case Left(a) => {
           satisfiability = true
-          cegarGeneratedPredicates  = HintsSelection.transformPredicatesToCanonical(cegar.relevantPredicates,simplePredicatesGeneratorClauses)
+          cegarGeneratedPredicates  = transformPredicatesToCanonical(cegar.relevantPredicates,simplePredicatesGeneratorClauses)
         }
         case Right(b) => {
           println(Console.RED + "-"*10+"unsat"+"-"*10)
@@ -389,14 +389,22 @@ object HintsSelection {
         val (dataflow,guardList)=HintsSelection.getDataFlowAndGuardWitoutPrint(clause)
         clause->guardList
       }).toMap
-    val guardSize=guardMap.values.flatten.size
-    val positiveGaurd= (for ((k,v)<-selectedPredicates.toInitialPredicates;(clause,guardList)<-guardMap;a<-clause.allAtoms;if a.pred.name==k.name) yield{
+
+    var currentGuardList:Seq[IFormula]=Seq()
+
+    for ((clause,guardList)<-guardMap;a<-clause.allAtoms){
       val replacedGuardSet=for (g<-guardList) yield{
         val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
         predicateQuantify(ConstantSubstVisitor(g,sub))
       }
-      for (pp<-v; if HintsSelection.containsPred(pp,replacedGuardSet)) yield pp
-    }).flatten
+      currentGuardList=nonredundantSet(currentGuardList,replacedGuardSet)
+    }
+
+    val positiveGaurd=for ((k,v)<-selectedPredicates.toInitialPredicates) yield{
+      for (vv<-v;if HintsSelection.containsPred(vv,currentGuardList)) yield {k->vv}
+    }
+    val guardSize=currentGuardList.size//guardMap.values.flatten.size
+    val redundantGuardSize=guardMap.values.flatten.size
 //    println("guardSize",guardSize)
 //    println("positiveGaurd",positiveGaurd.size)
 
@@ -438,6 +446,7 @@ object HintsSelection {
       ("redundantPairwisePredicate",pairwisePredicatesSize),
       ("positiveRedundantPairwisePredicate",positivePairwisePredicateSize),
       ("total guards",guardSize),
+      ("redundant guards",redundantGuardSize),
       ("positiveGuards",positiveGaurd.size),
       ("predicatesFromCEGAR",predicatesFromCEGARSize),
       ("positivePredicatesFromCEGAR",positivePredicatesFromCEGARSize),
@@ -472,6 +481,7 @@ object HintsSelection {
       writer.println("       negativePredicatesFromCEGAR:"+(predicatesFromCEGAR.values.flatten.size-positivePredicatesFromCEGARSize).toString)
 
       writer.println("total guards:"+guardSize.toString)
+      writer.println("       redundantGuards:"+redundantGuardSize.toString)
       writer.println("       positiveGuards:"+positiveGaurd.size.toString)
       writer.println("       negativeGuards:"+(guardSize-positiveGaurd.size).toString)
 
@@ -766,7 +776,8 @@ object HintsSelection {
     val guardSeq = guardList.toSeq.sortBy(_.toString)
     (dataFlowSeq, guardSeq)
   }
-  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,verbose:Boolean=false):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
+  def getSimplePredicates( simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,
+                           verbose:Boolean=false,deduplicate:Boolean=true):  (Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]],Map[Predicate, Seq[IFormula]]) ={
     println("ap.CmdlMain.version",ap.CmdlMain.version)
     println("begin generating initial predicates")
     val generatePredicatesBeginTime=System.currentTimeMillis
@@ -792,6 +803,7 @@ object HintsSelection {
     }
     //generate predicates from constraint
     val generatePredicatesFromConstraintBeginTime=System.currentTimeMillis
+    var tempCounter=0
     for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
       val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
       val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
@@ -813,9 +825,11 @@ object HintsSelection {
           LineariseVisitor(simplifiedConstraint,IBinJunctor.And)
         }
       }.map(spAPI.simplify(_)).filterNot(_.isFalse).filterNot(_.isTrue)
-      println("---")
+      println("--"+tempCounter+"--")
+      tempCounter=tempCounter+1
       println("clause",clause.toPrologString)
-      println("atom",atom)
+      val argsType=for(a<-atom.args) yield if(isArgBoolean(a)) "Bool" else "Int"
+      println("atom",atom,"type",argsType)
       println("argumentReplacedPredicates",argumentReplacedPredicates)
       println("quantifiedConstraints",quantifiedConstraints)
       println("simplifiedConstraint",simplifiedConstraint)
@@ -830,16 +844,7 @@ object HintsSelection {
     val generatePredicatesFromConstraintTime=(System.currentTimeMillis-generatePredicatesFromConstraintBeginTime)/1000
     //HintsSelection.transformPredicateMapToVerificationHints(constraintPredicates).pretyPrintHints()
     println(Console.BLUE + "number of predicates from constraint:"+(for (k<-constraintPredicates) yield k._2).flatten.size,"time consumption:"+generatePredicatesFromConstraintTime+" s")
-    //add constraint predicates to predicateMap
-    val deduplicateConstraintPredicateBeginTime=System.currentTimeMillis
-    for ((k,v)<-constraintPredicates){
-      predicateMap=addNewPredicateList(predicateMap,k,v)
-    }
-//    constraintPredicates=predicateMap
-    val deduplicateConstraintPredicateTime=(System.currentTimeMillis-deduplicateConstraintPredicateBeginTime)/1000
-    println(Console.BLUE +"adding and deduplicating predicates from constraint to initial predicates, time consumption:"+deduplicateConstraintPredicateTime+" s")
-    println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
-    println("-"*10)
+
     //generate pairwise predicates from constraint
     val generatePredicatesFromPairwiseBeginTime=System.currentTimeMillis
     val integerConstantVisitor = new LiteralCollector
@@ -870,20 +875,36 @@ object HintsSelection {
     }
     val generatePredicatesFromPairwiseTime=(System.currentTimeMillis-generatePredicatesFromPairwiseBeginTime)/1000
     println(Console.BLUE + "number of pairwise predicates:"+(for (k<-pairWiseVariablePredicates) yield k._2).flatten.size,"time consumption:"+generatePredicatesFromPairwiseTime+" s")
-    //add pairwise variable to predicateMap
-    val deduplicatePairwisePredicateBeginTime=System.currentTimeMillis
-    for ((k,v)<-pairWiseVariablePredicates){
-      predicateMap=addNewPredicateList(predicateMap,k,v)
-    }
-    val deduplicatePairwisePredicateTime=(System.currentTimeMillis-deduplicatePairwisePredicateBeginTime)/1000
-    println(Console.BLUE +"adding and deduplicating predicates from pairwise predicates to initial predicates, time consumption:"+deduplicatePairwisePredicateTime+" s")
-    println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
 
-    val variedPredicates=
-      if(GlobalParameters.get.varyGeneratedPredicates==true)
-        HintsSelection.varyPredicates(predicateMap)
-      else
+//    val variedPredicates=
+//      if(GlobalParameters.get.varyGeneratedPredicates==true)
+//        HintsSelection.varyPredicates(predicateMap)
+//      else
+//        predicateMap
+    val finalGeneratedPredicates=
+      if (deduplicate==true) {
+        //add constraint predicates to predicateMap
+        val deduplicateConstraintPredicateBeginTime=System.currentTimeMillis
+        for ((k,v)<-constraintPredicates){
+          predicateMap=addNewPredicateList(predicateMap,k,v)
+        }
+        val deduplicateConstraintPredicateTime=(System.currentTimeMillis-deduplicateConstraintPredicateBeginTime)/1000
+        println(Console.BLUE +"adding and deduplicating predicates from constraint to initial predicates, time consumption:"+deduplicateConstraintPredicateTime+" s")
+        println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
+        println("-"*10)
+        //add pairwise variable to predicateMap
+        val deduplicatePairwisePredicateBeginTime=System.currentTimeMillis
+        for ((k,v)<-pairWiseVariablePredicates){
+          predicateMap=addNewPredicateList(predicateMap,k,v)
+        }
+        val deduplicatePairwisePredicateTime=(System.currentTimeMillis-deduplicatePairwisePredicateBeginTime)/1000
+        println(Console.BLUE +"adding and deduplicating predicates from pairwise predicates to initial predicates, time consumption:"+deduplicatePairwisePredicateTime+" s")
+        //println(Console.BLUE + "number of predicates in initial predicates:"+(for (k<-predicateMap) yield k._2).flatten.size)
         predicateMap
+      } else {
+        mergePredicateMaps(constraintPredicates,pairWiseVariablePredicates)
+      }
+    println(Console.BLUE + "number of predicates in initial predicates:"+finalGeneratedPredicates.values.flatten.size)
 
     val initialPredicateGeneratingTime=(System.currentTimeMillis-generatePredicatesBeginTime)/1000
     println("end generating initial predicates, time consumption",initialPredicateGeneratingTime,"(s)")
@@ -897,9 +918,9 @@ object HintsSelection {
 //      println("--------predicates from merged---------")
 //      for(cc<-merge; b<-cc._2) println(cc._1,b)
       println("--------all generated predicates---------")
-      for((k,v)<-variedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
+      for((k,v)<-finalGeneratedPredicates;(p,i)<-v.zipWithIndex) println(k,i,p)
     }
-    (variedPredicates,constraintPredicates,pairWiseVariablePredicates)
+    (finalGeneratedPredicates,constraintPredicates,pairWiseVariablePredicates)
   }
   def mergePredicateMaps(first:Map[Predicate,Seq[IFormula]],second:Map[Predicate,Seq[IFormula]]): Map[Predicate,Seq[IFormula]] ={
     if (first.isEmpty)

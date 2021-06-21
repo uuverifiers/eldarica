@@ -435,7 +435,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
     val initialPredicates=
       if (GlobalParameters.get.generateSimplePredicates==true){
-        val (simpleGeneratedPredicates,constraintPredicates,pairwisePredicates) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+        val (simpleGeneratedPredicates,constraintPredicates,pairwisePredicates)
+        =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph,deduplicate = false)
         if (!simpleGeneratedPredicates.isEmpty){
           Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
             AbsReader.printHints(transformPredicateMapToVerificationHints(constraintPredicates))}
@@ -478,9 +479,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     val constraintPredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"constraintPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     val pairwisePredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"pairwisePredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
-    //generate by simple generator
-    //val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-    //val simpleGeneratedInitialPredicates = transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
+
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates) ++ simpHints
@@ -550,7 +549,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       truePositiveHints
     }
     else if (GlobalParameters.get.generateSimplePredicates == true) {
-      val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false)
+      val (simpleGeneratedPredicates, _, _) =
+        HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false,deduplicate = false)
       transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
     }
     else simpHints
@@ -577,14 +577,16 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         "----------------------------------- CEGAR --------------------------------------")
 
       val predAbs =
-
         new HornPredAbs(simplifiedClausesForGraph,
                         initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
                         counterexampleMethod)
 
+//      val predicateMiner=new PredicateMiner(predAbs)
+//      predicateMiner.printPreds(predicateMiner.allPredicates)
+
       //todo: add clause in hyperedge graph
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
-        val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)
+        val clausesInCE=getClausesInCounterExamples(predAbs.result,simplifiedClausesForGraph)
 
         val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
         val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
