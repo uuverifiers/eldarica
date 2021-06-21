@@ -100,7 +100,7 @@ object HornPrinter {
       case Equality(e1, e2) => "(" + printExp(e1) + " = " + printExp(e2) + ")"
       case Inequality(e1, e2) => "\\" + "+(" + printExp(e1) + " = " + printExp(e2) + ")"
       case LessThanEqual(e1, e2) => "(" + printExp(e1) + " =< " + printExp(e2) + ")"
-      case Modulo(e1, e2) => 
+      case Modulo(e1, e2) =>
         "(" + printExp(e1) + " mod " + printExp(e2) + ")"
       case ArraySelect(ar, ind) =>
         "select(" + printExp(ar) + ", " + printExp(ind) + ")"
@@ -128,7 +128,7 @@ object HornPrinter {
       case HeapPred(heap, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
       // TODO: ??
-      case Variable(_,Some(index)) => 
+      case Variable(_,Some(index)) =>
         if (index < vars.size)
           vars(index)
         else

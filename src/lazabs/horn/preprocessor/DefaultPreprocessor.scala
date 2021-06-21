@@ -58,6 +58,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def extendingStages : List[HornPreprocessor] =
     List(new HeapSizeArgumentExtender,
+         //new HeapObjectArgumentExtender,
          new SizeArgumentExtender,
          new CtorTypeExtender)
 

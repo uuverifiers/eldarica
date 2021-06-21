@@ -693,6 +693,7 @@ class ConstraintSimplifier extends HornPreprocessor {
         if pred == heap.isAlloc =>
         //println("valid(" + h + ", " + a + ")")
         validPairs += HeapAddressPair(h, a)
+        newConjuncts += conjunct // conjunct unchanged
 
       case _ =>
         newConjuncts += conjunct // conjunct unchanged
@@ -710,11 +711,15 @@ class ConstraintSimplifier extends HornPreprocessor {
       }
     }
 
+    val addedConjuncts = new ArrayBuffer[(IFunction, Seq[ITerm], IConstant)]
+
     var changed = false
 
     for ((ar, AllocInfo(allocApp, theory, conjunct)) <- allocs) {
       (allocNewHeaps get ar, allocNewAddrs get ar) match {
         case (Some(NewHeapInfo(h, _, _)), Some(NewAddrInfo(a, _, _))) =>
+          addedConjuncts += ((theory.allocHeap, allocApp.args, h))
+          addedConjuncts += ((theory.allocAddr, allocApp.args, a))
           newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
           newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
           changed = true
@@ -727,8 +732,10 @@ class ConstraintSimplifier extends HornPreprocessor {
     for ((ar, NewHeapInfo(h, theory, conjunct)) <- allocNewHeaps) {
       allocs get ar match {
         case Some(AllocInfo(allocApp,_,_)) =>
-          newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
-          changed = true
+          if (!(addedConjuncts contains ((theory.allocHeap, allocApp.args, h)))) {
+            newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+            changed = true
+          } else { /* remove newHeap conjunct */ }
         case _ =>
           newConjuncts += conjunct // do not rewrite the constraint
       }
@@ -738,17 +745,19 @@ class ConstraintSimplifier extends HornPreprocessor {
     for ((ar, NewAddrInfo(a, theory, conjunct)) <- allocNewAddrs) {
       allocs get ar match {
         case Some(AllocInfo(allocApp,_,_)) =>
-          newConjuncts += IFunApp (theory.allocAddr, allocApp.args) === a
-          changed = true
+          if (!(addedConjuncts contains ((theory.allocAddr, allocApp.args, a)))) {
+            newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+            changed = true
+          } else { /* remove newAddr conjunct */ }
         case _ =>
           newConjuncts += conjunct // do not rewrite the constraint
       }
     }
 
     // read(h,a) = o -> o = o2 (if we know what is at <h,a>)
-    for ((pair, (o, conjunct)) <- reads if validPairs contains pair) {
+    for ((pair, (o, conjunct)) <- reads) {
       pairToObject get pair match {
-        case Some(o2) =>
+        case Some(o2) if validPairs contains pair =>
           //println("replacing " + conjunct + " with " + (o2 === o))
           newConjuncts += o2 === o // replace read
           changed = true
@@ -756,10 +765,10 @@ class ConstraintSimplifier extends HornPreprocessor {
       }
     }
 
-    //if(changed) {
-    //  println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
-    //  println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
-   // }
+    if(changed) {
+      println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
+      println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+    }
 
     if (changed)
       Some(newConjuncts)

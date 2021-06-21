@@ -111,21 +111,25 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
     }
 
   private def elimQuansIfNecessary(c : Conjunction,
-                                   positive : Boolean) : Conjunction =
+                                   positive : Boolean) : Conjunction = {
+    println("C   : " + c)
     if (ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
            if (positive) c else c.negate, Map())) {
       c
     } else {
       val newC = PresburgerTools.elimQuantifiersWithPreds(c)
+      println("newC: " + newC)
       if (!ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
               if (positive) newC else newC.negate, Map()))
         throw new Exception("Cannot handle general quantifiers in predicates at the moment")
       newC
     }
+  }
 
   private def rsPredsToInternal(f : IFormula)
                              : (Conjunction, Conjunction, Conjunction) = {
     val rawF = sf.toInternalClausify(f)
+    println("rawF:" + f)
     val posF = elimQuansIfNecessary(sf.preprocess(
                                       sf.toInternalClausify(~f)).negate, true)
     val negF = elimQuansIfNecessary(sf.preprocess(

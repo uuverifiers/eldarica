@@ -484,7 +484,7 @@ object SimplePropagators {
                                            p._2 == ValidElem ||
                                            p._2 == NotAllocElem)
         val isNull = subMap.exists(p => p._2 == NullElem)
-        assert(!(isNull & isNotNull))
+        if(isNull & isNotNull) return false
         val addrVal =
           if (isNull) NullElem
           else if(isNotNull) ValidOrNotAllocElem
@@ -786,33 +786,33 @@ object SimplePropagators {
             val pairInfo = extractPairInfo(pair)
             val (heapTerm, addrTerm, theory) =
               (pairInfo.heapTerm, pairInfo.addrTerm, pairInfo.heapTheory)
-            val nullAddr = theory.nullAddr
-            val valid = theory.isAlloc
+            import theory.{nullAddr, read, _defObj}
+            val valid = theory.isAlloc // change predicate name to valid?
             elem match {
               case UnknownElem => // top, no information
               case NullOrValidElem =>
                 println("NullOrValidElem")
-              // a === nullAddr() || valid(h,a) ? -> the disjunction might cause an infinite loop here
-                //newConstraint = newConstraint & // do not add anything valid
-                //  ((addrTerm === nullAddr()) ||| valid(heapTerm, addrTerm)) //  later on split the clause into two possible cases,
-                // or not add anything? experiment if we get an infinite loop
+              // a === nullAddr() || valid(h,a) ? -> the disjunction might cause an infinite loop
+                //newConstraint = newConstraint &
+                //  ((addrTerm === nullAddr()) ||| valid(heapTerm, addrTerm)) //  todo: later on split the clause into two possible cases?
               case NullOrNotAllocElem =>  // a.k.a. invalid
                 println("NullOrNotAllocElem")
-                newConstraint = newConstraint & !valid(heapTerm, addrTerm)
+                //newConstraint = newConstraint &&& !valid(heapTerm, addrTerm)
               case ValidOrNotAllocElem =>  // a.k.a. not null
                 println("ValidOrNotAllocElem")
-                newConstraint = newConstraint & addrTerm =/= nullAddr() // add this as a case as well to the propagator
+                //newConstraint = newConstraint &&& addrTerm =/= nullAddr() // add this as a case as well to the propagator
               case NullElem =>
                 println("NullElem")
-                newConstraint = newConstraint & (addrTerm === nullAddr())
+                //newConstraint = newConstraint &&& (addrTerm === nullAddr()) &
+                //                read(heapTerm, addrTerm) === _defObj
+
               case ValidElem =>
                 println("ValidElem")
-                newConstraint = newConstraint & valid(heapTerm, addrTerm)
+                //newConstraint = newConstraint &&& valid(heapTerm, addrTerm)
               case NotAllocElem =>
                 println("NotAllocElem")
-                //newConstraint = newConstraint & (addrTerm =/= nullAddr())
-                newConstraint = newConstraint & // not so sure about this case
-                  addrTerm =/= nullAddr() & !valid(heapTerm, addrTerm)
+                //newConstraint = newConstraint &&&
+                //  addrTerm =/= nullAddr() & !valid(heapTerm, addrTerm)
                 // this implies a > heapSize(h)
               case _ =>
                 assert(false) // should not be possible
