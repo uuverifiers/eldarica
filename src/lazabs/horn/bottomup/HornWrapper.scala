@@ -37,7 +37,7 @@ import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
+import lazabs.Main.{PrintingFinishedException, StoppedException, TimeoutException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -48,10 +48,7 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-                                 StaticAbstractionBuilder, AbstractionRecord,
-                                 VerificationHints, EmptyVerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
@@ -59,7 +56,7 @@ import lazabs.horn.concurrency.ReaderMain
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, transformPredicateMapToVerificationHints}
 
 import java.util
 import scala.collection.immutable.Set
@@ -438,25 +435,37 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
     val initialPredicates=
       if (GlobalParameters.get.generateSimplePredicates==true){
-        val (simpleGeneratedPredicates,_,_) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-        HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++(simpHints)
+        val (simpleGeneratedPredicates,constraintPredicates,pairwisePredicates) =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
+        if (!simpleGeneratedPredicates.isEmpty){
+          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
+            AbsReader.printHints(transformPredicateMapToVerificationHints(constraintPredicates))}
+          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".pairwisePredicates.tpl")) {
+            AbsReader.printHints(transformPredicateMapToVerificationHints(pairwisePredicates))}
+        }
+        transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++(simpHints)
       }else{
         VerificationHints(Map()) ++ simpHints
       }
 
-    if(initialPredicates.isEmpty && GlobalParameters.get.generateSimplePredicates==true){
+    if(initialPredicates.totalPredicateNumber==0 && GlobalParameters.get.generateSimplePredicates==true){
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message="no initial predicates")
       sys.exit()
     }
 
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
-      AbsReader.printHints(initialPredicates)}
-    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
     val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
     //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    val hintCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
-    GraphTranslator.drawAllHornGraph(clauseCollection, hintCollection,argumentInfo,GlobalParameters.get.fileName)
+    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+
+    if (GlobalParameters.get.separateByPredicates==true){
+      GraphTranslator.separateGraphByPredicates(initialPredicates,VerificationHints(Map()),clauseCollection,argumentInfo)
+    }else{
+      val hintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))//labeledPredicates
+      GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+    }
+    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".unlabeledPredicates.tpl")) {
+      AbsReader.printHints(initialPredicates)}
     sys.exit()
   }
   if(GlobalParameters.get.getSMT2==true){
@@ -464,14 +473,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
   if (GlobalParameters.get.checkSolvability == true) {
     println("ap.CmdlMain.version",ap.CmdlMain.version)
-
     //read from unlabeled .tpl file
-    val debugX=HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates")
-    val simpleGeneratedInitialPredicates=HintsSelection.transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).filterNot(_.isTrue).filterNot(_.isFalse)))
-    //simpleGeneratedInitialPredicates.pretyPrintHints()
+    //val debugX=HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates")
+    val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
+    val constraintPredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"constraintPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
+    val pairwisePredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"pairwisePredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //generate by simple generator
     //val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph)
-    //val simpleGeneratedInitialPredicates = HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
+    //val simpleGeneratedInitialPredicates = transformPredicateMapToVerificationHints(simpleGeneratedPredicates)
     val fullInitialPredicates = simpleGeneratedInitialPredicates ++ (simpHints)
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph,fullInitialPredicates) ++ simpHints
@@ -479,11 +488,12 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates") else emptyInitialPredicates
       //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
     val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
-    val dataFold= if (truePredicates.isEmpty)
-    Map("emptyInitialPredicates"->emptyInitialPredicates,
-      "predictedInitialPredicates"->predictedPredicates,
-      "fullInitialPredicates"->fullInitialPredicates)
-    else
+    val dataFold=
+//      if (truePredicates.isEmpty)
+//    Map("emptyInitialPredicates"->emptyInitialPredicates,
+//      "predictedInitialPredicates"->predictedPredicates,
+//      "fullInitialPredicates"->fullInitialPredicates)
+//    else
       Map("emptyInitialPredicates"->emptyInitialPredicates,
         "predictedInitialPredicates"->predictedPredicates,
         "fullInitialPredicates"->fullInitialPredicates,
@@ -499,16 +509,25 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       //get minimized useful set and see how many initial predicates are in it
       val (minimizedPredicateFromCegar,_)=HintsSelection.getMinimumSetPredicates(predicateFromCegar,simplifiedClausesForGraph,counterexampleMethod=counterexampleMethod)
       //minimized predicates intersect initialPredicate
-      val initialPredicatesUsedInMinimizedPredicateFromCegar=HintsSelection.conjunctTwoPredicates(initialPredicate.toInitialPredicates, minimizedPredicateFromCegar)
-      if (GlobalParameters.get.log==true){
+      val initialPredicatesUsedInMinimizedPredicateFromCegar=conjunctTwoPredicates(initialPredicate.toInitialPredicates, minimizedPredicateFromCegar)
+      if (GlobalParameters.get.debugLog==true){
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initial-"+fieldName+".tpl")) {AbsReader.printHints(initialPredicate)}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".minimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(minimizedPredicateFromCegar))}
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".initialPredicatesUsedInMinimizedPredicateFromCegar-"+fieldName+".tpl")) {AbsReader.printHints(transformPredicateMapToVerificationHints(initialPredicatesUsedInMinimizedPredicateFromCegar))}
       }
+      val currentConstraintPredicates=transformPredicateMapToVerificationHints(conjunctTwoPredicates(initialPredicate.toInitialPredicates,constraintPredicates.toInitialPredicates))
+      val currentPairwisePredicates=transformPredicateMapToVerificationHints(conjunctTwoPredicates(initialPredicate.toInitialPredicates,pairwisePredicates.toInitialPredicates))
+      val statisticFields = HintsSelection.writePredicateDistributionToFiles(
+        transformPredicateMapToVerificationHints(predicateFromCegar),
+        transformPredicateMapToVerificationHints(minimizedPredicateFromCegar)
+        ,VerificationHints(Map()),VerificationHints(Map()),initialPredicate,
+        currentConstraintPredicates,currentPairwisePredicates,
+        simplifiedClausesForGraph,writeToFile = false).map(x=>(x._1+fieldName,x._2))
       Seq(("solveTime"+fieldName,solveTime),("solvability"+fieldName,solvability),
         ("numberOfinitialPredicates"+fieldName,initialPredicate.toInitialPredicates.values.flatten.size),
         ("minimizedPredicateFromCegar"+fieldName,minimizedPredicateFromCegar.values.flatten.size),
-        ("initialPredicatesUsedInMinimizedPredicateFromCegar"+fieldName,initialPredicatesUsedInMinimizedPredicateFromCegar.values.flatten.size))
+        ("initialPredicatesUsedInMinimizedPredicateFromCegar"+fieldName,
+          initialPredicatesUsedInMinimizedPredicateFromCegar.values.flatten.size)) ++statisticFields
     }).flatten.toSeq
 
     HintsSelection.writeInfoToJSON(solvabilityList,"solvability")
@@ -527,12 +546,12 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
       val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
         VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
-      else HintsSelection.readPredicateLabelFromJSON(initialHintsCollection, "templateRelevanceLabel")
+      else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection,"templateRelevanceLabel")
       truePositiveHints
     }
     else if (GlobalParameters.get.generateSimplePredicates == true) {
       val (simpleGeneratedPredicates, _, _) = HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false)
-      HintsSelection.transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
+      transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
     }
     else simpHints
 
@@ -579,7 +598,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       }
       //todo: debug A is not subset of B
 //      HintsSelection.printPredicateInMapFormat(initialPredicatesForCEGAR.toInitialPredicates,"A")
-//      HintsSelection.printPredicateInMapFormat(HintsSelection.transformPredicatesToCanonical(predAbs.predicates),"B")
+//      HintsSelection.printPredicateInMapFormat(transformPredicatesToCanonical(predAbs.predicates),"B")
 
 
       lazabs.GlobalParameters.get.predicateOutputFile match {

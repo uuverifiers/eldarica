@@ -126,6 +126,7 @@ class GlobalParameters extends Cloneable {
   var dumpInterpolationQuery = false
   var babarew = false
   var log = false
+  var debugLog= false
   var logCEX = false
   var logStat = false
   var printHornSimplified = false
@@ -210,6 +211,7 @@ class GlobalParameters extends Cloneable {
     that.template = this.template
     that.dumpInterpolationQuery = this.dumpInterpolationQuery
     that.babarew = this.babarew
+    that.debugLog=this.debugLog
     that.log = this.log
     that.logCEX = this.logCEX
     that.logStat = this.logStat
@@ -348,6 +350,7 @@ object Main {
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
+      case "-debugLog" :: rest => debugLog = true; arguments(rest)
       case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getHornGraph" :: rest => {
         getHornGraph = true
@@ -551,6 +554,7 @@ object Main {
           " -h\t\tShow this information\n" +
           " -assert\tEnable assertions in Eldarica\n" +
           " -log\t\tDisplay progress and found invariants\n" +
+          " -debugLog\t\tDisplay debug info\n" +
           " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" +
           " -statistics\tDisplay statistics (implied by -log)\n" +
           " -t:time\tSet timeout (in seconds)\n" +

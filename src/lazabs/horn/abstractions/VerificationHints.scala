@@ -145,7 +145,7 @@ object VerificationHints {
   trait VerificationHints {
     import VerificationHints._
 
-    val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
+    val predicateHints : Map[Predicate, Seq[VerifHintElement]]
     /////////////////DEBUG///////////
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
@@ -197,13 +197,13 @@ object VerificationHints {
                            yield (newP, hints)).toMap)
 
     def addPredicateHints(
-          hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
+          hints : Map[Predicate, Seq[VerifHintElement]]) =
       if (hints.isEmpty)
         this
       else
         VerificationHints(predicateHints ++ hints)
 
-    def toInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]] =
+    def toInitialPredicates : Map[Predicate, Seq[IFormula]] =
       (for ((p, hints) <- predicateHints.iterator;
             remHints = for (VerifHintInitPred(f) <- hints) yield f;
             if !remHints.isEmpty)
