@@ -410,7 +410,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
 
-    val result = Console.withOut(outStream) {
+    val predAbs = Console.withOut(outStream) {
       println
       println(
          "----------------------------------- CEGAR --------------------------------------")
@@ -419,8 +419,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         new HornPredAbs(simplifiedClauses,
                         simpHints.toInitialPredicates, predGenerator,
                         counterexampleMethod)
-      val result =
-        predAbs.result
 
       lazabs.GlobalParameters.get.predicateOutputFile match {
         case "" =>
@@ -444,10 +442,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         }
       }
 
-      result
+      predAbs
     }
 
-    result match {
+    if (lazabs.GlobalParameters.get.minePredicates)
+      new PredicateMiner(predAbs)
+
+    predAbs.result match {
       case Left(res) =>
         if (lazabs.GlobalParameters.get.needFullSolution) {
           val fullSol = preprocBackTranslator translate res
