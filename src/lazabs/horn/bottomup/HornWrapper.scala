@@ -571,19 +571,16 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
         CEGAR.CounterexampleMethod.FirstBestShortest
 
-    val result = Console.withOut(outStream) {
+    val predAbs = Console.withOut(outStream) {
       println
       println(
         "----------------------------------- CEGAR --------------------------------------")
 
       val predAbs =
+
         new HornPredAbs(simplifiedClausesForGraph,
-          //simpHints.toInitialPredicates,
-          initialPredicatesForCEGAR.toInitialPredicates,
-          predGenerator,
-          counterexampleMethod)
-      val result =
-        predAbs.result
+                        initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
+                        counterexampleMethod)
 
       //todo: add clause in hyperedge graph
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
@@ -623,10 +620,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         }
       }
 
-      result
+      predAbs
     }
 
-    result match {
+    if (lazabs.GlobalParameters.get.minePredicates)
+      new PredicateMiner(predAbs)
+
+    predAbs.result match {
       case Left(res) =>
         if (lazabs.GlobalParameters.get.needFullSolution) {
           val fullSol = preprocBackTranslator translate res
