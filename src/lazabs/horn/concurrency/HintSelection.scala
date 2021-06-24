@@ -595,7 +595,6 @@ object HintsSelection {
       Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".predictedHints.tpl")) {
         AbsReader.printHints(predictedHints)
       }
-
     predictedHints
   }
 
@@ -614,10 +613,10 @@ object HintsSelection {
 
   def readPredicateLabelFromMultipleJSON(initialHintsCollection: VerificationHintsInfo,
                                          simplifiedClausesForGraph: Clauses,readLabel:String="predictedLabel"): VerificationHints ={
-    //todo: restore predicates from separated files
+    //restore predicates from separated files
     val emptyMap:Map[Predicate,Seq[IFormula]]=Map()
     val totalPredicateNumber=initialHintsCollection.initialHints.totalPredicateNumber
-    val batch_size=getBatchSize(simplifiedClausesForGraph)
+    val batch_size=getBatchSize(simplifiedClausesForGraph,totalPredicateNumber)
     val trunk=(totalPredicateNumber/batch_size.toFloat).ceil.toInt
     val fimeNameList= for (t<- (0 until trunk))yield{GlobalParameters.get.fileName+"-"+t.toString}
     val allPositiveList=(for (fileName<-fimeNameList)yield{
@@ -727,12 +726,10 @@ object HintsSelection {
     //println(Console.BLUE + "clauseConstraintQuantify begin")
     SimpleAPI.withProver { p =>
       p.scope {
-        p.addConstantsRaw(clause.constants)
+        p.addConstantsRaw(clause.constants.toSeq.sortBy(_.toString()))
         val constants = for (a <- clause.allAtoms; c <- SymbolCollector.constants(a)) yield c
-        //println("current clause",clause.toPrologString)
-        //p.projectEx(clause.constraint,constants)
         try {
-          p.withTimeout(5000) {
+          p.withTimeout(5*1000) {
             p.projectEx(clause.constraint, constants)
           }
         }
@@ -755,23 +752,31 @@ object HintsSelection {
     val simplifyedClauses=getSimplifiedClauses(replacedClause)
     val finalSimplifiedClauses=simplifyedClauses //change to replacedClause see not simplified constraints
     var dataflowList = Set[IFormula]()
+    var guardList = Set[IFormula]()
     val bodySymbolsSet = (for (body <- finalSimplifiedClauses.body; arg <- body.args) yield arg).toSet
+    var counter=0
     for (x <- finalSimplifiedClauses.head.args) {
       val SE = IExpression.SymbolEquation(x)
+      //for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) counter=counter+1
       for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) f match {
         case SE(coefficient, rhs) if !coefficient.isZero=> { //<1>
+          //counter=counter+1
           if (!(dataflowList.map(_.toString) contains f.toString) // f is not in dataflowList
             && SymbolCollector.constants(rhs).map(_.toString).subsetOf(bodySymbolsSet.map(_.toString)) // <2>
           ) {
             // discovered dataflow from body to x
             dataflowList += f
+          }else{
+            guardList+=f
           }
         }
-        case _ => { //guardList+=f//println(Console.BLUE + f)
+        case _ => { guardList+=f//println(Console.BLUE + f)
+          //counter=counter+1
         }
       }
     }
-    val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
+    //println("counter",counter)
+    //val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).diff(for (df <- dataflowList) yield df)//.map(sp(_))
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
     val guardSeq = guardList.toSeq.sortBy(_.toString)
     (dataFlowSeq, guardSeq)
@@ -805,9 +810,23 @@ object HintsSelection {
     val generatePredicatesFromConstraintBeginTime=System.currentTimeMillis
     var tempCounter=0
     for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
-      val subst=(for(const<-clause.constants;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
-      val argumentReplacedPredicates= ConstantSubstVisitor(clause.constraint,subst)
-      val quantifiedConstraints=predicateQuantify(argumentReplacedPredicates)
+      val subst = (for (const <- clause.constants;
+                        args = atom.args;
+                        sorts = HornPredAbs.predArgumentSorts(atom.pred);
+                        ((arg, s), n) <- (args zip sorts).zipWithIndex;
+                        if const.name == arg.toString)
+                      yield const -> IVariable(n, s)).toMap
+      println("--"+tempCounter+"--")
+      tempCounter=tempCounter+1
+      println("clause",clause.toPrologString)
+      println("subst",subst)
+      println("clause.constants",clause.constants)
+      println("args",atom.args)
+      println("sorts",HornPredAbs.predArgumentSorts(atom.pred))
+
+      val argumentReplacedConstraints= ConstantSubstVisitor(clause.constraint,subst)
+      println("argumentReplacedConstraints",argumentReplacedConstraints)
+      val quantifiedConstraints=predicateQuantify(argumentReplacedConstraints)
       val simplifiedConstraint= {
       try{
         spAPI.withTimeout(1000){
@@ -825,15 +844,15 @@ object HintsSelection {
           LineariseVisitor(simplifiedConstraint,IBinJunctor.And)
         }
       }.map(spAPI.simplify(_)).filterNot(_.isFalse).filterNot(_.isTrue)
-      println("--"+tempCounter+"--")
-      tempCounter=tempCounter+1
-      println("clause",clause.toPrologString)
-      val argsType=for(a<-atom.args) yield if(isArgBoolean(a)) "Bool" else "Int"
-      println("atom",atom,"type",argsType)
-      println("argumentReplacedPredicates",argumentReplacedPredicates)
-      println("quantifiedConstraints",quantifiedConstraints)
+//      println("--"+tempCounter+"--")
+//      tempCounter=tempCounter+1
+//      println("clause",clause.toPrologString)
+//      val argsType=for(a<-atom.args) yield if(isArgBoolean(a)) "Bool" else "Int"
+//      println("atom",atom,"type",argsType)
+//      println("argumentReplacedPredicates",argumentReplacedPredicates)
+//      println("quantifiedConstraints",quantifiedConstraints)
       println("simplifiedConstraint",simplifiedConstraint)
-      println("freeVariableReplacedPredicates",freeVariableReplacedPredicates)
+//      println("freeVariableReplacedPredicates",freeVariableReplacedPredicates)
       if (atom.args.size>=variablesInConstraint.size){
         if (constraintPredicates.keys.map(_.name).toSeq.contains(atom.pred.name))
             constraintPredicates=constraintPredicates.updated(atom.pred,(constraintPredicates(atom.pred)++freeVariableReplacedPredicates).distinct)

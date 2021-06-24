@@ -56,7 +56,7 @@ import lazabs.horn.concurrency.ReaderMain
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, getSimplifiedClauses, transformPredicateMapToVerificationHints}
 
 import java.util
 import scala.collection.immutable.Set
@@ -560,6 +560,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val localCounterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
     HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicatesForCEGAR.toInitialPredicates,exceptionalPredGen,localCounterexampleMethod,HintsSelection.getFileName())
   }
+
 
   //////////////////////////////////////////////////////////////////////////////
 

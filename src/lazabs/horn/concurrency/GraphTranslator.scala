@@ -30,7 +30,7 @@ object GraphTranslator{
     println(Console.GREEN+"Time consumption for drawing "+GlobalParameters.get.hornGraphType.toString+": "+ (System.currentTimeMillis-startTime)/1000 +"s")
   }
 
-  def getBatchSize(simplifiedClause:Clauses): Int ={
+  def getBatchSize(simplifiedClause:Clauses,totalPredicateNumber:Int): Int ={
     //todo: do some experiments to determine a good strategy
 //    if (simplifiedClause.size>1000)
 //      10
@@ -39,7 +39,8 @@ object GraphTranslator{
 //    else if (simplifiedClause.size>100)
 //      100
 //    else 200
-    100
+//    if (totalPredicateNumber>=10000)
+    200
   }
 
   def separateGraphByPredicates(unlabeledPredicates:VerificationHints,labeledPredicates:VerificationHints,clauseCollection:ClauseInfo,argumentInfo: ArrayBuffer[argumentInfo]): Unit ={
@@ -47,7 +48,7 @@ object GraphTranslator{
     println("total unlabeled number",totalPredicateNumber)
     val predicateNumberRatio= for ((k,v)<-unlabeledPredicates.toInitialPredicates) yield k->v.size/totalPredicateNumber.toFloat
     //println("predicateNumberRatio",predicateNumberRatio)
-    val batch_size=getBatchSize(clauseCollection.simplifiedClause)
+    val batch_size=getBatchSize(clauseCollection.simplifiedClause,totalPredicateNumber)
     //val batch_size=4
     println("batch_size",batch_size)
     val trunk=(totalPredicateNumber/batch_size.toFloat).ceil.toInt

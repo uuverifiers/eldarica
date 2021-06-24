@@ -387,7 +387,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               labeledPredicates,unlabeledPredicates,
               transformPredicateMapToVerificationHints(simpleGeneratedPredicates),
               transformPredicateMapToVerificationHints(constraintPredicates),
-              transformPredicateMapToVerificationHints(pairwisePredicates),simplePredicatesGeneratorClauses)
+              transformPredicateMapToVerificationHints(pairwisePredicates),simplePredicatesGeneratorClauses,writeToFile = false)
             drawingGraphAndFormLabelsTime=(System.currentTimeMillis-drawGraphAndWriteLabelsBegin)/1000
           } else{
             HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")

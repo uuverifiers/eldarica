@@ -128,7 +128,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   nodeShapeMap += ("clause" -> "component")
 
   //val sp = new Simplifier()
-  val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
   var tempID = 0
   var clauseNumber = 0
   var hyperEdgeList = scala.collection.mutable.ArrayBuffer[hyperEdgeInfo]()
@@ -147,7 +146,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 //    binaryOperatorSubGraphSetInOneClause.clear()
 //    unaryOperatorSubGraphSetInOneClause.clear()
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
-    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause, dataFlowInfoWriter)
+    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
 
     //draw head predicate node and argument node
     val headNodeName =
@@ -326,7 +325,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
-  dataFlowInfoWriter.close()
 
 
 
@@ -455,7 +453,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     }
   }
 
-  def getDataFlowAndGuard(clause: Clause, dataFlowInfoWriter: PrintWriter):
+  def getDataFlowAndGuard(clause: Clause):
   (Seq[IFormula], Seq[IFormula], Clause) = {
     /*
     Replace arguments in argumentInHead.intersect(argumentInBody) to arg' and add arg=arg' to constrains
@@ -524,28 +522,32 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
     val guardSeq = guardList.toSeq.sortBy(_.toString)
 
-    dataFlowInfoWriter.write("--------------------\n")
-    dataFlowInfoWriter.write("original clause:\n")
-    dataFlowInfoWriter.write(clause.toPrologString + "\n")
-    dataFlowInfoWriter.write("normalized clause:\n")
-    dataFlowInfoWriter.write(normalizedClause.toPrologString + "\n")
-    dataFlowInfoWriter.write("replaceIntersectArgumentInBody clause:\n")
-    dataFlowInfoWriter.write(replacedClause.toPrologString + "\n")
-    dataFlowInfoWriter.write("simplified clause:\n")
-    dataFlowInfoWriter.write(simplifyedClauses.toPrologString + "\n")
-//    dataFlowInfoWriter.write("argument canonicalized  clauses:\n")
-//    dataFlowInfoWriter.write(argumentCanonilizedClauses.toPrologString + "\n")
-//    dataFlowInfoWriter.write("simplified argument canonilized clauses:\n")
-//    dataFlowInfoWriter.write(simplifiedArgumentCanonilizedClauses.toPrologString + "\n")
-    dataFlowInfoWriter.write("dataflow:\n")
-    for (df <- dataFlowSeq)
-      dataFlowInfoWriter.write(df.toString + "\n")
-    dataFlowInfoWriter.write("guard:\n")
-    for (g <- guardSeq)
-      dataFlowInfoWriter.write(g.toString + "\n")
-    //    dataFlowInfoWriter.write("redundant:\n")
-    //    for (r <- redundantFormulas)
-    //      dataFlowInfoWriter.write(r.toString + "\n")
+    if (GlobalParameters.get.debugLog==true){
+      val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
+      dataFlowInfoWriter.write("--------------------\n")
+      dataFlowInfoWriter.write("original clause:\n")
+      dataFlowInfoWriter.write(clause.toPrologString + "\n")
+      dataFlowInfoWriter.write("normalized clause:\n")
+      dataFlowInfoWriter.write(normalizedClause.toPrologString + "\n")
+      dataFlowInfoWriter.write("replaceIntersectArgumentInBody clause:\n")
+      dataFlowInfoWriter.write(replacedClause.toPrologString + "\n")
+      dataFlowInfoWriter.write("simplified clause:\n")
+      dataFlowInfoWriter.write(simplifyedClauses.toPrologString + "\n")
+      //    dataFlowInfoWriter.write("argument canonicalized  clauses:\n")
+      //    dataFlowInfoWriter.write(argumentCanonilizedClauses.toPrologString + "\n")
+      //    dataFlowInfoWriter.write("simplified argument canonilized clauses:\n")
+      //    dataFlowInfoWriter.write(simplifiedArgumentCanonilizedClauses.toPrologString + "\n")
+      dataFlowInfoWriter.write("dataflow:\n")
+      for (df <- dataFlowSeq)
+        dataFlowInfoWriter.write(df.toString + "\n")
+      dataFlowInfoWriter.write("guard:\n")
+      for (g <- guardSeq)
+        dataFlowInfoWriter.write(g.toString + "\n")
+      //    dataFlowInfoWriter.write("redundant:\n")
+      //    for (r <- redundantFormulas)
+      //      dataFlowInfoWriter.write(r.toString + "\n")
+      dataFlowInfoWriter.close()
+    }
     (dataFlowSeq, guardSeq, simplifyedClauses)
   }
 
