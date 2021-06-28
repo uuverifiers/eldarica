@@ -36,6 +36,8 @@ import ap.terfor.conjunctions.Conjunction
 import Util._
 import DisjInterpolator.{AndOrNode, AndNode, OrNode}
 
+import lattopt._
+
 import scala.collection.mutable.ArrayBuffer
 
 class PredicateMiner[CC <% HornClauses.ConstraintClause]
@@ -48,6 +50,13 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
          pred <- preds.toIndexedSeq)
     yield pred
 
+  /**
+   * A lattice representing all sufficient subsets of predicates.
+   */
+  val predicateLattice =
+    CachedFilteredLattice(PowerSetLattice.inverted(allPredicates),
+                          isSufficient)
+
   def printPreds(preds : Seq[RelationSymbolPred]) : Unit = {
     val rses = preds.map(_.rs).distinct.sortBy(_.name)
     for (rs <- rses) {
@@ -59,16 +68,42 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
   }
 
   {
+    implicit val randomData = new SeededRandomDataSource(123)
+    val pl = predicateLattice
+
     println("All predicates (" + allPredicates.size + "):")
     printPreds(allPredicates)
+
     println
-    val minSet = minimizePredSet(allPredicates)
+//    val minSet = minimizePredSet(allPredicates)
+    val minSet = pl getLabel Algorithms.maximize(pl)(pl.bottom)
     println("Minimal predicate set (" + minSet.size + "):")
-    printPreds(minSet)
+    printPreds(allPredicates filter minSet)
+
     println
-    val necSet = necessaryPredicates(allPredicates)
-    println("Necessary predicates (" + necSet.size + "):")
+    val necSet = necessaryPredicates2
+    println("Necessary predicates, contained in all minimal sufficient sets (" +
+              necSet.size + "):")
     printPreds(necSet)
+
+/*
+    for ((_s, n) <- 
+        Algorithms.maximalFeasibleObjects(pl)(
+                                             pl.bottom).zipWithIndex) {
+      println
+      val s = pl.getLabel(_s)
+    println("Minimal predicate set " + n + " (" +
+              s.size + "):")
+      printPreds(allPredicates filter s)
+    }
+ */
+
+    println
+    val nonRedundantSet =
+      pl.getLabel(Algorithms.maximalFeasibleObjectMeet(pl)(pl.bottom))
+    println("Non-redundant predicates, contained in some minimal sufficient set (" +
+              nonRedundantSet.size + "):")
+    printPreds(allPredicates filter nonRedundantSet)
   }
 
   /**
@@ -107,10 +142,29 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
   }
 
   /**
+   * Find the predicates within the given set of predicates that are
+   * elements of every minimal sufficient set of predicates.
+   */
+  def necessaryPredicates2 : Seq[RelationSymbolPred] = {
+    val result = new ArrayBuffer[RelationSymbolPred]
+
+    for (pred <- allPredicates) {
+      val obj = (for (x <- predicateLattice succ predicateLattice.bottom;
+                      if !(predicateLattice.getLabel(x) contains pred))
+                 yield x).next
+      if (!predicateLattice.isFeasible(obj))
+        result += pred
+    }
+
+    result.toSeq
+  }
+
+  /**
    * Check whether the given set of predicates is sufficient to show
    * satisfiability of the problem.
    */
   def isSufficient(preds : Iterable[RelationSymbolPred]) : Boolean = {
+    print(".")
     val newPredStore = new PredicateStore(context)
     newPredStore addRelationSymbolPreds preds
     try {

@@ -29,11 +29,11 @@
 
 package lazabs.horn.preprocessor
 
+import ap.parser
 import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
 import ap.theories.Heap
 import ap.theories.Heap._
-//import lazabs.horn.Heap._
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornClauses
@@ -65,13 +65,15 @@ object HeapExpander {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
-                          writes : ArrayBuffer[IFunApp], theory : Heap)
+class HeapModifyExtractor(allocs : ArrayBuffer[(IFunApp, Heap)],
+                          writes : ArrayBuffer[(IFunApp, Heap)])
   extends CollectingVisitor[Int, Unit] {
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
     t match {
-      case f@IFunApp(theory.alloc, _) => allocs += f
-      case f@IFunApp(theory.write, _) => writes += f
+      case f@IFunApp(fun@HeapFunExtractor(heap), _) if fun == heap.alloc =>
+        allocs += ((f, heap))
+      case f@IFunApp(fun@HeapFunExtractor(heap), _) if fun == heap.write =>
+        writes += ((f, heap))
       case _ => // nothing
     }
 }
@@ -149,7 +151,7 @@ class HeapExpander(val name : String,
       }
 
       if (changed) {
-        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts)
+        val newPred = MonoSortedPredicate(pred.name + "_cexp", newSorts)
         newPreds       .put(pred,    (newPred, addedArgs, argMapping.toMap))
         predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs))
       }
@@ -207,30 +209,25 @@ class HeapExpander(val name : String,
         val newHead = rewriteAtom(head)
         val newBody = for (a <- body) yield rewriteAtom(a)
 
-        /*todo: refactor to get rid of below stupid part*/
-        import scala.collection.mutable.{HashSet => MHashSet}
-        val theory : Heap = newTerms.head._1.asInstanceOf[IFunApp].fun.
-          asInstanceOf[MonoSortedIFunction].argSorts.head.asInstanceOf[HeapSort].heapTheory
-
-        def collectHeapModifications(theory : Heap, t : IExpression) :
-        (ArrayBuffer[IFunApp], ArrayBuffer[IFunApp]) = {
-          val allocs = new ArrayBuffer[IFunApp]
-          val writes = new ArrayBuffer[IFunApp]
-          val c = new HeapModifyExtractor(allocs, writes, theory)
+        def collectHeapModifications(t : IExpression) :
+        (ArrayBuffer[(IFunApp, Heap)], ArrayBuffer[(IFunApp, Heap)]) = {
+          val allocs = new ArrayBuffer[(IFunApp, Heap)]
+          val writes = new ArrayBuffer[(IFunApp, Heap)]
+          val c = new HeapModifyExtractor(allocs, writes)
           c.visitWithoutResult (t, 0)
           (allocs, writes)
         }
 
-        val (allocs, writes) = collectHeapModifications(theory, constraint)
+        val (allocs, writes) = collectHeapModifications(constraint)
         import IExpression._
         val constraintsFromAllocs : IFormula =
-          (for (alloc <- allocs) yield {
+          (for ((alloc, theory) <- allocs) yield {
             val h = alloc.args(0)
             val o = alloc.args(1)
-            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + 1
+            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + i(1)
           }).fold(i(true))((f1, f2) => Conj(f1, f2))
         val constraintsFromWrites : IFormula =
-          (for (write <- writes) yield {
+          (for ((write, theory) <- writes) yield {
             val h = write.args(0)
             val p = write.args(1)
             val o = write.args(2)

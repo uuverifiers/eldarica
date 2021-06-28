@@ -109,7 +109,12 @@ class AbstractAnalyser[Domain <: AbstractAnalyser.AbstractDomain]
         for (IAtom(p, _) <- body) yield abstractValues(p)
       val newAbstractEl =
         propagators(nextID) transform bodyValues
-
+      //if(domain.name.contains("heap-definedness")) {
+        //println("=" * 80)
+        //println(domain.name)
+        //println(newAbstractEl)
+        //println("=" * 80)
+      //}
       if (!(domain isBottom newAbstractEl)) {
         val headPred = head.pred
         val oldAbstractEl = abstractValues(headPred)
@@ -117,6 +122,11 @@ class AbstractAnalyser[Domain <: AbstractAnalyser.AbstractDomain]
 
         if (jointEl != oldAbstractEl) {
           abstractValues.put(headPred, jointEl)
+          /*if(domain.name contains "heap-definedness") {
+            println("---------Abstract Values-----------")
+            abstractValues.foreach(p => println(p._1 + ": " + p._2))
+            println("-----------------------------------")
+          }*/
           for ((_, n) <- clausesWithBodyPred.getOrElse(headPred, List()))
             clausesTodo += n
         }

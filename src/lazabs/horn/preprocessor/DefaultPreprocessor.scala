@@ -58,6 +58,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def extendingStages : List[HornPreprocessor] =
     List(new HeapSizeArgumentExtender,
+         //new HeapObjectArgumentExtender,
          new SizeArgumentExtender,
          new CtorTypeExtender)
 
@@ -134,6 +135,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(new UniqueConstructorExpander)
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
+        applyStage(SimplePropagators.HeapDefinednessPropagator)
         applyStage(ReachabilityChecker)
         if (GlobalParameters.get.slicing)
           applyStage(Slicer)
