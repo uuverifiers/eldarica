@@ -396,6 +396,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private lazy val autoAbstraction : AbstractionMap =
     absBuilder.abstractionRecords
 
+  //todo: get templates
+  //absBuilder.abstractionHints
+
+  //todo: build predicted hints
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction : AbstractionMap =
     if (simpHints.isEmpty)
@@ -581,11 +585,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         new HornPredAbs(simplifiedClausesForGraph,
                         initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
                         counterexampleMethod)
-
+      //todo: label templates
 //      val predicateMiner=new PredicateMiner(predAbs)
 //      predicateMiner.printPreds(predicateMiner.allPredicates)
 
-      //todo: add clause in hyperedge graph
+
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         val clausesInCE=getClausesInCounterExamples(predAbs.result,simplifiedClausesForGraph)
 
