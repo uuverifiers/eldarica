@@ -396,8 +396,19 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private lazy val autoAbstraction : AbstractionMap =
     absBuilder.abstractionRecords
 
-  //todo: get templates
-  //absBuilder.abstractionHints
+  //todo: generate templates
+  simplifiedClauses.map(_.toPrologString).foreach(println)
+  val loopDetector = new LoopDetector(simplifiedClauses)
+  println("loop heads",loopDetector.loopHeads)
+  println("abs1:termAbstractions")
+  absBuilder.termAbstractions.pretyPrintHints()
+  println("abs2:octagonAbstractions")
+  absBuilder.octagonAbstractions.pretyPrintHints()
+  println("abs3:relationAbstractions")
+  absBuilder.relationAbstractions(false).pretyPrintHints()
+  println("abs4:relationAbstractions")
+  absBuilder.relationAbstractions(true).pretyPrintHints()
+
 
   //todo: build predicted hints
   /** Manually provided interpolation abstraction hints */
@@ -586,8 +597,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
                         initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
                         counterexampleMethod)
       //todo: label templates
-//      val predicateMiner=new PredicateMiner(predAbs)
-//      predicateMiner.printPreds(predicateMiner.allPredicates)
+      val predicateMiner=new PredicateMiner(predAbs)
+      predicateMiner.printPreds(predicateMiner.allPredicates)
 
 
       if (GlobalParameters.get.getLabelFromCounterExample == true) {

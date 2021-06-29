@@ -29,7 +29,8 @@
 package lazabs.horn.concurrency
 import ap.parser.ConstantSubstVisitor
 import ap.SimpleAPI.ProverStatus
-import ap.{PresburgerTools, Prover, SimpleAPI}
+import ap.{PresburgerTools,
+  Prover, SimpleAPI}
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, IFormula, _}
@@ -131,7 +132,8 @@ object HintsSelection {
     val atomList=(for(c<-simplePredicatesGeneratorClauses;a<-c.allAtoms) yield a.pred->a.args).toMap
     val predicateFromCEGAR = for ((head, preds) <- lastPredicates) yield{
       // transfor Map[relationSymbols.values,ArrayBuffer[RelationSymbolPred]] to Map[Predicate, Seq[IFormula]]
-      val subst = (for ((c, n) <- atomList(head).zipWithIndex) yield (new ConstantTerm(c.toString), IVariable(n))).toMap
+      //val subst = (for ((c, n) <- atomList(head).zipWithIndex) yield (new ConstantTerm(c.toString), IVariable(n))).toMap
+      val subst = getSubst(atomList(head),head)
       //val headPredicate=new Predicate(head.name,head.arity) //class Predicate(val name : String, val arity : Int)
       val predicateSequence = for (p <- preds) yield {
         val simplifiedPredicate = spAPI.simplify(p)
@@ -141,6 +143,12 @@ object HintsSelection {
       head -> predicateSequence.distinct.toSeq
     }
     predicateFromCEGAR
+  }
+
+  def getSubst(args:Seq[ITerm],pred:Predicate):  Map[ConstantTerm, IVariable] ={
+      val sorts = HornPredAbs predArgumentSorts pred
+      (for (((IConstant(arg), s), n) <- (args zip sorts).zipWithIndex)
+        yield arg -> IVariable(n, s)).toMap
   }
 
   def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]], counterexampleMethod: CEGAR.CounterexampleMethod.Value,
@@ -392,10 +400,11 @@ object HintsSelection {
 
     var currentGuardList:Seq[IFormula]=Seq()
 
-    for ((clause,guardList)<-guardMap;a<-clause.allAtoms){
+    for ((clause,guardList)<-guardMap;atom<-clause.allAtoms){
       val replacedGuardSet=for (g<-guardList) yield{
-        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
-        predicateQuantify(ConstantSubstVisitor(g,sub))
+        //val subst=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
+        val subst = getSubst(atom.args,atom.pred)
+        predicateQuantify(ConstantSubstVisitor(g,subst))
       }
       currentGuardList=nonredundantSet(currentGuardList,replacedGuardSet)
     }
@@ -808,24 +817,11 @@ object HintsSelection {
     }
     //generate predicates from constraint
     val generatePredicatesFromConstraintBeginTime=System.currentTimeMillis
-    var tempCounter=0
     for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
-      val subst = (for (const <- clause.constants;
-                        args = atom.args;
-                        sorts = HornPredAbs.predArgumentSorts(atom.pred);
-                        ((arg, s), n) <- (args zip sorts).zipWithIndex;
-                        if const.name == arg.toString)
-                      yield const -> IVariable(n, s)).toMap
-      println("--"+tempCounter+"--")
-      tempCounter=tempCounter+1
-      println("clause",clause.toPrologString)
-      println("subst",subst)
-      println("clause.constants",clause.constants)
-      println("args",atom.args)
-      println("sorts",HornPredAbs.predArgumentSorts(atom.pred))
 
+      //todo: modify corresponding subst
+      val subst = getSubst(atom.args,atom.pred)
       val argumentReplacedConstraints= ConstantSubstVisitor(clause.constraint,subst)
-      println("argumentReplacedConstraints",argumentReplacedConstraints)
       val quantifiedConstraints=predicateQuantify(argumentReplacedConstraints)
       val simplifiedConstraint= {
       try{

@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package lazabs.horn.concurrency
-
+import ap.parser.ConstantSubstVisitor
 import ap.SimpleAPI
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -37,6 +37,7 @@ import ap.terfor.preds.Predicate
 import ap.types.Sort.Integer.newConstant
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.HornPredAbs
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
 import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, timeoutForPredicateDistinct}
@@ -506,19 +507,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val guardList = (for (f <- LineariseVisitor(finalSimplifiedClauses.constraint, IBinJunctor.And)) yield f).toSet.diff(for (df <- dataflowList) yield df).map(sp(_))
 
 
-    //check overlap rate between guard and positive hints
-//    var guardPositiveHintsOverlapCount=0
-//    for((k,v)<-hints.positiveHints.toInitialPredicates;a<-clause.allAtoms;if a.pred.name==k.name){
-//      val replacedGuardSet=for (g<-guardList) yield{
-//        val sub=(for(c<-SymbolCollector.constants(g);(arg,n)<-a.args.zipWithIndex ; if c.name==arg.toString)yield  c->IVariable(n)).toMap
-//        //ConstantSubstVisitor(g,sub)
-//        predicateQuantify(ConstantSubstVisitor(g,sub))
-//      }
-//      for (pp<-v; if HintsSelection.containsPred(pp,replacedGuardSet)) guardPositiveHintsOverlapCount=guardPositiveHintsOverlapCount+1
-//    }
-
-
-
     val dataFlowSeq = dataflowList.toSeq.sortBy(_.toString)
     val guardSeq = guardList.toSeq.sortBy(_.toString)
 
@@ -552,7 +540,15 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   }
 
   def getArgumentReplacedClause(clause:Clause): Clause ={
-    val subst=(for(const<-clause.constants;atom<-clause.allAtoms;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
+    //val subst=(for(const<-clause.constants;atom<-clause.allAtoms;(arg,n)<-atom.args.zipWithIndex; if const.name==arg.toString) yield const->IVariable(n)).toMap
+
+    val subst = (for (atom<-clause.allAtoms;
+                     val args = atom.args;
+                     val sorts = HornPredAbs predArgumentSorts atom.pred;
+                     ((IConstant(arg), s), n) <- (args zip sorts).zipWithIndex)  yield{
+          arg -> IVariable(n, s)
+    }).toMap
+
     val substKeyString=subst.map {case (key, value) => key.toString -> value}
     val head=IAtom(clause.head.pred,for(arg<-clause.head.args) yield substKeyString(arg.toString))
     val body = for (b<-clause.body) yield IAtom(b.pred, for(arg<-b.args) yield substKeyString(arg.toString))

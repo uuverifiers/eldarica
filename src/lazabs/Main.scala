@@ -885,7 +885,7 @@ object Main {
     }
     case t : Exception =>{
       printError(t.getMessage, GlobalParameters.get.format)
-
+      t.printStackTrace()
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
     }
     case x:Any=>{
@@ -894,8 +894,6 @@ object Main {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
     }
 
-
-      t.printStackTrace()
 
   }
 
