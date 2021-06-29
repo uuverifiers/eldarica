@@ -29,8 +29,7 @@
 package lazabs.horn.concurrency
 import ap.parser.ConstantSubstVisitor
 import ap.SimpleAPI.ProverStatus
-import ap.{PresburgerTools,
-  Prover, SimpleAPI}
+import ap.{PresburgerTools, Prover, SimpleAPI}
 import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, IFormula, _}
@@ -52,9 +51,7 @@ import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
-import org.antlr.analysis.SemanticContext.TruePredicate
-
-import java.io.{File, PrintWriter}
+import java.io.{File, FilenameFilter, PrintWriter}
 import java.lang.System.currentTimeMillis
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashSet => MHashSet}
@@ -78,6 +75,23 @@ object HintsSelection {
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
+
+  def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
+    if (GlobalParameters.get.readHints == true) {
+      val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
+      val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
+      val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
+        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection,"templateRelevanceLabel")
+      truePositiveHints
+    }
+    else if (GlobalParameters.get.generateSimplePredicates == true) {
+      val (simpleGeneratedPredicates, _, _) =
+        HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false,deduplicate = false)
+      transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
+    }
+    else simpHints
+  }
 
 
 
@@ -184,7 +198,7 @@ object HintsSelection {
       CEGAR.CounterexampleMethod.FirstBestShortest
   }
   def getFileName(): String ={
-    GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length)
+    GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/")+1,GlobalParameters.get.fileName.length)
   }
   def getMinimumSetPredicates(originalPredicates: Map[Predicate, Seq[IFormula]],simplePredicatesGeneratorClauses:Clauses,
                               exceptionalPredGen: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]=getExceptionalPredicatedGenerator(),
@@ -526,14 +540,6 @@ object HintsSelection {
   }
 
 
-
-
-//  def labelSimpleGeneratedPredicatesBySelectedPredicates(optimizedPredicate: Map[Predicate, Seq[IFormula]],
-//                                                         simpleGeneratedPredicates: Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
-//    for ((ko,vo)<-optimizedPredicate;(ks,vs)<-simpleGeneratedPredicates; if ko.equals(ks) ) yield {
-//      ko->(for (p<-vs if vo.map(_.toString).contains(p.toString))yield p)
-//    }
-//  }
   def intersectPredicatesByString(first: Map[Predicate, Seq[IFormula]],
                                   second:Map[Predicate, Seq[IFormula]]): Map[Predicate, Seq[IFormula]] ={
     for ((fk,fv)<-first;(sk,sv)<-second;if fk.equals(sk)) yield {
@@ -818,8 +824,6 @@ object HintsSelection {
     //generate predicates from constraint
     val generatePredicatesFromConstraintBeginTime=System.currentTimeMillis
     for (clause<-simplePredicatesGeneratorClauses;atom<-clause.allAtoms){
-
-      //todo: modify corresponding subst
       val subst = getSubst(atom.args,atom.pred)
       val argumentReplacedConstraints= ConstantSubstVisitor(clause.constraint,subst)
       val quantifiedConstraints=predicateQuantify(argumentReplacedConstraints)
@@ -1068,16 +1072,17 @@ object HintsSelection {
     }
   }
   def removeRelativeFiles(fileName:String): Unit ={
+    val currentDirectory = new java.io.File(GlobalParameters.get.fileName).getParentFile.getPath
+    println(currentDirectory)
+    val relativeFiles = new java.io.File(currentDirectory).listFiles(new FilenameFilter {
+      override def accept(dir: java.io.File, name: String): Boolean = {
+        name.startsWith(HintsSelection.getFileName())
+      }
+    })
     try{
-      Files.delete(Paths.get(fileName+".circles.gv"))
-      Files.delete(Paths.get(fileName+".HornGraph"))
-      Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.gv"))
-      Files.delete(Paths.get(fileName+".labeledPredicates.tpl"))
-      Files.delete(Paths.get(fileName+".unlabeledPredicates.tpl"))
-      Files.delete(Paths.get(fileName+".hyperEdgeHornGraph.JSON"))
-      Files.delete(Paths.get(fileName+".predicateDistribution"))
-    }catch {case _ => println("no relative files")}
-
+      for (file<-relativeFiles)
+        Files.delete(file.toPath)
+    }catch {case _=>println("no relative files")}
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(
@@ -1294,381 +1299,10 @@ object HintsSelection {
       println("@@@@!")
       println("timeout:" + GlobalParameters.get.threadTimeout)
       //GlobalParameters.get.printHints=optimizedHints
-
-
-      if (optimizedTemplates.isEmpty) {
-        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
-      } else {
-        //only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
-        writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
-        writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
-      }
-
-
       (optimizedTemplates, result)
     }
-
-
   }
 
-
-  def tryAndTestSelectionTemplatesSmt(simpHints: VerificationHints, simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID],
-                                      counterexampleMethod: CEGAR.CounterexampleMethod.Value =
-                                      CEGAR.CounterexampleMethod.FirstBestShortest,
-                                      hintsAbstraction: AbstractionMap
-                                     ): (VerificationHints, Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
-
-    val fileName = file.substring(file.lastIndexOf("/") + 1)
-    val timeOut = GlobalParameters.get.threadTimeout //timeout
-    //val timeOut=10
-    var currentTemplates = simpHints
-    var optimizedHints = VerificationHints(Map()) // store final selected heads and hints
-    //val InitialHintsWithID=initialIDForHints(simpHints)
-    var PositiveHintsWithID: Seq[wrappedHintWithID] = Seq()
-    var NegativeHintsWithID: Seq[wrappedHintWithID] = Seq()
-
-    if (simpHints.isEmpty || lazabs.GlobalParameters.get.templateBasedInterpolation == false) {
-      println("simpHints is empty or abstract:off")
-      val result: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]] = Left(Map())
-      (simpHints, result)
-    }
-    else {
-      println("-------------------------Hints selection begins------------------------------------------")
-      for ((head, oneHintValue) <- simpHints.getPredicateHints()) { //loop for head
-        println("Head:" + head)
-        println(oneHintValue)
-        var criticalHintsList: Seq[VerifHintElement] = Seq()
-        var redundantHintsList: Seq[VerifHintElement] = Seq()
-        var currentHintsList = simpHints.predicateHints(head) //extract hints in this head
-
-        for (oneHint <- simpHints.predicateHints(head)) { //loop for every hint in one head
-          println("Current hints:")
-          currentTemplates.pretyPrintHints()
-
-          println("delete: \n" + head + " \n" + oneHint)
-          currentHintsList = currentHintsList.filter(_ != oneHint) //delete one hint from hint list
-          currentTemplates = currentTemplates.filterNotPredicates(Set(head)) //delete the head
-
-          currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentHintsList)) //add head with one hint back
-
-          println("After delete:\n")
-          currentTemplates.pretyPrintHints()
-
-          val startTime = currentTimeMillis
-          val toParams = GlobalParameters.get.clone
-          toParams.timeoutChecker = () => {
-            if ((currentTimeMillis - startTime) > timeOut ) //timeout milliseconds
-              throw lazabs.Main.TimeoutException //Main.TimeoutException
-          }
-
-
-          try {
-            GlobalParameters.parameters.withValue(toParams) {
-              val outStream =
-                if (GlobalParameters.get.logStat)
-                  Console.err
-                else
-                  HornWrapper.NullStream
-              val loopDetector = new LoopDetector(simpClauses)
-              val autoAbstraction = loopDetector.hints2AbstractionRecord(currentTemplates)
-              val predGenerator = Console.withErr(outStream) {
-                if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
-                  val fullAbstractionMap =
-                    AbstractionRecord.mergeMaps(Map(), autoAbstraction) //hintsAbstraction,autoAbstraction replaced by Map()
-
-                  if (fullAbstractionMap.isEmpty) {
-                    DagInterpolator.interpolatingPredicateGenCEXAndOr _
-                  }
-
-                  else {
-                    TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                      fullAbstractionMap,
-                      lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-                  }
-
-                } else {
-                  DagInterpolator.interpolatingPredicateGenCEXAndOr _ //if abstract:off
-                }
-              }
-              println(
-                "----------------------------------- CEGAR --------------------------------------")
-
-              (new HornPredAbs(simpClauses, //simplifiedClauses
-                currentTemplates.toInitialPredicates, predGenerator,
-                counterexampleMethod)).result
-
-
-              // not timeout ...
-              println("Delete a redundant hint:\n" + head + "\n" + oneHint)
-              redundantHintsList = redundantHintsList ++ Seq(oneHint)
-              //add useless hint to NegativeHintsWithID   //ID:head->hint
-              for (wrappedHint <- InitialHintsWithID) {
-                if (head.name.toString == wrappedHint.head && wrappedHint.hint == oneHint.toString) {
-                  NegativeHintsWithID = NegativeHintsWithID ++ Seq(wrappedHint)
-                }
-              }
-
-            }
-
-          } catch {
-            // ,... Main.TimeoutException
-            //time out
-            case lazabs.Main.TimeoutException =>
-              println("Add a critical hint\n" + head + "\n" + oneHint)
-              criticalHintsList = criticalHintsList ++ Seq(oneHint)
-              currentHintsList = currentHintsList ++ Seq(oneHint)
-              currentTemplates = currentTemplates.filterNotPredicates(Set(head))
-              currentTemplates = currentTemplates.addPredicateHints(Map(head -> currentHintsList))
-              //add useful hint to PositiveHintsWithID
-              for (wrappedHint <- InitialHintsWithID) {
-                if (head.name.toString() == wrappedHint.head && wrappedHint.hint == oneHint.toString) {
-                  PositiveHintsWithID = PositiveHintsWithID ++ Seq(wrappedHint)
-                }
-              }
-          }
-
-          println("Current head:" + head)
-          println
-          println("criticalHintsList" + criticalHintsList)
-          println
-          println("redundantHintsList" + redundantHintsList)
-          println("---------------------------------------------------------------")
-          //optimizedHints=optimizedHints.addPredicateHints(Map(oneHintKey->criticalHintsList))
-
-        } //second for end
-        if (!criticalHintsList.isEmpty) { //add critical hints in one head to optimizedHints map
-          optimizedHints = optimizedHints.addPredicateHints(Map(head -> criticalHintsList))
-        }
-      } //first for end
-
-      println("\n------------DEBUG-Select critical hints end-------------------------")
-      val result = GlobalParameters.parameters.withValue(GlobalParameters.get.clone) {
-        val outStream =
-          if (GlobalParameters.get.logStat)
-            Console.err
-          else
-            HornWrapper.NullStream
-        val loopDetector = new LoopDetector(simpClauses)
-        val autoAbstraction = loopDetector.hints2AbstractionRecord(currentTemplates)
-        val predGenerator = Console.withErr(outStream) {
-          if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
-            val fullAbstractionMap =
-              AbstractionRecord.mergeMaps(Map(), autoAbstraction) //hintsAbstraction,autoAbstraction replaced by Map()
-
-            if (fullAbstractionMap.isEmpty) {
-              DagInterpolator.interpolatingPredicateGenCEXAndOr _
-            }
-
-            else {
-              TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                fullAbstractionMap,
-                lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-            }
-
-          } else {
-            DagInterpolator.interpolatingPredicateGenCEXAndOr _ //if abstract:off
-          }
-        }
-        println(
-          "----------------------------------- CEGAR --------------------------------------")
-
-        (new HornPredAbs(simpClauses, //simplifiedClauses
-          optimizedHints.toInitialPredicates, predGenerator,
-          counterexampleMethod)).result
-      }
-
-      println("\noriginal Hints:")
-      simpHints.pretyPrintHints()
-      println("\nOptimized Hints:")
-      println("!@@@@")
-      optimizedHints.pretyPrintHints()
-      println("@@@@!")
-      println("timeout:" + GlobalParameters.get.threadTimeout)
-      //GlobalParameters.get.printHints=optimizedHints
-
-      if (optimizedHints.isEmpty) {
-        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
-      } else {
-        //only write to file when optimized hint is not empty
-        writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial") //write hints and their ID to file
-        writeHintsWithIDToFile(PositiveHintsWithID, fileName, "positive")
-        writeHintsWithIDToFile(NegativeHintsWithID, fileName, "negative")
-      }
-      (optimizedHints, result)
-    }
-  }
-
-
-  def writeHintsWithIDToFile(wrappedHintList: Seq[wrappedHintWithID], fileName: String, hintType: String) {
-    val distinctWrappedHintList = wrappedHintList.distinct
-    val filePath = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-    if (hintType == "initial") {
-      val writer = new PrintWriter(new File(filePath + fileName + ".initialHints")) //python path
-      for (wrappedHint <- wrappedHintList) {
-        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
-      }
-      writer.close()
-    }
-    if (hintType == "positive") {
-      val writer = new PrintWriter(new File(filePath + fileName + ".positiveHints")) //python path
-      for (wrappedHint <- wrappedHintList) {
-        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
-      }
-      writer.close()
-    }
-    if (hintType == "negative") {
-      val writer = new PrintWriter(new File(filePath + fileName + ".negativeHints")) //python path
-      for (wrappedHint <- wrappedHintList) {
-        writer.write(wrappedHint.ID.toString + ":" + wrappedHint.head + ":" + wrappedHint.hint + "\n")
-      }
-      writer.close()
-    }
-
-  }
-
-
-
-  def readHintsFromJSON(fileName: String): VerificationHints = {
-
-    //Read JSON
-    import scala.io.Source
-    import scala.util.parsing.json._
-    val fname = "JSON/" + fileName + ".json"
-
-    // Read the JSON file into json variable.
-    var json: String = ""
-    for (line <- Source.fromFile(fname).getLines) json += line
-
-    // Get parse result Option object back from try/catch block.
-    val option = try {
-      JSON.parseFull(json)
-    } catch {
-      case ex: Exception => ex.printStackTrace()
-    }
-
-    // Print parsed JSON
-    option match {
-      case None => println("observations JSON invalid")
-      case Some(elements: Map[String, Array[String]]) => {
-        //println(elements)
-        for ((key, list) <- elements) {
-          println(key + "/" + list.length)
-          for (value <- list) {
-            println(" " + value)
-          }
-
-        }
-
-
-      }
-    }
-
-    //JSON to Map[IExpression.Predicate, Seq[VerifHintElement]
-    //VerifHintInitPred
-    //VerifHintTplPred
-    //VerifHintTplEqTerm
-    var optimizedHints = VerificationHints(Map())
-    val head = "main1"
-    val arity = 1
-    val h = new IExpression.Predicate(head, arity)
-    val h1 = new IExpression.Predicate("main2", 2)
-
-
-    val Term = "_0,10000"
-    val predicate = "_3 + -1 * _4) >= 0"
-    val element = VerifHintTplEqTerm(new IConstant(new ConstantTerm("sss")), 10000)
-    //    val element1=VerifHintInitPred(IFomula())
-    var hintList: Seq[VerifHintElement] = Seq()
-    hintList = hintList ++ Seq(element)
-    hintList = hintList ++ Seq(element)
-
-
-    optimizedHints = optimizedHints.addPredicateHints(Map(h -> hintList))
-    optimizedHints = optimizedHints.addPredicateHints(Map(h1 -> hintList))
-    println("input template:")
-    optimizedHints.pretyPrintHints()
-
-
-    return optimizedHints
-  }
-
-
-
-  def storeHintsToVerificationHints_score(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints, rankTreshold: Float) = {
-    //store read hints to VerificationHints
-    println("---selected hints--")
-    var readHints = VerificationHints(Map())
-    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
-    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
-    var parsedHintsCount = 0
-
-    for (element <- parsedHintslist) {
-      //println(element)
-      if (element(4).toFloat > rankTreshold) { //element(3)==1 means useful, element(4) is score
-        val head = element(1).toString
-        //element(1) is head
-        val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
-        for ((key, value) <- originalHints.getPredicateHints()) {
-          val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
-          if (head == keyTemp) {
-            var usfulHintsList: Seq[VerifHintElement] = Seq()
-            for (oneHint <- value) {
-              if (keyTemp == head && oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
-                usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
-                //println(element(0),usfulHintsList)
-                readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
-                parsedHintsCount = parsedHintsCount + 1
-              }
-            }
-            //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
-          }
-        }
-      } else {} //useless hint
-
-    }
-
-    println("selected hint count=" + parsedHintsCount)
-    (readHints, readHintsTempList)
-
-  }
-
-  def storeHintsToVerificationHints_topN(parsedHintslist: Seq[Seq[String]], readInitialHintsWithID: Map[String, String], originalHints: VerificationHints, N: Int) = {
-    //store read hints to VerificationHints
-    println("---selected hints--")
-    var readHints = VerificationHints(Map())
-    var readHintsTemp: Map[IExpression.Predicate, VerifHintElement] = Map()
-    var readHintsTempList: Seq[Map[IExpression.Predicate, VerifHintElement]] = Seq()
-    var parsedHintsCount = 0
-    for (element <- parsedHintslist.take(N)) {
-      //take first N element
-      //println(element)
-      val head = element(1).toString
-      //element(1) is head
-      val hint = readInitialHintsWithID(element(0).toString + ":" + element(1)).toString //InitialHintsWithID ID:head->hint
-      for ((key, value) <- originalHints.getPredicateHints()) {
-        val keyTemp = key.toString().substring(0, key.toString().indexOf("/"))
-        if (head == keyTemp) {
-          var usfulHintsList: Seq[VerifHintElement] = Seq()
-          for (oneHint <- value) {
-            if (oneHint.toString() == hint) { //match initial hints and hints from file to tell usefulness
-              usfulHintsList = usfulHintsList ++ Seq(oneHint) //add this hint to usfulHintsList
-              //println(element(0),usfulHintsList)
-              readHintsTempList = readHintsTempList :+ Map(key -> oneHint)
-              parsedHintsCount = parsedHintsCount + 1
-            }
-          }
-          //readHints=readHints.addPredicateHints(Map(key->usfulHintsList)) //add this haed->hint:Seq() to readHints
-        }
-      }
-
-
-    }
-
-    println("selected hint count=" + parsedHintsCount)
-    (readHints, readHintsTempList)
-
-  }
 
 
   def transformPredicateMapToVerificationHints(originalPredicates:Map[Predicate, Seq[IFormula]]):  VerificationHints ={
@@ -1695,8 +1329,6 @@ object HintsSelection {
 
 
   def writeSMTFormatToFile(simpClauses: Clauses, fileName: String): Unit = {
-
-
     //val filename = basename + ".smt2"
     println("write " + fileName + " to smt format file")
     //val out = new java.io.FileOutputStream("trainData/"+fileName+".smt2")

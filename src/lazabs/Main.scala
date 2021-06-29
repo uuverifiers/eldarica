@@ -744,10 +744,20 @@ object Main {
       }
 
       if (extractPredicates) {
-        //do selection
         try {
-          timeoutChecker()
           lazabs.horn.concurrency.TrainDataGeneratorPredicatesSmt2(clauseSet, absMap, global, disjunctive,
+            drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
+        } catch {
+          case x:Any => {
+            println(Console.RED + x.toString)
+            throw MainTimeoutException
+          }
+        }
+        return
+      }
+      if (extractTemplates) {
+        try {
+          lazabs.horn.concurrency.TrainDataGeneratorTemplatesSmt2(clauseSet, absMap, global, disjunctive,
             drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
         } catch {
           case x:Any => {
@@ -801,10 +811,10 @@ object Main {
         return
       }
 
-      if(extractTemplates){
-        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data by templates
-        return
-      }
+//      if(extractTemplates){
+//        val systemGraphs=new lazabs.horn.concurrency.TrainDataGenerator(smallSystem,system) //generate train data by templates
+//        return
+//      }
 
 
       val result = try {

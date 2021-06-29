@@ -39,7 +39,7 @@ import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, DisjInterpolator, HornClauses, HornPredAbs, HornWrapper, NormClause, TemplateInterpolator, Util}
 import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.concurrency.HintsSelection.{initialIDForHints, writeHintsWithIDToFile}
+import lazabs.horn.concurrency.HintsSelection.{initialIDForHints}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -318,7 +318,6 @@ class VerificationLoop(system : ParametricEncoder.System,
         val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simplifiedClausesForGraph, simpHints.toInitialPredicates, interpolator)
         //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
         //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
-        //writeHintsWithIDToFile(InitialHintsWithID, fileName, "initial")//write hints and their ID to file
         HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,GlobalParameters.get.fileName)  //write smt2 format to file
         val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
         //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)

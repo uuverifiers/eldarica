@@ -66,11 +66,6 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       preprocessor.process(encoder.allClauses, encoder.globalHints)
     }
 
-  //test JSON reading
-  //  println("---debug---")
-  //  HintsSelection.readHintsFromJSON("test")
-  //  println("---debug---")
-
   val filePath=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)
   //output all training data
   if(GlobalParameters.get.getSMT2==true){

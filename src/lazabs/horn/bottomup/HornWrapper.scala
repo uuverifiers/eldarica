@@ -27,9 +27,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package lazabs.horn.bottomup
-
 import ap.parser._
 import IExpression._
 import ap.SimpleAPI
@@ -45,22 +43,14 @@ import lazabs.horn.global._
 import lazabs.utils.Manip._
 import lazabs.prover.PrincessWrapper
 import PrincessWrapper._
-import lazabs.prover.Tree
-import lazabs.types.Type
 import Util._
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
-import StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.concurrency.ReaderMain
-
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, getSimplifiedClauses, transformPredicateMapToVerificationHints}
-
-import java.util
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, getSimplifiedClauses, transformPredicateMapToVerificationHints,getInitialPredicates}
 import scala.collection.immutable.Set
-import scala.collection.mutable
+
 
 
 object HornWrapper {
@@ -396,21 +386,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private lazy val autoAbstraction : AbstractionMap =
     absBuilder.abstractionRecords
 
-  //todo: generate templates
-  simplifiedClauses.map(_.toPrologString).foreach(println)
-  val loopDetector = new LoopDetector(simplifiedClauses)
-  println("loop heads",loopDetector.loopHeads)
-  println("abs1:termAbstractions")
-  absBuilder.termAbstractions.pretyPrintHints()
-  println("abs2:octagonAbstractions")
-  absBuilder.octagonAbstractions.pretyPrintHints()
-  println("abs3:relationAbstractions")
-  absBuilder.relationAbstractions(false).pretyPrintHints()
-  println("abs4:relationAbstractions")
-  absBuilder.relationAbstractions(true).pretyPrintHints()
-
-
-  //todo: build predicted hints
   /** Manually provided interpolation abstraction hints */
   private lazy val hintsAbstraction : AbstractionMap =
     if (simpHints.isEmpty)
@@ -554,27 +529,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   }
 
-  val initialPredicatesForCEGAR =
-    if (GlobalParameters.get.readHints == true) {
-      val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
-      val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
-      val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
-        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
-      else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection,"templateRelevanceLabel")
-      truePositiveHints
-    }
-    else if (GlobalParameters.get.generateSimplePredicates == true) {
-      val (simpleGeneratedPredicates, _, _) =
-        HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false,deduplicate = false)
-      transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
-    }
-    else simpHints
+  val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints)
 
   if (GlobalParameters.get.onlyInitialPredicates == true){
     val exceptionalPredGen=HintsSelection.getExceptionalPredicatedGenerator()
     val localCounterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
     HintsSelection.checkSolvability(simplifiedClausesForGraph,initialPredicatesForCEGAR.toInitialPredicates,exceptionalPredGen,localCounterexampleMethod,HintsSelection.getFileName())
   }
+
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -584,7 +546,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       if (disjunctive)
         CEGAR.CounterexampleMethod.AllShortest
       else
-
         CEGAR.CounterexampleMethod.FirstBestShortest
 
     val predAbs = Console.withOut(outStream) {
