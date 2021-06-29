@@ -82,4 +82,3 @@ Related Links
 * Numerical transition system benchmarks:
   http://nts.imag.fr/index.php/Main_Page
 
-[![Build Status](https://travis-ci.org/uuverifiers/eldarica.svg?branch=master)](https://travis-ci.org/uuverifiers/eldarica)
