@@ -35,16 +35,34 @@ import ap.terfor.conjunctions.Conjunction
 
 import Util._
 import DisjInterpolator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.abstractions.{VerificationHints, EmptyVerificationHints,
+                                 AbsReader}
+import VerificationHints._
+import lazabs.horn.concurrency.ReaderMain
 
 import lattopt._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, LinkedHashMap,
+                                 HashMap => MHashMap}
 
+object PredicateMiner {
+  object TemplateExtraction extends Enumeration {
+    val Variables = Value
+  }
+}
+
+/**
+ * A class to analyse the predicates generated during a CEGAR run.
+ */
 class PredicateMiner[CC <% HornClauses.ConstraintClause]
                     (predAbs : HornPredAbs[CC]) {
 
+  import PredicateMiner._
   import predAbs.{context, predStore}
 
+  /**
+   * All predicates that have been considered by CEGAR.
+   */
   val allPredicates =
     for ((rs, preds) <- predStore.predicates.toIndexedSeq;
          pred <- preds.toIndexedSeq)
@@ -67,6 +85,31 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     }
   }
 
+  private implicit val randomData = new SeededRandomDataSource(123)
+
+  /**
+   * An arbitrary minimal sufficient set of predicates.
+   */
+  lazy val minimalPredicateSet =
+    allPredicates filter predicateLattice.getLabel(
+      Algorithms.maximize(predicateLattice)(predicateLattice.bottom))
+
+  /**
+   * The necessary predicates: predicates which are contained in each
+   * minimal sufficient set.
+   */
+  lazy val necessaryPredicates = necessaryPredicates2Help
+
+  /**
+   * The non-redundant predicates: the union of all minimal sufficient
+   * predicate sets.
+   */
+  lazy val nonRedundantPredicates =
+    allPredicates filter predicateLattice.getLabel(
+      Algorithms.maximalFeasibleObjectMeet(predicateLattice)(predicateLattice.bottom))
+
+  //////////////////////////////////////////////////////////////////////////////
+
   {
     implicit val randomData = new SeededRandomDataSource(123)
     val pl = predicateLattice
@@ -75,44 +118,33 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     printPreds(allPredicates)
 
     println
-//    val minSet = minimizePredSet(allPredicates)
-    val minSet = pl getLabel Algorithms.maximize(pl)(pl.bottom)
-    println("Minimal predicate set (" + minSet.size + "):")
-    printPreds(allPredicates filter minSet)
+    println("Minimal predicate set (" + minimalPredicateSet.size + "):")
+    printPreds(minimalPredicateSet)
 
     println
-    val necSet = necessaryPredicates2
     println("Necessary predicates, contained in all minimal sufficient sets (" +
-              necSet.size + "):")
-    printPreds(necSet)
-
-/*
-    for ((_s, n) <- 
-        Algorithms.maximalFeasibleObjects(pl)(
-                                             pl.bottom).zipWithIndex) {
-      println
-      val s = pl.getLabel(_s)
-    println("Minimal predicate set " + n + " (" +
-              s.size + "):")
-      printPreds(allPredicates filter s)
-    }
- */
+              necessaryPredicates.size + "):")
+    printPreds(necessaryPredicates)
 
     println
-    val nonRedundantSet =
-      pl.getLabel(Algorithms.maximalFeasibleObjectMeet(pl)(pl.bottom))
     println("Non-redundant predicates, contained in some minimal sufficient set (" +
-              nonRedundantSet.size + "):")
-    printPreds(allPredicates filter nonRedundantSet)
+              nonRedundantPredicates.size + "):")
+    printPreds(nonRedundantPredicates)
+
+    println
+    ReaderMain.printHints(
+      extractTemplates(allPredicates, TemplateExtraction.Variables, 0))
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Find a minimal sub-set of the given predicates that is sufficient
    * to show satisfiability of the problem. The method will try to
    * remove the first predicates in the sequence first.
    */
-  def minimizePredSet(preds : Seq[RelationSymbolPred])
-                    : Seq[RelationSymbolPred] = {
+  protected def minimizePredSet(preds : Seq[RelationSymbolPred])
+                              : Seq[RelationSymbolPred] = {
     var curPredicates = preds.toSet
 
     for (pred <- preds) {
@@ -128,8 +160,8 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
    * Find the predicates within the given set of predicates that are
    * elements of every minimal sufficient set of predicates.
    */
-  def necessaryPredicates(preds : Seq[RelationSymbolPred])
-                        : Seq[RelationSymbolPred] = {
+  protected def necessaryPredicatesHelp(preds : Seq[RelationSymbolPred])
+                                      : Seq[RelationSymbolPred] = {
     val result = new ArrayBuffer[RelationSymbolPred]
     val allPreds = preds.toSet
 
@@ -142,10 +174,12 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
   }
 
   /**
-   * Find the predicates within the given set of predicates that are
-   * elements of every minimal sufficient set of predicates.
+   * Find the predicates that are elements of every minimal sufficient
+   * set of predicates.
+   * 
+   * This method will use the predicate lattice for the computation.
    */
-  def necessaryPredicates2 : Seq[RelationSymbolPred] = {
+  protected def necessaryPredicates2Help : Seq[RelationSymbolPred] = {
     val result = new ArrayBuffer[RelationSymbolPred]
 
     for (pred <- allPredicates) {
@@ -185,5 +219,75 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                                : Either[Seq[(Predicate, Seq[Conjunction])],
                                         Dag[(IAtom, NormClause)]] =
    throw PredGenException
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def extractTemplates(preds : Iterable[RelationSymbolPred],
+                       mode : TemplateExtraction.Value,
+                       baseCost : Int)
+                     : VerificationHints =
+    VerificationHints.union(
+      preds map { p => extractTemplates(p, mode, baseCost) })
+
+  def extractTemplates(pred : RelationSymbolPred,
+                       mode : TemplateExtraction.Value,
+                       baseCost : Int)
+                     : VerificationHints = {
+    import IExpression._
+
+    mode match {
+      case TemplateExtraction.Variables => {
+        val rs =
+          pred.rs
+        val symMap =
+          (for ((c, n) <- rs.arguments.head.iterator.zipWithIndex)
+           yield (c -> v(n, Sort sortOf c))).toMap
+
+        val res = new LinkedHashSet[VerifHintElement]
+
+        def extractVars(c : Conjunction, polarity : Int) : Unit = {
+          val ac = c.arithConj
+
+          for (lc <- ac.positiveEqs; c <- lc.constants)
+            res += VerifHintTplEqTerm(symMap(c), baseCost + 1)
+
+          for (lc <- ac.inEqs.iterator;
+               (coeff, c : ConstantTerm) <- lc.iterator) {
+            val t = symMap(c) *** (coeff.signum * polarity)
+            res += VerifHintTplInEqTerm(t, baseCost)
+          }
+
+          for (d <- c.negatedConjs) extractVars(d, -polarity)
+        }
+
+        extractVars(pred.posInstances.head, 1)
+
+        VerificationHints(Map(rs.pred -> res.toSeq))
+      }
+    }
+  }
+
+  /*
+   Unfinished code for merging templates
+
+  def mergePosNegTemplates(hints : LinkedHashSet[VerifHintElement]) : Unit = {
+    val boundedTerms = new MHashMap[ITerm]
+    for (el <- hints) el match {
+      case VerifHintTplInEqTerm(ITimes(IdealInt.MINUS_ONE, t), _) =>
+        boundedTerms += t
+      case VerifHintTplInEqTerm(t, _) =>
+        boundedTerms += t
+      case _ =>
+        // nothing
+    }
+  }
+
+  def mergeTemplates(hints : VerificationHints) : VerificationHints = {
+    val newPredHints =
+      for ((pred, els) hints.predicateHints) yield {
+
+      }
+  }
+   */
 
 }
