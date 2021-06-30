@@ -259,9 +259,14 @@ class HornWrapper(constraints: Seq[HornClause],
     }
 
     if (GlobalParameters.get.printHornSimplifiedSMT) {
-      println("Clauses after preprocessing (SMT-LIB):")
-      for (c <- simplifiedClauses)
-          println(c.toSMTString)
+      val predsToDeclare = (for (c <- simplifiedClauses
+                             if c.head.pred != FALSE) yield {
+        c.predicates
+      }).flatten.toSet.toList
+
+      SMTLineariser("", "HORN", "", Nil, predsToDeclare,
+        simplifiedClauses.map(_ toFormula))
+
       throw PrintingFinishedException
     }
 
