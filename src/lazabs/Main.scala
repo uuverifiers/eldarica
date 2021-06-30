@@ -418,6 +418,11 @@ object Main {
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
+      case "-abstract:empty" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Empty
+        arguments(rest)
+      }
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty

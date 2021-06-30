@@ -220,11 +220,6 @@ object TrainDataGeneratorPredicatesSmt2 {
       lazy val autoAbstraction: AbstractionMap =
         absBuilder.abstractionRecords
 
-      //todo: get templates
-      //absBuilder.abstractionHints
-
-      //todo: build predicted hints
-
       /** Manually provided interpolation abstraction hints */
       lazy val hintsAbstraction: AbstractionMap =
         if (simpHints.isEmpty)

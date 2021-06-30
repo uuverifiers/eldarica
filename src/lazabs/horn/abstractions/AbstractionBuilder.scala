@@ -239,7 +239,6 @@ class StaticAbstractionBuilder(
 
   }
 
-
   def readArgumentCostFromJSONFile ={
     import play.api.libs.json._
     val input_file = GlobalParameters.get.fileName
