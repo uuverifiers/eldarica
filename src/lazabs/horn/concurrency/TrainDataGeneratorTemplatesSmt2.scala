@@ -36,8 +36,10 @@ import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintInitPred, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplInEqTermPosNeg, VerifHintTplPred, VerifHintTplPredPosNeg}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, VerificationHints, _}
 import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, getInitialPredicates, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples,
+  getInitialPredicates, transformPredicateMapToVerificationHints,resetElementCost,mergeTemplates,generateTemplates}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -205,28 +207,6 @@ object TrainDataGeneratorTemplatesSmt2 {
       lazy val autoAbstraction: AbstractionMap =
         absBuilder.abstractionRecords
 
-      //todo: generate templates
-      def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int)=element match {
-        case VerifHintTplPred(f,cost)=>{(f,cost)}
-        case VerifHintTplPredPosNeg(f,cost)=>{(f,cost)}
-        case VerifHintTplEqTerm(t,cost)=>{(t,cost)}
-        case VerifHintTplInEqTerm(t,cost)=>{(t,cost)}
-        case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost)}
-      }
-      def resetElementCost(element:VerifHintElement,c:Int):VerifHintElement=element match {
-        case VerifHintTplPred(f,cost)=>{VerifHintTplPred(f,c)}
-        case VerifHintTplPredPosNeg(f,cost)=>{VerifHintTplPredPosNeg(f,c)}
-        case VerifHintTplEqTerm(t,cost)=>{VerifHintTplEqTerm(t,c)}
-        case VerifHintTplInEqTerm(t,cost)=>{VerifHintTplInEqTerm(t,c)}
-        case VerifHintTplInEqTermPosNeg(t,cost)=>{VerifHintTplInEqTermPosNeg(t,c)}
-      }
-      def mergetemplates(first:VerificationHints,second:VerificationHints): VerificationHints ={
-        val locations=first.predicateHints.keys ++ second.predicateHints.keys
-        VerificationHints((for(p<-locations) yield {
-          p->(first.predicateHints(p).map(resetElementCost(_,1))++
-            second.predicateHints(p).map(resetElementCost(_,1))).distinct
-        }).toMap)
-      }
 
       simplifiedClauses.map(_.toPrologString).foreach(println)
       val loopDetector = new LoopDetector(simplifiedClauses)
@@ -240,12 +220,12 @@ object TrainDataGeneratorTemplatesSmt2 {
       println("abs4:relationAbstractions")
       absBuilder.relationAbstractions(true).pretyPrintHints()
       println("mergedAutoAbstractions")
-      val mergedAutoAbstractions=Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
-        absBuilder.relationAbstractions(false),absBuilder.relationAbstractions(true)).reduce(mergetemplates(_,_))
-      mergedAutoAbstractions.pretyPrintHints()
-      val selectedAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(mergedAutoAbstractions)
+      val initialTemplates=generateTemplates(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
+        absBuilder.relationAbstractions(false),absBuilder.relationAbstractions(true)))
+      initialTemplates.pretyPrintHints()
+      val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
 
-      //todo: build predicted hints
+      //todo: read predicted templates back
       /** Manually provided interpolation abstraction hints */
       lazy val hintsAbstraction: AbstractionMap =
         if (simpHints.isEmpty)
@@ -260,7 +240,7 @@ object TrainDataGeneratorTemplatesSmt2 {
         Console.withErr(outStream) {
           if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
             val fullAbstractionMap =Seq(hintsAbstraction,autoAbstraction,
-              selectedAbstraction).reduce(AbstractionRecord.mergeMaps(_,_))
+              initialTemplatesAbstraction).reduce(AbstractionRecord.mergeMaps(_,_))
             if (fullAbstractionMap.isEmpty)
               DagInterpolator.interpolatingPredicateGenCEXAndOr _
             else
@@ -296,10 +276,33 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
       //todo: label templates
-      val predicateMiner=new PredicateMiner(predAbs)
-      predicateMiner.printPreds(predicateMiner.allPredicates)
+      def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
+        val predMiner=new PredicateMiner(predAbs)
+        //predicateMiner.printPreds(predicateMiner.necessaryPredicates)
+        val positiveTemplates=predMiner.extractTemplates(predMiner.allPredicates, TemplateExtraction.Variables, 0)
+        //positiveTemplates
+        mergeTemplates(absBuilder.termAbstractions,absBuilder.octagonAbstractions)
+      }
 
-      //todo: draw graph
+      val unlabeledTemplates=initialTemplates
+      val labeledTemplates=labelTemplates(unlabeledTemplates)
+      println("-"*10+"unlabeledTemplates"+"-"*10)
+      unlabeledTemplates.pretyPrintHints()
+      println("-"*10+"labeledTemplates"+"-"*10)
+      labeledTemplates.pretyPrintHints()
+
+
+      //Output graphs
+      val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+      val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
+      val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledTemplates,countOccurrence=true)
+      if (GlobalParameters.get.separateByPredicates==true){
+        GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
+      }else{
+        val hintsCollection=new VerificationHintsInfo(unlabeledTemplates,labeledTemplates,VerificationHints(Map()))//labeledPredicates
+        GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+      }
+      HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates)
 
     }
   }

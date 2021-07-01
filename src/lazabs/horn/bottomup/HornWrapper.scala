@@ -48,7 +48,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, getClausesInCounterExamples, getSimplifiedClauses, transformPredicateMapToVerificationHints,getInitialPredicates}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates,mergeTemplates,generateTemplates, getClausesInCounterExamples, getSimplifiedClauses, transformPredicateMapToVerificationHints,getInitialPredicates}
 import scala.collection.immutable.Set
 
 
@@ -428,18 +428,25 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       sys.exit()
     }
 
-    val initialPredicates=
-      if (GlobalParameters.get.generateSimplePredicates==true){
-        val (simpleGeneratedPredicates,constraintPredicates,pairwisePredicates)
-        =  HintsSelection.getSimplePredicates(simplifiedClausesForGraph,deduplicate = false)
-        if (!simpleGeneratedPredicates.isEmpty){
-          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".constraintPredicates.tpl")) {
-            AbsReader.printHints(transformPredicateMapToVerificationHints(constraintPredicates))}
-          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".pairwisePredicates.tpl")) {
-            AbsReader.printHints(transformPredicateMapToVerificationHints(pairwisePredicates))}
+    val initialPredicates =
+      if (GlobalParameters.get.generateSimplePredicates == true) {
+        val (simpleGeneratedPredicates, constraintPredicates, pairwisePredicates)
+        = HintsSelection.getSimplePredicates(simplifiedClausesForGraph, deduplicate = false)
+        if (!simpleGeneratedPredicates.isEmpty) {
+          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".constraintPredicates.tpl")) {
+            AbsReader.printHints(transformPredicateMapToVerificationHints(constraintPredicates))
+          }
+          Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".pairwisePredicates.tpl")) {
+            AbsReader.printHints(transformPredicateMapToVerificationHints(pairwisePredicates))
+          }
         }
-        transformPredicateMapToVerificationHints(simpleGeneratedPredicates)++(simpHints)
-      }else{
+        transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
+        //todo:generate templates
+      } else if (GlobalParameters.get.genereateTemplates == true) {
+        generateTemplates(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
+          absBuilder.relationAbstractions(false),absBuilder.relationAbstractions(true)))
+      }
+      else {
         VerificationHints(Map()) ++ simpHints
       }
 

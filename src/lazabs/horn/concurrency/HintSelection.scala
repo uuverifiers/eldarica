@@ -41,7 +41,7 @@ import ap.util.{Seqs, Timeout}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
-import lazabs.horn.abstractions.{VerificationHints, _}
+import lazabs.horn.abstractions.{TemplateType, VerificationHints, _}
 import lazabs.horn.bottomup
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
@@ -51,6 +51,7 @@ import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
+
 import java.io.{File, FilenameFilter, PrintWriter}
 import java.lang.System.currentTimeMillis
 import java.nio.file.{Files, Paths, StandardCopyOption}
@@ -76,6 +77,32 @@ object HintsSelection {
   val cs=new ConstraintSimplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
+  def generateTemplates(currentTemplates:Seq[VerificationHints]): VerificationHints ={
+    currentTemplates.reduce(mergeTemplates(_,_))
+  }
+
+  def resetElementCost(element:VerifHintElement,c:Int):VerifHintElement=element match {
+    case VerifHintTplPred(f,cost)=>{VerifHintTplPred(f,c)}
+    case VerifHintTplPredPosNeg(f,cost)=>{VerifHintTplPredPosNeg(f,c)}
+    case VerifHintTplEqTerm(t,cost)=>{VerifHintTplEqTerm(t,c)}
+    case VerifHintTplInEqTerm(t,cost)=>{VerifHintTplInEqTerm(t,c)}
+    case VerifHintTplInEqTermPosNeg(t,cost)=>{VerifHintTplInEqTermPosNeg(t,c)}
+  }
+  def mergeTemplates(first:VerificationHints,second:VerificationHints): VerificationHints ={
+    val locations=first.predicateHints.keys ++ second.predicateHints.keys
+    VerificationHints((for(p<-locations) yield {
+      p->(first.predicateHints(p).map(resetElementCost(_,0))++
+        second.predicateHints(p).map(resetElementCost(_,0))).distinct
+    }).toMap)
+  }
+  def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
+    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.tplPred)}
+    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.tplPredPosNeg)}
+    case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.tplEqTerm)}
+    case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.tplInEqTerm)}
+    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.tplInEqTermPosNeg)}
+  }
+
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
     if (GlobalParameters.get.readHints == true) {
       val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
@@ -92,7 +119,6 @@ object HintsSelection {
     }
     else simpHints
   }
-
 
 
   def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] =>

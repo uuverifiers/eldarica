@@ -37,7 +37,7 @@ import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
 import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, spAPI}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, spAPI,getParametersFromVerifHintElement}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -941,13 +941,12 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
     writer.write("]")
   }
-  def drawTemplates(clauseGuardMap: Map[Predicate, Seq[Tuple2[String,IFormula]]]=Map()): Seq[(String,Seq[String])] ={
+  def drawPredicatesWithNode(clauseGuardMap: Map[Predicate, Seq[Tuple2[String,IFormula]]]=Map()): Seq[(String,Seq[String])] ={ //with template node
     val quantifiedClauseGuardMap = {
       for ((k, v) <- clauseGuardMap) yield k -> {
         for (p <- v) yield Tuple2(p._1,HintsSelection.predicateQuantify(p._2))
       }.filter(!_._2.isTrue).filter(!_._2.isFalse)
     }
-
     val tempHeadMap=
     for((hp,templates)<-hints.initialHints.toInitialPredicates.toSeq.sortBy(_._1.name)) yield {
       constantNodeSetInOneClause.clear()
@@ -982,6 +981,29 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             //update JSON
             val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) true else false
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)
+            predicateASTRootName
+          }
+        hp.name->templateNameList
+      }
+    tempHeadMap
+  }
+  def drawTemplates(): Seq[(String,Seq[String])]={
+//    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)._1)).toSeq.sortBy(_._1.name)
+//    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)._1))
+    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
+    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
+    val tempHeadMap=
+      for((hp,templates)<-unlabeledTemplates) yield {
+        constantNodeSetInOneClause.clear()
+        val templateNameList=
+          for (t<-templates) yield {
+            val predicateASTRootName=drawAST(t._1)
+            //todo: compare by logic, modify HintsSelection.containsPred
+            //todo: match element type
+            //todo: give different type different edge
+            val hintLabel = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
+              && positiveTemplates(hp).contains(t)) true else false
+            gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)//update JSON
             predicateASTRootName
           }
         hp.name->templateNameList
