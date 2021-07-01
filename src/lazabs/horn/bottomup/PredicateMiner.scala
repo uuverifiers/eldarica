@@ -29,6 +29,7 @@
 
 package lazabs.horn.bottomup
 
+import ap.basetypes.IdealInt
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
@@ -47,7 +48,7 @@ import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, LinkedHashMap,
 
 object PredicateMiner {
   object TemplateExtraction extends Enumeration {
-    val Variables = Value
+    val Variables, UnitTwoVariables = Value
   }
 }
 
@@ -105,8 +106,23 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
    * predicate sets.
    */
   lazy val nonRedundantPredicates =
-    allPredicates filter predicateLattice.getLabel(
-      Algorithms.maximalFeasibleObjectMeet(predicateLattice)(predicateLattice.bottom))
+    if (minimalPredicateSet == necessaryPredicates)
+      minimalPredicateSet
+    else
+      allPredicates filter predicateLattice.getLabel(
+        Algorithms.maximalFeasibleObjectMeet(predicateLattice)(predicateLattice.bottom))
+
+  /**
+   * Templates consisting of upper and lower bounds of individual variables.
+   */
+  lazy val variableTemplates =
+    extractTemplates(TemplateExtraction.Variables)
+
+  /**
+   * Templates consisting of upper and lower bounds of unit-two-variable terms.
+   */
+  lazy val unitTwoVariableTemplates =
+    extractTemplates(TemplateExtraction.UnitTwoVariables)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -132,8 +148,18 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     printPreds(nonRedundantPredicates)
 
     println
-    ReaderMain.printHints(
-      extractTemplates(allPredicates, TemplateExtraction.Variables, 0))
+    println("Template consisting of individual variables:")
+    ReaderMain.printHints(variableTemplates)
+
+    println
+    AbsReader.printHints(variableTemplates)
+
+    println
+    println("Unit-two-variable templates:")
+    ReaderMain.printHints(unitTwoVariableTemplates)
+
+    println
+    AbsReader.printHints(unitTwoVariableTemplates)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -222,16 +248,41 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def extractTemplates(mode : TemplateExtraction.Value)
+                     : VerificationHints =
+    mergeTemplates(
+      VerificationHints.union(
+        List(extractTemplates(necessaryPredicates, mode, 1),
+             extractTemplates(nonRedundantPredicates, mode, 5),
+             defaultTemplates(context.relationSymbols.keys filterNot (
+                                _ == HornClauses.FALSE), 20))
+      ))
+
+  def defaultTemplates(preds : Iterable[Predicate],
+                       cost : Int)
+                     : VerificationHints = {
+    val templates =
+      (for (pred <- preds) yield {
+         val sorts = HornPredAbs predArgumentSorts pred
+         val els =
+           for ((s, n) <- sorts.zipWithIndex)
+           yield VerifHintTplEqTerm(IExpression.v(n, s), cost)
+         pred -> els
+       }).toMap
+
+    VerificationHints(templates)
+  }
+
   def extractTemplates(preds : Iterable[RelationSymbolPred],
                        mode : TemplateExtraction.Value,
-                       baseCost : Int)
+                       cost : Int)
                      : VerificationHints =
     VerificationHints.union(
-      preds map { p => extractTemplates(p, mode, baseCost) })
+      preds map { p => extractTemplates(p, mode, cost) })
 
   def extractTemplates(pred : RelationSymbolPred,
                        mode : TemplateExtraction.Value,
-                       baseCost : Int)
+                       cost : Int)
                      : VerificationHints = {
     import IExpression._
 
@@ -249,12 +300,12 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
           val ac = c.arithConj
 
           for (lc <- ac.positiveEqs; c <- lc.constants)
-            res += VerifHintTplEqTerm(symMap(c), baseCost + 1)
+            res += VerifHintTplEqTerm(symMap(c), cost)
 
           for (lc <- ac.inEqs.iterator;
                (coeff, c : ConstantTerm) <- lc.iterator) {
             val t = symMap(c) *** (coeff.signum * polarity)
-            res += VerifHintTplInEqTerm(t, baseCost)
+            res += VerifHintTplInEqTerm(t, cost)
           }
 
           for (d <- c.negatedConjs) extractVars(d, -polarity)
@@ -262,32 +313,167 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
         extractVars(pred.posInstances.head, 1)
 
-        VerificationHints(Map(rs.pred -> res.toSeq))
+        VerificationHints(Map(rs.pred -> mergePosNegTemplates(res.toSeq)))
+      }
+
+      case TemplateExtraction.UnitTwoVariables => {
+        val rs =
+          pred.rs
+        val symMap =
+          (for ((c, n) <- rs.arguments.head.iterator.zipWithIndex)
+           yield (c -> v(n, Sort sortOf c))).toMap
+
+        val res = new LinkedHashSet[VerifHintElement]
+
+        def extractTpl(c : Conjunction, polarity : Int) : Unit = {
+          val ac = c.arithConj
+
+          for (lc <- ac.positiveEqs)
+            if (lc.constants.size == 1) {
+              res += VerifHintTplEqTerm(symMap(lc.constants.toSeq.head), cost)
+            } else {
+              for (n1 <- 0 until (lc.size - 1);
+                   if (lc getTerm n1).isInstanceOf[ConstantTerm];
+                   n2 <- (n1 + 1) until lc.size;
+                   if (lc getTerm n2).isInstanceOf[ConstantTerm]) {
+                val (coeff1, c1 : ConstantTerm) = lc(n1)
+                val (coeff2, c2 : ConstantTerm) = lc(n2)
+                val t = (symMap(c1) *** coeff1.signum) +
+                        (symMap(c2) *** coeff2.signum)
+                res += VerifHintTplEqTerm(t, cost)
+              }
+            }
+
+          for (lc <- ac.inEqs)
+            if (lc.constants.size == 1) {
+              val (coeff, c : ConstantTerm) = lc(0)
+              val t = symMap(c) *** (coeff.signum * polarity)
+              res += VerifHintTplInEqTerm(symMap(lc.constants.toSeq.head), cost)
+            } else {
+              for (n1 <- 0 until (lc.size - 1);
+                   if (lc getTerm n1).isInstanceOf[ConstantTerm];
+                   n2 <- (n1 + 1) until lc.size;
+                   if (lc getTerm n2).isInstanceOf[ConstantTerm]) {
+                val (coeff1, c1 : ConstantTerm) = lc(n1)
+                val (coeff2, c2 : ConstantTerm) = lc(n2)
+                val t = (symMap(c1) *** (coeff1.signum * polarity)) +
+                        (symMap(c2) *** (coeff2.signum * polarity))
+                res += VerifHintTplInEqTerm(t, cost)
+              }
+            }
+
+          for (d <- c.negatedConjs) extractTpl(d, -polarity)
+        }
+
+        extractTpl(pred.posInstances.head, 1)
+
+        VerificationHints(Map(rs.pred -> mergePosNegTemplates(res.toSeq)))
       }
     }
   }
 
-  /*
-   Unfinished code for merging templates
+  //////////////////////////////////////////////////////////////////////////////
 
-  def mergePosNegTemplates(hints : LinkedHashSet[VerifHintElement]) : Unit = {
-    val boundedTerms = new MHashMap[ITerm]
-    for (el <- hints) el match {
-      case VerifHintTplInEqTerm(ITimes(IdealInt.MINUS_ONE, t), _) =>
-        boundedTerms += t
-      case VerifHintTplInEqTerm(t, _) =>
-        boundedTerms += t
-      case _ =>
-        // nothing
-    }
+  import IExpression._
+
+  private def mergePosNegTemplates(hints : Seq[VerifHintElement])
+                                 : Seq[VerifHintElement] = {
+    val augmented =
+      hints ++ (
+        for (VerifHintTplInEqTerm(s, cost) <- hints;
+             if (hints exists {
+                   case VerifHintTplInEqTerm(t, _)
+                       if equalMinusTerms(s,t) => true
+                   case _ =>
+                       false
+                 }))
+        yield VerifHintTplEqTerm(s, cost))
+
+    filterNonRedundant(augmented)
   }
 
-  def mergeTemplates(hints : VerificationHints) : VerificationHints = {
+  private def filterNonRedundant(hints : Seq[VerifHintElement])
+                               : Seq[VerifHintElement] = {
+    val res = new ArrayBuffer[VerifHintElement]
+
+    for (el@VerifHintTplEqTerm(s, cost) <- hints.iterator)
+      if (!(res exists {
+              case VerifHintTplEqTerm(t, _) =>
+                equalTerms(s, t) || equalMinusTerms(s, t)
+              case _ =>
+                false
+            }))
+        res += el
+
+    for (el@VerifHintTplInEqTerm(s, cost) <- hints.iterator)
+      if (!(res exists {
+              case VerifHintTplInEqTerm(t, _) =>
+                equalTerms(s, t)
+              case VerifHintTplEqTerm(t, _) =>
+                equalTerms(s, t) || equalMinusTerms(s, t)
+              case _ =>
+                false
+            }))
+        res += el
+
+    res.toSeq
+  }
+
+  private def mergeTemplates(hints : VerificationHints) : VerificationHints = {
     val newPredHints =
-      for ((pred, els) hints.predicateHints) yield {
+      (for ((pred, els) <- hints.predicateHints) yield {
+         val sorted = els.sortBy {
+           case el : VerifHintTplElement => el.cost
+           case _ => Int.MinValue
+         }
 
-      }
+         val res = new ArrayBuffer[VerifHintElement]
+
+         for (el <- sorted) el match {
+           case VerifHintTplEqTerm(s, _) =>
+             if (!(res exists {
+                     case VerifHintTplEqTerm(t, _) =>
+                       equalTerms(s, t) || equalMinusTerms(s, t)
+                     case _ =>
+                       false
+                   }))
+               res += el
+           case VerifHintTplInEqTerm(s, _) =>
+             if (!(res exists {
+                     case VerifHintTplInEqTerm(t, _) =>
+                       equalTerms(s, t)
+                     case VerifHintTplEqTerm(t, _) =>
+                       equalTerms(s, t) || equalMinusTerms(s, t)
+                     case _ =>
+                       false
+                   }))
+               res += el
+         }
+
+         pred -> res.toSeq
+      }).toMap
+
+    VerificationHints(newPredHints)
   }
-   */
+
+  private def equalTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
+    case (s, t)
+        if s == t => true
+    case (Difference(s1, s2), Difference(t1, t2))
+        if equalTerms(s1, t1) && equalTerms(s2, t2) => true
+    case _ =>
+        false
+  }
+
+  private def equalMinusTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
+    case (ITimes(IdealInt.MINUS_ONE, s), t)
+        if equalTerms(s, t) => true
+    case (s, ITimes(IdealInt.MINUS_ONE, t))
+        if equalTerms(s, t) => true
+    case (Difference(s1, s2), Difference(t1, t2))
+        if equalTerms(s1, t2) && equalTerms(s2, t1) => true
+    case _ =>
+        false
+  }
 
 }
