@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,9 @@ object VerificationHints {
     new VerificationHints {
       val predicateHints = hints
     }
+
+  def union(hints : Iterable[VerificationHints]) : VerificationHints =
+    hints.foldLeft[VerificationHints](EmptyVerificationHints)(_ ++ _)
 
   abstract sealed class VerifHintElement {
     /**
@@ -188,9 +191,9 @@ object VerificationHints {
         that
       } else {
         val allHints =
-          predicateHints ++
-          (for ((p, hints) <- predicateHints.iterator) yield
-            (predicateHints get p) match {
+          this.predicateHints ++
+          (for ((p, hints) <- that.predicateHints.iterator) yield
+            (this.predicateHints get p) match {
               case Some(oldHints) => p -> (oldHints ++ hints)
               case None           => p -> hints
             })
