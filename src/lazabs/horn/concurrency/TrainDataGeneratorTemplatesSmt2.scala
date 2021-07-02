@@ -225,7 +225,6 @@ object TrainDataGeneratorTemplatesSmt2 {
       initialTemplates.pretyPrintHints()
       val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
 
-      //todo: read predicted templates back
       /** Manually provided interpolation abstraction hints */
       lazy val hintsAbstraction: AbstractionMap =
         if (simpHints.isEmpty)

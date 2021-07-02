@@ -495,8 +495,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       if (GlobalParameters.get.genereateTemplates) {
         (for ((fieldName, initialTemplates) <- dataFold) yield {
           val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
-          val solvabilityPredGenerator=getPredGenerator(Seq(hintsAbstraction,autoAbstraction,
-            initialTemplatesAbstraction),outStream)
+          val solvabilityPredGenerator=getPredGenerator(Seq(initialTemplatesAbstraction),outStream)
           val (solveTime, predicateFromCegar, _) = HintsSelection.checkSolvability(simplifiedClausesForGraph,
             Map(), solvabilityPredGenerator, counterexampleMethod,outStream, moveFile = GlobalParameters.get.moveFile, exit = false, coefficient = 1)
           val solvability = if (solveTime >= (GlobalParameters.get.solvabilityTimeout / 1000).toInt) false else true
@@ -549,8 +548,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     HintsSelection.writeInfoToJSON(solvabilityList,"solvability")
     //todo: modify for templates
     if (GlobalParameters.get.measurePredictedPredicates==true){
-      HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,outStream,
-        predictedPredicates.toInitialPredicates,fullInitialPredicates.toInitialPredicates,truePredicates.toInitialPredicates)
+      HintsSelection.measurePredicates(simplifiedClausesForGraph,predGenerator,counterexampleMethod,outStream,absBuilder,
+        predictedPredicates,fullInitialPredicates,truePredicates)
     }
     sys.exit()
 
@@ -584,10 +583,6 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         new HornPredAbs(simplifiedClausesForGraph,
                         initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
                         counterexampleMethod)
-      //todo: label templates
-      val predicateMiner=new PredicateMiner(predAbs)
-      predicateMiner.printPreds(predicateMiner.allPredicates)
-
 
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         val clausesInCE=getClausesInCounterExamples(predAbs.result,simplifiedClausesForGraph)

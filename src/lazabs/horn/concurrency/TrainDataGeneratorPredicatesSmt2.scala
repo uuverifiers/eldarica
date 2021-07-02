@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.{Clause, _}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, predicateQuantify, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples, getPredGenerator, predicateQuantify, transformPredicateMapToVerificationHints}
 import lazabs.horn.concurrency._
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{ConstraintSimplifier, DefaultPreprocessor, HornPreprocessor}
@@ -229,21 +229,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //////////////////////////////////////////////////////////////////////////////
 
-      val predGenerator =
-        Console.withErr(outStream) {
-          if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
-            val fullAbstractionMap =
-              AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
-            if (fullAbstractionMap.isEmpty)
-              DagInterpolator.interpolatingPredicateGenCEXAndOr _
-            else
-              TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                fullAbstractionMap,
-                lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-          } else {
-            DagInterpolator.interpolatingPredicateGenCEXAndOr _
-          }
-        }
+      val predGenerator = getPredGenerator(Seq(hintsAbstraction, autoAbstraction),outStream)
 
       if (GlobalParameters.get.templateBasedInterpolationPrint &&
         !simpHints.isEmpty)
@@ -279,9 +265,8 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,outStream,
-            predictedPositiveHints.toInitialPredicates,initialPredicates.toInitialPredicates,truePositiveHints.toInitialPredicates)
-
+          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,outStream,absBuilder,
+            predictedPositiveHints,initialPredicates,truePositiveHints)
         } else{
           //Output graphs
           val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
