@@ -73,17 +73,16 @@ object VerificationHints {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  
-  abstract sealed class VerifHintTplElement(val _cost : Int)
-                                         extends VerifHintElement
 
+  abstract sealed class VerifHintTplElement(val cost : Int)
+    extends VerifHintElement
 
   case class VerifHintTplIterationThreshold(threshold : Int)
-                                         extends VerifHintElement {
+    extends VerifHintElement {
     def shiftArguments(offset : Int, shift : Int)
-                      : VerifHintTplIterationThreshold = this
+    : VerifHintTplIterationThreshold = this
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplIterationThreshold] = Some(this)
+    : Option[VerifHintTplIterationThreshold] = Some(this)
   }
 
   case class VerifHintInitPred(f : IFormula) extends VerifHintElement {
@@ -91,54 +90,54 @@ object VerificationHints {
       VerifHintInitPred(VariableShiftVisitor(f, offset, shift))
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintInitPred] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintInitPred(newF.asInstanceOf[IFormula])
+        yield VerifHintInitPred(newF.asInstanceOf[IFormula])
   }
-  
-  case class VerifHintTplPred(f : IFormula, cost : Int)
-                                         extends VerifHintTplElement(cost) {
+
+  case class VerifHintTplPred(f : IFormula, _cost : Int)
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplPred =
       VerifHintTplPred(VariableShiftVisitor(f, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplPred] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintTplPred(newF.asInstanceOf[IFormula], cost)
+        yield VerifHintTplPred(newF.asInstanceOf[IFormula], cost)
   }
-  
-  case class VerifHintTplPredPosNeg(f : IFormula, cost : Int)
-                                         extends VerifHintTplElement(cost) {
+
+  case class VerifHintTplPredPosNeg(f : IFormula, _cost : Int)
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplPredPosNeg =
       VerifHintTplPredPosNeg(VariableShiftVisitor(f, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplPredPosNeg] =
+    : Option[VerifHintTplPredPosNeg] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintTplPredPosNeg(newF.asInstanceOf[IFormula], cost)
+        yield VerifHintTplPredPosNeg(newF.asInstanceOf[IFormula], cost)
   }
-  
-  case class VerifHintTplEqTerm(t : ITerm, cost : Int)
-                                         extends VerifHintTplElement(cost){
+
+  case class VerifHintTplEqTerm(t : ITerm, _cost : Int)
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplEqTerm =
       VerifHintTplEqTerm(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplEqTerm] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplEqTerm(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplEqTerm(newT.asInstanceOf[ITerm], cost)
   }
 
-  case class VerifHintTplInEqTerm(t : ITerm, cost : Int)
-                                         extends VerifHintTplElement(cost) {
+  case class VerifHintTplInEqTerm(t : ITerm, _cost : Int)
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTerm =
       VerifHintTplInEqTerm(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplInEqTerm] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplInEqTerm(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplInEqTerm(newT.asInstanceOf[ITerm], cost)
   }
 
-  case class VerifHintTplInEqTermPosNeg(t : ITerm, cost : Int)
-                                         extends VerifHintTplElement(cost) {
+  case class VerifHintTplInEqTermPosNeg(t : ITerm, _cost : Int)
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTermPosNeg =
       VerifHintTplInEqTermPosNeg(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplInEqTermPosNeg] =
+    : Option[VerifHintTplInEqTermPosNeg] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplInEqTermPosNeg(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplInEqTermPosNeg(newT.asInstanceOf[ITerm], cost)
   }
 }
 
