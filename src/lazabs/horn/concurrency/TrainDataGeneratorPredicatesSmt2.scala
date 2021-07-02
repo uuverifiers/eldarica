@@ -279,7 +279,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
         if(GlobalParameters.get.measurePredictedPredicates){
-          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,
+          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,outStream,
             predictedPositiveHints.toInitialPredicates,initialPredicates.toInitialPredicates,truePositiveHints.toInitialPredicates)
 
         } else{
@@ -311,7 +311,7 @@ object TrainDataGeneratorPredicatesSmt2 {
         AbsReader.printHints(transformPredicateMapToVerificationHints(pairwisePredicates))}
 
       val predicateGenerator= if (GlobalParameters.get.onlyInitialPredicates) exceptionalPredGen else predGenerator
-      val (solvability,predicateFromCEGAR,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predicateGenerator,counterexampleMethod,fileName = fileName,coefficient = 5)
+      val (solvability,predicateFromCEGAR,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,simpleGeneratedPredicates,predicateGenerator,counterexampleMethod,outStream,fileName = fileName,coefficient = 5)
       val originalPredicates = predicateFromCEGAR.mapValues(_.map(spAPI.simplify(_)))
       val initialPredicates =
         if(GlobalParameters.get.varyGeneratedPredicates==true)
@@ -322,7 +322,7 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       generatingInitialPredicatesTime=(System.currentTimeMillis-predicatesExtractingBeginTime)/1000
       //double check if the generated predicates is enough to solve the problem
-      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,exceptionalPredGen,counterexampleMethod,fileName)
+      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,initialPredicates.toInitialPredicates,exceptionalPredGen,counterexampleMethod,outStream,fileName)
 
 
       //predicates selection begin
@@ -343,7 +343,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           println("timeout:" + GlobalParameters.get.threadTimeout + "ms")
 
 
-          val(_,_,test)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,optimizedPredicate,exceptionalPredGen,counterexampleMethod,fileName,moveFileFolder = "test-timeout")
+          val(_,_,test)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,optimizedPredicate,exceptionalPredGen,counterexampleMethod,outStream,fileName,moveFileFolder = "test-timeout")
 
           val (unlabeledPredicates,labeledPredicates)=
             if(GlobalParameters.get.labelSimpleGeneratedPredicates==true) {

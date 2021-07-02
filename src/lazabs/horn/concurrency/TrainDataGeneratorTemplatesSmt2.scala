@@ -39,7 +39,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
 import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples,
-  getInitialPredicates, transformPredicateMapToVerificationHints,resetElementCost,mergeTemplates,generateTemplates}
+  getInitialPredicates, transformPredicateMapToVerificationHints,resetElementCost,getPredGenerator,mergeTemplates,generateTemplates}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -236,21 +236,8 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       //////////////////////////////////////////////////////////////////////////////
 
-      val predGenerator =
-        Console.withErr(outStream) {
-          if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
-            val fullAbstractionMap =Seq(hintsAbstraction,autoAbstraction,
-              initialTemplatesAbstraction).reduce(AbstractionRecord.mergeMaps(_,_))
-            if (fullAbstractionMap.isEmpty)
-              DagInterpolator.interpolatingPredicateGenCEXAndOr _
-            else
-              TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                fullAbstractionMap,
-                lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
-          } else {
-            DagInterpolator.interpolatingPredicateGenCEXAndOr _
-          }
-        }
+      val predGenerator =getPredGenerator(Seq(hintsAbstraction,autoAbstraction,
+        initialTemplatesAbstraction),outStream)
 
       if (GlobalParameters.get.templateBasedInterpolationPrint &&
         !simpHints.isEmpty)

@@ -77,6 +77,23 @@ object HintsSelection {
   val cs=new ConstraintSimplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
+  def getPredGenerator(absMaps:Seq[AbstractionMap],outStream : java.io.OutputStream):  Util.Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Util.Dag[(IAtom, NormClause)]] ={
+    val predGenerator = Console.withErr(outStream) {
+      if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
+        val fullAbstractionMap =absMaps.reduce(AbstractionRecord.mergeMaps(_,_))
+        if (fullAbstractionMap.isEmpty)
+          DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        else
+          TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+            fullAbstractionMap,
+            lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+      } else {
+        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+      }
+    }
+    predGenerator
+  }
+
   def generateTemplates(currentTemplates:Seq[VerificationHints]): VerificationHints ={
     currentTemplates.reduce(mergeTemplates(_,_))
   }
@@ -121,30 +138,32 @@ object HintsSelection {
   }
 
 
-  def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]], predicateGen:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] =>
-    Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, NormClause)]], counterexampleMethod: CEGAR.CounterexampleMethod.Value,
-                       fileName: String = "noFileName", moveFileFolder:String="solvability-timeout",moveFile: Boolean = true, exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]],Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
+  def checkSolvability(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses, originalPredicates: Map[Predicate, Seq[IFormula]],
+                       predicateGen: Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] =>
+                         Either[Seq[(Predicate, Seq[Conjunction])],
+                           Dag[(IAtom, NormClause)]], counterexampleMethod: CEGAR.CounterexampleMethod.Value,outStream:java.io.OutputStream,
+                       fileName: String = "noFileName", moveFileFolder: String = "solvability-timeout", moveFile: Boolean = true,
+                       exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]], Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     println("check solvability using current predicates")
     var solveTime = (GlobalParameters.get.solvabilityTimeout / 1000).toInt
-    var satisfiability=false
+    var satisfiability = false
     val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, coefficient)
     val startTime = currentTimeMillis()
     var cegarGeneratedPredicates: Map[Predicate, Seq[IFormula]] = Map()
-    var res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]= Left(Map())
+    var res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]] = Left(Map())
     try GlobalParameters.parameters.withValue(solvabilityTimeoutChecker) {
-      val cegar = new HornPredAbs(simplePredicatesGeneratorClauses,
+      val cegar = Console.withOut(outStream) {new HornPredAbs(simplePredicatesGeneratorClauses,
         originalPredicates, predicateGen,
-        counterexampleMethod)
+        counterexampleMethod)}
       solveTime = ((currentTimeMillis - startTime) / 1000).toInt
-      res=cegar.result
+      res = cegar.result
       res match {
         case Left(a) => {
           satisfiability = true
-          cegarGeneratedPredicates  = transformPredicatesToCanonical(cegar.relevantPredicates,simplePredicatesGeneratorClauses)
+          cegarGeneratedPredicates = transformPredicatesToCanonical(cegar.relevantPredicates, simplePredicatesGeneratorClauses)
         }
         case Right(b) => {
-          println(Console.RED + "-"*10+"unsat"+"-"*10)
+          println(Console.RED + "-" * 10 + "unsat" + "-" * 10)
           if (moveFile == true)
             HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + fileName)
           if (exit == true)
@@ -155,16 +174,16 @@ object HintsSelection {
     }
     catch {
       case lazabs.Main.TimeoutException => {
-        println(Console.RED + "-"*10 +moveFileFolder+"-"*10)
+        println(Console.RED + "-" * 10 + moveFileFolder + "-" * 10)
         if (moveFile == true)
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/"+moveFileFolder+"/" + fileName)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/" + moveFileFolder + "/" + fileName)
         if (exit == true)
           sys.exit() //throw TimeoutException
         //solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       }
-      case _ => println(Console.RED + "-"*10+"solvability-debug"+"-"*10)
+      case _ => println(Console.RED + "-" * 10 + "solvability-debug" + "-" * 10)
     }
-    (solveTime, cegarGeneratedPredicates,res)
+    (solveTime, cegarGeneratedPredicates, res)
   }
 
   def transformPredicatesToCanonical(lastPredicates:Map[Predicate,Seq[IFormula]],simplePredicatesGeneratorClauses: HornPreprocessor.Clauses):
@@ -191,11 +210,13 @@ object HintsSelection {
         yield arg -> IVariable(n, s)).toMap
   }
 
-  def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]], counterexampleMethod: CEGAR.CounterexampleMethod.Value,
+  def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]],
+                        counterexampleMethod: CEGAR.CounterexampleMethod.Value,outStream:java.io.OutputStream,
                         predictedPredicates:Map[Predicate, Seq[IFormula]],
                         fullPredicates:Map[Predicate, Seq[IFormula]],
                         minimizedPredicates:Map[Predicate, Seq[IFormula]]): Unit ={
-    HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod,moveFile = false)
+
+    HintsSelection.checkSolvability(simplePredicatesGeneratorClauses,predictedPredicates,predGenerator,counterexampleMethod,outStream,moveFile = false)
 
     //run trails to reduce time consumption deviation
     val trial_1=if (minimizedPredicates.isEmpty) Seq() else measureCEGAR(simplePredicatesGeneratorClauses,minimizedPredicates,predGenerator,counterexampleMethod)
@@ -655,30 +676,30 @@ object HintsSelection {
   def readPredicateLabelFromMultipleJSON(initialHintsCollection: VerificationHintsInfo,
                                          simplifiedClausesForGraph: Clauses,readLabel:String="predictedLabel"): VerificationHints ={
     //restore predicates from separated files
-    val emptyMap:Map[Predicate,Seq[IFormula]]=Map()
+    val emptyMap:Map[Predicate,Seq[VerifHintElement]]=Map()
     val totalPredicateNumber=initialHintsCollection.initialHints.totalPredicateNumber
     val batch_size=getBatchSize(simplifiedClausesForGraph,totalPredicateNumber)
     val trunk=(totalPredicateNumber/batch_size.toFloat).ceil.toInt
     val fimeNameList= for (t<- (0 until trunk))yield{GlobalParameters.get.fileName+"-"+t.toString}
     val allPositiveList=(for (fileName<-fimeNameList)yield{
       if(new java.io.File(fileName+".hyperEdgeHornGraph.JSON").exists == true){
-        val currenInitialHints=wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates",fileName).toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)).toSeq sortBy (_._1.name)
+        val currenInitialHints=wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates",fileName).predicateHints.toSeq sortBy (_._1.name)
         readPredicateLabelFromJSON(fileName, currenInitialHints, readLabel)
       }else{
         emptyMap
       }
 
     }).reduceLeft(mergePredicateMaps(_,_))
-    transformPredicateMapToVerificationHints(allPositiveList)
+    VerificationHints(allPositiveList)
   }
 
   def readPredicateLabelFromOneJSON(initialHintsCollection: VerificationHintsInfo,readLabel:String="predictedLabel"): VerificationHints ={
-    val initialHints=initialHintsCollection.initialHints.toInitialPredicates.toSeq sortBy (_._1.name)
-    HintsSelection.transformPredicateMapToVerificationHints(readPredicateLabelFromJSON(GlobalParameters.get.fileName, initialHints, readLabel))
+    val initialHints=initialHintsCollection.initialHints.predicateHints.toSeq sortBy (_._1.name)
+    VerificationHints(readPredicateLabelFromJSON(GlobalParameters.get.fileName, initialHints, readLabel))
   }
 
-  def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[IFormula])],
-                                 readLabel:String="predictedLabel"): Map[Predicate, Seq[IFormula]]={
+  def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
+                                 readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
     val input_file=fileName+".hyperEdgeHornGraph.JSON"
     if(detectIfAJSONFieldExists(readLabel,fileName)==true){
       val json_content = scala.io.Source.fromFile(input_file).mkString
@@ -967,7 +988,7 @@ object HintsSelection {
     }
     (finalGeneratedPredicates,constraintPredicates,pairWiseVariablePredicates)
   }
-  def mergePredicateMaps(first:Map[Predicate,Seq[IFormula]],second:Map[Predicate,Seq[IFormula]]): Map[Predicate,Seq[IFormula]] ={
+  def mergePredicateMaps[A](first:Map[Predicate,Seq[A]],second:Map[Predicate,Seq[A]]): Map[Predicate,Seq[A]] ={
     if (first.isEmpty)
       second
     else if (second.isEmpty)
