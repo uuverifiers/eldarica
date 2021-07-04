@@ -34,7 +34,7 @@ import IExpression._
 
 import scala.collection.{Set => GSet}
 object TemplateType extends Enumeration {
-  val tplPred,tplPredPosNeg, tplEqTerm,tplInEqTerm,tplInEqTermPosNeg= Value
+  val TplPred,TplPredPosNeg, TplEqTerm,TplInEqTerm,TplInEqTermPosNeg= Value
 }
 object VerificationHints {
   def apply(hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =

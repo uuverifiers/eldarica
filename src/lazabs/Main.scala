@@ -619,7 +619,7 @@ object Main {
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t generate simple predicates\n"+
-          " -generateTemplates\t generate templates\n"+
+          " -genereateTemplates\t generate templates\n"+
           " -onlyInitialPredicates\t extract predicates using initial predicates only\n"+
           " -moveFile\t if exception occur, move file to excepion directory\n"+
           " -checkSolvability \t check solvability for different initial predicate settings\n"+

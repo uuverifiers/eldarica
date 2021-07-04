@@ -42,6 +42,7 @@ import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples,
   getInitialPredicates, transformPredicateMapToVerificationHints,resetElementCost,getPredGenerator,mergeTemplates,generateTemplates}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
+import scala.util.Random
 
 object TrainDataGeneratorTemplatesSmt2 {
   def apply(clauseSet: Seq[HornClause],
@@ -261,6 +262,15 @@ object TrainDataGeneratorTemplatesSmt2 {
         predAbs
       }
 
+
+      def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
+        val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
+          val numberOfLabeledTemplates=(v.size*ratio).toInt
+          val randomShuffledTemplates=Random.shuffle(v)
+          k-> (for (i<-0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
+        }
+        VerificationHints(labeledTemplates)
+      }
       //todo: label templates
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
         val predMiner=new PredicateMiner(predAbs)
@@ -271,7 +281,8 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
       val unlabeledTemplates=initialTemplates
-      val labeledTemplates=labelTemplates(unlabeledTemplates)
+      //val labeledTemplates=labelTemplates(unlabeledTemplates)
+      val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
       println("-"*10+"unlabeledTemplates"+"-"*10)
       unlabeledTemplates.pretyPrintHints()
       println("-"*10+"labeledTemplates"+"-"*10)

@@ -113,11 +113,11 @@ object HintsSelection {
     }).toMap)
   }
   def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
-    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.tplPred)}
-    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.tplPredPosNeg)}
-    case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.tplEqTerm)}
-    case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.tplInEqTerm)}
-    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.tplInEqTermPosNeg)}
+    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
+    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
+    case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.TplEqTerm)}
+    case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.TplInEqTerm)}
+    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
   }
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
@@ -215,7 +215,6 @@ object HintsSelection {
                         predictedPredicates:VerificationHints,
                         fullPredicates:VerificationHints,
                         minimizedPredicates:VerificationHints): Unit ={
-    val measurementAverageTime=20
     val measurementList = if (GlobalParameters.get.genereateTemplates) {
       val predictedTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(predictedPredicates)
       val emptyTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(VerificationHints(Map()))
@@ -225,7 +224,8 @@ object HintsSelection {
       val emptyAbstractionPredGenerator=getPredGenerator(Seq(emptyTemplatesAbstraction),outStream)
       val fullAbstractionPredGenerator=getPredGenerator(Seq(fullTemplatesAbstraction),outStream)
       val trueAbstractionPredGenerator=getPredGenerator(Seq(trueTemplatesAbstraction),outStream)
-      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod, outStream, moveFile = false)
+      val (solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod, outStream, moveFile = false)
+      val measurementAverageTime= if (solveTime<60) 20 else 5
       //run trails to reduce time consumption deviation
       val trial_predicted = measureCEGAR(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod,outStream)
       val trial_empty = measureCEGAR(simplePredicatesGeneratorClauses, Map(), emptyAbstractionPredGenerator, counterexampleMethod,outStream)
@@ -238,7 +238,8 @@ object HintsSelection {
       Seq(("measurementWithTrueLabel", measurementWithTrueLabel), ("measurementWithFullLabel", measurementWithFullLabel),
         ("measurementWithEmptyLabel", measurementWithEmptyLabel), ("measurementWithPredictedLabel", measurementWithPredictedLabel))
     } else {
-      HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false)
+      val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false)
+      val measurementAverageTime= if (solveTime<60) 20 else 5
       //run trails to reduce time consumption deviation
       val trial_predicted = measureCEGAR(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream)
       val trial_empty = measureCEGAR(simplePredicatesGeneratorClauses, Map(), predGenerator, counterexampleMethod,outStream)

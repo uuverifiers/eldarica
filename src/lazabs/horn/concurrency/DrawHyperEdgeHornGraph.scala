@@ -95,6 +95,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("AST_2" -> "AST_2")
   edgeNameMap += ("argument" -> "arg")
   edgeNameMap += ("clause" -> "clause")
+  edgeNameMap += ("template" -> "template")
+  edgeNameMap += ("verifHintTplPred" -> "tplPred")
+  edgeNameMap += ("verifHintTplPredPosNeg" -> "tplPredPosNeg")
+  edgeNameMap += ("verifHintTplEqTerm" -> "tTplEqTerm")
+  edgeNameMap += ("verifHintTplInEqTerm" -> "tplInEqTerm")
+  edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "tplInEqTermPosNeg")
   //turn on/off edge's label
   var edgeNameSwitch = true
   if (edgeNameSwitch == false) {
@@ -320,7 +326,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   astEdgeType = "AST"//"templateAST"
   val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
-    addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName, "template")
+    addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName._1, templateNodeName._2)
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

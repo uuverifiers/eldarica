@@ -418,6 +418,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     }
   }
 
+  if (GlobalParameters.get.genereateTemplates==true){
+    val initialTemplates=generateTemplates(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
+      absBuilder.relationAbstractions(false),absBuilder.relationAbstractions(true)))
+    getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)),outStream)
+  }else{
+    getPredGenerator(Seq(hintsAbstraction, autoAbstraction),outStream)
+  }
+
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
