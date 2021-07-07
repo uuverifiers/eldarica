@@ -69,11 +69,23 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
          pred <- preds.toIndexedSeq)
     yield pred
 
+  private def conjSize(c : Conjunction) : Int = {
+    c.quans.size +
+      (for (lc <- c.arithConj.positiveEqs ++
+                  c.arithConj.negativeEqs ++
+                  c.arithConj.inEqs) yield lc.size).sum +
+    c.predConj.size +
+    (for (d <- c.negatedConjs) yield conjSize(d)).sum
+  }
+
+  private val allPredsWithSize =
+    for (pred <- allPredicates) yield (pred, conjSize(pred.posInstances.head))
+
   /**
    * A lattice representing all sufficient subsets of predicates.
    */
   val predicateLattice =
-    CachedFilteredLattice(PowerSetLattice.inverted(allPredicates),
+    CachedFilteredLattice(PowerSetLattice.invertedWithCosts(allPredsWithSize),
                           isSufficient)
 
   def printPreds(preds : Seq[RelationSymbolPred]) : Unit = {
@@ -94,6 +106,15 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
   lazy val minimalPredicateSet =
     allPredicates filter predicateLattice.getLabel(
       Algorithms.maximize(predicateLattice)(predicateLattice.bottom))
+
+  /**
+   * All sufficient sets of predicates that are minimal in terms of the
+   * total size of the predicates.
+   */
+  lazy val minimalSizePredicateSets =
+    for (s <- Algorithms.optimalFeasibleObjects(predicateLattice)(
+                                                predicateLattice.bottom))
+    yield (allPredicates filter predicateLattice.getLabel(s))
 
   /**
    * The necessary predicates: predicates which are contained in each
@@ -136,6 +157,12 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     println
     println("Minimal predicate set (" + minimalPredicateSet.size + "):")
     printPreds(minimalPredicateSet)
+
+    for (s <- minimalSizePredicateSets) {
+      println
+      println("Minimal size predicate set (" + s.size + "):")
+      printPreds(s)
+    }
 
     println
     println("Necessary predicates, contained in all minimal sufficient sets (" +
