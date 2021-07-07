@@ -96,11 +96,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("argument" -> "arg")
   edgeNameMap += ("clause" -> "clause")
   edgeNameMap += ("template" -> "template")
-  edgeNameMap += ("verifHintTplPred" -> "tplPred")
-  edgeNameMap += ("verifHintTplPredPosNeg" -> "tplPredPosNeg")
-  edgeNameMap += ("verifHintTplEqTerm" -> "tTplEqTerm")
-  edgeNameMap += ("verifHintTplInEqTerm" -> "tplInEqTerm")
-  edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "tplInEqTermPosNeg")
+  edgeNameMap += ("verifHintTplPred" -> "Pred")
+  edgeNameMap += ("verifHintTplPredPosNeg" -> "PredPosNeg")
+  edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm")
+  edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm")
+  edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
   //turn on/off edge's label
   var edgeNameSwitch = true
   if (edgeNameSwitch == false) {

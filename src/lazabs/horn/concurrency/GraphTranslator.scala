@@ -52,7 +52,7 @@ object GraphTranslator {
     println("batch_size", batch_size)
     val trunk = (totalPredicateNumber / batch_size.toFloat).ceil.toInt
     val trunkList =
-    if (GlobalParameters.get.genereateTemplates == true) {
+    if (GlobalParameters.get.generateTemplates == true) {
       val predicateNumberRatio = for ((k, v) <- unlabeledPredicates.predicateHints) yield k -> v.size / totalPredicateNumber.toFloat
       for (t <- 0 until trunk) yield {
         val unlabeled = VerificationHints(for ((k, v) <- unlabeledPredicates.predicateHints) yield {

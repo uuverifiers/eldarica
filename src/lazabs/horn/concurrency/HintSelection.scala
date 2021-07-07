@@ -94,8 +94,24 @@ object HintsSelection {
     predGenerator
   }
 
-  def generateTemplates(currentTemplates:Seq[VerificationHints]): VerificationHints ={
-    currentTemplates.reduce(mergeTemplates(_,_))
+  def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
+    val loopDetector = new LoopDetector(simplifiedClauses)
+    VerificationHints((for (pred <- loopDetector.loopHeads.toSeq) yield{
+      val argumentArities=0 to pred.arity-1
+      val singleTerms= (for (i<-argumentArities) yield Seq(IVariable(i),-IVariable(i))).flatten
+      val argumentComb=argumentArities.combinations(2).map(listToTuple2(_)).toSeq
+      val combinationsTermsForEq=(for ((v1,v2)<-argumentComb) yield{
+        Seq(IVariable(v1)-IVariable(v2),IVariable(v1)+IVariable(v2))
+      }).flatten
+      val combinationsTermsForInEq=(for ((v1,v2)<-argumentComb) yield{
+        Seq(IVariable(v1)-IVariable(v2),IVariable(v2)-IVariable(v1),IVariable(v1)+IVariable(v2),-IVariable(v1)-IVariable(v2))
+      }).flatten
+      val allTermsEq=singleTerms++combinationsTermsForEq
+      val allTermsInEq=singleTerms++combinationsTermsForInEq
+      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,0)),
+        allTermsInEq.map(VerifHintTplInEqTerm(_,0)))
+      pred->allTypeElements.reduce(_++_)
+    }).toMap)
   }
 
   def resetElementCost(element:VerifHintElement,c:Int):VerifHintElement=element match {
@@ -105,19 +121,90 @@ object HintsSelection {
     case VerifHintTplInEqTerm(t,cost)=>{VerifHintTplInEqTerm(t,c)}
     case VerifHintTplInEqTermPosNeg(t,cost)=>{VerifHintTplInEqTermPosNeg(t,c)}
   }
-  def mergeTemplates(first:VerificationHints,second:VerificationHints): VerificationHints ={
-    val locations=first.predicateHints.keys ++ second.predicateHints.keys
-    VerificationHints((for(p<-locations) yield {
-      p->(first.predicateHints(p).map(resetElementCost(_,0))++
-        second.predicateHints(p).map(resetElementCost(_,0))).distinct
-    }).toMap)
+//  def mergeTemplates(first:VerificationHints,second:VerificationHints): VerificationHints ={
+//    val locations=first.predicateHints.keys ++ second.predicateHints.keys
+//    VerificationHints((for(p<-locations) yield {
+//      p->(first.predicateHints(p).map(resetElementCost(_,0))++
+//        second.predicateHints(p).map(resetElementCost(_,0))).distinct //todo: need logic distinct
+//    }).toMap)
+//  }
+  def setAllCost(hints : VerificationHints): VerificationHints ={
+    VerificationHints(for ((pred, els) <- hints.predicateHints) yield {
+      val modifiedEls= for(e<-els) yield {
+        e match {
+          case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,0)
+          case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,0)
+        }
+      }
+      pred->modifiedEls
+    })
+}
+
+  def mergeTemplates(hints : VerificationHints) : VerificationHints = {
+    val newPredHints =
+      (for ((pred, els) <- hints.predicateHints) yield {
+        val sorted = els.sortBy {
+          case el : VerifHintTplElement => el.cost
+          case _ => Int.MinValue
+        }
+
+        val res = new ArrayBuffer[VerifHintElement]
+
+        for (el <- sorted) el match {
+          case VerifHintTplEqTerm(s, _) =>
+            if (!(res exists {
+              case VerifHintTplEqTerm(t, _) =>
+                equalTerms(s, t) || equalMinusTerms(s, t)
+              case _ =>
+                false
+            })) {
+              res += el
+            }
+          case VerifHintTplInEqTerm(s, _) =>
+            if (!(res exists {
+              case VerifHintTplInEqTerm(t, _) =>
+                equalTerms(s, t)
+              case VerifHintTplEqTerm(t, _) =>
+                equalTerms(s, t) || equalMinusTerms(s, t)
+              case _ =>
+                false
+            }))
+              res += el
+        }
+
+        pred -> res.toSeq
+      }).toMap
+
+    VerificationHints(newPredHints)
   }
-  def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
-    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
-    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
+
+  def equalTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
+    case (s, t)
+      if s == t => true
+    case (Difference(s1, s2), Difference(t1, t2))
+      if equalTerms(s1, t1) && equalTerms(s2, t2) => true
+    case _ =>
+      false
+  }
+
+  def equalMinusTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
+    case (ITimes(IdealInt.MINUS_ONE, s), t)
+      if equalTerms(s, t) => true
+    case (s, ITimes(IdealInt.MINUS_ONE, t))
+      if equalTerms(s, t) => true
+    case (Difference(s1, s2), Difference(t1, t2))
+      if equalTerms(s1, t2) && equalTerms(s2, t1) => true
+    case _ =>
+      false
+  }
+
+
+  def getParametersFromVerifHintElement(element:VerifHintElement):(ITerm,Int,TemplateType.Value)=element match {
+//    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
+//    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
     case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.TplEqTerm)}
     case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.TplInEqTerm)}
-    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
+    //case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
   }
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
@@ -215,7 +302,7 @@ object HintsSelection {
                         predictedPredicates:VerificationHints,
                         fullPredicates:VerificationHints,
                         minimizedPredicates:VerificationHints): Unit ={
-    val measurementList = if (GlobalParameters.get.genereateTemplates) {
+    val measurementList = if (GlobalParameters.get.generateTemplates) {
       val predictedTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(predictedPredicates)
       val emptyTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(VerificationHints(Map()))
       val fullTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(fullPredicates)

@@ -59,7 +59,7 @@ class GlobalParameters extends Cloneable {
   var checkSolvability=false
   var onlyInitialPredicates=false
   var generateSimplePredicates=false
-  var genereateTemplates=false
+  var generateTemplates=false
   var moveFile = false
   var maxNode=1000000
   var threadTimeout = 60*60*1000
@@ -246,7 +246,7 @@ class GlobalParameters extends Cloneable {
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
     that.generateSimplePredicates=this.generateSimplePredicates
-    that.genereateTemplates=this.genereateTemplates
+    that.generateTemplates=this.generateTemplates
     that.onlyInitialPredicates=this.onlyInitialPredicates
     that.checkSolvability=this.checkSolvability
     that.moveFile = this.moveFile
@@ -348,7 +348,7 @@ object Main {
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
-      case "-genereateTemplates" :: rest => genereateTemplates = true; arguments(rest)
+      case "-generateTemplates" :: rest => generateTemplates = true; arguments(rest)
       case "-onlyInitialPredicates" :: rest => onlyInitialPredicates = true; arguments(rest)
       case "-moveFile" :: rest => moveFile = true; arguments(rest)
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
@@ -619,7 +619,7 @@ object Main {
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t generate simple predicates\n"+
-          " -genereateTemplates\t generate templates\n"+
+          " -generateTemplates\t generate templates\n"+
           " -onlyInitialPredicates\t extract predicates using initial predicates only\n"+
           " -moveFile\t if exception occur, move file to excepion directory\n"+
           " -checkSolvability \t check solvability for different initial predicate settings\n"+

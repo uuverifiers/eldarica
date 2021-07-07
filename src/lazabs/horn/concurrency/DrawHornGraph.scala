@@ -33,11 +33,13 @@ import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.VerificationHints.VerifHintInitPred
+import lazabs.horn.abstractions.TemplateType
+import lazabs.horn.abstractions.TemplateType.TplPred
+import lazabs.horn.abstractions.VerificationHints.{VerifHintInitPred, VerifHintTplEqTerm, VerifHintTplInEqTerm}
 import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, spAPI,getParametersFromVerifHintElement}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, spAPI}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -1014,27 +1016,42 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     tempHeadMap
   }
   def drawTemplates(): Seq[(String,Seq[(String,String)])]={
-//    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)._1)).toSeq.sortBy(_._1.name)
-//    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)._1))
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
         constantNodeSetInOneClause.clear()
+        //positiveTemplates(hp).foreach(println)
+        //println("------")
         val templateNameList=
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
-            //todo: compare by logic, modify HintsSelection.containsPred
-            //todo: match element type
-            //todo: give different type different edge
+            //todo: compare by logic
             val hintLabel = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
-              && positiveTemplates(hp).contains(t)) true else false
+              && termContrains(positiveTemplates(hp),t)) true else false//positiveTemplates(hp).contains(t)
+            //println(t,hintLabel)
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)//update JSON
             (predicateASTRootName,"verifHint"+t._3.toString)
           }
         hp.name->templateNameList
       }
     tempHeadMap
+  }
+
+  def termContrains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
+    var r = false
+    for (t <- termList; if t._3 == term._3) {
+      t._3 match {
+        case TemplateType.TplInEqTerm => {
+          if (HintsSelection.equalTerms(t._1, term._1)) r = true
+        }
+        case TemplateType.TplEqTerm => {
+          if (HintsSelection.equalTerms(t._1, term._1) || HintsSelection.equalMinusTerms(t._1, term._1))
+            r = true
+        }
+      }
+    }
+    r
   }
 
   def updateArgumentInfoHornGraphList(pre:String,tempID:Int,argumentnodeName:String,arg:ITerm): Unit ={

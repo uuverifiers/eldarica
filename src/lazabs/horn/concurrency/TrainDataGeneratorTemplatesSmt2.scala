@@ -38,10 +38,10 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, 
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.{getClausesInCounterExamples,
-  getInitialPredicates, transformPredicateMapToVerificationHints,resetElementCost,getPredGenerator,mergeTemplates,generateTemplates}
+import lazabs.horn.concurrency.HintsSelection.{generateCombinationTemplates,setAllCost, getClausesInCounterExamples, getInitialPredicates, getPredGenerator, mergeTemplates, resetElementCost, transformPredicateMapToVerificationHints}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
+
 import scala.util.Random
 
 object TrainDataGeneratorTemplatesSmt2 {
@@ -218,12 +218,23 @@ object TrainDataGeneratorTemplatesSmt2 {
       absBuilder.octagonAbstractions.pretyPrintHints()
       println("abs3:relationAbstractions")
       absBuilder.relationAbstractions(false).pretyPrintHints()
-      println("abs4:relationAbstractions")
-      absBuilder.relationAbstractions(true).pretyPrintHints()
+//      println("abs4:relationAbstractions")
+//      absBuilder.relationAbstractions(true).pretyPrintHints()
       println("mergedAutoAbstractions")
-      val initialTemplates=generateTemplates(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
-        absBuilder.relationAbstractions(false),absBuilder.relationAbstractions(true)))
+      //set all cost to 0
+      val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
+        absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
+      mergedHeuristic.pretyPrintHints()
+      println("generatedCombinationTemplates")
+      val combinationTemplates=generateCombinationTemplates(simplifiedClauses)
+      combinationTemplates.pretyPrintHints()
+      println("mergeTemplates(generatedCombinationTemplates)")
+      mergeTemplates(combinationTemplates).pretyPrintHints()
+
+      println("initialTemplates")
+      val initialTemplates=setAllCost(mergeTemplates(VerificationHints.union(Seq(mergedHeuristic,combinationTemplates))))
       initialTemplates.pretyPrintHints()
+
       val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
 
       /** Manually provided interpolation abstraction hints */
@@ -271,18 +282,20 @@ object TrainDataGeneratorTemplatesSmt2 {
         }
         VerificationHints(labeledTemplates)
       }
-      //todo: label templates
+
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
+        //val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         val predMiner=new PredicateMiner(predAbs)
-        //predicateMiner.printPreds(predicateMiner.necessaryPredicates)
-        val positiveTemplates=predMiner.extractTemplates(predMiner.allPredicates, TemplateExtraction.Variables, 0)
-        //positiveTemplates
-        mergeTemplates(absBuilder.termAbstractions,absBuilder.octagonAbstractions)
+        val positiveTemplates=predMiner.variableTemplates//predMiner.unitTwoVariableTemplates
+        println("positiveTemplates")
+        positiveTemplates.pretyPrintHints()
+        positiveTemplates
+        //mergeTemplates(absBuilder.termAbstractions,absBuilder.octagonAbstractions)
       }
 
-      val unlabeledTemplates=initialTemplates
-      //val labeledTemplates=labelTemplates(unlabeledTemplates)
-      val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
+      val unlabeledTemplates=combinationTemplates//initialTemplates
+      val labeledTemplates=labelTemplates(unlabeledTemplates)
+      //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
       println("-"*10+"unlabeledTemplates"+"-"*10)
       unlabeledTemplates.pretyPrintHints()
       println("-"*10+"labeledTemplates"+"-"*10)
