@@ -96,18 +96,22 @@ object HintsSelection {
 
   def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
     val loopDetector = new LoopDetector(simplifiedClauses)
-    VerificationHints((for (pred <- loopDetector.loopHeads.toSeq) yield{
-      val argumentArities=0 to pred.arity-1
-      val singleTerms= (for (i<-argumentArities) yield Seq(IVariable(i),-IVariable(i))).flatten
-      val argumentComb=argumentArities.combinations(2).map(listToTuple2(_)).toSeq
+    val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
+    val loopHeadsWithSort= for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
+    VerificationHints((for ((pred,args) <- loopHeadsWithSort) yield{
+      val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i)
+      val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i)
+      val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i)
+      val singleTerms= singlePositiveTerms ++ singleNegativeTerms
+      val argumentComb=singleTerms.combinations(2).map(listToTuple2(_)).toSeq
       val combinationsTermsForEq=(for ((v1,v2)<-argumentComb) yield{
-        Seq(IVariable(v1)-IVariable(v2),IVariable(v1)+IVariable(v2))
+        Seq(v1-v2,v1+v2)
       }).flatten
       val combinationsTermsForInEq=(for ((v1,v2)<-argumentComb) yield{
-        Seq(IVariable(v1)-IVariable(v2),IVariable(v2)-IVariable(v1),IVariable(v1)+IVariable(v2),-IVariable(v1)-IVariable(v2))
+        Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
-      val allTermsEq=singleTerms++combinationsTermsForEq
-      val allTermsInEq=singleTerms++combinationsTermsForInEq
+      val allTermsEq=singleTerms++combinationsTermsForEq++singleBooleanTerms
+      val allTermsInEq=singleTerms++combinationsTermsForInEq++singleBooleanTerms
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,0)),
         allTermsInEq.map(VerifHintTplInEqTerm(_,0)))
       pred->allTypeElements.reduce(_++_)

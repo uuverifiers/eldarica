@@ -288,8 +288,8 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
-        //val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
-        val predMiner=new PredicateMiner(predAbs)
+        val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
+        //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.variableTemplates//predMiner.unitTwoVariableTemplates
         println("positiveTemplates")
         positiveTemplates.pretyPrintHints()
