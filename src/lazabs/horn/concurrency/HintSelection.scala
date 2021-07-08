@@ -454,7 +454,7 @@ object HintsSelection {
       for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
           println("pbodyStrings",pbodyStrings)
           println(pbody.pred.toString)
-          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName())
+          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
           sys.exit()
       }
     }
@@ -1215,6 +1215,7 @@ object HintsSelection {
         println(s"could NOT move the file $sourceFilename")
       }
     }
+    println(Console.RED+message)
   }
   def removeRelativeFiles(fileName:String): Unit ={
     val currentDirectory = new java.io.File(GlobalParameters.get.fileName).getParentFile.getPath

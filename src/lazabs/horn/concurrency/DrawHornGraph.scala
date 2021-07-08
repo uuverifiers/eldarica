@@ -746,7 +746,14 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         drawAST(right, previousNodeName)
         drawAST(left, previousNodeName)
       }
-      case ITimes(coeff, subterm) => drawASTBinaryRelation("*", previousNodeName, subterm, coeff,astArity)
+      case ITimes(coeff, subterm) => {
+        if(coeff.intValue == -1)
+          drawASTUnaryRelation("-", previousNodeName, subterm,astArity)
+        else if (coeff.intValue == 1)
+          drawAST(subterm, previousNodeName)
+        else
+          drawASTBinaryRelation("*", previousNodeName, subterm, coeff,astArity)
+      }
       case IVariable(index) => drawASTEndNode("_"+index.toString(), previousNodeName, "symbolicConstant")//constant////add _ to differentiate index with other constants
       case Difference(t1, t2) => drawASTBinaryRelation("-", previousNodeName, t1, t2,astArity)
       case INamedPart(pname, subformula) => drawASTUnaryRelation(pname.toString, previousNodeName, subformula,astArity)
@@ -1026,7 +1033,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNameList=
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
-            //todo: compare by logic
             val hintLabel = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
               && termContrains(positiveTemplates(hp),t)) true else false//positiveTemplates(hp).contains(t)
             //println(t,hintLabel)
@@ -1039,6 +1045,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def termContrains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
+    //todo: check this logic
     var r = false
     for (t <- termList; if t._3 == term._3) {
       t._3 match {

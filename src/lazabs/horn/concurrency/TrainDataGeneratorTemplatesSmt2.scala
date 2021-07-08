@@ -208,9 +208,13 @@ object TrainDataGeneratorTemplatesSmt2 {
       lazy val autoAbstraction: AbstractionMap =
         absBuilder.abstractionRecords
 
-
+      val fileName=HintsSelection.getFileName()
       simplifiedClauses.map(_.toPrologString).foreach(println)
       val loopDetector = new LoopDetector(simplifiedClauses)
+      if(loopDetector.loopHeads.isEmpty){
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"loopHeads is empty")
+        sys.exit()
+      }
       println("loop heads",loopDetector.loopHeads)
       println("abs1:termAbstractions")
       absBuilder.termAbstractions.pretyPrintHints()
@@ -259,7 +263,7 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
       GlobalParameters.get.timeoutChecker()
-      val fileName=HintsSelection.getFileName()
+
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
@@ -300,6 +304,11 @@ object TrainDataGeneratorTemplatesSmt2 {
       unlabeledTemplates.pretyPrintHints()
       println("-"*10+"labeledTemplates"+"-"*10)
       labeledTemplates.pretyPrintHints()
+
+      if(labeledTemplates.isEmpty){
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")
+        sys.exit()
+      }
 
 
       //Output graphs

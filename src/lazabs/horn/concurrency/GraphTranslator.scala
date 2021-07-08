@@ -41,7 +41,7 @@ object GraphTranslator {
     //      100
     //    else 200
     //    if (totalPredicateNumber>=10000)
-    4
+    200
   }
 
   def separateGraphByPredicates(unlabeledPredicates: VerificationHints, labeledPredicates: VerificationHints, clauseCollection: ClauseInfo, argumentInfo: ArrayBuffer[argumentInfo]): Unit = {
