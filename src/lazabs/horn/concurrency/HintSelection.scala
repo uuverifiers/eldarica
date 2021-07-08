@@ -99,19 +99,18 @@ object HintsSelection {
     val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
     val loopHeadsWithSort= for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
     VerificationHints((for ((pred,args) <- loopHeadsWithSort) yield{
-      val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i)
-      val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i)
-      val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i)
-      val singleTerms= singlePositiveTerms ++ singleNegativeTerms
-      val argumentComb=singleTerms.combinations(2).map(listToTuple2(_)).toSeq
+      val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
+      val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
+      val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i,a._2)
+      val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
       val combinationsTermsForEq=(for ((v1,v2)<-argumentComb) yield{
         Seq(v1-v2,v1+v2)
       }).flatten
       val combinationsTermsForInEq=(for ((v1,v2)<-argumentComb) yield{
         Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
-      val allTermsEq=singleTerms++combinationsTermsForEq++singleBooleanTerms
-      val allTermsInEq=singleTerms++combinationsTermsForInEq++singleBooleanTerms
+      val allTermsEq=singlePositiveTerms++singleNegativeTerms++combinationsTermsForEq
+      val allTermsInEq=singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,0)),
         allTermsInEq.map(VerifHintTplInEqTerm(_,0)))
       pred->allTypeElements.reduce(_++_)

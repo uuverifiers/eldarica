@@ -38,7 +38,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, 
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.{generateCombinationTemplates,setAllCost, getClausesInCounterExamples, getInitialPredicates, getPredGenerator, mergeTemplates, resetElementCost, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getPredGenerator, isArgBoolean, mergeTemplates, resetElementCost, setAllCost, transformPredicateMapToVerificationHints}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
@@ -293,8 +293,21 @@ object TrainDataGeneratorTemplatesSmt2 {
         val positiveTemplates=predMiner.variableTemplates//predMiner.unitTwoVariableTemplates
         println("positiveTemplates")
         positiveTemplates.pretyPrintHints()
-        positiveTemplates
-        //mergeTemplates(absBuilder.termAbstractions,absBuilder.octagonAbstractions)
+
+        val filteredPositiveTemplates=VerificationHints(for (p1<-predMiner.variableTemplates.predicateHints) yield{
+          var elms:Seq[VerifHintElement]=Seq()
+          for (p<-p1._2)  {
+            p match {
+              case VerifHintTplEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
+              case VerifHintTplInEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
+            }
+          }
+          p1._1-> elms
+        })
+        println("filteredPositiveTemplates")
+        filteredPositiveTemplates.pretyPrintHints()
+        
+        filteredPositiveTemplates
       }
 
       val unlabeledTemplates=combinationTemplates//initialTemplates
