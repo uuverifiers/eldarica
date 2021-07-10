@@ -297,11 +297,16 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                      : VerificationHints =
     mergeTemplates(
       VerificationHints.union(
-        List(extractTemplates(necessaryPredicates, mode, 1),
-             extractTemplates(minimalSizePredicateUnion, mode, 2),
-             extractTemplates(nonRedundantPredicates, mode, 5),
-             defaultTemplates(context.relationSymbols.keys filterNot (
-                                _ == HornClauses.FALSE), 20))
+        (nonRedundantPredicates map {
+           p => extractTemplates(p, mode,
+                                 if (necessaryPredicates contains p)
+                                   1
+                                 else if (minimalSizePredicateUnion contains p)
+                                   2
+                                 else
+                                   5)
+         }) ++ List(defaultTemplates(context.relationSymbols.keys filterNot (
+                                       _ == HornClauses.FALSE), 20))
       ))
 
   def defaultTemplates(preds : Iterable[Predicate],
