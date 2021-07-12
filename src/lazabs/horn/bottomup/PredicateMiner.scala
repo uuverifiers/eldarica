@@ -29,10 +29,12 @@
 
 package lazabs.horn.bottomup
 
+import ap.SimpleAPI
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
+import SimpleAPI.ProverStatus
 
 import Util._
 import DisjInterpolator.{AndOrNode, AndNode, OrNode}
@@ -50,6 +52,14 @@ object PredicateMiner {
   object TemplateExtraction extends Enumeration {
     val Variables, UnitTwoVariables = Value
   }
+
+  private val EqVarCost       = 8
+  private val InEqVarCost     = 7
+  private val EqVarDiffCost   = 5
+  private val EqVarSumCost    = 6
+  private val InEqVarDiffCost = 3
+  private val InEqVarSumCost  = 4
+
 }
 
 /**
@@ -115,6 +125,14 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     for (s <- Algorithms.optimalFeasibleObjects(predicateLattice)(
                                                 predicateLattice.bottom))
     yield (allPredicates filter predicateLattice.getLabel(s))
+
+  /**
+   * Union of all predicates in <code>minimalSizePredicateSets</code>.
+   */
+  lazy val minimalSizePredicateUnion = {
+    val s = (for (s <- minimalSizePredicateSets; p <- s) yield p).toSet
+    allPredicates filter s
+  }
 
   /**
    * The necessary predicates: predicates which are contained in each
@@ -279,10 +297,16 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                      : VerificationHints =
     mergeTemplates(
       VerificationHints.union(
-        List(extractTemplates(necessaryPredicates, mode, 1),
-             extractTemplates(nonRedundantPredicates, mode, 5),
-             defaultTemplates(context.relationSymbols.keys filterNot (
-                                _ == HornClauses.FALSE), 20))
+        (nonRedundantPredicates map {
+           p => extractTemplates(p, mode,
+                                 if (necessaryPredicates contains p)
+                                   1
+                                 else if (minimalSizePredicateUnion contains p)
+                                   2
+                                 else
+                                   5)
+         }) ++ List(defaultTemplates(context.relationSymbols.keys filterNot (
+                                       _ == HornClauses.FALSE), 20))
       ))
 
   def defaultTemplates(preds : Iterable[Predicate],
@@ -302,14 +326,14 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
   def extractTemplates(preds : Iterable[RelationSymbolPred],
                        mode : TemplateExtraction.Value,
-                       cost : Int)
+                       costFactor : Int)
                      : VerificationHints =
     VerificationHints.union(
-      preds map { p => extractTemplates(p, mode, cost) })
+      preds map { p => extractTemplates(p, mode, costFactor) })
 
   def extractTemplates(pred : RelationSymbolPred,
                        mode : TemplateExtraction.Value,
-                       cost : Int)
+                       costFactor : Int)
                      : VerificationHints = {
     import IExpression._
 
@@ -326,13 +350,13 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
         def extractVars(c : Conjunction, polarity : Int) : Unit = {
           val ac = c.arithConj
 
-          for (lc <- ac.positiveEqs; c <- lc.constants)
-            res += VerifHintTplEqTerm(symMap(c), cost)
+          for (lc <- ac.positiveEqs ++ ac.negativeEqs; c <- lc.constants)
+            res += VerifHintTplEqTerm(symMap(c), EqVarCost * costFactor)
 
           for (lc <- ac.inEqs.iterator;
                (coeff, c : ConstantTerm) <- lc.iterator) {
             val t = symMap(c) *** (coeff.signum * polarity)
-            res += VerifHintTplInEqTerm(t, cost)
+            res += VerifHintTplInEqTerm(t, InEqVarCost * costFactor)
           }
 
           for (d <- c.negatedConjs) extractVars(d, -polarity)
@@ -344,60 +368,193 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
       }
 
       case TemplateExtraction.UnitTwoVariables => {
-        val rs =
-          pred.rs
-        val symMap =
-          (for ((c, n) <- rs.arguments.head.iterator.zipWithIndex)
-           yield (c -> v(n, Sort sortOf c))).toMap
-
-        val res = new LinkedHashSet[VerifHintElement]
-
-        def extractTpl(c : Conjunction, polarity : Int) : Unit = {
-          val ac = c.arithConj
-
-          for (lc <- ac.positiveEqs)
-            if (lc.constants.size == 1) {
-              res += VerifHintTplEqTerm(symMap(lc.constants.toSeq.head), cost)
-            } else {
-              for (n1 <- 0 until (lc.size - 1);
-                   if (lc getTerm n1).isInstanceOf[ConstantTerm];
-                   n2 <- (n1 + 1) until lc.size;
-                   if (lc getTerm n2).isInstanceOf[ConstantTerm]) {
-                val (coeff1, c1 : ConstantTerm) = lc(n1)
-                val (coeff2, c2 : ConstantTerm) = lc(n2)
-                val t = (symMap(c1) *** coeff1.signum) +
-                        (symMap(c2) *** coeff2.signum)
-                res += VerifHintTplEqTerm(t, cost)
-              }
-            }
-
-          for (lc <- ac.inEqs)
-            if (lc.constants.size == 1) {
-              val (coeff, c : ConstantTerm) = lc(0)
-              val t = symMap(c) *** (coeff.signum * polarity)
-              res += VerifHintTplInEqTerm(symMap(lc.constants.toSeq.head), cost)
-            } else {
-              for (n1 <- 0 until (lc.size - 1);
-                   if (lc getTerm n1).isInstanceOf[ConstantTerm];
-                   n2 <- (n1 + 1) until lc.size;
-                   if (lc getTerm n2).isInstanceOf[ConstantTerm]) {
-                val (coeff1, c1 : ConstantTerm) = lc(n1)
-                val (coeff2, c2 : ConstantTerm) = lc(n2)
-                val t = (symMap(c1) *** (coeff1.signum * polarity)) +
-                        (symMap(c2) *** (coeff2.signum * polarity))
-                res += VerifHintTplInEqTerm(t, cost)
-              }
-            }
-
-          for (d <- c.negatedConjs) extractTpl(d, -polarity)
-        }
-
-        extractTpl(pred.posInstances.head, 1)
-
-        VerificationHints(Map(rs.pred -> mergePosNegTemplates(res.toSeq)))
+        val rs = pred.rs
+        VerificationHints(Map(rs.pred ->
+                                computeUTVTemplates(rs.arguments.head,
+                                                    pred.posInstances.head,
+                                                    costFactor)))
       }
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def computeUTVTemplates(allConsts : Seq[IExpression.ConstantTerm],
+                                  f : Conjunction,
+                                  costFactor : Int) : Seq[VerifHintElement] = {
+    import IExpression._
+    val fConsts = f.constants
+
+    val rawHints1 =
+      for ((c, n) <- allConsts.zipWithIndex;
+           if fConsts contains c;
+           va = v(n, Sort sortOf c);
+           h <- List(VerifHintTplEqTerm(va, EqVarCost * costFactor),
+                     VerifHintTplInEqTerm(va, InEqVarCost * costFactor),
+                     VerifHintTplInEqTerm(-va, InEqVarCost * costFactor)))
+      yield h
+
+    val baseConst =
+      (for (c <- allConsts.iterator;
+            if (Sort sortOf c) == Sort.Integer)
+       yield c).toStream.headOption getOrElse allConsts.head
+    val baseVar =
+      v(allConsts indexOf baseConst, Sort sortOf baseConst)
+
+    val rawHints2 =
+      for (n <- 0 until allConsts.size;
+           if fConsts contains allConsts(n);
+           c = v(n, Sort sortOf allConsts(n));
+           if c != baseVar;
+           h <- List(VerifHintTplEqTerm(c + baseVar,
+                                        EqVarSumCost * costFactor),
+                     VerifHintTplEqTerm(c - baseVar,
+                                        EqVarDiffCost * costFactor),
+                     VerifHintTplInEqTerm(c + baseVar,
+                                          InEqVarSumCost * costFactor),
+                     VerifHintTplInEqTerm(c - baseVar,
+                                          InEqVarDiffCost * costFactor),
+                     VerifHintTplInEqTerm(-c - baseVar,
+                                          InEqVarSumCost * costFactor),
+                     VerifHintTplInEqTerm(baseVar - c,
+                                          InEqVarDiffCost * costFactor)))
+      yield h
+
+    filterVerificationHints(f, allConsts, rawHints1 ++ rawHints2)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def filterVerificationHints(c : Conjunction,
+                                      allConsts : Seq[IExpression.ConstantTerm],
+                                      hints : Seq[VerifHintElement])
+                                    : Seq[VerifHintElement] =
+    SimpleAPI.withProver { p =>
+      import p._
+      import IExpression._
+
+//      Algorithms.debug = true
+
+//      println("Templates for " + c)
+//      println("" + hints.size + " hints")
+
+      val const2Var =
+        (for ((c, n) <- allConsts.iterator.zipWithIndex)
+         yield (c, v(n, Sort sortOf c))).toMap
+
+      val hintWithFlags =
+        for (h <- hints) yield (createBooleanVariable, h)
+
+      def getCoeff(t : ITerm, c : ITerm) : IdealInt = {
+        val IConstant(d) = c
+        val Sum = SymbolSum(const2Var(d))
+        t match {
+          case Sum(coeff, _) => coeff
+          case _ => 0
+        }
+      }
+
+      def addConstraints(c : Conjunction, polarity : Int) : Unit = {
+        val ac = c.arithConj
+
+        for (lc <- ac.positiveEqs ++ ac.negativeEqs) {
+          val baseCoeff =
+            createConstant(Sort.Integer)
+          !! (baseCoeff =/= 0)
+
+          val hintCoeff =
+            for ((f, h : VerifHintTplEqTerm) <- hintWithFlags) yield {
+              val c = createConstant(Sort.Integer)
+              !! (f | (c === 0))
+              (h, c)
+            }
+
+          for ((coeff, c : ConstantTerm) <- lc.iterator) {
+            val f = (baseCoeff * coeff ===
+                  sum(for ((VerifHintTplEqTerm(t, _), d) <- hintCoeff) yield {
+                        d *** getCoeff(t, c)
+                      }))
+            !! (f)
+          }
+        }
+
+        for (lc <- ac.inEqs) {
+          val baseCoeff =
+            createConstant(Sort.Integer)
+          !! (baseCoeff > 0)
+
+          val hintCoeff =
+            for ((f, h) <- hintWithFlags) yield h match {
+              case VerifHintTplEqTerm(t, _) => {
+                val c = createConstant(Sort.Integer)
+                !! (f | (c === 0))
+                (t, c)
+              }
+              case VerifHintTplInEqTerm(t, _) => {
+                val c = createConstant(Sort.Nat)
+                !! (f | (c === 0))
+                (t, c)
+              }
+            }
+
+          for ((coeff, c : ConstantTerm) <- lc.iterator) {
+            val f = (baseCoeff * coeff * polarity ===
+                  sum(for ((t, d) <- hintCoeff) yield {
+                        d *** getCoeff(t, c)
+                      }))
+            !! (f)
+          }
+        }
+
+        for (d <- c.negatedConjs) addConstraints(d, -polarity)
+      }
+
+      addConstraints(c, 1)
+
+      ??? match {
+        case ProverStatus.Unsat =>
+          // we cannot filter out any hints, just take all of them
+          hints
+
+        case ProverStatus.Sat => {
+          val flags =
+            for ((f, h) <- hintWithFlags) yield h match {
+              case h : VerifHintTplElement => (f, h.cost)
+            }
+          val hintLattice =
+            CachedFilteredLattice(
+              PowerSetLattice.invertedWithCosts(flags), {
+                (flags : Set[IFormula]) => scope {
+//                  print("-")
+                  for ((f, _) <- hintWithFlags)
+                    if (!(flags contains f))
+                      !! (!f)
+                  val r = ??? == ProverStatus.Sat
+//                  print(".")
+                  r
+                }})
+
+          val results =
+            for (s <- Algorithms.optimalFeasibleObjects(hintLattice)(
+                                                        hintLattice.bottom))
+            yield (hintLattice getLabel s)
+
+          if (results.size > 1) {
+            Console.err.println("Warning: no unique optimal set of templates found")
+            Console.err.println("  Results:")
+            for (r <- results) {
+              Console.err.println(
+                "  " +
+                  (for ((f, h) <- hintWithFlags; if r contains f) yield h))
+            }
+          }
+
+//          println
+
+          for ((f, h) <- hintWithFlags; if results.head contains f) yield h
+        }
+      }
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
