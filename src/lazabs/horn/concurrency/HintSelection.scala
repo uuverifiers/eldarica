@@ -1206,7 +1206,7 @@ object HintsSelection {
   def moveRenameFile(sourceFilename: String, destinationFilename: String,message:String=""): Unit = {
     if (GlobalParameters.get.moveFile==true){
       println(Console.RED+"-"*5+message+"-"*5)
-      val path = Files.move(
+      val path = Files.copy(
         Paths.get(sourceFilename),
         Paths.get(destinationFilename),
         StandardCopyOption.REPLACE_EXISTING
@@ -1222,7 +1222,6 @@ object HintsSelection {
   }
   def removeRelativeFiles(fileName:String): Unit ={
     val currentDirectory = new java.io.File(GlobalParameters.get.fileName).getParentFile.getPath
-    println(currentDirectory)
     val relativeFiles = new java.io.File(currentDirectory).listFiles(new FilenameFilter {
       override def accept(dir: java.io.File, name: String): Boolean = {
         name.startsWith(HintsSelection.getFileName())

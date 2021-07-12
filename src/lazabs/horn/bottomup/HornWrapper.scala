@@ -457,7 +457,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
       }
-      else {
+      else if(GlobalParameters.get.generateTemplates){
+        generateCombinationTemplates(simplifiedClauses)
+      }
+      else{
         VerificationHints(Map()) ++ simpHints
       }
 

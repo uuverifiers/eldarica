@@ -306,7 +306,7 @@ object TrainDataGeneratorTemplatesSmt2 {
         })
         println("filteredPositiveTemplates")
         filteredPositiveTemplates.pretyPrintHints()
-        
+
         filteredPositiveTemplates
       }
 
@@ -318,7 +318,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       println("-"*10+"labeledTemplates"+"-"*10)
       labeledTemplates.pretyPrintHints()
 
-      if(labeledTemplates.isEmpty){
+      if(labeledTemplates.totalPredicateNumber==0){
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")
         sys.exit()
       }
