@@ -1034,7 +1034,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
             val hintLabel = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
-              && termContrains(positiveTemplates(hp),t)) true else false//positiveTemplates(hp).contains(t)
+              && termContains(positiveTemplates(hp),t)) true else false//positiveTemplates(hp).contains(t)
             //println(t,hintLabel)
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)//update JSON
             (predicateASTRootName,"verifHint"+t._3.toString)
@@ -1043,9 +1043,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
     tempHeadMap
   }
-
-  def termContrains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
-    //todo: check this logic
+  def termContains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
     var r = false
     for (t <- termList; if t._3 == term._3) {
       t._3 match {

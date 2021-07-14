@@ -225,18 +225,16 @@ object TrainDataGeneratorTemplatesSmt2 {
 //      println("abs4:relationAbstractions")
 //      absBuilder.relationAbstractions(true).pretyPrintHints()
       println("mergedAutoAbstractions")
-      //set all cost to 0
       val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
         absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
       mergedHeuristic.pretyPrintHints()
       println("generatedCombinationTemplates")
+      //set all cost to 0
       val combinationTemplates=generateCombinationTemplates(simplifiedClauses)
       combinationTemplates.pretyPrintHints()
-      println("mergeTemplates(generatedCombinationTemplates)")
-      mergeTemplates(combinationTemplates).pretyPrintHints()
 
       println("initialTemplates")
-      val initialTemplates=setAllCost(mergeTemplates(VerificationHints.union(Seq(mergedHeuristic,combinationTemplates))))
+      val initialTemplates=setAllCost(mergedHeuristic)
       initialTemplates.pretyPrintHints()
 
       val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
@@ -278,39 +276,31 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
 
-      def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
-        val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
-          val numberOfLabeledTemplates=(v.size*ratio).toInt
-          val randomShuffledTemplates=Random.shuffle(v)
-          k-> (for (i<-0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
-        }
-        VerificationHints(labeledTemplates)
-      }
-
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
-        val positiveTemplates=predMiner.variableTemplates//predMiner.unitTwoVariableTemplates
+        val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
         println("positiveTemplates")
         positiveTemplates.pretyPrintHints()
+        positiveTemplates
+//
+//        val filteredPositiveTemplates=VerificationHints(for (p1<-predMiner.variableTemplates.predicateHints) yield{
+//          var elms:Seq[VerifHintElement]=Seq()
+//          for (p<-p1._2)  {
+//            p match {
+//              case VerifHintTplEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
+//              case VerifHintTplInEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
+//            }
+//          }
+//          p1._1-> elms
+//        })
+//        println("filteredPositiveTemplates")
+//        filteredPositiveTemplates.pretyPrintHints()
+//        filteredPositiveTemplates
 
-        val filteredPositiveTemplates=VerificationHints(for (p1<-predMiner.variableTemplates.predicateHints) yield{
-          var elms:Seq[VerifHintElement]=Seq()
-          for (p<-p1._2)  {
-            p match {
-              case VerifHintTplEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
-              case VerifHintTplInEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
-            }
-          }
-          p1._1-> elms
-        })
-        println("filteredPositiveTemplates")
-        filteredPositiveTemplates.pretyPrintHints()
-
-        filteredPositiveTemplates
       }
 
-      val unlabeledTemplates=combinationTemplates//initialTemplates
+      val unlabeledTemplates=combinationTemplates
       val labeledTemplates=labelTemplates(unlabeledTemplates)
       //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
       println("-"*10+"unlabeledTemplates"+"-"*10)

@@ -424,9 +424,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //  }
   private val predGenerator =
   if (GlobalParameters.get.generateTemplates == true) {
-//    val mergedHeuristic =mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions, absBuilder.octagonAbstractions,
-//      absBuilder.relationAbstractions(false)))) //absBuilder.relationAbstractions(true)
-    val initialTemplates = generateCombinationTemplates(simplifiedClauses)
+    val combTemplates = generateCombinationTemplates(simplifiedClauses)
+    val initialTemplates = if (GlobalParameters.get.rdm)
+      HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+    else
+      generateCombinationTemplates(simplifiedClauses)
+    if (GlobalParameters.get.log) {
+      println("initialTemplates")
+      initialTemplates.pretyPrintHints()
+    }
 
     getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
   } else {
@@ -456,13 +462,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           }
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
-      }
-      else if(GlobalParameters.get.generateTemplates){
-        generateCombinationTemplates(simplifiedClauses)
-      }
-      else{
+      } else{
         VerificationHints(Map()) ++ simpHints
       }
+
 
     if (initialPredicates.totalPredicateNumber == 0 && GlobalParameters.get.generateSimplePredicates == true) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
@@ -598,6 +601,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         new HornPredAbs(simplifiedClausesForGraph,
           initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
           counterexampleMethod)
+      if (GlobalParameters.get.log){
+        val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
+        println("unitTwoVariableTemplates")
+        predMiner.unitTwoVariableTemplates.pretyPrintHints()
+      }
 
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)

@@ -59,6 +59,8 @@ import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashSet => MHashSet
 import scala.io.Source
 import play.api.libs.json._
 
+import scala.util.Random
+
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
 
 class LiteralCollector extends CollectingVisitor[Unit, Unit] {
@@ -76,7 +78,6 @@ object HintsSelection {
   val spAPI = ap.SimpleAPI.spawn
   val cs=new ConstraintSimplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
-
   def getPredGenerator(absMaps:Seq[AbstractionMap],outStream : java.io.OutputStream):  Util.Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Util.Dag[(IAtom, NormClause)]] ={
     val predGenerator = Console.withErr(outStream) {
       if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
@@ -94,6 +95,14 @@ object HintsSelection {
     predGenerator
   }
 
+  def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
+    val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
+      val numberOfLabeledTemplates=(v.size*ratio).toInt
+      val randomShuffledTemplates=Random.shuffle(v)
+      k-> (for (i<-0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
+    }
+    VerificationHints(labeledTemplates)
+  }
   def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
     val loopDetector = new LoopDetector(simplifiedClauses)
     val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
@@ -102,17 +111,18 @@ object HintsSelection {
       val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
       val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
       val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i,a._2)
-      val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
-      val combinationsTermsForEq=(for ((v1,v2)<-argumentComb) yield{
+      //val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
+      val argumentLinearComb=for(t<-singlePositiveTerms.tail) yield (singlePositiveTerms.head,t)
+      val combinationsTermsForEq=(for ((v1,v2)<-argumentLinearComb) yield{
         Seq(v1-v2,v1+v2)
       }).flatten
-      val combinationsTermsForInEq=(for ((v1,v2)<-argumentComb) yield{
+      val combinationsTermsForInEq=(for ((v1,v2)<-argumentLinearComb) yield{
         Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
-      val allTermsEq=singlePositiveTerms++singleNegativeTerms++combinationsTermsForEq
-      val allTermsInEq=singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq
-      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,0)),
-        allTermsInEq.map(VerifHintTplInEqTerm(_,0)))
+      val allTermsEq=(singlePositiveTerms++singleBooleanTerms++combinationsTermsForEq).map(sp.apply(_))//singleBooleanTerms
+      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++singleBooleanTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
+      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),
+        allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
       pred->allTypeElements.reduce(_++_)
     }).toMap)
   }
@@ -131,12 +141,12 @@ object HintsSelection {
 //        second.predicateHints(p).map(resetElementCost(_,0))).distinct //todo: need logic distinct
 //    }).toMap)
 //  }
-  def setAllCost(hints : VerificationHints): VerificationHints ={
+  def setAllCost(hints : VerificationHints,cost:Int=1): VerificationHints ={
     VerificationHints(for ((pred, els) <- hints.predicateHints) yield {
       val modifiedEls= for(e<-els) yield {
         e match {
-          case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,0)
-          case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,0)
+          case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,cost)
+          case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,cost)
         }
       }
       pred->modifiedEls
