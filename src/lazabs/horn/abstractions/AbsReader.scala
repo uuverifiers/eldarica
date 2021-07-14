@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -139,11 +139,43 @@ object AbsReader {
  */
 class AbsReader(input : java.io.Reader) {
 
+  import SMTParser2InputAbsy.{SMTType, SMTInteger, SMTBool, SMTArray}
+
   private val printer = new PrettyPrinterNonStatic
 
   /** Implicit conversion so that we can get a Scala-like iterator from a
    * a Java list */
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+
+  /**
+   * Translation of sorts to the SMT parser types.
+   * 
+   * TODO: add support for ADT sorts and heap.
+   */
+  private def translateSort(s : Sort) : SMTType = try {
+    s match {
+      case s : IdentSort => s.identifier_ match {
+        case id : SymbolIdent => (printer print id) match {
+          case "Int"  => SMTInteger
+          case "Bool" => SMTBool
+        }
+      }
+      case s : CompositeSort => s.identifier_ match {
+        case id : SymbolIdent => (printer print id) match {
+          case "Array" => {
+            val args = s.listsort_.toList map translateSort
+            if (args.size < 2)
+              throw new Exception(
+                "Expected at least two sort arguments in Array sort")
+            SMTArray(args.init, args.last)
+          }
+        }
+      }
+    }
+  } catch {
+    case _ : MatchError =>
+      throw new Exception("unsupported type in hints: " + (printer print s))
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -168,14 +200,7 @@ class AbsReader(input : java.io.Reader) {
 
       for (variableC <- predref.listsortedvariablec_.reverseIterator) {
         val variable = variableC.asInstanceOf[SortedVariable]
-        val t = SMTParser2InputAbsy.BoundVariable(
-          (printer print variable.sort_) match {
-            case "Bool" => SMTParser2InputAbsy.SMTBool
-            case "Int" => SMTParser2InputAbsy.SMTInteger
-            case t =>
-              // currently no other types are supported at this point
-              throw new Exception ("Unsupported type in hints: " + t)
-          })
+        val t = SMTParser2InputAbsy.BoundVariable(translateSort(variable.sort_))
         env.pushVar(printer print variable.symbol_, t)
       }
 
@@ -221,6 +246,7 @@ class AbsReader(input : java.io.Reader) {
     ////////////////////////////////////////////////////////////////////////////
 
     import VerificationHints._
+    import IExpression._
 
     val templateHints : List[(String, Seq[VerifHintElement])] =
     (for (predspec <-
@@ -244,10 +270,19 @@ class AbsReader(input : java.io.Reader) {
                  hints += VerifHintTplPredPosNeg(f, cost)
                case (_ : TermType,                 t : ITerm) =>
                  hints += VerifHintTplEqTerm(t, cost)
+               case (_ : TermType,                 EqZ(t)) =>
+                 hints += VerifHintTplEqTerm(t, cost)
                case (_ : InequalityTermType,       t : ITerm) =>
                  hints += VerifHintTplInEqTerm(t, cost)
                case (_ : InequalityTermPosNegType, t : ITerm) =>
                  hints += VerifHintTplInEqTermPosNeg(t, cost)
+               case (_ : TermType |
+                       _ : InequalityTermType |
+                       _ : InequalityTermPosNegType,
+                     f : IFormula) =>
+                 throw new Exception("template " +
+                                       (printer print template.term_) +
+                                       " is a predicate, not a term")
              }
            }
            case threshold : IterationThreshold =>
