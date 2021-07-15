@@ -46,7 +46,6 @@ import scala.collection.{Map => GMap}
 
 object UniqueConstructorExpander {
 
-  import ADTExpander._
   import AbstractAnalyser._
   import IExpression._
   import HornPreprocessor._
@@ -189,7 +188,7 @@ object UniqueConstructorExpander {
  * Preprocessor that adds expands ADT arguments when their constructor
  * type is fixed.
  */
-class UniqueConstructorExpander extends ADTExpander {
+class UniqueConstructorExpander extends ArgumentExpander {
 
   import IExpression._
   import HornPreprocessor._
@@ -205,18 +204,18 @@ class UniqueConstructorExpander extends ADTExpander {
 
   private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _
 
-  def expand(pred : Predicate,
-             argNum : Int,
-             sort : ADT.ADTProxySort)
+  def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
     for (value     <- ctorElements get pred;
          someValue <- value;
          ctorIndex <- someValue(argNum)) yield {
-      val adt  = sort.adtTheory
+      val adt  = sort.asInstanceOf[ADT.ADTProxySort].adtTheory
       val ctor = adt constructors ctorIndex
       val sels = adt selectors ctorIndex
       (for (f <- sels) yield (f(v(0)), f.resSort, f.name),
        Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
     }
+
+  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }
