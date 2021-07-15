@@ -164,6 +164,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   var argumentIndices = Array[Int]()
   var templateIndices = Array[Int]()
   var templateRelevanceLabel = Array[Int]()
+  var templateCostLabel = Array[Int]()
   var clauseIndices = Array[Int]()
   var predicateIndices = Array[Int]()
   var predicateOccurrenceInClause = Array[Int]()
@@ -270,20 +271,23 @@ class GNNInput(clauseCollection:ClauseInfo) {
     argumentIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-  def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,hintLabel:Boolean): Unit = {
-    templateIndices :+= GNNNodeID
-    hintLabel match {
-      case true =>templateRelevanceLabel:+=1
-      case false =>templateRelevanceLabel:+=0
+  def modifyTemplateLabel(hintLabel:Boolean,cost:Int): Unit = hintLabel match {
+    case true => {
+      templateRelevanceLabel:+=1
+      templateCostLabel:+=cost
     }
+    case false =>{
+      templateRelevanceLabel:+=0
+      templateCostLabel:+=100}
+  }
+  def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,hintLabel:Boolean,cost:Int=0): Unit = {
+    templateIndices :+= GNNNodeID
+    modifyTemplateLabel(hintLabel,cost)
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-  def updateTemplateIndicesAndNodeIds(nodeUniqueName:String,hintLabel:Boolean): Unit ={
+  def updateTemplateIndicesAndNodeIds(nodeUniqueName:String,hintLabel:Boolean,cost:Int=0): Unit ={ //use operator node as template node
     templateIndices :+= nodeNameToIDMap(nodeUniqueName)
-    hintLabel match {
-      case true =>templateRelevanceLabel:+=1
-      case false =>templateRelevanceLabel:+=0
-    }
+    modifyTemplateLabel(hintLabel,cost)
     templateCanonicalID += 1
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
@@ -782,6 +786,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateIndices", IntArray(gnn_input.templateIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateRelevanceLabel", IntArray(gnn_input.templateRelevanceLabel), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("templateCostLabel", IntArray(gnn_input.templateCostLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseBinaryOccurrenceInCounterExampleList", IntArray(gnn_input.clausesOccurrenceInCounterExample), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
@@ -1033,10 +1038,12 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNameList=
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
-            val hintLabel = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
-              && termContains(positiveTemplates(hp),t)) true else false//positiveTemplates(hp).contains(t)
+            val (hintLabel,cost) = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
+              && termContains(positiveTemplates(hp),t)) {
+              (true,positiveTemplates(hp).filter(x=>x._1==t._1 && x._3==t._3).head._2)
+            } else {(false,100)}//positiveTemplates(hp).contains(t)
             //println(t,hintLabel)
-            gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)//update JSON
+            gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel,cost = cost)//update JSON
             (predicateASTRootName,"verifHint"+t._3.toString)
           }
         hp.name->templateNameList
