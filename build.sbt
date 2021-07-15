@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0.4",
+    version := "2.0.6",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
@@ -139,10 +139,21 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
+    //resolvers += "Typesafe Public Repo" at "http://repo.typesafe.com/typesafe/releases",
+    //libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5",
+    libraryDependencies +=  "org.apache.commons" % "commons-lang3" % "3.5",
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.6",
+
+    assemblyMergeStrategy in assembly := {
+	 case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+	 case x => MergeStrategy.last
+    },
+      
 //
     resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-//    libraryDependencies += "uuverifiers" %% "princess" % "2020-07-13"
+//    libraryDependencies += "uuverifiers" %% "princess" % "2021-03-10"
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 //
+    

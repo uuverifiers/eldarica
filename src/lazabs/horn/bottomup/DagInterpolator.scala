@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 
 package lazabs.horn.bottomup
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, UnionFind}
 import ap.parser._
 import ap.Signature
 import ap.theories.{Theory, TheoryCollector}
@@ -153,7 +153,7 @@ object DagInterpolator {
    */
   def interpolatingPredicateGenCEXAndOr(clauseDag : Dag[AndOrNode[NormClause, Unit]])
                      : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(IAtom, HornPredAbs.NormClause)]] =
+                              Dag[(IAtom, NormClause)]] =
     predicateGenerator(clauseDag, 1500) match {
       case Left(preds) =>
         Left(preds)
@@ -279,7 +279,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream)(
       new HornPredAbs(clauses, Map(),
                       DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                      HornPredAbs.CounterexampleMethod.FirstBestShortest).rawResult) match {
+                      CEGAR.CounterexampleMethod.FirstBestShortest).rawResult) match {
       case Left(solution) =>
         Left((for ((p, freshPs) <- predMap.iterator;
                    formulas = for (q <- freshPs;
@@ -295,7 +295,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                                    HornPredAbs.CounterexampleMethod.FirstBestShortest)
+                                    CEGAR.CounterexampleMethod.FirstBestShortest)
       predAbs.rawResult match {
       case Left(_) =>
         // extract the predicates used for the sub-proof
@@ -313,7 +313,7 @@ object DagInterpolator {
     Console.withOut(HornWrapper.NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     DagInterpolator.interpolatingPredicateGenCEXAndOr _,
-                                    HornPredAbs.CounterexampleMethod.FirstBestShortest)
+                                    CEGAR.CounterexampleMethod.FirstBestShortest)
       predAbs.rawResult match {
       case Left(_) =>
         // extract the predicates used for the sub-proof

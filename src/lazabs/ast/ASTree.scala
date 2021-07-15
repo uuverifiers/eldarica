@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 package lazabs.ast
 
 import lazabs.types._
-import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT}
+import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
 
 
 object ASTree {
@@ -102,7 +102,13 @@ object ASTree {
                      v: Expression) extends Expression
   case class ADTsize(adt: ADT, sortNum : Int,
                      v: Expression) extends Expression
-  
+
+  // Heap theory
+  case class HeapFun(heap: Heap, name: String,
+                     exprList: Seq[Expression]) extends Expression
+  case class HeapPred(heap: Heap, name: String,
+                     exprList: Seq[Expression]) extends Expression
+
   // Bit-vectors
 
   case class BVconst(bits: Int, num : BigInt) extends Expression
@@ -191,6 +197,7 @@ object ASTree {
   sealed abstract class UnaryOperator(val st: String)
   case class MinusOp() extends UnaryOperator ("-")
   case class NotOp() extends UnaryOperator ("!")
+  case class ArrayConstOp() extends UnaryOperator ("const")
   case class SetHeadOp() extends UnaryOperator ("head")
   case class SetSizeOp() extends UnaryOperator ("size")
   case class UnaryExpression(op: UnaryOperator, e: Expression) extends Expression  
@@ -261,12 +268,12 @@ object ASTree {
     if(elems1.size != 1 || elems2.size != 1) {
       throw new Exception("Error in selecting an element from a two dimensional array")
     }
-    ArraySelect(ArraySelect(ScArray(Some(Variable(aName,None).stype(ArrayType(ArrayType(IntegerType())))), None), elems1.head), elems2.head)
+    ArraySelect(ArraySelect(ScArray(Some(Variable(aName,None).stype(ArrayType(IntegerType(), ArrayType(IntegerType(), IntegerType())))), None), elems1.head), elems2.head)
   }
   
   def makeArrayConst(elems_java: java.util.List[Expression]): Expression = {
     val elems = elems_java.toArray.toList   // convert java list to scala list
-    elems.asInstanceOf[List[Expression]].zipWithIndex.foldLeft[Expression](ScArray(None, Some(NumericalConst(elems.length))).stype(ArrayType(IntegerType())))((x,y) => (ArrayUpdate(x,NumericalConst(y._2),y._1))).stype(ArrayType(IntegerType()))
+    elems.asInstanceOf[List[Expression]].zipWithIndex.foldLeft[Expression](ScArray(None, Some(NumericalConst(elems.length))).stype(ArrayType(IntegerType(), IntegerType())))((x,y) => (ArrayUpdate(x,NumericalConst(y._2),y._1))).stype(ArrayType(IntegerType(), IntegerType()))
   }
    
   def makeSetConst(elems_java: java.util.List[Expression]): Expression = {
@@ -341,6 +348,15 @@ object ASTree {
     def unapply(exp: Expression) : Option[(Expression,Expression)] = 
       exp match {
         case BinaryExpression(left, ArraySelectOp(), right) => Some((left, right))
+        case _ => None
+      }
+  }
+  
+  object ConstArray {
+    def apply(e: Expression) = UnaryExpression(ArrayConstOp(), e)
+    def unapply(exp: Expression) : Option[Expression] = 
+      exp match {
+        case UnaryExpression(ArrayConstOp(), e) => Some(e)
         case _ => None
       }
   }
@@ -584,7 +600,16 @@ object ASTree {
         case _ => None
       }
   }
-  
+
+  object Int2BitVec {
+    def apply(bits : Int, e: Expression) = UnaryExpression(Int2BV(bits), e)
+    def unapply(exp: Expression) : Option[(Int, Expression)] = 
+      exp match {
+        case UnaryExpression(Int2BV(bits), e) => Some((bits, e))
+        case _ => None
+      }
+  }
+
   object MemberAccess {
     def apply(left: Expression, right: Expression) = BinaryExpression(left, AccessOp(), right) 
     def unapply(exp: Expression) : Option[(Expression,Expression)] = 

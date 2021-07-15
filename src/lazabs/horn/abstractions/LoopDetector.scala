@@ -53,8 +53,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
   import IExpression._
   import HornClauses.Clause
 
-  Console.err.println(
-         "------------------------------ Analysing loops ---------------------------------")
+//  Console.err.println(
+//         "------------------------------ Analysing loops ---------------------------------")
 
   val allPredicates = new LinkedHashSet[Predicate]
 

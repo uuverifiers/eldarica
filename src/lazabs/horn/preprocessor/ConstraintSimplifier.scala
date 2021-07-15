@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,11 +29,11 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
-import ap.theories.{ModuloArithmetic, ADT}
+import ap.theories.{ADT, Heap}
+import Heap.{HeapFunExtractor, HeapPredExtractor}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -94,6 +94,20 @@ object ConstraintSimplifier {
   }
 
   object EqBinaryIntFormula extends BinaryIntFormula(_ == IIntRelation.EqZero)
+
+  /**
+   * Identify literals equivalent to <code>lit1 == lit2</code>.
+   */
+  object EqLitLitTuple {
+    def unapply(t : (IIntRelation.Value, ITerm, ITerm, IdealInt))
+              : Option[IdealInt] =
+      t match {
+        case (IIntRelation.EqZero, null, null, offset) =>
+          Some(offset)
+        case _ =>
+          None
+      }
+  }
 
   /**
    * Identify literals equivalent to <code>a == lit</code>.
@@ -332,6 +346,14 @@ class ConstraintSimplifier extends HornPreprocessor {
           false
         }
 
+        case EqLitLitTuple(offset) =>
+          if (offset.isZero) {
+            false
+          } else {
+            // contradiction
+            throw InconsistencyException
+          }
+
         case EqOffsetTuple(left@IConstant(c), right@IConstant(d), offset) =>
           if (c == d) {
 
@@ -452,24 +474,36 @@ class ConstraintSimplifier extends HornPreprocessor {
    */
   private def adtRewriting(conjuncts : Seq[IFormula])
                          : Option[Seq[IFormula]] = {
-    val ctors =
-      (for (Eq(IFunApp(ADT.Constructor(adt, num), args),
-               c : IConstant) <- conjuncts)
-       yield (c -> (adt, num, args))).toMap
+    val ctors = new MHashMap[IConstant, (ADT, Int, Seq[ITerm])]
+
+    val (ctorConjuncts, otherConjuncts) =
+      conjuncts partition {
+        case Eq(IFunApp(ADT.Constructor(adt, num), args), c : IConstant)
+            if !(ctors contains c) => {
+              ctors.put(c, (adt, num, args))
+              true
+            }
+        case _ =>
+          false
+      }
 
     val simp = new ADTSimplifier(ctors)
     var changed = false
 
-    val newConjuncts =
-      for (f <- conjuncts) yield {
-        val newF = simp.visit(f, ()).asInstanceOf[IFormula]
-        if (!(newF eq f))
-          changed = true
-        newF
+    val newConjuncts = new ArrayBuffer[IFormula]
+
+    for (f <- otherConjuncts) {
+      val newF = simp.visit(f, ()).asInstanceOf[IFormula]
+      if (newF eq f) {
+        newConjuncts += f
+      } else {
+        newConjuncts ++= LineariseVisitor(newF, IBinJunctor.And)
+        changed = true
       }
+    }
 
     if (changed)
-      Some(newConjuncts ++
+      Some(ctorConjuncts ++ newConjuncts ++
             (for ((s, t) <- simp.sizeExpressions.iterator) yield s === t))
     else
       None
@@ -508,23 +542,40 @@ class ConstraintSimplifier extends HornPreprocessor {
       case (IFunApp(ADT.Selector(adt, ctorNum, selNum), _),
             Seq(c : IConstant)) =>
         (ctors get c) match {
-          case Some((`adt`, `ctorNum`, args)) =>
-            args(selNum)
+          case Some((`adt`, `ctorNum`, args)) => args(selNum)
+          case _                              => t update subres
+        }
+
+      case (IFunApp(ADT.CtorId(adt, sortNum), _), Seq(c : IConstant)) =>
+        (ctors get c) match {
+          case Some((`adt`, ctorNum, _)) =>
+            adt.ctorIdsPerSort(sortNum) indexOf ctorNum
           case _ =>
             t update subres
         }
 
-      case (IFunApp(ADT.TermSize(adt, sortNum), _),
-            Seq(c : IConstant)) =>
+      case (IFunApp(ADT.TermSize(adt, sortNum), _), Seq(c : IConstant)) =>
         evalCtorTermSize(c, adt, sortNum, true) match {
-          case null =>
-            t update subres
-          case s =>
-            s
+          case null => t update subres
+          case s    => s
         }
 
       case _ =>
-        t update subres
+        (t update subres) match {
+          case s @ Eq(IFunApp(ADT.Constructor(adt, ctorNum), args),
+                      c : IConstant) =>
+            (ctors get c) match {
+              case Some((`adt`, ctorNum2, args2)) =>
+                if (ctorNum == ctorNum2)
+                  args === args2
+                else
+                  false
+              case _ =>
+                s
+            }
+
+          case s => s
+        }
     }
   }
 
@@ -570,6 +621,169 @@ class ConstraintSimplifier extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Eliminate heap theory AllocRes ADTs (heap,address) by rewriting them as
+   * allocHeap, allocAddr pairs.
+   */
+  private def elimAllocResADTs(
+                          headSyms : scala.collection.Set[ConstantTerm],
+                          body : List[IAtom],
+                          conjuncts : Seq[IFormula]) : Option[Seq[IFormula]] = {
+    case class AllocInfo(
+           allocFunApp   : IFunApp,   // associated alloc which produced this ar
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
+    case class NewHeapInfo(
+           h             : IConstant, // the heap of this AllocRes
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
+    case class NewAddrInfo(
+           a             : IConstant, // the addr of this AllocRes
+           theory        : Heap,      // associated heap theory
+           conjunct      : IFormula)  // the conjunct this fun app was extracted
+
+    case class HeapAddressPair(h : ITerm, a : ITerm)
+
+    ////////////////////////////////////////////////////////////////////////
+    val allocs = new MHashMap[IConstant, AllocInfo]
+    val allocNewHeaps = new MHashMap[IConstant, NewHeapInfo]
+    val allocNewAddrs = new MHashMap[IConstant, NewAddrInfo]
+
+    val reads  = new ArrayBuffer[(HeapAddressPair, (ITerm, IFormula))]
+    val validPairs  = new ArrayBuffer[HeapAddressPair]
+    val pairToObject = new MHashMap[HeapAddressPair, ITerm]
+
+    val newConjuncts = new ArrayBuffer[IFormula]
+
+    // do a first pass to partition the conjuncts and collect alloc infos
+    // also collects valid(h,a) information for pairs (if it exists), which
+    // was propagated by ConstantPropagator:heap-definedness
+    for (conjunct <- conjuncts) conjunct match {
+      // alloc(_,_) = ar
+      case IEquation(allocApp@IFunApp(fun@HeapFunExtractor(heap), _),
+                     ar@IConstant(_)) if fun == heap.alloc =>
+        allocs += ((ar, AllocInfo(allocApp, heap, conjunct)))
+
+      // newHeap(ar) = h
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(ar@IConstant(_))), h@IConstant(_))
+                                                       if fun == heap.newHeap =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap, conjunct)))
+
+      // newAddr(ar) = a
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(ar@IConstant(_))), a@IConstant(_))
+                                                       if fun == heap.newAddr =>
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap, conjunct)))
+
+      // AllocRes(h, a) = ar
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap),
+                     Seq(h@IConstant(_), a@IConstant(_))), ar@IConstant(_))
+                                 if fun == heap.AllocResADT.constructors.head =>
+        allocNewHeaps += ((ar, NewHeapInfo(h, heap, conjunct)))
+        allocNewAddrs += ((ar, NewAddrInfo(a, heap, conjunct)))
+
+      // write(_, a, o) = h2
+      case IEquation(IFunApp(fun@HeapFunExtractor(heap), Seq(_, a, o)), h2)
+        if fun == heap.write =>
+        // fill the map from <h,a> pairs to contained objects using writes
+        pairToObject += ((HeapAddressPair(h2, a), o))
+        newConjuncts += conjunct // writes are not removed
+
+      // read(h, a) = o
+      case f@IEquation(IFunApp(fun@HeapFunExtractor(heap), Seq(h, a)), o)
+        if fun == heap.read =>
+        reads += ((HeapAddressPair(h, a), (o, f)))
+
+      // valid(h, a)
+      case IAtom(pred@HeapPredExtractor(heap), Seq(h, a))
+        if pred == heap.isAlloc =>
+        //println("valid(" + h + ", " + a + ")")
+        validPairs += HeapAddressPair(h, a)
+        newConjuncts += conjunct // conjunct unchanged
+
+      case _ =>
+        newConjuncts += conjunct // conjunct unchanged
+    }
+
+    // fill the map from <h,a> pairs to contained objects using allocs
+    for(alloc <- allocs) {
+      val heapInfo = allocNewHeaps.get(alloc._1)
+      val addrInfo = allocNewAddrs.get(alloc._1)
+      val Seq(_,o) = alloc._2.allocFunApp.args
+      if (heapInfo.nonEmpty && addrInfo.nonEmpty) {
+        val pair = HeapAddressPair(heapInfo.get.h, addrInfo.get.a)
+        pairToObject.put(pair, o)
+        validPairs += pair
+      }
+    }
+
+    val addedConjuncts = new ArrayBuffer[(IFunction, Seq[ITerm], IConstant)]
+
+    var changed = false
+
+    for ((ar, AllocInfo(allocApp, theory, conjunct)) <- allocs) {
+      (allocNewHeaps get ar, allocNewAddrs get ar) match {
+        case (Some(NewHeapInfo(h, _, _)), Some(NewAddrInfo(a, _, _))) =>
+          addedConjuncts += ((theory.allocHeap, allocApp.args, h))
+          addedConjuncts += ((theory.allocAddr, allocApp.args, a))
+          newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+          newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+          changed = true
+        case _ => // if we do not know to which <h,a> pair this alloc refers to
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
+    }
+
+    // newHeap(ar) = h --> allocHeap(h',_) = h
+    for ((ar, NewHeapInfo(h, theory, conjunct)) <- allocNewHeaps) {
+      allocs get ar match {
+        case Some(AllocInfo(allocApp,_,_)) =>
+          if (!(addedConjuncts contains ((theory.allocHeap, allocApp.args, h)))) {
+            newConjuncts += IFunApp(theory.allocHeap, allocApp.args) === h
+            changed = true
+          } else { /* remove newHeap conjunct */ }
+        case _ =>
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
+    }
+
+    // newAddr(ar) = a --> allocAddr(alloc(h',_)) = a
+    for ((ar, NewAddrInfo(a, theory, conjunct)) <- allocNewAddrs) {
+      allocs get ar match {
+        case Some(AllocInfo(allocApp,_,_)) =>
+          if (!(addedConjuncts contains ((theory.allocAddr, allocApp.args, a)))) {
+            newConjuncts += IFunApp(theory.allocAddr, allocApp.args) === a
+            changed = true
+          } else { /* remove newAddr conjunct */ }
+        case _ =>
+          newConjuncts += conjunct // do not rewrite the constraint
+      }
+    }
+
+    // read(h,a) = o -> o = o2 (if we know what is at <h,a>)
+    for ((pair, (o, conjunct)) <- reads) {
+      pairToObject get pair match {
+        case Some(o2) if validPairs contains pair =>
+          //println("replacing " + conjunct + " with " + (o2 === o))
+          newConjuncts += o2 === o // replace read
+          changed = true
+        case _ => newConjuncts += conjunct // use old conjunct
+      }
+    }
+
+    if(changed) {
+      println("original constraint: " + conjuncts.fold(i(true))(_ &&& _))
+      println("AllocRes constraint: " + newConjuncts.fold(i(true))(_ &&& _))
+    }
+
+    if (changed)
+      Some(newConjuncts)
+    else
+      None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   /**
    * Simplify equations of the clause
    */
@@ -628,6 +842,18 @@ class ConstraintSimplifier extends HornPreprocessor {
         // check whether function applications can be eliminated
 
         for (newConjuncts <- gcFunctionApplications(headSyms, body, conjuncts)){
+          conjuncts = newConjuncts
+          changed   = true
+          cont      = true
+        }
+      }
+
+      if (!cont && containsFunctions) {
+        // replace heap theory AllocRes ADTs with allocHeap and allocAddr
+        // also rewrites simple reads from locations written to/allocated within
+        // the same constraint
+
+        for (newConjuncts <- elimAllocResADTs(headSyms, body, conjuncts)){
           conjuncts = newConjuncts
           changed   = true
           cont      = true

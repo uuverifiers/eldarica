@@ -1,0 +1,25 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="invalid-access.smt2 \
+       simple-struct-2.smt2 \
+       simple-struct.smt2 \
+       list-002-unsafe.smt2 \
+       stackptr-to-heapptr.smt2 \
+       swap-1.smt2 \
+       motivating-example.smt2 \
+       swap-2.smt2 \
+       mutually-referential-structs.smt2 \
+       swap-3.smt2 \
+       mutually-referential-structs-unsafe.smt2 \
+       typecastSafe-001.smt2 \
+       opassign-struct.smt2 \
+       typecastUnsafe-001.smt2 \
+       simple-arith.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -ssol -abstract:off "$@" $name 2>&1 | grep -v 'at '
+done

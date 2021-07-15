@@ -42,3 +42,11 @@ for name in $TESTS; do
     $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
 done
 
+TESTS="int2bv.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS "$@" $name 2>&1 | grep -v 'at '
+done
+

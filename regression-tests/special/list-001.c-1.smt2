@@ -1,0 +1,40 @@
+(set-logic HORN)
+(set-info :source |
+    Benchmark: C_VC
+    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)
+|)
+(set-info :status unknown)
+(declare-heap Heap Addr HeapObject
+ defObj
+ ((HeapObject 0) (node 0)) (
+  (
+   (O_Int (getInt Int))
+   (O_Addr (getAddr Addr))
+   (O_node (getnode node))
+   (defObj)
+  )
+  (
+   (node (L Addr) (R Addr))
+  )
+))
+(declare-fun inv_main11 (Heap Addr Addr Addr) Bool)
+(declare-fun inv_main2 (Heap) Bool)
+(declare-fun inv_main3 (Heap Addr) Bool)
+(declare-fun inv_main4 (Heap Addr) Bool)
+(declare-fun inv_main7 (Heap Addr Addr Addr) Bool)
+(declare-fun inv_main8 (Heap Addr Addr Addr) Bool)
+(declare-fun inv_main9 (Heap Addr Addr Addr) Bool)
+(assert (inv_main2 (as emptyHeap Heap)))
+(assert (forall ((var0 node) (var1 Heap)) (or (not (inv_main2 var1)) (inv_main3 (newHeap (alloc var1 (O_node var0))) (newAddr (alloc var1 (O_node var0)))))))
+(assert (forall ((var0 Addr) (var1 Heap)) (or (not (inv_main3 var1 var0)) (inv_main4 (write var1 var0 (O_node (node 0 (R (getnode (read var1 var0)))))) var0))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Heap) (var3 Heap) (var4 node)) (or (not (and (inv_main4 var2 var1) (and (= var3 (write var2 var1 (O_node (node (L (getnode (read var2 var1))) 0)))) (= var0 var1)))) (inv_main7 (newHeap (alloc var3 (O_node var4))) var0 var0 (newAddr (alloc var3 (O_node var4)))))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (or (not (inv_main8 var3 var0 var1 var2)) (inv_main9 (write var3 var2 (O_node (node (L (getnode (read var3 var2))) 0))) var0 var1 var2))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (or (not (inv_main7 var3 var0 var1 var2)) (inv_main8 (write var3 var2 (O_node (node var1 (R (getnode (read var3 var2)))))) var0 var1 var2))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Addr) (var4 Addr) (var5 Heap) (var6 Addr) (var7 Heap)) (or (not (and (inv_main9 var5 var0 var2 var3) (and (and (and (= var7 (write var5 var2 (O_node (node (L (getnode (read var5 var2))) var3)))) (= var6 var0)) (= var1 var2)) (= var4 var3)))) (inv_main11 var7 var6 var4 var4))))
+(assert (forall ((var0 Addr) (var1 Heap)) (not (and (inv_main3 var1 var0) (not (is-O_node (read var1 var0)))))))
+(assert (forall ((var0 Addr) (var1 Heap)) (not (and (inv_main4 var1 var0) (not (is-O_node (read var1 var0)))))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (not (and (inv_main7 var3 var0 var1 var2) (not (is-O_node (read var3 var2)))))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (not (and (inv_main8 var3 var0 var1 var2) (not (is-O_node (read var3 var2)))))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (not (and (inv_main9 var3 var0 var1 var2) (not (is-O_node (read var3 var1)))))))
+(assert (forall ((var0 Addr) (var1 Addr) (var2 Addr) (var3 Heap)) (not (and (inv_main11 var3 var0 var1 var2) (= var0 var1)))))
+(check-sat)

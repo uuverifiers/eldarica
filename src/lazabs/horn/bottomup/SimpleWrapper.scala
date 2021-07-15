@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,12 +64,10 @@ object SimpleWrapper {
     GlobalParameters.get.templateBasedInterpolationPortfolio = useAbstractPO
 
     Console.withErr(errOutput) { Console.withOut(Console.err) {
-      var (newClauses, newInitialPredicates, backTranslator) = {
+      var (newClauses, allHints, backTranslator) = {
         val preprocessor = new DefaultPreprocessor
         val hints = new InitPredicateVerificationHints(initialPredicates)
-        val (newClauses, newHints, backTranslator) =
-          preprocessor.process(clauses.toSeq, hints)
-        (newClauses, newHints.toInitialPredicates, backTranslator)
+        preprocessor.process(clauses.toSeq, hints)
       }
   
       val params =
@@ -95,7 +93,7 @@ object SimpleWrapper {
           }
       
         val predAbs =
-          new HornPredAbs(newClauses, initialPredicates, interpolator)
+          new HornPredAbs(newClauses, allHints.toInitialPredicates, interpolator)
 
         predAbs.result match {
           case Left(x) => Left(() => backTranslator translate x)

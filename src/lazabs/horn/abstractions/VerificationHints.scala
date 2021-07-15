@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,12 +33,17 @@ import ap.parser._
 import IExpression._
 
 import scala.collection.{Set => GSet}
-
+object TemplateType extends Enumeration {
+  val TplPred,TplPredPosNeg, TplEqTerm,TplInEqTerm,TplInEqTermPosNeg= Value
+}
 object VerificationHints {
   def apply(hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
     new VerificationHints {
       val predicateHints = hints
     }
+
+  def union(hints : Iterable[VerificationHints]) : VerificationHints =
+    hints.foldLeft[VerificationHints](EmptyVerificationHints)(_ ++ _)
 
   abstract sealed class VerifHintElement {
     /**
@@ -68,16 +73,16 @@ object VerificationHints {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  
+
   abstract sealed class VerifHintTplElement(val cost : Int)
-                                         extends VerifHintElement
+    extends VerifHintElement
 
   case class VerifHintTplIterationThreshold(threshold : Int)
-                                         extends VerifHintElement {
+    extends VerifHintElement {
     def shiftArguments(offset : Int, shift : Int)
-                      : VerifHintTplIterationThreshold = this
+    : VerifHintTplIterationThreshold = this
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplIterationThreshold] = Some(this)
+    : Option[VerifHintTplIterationThreshold] = Some(this)
   }
 
   case class VerifHintInitPred(f : IFormula) extends VerifHintElement {
@@ -85,54 +90,54 @@ object VerificationHints {
       VerifHintInitPred(VariableShiftVisitor(f, offset, shift))
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintInitPred] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintInitPred(newF.asInstanceOf[IFormula])
+        yield VerifHintInitPred(newF.asInstanceOf[IFormula])
   }
-  
+
   case class VerifHintTplPred(f : IFormula, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplPred =
       VerifHintTplPred(VariableShiftVisitor(f, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplPred] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintTplPred(newF.asInstanceOf[IFormula], cost)
+        yield VerifHintTplPred(newF.asInstanceOf[IFormula], cost)
   }
-  
+
   case class VerifHintTplPredPosNeg(f : IFormula, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplPredPosNeg =
       VerifHintTplPredPosNeg(VariableShiftVisitor(f, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplPredPosNeg] =
+    : Option[VerifHintTplPredPosNeg] =
       for (newF <- shiftVars(f, mapping))
-      yield VerifHintTplPredPosNeg(newF.asInstanceOf[IFormula], cost)
+        yield VerifHintTplPredPosNeg(newF.asInstanceOf[IFormula], cost)
   }
-  
+
   case class VerifHintTplEqTerm(t : ITerm, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplEqTerm =
       VerifHintTplEqTerm(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplEqTerm] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplEqTerm(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplEqTerm(newT.asInstanceOf[ITerm], cost)
   }
 
   case class VerifHintTplInEqTerm(t : ITerm, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTerm =
       VerifHintTplInEqTerm(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int]) : Option[VerifHintTplInEqTerm] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplInEqTerm(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplInEqTerm(newT.asInstanceOf[ITerm], cost)
   }
 
   case class VerifHintTplInEqTermPosNeg(t : ITerm, _cost : Int)
-                                         extends VerifHintTplElement(_cost) {
+    extends VerifHintTplElement(_cost) {
     def shiftArguments(offset : Int, shift : Int) : VerifHintTplInEqTermPosNeg =
       VerifHintTplInEqTermPosNeg(VariableShiftVisitor(t, offset, shift), cost)
     def shiftArguments(mapping : Map[Int, Int])
-                      : Option[VerifHintTplInEqTermPosNeg] =
+    : Option[VerifHintTplInEqTermPosNeg] =
       for (newT <- shiftVars(t, mapping))
-      yield VerifHintTplInEqTermPosNeg(newT.asInstanceOf[ITerm], cost)
+        yield VerifHintTplInEqTermPosNeg(newT.asInstanceOf[ITerm], cost)
   }
 }
 
@@ -145,7 +150,35 @@ object VerificationHints {
   trait VerificationHints {
     import VerificationHints._
 
-    val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
+    val predicateHints : Map[Predicate, Seq[VerifHintElement]]
+    /////////////////DEBUG///////////
+    def pretyPrintHints() = {
+      println(Console.BLUE+"-----------------------------------")
+      for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
+        println(key.toString(),value.size)
+        for(v<-value){
+          v match {
+            case VerifHintInitPred(f) =>{println(Console.BLUE+ f )}
+            case _ =>{println(Console.BLUE+v)}
+          }
+        }
+      }
+    }
+    def totalPredicateNumber: Int ={
+      predicateHints.values.flatten.size
+    }
+    def totalHeadNumber:Int={
+      predicateHints.keys.size
+    }
+    def getMaxSizeOfPredicateList(): Int ={
+      (for ((k,v)<-predicateHints)yield{
+        v.size
+      }).max
+    }
+    def getPredicateHints() = {
+      predicateHints
+    }
+    /////////////////DEBUG///////////
 
     def isEmpty = predicateHints.isEmpty
 
@@ -169,13 +202,13 @@ object VerificationHints {
                            yield (newP, hints)).toMap)
 
     def addPredicateHints(
-          hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
+          hints : Map[Predicate, Seq[VerifHintElement]]) =
       if (hints.isEmpty)
         this
       else
         VerificationHints(predicateHints ++ hints)
 
-    def toInitialPredicates : Map[IExpression.Predicate, Seq[IFormula]] =
+    def toInitialPredicates : Map[Predicate, Seq[IFormula]] =
       (for ((p, hints) <- predicateHints.iterator;
             remHints = for (VerifHintInitPred(f) <- hints) yield f;
             if !remHints.isEmpty)
@@ -188,9 +221,9 @@ object VerificationHints {
         that
       } else {
         val allHints =
-          predicateHints ++
-          (for ((p, hints) <- predicateHints.iterator) yield
-            (predicateHints get p) match {
+          this.predicateHints ++
+          (for ((p, hints) <- that.predicateHints.iterator) yield
+            (this.predicateHints get p) match {
               case Some(oldHints) => p -> (oldHints ++ hints)
               case None           => p -> hints
             })

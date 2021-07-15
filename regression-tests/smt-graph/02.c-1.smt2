@@ -1,0 +1,16 @@
+(set-logic HORN)
+(set-info :source |
+    Benchmark: C_VC
+    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)
+|)
+(set-info :status unknown)
+(declare-fun inv_main20 (Int Int Int Int Int Int) Bool)
+(declare-fun inv_main4 (Int Int) Bool)
+(declare-fun inv_main8 (Int Int Int Int Int Int) Bool)
+(assert (inv_main4 1 0))
+(assert (forall ((var0 Int) (var1 Int) (var2 Int) (var3 Int) (var4 Int) (var5 Int) (var6 Int)) (or (not (and (inv_main8 var5 var4 var2 var1 var6 var3) (and (not (= var1 var6)) (= var0 0)))) (inv_main20 var5 var4 var2 var1 var6 var3))))
+(assert (forall ((var0 Int) (var1 Int) (var2 Int) (var3 Int) (var4 Int) (var5 Int) (var6 Int) (var7 Int) (var8 Int)) (or (not (and (inv_main8 var4 var3 var1 var0 var6 var2) (and (and (and (and (and (and (<= 0 (+ (+ 2 (* (- 1) var7)) (- 1))) (<= 0 (+ (+ 2 (* 1 var7)) (- 1)))) (or (not (<= 0 (+ var7 (- 1)))) (<= 0 (+ (+ var1 (+ (+ var0 var6) var2)) (- 1))))) (or (not (<= 0 (+ (* (- 1) var7) (- 1)))) (<= 0 (+ (* (- 1) (+ var1 (+ (+ var0 var6) var2))) (- 1))))) (= (+ var1 (+ (+ var0 var6) var2)) (+ (* 2 var8) var7))) (= var7 1)) (not (= var5 0))))) (inv_main8 var4 var3 (+ var1 (+ (+ var0 var6) var2)) (+ var0 1) (+ var6 1) (+ var2 2)))))
+(assert (forall ((var0 Int) (var1 Int) (var2 Int) (var3 Int) (var4 Int) (var5 Int) (var6 Int) (var7 Int) (var8 Int)) (or (not (and (inv_main8 var4 var3 var1 var0 var6 var2) (and (not (or (not (and (and (and (and (<= 0 (+ (+ 2 (* (- 1) var7)) (- 1))) (<= 0 (+ (+ 2 (* 1 var7)) (- 1)))) (or (not (<= 0 (+ var7 (- 1)))) (<= 0 (+ (+ var1 (+ (+ var0 var6) var2)) (- 1))))) (or (not (<= 0 (+ (* (- 1) var7) (- 1)))) (<= 0 (+ (* (- 1) (+ var1 (+ (+ var0 var6) var2))) (- 1))))) (= (+ var1 (+ (+ var0 var6) var2)) (+ (* 2 var8) var7)))) (= var7 1))) (not (= var5 0))))) (inv_main8 var4 var3 (+ var1 (+ (+ var0 var6) var2)) var0 (+ var6 1) (+ var2 2)))))
+(assert (forall ((var0 Int) (var1 Int)) (or (not (inv_main4 var1 var0)) (inv_main8 var1 var0 (+ var1 (* (- 1) var0)) 0 0 0))))
+(assert (forall ((var0 Int) (var1 Int) (var2 Int) (var3 Int) (var4 Int) (var5 Int)) (not (inv_main20 var4 var3 var1 var0 var5 var2))))
+(check-sat)

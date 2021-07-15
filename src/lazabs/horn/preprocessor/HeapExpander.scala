@@ -1,20 +1,20 @@
 /**
  * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice, this
  *   list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of the authors nor the names of their
  *   contributors may be used to endorse or promote products derived from
  *   this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -29,55 +29,66 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.HornClauses
-import HornClauses.Clause
-import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
-import lazabs.horn.abstractions.VerificationHints
-
+import ap.parser
+import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
-import IExpression.{Predicate, Sort, and}
-import ap.theories.ADT
-import ap.types.MonoSortedPredicate
+import ap.theories.Heap
+import ap.theories.Heap._
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
+import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 LinkedHashMap}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap}
 
 
-object ADTExpander {
+object HeapExpander {
 
   /**
-   * Interface for adding auxiliary predicate arguments for ADT types
+   * Interface for expanding heap operations with their sizes (num. allocations)
    */
   trait Expansion {
 
     /**
-     * Decide whether to expand an ADT sort should be expanded. In
-     * this case, the method returns a list of new terms and their sorts
+     * Decide if an ADT sort should be expanded. In this case,
+     * the method returns a list of new terms and their sorts
      * to be added as. The new terms can contain the variable <code>_0</code>
      * which has to be substituted with the actual argument.
      */
     def expand(pred : Predicate,
                argNum : Int,
-               sort : ADT.ADTProxySort)
+               sort : HeapSort)
              : Option[Seq[(ITerm, Sort, String)]]
   }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+class HeapModifyExtractor(allocs : ArrayBuffer[(IFunApp, Heap)],
+                          writes : ArrayBuffer[(IFunApp, Heap)])
+  extends CollectingVisitor[Int, Unit] {
+  def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
+    t match {
+      case f@IFunApp(fun@HeapFunExtractor(heap), _) if fun == heap.alloc =>
+        allocs += ((f, heap))
+      case f@IFunApp(fun@HeapFunExtractor(heap), _) if fun == heap.write =>
+        writes += ((f, heap))
+      case _ => // nothing
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
 /**
  * Class used to expand ADT predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
  */
-class ADTExpander(val name : String,
-                  expansion : ADTExpander.Expansion) extends HornPreprocessor {
+class HeapExpander(val name : String,
+                  expansion : HeapExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
-  import ADTExpander._
 
   override def isApplicable(clauses : Clauses) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p => predArgumentSorts(p) exists (_.isInstanceOf[ADT.ADTProxySort])
+      p => predArgumentSorts(p) exists (_.isInstanceOf[HeapSort])
     }
 
   def process(clauses : Clauses, hints : VerificationHints)
@@ -120,11 +131,13 @@ class ADTExpander(val name : String,
         newSorts  += sort
         addedArgs += None
 
+        //println(clauses)
+
         sort match {
-          case sort : ADT.ADTProxySort =>
+          case sort : HeapSort =>
             for (newArguments <-
                    expansion.expand(pred, argNum,
-                                    sort.asInstanceOf[ADT.ADTProxySort])) {
+                                    sort.asInstanceOf[HeapSort])) {
               val (addArgs, addSorts, _) = newArguments.unzip3
               newSorts ++= addSorts
               addedArgs(addedArgs.size - 1) = Some(newArguments)
@@ -138,7 +151,7 @@ class ADTExpander(val name : String,
       }
 
       if (changed) {
-        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts)
+        val newPred = MonoSortedPredicate(pred.name + "_cexp", newSorts)
         newPreds       .put(pred,    (newPred, addedArgs, argMapping.toMap))
         predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs))
       }
@@ -183,8 +196,7 @@ class ADTExpander(val name : String,
                       newTerms.getOrElseUpdate(instArg, newConst(name, sort))
                   }
 
-//                  if (!constraint.isTrue)
-//                    additionalConstraints += constraint
+                  //additionalConstraints += constraint
                 }
               }
 
@@ -197,13 +209,45 @@ class ADTExpander(val name : String,
         val newHead = rewriteAtom(head)
         val newBody = for (a <- body) yield rewriteAtom(a)
 
+        def collectHeapModifications(t : IExpression) :
+        (ArrayBuffer[(IFunApp, Heap)], ArrayBuffer[(IFunApp, Heap)]) = {
+          val allocs = new ArrayBuffer[(IFunApp, Heap)]
+          val writes = new ArrayBuffer[(IFunApp, Heap)]
+          val c = new HeapModifyExtractor(allocs, writes)
+          c.visitWithoutResult (t, 0)
+          (allocs, writes)
+        }
+
+        val (allocs, writes) = collectHeapModifications(constraint)
+        import IExpression._
+        val constraintsFromAllocs : IFormula =
+          (for ((alloc, theory) <- allocs) yield {
+            val h = alloc.args(0)
+            val o = alloc.args(1)
+            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + i(1)
+          }).fold(i(true))((f1, f2) => Conj(f1, f2))
+        val constraintsFromWrites : IFormula =
+          (for ((write, theory) <- writes) yield {
+            val h = write.args(0)
+            val p = write.args(1)
+            val o = write.args(2)
+            theory.counter(h) === theory.counter(theory.write(h, p, o))
+          }).fold(i(true))((f1, f2) => Conj(f1, f2))
+
+        val sizeChangeConstraint = constraintsFromAllocs &&& constraintsFromWrites
+        //println("sizeChangeConstraint: " + sizeChangeConstraint)
+
         val newConstraint =
           ConstraintSimplifier.rewriteConstraint(constraint, newTerms) &&&
           and(additionalConstraints) &&&
-          and(for ((t, c) <- newTerms.iterator) yield (t === c))
+          and(for ((t, c) <- newTerms.iterator) yield (t === c)) &&&
+          sizeChangeConstraint
 
         val newClause = Clause(newHead, newBody, newConstraint)
         clauseBackMapping.put(newClause, clause)
+
+        //println("old clause: " + clause)
+        //println("new clause: " + newClause)
 
         newClause
 
@@ -269,4 +313,37 @@ class ADTExpander(val name : String,
 
     (newClauses, newHints, translator)
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object HeapSizeArgumentExtender {
+
+  import HeapExpander._
+
+  /**
+   * Preprocessor that adds explicit size arguments for each predicate
+   * argument for a recursive ADT
+   */
+  class SizeArgumentAdder extends Expansion {
+    import IExpression._
+
+    def expand(pred : Predicate,
+               argNum : Int,
+               sort : HeapSort)
+             : Option[Seq[(ITerm, Sort, String)]] = {
+      val sizefun = sort.heapTheory.counter
+      Some(List((sizefun(v(0)), Sort.Nat, "heap_size")))
+    }
+  }
+}
+
+/**
+ * Preprocessor that adds explicit size arguments for each predicate
+ * argument for a recursive ADT
+ */
+class HeapSizeArgumentExtender
+      extends HeapExpander("adding heap size arguments",
+                          new HeapSizeArgumentExtender.SizeArgumentAdder) {
+
 }

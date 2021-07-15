@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2021 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,60 +37,50 @@ import ap.types.MonoSortedPredicate
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  LinkedHashMap}
 
-object SizeArgumentExtender {
-
-  import ADTExpander._
-
-  /**
-   * Preprocessor that adds explicit size arguments for each predicate
-   * argument for a recursive ADT
-   */
-  class SizeArgumentAdder extends Expansion {
-
-    import IExpression._
-
-    def expand(pred : Predicate,
-               argNum : Int,
-               sort : ADT.ADTProxySort)
-             : Option[Seq[(ITerm, Sort, String)]] =
-      if (sort.adtTheory.termSize != null &&
-          recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
-        val sizefun = sort.adtTheory.termSize(sort.sortNum)
-        Some(List((sizefun(v(0)), Sort.Nat, "adt_size")))
-      } else {
-        None
-      }
-
-    private val recursiveADTSorts = new MHashMap[ADT.ADTProxySort, Boolean]
-
-    private def isRecursive(sort : ADT.ADTProxySort) : Boolean =
-      isRecursive(sort.sortNum, List(), sort.adtTheory)
-
-    private def isRecursive(sortNum : Int,
-                            seenSorts : List[Int],
-                            adt : ADT)  : Boolean =
-      if (seenSorts contains sortNum) {
-        true
-      } else {
-        val newSeen = sortNum :: seenSorts
-        (for (ctor <- adt.constructors.iterator;
-              sort <- ctor.argSorts.iterator)
-         yield sort) exists {
-           case sort : ADT.ADTProxySort if sort.adtTheory == adt =>
-             isRecursive(sort.sortNum, newSeen, adt)
-           case _ =>
-             false
-         }
-      }
-  }
-}
-
 /**
  * Preprocessor that adds explicit size arguments for each predicate
  * argument for a recursive ADT
  */
-class SizeArgumentExtender
-      extends ADTExpander("adding size arguments",
-                          new SizeArgumentExtender.SizeArgumentAdder) {
+class SizeArgumentExtender extends ArgumentExpander {
+
+  import IExpression._
+
+  val name = "adding size arguments"
+
+  def expand(pred : Predicate, argNum : Int, sort : Sort)
+           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
+    val adtSort = sort.asInstanceOf[ADT.ADTProxySort]
+    if (adtSort.adtTheory.termSize != null &&
+          recursiveADTSorts.getOrElseUpdate(adtSort, isRecursive(adtSort))) {
+      val sizefun = adtSort.adtTheory.termSize(adtSort.sortNum)
+      Some((List((sizefun(v(0)), Sort.Nat, "adt_size")), None))
+    } else {
+      None
+    }
+  }
+
+  private val recursiveADTSorts = new MHashMap[ADT.ADTProxySort, Boolean]
+
+  private def isRecursive(sort : ADT.ADTProxySort) : Boolean =
+    isRecursive(sort.sortNum, List(), sort.adtTheory)
+
+  private def isRecursive(sortNum : Int,
+                          seenSorts : List[Int],
+                          adt : ADT)  : Boolean =
+    if (seenSorts contains sortNum) {
+      true
+    } else {
+      val newSeen = sortNum :: seenSorts
+      (for (ctor <- adt.constructors.iterator;
+            sort <- ctor.argSorts.iterator)
+       yield sort) exists {
+        case sort : ADT.ADTProxySort if sort.adtTheory == adt =>
+          isRecursive(sort.sortNum, newSeen, adt)
+        case _ =>
+          false
+      }
+    }
+
+  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }

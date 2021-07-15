@@ -33,17 +33,18 @@ import ap.parser._
 import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
-import lazabs.{ParallelComputation, GlobalParameters}
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
-                             HornWrapper}
-import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-                                 LoopDetector, AbstractionRecord,
-                                 VerificationHints}
-import lazabs.horn.bottomup.TemplateInterpolator
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Predicate
+import lazabs.{GlobalParameters, ParallelComputation}
+import lazabs.horn.bottomup.{DagInterpolator, DisjInterpolator, HornClauses, HornPredAbs, HornWrapper, NormClause, TemplateInterpolator, Util}
+import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.concurrency.HintsSelection.{initialIDForHints}
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
-import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
-                                 ArrayBuffer}
+import scala.concurrent.TimeoutException
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 
 object VerificationLoop {
 
@@ -242,6 +243,27 @@ class VerificationLoop(system : ParametricEncoder.System,
       else
         List()
 
+      //Select hints by Edarica
+      import lazabs.horn.concurrency.HintsSelection
+      //HintsSelection.tryAndTestSelecton(encoder,simpHints,simpClauses)
+
+
+
+      //Initial hints ID and store to file
+      //val InitialHintsWithID=initialIDForHints(encoder.globalHints) //ID:head->hint
+      //Call python to select hints
+
+      //No hints selection
+      var optimizedHints=HintsSelection.sortHints(simpHints) //if there is no readHints flag, use simpHints
+
+
+
+      //get smt
+      if(GlobalParameters.get.getSMT2==true){
+        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
+        println(encoder.allClauses)
+      }
+
     val predAbsResult = ParallelComputation(params) {
       val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
                                Console.withErr(Console.out) {
@@ -251,7 +273,7 @@ class VerificationLoop(system : ParametricEncoder.System,
             GlobalParameters.get.templateBasedInterpolationType)
         val autoAbstractionMap =
           builder.abstractionRecords
-        
+
         val abstractionMap =
           if (encoder.globalPredicateTemplates.isEmpty) {
             autoAbstractionMap
@@ -261,28 +283,86 @@ class VerificationLoop(system : ParametricEncoder.System,
             print("Using interpolation templates provided in program: ")
 
             val hintsAbstractionMap =
-              loopDetector hints2AbstractionRecord simpHints
+              loopDetector hints2AbstractionRecord optimizedHints
 
             println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
-            AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
+            AbstractionRecord.mergeMaps(Map(), hintsAbstractionMap)//autoAbstractionMap
+
           }
 
         TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
           abstractionMap,
-          GlobalParameters.get.templateBasedInterpolationTimeout)
+          GlobalParameters.get.templateBasedInterpolationTimeout) //if abstract:off still generate hints?
       } else {
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }
 
+      val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+        case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => (for(clause<-simpClauses) yield clause.normalize()).asInstanceOf[HornPreprocessor.Clauses]
+        case _ => simpClauses
+      }
+
+      if(GlobalParameters.get.readHints==true){
+        //Read selected hints from file (NNs)
+        println("simpHints:")
+        simpHints.pretyPrintHints()
+        val emptyInitialPredicates = VerificationHints(Map())
+        val optimizedHints = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates")
+        //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+        else emptyInitialPredicates
+        // inconsistency between encoder.globalHints and simpHints
+      }
+      if(GlobalParameters.get.getHornGraph==true){
+        val simpPredAbs =new simplifiedHornPredAbsForArgumentBounds(simplifiedClausesForGraph, simpHints.toInitialPredicates, interpolator)
+        //val InitialHintsWithID=initialIDForHints(optimizedHints) //ID:head->hint
+        //val fileName = GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/") + 1)
+        HintsSelection.writeSMTFormatToFile(simplifiedClausesForGraph,GlobalParameters.get.fileName)  //write smt2 format to file
+        val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
+        //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,optimizedHints,countOccurrence = false)
+        val argumentInfo = HintsSelection.getArgumentBound(argumentList,simpPredAbs.argumentBounds)
+        val emptyHintsCollection=new VerificationHintsInfo(VerificationHints(Map()),VerificationHints(Map()),VerificationHints(Map()))
+        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+        if (GlobalParameters.get.getAllHornGraph==true) {
+          GraphTranslator.drawAllHornGraph(clauseCollection, emptyHintsCollection,argumentInfo)
+        }
+        else{
+          GlobalParameters.get.hornGraphType match {
+            case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph |HornGraphType.concretizedHyperedgeGraph=> new DrawHyperEdgeHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+            case _=>new DrawLayerHornGraph(GlobalParameters.get.fileName, clauseCollection, emptyHintsCollection,argumentInfo)
+          }
+        }
+        sys.exit()
+      }
+
+      println("-------------------Test optimized hints---------------------------------")
       println
       println(
          "----------------------------------- CEGAR --------------------------------------")
+      if(GlobalParameters.get.templateBasedInterpolation==false){
+        val exceptionalPredGen:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]]=>
+          Either[Seq[(Predicate, Seq[Conjunction])],
+            Dag[(IAtom, NormClause)]] =
+          (x: Dag[AndOrNode[NormClause, Unit]]) =>
+            //throw new RuntimeException("interpolator exception")
+            throw lazabs.Main.TimeoutException
 
-      new HornPredAbs(simpClauses,
-                      simpHints.toInitialPredicates,
-                      interpolator).result
+        new HornPredAbs(simplifiedClausesForGraph,
+          Map(),//need Map[Predicate, Seq[IFormula]]
+          exceptionalPredGen).result
+      }else{
+        println("Use hints:")
+        optimizedHints.pretyPrintHints()
+
+        new HornPredAbs(simplifiedClausesForGraph,
+          optimizedHints.toInitialPredicates,//need Map[Predicate, Seq[IFormula]]
+          interpolator).result
+      }
+
     }
+
+
 
     ////////////////////////////////////////////////////////////////////////////
 

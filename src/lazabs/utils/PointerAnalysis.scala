@@ -119,7 +119,7 @@ object PointerAnalysis {
     case VarDeclaration(name, t@ClassType(cn1), Null()) :: rest =>
       actorInstance2ClassName += (name -> cn1)
       VarDeclaration(name, IntegerType(), NumericalConst(0)) :: this(rest)
-    case VarDeclaration(name, t@ArrayType(ClassType(cn1)), value) :: rest =>
+    case VarDeclaration(name, t@ArrayType(IntegerType(), ClassType(cn1)), value) :: rest =>
       VarDeclaration(name, ArrayType(IntegerType()), this(value)) :: this(rest)     
     case VarDeclaration(name, t@lazabs.types.ClassType(cn1), CreateObject(cn2,ps)) :: rest if (cn1 == cn2) =>
       actorInstance2ClassName += (name -> cn1)

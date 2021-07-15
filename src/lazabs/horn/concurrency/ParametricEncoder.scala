@@ -222,8 +222,7 @@ object ParametricEncoder {
                 case None =>
                   p -> p
                 case _ =>
-                  p -> MonoSortedPredicate(p.name + "_" + j,
-                                           predArgumentSorts(p))
+                  p -> MonoSortedPredicate(p.name + "_" + j, predArgumentSorts(p))
               }).toMap
 
            for ((a, b) <- mapping)
@@ -1075,7 +1074,6 @@ class ParametricEncoder(system : ParametricEncoder.System,
     }
     res.toList
   }
-
   val globalPredicateHints =
     (for ((s, p) <- globalPredsSeq.iterator;
           hs = compilePredicateHints(s);

@@ -1,0 +1,9 @@
+digraph dag {
+0 [label="inv_main20"];
+1 [label="inv_main4"];
+2 [label="inv_main8"];
+2 -> 0
+2 -> 2
+2 -> 2
+1 -> 2
+}
