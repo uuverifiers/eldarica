@@ -546,8 +546,15 @@ class ConstraintSimplifier extends HornPreprocessor {
           case _                              => t update subres
         }
 
-      case (IFunApp(ADT.TermSize(adt, sortNum), _),
-            Seq(c : IConstant)) =>
+      case (IFunApp(ADT.CtorId(adt, sortNum), _), Seq(c : IConstant)) =>
+        (ctors get c) match {
+          case Some((`adt`, ctorNum, _)) =>
+            adt.ctorIdsPerSort(sortNum) indexOf ctorNum
+          case _ =>
+            t update subres
+        }
+
+      case (IFunApp(ADT.TermSize(adt, sortNum), _), Seq(c : IConstant)) =>
         evalCtorTermSize(c, adt, sortNum, true) match {
           case null => t update subres
           case s    => s

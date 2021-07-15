@@ -1,0 +1,8 @@
+(templates Inv ((x Bool) (y Bool) (a (Array Int Int)) (b (Array Int Bool)) (c (_ BitVec 32)))
+  (term x 1)
+  (predicate y 1)
+  (term (store a 1 2) 5)
+  (term (select a 42) 5)
+  (predicate (select b 10) 5)
+  (term (bvadd c (_ bv1 32)) 1)
+)
