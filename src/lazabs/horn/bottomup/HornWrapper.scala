@@ -450,19 +450,23 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       predAbs
     }
 
-    if (lazabs.GlobalParameters.get.minePredicates)
-      new PredicateMiner(predAbs)
-
     predAbs.result match {
-      case Left(res) =>
-        if (lazabs.GlobalParameters.get.needFullSolution) {
-          val fullSol = preprocBackTranslator translate res
-          HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
-          Left(fullSol)
-        } else {
-          // only keep relation symbols that were also part of the orginal problem
-          Left(res filterKeys allPredicates(unsimplifiedClauses))
-        }
+      case Left(res) => {
+        val r =
+          if (lazabs.GlobalParameters.get.needFullSolution) {
+            val fullSol = preprocBackTranslator translate res
+            HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
+            Left(fullSol)
+          } else {
+            // only keep relation symbols that were also part of the orginal problem
+            Left(res filterKeys allPredicates(unsimplifiedClauses))
+          }
+
+        if (lazabs.GlobalParameters.get.minePredicates)
+          new PredicateMiner(predAbs)
+
+        r
+      }
         
       case Right(cex) => {
         if (lazabs.GlobalParameters.get.simplifiedCEX) {
