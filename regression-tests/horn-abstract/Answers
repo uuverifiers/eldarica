@@ -200,3 +200,7 @@ sat
 (define-fun INV2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (and (and (= A E) (= B F)) (= C G)) (= D H)) (and (and (and (>= A 1) (>= B 0)) (>= C 0)) (>= D 0))))
 (define-fun INV3 ((A Int) (B Int) (C Int) (D Int)) Bool false)
 (define-fun INV4 ((A Int) (B Int) (C Int) (D Int)) Bool false)
+---------------------------- Loading CEGAR hints -------------------------------
+   Ignoring hints for Inv
+
+sat

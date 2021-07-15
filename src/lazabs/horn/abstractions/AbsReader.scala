@@ -139,7 +139,7 @@ object AbsReader {
  */
 class AbsReader(input : java.io.Reader) {
 
-  import SMTParser2InputAbsy.{SMTType, SMTInteger, SMTBool, SMTArray}
+  import SMTParser2InputAbsy.{SMTType, SMTInteger, SMTBool, SMTArray, SMTBitVec}
 
   private val printer = new PrettyPrinterNonStatic
 
@@ -158,6 +158,10 @@ class AbsReader(input : java.io.Reader) {
         case id : SymbolIdent => (printer print id) match {
           case "Int"  => SMTInteger
           case "Bool" => SMTBool
+        }
+        case id : IndexIdent => (printer print id.symbol_) match {
+          case "BitVec" if id.listindexc_.size == 1 =>
+            SMTBitVec((printer print id.listindexc_.get(0)).toInt)
         }
       }
       case s : CompositeSort => s.identifier_ match {
