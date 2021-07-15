@@ -234,7 +234,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       combinationTemplates.pretyPrintHints()
 
       println("initialTemplates")
-      val initialTemplates=setAllCost(mergedHeuristic)
+      val initialTemplates=mergedHeuristic//setAllCost(mergedHeuristic)
       initialTemplates.pretyPrintHints()
 
       val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)

@@ -810,6 +810,7 @@ object HintsSelection {
     VerificationHints(readPredicateLabelFromJSON(GlobalParameters.get.fileName, initialHints, readLabel))
   }
 
+
   def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
                                  readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
     val input_file=fileName+".hyperEdgeHornGraph.JSON"
@@ -827,23 +828,35 @@ object HintsSelection {
         splitTail=splitTail.splitAt(l)._2
         temp
       }
-
-      val labeledPredicates=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-        k-> (for ((p,l)<-v zip label if l==1) yield p) //match labels with predicates
-      }).filterNot(_._2.isEmpty) //delete empty head
-      if(GlobalParameters.get.debugLog==true){
-        println("input_file",input_file)
-        println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
-        for (x<-splitedPredictedLabel)
-          println(x.toSeq,x.size)
-        println("--------Filtered initial predicates---------")
-        for((k,v)<-labeledPredicates) {
-          println(k)
-          for(p<-v)
-            println(p)
+      val labeledPredicates=
+      if (GlobalParameters.get.readCost){
+        val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
+          k-> (for((p,l)<-v zip label) yield p match {
+            case VerifHintTplEqTerm(t,c)=> VerifHintTplEqTerm(t,l)
+            case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,l)
+          })
+        }).toMap
+        res
+      }else{
+        val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
+          k-> (for ((p,l)<-v zip label if l==1) yield p) //match labels with predicates
+        }).filterNot(_._2.isEmpty).toMap //delete empty head
+        if(GlobalParameters.get.debugLog==true){
+          println("input_file",input_file)
+          println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
+          for (x<-splitedPredictedLabel)
+            println(x.toSeq,x.size)
+          println("--------Filtered initial predicates---------")
+          for((k,v)<-res) {
+            println(k)
+            for(p<-v)
+              println(p)
+          }
         }
+        res
       }
-      labeledPredicates.toMap
+      labeledPredicates
+
     }else Map()
 
   }

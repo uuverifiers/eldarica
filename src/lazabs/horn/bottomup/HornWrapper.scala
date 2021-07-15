@@ -500,7 +500,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
     val fullInitialPredicates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
-    fullInitialPredicates.pretyPrintHints()
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullInitialPredicates)
 //    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
