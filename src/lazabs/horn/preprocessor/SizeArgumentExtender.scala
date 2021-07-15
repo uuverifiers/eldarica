@@ -41,23 +41,23 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
  * Preprocessor that adds explicit size arguments for each predicate
  * argument for a recursive ADT
  */
-class SizeArgumentExtender extends ADTExpander {
+class SizeArgumentExtender extends ArgumentExpander {
 
   import IExpression._
 
   val name = "adding size arguments"
 
-  def expand(pred : Predicate,
-             argNum : Int,
-             sort : ADT.ADTProxySort)
-           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] =
-    if (sort.adtTheory.termSize != null &&
-          recursiveADTSorts.getOrElseUpdate(sort, isRecursive(sort))) {
-      val sizefun = sort.adtTheory.termSize(sort.sortNum)
+  def expand(pred : Predicate, argNum : Int, sort : Sort)
+           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
+    val adtSort = sort.asInstanceOf[ADT.ADTProxySort]
+    if (adtSort.adtTheory.termSize != null &&
+          recursiveADTSorts.getOrElseUpdate(adtSort, isRecursive(adtSort))) {
+      val sizefun = adtSort.adtTheory.termSize(adtSort.sortNum)
       Some((List((sizefun(v(0)), Sort.Nat, "adt_size")), None))
     } else {
       None
     }
+  }
 
   private val recursiveADTSorts = new MHashMap[ADT.ADTProxySort, Boolean]
 
@@ -80,5 +80,7 @@ class SizeArgumentExtender extends ADTExpander {
           false
       }
     }
+
+  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }
