@@ -1033,14 +1033,19 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
         constantNodeSetInOneClause.clear()
-        //positiveTemplates(hp).foreach(println)
-        //println("------")
+//        println(hp)
+//        println("------")
         val templateNameList=
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
             val (hintLabel,cost) = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
-              && termContains(positiveTemplates(hp),t)) {
-              (true,positiveTemplates(hp).filter(x=>x._1==t._1 && x._3==t._3).head._2)
+              && HintsSelection.termContains(positiveTemplates(hp),t)) {
+              val consistentTemplate=positiveTemplates(hp).filter(x=>x._1==t._1 && x._3==t._3)
+              if (consistentTemplate.isEmpty){
+                (false,100)
+              }else{
+                (true,consistentTemplate.head._2)
+              }
             } else {(false,100)}//positiveTemplates(hp).contains(t)
             //println(t,hintLabel)
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel,cost = cost)//update JSON
@@ -1049,21 +1054,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         hp.name->templateNameList
       }
     tempHeadMap
-  }
-  def termContains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
-    var r = false
-    for (t <- termList; if t._3 == term._3) {
-      t._3 match {
-        case TemplateType.TplInEqTerm => {
-          if (HintsSelection.equalTerms(t._1, term._1)) r = true
-        }
-        case TemplateType.TplEqTerm => {
-          if (HintsSelection.equalTerms(t._1, term._1) || HintsSelection.equalMinusTerms(t._1, term._1))
-            r = true
-        }
-      }
-    }
-    r
   }
 
   def updateArgumentInfoHornGraphList(pre:String,tempID:Int,argumentnodeName:String,arg:ITerm): Unit ={

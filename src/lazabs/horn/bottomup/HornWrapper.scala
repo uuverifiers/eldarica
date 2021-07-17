@@ -45,12 +45,13 @@ import lazabs.utils.Manip._
 import lazabs.prover.PrincessWrapper
 import PrincessWrapper._
 import Util._
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, TemplateType, VerificationHints}
 import AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHintTplInEqTerm}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getPredGenerator, getSimplifiedClauses, mergeTemplates, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
 
 import scala.collection.immutable.Set
 
@@ -507,15 +508,26 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     val truePredicates = emptyInitialPredicates
     val counterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
     val dataFold =
-      Map("emptyInitialPredicates" -> emptyInitialPredicates,
-        "predictedInitialPredicates" -> predictedPredicates,
+      Map("predictedInitialPredicates" -> predictedPredicates,
+        "emptyInitialPredicates" -> emptyInitialPredicates,
         "fullInitialPredicates" -> fullInitialPredicates,
         "trueInitialPredicates" -> truePredicates)
 
     val solvabilityList = {
       if (GlobalParameters.get.generateTemplates) {
         (for ((fieldName, initialTemplates) <- dataFold) yield {
-          val initialTemplatesAbstraction = absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
+          val reconstructedInitialTemplates = if (fieldName == "predictedInitialPredicates") {
+            HintsSelection.getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
+          } else initialTemplates
+          if (fieldName=="predictedInitialPredicates"){
+            println("predicted templates")
+            initialTemplates.pretyPrintHints()
+            println("reconstructed predicted templates")
+            reconstructedInitialTemplates.pretyPrintHints()
+          }
+
+
+          val initialTemplatesAbstraction = absBuilder.loopDetector.hints2AbstractionRecord(reconstructedInitialTemplates)
           val solvabilityPredGenerator = getPredGenerator(Seq(initialTemplatesAbstraction), outStream)
           val (solveTime, predicateFromCegar, _) = HintsSelection.checkSolvability(simplifiedClausesForGraph,
             Map(), solvabilityPredGenerator, counterexampleMethod, outStream, moveFile = GlobalParameters.get.moveFile, exit = false, coefficient = 1)
@@ -523,7 +535,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println("solveTime", solveTime)
           println("solvability", solvability)
           Seq(("solveTime" + fieldName, solveTime), ("solvability" + fieldName, solvability),
-            ("numberOfinitialTemplates" + fieldName, initialTemplates.totalPredicateNumber))
+            ("numberOfinitialTemplates" + fieldName, reconstructedInitialTemplates.totalPredicateNumber))
         }).flatten.toSeq
       } else { //predicate selection
         val constraintPredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "constraintPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))

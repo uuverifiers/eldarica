@@ -276,13 +276,22 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
 
+      def isEqAtomicTerm(e:VerifHintElement): Boolean =e match {
+        case VerifHintTplEqTerm(t,c)=>{if (c==20 )true else false}
+        case VerifHintTplInEqTerm(t,c)=>false
+      }
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
+        val filteredPositiveTemplates= VerificationHints((for((k,ps)<-positiveTemplates.predicateHints) yield {
+          k->ps.filterNot(isEqAtomicTerm(_))
+        }).filterNot(_._2.isEmpty))
         println("positiveTemplates")
         positiveTemplates.pretyPrintHints()
-        positiveTemplates
+        println("filteredPositiveTemplates")
+        filteredPositiveTemplates.pretyPrintHints()
+        filteredPositiveTemplates
 //
 //        val filteredPositiveTemplates=VerificationHints(for (p1<-predMiner.variableTemplates.predicateHints) yield{
 //          var elms:Seq[VerifHintElement]=Seq()

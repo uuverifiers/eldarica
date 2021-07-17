@@ -95,6 +95,19 @@ object HintsSelection {
     predGenerator
   }
 
+  def getReconstructedInitialTemplatesForPrediction(simplifiedClauses:Clauses,initialTemplates:VerificationHints): VerificationHints ={
+    val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
+    val transformedInitialTemplates = initialTemplates.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
+    VerificationHints((for ((pred,args) <- loopHeadsWithSort;if initialTemplates.predicateHints.keySet.map(_.name).contains(pred.name)) yield{
+      val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
+      val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
+      val allTermsEq=(singlePositiveTerms++singleBooleanTerms).map(sp.apply(_))//singleBooleanTerms
+      val allTypeElements=for (t<-allTermsEq ;if !HintsSelection.termContains(transformedInitialTemplates(pred),(t,1,TemplateType.TplEqTerm))) yield VerifHintTplEqTerm(t,20)
+      //val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,20)))
+      pred-> (allTypeElements ++ initialTemplates.predicateHints(pred))
+    }).sortBy (_._1.name).toMap)
+  }
+
   def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
     val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
       val numberOfLabeledTemplates=(v.size*ratio).toInt
@@ -103,10 +116,13 @@ object HintsSelection {
     }
     VerificationHints(labeledTemplates)
   }
-  def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
+  def getLoopHeadsWithSort(simplifiedClauses:Clauses):  Seq[(Predicate, Seq[(ITerm, Sort)])] ={
     val loopDetector = new LoopDetector(simplifiedClauses)
     val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
-    val loopHeadsWithSort= for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
+    for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
+  }
+  def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
+    val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
     VerificationHints((for ((pred,args) <- loopHeadsWithSort) yield{
       val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
       val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
@@ -119,8 +135,8 @@ object HintsSelection {
       val combinationsTermsForInEq=(for ((v1,v2)<-argumentLinearComb) yield{
         Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
-      val allTermsEq=(singlePositiveTerms++singleBooleanTerms++combinationsTermsForEq).map(sp.apply(_))//singleBooleanTerms
-      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++singleBooleanTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
+      val allTermsEq=(combinationsTermsForEq).map(sp.apply(_))//singlePositiveTerms++singleBooleanTerms
+      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++singleBooleanTerms++combinationsTermsForInEq).map(sp.apply(_))
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),
         allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
       pred->allTypeElements.reduce(_++_)
@@ -135,13 +151,7 @@ object HintsSelection {
     case VerifHintTplInEqTerm(t,cost)=>{VerifHintTplInEqTerm(t,c)}
     case VerifHintTplInEqTermPosNeg(t,cost)=>{VerifHintTplInEqTermPosNeg(t,c)}
   }
-//  def mergeTemplates(first:VerificationHints,second:VerificationHints): VerificationHints ={
-//    val locations=first.predicateHints.keys ++ second.predicateHints.keys
-//    VerificationHints((for(p<-locations) yield {
-//      p->(first.predicateHints(p).map(resetElementCost(_,0))++
-//        second.predicateHints(p).map(resetElementCost(_,0))).distinct //todo: need logic distinct
-//    }).toMap)
-//  }
+
   def setAllCost(hints : VerificationHints,cost:Int=1): VerificationHints ={
     VerificationHints(for ((pred, els) <- hints.predicateHints) yield {
       val modifiedEls= for(e<-els) yield {
@@ -1141,6 +1151,22 @@ object HintsSelection {
       }//else println("q",q)
     }
     res.toSeq
+  }
+
+  def termContains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
+    var r = false
+    for (t <- termList; if t._3 == term._3) {
+      t._3 match {
+        case TemplateType.TplInEqTerm => {
+          if (HintsSelection.equalTerms(t._1, term._1)) r = true
+        }
+        case TemplateType.TplEqTerm => {
+          if (HintsSelection.equalTerms(t._1, term._1) || HintsSelection.equalMinusTerms(t._1, term._1))
+            r = true
+        }
+      }
+    }
+    r
   }
 
   def containsPred(pred : IFormula,
