@@ -223,12 +223,12 @@ object HintsSelection {
   }
 
 
-  def getParametersFromVerifHintElement(element:VerifHintElement):(ITerm,Int,TemplateType.Value)=element match {
-//    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
-//    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
+  def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
+    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
+    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
     case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.TplEqTerm)}
     case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.TplInEqTerm)}
-    //case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
+    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
   }
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
@@ -1153,16 +1153,20 @@ object HintsSelection {
     res.toSeq
   }
 
-  def termContains(termList: Seq[(ITerm, Int, TemplateType.Value)], term: (ITerm, Int, TemplateType.Value)): Boolean = {
+  def termContains(termList: Seq[(IExpression, Int, TemplateType.Value)], term: (IExpression, Int, TemplateType.Value)): Boolean = {
     var r = false
     for (t <- termList; if t._3 == term._3) {
       t._3 match {
         case TemplateType.TplInEqTerm => {
-          if (HintsSelection.equalTerms(t._1, term._1)) r = true
+          if (HintsSelection.equalTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm])) r = true
         }
         case TemplateType.TplEqTerm => {
-          if (HintsSelection.equalTerms(t._1, term._1) || HintsSelection.equalMinusTerms(t._1, term._1))
+          if (HintsSelection.equalTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm]) ||
+            HintsSelection.equalMinusTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm]))
             r = true
+        }
+        case TemplateType.TplPred | TemplateType.TplPredPosNeg=>{
+          r=containsPred(term._1.asInstanceOf[IFormula],termList.map(_._1.asInstanceOf[IFormula]))
         }
       }
     }

@@ -279,6 +279,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       def isEqAtomicTerm(e:VerifHintElement): Boolean =e match {
         case VerifHintTplEqTerm(t,c)=>{if (c==20 )true else false}
         case VerifHintTplInEqTerm(t,c)=>false
+        case _=>false
       }
       def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
