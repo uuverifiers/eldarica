@@ -293,9 +293,43 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Translate templates over Boolean terms to correct predicate templates.
+   */
+  private def toPredTemplates(hints : VerificationHints) : VerificationHints = {
+    import IExpression._
+    import Sort.:::
+
+    val newPredHints =
+      for ((p, hs) <- hints.predicateHints) yield {
+        val newHS =
+          for (h <- hs) yield h match {
+            case VerifHintTplEqTerm(t ::: Sort.AnyBool(_), cost) =>
+              VerifHintTplPredPosNeg(EqZ(t), cost)
+            case VerifHintTplInEqTerm(t ::: Sort.AnyBool(_), cost) =>
+              VerifHintTplPred(~EqZ(t), cost)
+            case VerifHintTplInEqTerm(ITimes(IdealInt.MINUS_ONE,
+                                             t ::: Sort.AnyBool(_)), cost) =>
+              VerifHintTplPred(EqZ(t), cost)
+            case VerifHintTplEqTerm(Difference(s ::: Sort.AnyBool(_),
+                                               t ::: Sort.AnyBool(_)), cost) =>
+              VerifHintTplPredPosNeg(s === t, cost)
+            case VerifHintTplInEqTerm(Difference(s ::: Sort.AnyBool(_),
+                                                 t ::: Sort.AnyBool(_)), cost) =>
+              VerifHintTplPred(EqZ(s) ==> EqZ(t), cost)
+            case h => h
+          }
+        (p -> newHS)
+      }
+
+    VerificationHints(newPredHints)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def extractTemplates(mode : TemplateExtraction.Value)
                      : VerificationHints =
-    mergeTemplates(
+    toPredTemplates(mergeTemplates(
       VerificationHints.union(
         (nonRedundantPredicates map {
            p => extractTemplates(p, mode,
@@ -307,7 +341,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                                    5)
          }) ++ List(defaultTemplates(context.relationSymbols.keys filterNot (
                                        _ == HornClauses.FALSE), 20))
-      ))
+      )))
 
   def defaultTemplates(preds : Iterable[Predicate],
                        cost : Int)
@@ -394,33 +428,55 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                      VerifHintTplInEqTerm(-va, InEqVarCost * costFactor)))
       yield h
 
-    val baseConst =
+    val baseIntConst =
       (for (c <- allConsts.iterator;
             if (Sort sortOf c) == Sort.Integer)
        yield c).toStream.headOption getOrElse allConsts.head
-    val baseVar =
-      v(allConsts indexOf baseConst, Sort sortOf baseConst)
+    val baseIntVar =
+      v(allConsts indexOf baseIntConst, Sort.Integer)
 
     val rawHints2 =
       for (n <- 0 until allConsts.size;
            if fConsts contains allConsts(n);
-           c = v(n, Sort sortOf allConsts(n));
-           if c != baseVar;
-           h <- List(VerifHintTplEqTerm(c + baseVar,
+           if (Sort sortOf allConsts(n)) == Sort.Integer;
+           c = v(n, Sort.Integer);
+           if c != baseIntVar;
+           h <- List(VerifHintTplEqTerm(c + baseIntVar,
                                         EqVarSumCost * costFactor),
-                     VerifHintTplEqTerm(c - baseVar,
+                     VerifHintTplEqTerm(c - baseIntVar,
                                         EqVarDiffCost * costFactor),
-                     VerifHintTplInEqTerm(c + baseVar,
+                     VerifHintTplInEqTerm(c + baseIntVar,
                                           InEqVarSumCost * costFactor),
-                     VerifHintTplInEqTerm(c - baseVar,
+                     VerifHintTplInEqTerm(c - baseIntVar,
                                           InEqVarDiffCost * costFactor),
-                     VerifHintTplInEqTerm(-c - baseVar,
+                     VerifHintTplInEqTerm(-c - baseIntVar,
                                           InEqVarSumCost * costFactor),
-                     VerifHintTplInEqTerm(baseVar - c,
+                     VerifHintTplInEqTerm(baseIntVar - c,
                                           InEqVarDiffCost * costFactor)))
       yield h
 
-    filterVerificationHints(f, allConsts, rawHints1 ++ rawHints2)
+    val baseBoolConst =
+      (for (c <- allConsts.iterator;
+            if Sort.AnyBool.unapply(Sort sortOf c).isDefined)
+       yield c).toStream.headOption getOrElse allConsts.head
+    val baseBoolVar =
+      v(allConsts indexOf baseBoolConst, Sort sortOf baseBoolConst)
+
+    val rawHints3 =
+      for (n <- 0 until allConsts.size;
+           if fConsts contains allConsts(n);
+           if Sort.AnyBool.unapply(Sort sortOf allConsts(n)).isDefined;
+           c = v(n, Sort sortOf allConsts(n));
+           if c != baseBoolVar;
+           h <- List(VerifHintTplEqTerm(c - baseBoolVar,
+                                        EqVarDiffCost * costFactor),
+                     VerifHintTplInEqTerm(c - baseBoolVar,
+                                          InEqVarDiffCost * costFactor),
+                     VerifHintTplInEqTerm(baseBoolVar - c,
+                                          InEqVarDiffCost * costFactor)))
+      yield h
+
+    filterVerificationHints(f, allConsts, rawHints1 ++ rawHints2 ++ rawHints3)
   }
 
   //////////////////////////////////////////////////////////////////////////////

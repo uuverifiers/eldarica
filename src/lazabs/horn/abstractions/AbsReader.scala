@@ -270,6 +270,8 @@ class AbsReader(input : java.io.Reader) {
              (template.templatetype_, expr) match {
                case (_ : PredicateType,            f : IFormula) =>
                  hints += VerifHintTplPred(f, cost)
+               case (_ : PredicatePosNegType,      EqZ(t)) =>
+                 hints += VerifHintTplEqTerm(t, cost)
                case (_ : PredicatePosNegType,      f : IFormula) =>
                  hints += VerifHintTplPredPosNeg(f, cost)
                case (_ : TermType,                 t : ITerm) =>
