@@ -423,13 +423,23 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //      DagInterpolator.interpolatingPredicateGenCEXAndOr _
   //    }
   //  }
+
+  val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
+  val sp = new Simplifier
   private val predGenerator =
   if (GlobalParameters.get.generateTemplates == true) {
     val combTemplates = generateCombinationTemplates(simplifiedClauses)
-    val initialTemplates = if (GlobalParameters.get.rdm)
-      HintsSelection.randomLabelTemplates(combTemplates, 0.2)
-    else
-      generateCombinationTemplates(simplifiedClauses)
+    val initialTemplates =
+      if (GlobalParameters.get.rdm)
+        {HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+        } else if (GlobalParameters.get.readTemplates){
+        //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+        val fullTemplates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+        val predictedTemplates=HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
+        val reconstructedTemplates=HintsSelection.getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, predictedTemplates)
+        reconstructedTemplates
+      }
+      else {generateCombinationTemplates(simplifiedClauses)}
     if (GlobalParameters.get.log) {
       println("initialTemplates")
       initialTemplates.pretyPrintHints()
@@ -443,8 +453,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
-  val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
-  val sp = new Simplifier
   if (GlobalParameters.get.getHornGraph == true) {
     if (simplifiedClausesForGraph.isEmpty) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no simplified clauses")
@@ -506,9 +514,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
 //      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else emptyInitialPredicates
     val truePredicates = emptyInitialPredicates
+    val randomPredicates = HintsSelection.randomLabelTemplates(fullInitialPredicates, 0.2)
     val counterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
     val dataFold =
       Map("predictedInitialPredicates" -> predictedPredicates,
+        "randomInitialPredicates"->randomPredicates,
         "emptyInitialPredicates" -> emptyInitialPredicates,
         "fullInitialPredicates" -> fullInitialPredicates,
         "trueInitialPredicates" -> truePredicates)

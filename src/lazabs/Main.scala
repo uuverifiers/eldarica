@@ -74,6 +74,7 @@ class GlobalParameters extends Cloneable {
   var labelSimpleGeneratedPredicates=false
   var varyGeneratedPredicates=false
   var readHints=false
+  var readTemplates=false
   var rank=0.0
   var getSMT2=false
   var getHornGraph=false
@@ -243,6 +244,7 @@ class GlobalParameters extends Cloneable {
     that.labelSimpleGeneratedPredicates=this.labelSimpleGeneratedPredicates
     that.varyGeneratedPredicates=this.varyGeneratedPredicates
     that.readHints=this.readHints
+    that.readTemplates=this.readTemplates
     that.getSMT2=this.getSMT2
     that.getHornGraph=this.getHornGraph
     that.getAllHornGraph=this.getAllHornGraph
@@ -359,6 +361,7 @@ object Main {
       case "-readCost" :: rest => readCost = true; arguments(rest)
       case "-rdm" :: rest => rdm = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
+      case "-readTemplates" :: rest => readTemplates = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
       case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
