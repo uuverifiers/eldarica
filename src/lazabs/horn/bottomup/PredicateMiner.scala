@@ -413,6 +413,12 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def arithSort(s : IExpression.Sort) : Boolean = s match {
+    case IExpression.Sort.Numeric(_) => true
+    case _ : ap.theories.ModuloArithmetic.ModSort => true
+    case _ => false
+  }
+
   private def computeUTVTemplates(allConsts : Seq[IExpression.ConstantTerm],
                                   f : Conjunction,
                                   costFactor : Int) : Seq[VerifHintElement] = {
@@ -423,23 +429,25 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
       for ((c, n) <- allConsts.zipWithIndex;
            if fConsts contains c;
            va = v(n, Sort sortOf c);
-           h <- List(VerifHintTplEqTerm(va, EqVarCost * costFactor),
-                     VerifHintTplInEqTerm(va, InEqVarCost * costFactor),
-                     VerifHintTplInEqTerm(-va, InEqVarCost * costFactor)))
+           h <- List(VerifHintTplEqTerm(va, EqVarCost * costFactor)) ++
+                (if (arithSort(Sort sortOf c))
+                   List(VerifHintTplInEqTerm(va, InEqVarCost * costFactor),
+                        VerifHintTplInEqTerm(-va, InEqVarCost * costFactor))
+                else
+                  List()))
       yield h
 
     val baseIntConst =
-      (for (c <- allConsts.iterator;
-            if (Sort sortOf c) == Sort.Integer)
+      (for (c <- allConsts.iterator; if arithSort(Sort sortOf c))
        yield c).toStream.headOption getOrElse allConsts.head
     val baseIntVar =
-      v(allConsts indexOf baseIntConst, Sort.Integer)
+      v(allConsts indexOf baseIntConst, Sort sortOf baseIntConst)
 
     val rawHints2 =
       for (n <- 0 until allConsts.size;
            if fConsts contains allConsts(n);
-           if (Sort sortOf allConsts(n)) == Sort.Integer;
-           c = v(n, Sort.Integer);
+           if arithSort(Sort sortOf allConsts(n));
+           c = v(n, Sort sortOf allConsts(n));
            if c != baseIntVar;
            h <- List(VerifHintTplEqTerm(c + baseIntVar,
                                         EqVarSumCost * costFactor),
@@ -455,6 +463,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                                           InEqVarDiffCost * costFactor)))
       yield h
 
+/*
     val baseBoolConst =
       (for (c <- allConsts.iterator;
             if Sort.AnyBool.unapply(Sort sortOf c).isDefined)
@@ -475,8 +484,8 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                      VerifHintTplInEqTerm(baseBoolVar - c,
                                           InEqVarDiffCost * costFactor)))
       yield h
-
-    filterVerificationHints(f, allConsts, rawHints1 ++ rawHints2 ++ rawHints3)
+ */
+    filterVerificationHints(f, allConsts, rawHints1 ++ rawHints2)
   }
 
   //////////////////////////////////////////////////////////////////////////////
