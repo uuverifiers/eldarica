@@ -1038,14 +1038,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNameList=
           for (t<-templates) yield {
             val predicateASTRootName=drawAST(t._1)
+            val(b,c)=HintsSelection.termContains(positiveTemplates(hp),t)
             val (hintLabel,cost) = if (positiveTemplates.keySet.map(_.toString).contains(hp.toString)
-              && HintsSelection.termContains(positiveTemplates(hp),t)) {
-              val consistentTemplate=positiveTemplates(hp).filter(x=>x._1==t._1 && x._3==t._3)
-              if (consistentTemplate.isEmpty){
-                (false,100)
-              }else{
-                (true,consistentTemplate.head._2)
-              }
+              && b) {
+              (true,c)
             } else {(false,100)}//positiveTemplates(hp).contains(t)
             //println(t,hintLabel)
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel,cost = cost)//update JSON

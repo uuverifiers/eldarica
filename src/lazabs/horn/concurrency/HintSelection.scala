@@ -102,7 +102,7 @@ object HintsSelection {
       val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
       val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
       val allTermsEq=(singlePositiveTerms++singleBooleanTerms).map(sp.apply(_))//singleBooleanTerms
-      val allTypeElements=for (t<-allTermsEq ;if !HintsSelection.termContains(transformedInitialTemplates(pred),(t,1,TemplateType.TplEqTerm))) yield VerifHintTplEqTerm(t,20)
+      val allTypeElements=for (t<-allTermsEq ;if !HintsSelection.termContains(transformedInitialTemplates(pred),(t,1,TemplateType.TplEqTerm))._1) yield VerifHintTplEqTerm(t,20)
       //val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,20)))
       pred-> (allTypeElements ++ initialTemplates.predicateHints(pred))
     }).sortBy (_._1.name).toMap)
@@ -137,8 +137,9 @@ object HintsSelection {
       }).flatten
       val allTermsEq=(combinationsTermsForEq).map(sp.apply(_))//singlePositiveTerms++singleBooleanTerms
       val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++singleBooleanTerms++combinationsTermsForInEq).map(sp.apply(_))
+      val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),
-        allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
+        allTermsInEq.map(VerifHintTplInEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)))
       pred->allTypeElements.reduce(_++_)
     }).sortBy (_._1.name).toMap)
 
@@ -1153,24 +1154,34 @@ object HintsSelection {
     res.toSeq
   }
 
-  def termContains(termList: Seq[(IExpression, Int, TemplateType.Value)], term: (IExpression, Int, TemplateType.Value)): Boolean = {
+  def termContains(termList: Seq[(IExpression, Int, TemplateType.Value)], term: (IExpression, Int, TemplateType.Value)):
+  (Boolean,Int) = {
     var r = false
+    var cost=100
     for (t <- termList; if t._3 == term._3) {
       t._3 match {
         case TemplateType.TplInEqTerm => {
-          if (HintsSelection.equalTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm])) r = true
+          if (HintsSelection.equalTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm])) {
+            r = true
+            cost=t._2
+          }
         }
         case TemplateType.TplEqTerm => {
           if (HintsSelection.equalTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm]) ||
-            HintsSelection.equalMinusTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm]))
+            HintsSelection.equalMinusTerms(t._1.asInstanceOf[ITerm], term._1.asInstanceOf[ITerm])) {
             r = true
+            cost=t._2
+          }
         }
         case TemplateType.TplPred | TemplateType.TplPredPosNeg=>{
-          r=containsPred(term._1.asInstanceOf[IFormula],termList.map(_._1.asInstanceOf[IFormula]))
+          if (containsPred(term._1.asInstanceOf[IFormula], Seq(t._1.asInstanceOf[IFormula]))) {
+              r = true
+            cost=t._2
+          }
         }
       }
     }
-    r
+    (r,cost)
   }
 
   def containsPred(pred : IFormula,
