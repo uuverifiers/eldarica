@@ -766,7 +766,8 @@ object HintsSelection {
   def readPredictedHints(simplifiedClausesForGraph: Clauses, fullInitialPredicates: VerificationHints): VerificationHints = {
     val predictedHints = {
       if (new java.io.File(GlobalParameters.get.fileName + "." + "predictedHints" + ".tpl").exists == true) {
-        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints")
+        //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "predictedHints").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
       }
       else {
         val initialHintsCollection = new VerificationHintsInfo(fullInitialPredicates, VerificationHints(Map()), VerificationHints(Map()))
@@ -1683,7 +1684,8 @@ object HintsSelection {
 }
 
 
-class VerificationHintsInfo(val initialHints: VerificationHints, val positiveHints: VerificationHints, val negativeHints: VerificationHints)
+class VerificationHintsInfo(val initialHints: VerificationHints, val positiveHints: VerificationHints,
+                            val negativeHints: VerificationHints,val predictedHints:VerificationHints=VerificationHints(Map()))
 
 class ClauseInfo(val simplifiedClause: Clauses, val clausesInCounterExample: Clauses)
 

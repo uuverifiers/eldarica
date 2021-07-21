@@ -38,7 +38,7 @@ import ap.types.Sort.Integer.newConstant
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs
-import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
 import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, timeoutForPredicateDistinct}
 
@@ -328,6 +328,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
     addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName._1, templateNodeName._2)
 
+  for (n<-gnn_input.nodeInfoList){ //draw all nodes
+    writerGraph.write(addQuotes(n._2.canonicalName) +
+      " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
+      " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +" color="+n._2.color+ " fillcolor="+n._2.fillColor + " style=filled"+"];" + "\n")
+  }
+
   writerGraph.write("}" + "\n")
   writerGraph.close()
 
@@ -336,6 +342,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
   writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,
     argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
+
 
   def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName: String, labelName: String, className: String): Unit =
     GlobalParameters.get.hornGraphType match {

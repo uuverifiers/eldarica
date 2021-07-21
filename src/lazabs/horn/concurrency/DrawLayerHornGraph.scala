@@ -30,6 +30,7 @@ package lazabs.horn.concurrency
 
 import ap.parser.{IAtom, IBinJunctor, LineariseVisitor}
 import lazabs.GlobalParameters
+import lazabs.horn.concurrency.DrawHornGraph.addQuotes
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -195,6 +196,13 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()
   for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList)
     addBinaryEdge(predicateNameMap(head).predicateCanonicalName,templateNodeName._1,templateNodeName._2)
+
+  for (n<-gnn_input.nodeInfoList){ //draw all nodes
+    writerGraph.write(addQuotes(n._2.canonicalName) +
+      " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
+      " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +"color="+n._2.color+ "];" + "\n")
+  }
+
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
