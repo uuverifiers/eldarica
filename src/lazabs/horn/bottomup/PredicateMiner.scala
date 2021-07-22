@@ -705,24 +705,44 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     VerificationHints(newPredHints)
   }
 
-  private def equalTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
-    case (s, t)
-        if s == t => true
-    case (Difference(s1, s2), Difference(t1, t2))
-        if equalTerms(s1, t1) && equalTerms(s2, t2) => true
-    case _ =>
-        false
+  /**
+   * Check whether the two given integer terms are equal modulo
+   * simplification.
+   */
+  def equalTerms(s : ITerm, t : ITerm) : Boolean = {
+    noConstantTerm(s) && noConstantTerm(t) &&
+    (symbols(s + t) forall { c => constVarCoeff(s, c) == constVarCoeff(t, c) })
   }
 
-  private def equalMinusTerms(s : ITerm, t : ITerm) : Boolean = (s, t) match {
-    case (ITimes(IdealInt.MINUS_ONE, s), t)
-        if equalTerms(s, t) => true
-    case (s, ITimes(IdealInt.MINUS_ONE, t))
-        if equalTerms(s, t) => true
-    case (Difference(s1, s2), Difference(t1, t2))
-        if equalTerms(s1, t2) && equalTerms(s2, t1) => true
-    case _ =>
-        false
+  /**
+   * Check whether the two given integer terms are the negation of each other,
+   * modulo simplification.
+   */
+  def equalMinusTerms(s : ITerm, t : ITerm) : Boolean = {
+    noConstantTerm(s) && noConstantTerm(t) &&
+    (symbols(s + t) forall { c => constVarCoeff(s, c) == -constVarCoeff(t, c) })
+  }
+
+  private def symbols(t : ITerm) : Set[ITerm] = {
+    val (vars, consts, _) = SymbolCollector varsConstsPreds t
+    (consts.toSet map IConstant) ++ vars.toSet
+  }
+
+  private def constVarCoeff(t : ITerm, c : ITerm) : IdealInt = {
+    assert(c.isInstanceOf[IConstant] || c.isInstanceOf[IVariable])
+    import IExpression._
+    val Sum = SymbolSum(c)
+    t match {
+      case Sum(coeff, _) => coeff
+      case _ => 0
+    }
+  }
+
+  private def noConstantTerm(t : ITerm) : Boolean = t match {
+    case _ : IIntLit                   => false
+    case IPlus(a, b)                   => noConstantTerm(a) && noConstantTerm(b)
+    case ITimes(_, s)                  => noConstantTerm(s)
+    case _ : IConstant | _ : IVariable => true
   }
 
 }
