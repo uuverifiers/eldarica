@@ -458,8 +458,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   edgeDirectionMap += ("template" -> false)
   nodeShapeMap += ("template" -> "component")
 
-  writerGraph.write("digraph dag { " +"graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"1\"]; splines=\"true\";"+ "\n")
-
+  writerGraph.write("digraph dag { " +"graph [pad=\"1\", nodesep=\"0.5\", ranksep=\"1\"]; splines=\"true\";"+ "\n")
+  //writerGraph.write("digraph dag { " + "\n")
 
   def addBinaryEdge(from: String, to: String, label: String, biDirection: Boolean = false): Unit =
     biDirection match {
@@ -1061,7 +1061,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   def getHintLabelAndCost(tpl: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),hp:Predicate): (Boolean,Int) ={
     if (tpl.keySet.map(_.toString).contains(hp.toString)) {
       val (b, c) = HintsSelection.termContains(tpl(hp), t)
-      println(t._1,b)
+      //println(t._1,b)
       (b, c)
     } else {
       (false, 100)
