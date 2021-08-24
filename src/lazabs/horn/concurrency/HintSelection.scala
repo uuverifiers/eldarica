@@ -128,7 +128,7 @@ object HintsSelection {
       val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
       val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i,a._2)
       //val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
-      val argumentLinearComb=for(t<-singlePositiveTerms.tail) yield (singlePositiveTerms.head,t)
+      val argumentLinearComb=for(t<-singlePositiveTerms.tail) yield (singlePositiveTerms.head,t) //only interact with the first argument
       val combinationsTermsForEq=(for ((v1,v2)<-argumentLinearComb) yield{
         Seq(v1-v2,v1+v2)
       }).flatten
@@ -136,7 +136,7 @@ object HintsSelection {
         Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
       val allTermsEq=(combinationsTermsForEq).map(sp.apply(_))//singlePositiveTerms++singleBooleanTerms
-      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++singleBooleanTerms++combinationsTermsForInEq).map(sp.apply(_))
+      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
       val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),
         allTermsInEq.map(VerifHintTplInEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)))

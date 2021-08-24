@@ -601,7 +601,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
 
   }
-
   val initialPredicatesForCEGAR = getInitialPredicates(simplifiedClausesForGraph, simpHints)
 
   if (GlobalParameters.get.onlyInitialPredicates == true) {
