@@ -324,7 +324,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     argumentNodeSetInPredicates("_" + argInfo.index.toString) = argInfo.canonicalName //add _ to differentiate index with other constants
   }
   astEdgeType = "AST"//"templateAST"
-  val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()
+  val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()//drawTemplatesWithNode()
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
     addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName._1, templateNodeName._2)
 

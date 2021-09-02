@@ -42,7 +42,7 @@ import scala.collection.mutable.ListBuffer
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, LearnedTerm = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, LearnedTerm,All = Value
   }
 }
 
@@ -291,6 +291,9 @@ class StaticAbstractionBuilder(
         relationAbstractions(false)
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
+      case AbstractionType.All=>
+        termAbstractions++octagonAbstractions++relationAbstractions(false)
+
     }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)

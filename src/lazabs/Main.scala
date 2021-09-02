@@ -435,6 +435,11 @@ object Main {
         templateBasedInterpolationType = AbstractionType.Empty
         arguments(rest)
       }
+      case "-abstract:all" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.All
+        arguments(rest)
+      }
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty

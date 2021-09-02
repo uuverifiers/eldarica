@@ -452,7 +452,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val gnn_input = new GNNInput(clausesCollection)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
 
-  edgeNameMap += ("templateAST"->"pAST")
+  edgeNameMap += ("templateAST"->"tplAST")
   edgeNameMap += ("template"->"predicate")
   edgeDirectionMap += ("templateAST"->false)
   edgeDirectionMap += ("template" -> false)
@@ -1043,16 +1043,51 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         constantNodeSetInOneClause.clear()
         val templateNameList=
           for (t<-templates) yield {
-            val predicateASTRootName=drawAST(t._1)
+            val templateASTRootName=drawAST(t._1)
             val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
-            gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel,cost = cost)//update JSON
-            //println(t._1,hintLabel)
-            //draw predicted label color
-            val (predictedHintLabel,predictedCost) = getHintLabelAndCost(predictedTemplates,t,hp)
-            if (predictedHintLabel)
-              gnn_input.nodeInfoList(predicateASTRootName).fillColor = "green"
 
-            (predicateASTRootName,"verifHint"+t._3.toString)
+            gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
+            //println(t._1,hintLabel)
+            //draw template label color
+            val (templateLabel,predictedCost) = getHintLabelAndCost(predictedTemplates,t,hp)
+            if (templateLabel)
+              gnn_input.nodeInfoList(templateASTRootName).fillColor = "green"
+
+            (templateASTRootName,"verifHint"+t._3.toString)
+          }
+        hp.name->templateNameList
+      }
+    tempHeadMap
+  }
+
+  def drawTemplatesWithNode(): Seq[(String,Seq[(String,String)])]={
+    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
+    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
+    val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
+    val tempHeadMap=
+      for((hp,templates)<-unlabeledTemplates) yield {
+        constantNodeSetInOneClause.clear()
+        val templateNameList=
+          for (t<-templates) yield {
+            val templateASTRootName=drawAST(t._1)
+            val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
+
+
+            val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
+            val templateNodeLabelName="template_"+gnn_input.templateCanonicalID.toString
+            createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
+            addBinaryEdge(templateASTRootName,templateNodeName,"templateAST")
+
+
+            //            gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
+            //            //println(t._1,hintLabel)
+            //            //draw predicted label color
+            //            val (predictedHintLabel,predictedCost) = getHintLabelAndCost(predictedTemplates,t,hp)
+            //            if (predictedHintLabel)
+            //              gnn_input.nodeInfoList(templateASTRootName).fillColor = "green"
+
+            //(templateASTRootName,"verifHint"+t._3.toString)
+            (templateNodeName,"verifHint"+t._3.toString)
           }
         hp.name->templateNameList
       }

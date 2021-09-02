@@ -51,7 +51,7 @@ import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHint
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{getReconstructedInitialTemplatesForPrediction,conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
 
 import scala.collection.immutable.Set
 
@@ -426,32 +426,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)
   val sp = new Simplifier
-  private val predGenerator =
-  if (GlobalParameters.get.generateTemplates == true) {
-    val combTemplates = generateCombinationTemplates(simplifiedClauses)
-    val initialTemplates =
-      if (GlobalParameters.get.rdm)
-        {HintsSelection.randomLabelTemplates(combTemplates, 0.2)
-        } else if (GlobalParameters.get.readTemplates){
-        //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-        val fullTemplates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
-        val predictedTemplates=HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
-        val reconstructedTemplates=HintsSelection.getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, predictedTemplates)
-        reconstructedTemplates
-      }
-      else {generateCombinationTemplates(simplifiedClauses)}
-    if (GlobalParameters.get.log) {
-      println("initialTemplates")
-      initialTemplates.pretyPrintHints()
-    }
 
-    getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
-  } else {
-    getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
-  }
-  if (GlobalParameters.get.templateBasedInterpolationPrint &&
-    !simpHints.isEmpty)
-    ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
   if (GlobalParameters.get.getHornGraph == true) {
     if (simplifiedClausesForGraph.isEmpty) {
@@ -512,13 +487,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     //read from unlabeled .tpl file
     //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-    val fullInitialPredicates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+    val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+    val fullInitialPredicates =combTemplates
     val emptyInitialPredicates = VerificationHints(Map())
-    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullInitialPredicates)
+    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
 //    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
 //      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else emptyInitialPredicates
     val truePredicates = emptyInitialPredicates
-    val randomPredicates = HintsSelection.randomLabelTemplates(fullInitialPredicates, 0.2)
+    val randomPredicates = HintsSelection.randomLabelTemplates(combTemplates, 0.2)
     val counterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
     val dataFold =
       Map("predictedInitialPredicates" -> predictedPredicates,
@@ -530,9 +506,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     val solvabilityList = {
       if (GlobalParameters.get.generateTemplates) {
         (for ((fieldName, initialTemplates) <- dataFold) yield {
-          val reconstructedInitialTemplates = if (fieldName == "predictedInitialPredicates") {
-            HintsSelection.getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
-          } else initialTemplates
+          val reconstructedInitialTemplates =
+            if (fieldName == "predictedInitialPredicates" || fieldName == "fullInitialPredicates")
+              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
+            else if (fieldName == "randomInitialPredicates")
+              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, HintsSelection.randomLabelTemplates(initialTemplates, 0.2))
+            else initialTemplates
           if (fieldName=="predictedInitialPredicates"){
             println("predicted templates")
             initialTemplates.pretyPrintHints()
@@ -609,7 +588,34 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicatesForCEGAR.toInitialPredicates, exceptionalPredGen, localCounterexampleMethod, outStream, HintsSelection.getFileName())
   }
 
+  private val predGenerator =
+    if (GlobalParameters.get.generateTemplates == true) {
+      val combTemplates = generateCombinationTemplates(simplifiedClauses)
+      val initialTemplates =
+        if (GlobalParameters.get.rdm)
+        {getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph,HintsSelection.randomLabelTemplates(combTemplates, 0.2))
+        } else if (GlobalParameters.get.readTemplates){
+          //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+          val fullTemplates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+          val predictedTemplates=HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
+          val reconstructedTemplates=getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, predictedTemplates)
+          reconstructedTemplates
+        }
+        else {//full combinaed templates, single integer Eq costs are 20, others are 1
+          getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph,combTemplates)
+        }
+      if (GlobalParameters.get.log) {
+        println("initialTemplates")
+        initialTemplates.pretyPrintHints()
+      }
 
+      getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
+    } else {
+      getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
+    }
+  if (GlobalParameters.get.templateBasedInterpolationPrint &&
+    !simpHints.isEmpty)
+    ReaderMain.printHints(simpHints, name = "Manual verification hints:")
 
   //////////////////////////////////////////////////////////////////////////////
 
