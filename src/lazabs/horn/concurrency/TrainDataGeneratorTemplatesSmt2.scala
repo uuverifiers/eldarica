@@ -315,21 +315,6 @@ object TrainDataGeneratorTemplatesSmt2 {
         )
         labeledTemplates
         //filteredPositiveTemplates
-//
-//        val filteredPositiveTemplates=VerificationHints(for (p1<-predMiner.variableTemplates.predicateHints) yield{
-//          var elms:Seq[VerifHintElement]=Seq()
-//          for (p<-p1._2)  {
-//            p match {
-//              case VerifHintTplEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
-//              case VerifHintTplInEqTerm(t,c)=>{if(!isArgBoolean(t)) elms=elms :+ p}
-//            }
-//          }
-//          p1._1-> elms
-//        })
-//        println("filteredPositiveTemplates")
-//        filteredPositiveTemplates.pretyPrintHints()
-//        filteredPositiveTemplates
-
       }
 
       val unlabeledTemplates=combinationTemplates

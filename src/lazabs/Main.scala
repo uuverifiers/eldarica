@@ -56,6 +56,7 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
+  var withoutGraphJSON=false
   var checkSolvability=false
   var readCost=false
   var rdm=false
@@ -253,6 +254,7 @@ class GlobalParameters extends Cloneable {
     that.generateTemplates=this.generateTemplates
     that.onlyInitialPredicates=this.onlyInitialPredicates
     that.checkSolvability=this.checkSolvability
+    that.withoutGraphJSON=this.withoutGraphJSON
     that.readCost=this.readCost
     that.rdm=this.rdm
     that.moveFile = this.moveFile
@@ -358,6 +360,7 @@ object Main {
       case "-onlyInitialPredicates" :: rest => onlyInitialPredicates = true; arguments(rest)
       case "-moveFile" :: rest => moveFile = true; arguments(rest)
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
+      case "-withoutGraphJSON" :: rest => withoutGraphJSON = true; arguments(rest)
       case "-readCost" :: rest => readCost = true; arguments(rest)
       case "-rdm" :: rest => rdm = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
@@ -637,6 +640,7 @@ object Main {
           " -onlyInitialPredicates\t extract predicates using initial predicates only\n"+
           " -moveFile\t if exception occur, move file to excepion directory\n"+
           " -checkSolvability \t check solvability for different initial predicate settings\n"+
+          " -withoutGraphJSON \t don't output JSON file for graph\n"+
           " -readCost \t read template cost from file\n"+
           " -rdm \t random label initial templates\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+

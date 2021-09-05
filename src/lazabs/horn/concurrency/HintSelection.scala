@@ -141,8 +141,8 @@ object HintsSelection {
       val allTermsEq=if (singlePositiveTermsToEq==true) (combinationsTermsForEq++singlePositiveTerms).map(sp.apply(_)) else (combinationsTermsForEq).map(sp.apply(_))//singlePositiveTerms++singleBooleanTerms
       val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
       val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
-      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),
-        allTermsInEq.map(VerifHintTplInEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)))
+      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)),
+        allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
       pred->allTypeElements.reduce(_++_)
     }).sortBy (_._1.name).toMap)
 
@@ -884,7 +884,6 @@ object HintsSelection {
       val predictedLabel= (json_data \ readLabel).validate[Array[Int]] match {
         case JsSuccess(templateLabel,_)=> templateLabel
       }
-
       val mapLengthList=for ((k,v)<-initialHints) yield v.length
       var splitTail=predictedLabel
       val splitedPredictedLabel = for(l<-mapLengthList) yield {
@@ -903,7 +902,7 @@ object HintsSelection {
         res
       }else{
         val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-          k-> (for ((p,l)<-v zip label if l==1) yield p) //match labels with predicates
+          k-> (for ((p,l)<-v zip label if l!=0) yield p) //match labels with predicates
         }).filterNot(_._2.isEmpty).toMap //delete empty head
         if(GlobalParameters.get.debugLog==true){
           println("input_file",input_file)

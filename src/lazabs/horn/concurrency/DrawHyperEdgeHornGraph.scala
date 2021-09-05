@@ -98,8 +98,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("template" -> "template")
   edgeNameMap += ("verifHintTplPred" -> "Pred")
   edgeNameMap += ("verifHintTplPredPosNeg" -> "PredPosNeg")
-  edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm")
-  edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm")
+  edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
+  edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm (tpl)")
   edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
   //turn on/off edge's label
   var edgeNameSwitch = true
@@ -329,19 +329,37 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName._1, templateNodeName._2)
 
   for (n<-gnn_input.nodeInfoList){ //draw all nodes
-    writerGraph.write(addQuotes(n._2.canonicalName) +
-      " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
-      " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +" color="+n._2.color+ " fillcolor="+n._2.fillColor + " style=filled"+"];" + "\n")
+
+    if (n._2.labelList.isEmpty) {
+      writerGraph.write(addQuotes(n._2.canonicalName) +
+        " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
+        " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +" color="+n._2.color+ " fillcolor="+n._2.fillColor + " style=filled"+"];" + "\n")
+    } else {
+      var labelContent=""
+      var predictedLabelContent=""
+      for (l<-n._2.labelList)
+        labelContent=labelContent+l.toString+"|"
+      labelContent=labelContent.dropRight(1)
+      for (l<-n._2.predictedLabelList)
+        predictedLabelContent=predictedLabelContent+l.toString+"|"
+      predictedLabelContent=predictedLabelContent.dropRight(1)
+      val finalLabelContent=(n._2.labelName+"|" + labelContent)
+      val finalPredictedLabelContent=(n._2.labelName+"|" + predictedLabelContent)
+      writerGraph.write(addQuotes(n._2.canonicalName) + "[shape=record label="+"\"{"+"{"+finalLabelContent+"}|{"+finalPredictedLabelContent+"}"+"}\""+"];"+"\n")
+    }
+
   }
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
 
 
+  if (GlobalParameters.get.withoutGraphJSON==false){
+    val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
+    writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,
+      argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
+  }
 
-  val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
-  writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,
-    argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
 
 
   def matchAndCreateHyperEdgeNode(controlFlowHyperedgeName: String, labelName: String, className: String): Unit =

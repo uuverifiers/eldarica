@@ -469,8 +469,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     } else {
       //todo:read labeled and predicted
       val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
-        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else VerificationHints(Map())
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else
+        HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
       val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, initialPredicates)
+      predictedPredicates.predicateHints
       val hintsCollection = new VerificationHintsInfo(initialPredicates, truePredicates, VerificationHints(Map()),predictedPredicates) //labeledPredicates
       GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
     }
