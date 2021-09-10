@@ -97,6 +97,7 @@ object HintsSelection {
   }
 
   def getReconstructedInitialTemplatesForPrediction(simplifiedClauses:Clauses,initialTemplates:VerificationHints): VerificationHints ={
+    //add single positive terms
     val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
     val transformedInitialTemplates = initialTemplates.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     VerificationHints((for ((pred,args) <- loopHeadsWithSort;if initialTemplates.predicateHints.keySet.map(_.name).contains(pred.name)) yield{
@@ -124,7 +125,7 @@ object HintsSelection {
     val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
     for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
   }
-  def generateCombinationTemplates(simplifiedClauses:Clauses,singlePositiveTermsToEq:Boolean=false): VerificationHints ={
+  def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
     val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
     VerificationHints((for ((pred,args) <- loopHeadsWithSort) yield{
       val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
@@ -138,7 +139,7 @@ object HintsSelection {
       val combinationsTermsForInEq=(for ((v1,v2)<-argumentLinearComb) yield{
         Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
       }).flatten
-      val allTermsEq=if (singlePositiveTermsToEq==true) (combinationsTermsForEq++singlePositiveTerms).map(sp.apply(_)) else (combinationsTermsForEq).map(sp.apply(_))//singlePositiveTerms++singleBooleanTerms
+      val allTermsEq= (singlePositiveTerms ++ combinationsTermsForEq).map(sp.apply(_))
       val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
       val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
       val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)),
@@ -591,28 +592,47 @@ object HintsSelection {
       val singleIntegerTerms = for ((a, i) <- args.zipWithIndex; if a._2 != Sort.MultipleValueBool) yield IVariable(i, a._2)
       pred->(singleIntegerTerms,singleBooleanTerms)
     }).toMap
+
     val integerTermsFromInitialTemplates = (for(p<-initialTemplates.predicateHints.keys;if predicateWithArgumentSort.keys.map(_.name).toSeq.contains(p.name)) yield{
       p->predicateWithArgumentSort(p)._1
     }).filterNot(_._2.isEmpty).toMap
     val booleanTermsFromInitialTemplates = (for(p<-initialTemplates.predicateHints.keys;if predicateWithArgumentSort.keys.map(_.name).toSeq.contains(p.name)) yield{
       p->predicateWithArgumentSort(p)._2
     }).filterNot(_._2.isEmpty).toMap
-    val integerTermsFromMinedTemplates = (for((p,es)<-minedTemplates.predicateHints;if predicateWithArgumentSort.keys.map(_.name).toSeq.contains(p.name)) yield{
-      p->(for(e<-es;a<-predicateWithArgumentSort(p)._1;if ContainsSymbol(getParametersFromVerifHintElement(e)._1,IVariable(a.index)))yield a).distinct
-    }).filterNot(_._2.isEmpty).toMap
-    val booleanTermsFromMinedTemplates = (for((p,es)<-minedTemplates.predicateHints;if predicateWithArgumentSort.keys.map(_.name).toSeq.contains(p.name)) yield{
-      p->(for(e<-es;a<-predicateWithArgumentSort(p)._2;if ContainsSymbol(getParametersFromVerifHintElement(e)._1,IVariable(a.index)))yield a).distinct
-    }).filterNot(_._2.isEmpty).toMap
+    val integerTermsFromMinedTemplates=(for((k,singleTerms)<-predicateWithArgumentSort)yield{
+      k->{
+        for(v<-singleTerms._1;e<-minedTemplates.predicateHints(k);ee=getParametersFromVerifHintElement(e);if ee._2<20&&isAtomaticTerm(ee._1)&&ContainsSymbol(ee._1,v)) yield{
+          //println(ee._1,v)
+          ee._1
+        }
+      }
+    }).filterNot(_._2.isEmpty)
+    val booleanTermsFromMinedTemplates=(for((k,singleTerms)<-predicateWithArgumentSort)yield{
+      k->{
+        for(v<-singleTerms._2;e<-minedTemplates.predicateHints(k);ee=getParametersFromVerifHintElement(e);if ee._2<20&&ContainsSymbol(ee._1,v)) yield{
+          ee._1
+        }
+      }
+    }).filterNot(_._2.isEmpty)
+
+
     println("--------------------")
-    val integerEqOccurenceInMinedTemplates=(for ((k,vs)<-minedTemplates.predicateHints) yield{
-      k->(for (v<-vs;vv=getParametersFromVerifHintElement(v);if vv._3== TemplateType.TplEqTerm && integerTermsFromInitialTemplates(k).contains(vv._1) )yield
-        getParametersFromVerifHintElement(v)._1)
-    }).filterNot(_._2.isEmpty).toMap
-    printPredicateInMapFormat(integerEqOccurenceInMinedTemplates,"integerEqOccurenceInMinedTemplates")
-    printPredicateInMapFormat(integerTermsFromInitialTemplates,"integerTermsFromInitialTemplates")
-    printPredicateInMapFormat(booleanTermsFromInitialTemplates,"booleanTermsFromInitialTemplates")
-    printPredicateInMapFormat(integerTermsFromMinedTemplates,"integerTermsFromMinedTemplates")
-    printPredicateInMapFormat(booleanTermsFromMinedTemplates,"booleanTermsFromMinedTemplates")
+    val integerEqOccurenceInMinedTemplates=(for((k,singleTerms)<-predicateWithArgumentSort)yield{
+      k->{
+        for(v<-singleTerms._1;e<-minedTemplates.predicateHints(k);ee=getParametersFromVerifHintElement(e);
+            if ee._2<20&&isAtomaticTerm(ee._1)&&ContainsSymbol(ee._1,v)&&ee._3==TemplateType.TplEqTerm) yield{
+          ee._1
+        }
+      }
+    }).filterNot(_._2.isEmpty)
+    if (GlobalParameters.get.debugLog){
+      printPredicateInMapFormat(integerEqOccurenceInMinedTemplates,"integerEqOccurenceInMinedTemplates")
+      printPredicateInMapFormat(integerTermsFromInitialTemplates,"integerTermsFromInitialTemplates")
+      printPredicateInMapFormat(booleanTermsFromInitialTemplates,"booleanTermsFromInitialTemplates")
+      printPredicateInMapFormat(integerTermsFromMinedTemplates,"integerTermsFromMinedTemplates")
+      printPredicateInMapFormat(booleanTermsFromMinedTemplates,"booleanTermsFromMinedTemplates")
+    }
+
 
     val fields=Seq(
       ("numberOfIntegerEqOccurenceInMinedTemplates",integerEqOccurenceInMinedTemplates.toMap.values.flatten.size),
@@ -623,6 +643,11 @@ object HintsSelection {
     )
     writeInfoToJSON(fields,"TemplatesDistribution")//write to json
   }
+  def isAtomaticTerm(e:IExpression):Boolean= e match {
+    case  IVariable(i)=>true
+    case _ =>false
+  }
+
   def writePredicateDistributionToFiles(initialPredicates:VerificationHints,selectedPredicates:VerificationHints,
                                         labeledPredicates:VerificationHints,unlabeledPredicates:VerificationHints,simpleGeneratedPredicates:VerificationHints,
                                         constraintPredicates:VerificationHints,pairwisePredicate:VerificationHints,
@@ -902,7 +927,29 @@ object HintsSelection {
         res
       }else{
         val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-          k-> (for ((p,l)<-v zip label if l!=0) yield p) //match labels with predicates
+          k-> (for ((p,l)<-v zip label if l!=0) yield {
+            //change label according to what it read
+            p match {
+              case VerifHintTplEqTerm(t,c) =>
+                l match {
+                  case 1=>VerifHintTplEqTerm(t,1)
+                  case 2=>VerifHintTplInEqTerm(t,1)
+                  case 3=>VerifHintTplPredPosNeg(Eq(t,0),1)
+                }
+              case VerifHintTplInEqTerm(t,c)=> l match {
+                case 1=>VerifHintTplEqTerm(t,1)
+                case 2=>VerifHintTplInEqTerm(t,1)
+                case 3=>VerifHintTplPredPosNeg(Eq(t,0),1)
+              }
+              case VerifHintTplPredPosNeg(f,c)=>f match { //this cannot be correctly marked in the gv becasue it changed the content
+                case Eq(x,y)=>l match {
+                  case 1=>VerifHintTplEqTerm(x,1)
+                  case 2=>VerifHintTplInEqTerm(x,1)
+                  case 3=>VerifHintTplPredPosNeg(f,1)
+                }
+              }
+            }
+          } ) //match labels with predicates
         }).filterNot(_._2.isEmpty).toMap //delete empty head
         if(GlobalParameters.get.debugLog==true){
           println("input_file",input_file)
@@ -922,6 +969,55 @@ object HintsSelection {
 
     }else Map()
 
+  }
+
+
+  def readPredicateLabelFromJSONBinaryClassification(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
+                                 readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
+    val input_file=fileName+".hyperEdgeHornGraph.JSON"
+    if(detectIfAJSONFieldExists(readLabel,fileName)==true){
+      val json_content = scala.io.Source.fromFile(input_file).mkString
+      val json_data = Json.parse(json_content)
+      val predictedLabel= (json_data \ readLabel).validate[Array[Int]] match {
+        case JsSuccess(templateLabel,_)=> templateLabel
+      }
+      val mapLengthList=for ((k,v)<-initialHints) yield v.length
+      var splitTail=predictedLabel
+      val splitedPredictedLabel = for(l<-mapLengthList) yield {
+        val temp=splitTail.splitAt(l)._1
+        splitTail=splitTail.splitAt(l)._2
+        temp
+      }
+      val labeledPredicates=
+        if (GlobalParameters.get.readCost){
+          val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
+            k-> (for((p,l)<-v zip label) yield p match {
+              case VerifHintTplEqTerm(t,c)=> VerifHintTplEqTerm(t,l)
+              case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,l)
+            })
+          }).toMap
+          res
+        }else{
+          val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
+            k-> (for ((p,l)<-v zip label if l!=0) yield p
+            ) //match labels with predicates
+          }).filterNot(_._2.isEmpty).toMap //delete empty head
+          if(GlobalParameters.get.debugLog==true){
+            println("input_file",input_file)
+            println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
+            for (x<-splitedPredictedLabel)
+              println(x.toSeq,x.size)
+            println("--------Filtered initial predicates---------")
+            for((k,v)<-res) {
+              println(k)
+              for(p<-v)
+                println(p)
+            }
+          }
+          res
+        }
+      labeledPredicates
+    }else Map()
   }
 
   def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause],hintType:String="",fileName:String=GlobalParameters.get.fileName):VerificationHints={

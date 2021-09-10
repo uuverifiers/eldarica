@@ -288,13 +288,19 @@ class GNNInput(clauseCollection:ClauseInfo) {
       nodeInfoList(nodeUniqueName).color="green"
       nodeInfoList(nodeUniqueName).labelList:+=1
       templateRelevanceLabel:+=1
-      templateCostLabel:+=100
+      templateCostLabel:+=cost
     }
     case 2 =>{
       nodeInfoList(nodeUniqueName).color="blue"
       nodeInfoList(nodeUniqueName).labelList:+=2
       templateRelevanceLabel:+=2
-      templateCostLabel:+=100
+      templateCostLabel:+=cost
+    }
+    case 3 =>{
+      nodeInfoList(nodeUniqueName).color="yellow"
+      nodeInfoList(nodeUniqueName).labelList:+=3
+      templateRelevanceLabel:+=3
+      templateCostLabel:+=cost
     }
   }
   def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,hintLabel:Int,cost:Int=0): Unit = {
@@ -1049,6 +1055,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
+
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
         constantNodeSetInOneClause.clear()
@@ -1060,13 +1067,21 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
             //println(t._1,hintLabel)
             //draw template label color
-            //0:useless:red, 1:EqTerm useful;green, 2:InEqTerm useful:blue
-            val (predictedTemplateLabel,predictedCost) = getHintLabelAndCost(predictedTemplates,t,hp)
-            predictedTemplateLabel match {
-              case 0=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
-              case 1=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 1
-              case 2=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 2
+            //0:useless, 1:EqTerm useful, 2:InEqTerm useful, 3:boolean predicate useful
+            if (!predictedTemplates.isEmpty){
+              val predictedTemp=for (onePredictedTemp<-predictedTemplates(hp);if t._1==onePredictedTemp._1) yield onePredictedTemp
+              if (predictedTemp.isEmpty) {
+                gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
+              } else {
+                predictedTemp.head._3 match {
+                  case TemplateType.TplEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 1
+                  case TemplateType.TplInEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 2
+                  case TemplateType.TplPredPosNeg=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 3
+                }
+              }
             }
+
+
 
             (templateASTRootName,"verifHint"+t._3.toString)
           }
@@ -1110,7 +1125,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
   def getHintLabelAndCost(tpl: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
                           hp:Predicate): (Int,Int) ={
-    //0:useless, 1:EqTerm useful, 2:InEqTerm useful
+    //0:useless, 1:EqTerm useful, 2:InEqTerm useful, 3:boolean predicate useful
     if (tpl.keySet.map(_.toString).contains(hp.toString)) {
       val (b, c) = HintsSelection.termContains(tpl(hp), t)
       b match {
@@ -1118,6 +1133,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           t._3 match {
             case TemplateType.TplEqTerm=>(1, c)
             case TemplateType.TplInEqTerm=>(2,c)
+            case TemplateType.TplPredPosNeg=>(3,c)
+            case _=>(0,c)
           }
         case false=>(0, 100)
       }

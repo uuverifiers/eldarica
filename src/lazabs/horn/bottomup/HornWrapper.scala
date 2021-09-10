@@ -446,8 +446,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           }
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
-      }else if(GlobalParameters.get.generateTemplates ){
-        generateCombinationTemplates(simplifiedClauses)
+      }else if(GlobalParameters.get.generateTemplates){
+        if (GlobalParameters.get.withoutGraphJSON)
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+        else
+          generateCombinationTemplates(simplifiedClauses)
       } else{
         VerificationHints(Map()) ++ simpHints
       }
@@ -508,21 +511,21 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     val solvabilityList = {
       if (GlobalParameters.get.generateTemplates) {
         (for ((fieldName, initialTemplates) <- dataFold) yield {
-          val reconstructedInitialTemplates =
-            if (fieldName == "predictedInitialPredicates" || fieldName == "fullInitialPredicates")
-              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
-            else if (fieldName == "randomInitialPredicates")
-              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, HintsSelection.randomLabelTemplates(initialTemplates, 0.2))
-            else initialTemplates
-          if (fieldName=="predictedInitialPredicates"){
-            println("predicted templates")
-            initialTemplates.pretyPrintHints()
-            println("reconstructed predicted templates")
-            reconstructedInitialTemplates.pretyPrintHints()
-          }
+//          val reconstructedInitialTemplates =
+//            if (fieldName == "predictedInitialPredicates" || fieldName == "fullInitialPredicates")
+//              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
+//            else if (fieldName == "randomInitialPredicates")
+//              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, HintsSelection.randomLabelTemplates(initialTemplates, 0.2))
+//            else initialTemplates
+//          if (fieldName=="predictedInitialPredicates"){
+//            println("predicted templates")
+//            initialTemplates.pretyPrintHints()
+//            println("reconstructed predicted templates")
+//            reconstructedInitialTemplates.pretyPrintHints()
+//          }
 
 
-          val initialTemplatesAbstraction = absBuilder.loopDetector.hints2AbstractionRecord(reconstructedInitialTemplates)
+          val initialTemplatesAbstraction = absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
           val solvabilityPredGenerator = getPredGenerator(Seq(initialTemplatesAbstraction), outStream)
           val (solveTime, predicateFromCegar, _) = HintsSelection.checkSolvability(simplifiedClausesForGraph,
             Map(), solvabilityPredGenerator, counterexampleMethod, outStream, moveFile = GlobalParameters.get.moveFile, exit = false, coefficient = 1)
@@ -530,7 +533,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println("solveTime", solveTime)
           println("solvability", solvability)
           Seq(("solveTime" + fieldName, solveTime), ("solvability" + fieldName, solvability),
-            ("numberOfinitialTemplates" + fieldName, reconstructedInitialTemplates.totalPredicateNumber))
+            ("numberOfinitialTemplates" + fieldName, initialTemplates.totalPredicateNumber))
         }).flatten.toSeq
       } else { //predicate selection
         val constraintPredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "constraintPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
@@ -595,17 +598,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       val combTemplates = generateCombinationTemplates(simplifiedClauses)
       val initialTemplates =
         if (GlobalParameters.get.rdm)
-        {getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph,HintsSelection.randomLabelTemplates(combTemplates, 0.2))
+        {HintsSelection.randomLabelTemplates(combTemplates, 0.2)
         } else if (GlobalParameters.get.readTemplates){
           //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
           val fullTemplates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
           val predictedTemplates=HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
-          val reconstructedTemplates=getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, predictedTemplates)
-          reconstructedTemplates
+          predictedTemplates
         }
-        else {//full combinaed templates, single integer Eq costs are 20, others are 1
-          getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph,combTemplates)
-        }
+        else combTemplates
       if (GlobalParameters.get.log) {
         println("initialTemplates")
         initialTemplates.pretyPrintHints()

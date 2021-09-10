@@ -327,7 +327,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()//drawTemplatesWithNode()
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
     addBinaryEdge(controlFlowNodeSetInOneClause(head), templateNodeName._1, templateNodeName._2)
-
   for (n<-gnn_input.nodeInfoList){ //draw all nodes
 
     if (n._2.labelList.isEmpty) {

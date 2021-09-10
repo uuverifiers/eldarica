@@ -39,10 +39,11 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, 
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
-import lazabs.horn.concurrency.HintsSelection.{containsPred, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getParametersFromVerifHintElement, getPredGenerator, isArgBoolean, mergeTemplates, resetElementCost, setAllCost, termContains, transformPredicateMapToVerificationHints, writeTemplateDistributionToFiles}
+import lazabs.horn.concurrency.HintsSelection.{containsPred, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getParametersFromVerifHintElement, getPredGenerator, isArgBoolean, isAtomaticTerm, mergeTemplates, resetElementCost, setAllCost, termContains, transformPredicateMapToVerificationHints, writeTemplateDistributionToFiles}
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
+import java.nio.file.{Files, Paths, StandardCopyOption}
 import scala.util.Random
 
 object TrainDataGeneratorTemplatesSmt2 {
@@ -210,31 +211,19 @@ object TrainDataGeneratorTemplatesSmt2 {
         absBuilder.abstractionRecords
 
       val fileName=HintsSelection.getFileName()
-      simplifiedClauses.map(_.toPrologString).foreach(println)
+
       val loopDetector = new LoopDetector(simplifiedClauses)
       if(loopDetector.loopHeads.isEmpty){
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"loopHeads is empty")
         sys.exit()
       }
-      println("loop heads",loopDetector.loopHeads)
-      println("abs1:termAbstractions")
-      absBuilder.termAbstractions.pretyPrintHints()
-      println("abs2:octagonAbstractions")
-      absBuilder.octagonAbstractions.pretyPrintHints()
-      println("abs3:relationAbstractions")
-      absBuilder.relationAbstractions(false).pretyPrintHints()
-//      println("abs4:relationAbstractions")
-//      absBuilder.relationAbstractions(true).pretyPrintHints()
-      println("mergedAutoAbstractions")
+
       val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
         absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
-      mergedHeuristic.pretyPrintHints()
-      println("generatedCombinationTemplates")
+
       //set all cost to 0
       val combinationTemplates=generateCombinationTemplates(simplifiedClauses)
-      combinationTemplates.pretyPrintHints()
 
-      println("initialTemplates")
       val initialTemplates=
         if(GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Empty)
           VerificationHints(Map())
@@ -251,7 +240,25 @@ object TrainDataGeneratorTemplatesSmt2 {
         else
           combinationTemplates
 
-      initialTemplates.pretyPrintHints()
+      if (GlobalParameters.get.debugLog){
+        simplifiedClauses.map(_.toPrologString).foreach(println)
+        println("loop heads",loopDetector.loopHeads)
+        println("abs1:termAbstractions")
+        absBuilder.termAbstractions.pretyPrintHints()
+        println("abs2:octagonAbstractions")
+        absBuilder.octagonAbstractions.pretyPrintHints()
+        println("abs3:relationAbstractions")
+        absBuilder.relationAbstractions(false).pretyPrintHints()
+        //      println("abs4:relationAbstractions")
+        //      absBuilder.relationAbstractions(true).pretyPrintHints()
+        println("mergedAutoAbstractions")
+        mergedHeuristic.pretyPrintHints()
+        println("generatedCombinationTemplates")
+        combinationTemplates.pretyPrintHints()
+        println("initialTemplates")
+        initialTemplates.pretyPrintHints()
+      }
+
 
       val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
 
@@ -292,33 +299,31 @@ object TrainDataGeneratorTemplatesSmt2 {
       }
 
 
-      def isEqAtomicTerm(e:VerifHintElement): Boolean =e match {
-        case VerifHintTplEqTerm(t,c)=>{if (c==20 )true else false}
-        case VerifHintTplInEqTerm(t,c)=>false
-        case _=>false
-      }
-      def labelTemplates(unlabeledPredicates:VerificationHints): VerificationHints ={
+      def labelTemplates(unlabeledPredicates:VerificationHints): (VerificationHints,VerificationHints) ={
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
         val filteredPositiveTemplates= VerificationHints((for((k,ps)<-positiveTemplates.predicateHints) yield {
-          k->ps.filterNot(isEqAtomicTerm(_))//get rid of atomic terms
+          k->ps.filter(getParametersFromVerifHintElement(_)._2<20)
         }).filterNot(_._2.isEmpty))
-        println("positiveTemplates")
-        positiveTemplates.pretyPrintHints()
-//        println("filteredPositiveTemplates")
-//        filteredPositiveTemplates.pretyPrintHints()
+        if (GlobalParameters.get.debugLog){
+          println("positiveTemplates")
+          positiveTemplates.pretyPrintHints()
+          println("filteredPositiveTemplates")
+          filteredPositiveTemplates.pretyPrintHints()
+        }
         val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledPredicates.predicateHints;
                                                     (kf,vf)<-filteredPositiveTemplates.predicateHints;
                                                     if kp.name==kf.name) yield
           kp -> (for (p<-vp;if termContains(vf.map(getParametersFromVerifHintElement(_)),getParametersFromVerifHintElement(p))._1) yield p)
         )
-        labeledTemplates
+        (positiveTemplates,labeledTemplates)
         //filteredPositiveTemplates
       }
-
-      val unlabeledTemplates=combinationTemplates
-      val labeledTemplates=labelTemplates(unlabeledTemplates)
+      //todo: reconstruct labels
+      val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(2,3)++x.slice(8,9)))
+      //val unlabeledTemplates=combinationTemplates
+      val (positiveTemplates,labeledTemplates)=labelTemplates(unlabeledTemplates)
       //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
       println("-"*10+"unlabeledTemplates"+"-"*10)
       unlabeledTemplates.pretyPrintHints()
@@ -342,7 +347,25 @@ object TrainDataGeneratorTemplatesSmt2 {
         GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
       }
       HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates)
-      writeTemplateDistributionToFiles(simplifiedClausesForGraph,unlabeledTemplates,labeledTemplates)
+      //writeTemplateDistributionToFiles(simplifiedClausesForGraph,unlabeledTemplates,positiveTemplates)
+
+      //todo: draw separate labels
+//      var templateCounter=0
+//      for((k,v)<-unlabeledTemplates.predicateHints){
+//        for (vv<-v){
+//          val fName=GlobalParameters.get.fileName.dropRight(".smt2".length) +"-"+ templateCounter.toString+".smt2"
+//          val oneTemplate=VerificationHints(Map(k->Seq(vv)))
+//          val hintsCollection=new VerificationHintsInfo(oneTemplate,labeledTemplates,VerificationHints(Map()))//labeledPredicates
+//          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo,file = fName)
+//          HintsSelection.writePredicatesToFiles(oneTemplate,labeledTemplates,fileName=fName)
+//          val path = Files.copy(
+//            Paths.get(GlobalParameters.get.fileName),
+//            Paths.get(GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.lastIndexOf("/")+1)+fName),
+//            StandardCopyOption.REPLACE_EXISTING
+//          )
+//          templateCounter=templateCounter+1
+//        }
+//      }
 
     }
   }
