@@ -18,7 +18,7 @@ processes (parameterised analysis).
 There is also a variant of Eldarica for analysing Petri nets: http://www.philipp.ruemmer.org/eldarica-p.shtml
 
 Eldarica has been developed by Hossein Hojjat and Philipp Ruemmer,
-with further contributions by Filip Konecny and Pavle Subotic.
+with further contributions by Zafer Esen, Filip Konecny, and Pavle Subotic.
 
 There is a simple **web interface** to experiment with the C interface
 of Eldarica:
