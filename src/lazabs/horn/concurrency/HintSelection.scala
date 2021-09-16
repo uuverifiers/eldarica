@@ -928,28 +928,20 @@ object HintsSelection {
       }else{
         val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
           k-> (for ((p,l)<-v zip label if l!=0) yield {
-            //change label according to what it read
-            p match {
-              case VerifHintTplEqTerm(t,c) =>
-                l match {
-                  case 1=>VerifHintTplEqTerm(t,1)
-                  case 2=>VerifHintTplInEqTerm(t,1)
-                  case 3=>VerifHintTplPredPosNeg(Eq(t,0),1)
-                }
-              case VerifHintTplInEqTerm(t,c)=> l match {
-                case 1=>VerifHintTplEqTerm(t,1)
-                case 2=>VerifHintTplInEqTerm(t,1)
-                case 3=>VerifHintTplPredPosNeg(Eq(t,0),1)
-              }
-              case VerifHintTplPredPosNeg(f,c)=>f match { //this cannot be correctly marked in the gv becasue it changed the content
-                case Eq(x,y)=>l match {
-                  case 1=>VerifHintTplEqTerm(x,1)
-                  case 2=>VerifHintTplInEqTerm(x,1)
-                  case 3=>VerifHintTplPredPosNeg(f,1)
+            l match {
+              case 1=>{p match {
+                case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,c)
+                case VerifHintTplInEqTerm(t,c)=>VerifHintTplEqTerm(t,c)
                 }
               }
+              case 2=>{p match {
+                case VerifHintTplEqTerm(t,c)=>VerifHintTplInEqTerm(t,c)
+                case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,c)
+                }
+              }
+              case 3|4=>{p}
             }
-          } ) //match labels with predicates
+          } ).distinct //match labels with predicates
         }).filterNot(_._2.isEmpty).toMap //delete empty head
         if(GlobalParameters.get.debugLog==true){
           println("input_file",input_file)

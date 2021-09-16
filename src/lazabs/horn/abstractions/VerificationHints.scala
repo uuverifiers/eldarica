@@ -36,6 +36,9 @@ import scala.collection.{Set => GSet}
 object TemplateType extends Enumeration {
   val TplPred,TplPredPosNeg, TplEqTerm,TplInEqTerm,TplInEqTermPosNeg= Value
 }
+object TemplateTypeUsefulNess extends Enumeration {
+  val TplPredPosNegUseful, TplEqTermUseful,TplInEqTermUseful,TplPredPosNegUseless, TplEqTermUseless,TplInEqTermUseless= Value
+}
 object VerificationHints {
   def apply(hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
     new VerificationHints {
@@ -155,12 +158,13 @@ object VerificationHints {
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
+        var counter=0
         println(key.toString(),value.size)
         for(v<-value){
           v match {
-            case VerifHintInitPred(f) =>{println(Console.BLUE+ f )}
-            case _ =>{println(Console.BLUE+v)}
+            case _ =>{println(counter+":"+Console.BLUE+v)}
           }
+          counter=counter+1
         }
       }
     }

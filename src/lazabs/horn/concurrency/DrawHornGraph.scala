@@ -29,17 +29,14 @@
 package lazabs.horn.concurrency
 
 import java.io.{File, PrintWriter}
-import ap.basetypes.IdealInt
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.TemplateType
-import lazabs.horn.abstractions.TemplateType.TplPred
-import lazabs.horn.abstractions.VerificationHints.{VerifHintInitPred, VerifHintTplEqTerm, VerifHintTplInEqTerm}
-import lazabs.horn.bottomup.HornClauses.{Clause, FALSE}
+import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, spAPI}
+import play.api.libs.json.{JsSuccess, Json}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -277,31 +274,18 @@ class GNNInput(clauseCollection:ClauseInfo) {
     argumentIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
-  def modifyTemplateLabel(hintLabel:Int,cost:Int,nodeUniqueName:String): Unit = hintLabel match {
-    case 0 => {
-      nodeInfoList(nodeUniqueName).color="red"
-      nodeInfoList(nodeUniqueName).labelList:+=0
-      templateRelevanceLabel:+=0
-      templateCostLabel:+=cost
+
+  def modifyTemplateLabel(hintLabel: Int, cost: Int, nodeUniqueName: String): Unit = {
+    hintLabel match {
+      case 0 => nodeInfoList(nodeUniqueName).color = "red"
+      case 1 => nodeInfoList(nodeUniqueName).color = "green"
+      case 2 => nodeInfoList(nodeUniqueName).color = "blue"
+      case 3 => nodeInfoList(nodeUniqueName).color = "yellow"
+      case 4 => nodeInfoList(nodeUniqueName).color = "black"
     }
-    case 1 =>{
-      nodeInfoList(nodeUniqueName).color="green"
-      nodeInfoList(nodeUniqueName).labelList:+=1
-      templateRelevanceLabel:+=1
-      templateCostLabel:+=cost
-    }
-    case 2 =>{
-      nodeInfoList(nodeUniqueName).color="blue"
-      nodeInfoList(nodeUniqueName).labelList:+=2
-      templateRelevanceLabel:+=2
-      templateCostLabel:+=cost
-    }
-    case 3 =>{
-      nodeInfoList(nodeUniqueName).color="yellow"
-      nodeInfoList(nodeUniqueName).labelList:+=3
-      templateRelevanceLabel:+=3
-      templateCostLabel:+=cost
-    }
+    nodeInfoList(nodeUniqueName).labelList :+= hintLabel
+    templateRelevanceLabel :+= hintLabel
+    templateCostLabel :+= cost
   }
   def incrementTemplateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,hintLabel:Int,cost:Int=0): Unit = {
     templateIndices :+= GNNNodeID
@@ -620,8 +604,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawASTBinaryRelation(op: String, previousNodeName: String, e1: IExpression, e2: IExpression,astArity:String=""): String = {
-    val e1Peek = peekAST(e1)
-    val e2Peek = peekAST(e2)
+    val e1Peek = peekAST(e1,astArity="AST_1")
+    val e2Peek = peekAST(e2,astArity="AST_2")
     val existedNodeName = for ((k, v) <- binaryOperatorSubGraphSetInOneClause; if v._1 == e1Peek && v._2 == e2Peek && k.substring(0,k.indexOf("_"))==op) yield k
     val condName = if (existedNodeName.isEmpty) {
       val operatorNodeName=op + "_" + gnn_input.GNNNodeID
@@ -640,9 +624,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def drawASTUnaryRelation(op: String, previousNodeName: String, e: IExpression,astArity:String="AST_1"): String = {
-    val ePeek = peekAST(e)
+    val ePeek = peekAST(e,astArity=astArity)
     val existedNodeName = for ((k, v) <- unaryOperatorSubGraphSetInOneClause; if v == ePeek && k.substring(0,k.indexOf("_"))==op) yield k
-    astEdgeType="AST_1"
+    astEdgeType=astArity
     val opName = if (existedNodeName.isEmpty) {
       val operatorNodeName = op + "_" + gnn_input.GNNNodeID
       createNode(operatorNodeName, op, "operator", nodeShapeMap("operator"))
@@ -725,14 +709,15 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
   }
 
-  def peekAST(e: IExpression):String=
+  def peekAST(e: IExpression,astArity:String="AST_1"):String=
     e match {
       case IBoolLit(v) =>  drawASTEndNode(v.toString(), "", "constant",draw = false)
       case IConstant(c) => drawASTEndNode(c.name, "", "symbolicConstant",draw = false)
       case IIntLit(v) => drawASTEndNode(v.toString(), "", "constant",draw = false)
       case Const(t) => drawASTEndNode(t.toString(), "", "constant",draw = false)
       case IVariable(index) => drawASTEndNode("_"+index.toString(), "", "symbolicConstant",draw = false)
-      case _ => "other than single node"
+      //todo: check unary and binary drawing logic
+      case _ => drawAST(e,astArity = astArity)//"other than single node"
     }
 
   def drawAST(e: IExpression, previousNodeName: String = "",astArity:String="AST_1"): String = {
@@ -778,7 +763,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         if(coeff.intValue == -1)
           drawASTUnaryRelation("-", previousNodeName, subterm,astArity)
         else if (coeff.intValue == 1)
-          drawAST(subterm, previousNodeName)
+          drawAST(subterm, previousNodeName,astArity)
         else
           drawASTBinaryRelation("*", previousNodeName, subterm, coeff,astArity)
       }
@@ -1051,36 +1036,57 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
     tempHeadMap
   }
+  def transformBooleanPredicateToTerm(t: (IExpression, Int, TemplateType.Value)): (IExpression, Int, TemplateType.Value) =t._3 match {
+    case TemplateType.TplEqTerm  => (t._1,t._2,t._3)
+    case TemplateType.TplInEqTerm=> (t._1,t._2,t._3)
+    case TemplateType.TplPredPosNeg=> t._1 match {
+      case Eq(x,y)=>(x,t._2,TemplateType.TplPredPosNeg)
+    }
+  }
+
+
   def drawTemplates(): Seq[(String,Seq[(String,String)])]={
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
-
+    val input_file=GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
+    val json_content = scala.io.Source.fromFile(input_file).mkString
+    val json_data = Json.parse(json_content)
+    val predictedLabel= (json_data \ "predictedLabel").validate[Array[Int]] match {
+      case JsSuccess(templateLabel,_)=> templateLabel
+    }
+    var counter=0
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
         constantNodeSetInOneClause.clear()
         val templateNameList=
           for (t<-templates) yield {
-            val templateASTRootName=drawAST(t._1)
-            val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
-
+            //todo: encode label to multi-class
+            //val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
+            val (hintLabel,cost) = encodeLabelToMultiClass(positiveTemplates,t,hp,templates)
+            println(t,hintLabel)
+            //draw boolean predicate as single term node
+            val transfomedT=transformBooleanPredicateToTerm(t)
+            val templateASTRootName=drawAST(transfomedT._1)
             gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
             //println(t._1,hintLabel)
-            //draw template label color
-            //0:useless, 1:EqTerm useful, 2:InEqTerm useful, 3:boolean predicate useful
-            if (!predictedTemplates.isEmpty){
-              val predictedTemp=for (onePredictedTemp<-predictedTemplates(hp);if t._1==onePredictedTemp._1) yield onePredictedTemp
-              if (predictedTemp.isEmpty) {
-                gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
-              } else {
-                predictedTemp.head._3 match {
-                  case TemplateType.TplEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 1
-                  case TemplateType.TplInEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 2
-                  case TemplateType.TplPredPosNeg=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 3
-                }
-              }
-            }
 
+            //read from JSON
+            gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= predictedLabel(counter)
+            counter=counter+1
+//
+//            if (!predictedTemplates.isEmpty){
+//              val predictedTemp=for (onePredictedTemp<-predictedTemplates(hp);if transfomedT._1==transformBooleanPredicateToTerm(onePredictedTemp)._1) yield onePredictedTemp
+//              if (predictedTemp.isEmpty) {
+//                gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
+//              } else {
+//                predictedTemp.head._3 match {
+//                  case TemplateType.TplEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 1
+//                  case TemplateType.TplInEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 2
+//                  case TemplateType.TplPredPosNeg=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 3
+//                }
+//              }
+//            }else gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
 
 
             (templateASTRootName,"verifHint"+t._3.toString)
@@ -1123,17 +1129,66 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
     tempHeadMap
   }
+  def encodeLabelToMultiClass(positiveMap: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
+                              hp:Predicate,currentTemplateSeq:Seq[(IExpression, Int, TemplateType.Value)]): (Int,Int) ={
+    val encodingMap=Map((TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->0,
+      (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->1,
+      (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->2,
+      (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->3,
+      (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseful)->4)
+    if (positiveMap.keySet.map(_.toString).contains(hp.toString)) {
+      t._3 match {
+        case TemplateType.TplEqTerm=>{
+          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
+          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
+          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
+          (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+        }
+        case TemplateType.TplInEqTerm=>{
+          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
+          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplEqTerm)
+          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
+          (encodingMap(correspondingTUsefulness._1,tUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+        }
+        case TemplateType.TplPredPosNeg=>{
+          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
+          (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
+        }
+      }
+    }else (4, 100)
+  }
+
+  def getHintLabelUsefulness(positiveSeq: Seq[(IExpression, Int, TemplateType.Value)],t:(IExpression, Int, TemplateType.Value)):
+  (TemplateTypeUsefulNess.Value,Int) ={
+      val (b, c) = HintsSelection.termContains(positiveSeq, t)
+      b match {
+        case true=>
+          t._3 match {
+            case TemplateType.TplEqTerm=>(TemplateTypeUsefulNess.TplEqTermUseful, c)
+            case TemplateType.TplInEqTerm=>(TemplateTypeUsefulNess.TplInEqTermUseful,c)
+            case TemplateType.TplPredPosNeg=>(TemplateTypeUsefulNess.TplPredPosNegUseful,c)
+          }
+        case false=>
+          t._3 match {
+            case TemplateType.TplEqTerm=>(TemplateTypeUsefulNess.TplEqTermUseless, c)
+            case TemplateType.TplInEqTerm=>(TemplateTypeUsefulNess.TplInEqTermUseless,c)
+            case TemplateType.TplPredPosNeg=>(TemplateTypeUsefulNess.TplPredPosNegUseless,c)
+          }
+      }
+  }
+
+
   def getHintLabelAndCost(tpl: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
                           hp:Predicate): (Int,Int) ={
-    //0:useless, 1:EqTerm useful, 2:InEqTerm useful, 3:boolean predicate useful
+
     if (tpl.keySet.map(_.toString).contains(hp.toString)) {
       val (b, c) = HintsSelection.termContains(tpl(hp), t)
       b match {
         case true=>
           t._3 match {
+            case TemplateType.TplPredPosNeg=>(3,c)
             case TemplateType.TplEqTerm=>(1, c)
             case TemplateType.TplInEqTerm=>(2,c)
-            case TemplateType.TplPredPosNeg=>(3,c)
             case _=>(0,c)
           }
         case false=>(0, 100)

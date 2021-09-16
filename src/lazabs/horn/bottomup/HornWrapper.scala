@@ -287,6 +287,8 @@ class HornWrapper(constraints: Seq[HornClause],
       yield (p.name -> p)).toMap
     readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
   }
+  if (!postHints.predicateHints.isEmpty)
+    postHints.pretyPrintHints()
 
   val allHints = simpPreHints ++ postHints
 
@@ -447,9 +449,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
       }else if(GlobalParameters.get.generateTemplates){
-        if (GlobalParameters.get.withoutGraphJSON)
-          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-        else
+        if (GlobalParameters.get.withoutGraphJSON) {
+          val tempDebug=HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+          tempDebug.pretyPrintHints()//todo:debug
+          tempDebug
+        } else
           generateCombinationTemplates(simplifiedClauses)
       } else{
         VerificationHints(Map()) ++ simpHints
