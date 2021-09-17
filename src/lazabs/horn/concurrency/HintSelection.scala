@@ -142,7 +142,9 @@ object HintsSelection {
       val allTermsEq= (singlePositiveTerms ++ combinationsTermsForEq).map(sp.apply(_))
       val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
       val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
-      val allTypeElements=Seq(allTermsEq.map(VerifHintTplEqTerm(_,1)),allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)),
+      val allTypeElements=Seq(
+        allTermsEq.map(VerifHintTplEqTerm(_,1)),
+        allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)),
         allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
       pred->allTypeElements.reduce(_++_)
     }).sortBy (_._1.name).toMap)

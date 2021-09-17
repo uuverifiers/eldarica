@@ -33,6 +33,7 @@ import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess}
+import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, spAPI}
@@ -443,11 +444,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   var nodeShapeMap: Map[String, String] = Map()
   val binaryOperatorSubGraphSetInOneClause = scala.collection.mutable.Map[String, Tuple2[String,String]]()
   val unaryOperatorSubGraphSetInOneClause = scala.collection.mutable.Map[String, String]()
-  val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]()
   val constantNodeSetInOneClause = scala.collection.mutable.Map[String, String]() //map[constantName->constantNameWithCanonicalNumber]
+  val controlFlowNodeSetCrossGraph = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
+  val argumentNodeSetCrossGraph = scala.collection.mutable.Map[String, Array[(String,String)]]() //predicateName:String -> arguments Array[String]
   val argumentNodeSetInPredicates = scala.collection.mutable.Map[String, String]() //map[argumentConstantName->argumentNameWithCanonicalNumber]
-  val controlFlowNodeSetInOneClause = scala.collection.mutable.Map[String, String]()// predicate.name -> canonical name
-  val argumentNodeSetInOneClause = scala.collection.mutable.Map[String, Array[String]]() //predicateName:String -> arguments Array[String]
+  val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]()
   var astEdgeType = ""
   var astEndNodeType=""
   val gnn_input = new GNNInput(clausesCollection)
@@ -1049,45 +1050,46 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
+
     val input_file=GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
-    val json_content = scala.io.Source.fromFile(input_file).mkString
-    val json_data = Json.parse(json_content)
-    val predictedLabel= (json_data \ "predictedLabel").validate[Array[Int]] match {
-      case JsSuccess(templateLabel,_)=> templateLabel
-    }
+    val predictedLabel=if(new java.io.File(input_file).exists&&detectIfAJSONFieldExists("predictedLabel",GlobalParameters.get.fileName)==true){
+      val json_content = scala.io.Source.fromFile(input_file).mkString
+      val json_data = Json.parse(json_content)
+      val predictedLabel= (json_data \ "predictedLabel").validate[Array[Int]] match {
+        case JsSuccess(templateLabel,_)=> templateLabel
+      }
+      predictedLabel
+    }else Array()
+
+
     var counter=0
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
+        argumentNodeSetInPredicates.clear()
+        for (a<-argumentNodeSetCrossGraph(hp.name)){
+          argumentNodeSetInPredicates(a._1)=a._2
+        }
         constantNodeSetInOneClause.clear()
+        binaryOperatorSubGraphSetInOneClause.clear()
+        unaryOperatorSubGraphSetInOneClause.clear()
         val templateNameList=
           for (t<-templates) yield {
-            //todo: encode label to multi-class
+            //encode label to multi-class
             //val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
             val (hintLabel,cost) = encodeLabelToMultiClass(positiveTemplates,t,hp,templates)
-            println(t,hintLabel)
             //draw boolean predicate as single term node
             val transfomedT=transformBooleanPredicateToTerm(t)
             val templateASTRootName=drawAST(transfomedT._1)
+            println(t,hintLabel,templateASTRootName)
             gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
             //println(t._1,hintLabel)
 
-            //read from JSON
-            gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= predictedLabel(counter)
+            //read predicted label from JSON
+            if (predictedLabel.isEmpty)
+              gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
+            else
+              gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= predictedLabel(counter)
             counter=counter+1
-//
-//            if (!predictedTemplates.isEmpty){
-//              val predictedTemp=for (onePredictedTemp<-predictedTemplates(hp);if transfomedT._1==transformBooleanPredicateToTerm(onePredictedTemp)._1) yield onePredictedTemp
-//              if (predictedTemp.isEmpty) {
-//                gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
-//              } else {
-//                predictedTemp.head._3 match {
-//                  case TemplateType.TplEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 1
-//                  case TemplateType.TplInEqTerm=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 2
-//                  case TemplateType.TplPredPosNeg=>gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 3
-//                }
-//              }
-//            }else gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
-
 
             (templateASTRootName,"verifHint"+t._3.toString)
           }

@@ -449,11 +449,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
       }else if(GlobalParameters.get.generateTemplates){
-        if (GlobalParameters.get.withoutGraphJSON) {
-          val tempDebug=HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-          tempDebug.pretyPrintHints()//todo:debug
-          tempDebug
-        } else
+        if (GlobalParameters.get.withoutGraphJSON)
+         HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")//todo:boolean template predicate-2 will be treated as Eq term
+        else
           generateCombinationTemplates(simplifiedClauses)
       } else{
         VerificationHints(Map()) ++ simpHints
@@ -474,7 +472,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     if (GlobalParameters.get.separateByPredicates == true) {
       GraphTranslator.separateGraphByPredicates(initialPredicates, VerificationHints(Map()), clauseCollection, argumentInfo)
     } else {
-      //todo:read labeled and predicted
+      //read labeled and predicted
       val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
         HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else
         HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
