@@ -264,15 +264,15 @@ object TrainDataGeneratorPredicatesSmt2 {
         val hintsCollection=new VerificationHintsInfo(initialPredicates,truePositiveHints,initialPredicates.filterPredicates(truePositiveHints.predicateHints.keySet))
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())
 
-        if(GlobalParameters.get.measurePredictedPredicates){
-          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,outStream,absBuilder,
-            predictedPositiveHints,initialPredicates,truePositiveHints)
-        } else{
-          //Output graphs
-          val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
-          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, truePositiveHints,countOccurrence=true)
-          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
-        }
+//        if(GlobalParameters.get.measurePredictedPredicates){
+//          HintsSelection.measurePredicates(simplePredicatesGeneratorClauses,predGenerator,counterexampleMethod,outStream,
+//            predictedPositiveHints,initialPredicates,truePositiveHints)
+//        } else{
+//          //Output graphs
+//          val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray
+//          val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, truePositiveHints,countOccurrence=true)
+//          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+//        }
 
         sys.exit()
       }

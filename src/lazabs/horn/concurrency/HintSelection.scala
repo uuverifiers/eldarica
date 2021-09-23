@@ -270,8 +270,8 @@ object HintsSelection {
                          Either[Seq[(Predicate, Seq[Conjunction])],
                            Dag[(IAtom, NormClause)]], counterexampleMethod: CEGAR.CounterexampleMethod.Value,outStream:java.io.OutputStream,
                        fileName: String = "noFileName", moveFileFolder: String = "solvability-timeout", moveFile: Boolean = true,
-                       exit: Boolean = true, coefficient: Int = 1): (Int, Map[Predicate, Seq[IFormula]], Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
-    println("check solvability using current predicates")
+                       exit: Boolean = true, coefficient: Int = 1,message:String=""): (Int, Map[Predicate, Seq[IFormula]], Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
+    println("check solvability using current predicates:",message)
     var solveTime = (GlobalParameters.get.solvabilityTimeout / 1000).toInt
     var satisfiability = false
     val solvabilityTimeoutChecker = clonedTimeChecker(GlobalParameters.get.solvabilityTimeout, coefficient)
@@ -338,32 +338,23 @@ object HintsSelection {
   }
 
   def measurePredicates(simplePredicatesGeneratorClauses:Clauses,predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]],
-                        counterexampleMethod: CEGAR.CounterexampleMethod.Value,outStream:java.io.OutputStream,absBuilder: StaticAbstractionBuilder,
+                        counterexampleMethod: CEGAR.CounterexampleMethod.Value,outStream:java.io.OutputStream,
                         predictedPredicates:VerificationHints,
                         fullPredicates:VerificationHints,
-                        minimizedPredicates:VerificationHints): Unit ={
+                        minimizedPredicates:VerificationHints,dataFold:Map[String,(VerificationHints,StaticAbstractionBuilder)]): Unit ={
     val measurementList = if (GlobalParameters.get.generateTemplates) {
-      val predictedTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(predictedPredicates)
-      val emptyTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(VerificationHints(Map()))
-      val fullTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(fullPredicates)
-      val trueTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(minimizedPredicates)
-      val predictedAbstractionPredGenerator=getPredGenerator(Seq(predictedTemplatesAbstraction),outStream)
-      val emptyAbstractionPredGenerator=getPredGenerator(Seq(emptyTemplatesAbstraction),outStream)
-      val fullAbstractionPredGenerator=getPredGenerator(Seq(fullTemplatesAbstraction),outStream)
-      val trueAbstractionPredGenerator=getPredGenerator(Seq(trueTemplatesAbstraction),outStream)
-      val (solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod, outStream, moveFile = false)
-      val measurementAverageTime= if (solveTime<60) 20 else 5
-      //run trails to reduce time consumption deviation
-      val trial_predicted = measureCEGAR(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod,outStream)
-      val trial_empty = measureCEGAR(simplePredicatesGeneratorClauses, Map(), emptyAbstractionPredGenerator, counterexampleMethod,outStream)
-      val trial_full = measureCEGAR(simplePredicatesGeneratorClauses, Map(), fullAbstractionPredGenerator, counterexampleMethod,outStream)
-      val trial_true = if (minimizedPredicates.isEmpty) Seq() else measureCEGAR(simplePredicatesGeneratorClauses, Map(), trueAbstractionPredGenerator, counterexampleMethod,outStream)
-      val measurementWithPredictedLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), predictedAbstractionPredGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithEmptyLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), emptyAbstractionPredGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithFullLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), fullAbstractionPredGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithTrueLabel = if (minimizedPredicates.isEmpty) measurementWithEmptyLabel else averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), trueAbstractionPredGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      Seq(("measurementWithTrueLabel", measurementWithTrueLabel), ("measurementWithFullLabel", measurementWithFullLabel),
-        ("measurementWithEmptyLabel", measurementWithEmptyLabel), ("measurementWithPredictedLabel", measurementWithPredictedLabel))
+      (for ((fieldName,template)<-dataFold) yield {
+        val foldName=fieldName.substring(0,fieldName.indexOf("InitialPredicates"))
+        val templatesAbstraction=template._2.loopDetector.hints2AbstractionRecord(template._1)
+        val currentGenerator= getPredGenerator(Seq(templatesAbstraction),outStream)
+
+        val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, currentGenerator, counterexampleMethod, outStream, moveFile = false,message = foldName)
+        val measurementAverageTime= if (solveTime<60) 20 else 5
+
+        val trial=measureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator, counterexampleMethod,outStream)
+        val currentMeasurement= averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator, counterexampleMethod,outStream,measurementAverageTime)
+        ("measurementWith"+foldName+"Label", currentMeasurement)
+      }).toSeq
     } else {
       val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false)
       val measurementAverageTime= if (solveTime<60) 20 else 5
@@ -548,11 +539,11 @@ object HintsSelection {
   def averageMeasureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator :  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]]=>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom,NormClause)]],counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-  CEGAR.CounterexampleMethod.FirstBestShortest,outStream:java.io.OutputStream,adverageTime:Int=20): Seq[Tuple2[String,Double]] ={
-    val avg=(for (i<-Range(0,adverageTime,1)) yield{
+  CEGAR.CounterexampleMethod.FirstBestShortest,outStream:java.io.OutputStream,averageTime:Int=20): Seq[Tuple2[String,Double]] ={
+    val avg=(for (i<-Range(0,averageTime,1)) yield{
       val mList=measureCEGAR(simplePredicatesGeneratorClauses,initialHints,predicateGenerator,counterexampleMethod,outStream)
       for (x<-mList) yield x._2
-    }).transpose.map(_.sum/adverageTime)
+    }).transpose.map(_.sum/averageTime)
     val measurementNameList=Seq("timeConsumptionForCEGAR","itearationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","averagePredicateSize")
     for((m,name)<-avg.zip(measurementNameList)) yield Tuple2(name,m)
   }
