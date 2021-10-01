@@ -42,7 +42,7 @@ import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
 import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, timeoutForPredicateDistinct}
 
-import java.io.{File, PrintWriter}
+import java.io.{BufferedWriter, File, FileWriter, PrintWriter}
 import scala.collection.mutable.ArrayBuffer
 
 object DrawHyperEdgeHornGraph {
@@ -537,7 +537,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val guardSeq = guardList.toSeq.sortBy(_.toString)
 
     if (GlobalParameters.get.debugLog==true){
-      val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
+      //val dataFlowInfoWriter = new PrintWriter(new File(file + ".HornGraph"))
+      val dataFlowInfoWriter = new BufferedWriter(new FileWriter(new File(file + ".HornGraph"), true))
       dataFlowInfoWriter.write("--------------------\n")
       dataFlowInfoWriter.write("original clause:\n")
       dataFlowInfoWriter.write(clause.toPrologString + "\n")

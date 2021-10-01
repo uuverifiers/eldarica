@@ -52,7 +52,7 @@ import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHint
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{getFileName,conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
 
 import scala.collection.immutable.Set
 
@@ -495,43 +495,20 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   if (GlobalParameters.get.getSMT2 == true) {
     HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
   }
+
+
+
   if (GlobalParameters.get.checkSolvability == true) {
-    println("ap.CmdlMain.version", ap.CmdlMain.version)
-    //read from unlabeled .tpl file
-    //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
-    //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-    val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
-    val fullInitialPredicates =combTemplates
-    val emptyInitialPredicates = VerificationHints(Map())
-    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
-//    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
-//      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else emptyInitialPredicates
-    val truePredicates = emptyInitialPredicates
-    val randomPredicates = HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+    val predicateMap=HintsSelection.getAllOptionFold(simplifiedClausesForGraph,disjunctive)
+    val fullInitialPredicates= predicateMap("fullInitialPredicates")._1
+    val predictedPredicates= predicateMap("predictedInitialPredicates")._1
+    val truePredicates= predicateMap("trueInitialPredicates")._1
     val counterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
 
-    //add other abstract option
-    val abstractFold= if (GlobalParameters.get.generateTemplates){
-      val abstractTermTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Term)
-      val abstractOctTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Octagon)
-      val abstractrelEqsTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.RelationalEqs)
-      val abstractrelIneqsTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.RelationalEqs)
-      Map("termInitialPredicates"->(abstractTermTemplates.termAbstractions,abstractTermTemplates),"" +
-        "octInitialPredicates"->(abstractOctTemplates.octagonAbstractions,abstractOctTemplates),
-        "relEqsInitialPredicates"->(abstractrelEqsTemplates.relationAbstractions(false),abstractrelEqsTemplates),
-        "relIneqsInitialPredicates"->(abstractrelIneqsTemplates.relationAbstractions(true),abstractrelIneqsTemplates))
-    }else Map()
-    val emptyAbsBuilder=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Empty)//could read from coomand line
-    val dataFold =
-      Map("predictedInitialPredicates" -> (predictedPredicates,emptyAbsBuilder),
-        "randomInitialPredicates"->(randomPredicates,emptyAbsBuilder),
-        "emptyInitialPredicates" -> (emptyInitialPredicates,emptyAbsBuilder),
-        "fullInitialPredicates" -> (fullInitialPredicates,emptyAbsBuilder),
-        "trueInitialPredicates" -> (truePredicates,emptyAbsBuilder)) ++abstractFold
 
     val solvabilityList = {
       if (GlobalParameters.get.generateTemplates) { //template slection task
-        (for ((fieldName, initialTemplates) <- dataFold) yield {
+        (for ((fieldName, initialTemplates) <- predicateMap) yield {
 //          val reconstructedInitialTemplates =
 //            if (fieldName == "predictedInitialPredicates" || fieldName == "fullInitialPredicates")
 //              getReconstructedInitialTemplatesForPrediction(simplifiedClausesForGraph, initialTemplates)
@@ -559,7 +536,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       } else { //predicate selection
         val constraintPredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "constraintPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
         val pairwisePredicates = transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "pairwisePredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
-        (for ((fieldName, initialPredicate) <- dataFold) yield {
+        (for ((fieldName, initialPredicate) <- predicateMap) yield {
           //val simplifiedInitialpredicates
           val solvabilityPredGenerator = if (GlobalParameters.get.onlyInitialPredicates == true) HintsSelection.getExceptionalPredicatedGenerator() else predGenerator
           val (solveTime, predicateFromCegar, _) = HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicate._1.toInitialPredicates, solvabilityPredGenerator, counterexampleMethod, outStream, moveFile = GlobalParameters.get.moveFile, exit = false, coefficient = 1)
@@ -601,17 +578,28 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
     if (GlobalParameters.get.measurePredictedPredicates == true) {
       HintsSelection.measurePredicates(simplifiedClausesForGraph, predGenerator, counterexampleMethod, outStream,
-        predictedPredicates, fullInitialPredicates, truePredicates,dataFold)
+        predictedPredicates, fullInitialPredicates, truePredicates,predicateMap)
     }
     sys.exit()
-
   }
+
+  if (GlobalParameters.get.measurePredictedPredicates == true) {
+    val predicateMap=HintsSelection.getAllOptionFold(simplifiedClausesForGraph,disjunctive)
+    val fullInitialPredicates= predicateMap("fullInitialPredicates")._1
+    val predictedPredicates= predicateMap("predictedInitialPredicates")._1
+    val truePredicates= predicateMap("trueInitialPredicates")._1
+    val counterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
+    HintsSelection.measurePredicates(simplifiedClausesForGraph, predGenerator, counterexampleMethod, outStream,
+      predictedPredicates, fullInitialPredicates, truePredicates,predicateMap)
+    sys.exit()
+  }
+
   val initialPredicatesForCEGAR = getInitialPredicates(simplifiedClausesForGraph, simpHints)
 
   if (GlobalParameters.get.onlyInitialPredicates == true) {
     val exceptionalPredGen = HintsSelection.getExceptionalPredicatedGenerator()
     val localCounterexampleMethod = HintsSelection.getCounterexampleMethod(disjunctive)
-    HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicatesForCEGAR.toInitialPredicates, exceptionalPredGen, localCounterexampleMethod, outStream, HintsSelection.getFileName())
+    HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicatesForCEGAR.toInitialPredicates, exceptionalPredGen, localCounterexampleMethod, outStream, getFileName())
   }
 
   private val predGenerator =
@@ -723,6 +711,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }
 
       case Right(cex) => {
+        //store file to unsat folder
+        println(Console.RED + "-" * 10 + "unsat" + "-" * 10)
+        if (GlobalParameters.get.moveFile == true)
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + getFileName())
         if (lazabs.GlobalParameters.get.simplifiedCEX) {
           println
           cex.map(_._1).prettyPrint

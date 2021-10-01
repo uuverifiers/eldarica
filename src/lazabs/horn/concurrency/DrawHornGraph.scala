@@ -1133,7 +1133,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
   def encodeLabelToMultiClass(positiveMap: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
                               hp:Predicate,currentTemplateSeq:Seq[(IExpression, Int, TemplateType.Value)]): (Int,Int) ={
-    val encodingMap=Map((TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->0,
+    val encodingMap=Map(
+      (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->0,
       (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->1,
       (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->2,
       (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->3,

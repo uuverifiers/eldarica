@@ -312,6 +312,10 @@ object TrainDataGeneratorTemplatesSmt2 {
           println("filteredPositiveTemplates")
           filteredPositiveTemplates.pretyPrintHints()
         }
+        if(filteredPositiveTemplates.isEmpty){
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+fileName,"empty-mined-label")
+          sys.exit()
+        }
         val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledPredicates.predicateHints;
                                                     (kf,vf)<-filteredPositiveTemplates.predicateHints;
                                                     if kp.name==kf.name) yield
@@ -332,10 +336,14 @@ object TrainDataGeneratorTemplatesSmt2 {
       val unlabeledTemplates=combinationTemplates
       val (positiveTemplates,labeledTemplates)=labelTemplates(unlabeledTemplates)
       //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
-      println("-"*10+"unlabeledTemplates"+"-"*10)
-      unlabeledTemplates.pretyPrintHints()
-      println("-"*10+"labeledTemplates"+"-"*10)
-      labeledTemplates.pretyPrintHints()
+      if (GlobalParameters.get.debugLog){
+        println("-"*10+"unlabeledTemplates"+"-"*10)
+        unlabeledTemplates.pretyPrintHints()
+        println("-"*10+"labeledTemplates"+"-"*10)
+        labeledTemplates.pretyPrintHints()
+      }
+
+
 
       if(labeledTemplates.totalPredicateNumber==0){
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")

@@ -41,6 +41,7 @@ import ap.types.{SortedPredicate, TypeTheory}
 import ap.util.{Seqs, Timeout}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, _}
 import lazabs.horn.abstractions.{TemplateType, VerificationHints, _}
 import lazabs.horn.bottomup
@@ -94,6 +95,42 @@ object HintsSelection {
       }
     }
     predGenerator
+  }
+
+  def getAllOptionFold(simplifiedClausesForGraph:Clauses,disjunctive:Boolean):  Map[String, (VerificationHints, StaticAbstractionBuilder)] ={
+    println("ap.CmdlMain.version", ap.CmdlMain.version)
+    //read from unlabeled .tpl file
+    //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
+    //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+    val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+    val fullInitialPredicates =combTemplates
+    val emptyInitialPredicates = VerificationHints(Map())
+    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
+    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else emptyInitialPredicates
+    //val truePredicates = emptyInitialPredicates
+    val randomPredicates = HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+
+    //add other abstract option
+    val abstractFold= if (GlobalParameters.get.generateTemplates){
+      val abstractTermTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Term)
+      val abstractOctTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Octagon)
+      val abstractrelEqsTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.RelationalEqs)
+      val abstractrelIneqsTemplates=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.RelationalEqs)
+      Map("termInitialPredicates"->(abstractTermTemplates.termAbstractions,abstractTermTemplates),"" +
+        "octInitialPredicates"->(abstractOctTemplates.octagonAbstractions,abstractOctTemplates),
+        "relEqsInitialPredicates"->(abstractrelEqsTemplates.relationAbstractions(false),abstractrelEqsTemplates),
+        "relIneqsInitialPredicates"->(abstractrelIneqsTemplates.relationAbstractions(true),abstractrelIneqsTemplates))
+    }else Map()
+    val emptyAbsBuilder=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Empty)//could read from coomand line
+    val dataFold =
+      Map("predictedInitialPredicates" -> (predictedPredicates,emptyAbsBuilder),
+        "randomInitialPredicates"->(randomPredicates,emptyAbsBuilder),
+        "emptyInitialPredicates" -> (emptyInitialPredicates,emptyAbsBuilder),
+        "fullInitialPredicates" -> (fullInitialPredicates,emptyAbsBuilder),
+        "trueInitialPredicates" -> (truePredicates,emptyAbsBuilder)) ++abstractFold
+
+    dataFold
   }
 
   def getReconstructedInitialTemplatesForPrediction(simplifiedClauses:Clauses,initialTemplates:VerificationHints): VerificationHints ={
@@ -368,8 +405,8 @@ object HintsSelection {
       val measurementWithFullLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, fullPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,measurementAverageTime)
       val measurementWithTrueLabel = if (minimizedPredicates.isEmpty) measurementWithEmptyLabel else averageMeasureCEGAR(simplePredicatesGeneratorClauses, minimizedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,measurementAverageTime)
 
-      Seq(("measurementWithTrueLabel", measurementWithTrueLabel), ("measurementWithFullLabel", measurementWithFullLabel),
-        ("measurementWithEmptyLabel", measurementWithEmptyLabel), ("measurementWithPredictedLabel", measurementWithPredictedLabel))
+      Seq(("measurementWithtrueLabel", measurementWithTrueLabel), ("measurementWithfullLabel", measurementWithFullLabel),
+        ("measurementWithemptyLabel", measurementWithEmptyLabel), ("measurementWithpredictedLabel", measurementWithPredictedLabel))
     }
 
     HintsSelection.writeMeasurementToJSON(measurementList)
@@ -479,16 +516,19 @@ object HintsSelection {
   }
 
   def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
-    //if the body has two same predicates not move this example
-    for (c<-simplifiedClauses){
-      val pbodyStrings= new MHashSet[String]
-      for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
-          println("pbodyStrings",pbodyStrings)
-          println(pbody.pred.toString)
-          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
-          sys.exit()
-      }
-    }
+    //if the body has two same predicates move this example
+//    for (c<-simplifiedClauses){
+//      val pbodyStrings= new MHashSet[String]
+//      for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
+//          println("pbodyStrings",pbodyStrings)
+//          println(pbody.pred.toString)
+//          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
+//          sys.exit()
+//      }
+//    }
+//    moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/shell-timeout/"+getFileName(),"shell-timeout")
+//    sys.exit()
+
     val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
 
