@@ -102,8 +102,12 @@ object HintsSelection {
     //read from unlabeled .tpl file
     //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-    val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
-    val fullInitialPredicates =combTemplates
+    lazy val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+    val fullInitialPredicates =
+      if ((new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl")).exists == true)
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+      else
+        combTemplates
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
     val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
@@ -517,15 +521,17 @@ object HintsSelection {
 
   def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
     //if the body has two same predicates move this example
-//    for (c<-simplifiedClauses){
-//      val pbodyStrings= new MHashSet[String]
-//      for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
-//          println("pbodyStrings",pbodyStrings)
-//          println(pbody.pred.toString)
-//          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
-//          sys.exit()
-//      }
-//    }
+    if (GlobalParameters.get.separateMultiplePredicatesInBody==true){
+      for (c<-simplifiedClauses){
+        val pbodyStrings= new MHashSet[String]
+        for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
+          println("pbodyStrings",pbodyStrings)
+          println(pbody.pred.toString)
+          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
+          sys.exit()
+        }
+      }
+    }
 //    moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/shell-timeout/"+getFileName(),"shell-timeout")
 //    sys.exit()
 
@@ -1451,7 +1457,8 @@ object HintsSelection {
       )
       if (path != null) {
         println(s"moved the file $sourceFilename to $destinationFilename successfully")
-        removeRelativeFiles(sourceFilename)
+        if (GlobalParameters.get.extractTemplates==true || GlobalParameters.get.extractPredicates==true)
+          removeRelativeFiles(sourceFilename)
       } else {
         println(s"could NOT move the file $sourceFilename")
       }

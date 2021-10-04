@@ -606,12 +606,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     if (GlobalParameters.get.generateTemplates == true) {
       val combTemplates = generateCombinationTemplates(simplifiedClauses)
       val initialTemplates =
-        if (GlobalParameters.get.rdm)
-        {HintsSelection.randomLabelTemplates(combTemplates, 0.2)
-        } else if (GlobalParameters.get.readTemplates){
-          //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-          val fullTemplates =HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
-          val predictedTemplates=HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
+        if (GlobalParameters.get.rdm) {
+          HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+        } else if (GlobalParameters.get.readTemplates) {
+          val fullTemplates =
+            if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists == true)
+              HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+            else
+              HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+          val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
           predictedTemplates
         }
         else combTemplates
