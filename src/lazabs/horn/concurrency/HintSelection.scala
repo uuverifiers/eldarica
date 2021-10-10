@@ -127,12 +127,12 @@ object HintsSelection {
         "relIneqsInitialPredicates"->(abstractrelIneqsTemplates.relationAbstractions(true),abstractrelIneqsTemplates))
     }else Map()
     val emptyAbsBuilder=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Empty)//could read from coomand line
-    val dataFold =
+    val dataFold = abstractFold++
       Map("predictedInitialPredicates" -> (predictedPredicates,emptyAbsBuilder),
         "randomInitialPredicates"->(randomPredicates,emptyAbsBuilder),
         "emptyInitialPredicates" -> (emptyInitialPredicates,emptyAbsBuilder),
         "fullInitialPredicates" -> (fullInitialPredicates,emptyAbsBuilder),
-        "trueInitialPredicates" -> (truePredicates,emptyAbsBuilder)) ++abstractFold
+        "trueInitialPredicates" -> (truePredicates,emptyAbsBuilder))
 
     dataFold
   }
@@ -383,31 +383,40 @@ object HintsSelection {
                         predictedPredicates:VerificationHints,
                         fullPredicates:VerificationHints,
                         minimizedPredicates:VerificationHints,dataFold:Map[String,(VerificationHints,StaticAbstractionBuilder)]): Unit ={
+    val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false,message = "")
+    val measurementAverageTime= if (solveTime<60) 20 else 5
+    for ((fieldName,template)<-dataFold){
+      val templatesAbstraction=template._2.loopDetector.hints2AbstractionRecord(template._1)
+      val currentGenerator= getPredGenerator(Seq(templatesAbstraction),outStream)
+      for (i<-Range(0,20,1)){
+        //println(i)
+        val trial=averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator,
+          counterexampleMethod,outStream,averageTime = 1,fieldName=fieldName)
+      }
+    }
+//    println(Console.BLUE+"-----------------------------")
+//    println(Console.BLUE+"-----------------------------")
+//    println(Console.BLUE+"-----------------------------")
     val measurementList = if (GlobalParameters.get.generateTemplates) {
       (for ((fieldName,template)<-dataFold) yield {
         val foldName=fieldName.substring(0,fieldName.indexOf("InitialPredicates"))
         val templatesAbstraction=template._2.loopDetector.hints2AbstractionRecord(template._1)
         val currentGenerator= getPredGenerator(Seq(templatesAbstraction),outStream)
 
-        val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, currentGenerator, counterexampleMethod, outStream, moveFile = false,message = foldName)
-        val measurementAverageTime= if (solveTime<60) 20 else 5
-
-        val trial=measureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator, counterexampleMethod,outStream)
-        val currentMeasurement= averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator, counterexampleMethod,outStream,measurementAverageTime)
+//        println("fieldName",fieldName)
+//        template._1.pretyPrintHints()
+        val currentMeasurement= averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator,
+          counterexampleMethod,outStream,averageTime = measurementAverageTime,fieldName=fieldName)
         ("measurementWith"+foldName+"Label", currentMeasurement)
       }).toSeq
     } else {
-      val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false)
-      val measurementAverageTime= if (solveTime<60) 20 else 5
-      //run trails to reduce time consumption deviation
-      val trial_predicted = measureCEGAR(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream)
-      val trial_empty = measureCEGAR(simplePredicatesGeneratorClauses, Map(), predGenerator, counterexampleMethod,outStream)
-      val trial_full = measureCEGAR(simplePredicatesGeneratorClauses, fullPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream)
-      val trial_true = if (minimizedPredicates.isEmpty) Seq() else measureCEGAR(simplePredicatesGeneratorClauses, minimizedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream)
-      val measurementWithPredictedLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithEmptyLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), predGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithFullLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, fullPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,measurementAverageTime)
-      val measurementWithTrueLabel = if (minimizedPredicates.isEmpty) measurementWithEmptyLabel else averageMeasureCEGAR(simplePredicatesGeneratorClauses, minimizedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,measurementAverageTime)
+      //val(solveTime,_,_)=HintsSelection.checkSolvability(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod, outStream, moveFile = false)
+      //val measurementAverageTime= if (solveTime<60) 20 else 5
+      //trails is run in average measuremetnCEGAR
+      val measurementWithPredictedLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, predictedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,averageTime=measurementAverageTime)
+      val measurementWithEmptyLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), predGenerator, counterexampleMethod,outStream,averageTime=measurementAverageTime)
+      val measurementWithFullLabel = averageMeasureCEGAR(simplePredicatesGeneratorClauses, fullPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,averageTime=measurementAverageTime)
+      val measurementWithTrueLabel = if (minimizedPredicates.isEmpty) measurementWithEmptyLabel else averageMeasureCEGAR(simplePredicatesGeneratorClauses, minimizedPredicates.toInitialPredicates, predGenerator, counterexampleMethod,outStream,averageTime=measurementAverageTime)
 
       Seq(("measurementWithtrueLabel", measurementWithTrueLabel), ("measurementWithfullLabel", measurementWithFullLabel),
         ("measurementWithemptyLabel", measurementWithEmptyLabel), ("measurementWithpredictedLabel", measurementWithPredictedLabel))
@@ -585,9 +594,12 @@ object HintsSelection {
   def averageMeasureCEGAR(simplePredicatesGeneratorClauses: HornPreprocessor.Clauses,initialHints: Map[Predicate, Seq[IFormula]],predicateGenerator :  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]]=>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom,NormClause)]],counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-  CEGAR.CounterexampleMethod.FirstBestShortest,outStream:java.io.OutputStream,averageTime:Int=20): Seq[Tuple2[String,Double]] ={
+  CEGAR.CounterexampleMethod.FirstBestShortest,outStream:java.io.OutputStream,averageTime:Int=20,fieldName:String=""): Seq[Tuple2[String,Double]] ={
+
     val avg=(for (i<-Range(0,averageTime,1)) yield{
       val mList=measureCEGAR(simplePredicatesGeneratorClauses,initialHints,predicateGenerator,counterexampleMethod,outStream)
+//      println(fieldName,i)
+//      println(mList)
       for (x<-mList) yield x._2
     }).transpose.map(_.sum/averageTime)
     val measurementNameList=Seq("timeConsumptionForCEGAR","itearationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","averagePredicateSize")
@@ -601,7 +613,6 @@ object HintsSelection {
       Dag[(IAtom, NormClause)]],counterexampleMethod : CEGAR.CounterexampleMethod.Value =
   CEGAR.CounterexampleMethod.FirstBestShortest,outStream:java.io.OutputStream): Seq[Tuple2[String,Double]] ={
     val startCEGARTime=currentTimeMillis()
-
     val Cegar = Console.withOut(outStream){
       new HornPredAbs(simplePredicatesGeneratorClauses,
         initialHints,
@@ -1456,9 +1467,10 @@ object HintsSelection {
         StandardCopyOption.REPLACE_EXISTING
       )
       if (path != null) {
+        removeRelativeFiles(sourceFilename)
         println(s"moved the file $sourceFilename to $destinationFilename successfully")
-        if (GlobalParameters.get.extractTemplates==true || GlobalParameters.get.extractPredicates==true)
-          removeRelativeFiles(sourceFilename)
+//        if (GlobalParameters.get.extractTemplates==true || GlobalParameters.get.extractPredicates==true)
+//          removeRelativeFiles(sourceFilename)
       } else {
         println(s"could NOT move the file $sourceFilename")
       }

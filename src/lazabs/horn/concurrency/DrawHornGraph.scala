@@ -1080,7 +1080,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             //draw boolean predicate as single term node
             val transfomedT=transformBooleanPredicateToTerm(t)
             val templateASTRootName=drawAST(transfomedT._1)
-            println(t,hintLabel,templateASTRootName)
+            //println(t,hintLabel,templateASTRootName)
             gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
             //println(t._1,hintLabel)
 
