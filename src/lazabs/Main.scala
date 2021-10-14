@@ -56,6 +56,7 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
+  var readTrueLabel=false
   var separateMultiplePredicatesInBody=false
   var withoutGraphJSON=false
   var checkSolvability=false
@@ -257,6 +258,7 @@ class GlobalParameters extends Cloneable {
     that.checkSolvability=this.checkSolvability
     that.withoutGraphJSON=this.withoutGraphJSON
     that.separateMultiplePredicatesInBody=this.separateMultiplePredicatesInBody
+    that.readTrueLabel=this.readTrueLabel
     that.readCost=this.readCost
     that.rdm=this.rdm
     that.moveFile = this.moveFile
@@ -364,6 +366,7 @@ object Main {
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
       case "-withoutGraphJSON" :: rest => withoutGraphJSON = true; arguments(rest)
       case "-separateMultiplePredicatesInBody" :: rest => separateMultiplePredicatesInBody = true; arguments(rest)
+      case "-readTrueLabel" :: rest => readTrueLabel = true; arguments(rest)
       case "-readCost" :: rest => readCost = true; arguments(rest)
       case "-rdm" :: rest => rdm = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
@@ -645,6 +648,7 @@ object Main {
           " -checkSolvability \t check solvability for different initial predicate settings\n"+
           " -withoutGraphJSON \t don't output JSON file for graph\n"+
           " -separateMultiplePredicatesInBody \t don't output JSON file for graph\n"+
+          " -readTrueLabel \t read tru label\n"+
           " -readCost \t read template cost from file\n"+
           " -rdm \t random label initial templates\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+

@@ -617,6 +617,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
           predictedTemplates
         }
+        else if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists && GlobalParameters.get.readTrueLabel){
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
+        }
         else combTemplates
       if (GlobalParameters.get.log) {
         println("initialTemplates")
@@ -649,6 +652,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         new HornPredAbs(simplifiedClausesForGraph,
           initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
           counterexampleMethod)
+
+      //todo: write results to JSON file
+      val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",predAbs.cegar.cegarEndTime-predAbs.cegar.cegarStartTime)
+        ,Tuple2("itearationNumber",predAbs.cegar.iterationNum),
+        Tuple2("generatedPredicateNumber",predAbs.cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",predAbs.cegar.averagePredicateSize),
+        Tuple2("predicateGeneratorTime",predAbs.cegar.predicateGeneratorTime))
+      HintsSelection.writeInfoToJSON(measurementList,suffix = "measure")
+
       if (GlobalParameters.get.log){
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         println("unitTwoVariableTemplates")

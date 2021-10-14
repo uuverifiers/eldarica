@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
-import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, timeoutForPredicateDistinct}
+import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, replaceMultiSamePredicateInBody, timeoutForPredicateDistinct}
 
 import java.io.{BufferedWriter, File, FileWriter, PrintWriter}
 import scala.collection.mutable.ArrayBuffer
@@ -147,10 +147,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  controlFlowNodeSetCrossGraph("FALSE") = falseControlFlowNodeName
   var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
 
-  for (clause <- simpClauses) {
+  val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
+  //bodyReplacedClauses.foreach(println)
+  for (clause <- bodyReplacedClauses) {
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
     val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
-
     //draw head predicate node and argument node
     val headNodeName =
       if (normalizedClause.head.pred.name == "FALSE") {
@@ -221,7 +222,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     //draw dataflow
     for (arg <- normalizedClause.head.args)
       drawDataFlow(arg, dataFlowSet)
-
     var guardRootNodeList: Array[String] = Array()
     if (withOutAndConnectionToHyperedge == true) {
       if (guardSet.isEmpty) {
@@ -258,15 +258,20 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         //astEdgeType = "guardAST"
         astEdgeType = "AST"
         for (guard <- guardSet) {
-          val guardRootNodeName = drawAST(guard)
-          for (a <- normalizedClause.allAtoms; if a.pred.name != "FALSE") {
-            guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(guardRootNodeName,guard))))
-          }
-          for (hyperEdgeNode <- hyperEdgeList) {
-            hyperEdgeNode.guardName += guardRootNodeName
-            GlobalParameters.get.hornGraphType match {
-              case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardRootNodeName, addConcretinizedTernaryEdge)
-              case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardRootNodeName, addTernaryEdge)
+          if (guard.isTrue)
+            guardRootNodeList :+= drawTrueGuardCondition()
+          else{
+            val guardRootNodeName = drawAST(guard)
+            guardRootNodeList :+=guardRootNodeName
+            for (a <- normalizedClause.allAtoms; if a.pred.name != "FALSE") {
+              guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(guardRootNodeName,guard))))
+            }
+            for (hyperEdgeNode <- hyperEdgeList) {
+              hyperEdgeNode.guardName += guardRootNodeName
+              GlobalParameters.get.hornGraphType match {
+                case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardRootNodeName, addConcretinizedTernaryEdge)
+                case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardRootNodeName, addTernaryEdge)
+              }
             }
           }
         }
@@ -297,7 +302,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-
     if (GlobalParameters.get.getLabelFromCounterExample == true) {
       //create clause node and connect with guards
       val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
@@ -497,7 +501,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val replacedClause = DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(normalizedClause)
     //val argumentCanonilizedClauses=getArgumentReplacedClause(replacedClause)
     //val simplifiedArgumentCanonilizedClauses=getSimplifiedClauses(argumentCanonilizedClauses)
-    val simplifyedClauses=HintsSelection.getSimplifiedClauses(replacedClause)
+    val simplifyedClauses=HintsSelection.getSimplifiedClauses(replacedClause) //quantify constraintand
     val finalSimplifiedClauses=simplifyedClauses //change to replacedClause see not simplified constraints
 
     //var guardList = Set[IFormula]()

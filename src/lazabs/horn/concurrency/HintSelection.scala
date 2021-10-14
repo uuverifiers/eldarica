@@ -389,20 +389,20 @@ object HintsSelection {
       val templatesAbstraction=template._2.loopDetector.hints2AbstractionRecord(template._1)
       val currentGenerator= getPredGenerator(Seq(templatesAbstraction),outStream)
       for (i<-Range(0,20,1)){
-        //println(i)
         val trial=averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator,
           counterexampleMethod,outStream,averageTime = 1,fieldName=fieldName)
+        println(i,trial(0))
       }
     }
-//    println(Console.BLUE+"-----------------------------")
-//    println(Console.BLUE+"-----------------------------")
-//    println(Console.BLUE+"-----------------------------")
+    println(Console.BLUE+"-----------------------------")
+    println(Console.BLUE+"-----------------------------")
+    println(Console.BLUE+"-----------------------------")
     val measurementList = if (GlobalParameters.get.generateTemplates) {
       (for ((fieldName,template)<-dataFold) yield {
         val foldName=fieldName.substring(0,fieldName.indexOf("InitialPredicates"))
         val templatesAbstraction=template._2.loopDetector.hints2AbstractionRecord(template._1)
         val currentGenerator= getPredGenerator(Seq(templatesAbstraction),outStream)
-
+        println("--------------------")
 //        println("fieldName",fieldName)
 //        template._1.pretyPrintHints()
         val currentMeasurement= averageMeasureCEGAR(simplePredicatesGeneratorClauses, Map(), currentGenerator,
@@ -598,8 +598,8 @@ object HintsSelection {
 
     val avg=(for (i<-Range(0,averageTime,1)) yield{
       val mList=measureCEGAR(simplePredicatesGeneratorClauses,initialHints,predicateGenerator,counterexampleMethod,outStream)
-//      println(fieldName,i)
-//      println(mList)
+      println(fieldName,i)
+      println(mList(0))
       for (x<-mList) yield x._2
     }).transpose.map(_.sum/averageTime)
     val measurementNameList=Seq("timeConsumptionForCEGAR","itearationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","averagePredicateSize")
@@ -1132,6 +1132,28 @@ object HintsSelection {
     val simplifyedConstraints = clauseConstraintQuantify(clause)
     //println(Console.BLUE + "clauseConstraintQuantify finished")
     Clause(clause.head, clause.body, simplifyedConstraints)
+  }
+  def replaceMultiSamePredicateInBody(clause: Clause): Clauses ={
+    //todo: replace multiple same predicate in body
+    var renamedBodyPredicatesList:List[IAtom]=List()
+    val pbodyStrings= new MHashSet[String]
+    var count=1
+    val renamedClauseBody=for(pbody<-clause.body)yield{
+      if (!pbodyStrings.add(pbody.pred.toString)){
+        val renamedBodyPredicate=IAtom(new Predicate(pbody.pred.name+"_"+count.toString,pbody.pred.arity),pbody.args)
+        println("replace",pbody,"by",renamedBodyPredicate)
+        renamedBodyPredicatesList=renamedBodyPredicatesList:+renamedBodyPredicate
+        count=count+1
+        renamedBodyPredicate
+      }else{
+        pbody
+      }
+
+    }
+    val supplementaryClauses= (for (b<-renamedBodyPredicatesList) yield{
+      Clause(b, List(clause.head), true)
+    }).toSeq
+    Seq(Clause(clause.head, renamedClauseBody, clause.constraint)) ++ supplementaryClauses
   }
   def getDataFlowAndGuardWitoutPrint(clause: Clause): (Seq[IFormula], Seq[IFormula]) ={
     val normalizedClause=clause.normalize()
