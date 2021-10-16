@@ -36,66 +36,41 @@ import lazabs.horn.abstractions.VerificationHints
 
 import ap.parser._
 import IExpression.{Predicate, Sort, and}
-import ap.theories.ADT
 import ap.types.MonoSortedPredicate
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  LinkedHashMap}
 
 
-object ADTExpander {
-
-  /**
-   * Interface for adding auxiliary predicate arguments for ADT types
-   */
-  trait Expansion {
-
-    /**
-     * Decide whether to expand an ADT sort should be expanded. In
-     * this case, the method returns a list of new terms and their sorts
-     * to be added as. The new terms can contain the variable <code>_0</code>
-     * which has to be substituted with the actual argument. The last optional
-     * describes how to recompute the original term from the newly introduced
-     * terms; the last term can contain variables <code>_0, _1, ...</code>
-     * for this purpose.
-     */
-    def expand(pred : Predicate,
-               argNum : Int,
-               sort : ADT.ADTProxySort)
-             : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
-  }
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 /**
- * Class used to expand ADT predicate arguments into multiple arguments;
+ * Class used to expand predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
  */
-abstract class ADTExpander extends HornPreprocessor {
+abstract class ArgumentExpander extends HornPreprocessor {
   import HornPreprocessor._
-  import ADTExpander._
 
   val name : String
 
+  /**
+   * Determine whether arguments of the given sort might be expanded.
+   */
+  def isExpandableSort(s : Sort) : Boolean
+
   override def isApplicable(clauses : Clauses) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p => predArgumentSorts(p) exists (_.isInstanceOf[ADT.ADTProxySort])
+      p => predArgumentSorts(p) exists isExpandableSort
     }
 
   /**
-   * Decide whether to expand an ADT sort should be expanded. In
-   * this case, the method returns a list of new terms and their sorts
-   * to be added as. The new terms can contain the variable <code>_0</code>
-   * which has to be substituted with the actual argument. The last optional
-   * describes how to recompute the original term from the newly introduced
-   * terms; the last term can contain variables <code>_0, _1, ...</code>
-   * for this purpose.
+   * Decide whether to expand a predicate argument. In this case, the
+   * method returns a list of new terms and their sorts to be added
+   * as. The new terms can contain the variable <code>_0</code> which
+   * has to be substituted with the actual argument. The last optional
+   * describes how to recompute the original term from the newly
+   * introduced terms; the last term can contain variables <code>_0,
+   * _1, ...</code> for this purpose.
    */
-  def expand(pred : Predicate,
-             argNum : Int,
-             sort : ADT.ADTProxySort)
+  def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
 
   /**
@@ -145,34 +120,28 @@ abstract class ADTExpander extends HornPreprocessor {
         newSorts  += sort
         addedArgs += None
 
-        sort match {
-          case sort : ADT.ADTProxySort =>
-            for ((newArguments, oldArgReconstr) <-
-                   expand(pred, argNum,
-                          sort.asInstanceOf[ADT.ADTProxySort])) {
-              val (addArgs, addSorts, _) = newArguments.unzip3
+        if (isExpandableSort(sort))
+          for ((newArguments, oldArgReconstr) <- expand(pred, argNum, sort)) {
+            val (addArgs, addSorts, _) = newArguments.unzip3
 
-              for (reconstr <- oldArgReconstr) {
-                // in that case we can remove the old argument
-                solSubst.reduceToSize(solSubst.size - 1)
-                newSorts.reduceToSize(newSorts.size - 1)
-                argMapping -= argNum
-                cexArgs(cexArgs.size - 1) =
-                  IExpression.shiftVars(reconstr, newSorts.size)
-              }
-
-              newSorts ++= addSorts
-              addedArgs(addedArgs.size - 1) =
-                Some((newArguments, oldArgReconstr))
-
-              val subst = (List(IVariable(argNum)), 1)
-              for (t <- addArgs)
-                solSubst += VariableSubstVisitor(t, subst)
-
-              changed = true
+            for (reconstr <- oldArgReconstr) {
+              // in that case we can remove the old argument
+              solSubst.reduceToSize(solSubst.size - 1)
+              newSorts.reduceToSize(newSorts.size - 1)
+              argMapping -= argNum
+              cexArgs(cexArgs.size - 1) =
+                IExpression.shiftVars(reconstr, newSorts.size)
             }
-          case _ => // nothing
-        }
+
+            newSorts ++= addSorts
+            addedArgs(addedArgs.size - 1) = Some((newArguments, oldArgReconstr))
+
+            val subst = (List(IVariable(argNum)), 1)
+            for (t <- addArgs)
+              solSubst += VariableSubstVisitor(t, subst)
+
+            changed = true
+          }
       }
 
       if (changed) {

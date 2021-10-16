@@ -39,8 +39,6 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
 
 object CtorTypeExtender {
 
-  import ADTExpander._
-
   // The preprocessor can sometimes cause solution formulas that are illegal
   // according to SMT-LIB because they contain the ADT.CtorId functions in
   // wrong places. We need to rewrite such formulas.
@@ -126,7 +124,7 @@ object CtorTypeExtender {
  * Preprocessor that adds explicit size arguments for each predicate
  * argument for a recursive ADT
  */
-class CtorTypeExtender extends ADTExpander {
+class CtorTypeExtender extends ArgumentExpander {
 
   import IExpression._
 
@@ -140,12 +138,13 @@ class CtorTypeExtender extends ADTExpander {
   override def postprocessSolution(p : Predicate, f : IFormula) : IFormula =
     CtorTypeExtender.CtorIdRewriter.visit(f, ()).asInstanceOf[IFormula]
 
-  def expand(pred : Predicate,
-             argNum : Int,
-             sort : ADT.ADTProxySort)
+  def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
-    val idfun = sort.adtTheory.ctorIds(sort.sortNum)
+    val adtSort = sort.asInstanceOf[ADT.ADTProxySort]
+    val idfun = adtSort.adtTheory.ctorIds(adtSort.sortNum)
     Some((List((idfun(v(0)), idfun.resSort, "ctor_id")), None))
   }
+
+  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }
