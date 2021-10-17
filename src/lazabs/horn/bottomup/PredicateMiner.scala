@@ -95,8 +95,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
    * A lattice representing all sufficient subsets of predicates.
    */
   val predicateLattice =
-    CachedFilteredLattice(PowerSetLattice.invertedWithCosts(allPredsWithSize),
-                          isSufficient)
+    PowerSetLattice.invertedWithCosts(allPredsWithSize).cachedFilter(isSufficient)
 
   def printPreds(preds : Seq[RelationSymbolPred]) : Unit = {
     val rses = preds.map(_.rs).distinct.sortBy(_.name)
@@ -587,8 +586,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
               case h : VerifHintTplElement => (f, h.cost)
             }
           val hintLattice =
-            CachedFilteredLattice(
-              PowerSetLattice.invertedWithCosts(flags), {
+            PowerSetLattice.invertedWithCosts(flags).cachedFilter {
                 (flags : Set[IFormula]) => scope {
 //                  print("-")
                   for ((f, _) <- hintWithFlags)
@@ -597,7 +595,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                   val r = ??? == ProverStatus.Sat
 //                  print(".")
                   r
-                }})
+                }}
 
           val results =
             for (s <- Algorithms.optimalFeasibleObjects(hintLattice)(
