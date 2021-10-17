@@ -653,12 +653,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
           counterexampleMethod)
 
-      //todo: write results to JSON file
-      val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",predAbs.cegar.cegarEndTime-predAbs.cegar.cegarStartTime)
-        ,Tuple2("itearationNumber",predAbs.cegar.iterationNum),
-        Tuple2("generatedPredicateNumber",predAbs.cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",predAbs.cegar.averagePredicateSize),
-        Tuple2("predicateGeneratorTime",predAbs.cegar.predicateGeneratorTime))
-      HintsSelection.writeInfoToJSON(measurementList,suffix = "measure")
+      if (GlobalParameters.get.singleMeasurement){
+        //write measurement to JSON file
+        val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",predAbs.cegar.cegarEndTime-predAbs.cegar.cegarStartTime)
+          ,Tuple2("itearationNumber",predAbs.cegar.iterationNum),
+          Tuple2("generatedPredicateNumber",predAbs.cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",predAbs.cegar.averagePredicateSize),
+          Tuple2("predicateGeneratorTime",predAbs.cegar.predicateGeneratorTime))
+        HintsSelection.writeInfoToJSON(measurementList,suffix = "measure")
+      }
+
 
       if (GlobalParameters.get.log){
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}

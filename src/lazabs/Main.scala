@@ -74,6 +74,7 @@ class GlobalParameters extends Cloneable {
   var extractPredicates=false
   var separateByPredicates=false
   var measurePredictedPredicates=false
+  var singleMeasurement=false
   var labelSimpleGeneratedPredicates=false
   var varyGeneratedPredicates=false
   var readHints=false
@@ -244,6 +245,7 @@ class GlobalParameters extends Cloneable {
     that.extractPredicates=this.extractPredicates
     that.separateByPredicates=this.separateByPredicates
     that.measurePredictedPredicates=this.measurePredictedPredicates
+    that.singleMeasurement=this.singleMeasurement
     that.labelSimpleGeneratedPredicates=this.labelSimpleGeneratedPredicates
     that.varyGeneratedPredicates=this.varyGeneratedPredicates
     that.readHints=this.readHints
@@ -357,6 +359,7 @@ object Main {
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
       case "-separateByPredicates" :: rest => separateByPredicates = true; arguments(rest)
       case "-measurePredictedPredicates" :: rest=> measurePredictedPredicates=true; arguments(rest)
+      case "-singleMeasurement" :: rest=> singleMeasurement=true; arguments(rest)
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
@@ -639,6 +642,7 @@ object Main {
           " -extractPredicates\t extract predicates from CEGAR process\n"+
           " -separateByPredicates\t separate horn graph by predicates\n"+
           " -measurePredictedPredicates\t output predicted predicate measurements\n"+
+          " -singleMeasurement\t single measurements for current option\n"+
           " -labelSimpleGeneratedPredicates\t label simple generated predicates by selected predicates\n"+
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t generate simple predicates\n"+

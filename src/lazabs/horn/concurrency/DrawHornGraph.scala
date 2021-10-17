@@ -460,8 +460,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   edgeDirectionMap += ("template" -> false)
   nodeShapeMap += ("template" -> "component")
 
-  writerGraph.write("digraph dag { " +"graph [pad=\"1\", nodesep=\"0.5\", ranksep=\"1\"]; splines=\"true\";"+ "\n")
-  //writerGraph.write("digraph dag { " + "\n")
+  //writerGraph.write("digraph dag { " +"graph [pad=\"1\", nodesep=\"0.5\", ranksep=\"1\"]; splines=\"true\";"+ "\n")
+  writerGraph.write("digraph dag { " + "\n")
 
   def addBinaryEdge(from: String, to: String, label: String, biDirection: Boolean = false): Unit =
     biDirection match {
