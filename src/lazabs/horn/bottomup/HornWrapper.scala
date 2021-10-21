@@ -453,20 +453,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }else if(GlobalParameters.get.generateTemplates){
         if (GlobalParameters.get.withoutGraphJSON)
          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")//todo:boolean template predicate-2 will be treated as Eq term
-        else {
-          val combTemp=generateCombinationTemplates(simplifiedClauses)
-          if(combTemp.isEmpty){
-            HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-initial-predicates/"+fileName,"no-initial-predicates")
-            sys.exit()
-          }
-          combTemp
-        }
+        else {generateCombinationTemplates(simplifiedClauses)}
       } else{
         VerificationHints(Map()) ++ simpHints
       }
 
 
-    if (initialPredicates.totalPredicateNumber == 0 && GlobalParameters.get.generateSimplePredicates == true) {
+    if (initialPredicates.totalPredicateNumber == 0 && (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true)) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
       sys.exit()
     }
