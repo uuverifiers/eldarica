@@ -1868,18 +1868,17 @@ object HintsSelection {
                        disjunctive: Boolean,argumentOccurrence:Boolean,argumentBound:Boolean):  ArrayBuffer[argumentInfo] ={
     val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
 
-    val argumentInfo = if (argumentOccurrence==true){
+    val argumentInfo = if (argumentOccurrence==true && argumentBound==true){
+      val argumentOccurrenceInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
+      val argumentBoundInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      for (a<-(argumentOccurrenceInfo zip argumentBoundInfo)) yield {
+        a._1.bound=a._2.bound
+        a._1}
+    }else if (argumentOccurrence==true){
       HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
     }else if (argumentBound==true){
       HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-    }else if (argumentOccurrence==true && argumentBound==true){
-      val argumentOccurrenceInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
-      val argumentBoundInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
-      for (a<-(argumentBoundInfo zip argumentOccurrenceInfo)) yield {
-        a._2.bound=a._1.bound
-        a._2
-      }
-    }else{
+    } else{
       getArgumentInfo(argumentList)
     }
     argumentInfo
