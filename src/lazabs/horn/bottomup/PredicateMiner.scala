@@ -94,8 +94,41 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
   /**
    * A lattice representing all sufficient subsets of predicates.
    */
-  val predicateLattice =
-    PowerSetLattice.invertedWithCosts(allPredsWithSize).cachedFilter(isSufficient)
+  val predicateLattice = {
+    val basePredicateLattice =
+      PowerSetLattice.invertedWithCosts(allPredsWithSize)
+
+    basePredicateLattice.filterObjectsWithBounds(
+      obj => {
+        val testedSet = basePredicateLattice getLabel obj
+        sufficientSubset(testedSet) match {
+          case Some(usedSet) => {
+            assert(usedSet.toSet subsetOf testedSet)
+            var res = obj
+
+            var cont = usedSet.size < (basePredicateLattice getLabel res).size
+            while (cont) {
+              val succs = basePredicateLattice succ res
+              cont = false
+              while (succs.hasNext && !cont) {
+                val s = succs.next
+                if (usedSet.toSet subsetOf (basePredicateLattice getLabel s)) {
+                  res = s
+                  cont = true
+                }
+              }
+            }
+
+            assert(usedSet.size == (basePredicateLattice getLabel res).size)
+
+            Left(res)
+          }
+          case None =>
+            Right(obj)
+        }
+      }
+    )
+  }
 
   def printPreds(preds : Seq[RelationSymbolPred]) : Unit = {
     val rses = preds.map(_.rs).distinct.sortBy(_.name)
@@ -279,6 +312,34 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     } catch {
       case PredGenException => {
         false
+      }
+    }
+  }
+
+  /**
+   * Check whether the given set of predicates is sufficient to show
+   * satisfiability of the problem.
+   */
+  def sufficientSubset(preds : Iterable[RelationSymbolPred])
+                     : Option[Iterable[RelationSymbolPred]] = {
+    print(".")
+    val newPredStore = new PredicateStore(context)
+    newPredStore addRelationSymbolPreds preds
+//    println("trying " + preds.size)
+    try {
+      val cegar = Console.withOut(HornWrapper.NullStream) {
+        new CEGAR (context, newPredStore, exceptionalPredGen)
+      }
+      val usedPreds =
+        (for ((_, states) <- cegar.activeAbstractStates.iterator;
+              state <- states.iterator;
+              pred <- state.preds.iterator)
+         yield pred).toSet
+//    println("reduced to " + usedPreds.size)
+      Some(usedPreds)
+    } catch {
+      case PredGenException => {
+        None
       }
     }
   }
