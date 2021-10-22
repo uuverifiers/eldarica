@@ -32,6 +32,8 @@ package lazabs.horn.concurrency
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.parser._
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.bottomup._
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
@@ -87,7 +89,17 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
     }
 
     //val selectedHint=HintsSelection.tryAndTestSelecton(encoder,sortedHints,simplifiedClausesForGraph,GlobalParameters.get.fileName,InitialHintsWithID)
-    val (selectedHint,result)=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simplifiedClausesForGraph,GlobalParameters.get.fileName,InitialHintsWithID,true)
+    val outStream =
+      if (GlobalParameters.get.logStat)
+        Console.err
+      else
+        HornWrapper.NullStream
+    val absBuilder = new StaticAbstractionBuilder(simplifiedClausesForGraph, GlobalParameters.get.templateBasedInterpolationType)
+    val autoAbstraction: AbstractionMap = absBuilder.abstractionRecords
+    val emptyAbsBuilder=new StaticAbstractionBuilder(simplifiedClausesForGraph, AbstractionType.Empty)//could read from coomand line
+    val hintsAbstraction=emptyAbsBuilder.loopDetector.hints2AbstractionRecord(simpHints)
+    val predGenerator = HintsSelection.getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
+    val (selectedHint,result)=HintsSelection.tryAndTestSelectionTemplates(encoder,sortedHints,simplifiedClausesForGraph,GlobalParameters.get.fileName,InitialHintsWithID,predGenerator,true)
     if(selectedHint.isEmpty){ //when no hint available
       //not write horn clauses to file
     }else{
@@ -102,8 +114,8 @@ class TrainDataGenerator(smallSystem : ParametricEncoder.System,system : Paramet
       }
 
       //write argument score to file
-      val argumentList=(for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
-      val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName,argumentList,selectedHint)
+      val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,GlobalParameters.get.disjunctive,
+        argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
       val hintsCollection=new VerificationHintsInfo(simpHints,selectedHint,simpHints.filterPredicates(selectedHint.predicateHints.keySet))
       val clausesInCE=getClausesInCounterExamples(result,simplifiedClausesForGraph)
       val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,clausesInCE)

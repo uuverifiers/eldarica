@@ -70,7 +70,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
       edgeNameMap += ("argumentInstance" -> "AI")
       edgeNameMap += ("controlHead" -> "CH")
       edgeNameMap += ("controlBody" -> "CB")
-      edgeNameMap += ("controlArgument" -> "ARG")
+      edgeNameMap += ("controlArgument" -> "CA")
       edgeNameMap += ("guard" -> "guard")
       edgeNameMap += ("data" -> "data")
       edgeNameMap += ("subTerm" -> "st")

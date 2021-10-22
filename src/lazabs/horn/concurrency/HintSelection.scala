@@ -1560,7 +1560,7 @@ object HintsSelection {
 
 
   def tryAndTestSelectionTemplates(encoder: ParametricEncoder, simpHints: VerificationHints,
-                                   simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID],
+                                   simpClauses: Clauses, file: String, InitialHintsWithID: Seq[wrappedHintWithID], predGenerator: Util.Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Util.Dag[(IAtom, NormClause)]],
                                    predicateFlag: Boolean = true): (VerificationHints, Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
 
 
@@ -1596,44 +1596,12 @@ object HintsSelection {
           }
           try {
             GlobalParameters.parameters.withValue(toParams) {
-              //interpolator
-              val interpolator = if (GlobalParameters.get.templateBasedInterpolation)
-                Console.withErr(Console.out) {
-                  val builder =
-                    new StaticAbstractionBuilder(
-                      simpClauses,
-                      GlobalParameters.get.templateBasedInterpolationType)
-
-
-                  val autoAbstractionMap =
-                    builder.abstractionRecords
-                  val abstractionMap =
-                    if (encoder.globalPredicateTemplates.isEmpty) {
-                      autoAbstractionMap
-                    } else {
-                      val loopDetector = builder.loopDetector
-                      print("Using interpolation templates provided in program: ")
-                      val hintsAbstractionMap =
-                        loopDetector hints2AbstractionRecord currentTemplates //emptyHints criticalHints
-                      //DEBUG
-                      println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
-
-                      AbstractionRecord.mergeMaps(Map(), hintsAbstractionMap) //autoAbstractionMap=Map()
-                    }
-
-                  TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-                    abstractionMap,
-                    GlobalParameters.get.templateBasedInterpolationTimeout)
-                } else {
-                DagInterpolator.interpolatingPredicateGenCEXAndOr _
-              }
-
               println(
                 "----------------------------------- CEGAR --------------------------------------")
 
               new HornPredAbs(simpClauses, // loop
                 currentTemplates.toInitialPredicates, //emptyHints
-                interpolator).result
+                predGenerator).result
 
               // not timeout ...
               println("Delete a redundant hint:\n" + head + "\n" + p)
@@ -1814,12 +1782,14 @@ object HintsSelection {
         CEGAR.CounterexampleMethod.AllShortest
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
+
     val simpPredAbs =
       new simplifiedHornPredAbsForArgumentBounds(simplifiedClauses, //HornPredAbs
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
     getArgumentBound(argumentList, simpPredAbs.argumentBounds)
   }
+
 
   def getArgumentBound(argumentList: Array[(IExpression.Predicate, Int)], argumentBounds: scala.collection.mutable.Map[Predicate, Array[(String, String)]]): ArrayBuffer[argumentInfo] = {
     val arguments = getArgumentInfo(argumentList)
@@ -1892,6 +1862,27 @@ object HintsSelection {
       writer.close()
     }
     arguments
+  }
+  def getArgumentLabel(simplifiedClausesForGraph:Clauses,simpHints: VerificationHints
+                       , predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]],
+                       disjunctive: Boolean,argumentOccurrence:Boolean,argumentBound:Boolean):  ArrayBuffer[argumentInfo] ={
+    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
+
+    val argumentInfo = if (argumentOccurrence==true){
+      HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
+    }else if (argumentBound==true){
+      HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+    }else if (argumentOccurrence==true && argumentBound==true){
+      val argumentOccurrenceInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
+      val argumentBoundInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      for (a<-(argumentBoundInfo zip argumentOccurrenceInfo)) yield {
+        a._2.bound=a._1.bound
+        a._2
+      }
+    }else{
+      getArgumentInfo(argumentList)
+    }
+    argumentInfo
   }
 
 }

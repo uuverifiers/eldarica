@@ -432,7 +432,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   val sp = new Simplifier
   val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length)
 
-  if (GlobalParameters.get.getHornGraph == true) {
+  if (GlobalParameters.get.getHornGraph == true && GlobalParameters.get.getLabelFromCounterExample==false) {
     if (simplifiedClausesForGraph.isEmpty) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
       sys.exit()
@@ -464,10 +464,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       sys.exit()
     }
 
+    val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+      argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
 
-    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
-    val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
-    //val argumentInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, Seq())
 
     if (GlobalParameters.get.separateByPredicates == true) {
@@ -494,8 +493,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   if (GlobalParameters.get.getSMT2 == true) {
     HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
   }
-
-
 
   if (GlobalParameters.get.checkSolvability == true) {
     val predicateMap=HintsSelection.getAllOptionFold(simplifiedClausesForGraph,disjunctive)
@@ -670,18 +667,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
-
-        val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray
-        val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
+        val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+          argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
         val hintsCollection = new VerificationHintsInfo(VerificationHints(Map()), VerificationHints(Map()), VerificationHints(Map()))
         val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, clausesInCE)
         GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
         sys.exit()
       }
-      //todo: debug A is not subset of B
-      //      HintsSelection.printPredicateInMapFormat(initialPredicatesForCEGAR.toInitialPredicates,"A")
-      //      HintsSelection.printPredicateInMapFormat(transformPredicatesToCanonical(predAbs.predicates),"B")
-
 
       lazabs.GlobalParameters.get.predicateOutputFile match {
         case "" =>

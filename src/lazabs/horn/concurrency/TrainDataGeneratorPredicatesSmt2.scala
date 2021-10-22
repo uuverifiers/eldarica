@@ -353,10 +353,8 @@ object TrainDataGeneratorPredicatesSmt2 {
               getClausesInCounterExamples(test,simplePredicatesGeneratorClauses) else Seq()
             val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,clausesInCE)
             //Output graphs
-            val argumentList = (for (p <- HornClauses.allPredicates(simplePredicatesGeneratorClauses)) yield (p, p.arity)).toArray.sortBy(_._1.name)
-            //val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints,countOccurrence=false)
-            val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledPredicates,countOccurrence=true)
-
+            val argumentInfo = HintsSelection.getArgumentLabel(simplePredicatesGeneratorClauses,simpHints,predGenerator,GlobalParameters.get.disjunctive,
+              argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
 
             if (GlobalParameters.get.separateByPredicates==true){
               GraphTranslator.separateGraphByPredicates(unlabeledPredicates,labeledPredicates,clauseCollection,argumentInfo)

@@ -56,6 +56,9 @@ object GlobalParameters {
 
 class GlobalParameters extends Cloneable {
   //var printHints=VerificationHints(Map())
+  var argumentOccurenceLabel=false
+  var argumentBoundLabel=false
+  var getLabelFromCounterExample=false
   var readTrueLabel=false
   var separateMultiplePredicatesInBody=false
   var withoutGraphJSON=false
@@ -83,7 +86,6 @@ class GlobalParameters extends Cloneable {
   var getSMT2=false
   var getHornGraph=false
   var getAllHornGraph=false
-  var getLabelFromCounterExample=false
   var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
   var in: InputStream = null
   var fileName = ""
@@ -254,6 +256,8 @@ class GlobalParameters extends Cloneable {
     that.getHornGraph=this.getHornGraph
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
+    that.argumentOccurenceLabel=this.argumentOccurenceLabel
+    that.argumentBoundLabel=this.argumentBoundLabel
     that.generateSimplePredicates=this.generateSimplePredicates
     that.generateTemplates=this.generateTemplates
     that.onlyInitialPredicates=this.onlyInitialPredicates
@@ -376,7 +380,9 @@ object Main {
       case "-readTemplates" :: rest => readTemplates = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
-      case "-getLabelFromCE":: rest =>getLabelFromCounterExample = true; arguments(rest)
+      case "-getLabelFromCounterExample":: rest =>getLabelFromCounterExample = true; arguments(rest)
+      case "-argumentOccurenceLabel":: rest =>argumentOccurenceLabel = true; arguments(rest)
+      case "-argumentBoundLabel":: rest =>argumentBoundLabel = true; arguments(rest)
       case "-getHornGraph" :: rest => {
         getHornGraph = true
         getAllHornGraph = true
@@ -660,6 +666,9 @@ object Main {
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -maxNode:n\t if the node number exceeded this number, stop drawing\n"+
           " -getSMT2\t get SMT2 file\n"+
+          " -getLabelFromCounterExample\t  predicate occurrence in counter example\n"+
+          " -argumentOccurenceLabel\t  argument occurrence in hints\n"+
+          " -argumentBoundLabel\t  get argument lower and upper bound\n"+
           " -getHornGraph\t get all types of horn graph file and GNN input\n"+
           " -getHornGraph:t\t Interp. getHornGraph: monoDirectionLayerGraph, biDirectionLayerGraph, hybridDirectionLayerGraph,clauseRelatedTaskLayerGraph, fineGrainedEdgeTypeLayerGraph, hyperEdgeGraph, equivalentHyperedgeGraph, concretizedHyperedgeGraph\n" +
           " -getLabelFromCE \t get label from counter example\n"

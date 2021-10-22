@@ -354,8 +354,8 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       //Output graphs
       val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-      val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
-      val argumentInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, labeledTemplates,countOccurrence=true)
+      val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+        argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
       if (GlobalParameters.get.separateByPredicates==true){
         GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
       }else{
