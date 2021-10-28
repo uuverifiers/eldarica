@@ -267,8 +267,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
             val andName = "&" + "_" + gnn_input.GNNNodeID
             createNode(andName, labelName = "&", "operator", nodeShapeMap("operator"))
             guardRootNodeList :+= andName
-            val trueNodeForGuard=drawTrueNode()
-            addBinaryEdge(trueNodeForGuard, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+            //val trueNodeForGuard=drawTrueNode()
+            //addBinaryEdge(trueNodeForGuard, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
             addBinaryEdge(guardRootNodeName, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
             for (a <- normalizedClause.allAtoms; if a.pred.name != "FALSE") {
               guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(andName,guard))))
@@ -310,7 +310,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     }
-    if (GlobalParameters.get.getLabelFromCounterExample == true) {
+    if (GlobalParameters.get.getLabelFromCounterExample == true) {//todo: label guardRootNodeList
       //create clause node and connect with guards
       val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
       createNode(clauseNodeName, clauseNodeName, "clause", nodeShapeMap("clause"), Seq(clause))
@@ -598,8 +598,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   def drawTrueGuardCondition(): String ={
     val trueNodeName = drawTrueNode()
-    drawHyperEdgeWithTrueGuard(trueNodeName)
-    trueNodeName
+    val andName = "&" + "_" + gnn_input.GNNNodeID
+    createNode(andName, labelName = "&", "operator", nodeShapeMap("operator"))
+    addBinaryEdge(trueNodeName, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+    drawHyperEdgeWithTrueGuard(andName)
+    andName
   }
 
   def drawTrueNode(): String = {

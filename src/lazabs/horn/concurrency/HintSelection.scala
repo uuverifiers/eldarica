@@ -97,6 +97,34 @@ object HintsSelection {
     predGenerator
   }
 
+  def checkMaxNode(simplifiedClausesForGraph: Clauses): Unit = {
+    var totalNodeNumebr = 0
+    val clauseNumber = simplifiedClausesForGraph.length
+    val preds = (for (c <- simplifiedClausesForGraph) yield {
+      c.predicates
+    }).flatten
+    val totalArgNumber = (for (p <- preds) yield {
+      p.arity
+    }).sum
+    GlobalParameters.get.hornGraphType match { //add differernt number when graph type is differernt
+      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph=> {
+        val uniquePred=preds.distinct
+        totalNodeNumebr=clauseNumber+uniquePred.length + (for (p <- uniquePred) yield {p.arity}).sum
+      }
+      case _ =>{
+        val headAndBodyNumber= (for(c<-simplifiedClausesForGraph)yield c.allAtoms.length).sum
+        totalNodeNumebr=clauseNumber+preds.distinct.length+totalArgNumber+headAndBodyNumber
+      }
+    }
+
+    if (totalNodeNumebr >= GlobalParameters.get.maxNode) {
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/exceed-max-node/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "node number >= maxNode")
+      //HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
+      sys.exit()
+    }
+
+  }
+
   def getAllOptionFold(simplifiedClausesForGraph:Clauses,disjunctive:Boolean):  Map[String, (VerificationHints, StaticAbstractionBuilder)] ={
     println("ap.CmdlMain.version", ap.CmdlMain.version)
     //read from unlabeled .tpl file
@@ -166,30 +194,50 @@ object HintsSelection {
     val uniqueAtoms= (for(c<-simplifiedClauses;a<-c.allAtoms) yield a.pred->(a.args zip HornPredAbs.predArgumentSorts(a.pred)) ).distinct
     for (a<-uniqueAtoms;if loopDetector.loopHeads.map(_.name).contains(a._1.name)) yield a
   }
-  def generateCombinationTemplates(simplifiedClauses:Clauses): VerificationHints ={
-    val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
-    VerificationHints((for ((pred,args) <- loopHeadsWithSort) yield{
-      val singleBooleanTerms = for ((a,i)<-args.zipWithIndex; if a._2==Sort.MultipleValueBool) yield IVariable(i,a._2)
-      val singlePositiveTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool) yield IVariable(i,a._2)
-      val singleNegativeTerms = for ((a,i)<-args.zipWithIndex; if a._2!=Sort.MultipleValueBool ) yield -IVariable(i,a._2)
-      //val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
-      val argumentLinearComb=for(t<-singlePositiveTerms.tail) yield (singlePositiveTerms.head,t) //only interact with the first argument
-      val combinationsTermsForEq=(for ((v1,v2)<-argumentLinearComb) yield{
-        Seq(v1-v2,v1+v2)
-      }).flatten
-      val combinationsTermsForInEq=(for ((v1,v2)<-argumentLinearComb) yield{
-        Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
-      }).flatten
-      val allTermsEq= (singlePositiveTerms ++ combinationsTermsForEq).map(sp.apply(_))
-      val allTermsInEq=(singlePositiveTerms++singleNegativeTerms++combinationsTermsForInEq).map(sp.apply(_))//singleBooleanTerms
-      val allTermsPredicate=singleBooleanTerms.map(Eq(_,0))//.map(sp.apply(_))
-      val allTypeElements=Seq(
-        allTermsEq.map(VerifHintTplEqTerm(_,1)),
-        allTermsPredicate.map(VerifHintTplPredPosNeg(_,1)),
-        allTermsInEq.map(VerifHintTplInEqTerm(_,1)))
-      pred->allTypeElements.reduce(_++_)
-    }).sortBy (_._1.name).toMap)
 
+  def generateCombinationTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = true): VerificationHints = {
+    val predicatesForCombTemplateGeneration =
+      if (onlyLoopHead)
+        getLoopHeadsWithSort(simplifiedClauses)
+      else {
+        (for (c <- simplifiedClauses; a <- c.allAtoms) yield a.pred -> (a.args zip HornPredAbs.predArgumentSorts(a.pred))).distinct
+      }
+
+    if (predicatesForCombTemplateGeneration.isEmpty) {
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/loop-head-empty/" + getFileName(), "loopHeads is empty")
+      sys.exit()
+    }
+    VerificationHints((for ((pred, args) <- predicatesForCombTemplateGeneration) yield {
+      val singleBooleanTerms = for ((a, i) <- args.zipWithIndex; if a._2 == Sort.MultipleValueBool) yield IVariable(i, a._2)
+      val singlePositiveTerms = for ((a, i) <- args.zipWithIndex; if a._2 != Sort.MultipleValueBool) yield IVariable(i, a._2)
+      val singleNegativeTerms = for ((a, i) <- args.zipWithIndex; if a._2 != Sort.MultipleValueBool) yield -IVariable(i, a._2)
+      //val argumentComb=singlePositiveTerms.combinations(2).map(listToTuple2(_)).toSeq
+      val (combinationsTermsForEq, combinationsTermsForInEq) = if (singlePositiveTerms.length > 1) {
+        val argumentLinearComb = for (t <- singlePositiveTerms.tail) yield (singlePositiveTerms.head, t) //only interact with the first argument
+        ((for ((v1, v2) <- argumentLinearComb) yield {
+          Seq(v1 - v2, v1 + v2)
+        }).flatten,
+          (for ((v1, v2) <- argumentLinearComb) yield {
+            Seq(v1 - v2, v2 - v1, v1 + v2, -v1 - v2)
+          }).flatten)
+      } else {
+        (Seq(), Seq())
+      }
+      //      val combinationsTermsForEq=(for ((v1,v2)<-argumentLinearComb) yield{
+      //        Seq(v1-v2,v1+v2)
+      //      }).flatten
+      //      val combinationsTermsForInEq=(for ((v1,v2)<-argumentLinearComb) yield{
+      //        Seq(v1-v2,v2-v1,v1+v2,-v1-v2)
+      //      }).flatten
+      val allTermsEq = (singlePositiveTerms ++ combinationsTermsForEq).map(sp.apply(_))
+      val allTermsInEq = (singlePositiveTerms ++ singleNegativeTerms ++ combinationsTermsForInEq).map(sp.apply(_)) //singleBooleanTerms
+      val allTermsPredicate = singleBooleanTerms.map(Eq(_, 0)) //.map(sp.apply(_))
+      val allTypeElements = Seq(
+        allTermsEq.map(VerifHintTplEqTerm(_, 1)),
+        allTermsPredicate.map(VerifHintTplPredPosNeg(_, 1)),
+        allTermsInEq.map(VerifHintTplInEqTerm(_, 1)))
+      pred -> allTypeElements.reduce(_ ++ _)
+    }).sortBy(_._1.name).toMap)
   }
 
   def resetElementCost(element:VerifHintElement,c:Int):VerifHintElement=element match {
@@ -1481,8 +1529,9 @@ object HintsSelection {
     }
 
   def moveRenameFile(sourceFilename: String, destinationFilename: String,message:String=""): Unit = {
+    println(Console.RED+"-"*5+message+"-"*5)
     if (GlobalParameters.get.moveFile==true){
-      println(Console.RED+"-"*5+message+"-"*5)
+      //println(Console.RED+"-"*5+"file moved"+"-"*5)
       val path = Files.copy(
         Paths.get(sourceFilename),
         Paths.get(destinationFilename),

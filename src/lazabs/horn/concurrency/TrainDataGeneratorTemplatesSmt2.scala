@@ -212,17 +212,21 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       val fileName=HintsSelection.getFileName()
 
-      val loopDetector = new LoopDetector(simplifiedClauses)
-      if(loopDetector.loopHeads.isEmpty){
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/loop-head-empty/"+fileName,"loopHeads is empty")
+      if (simplifiedClauses.isEmpty) {
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
         sys.exit()
       }
+
+      HintsSelection.checkMaxNode(simplifiedClauses)
+
+      val loopDetector = new LoopDetector(simplifiedClauses)
+
 
       val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
         absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
 
       //set all cost to 0
-      val combinationTemplates=generateCombinationTemplates(simplifiedClauses)
+      val combinationTemplates=generateCombinationTemplates(simplifiedClauses,onlyLoopHead = false)
 
       val initialTemplates=
         if(GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Empty)
