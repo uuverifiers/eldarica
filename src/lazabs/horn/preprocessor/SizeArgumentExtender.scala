@@ -31,11 +31,11 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression.{Predicate, Sort, and}
-import ap.theories.ADT
+import ap.theories.{ADT, Theory}
 import ap.types.MonoSortedPredicate
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 LinkedHashMap}
+                                 LinkedHashMap, HashSet => MHashSet}
 
 /**
  * Preprocessor that adds explicit size arguments for each predicate
@@ -44,13 +44,15 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
 class SizeArgumentExtender extends ArgumentExpander {
 
   import IExpression._
+  import HornPreprocessor.Clauses
 
   val name = "adding size arguments"
 
   def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
     val adtSort = sort.asInstanceOf[ADT.ADTProxySort]
-    if (adtSort.adtTheory.termSize != null &&
+    if ((usedTheories contains adtSort.adtTheory) &&
+          adtSort.adtTheory.termSize != null &&
           recursiveADTSorts.getOrElseUpdate(adtSort, isRecursive(adtSort))) {
       val sizefun = adtSort.adtTheory.termSize(adtSort.sortNum)
       Some((List((sizefun(v(0)), Sort.Nat, "adt_size")), None))
@@ -80,6 +82,14 @@ class SizeArgumentExtender extends ArgumentExpander {
           false
       }
     }
+
+  override def setup(clauses : Clauses) : Unit = {
+    usedTheories.clear
+    for (clause <- clauses)
+      usedTheories ++= clause.theories
+  }
+
+  private val usedTheories = new MHashSet[Theory]
 
   def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
