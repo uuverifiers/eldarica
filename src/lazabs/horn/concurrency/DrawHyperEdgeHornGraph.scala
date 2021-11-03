@@ -330,7 +330,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     unaryOperatorSubGraphSetInOneClause.clear()
   }
 
-
     //draw templates
     astEdgeType = "AST"//"templateAST"
     val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()//drawTemplatesWithNode()

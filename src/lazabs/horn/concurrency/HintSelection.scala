@@ -200,7 +200,7 @@ object HintsSelection {
       if (onlyLoopHead)
         getLoopHeadsWithSort(simplifiedClauses)
       else {
-        (for (c <- simplifiedClauses; a <- c.allAtoms) yield a.pred -> (a.args zip HornPredAbs.predArgumentSorts(a.pred))).distinct
+        (for (c <- simplifiedClauses; a <- c.allAtoms; if a.pred.name!="FALSE") yield a.pred -> (a.args zip HornPredAbs.predArgumentSorts(a.pred))).distinct
       }
 
     if (predicatesForCombTemplateGeneration.isEmpty) {

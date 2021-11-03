@@ -217,7 +217,6 @@ class HornWrapper(constraints: Seq[HornClause],
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
   private val (simplifiedClauses, simpPreHints, preprocBackTranslator) =
     Console.withErr(outStream) {
       val (simplifiedClauses, simpPreHints, backTranslator) =
@@ -425,7 +424,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //      DagInterpolator.interpolatingPredicateGenCEXAndOr _
   //    }
   //  }
-
 
   val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)// remove from benchmark if there are multiple atom in body
   HintsSelection.checkMaxNode(simplifiedClausesForGraph)
