@@ -75,5 +75,9 @@ unsat
 5: p1(Pair(2, 1), 4) -> 6
 6: p1(Pair(1, 2), 5)
 
+polymorphicTuple.smt2
+sat
+(define-fun p1 ((A (Pair Int Int)) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+
 list-synasc-unsat.smt2
 unsat

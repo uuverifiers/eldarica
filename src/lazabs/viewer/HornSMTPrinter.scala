@@ -59,7 +59,7 @@ object HornSMTPrinter {
   }
   
   def type2String(t: Type) : String = t match {
-    case AdtType(s) => s.name
+    case AdtType(s) => SMTLineariser.sort2SMTString(s)
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
     case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
