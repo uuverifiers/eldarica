@@ -237,7 +237,7 @@ object HintsSelection {
         allTermsPredicate.map(VerifHintTplPredPosNeg(_, 1)),
         allTermsInEq.map(VerifHintTplInEqTerm(_, 1)))
       pred -> allTypeElements.reduce(_ ++ _)
-    }).sortBy(_._1.name).toMap)
+    }).filterNot(_._2.isEmpty).sortBy(_._1.name).toMap)
   }
 
   def resetElementCost(element:VerifHintElement,c:Int):VerifHintElement=element match {

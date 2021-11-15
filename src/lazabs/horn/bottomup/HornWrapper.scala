@@ -171,7 +171,7 @@ class HornWrapper(constraints: Seq[HornClause],
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))
-
+  //printClauses(unsimplifiedClauses)
   //    if (GlobalParameters.get.printHornSimplified)
   //      printMonolithic(unsimplifiedClauses)
 
@@ -226,25 +226,6 @@ class HornWrapper(constraints: Seq[HornClause],
           val preprocessor = new DefaultPreprocessor
           preprocessor.process(unsimplifiedClauses, hints)
         }
-
-      if (GlobalParameters.get.printHornSimplified) {
-        //      println("-------------------------------")
-        //      printClauses(simplifiedClauses)
-        //      println("-------------------------------")
-
-        println("Clauses after preprocessing:")
-        for (c <- simplifiedClauses)
-          println(c.toPrologString)
-
-        //val aux = simplifiedClauses map (horn2Eldarica(_))
-        //      val aux = horn2Eldarica(simplifiedClauses)
-        //      println(lazabs.viewer.HornPrinter(aux))
-        //      simplifiedClauses = aux map (transform(_))
-        //      println("-------------------------------")
-        //      printClauses(simplifiedClauses)
-        //      println("-------------------------------")
-      }
-
 
       if (GlobalParameters.get.printHornSimplified) {
         //      println("-------------------------------")

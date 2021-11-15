@@ -123,9 +123,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   val controlFlowHyperEdgeNodePrefix = "CFHE_"
   val dataFlowHyperEdgeNodePrefix = "DFHE_"
   val clauseNodePrefix = "clause_"
+  val guardNodePrefix = "guard_"
   //node shape map
   nodeShapeMap += ("CONTROL" -> "component")
   nodeShapeMap += ("operator" -> "square")
+  nodeShapeMap += ("guard" -> "square")
   nodeShapeMap += ("symbolicConstant" -> "circle")
   nodeShapeMap += ("constant" -> "circle")
   nodeShapeMap += ("predicateArgument" -> "ellipse")
@@ -264,21 +266,21 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           } else{
             val guardRootNodeName = drawAST(guard)
             //guardRootNodeList :+=guardRootNodeName
-            val andName = "&" + "_" + gnn_input.GNNNodeID
-            createNode(andName, labelName = "&", "operator", nodeShapeMap("operator"))
-            guardRootNodeList :+= andName
+            val guardName = guardNodePrefix + gnn_input.GNNNodeID
+            createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
+            guardRootNodeList :+= guardName
             //val trueNodeForGuard=drawTrueNode()
             //addBinaryEdge(trueNodeForGuard, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-            addBinaryEdge(guardRootNodeName, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+            addBinaryEdge(guardRootNodeName, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
             for (a <- normalizedClause.allAtoms; if a.pred.name != "FALSE") {
-              guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(andName,guard))))
+              guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(guardName,guard))))
             }
             for (hyperEdgeNode <- hyperEdgeList) {
               //hyperEdgeNode.guardName += guardRootNodeName
-              hyperEdgeNode.guardName += andName
+              hyperEdgeNode.guardName += guardName
               GlobalParameters.get.hornGraphType match {
-                case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, andName, addConcretinizedTernaryEdge)
-                case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, andName, addTernaryEdge)
+                case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardName, addConcretinizedTernaryEdge)
+                case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardName, addTernaryEdge)
               }
             }
           }
@@ -294,14 +296,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           }
           guardRootNodeList :+= guardRootNodeName
         }
-        //connect guards by &
-        val andName = "&" + "_" + gnn_input.GNNNodeID
-        createNode(andName, labelName = "&", "operator", nodeShapeMap("operator"))
+        //connect guards by guard node
+        val guardName = guardNodePrefix + gnn_input.GNNNodeID
+        createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
         for (frn <- guardRootNodeList)
-          addBinaryEdge(frn, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+          addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
         //connect & to hyperedge
         for (hyperEdgeNode <- hyperEdgeList) {
-          val rootASTForHyperedge=andName //andName
+          val rootASTForHyperedge=guardName
           hyperEdgeNode.guardName += rootASTForHyperedge
           GlobalParameters.get.hornGraphType match {
             case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addConcretinizedTernaryEdge)
@@ -485,8 +487,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         //store data flow hyperedge connection
         hyperEdgeList :+= new hyperEdgeInfo(dataFlowHyperedgeName, dataFlowRoot, constantNodeSetInOneClause(arg.toString), HyperEdgeType.dataFlow)
       }
-      case _ => {
-        //println("debug df",df)
+      case _ => { //println("debug df",df)
       }
     }
   }
@@ -597,11 +598,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   def drawTrueGuardCondition(): String ={
     val trueNodeName = drawTrueNode()
-    val andName = "&" + "_" + gnn_input.GNNNodeID
-    createNode(andName, labelName = "&", "operator", nodeShapeMap("operator"))
-    addBinaryEdge(trueNodeName, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-    drawHyperEdgeWithTrueGuard(andName)
-    andName
+    val guardName = guardNodePrefix + gnn_input.GNNNodeID
+    createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
+    addBinaryEdge(trueNodeName, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+    drawHyperEdgeWithTrueGuard(guardName)
+    guardName
   }
 
   def drawTrueNode(): String = {

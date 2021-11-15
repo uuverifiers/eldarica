@@ -102,7 +102,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   //canonical node category for hyperedge horn graph
   var CONTROLCanonicalID, argumentCanonicalID, predicateCanonicalID, iEpsilonCanonicalID, iFormulaITECanonicalID, iFunAppCanonicalID,
   iNamePartCanonicalID, iTermITECanonicalID, iTriggerCanonicalID, variableCanonicalID, symbolicConstantCanonicalID,
-  controlFlowHyperEdgeCanonicalID, dataFlowHyperEdgeCanonicalID = 0
+  controlFlowHyperEdgeCanonicalID, dataFlowHyperEdgeCanonicalID,guardCanonicalID = 0
 
   //canonical node category for layer horn graph
   var clauseHeadCanonicalID, clauseBodyCanonicalID, clauseArgCanonicalID, clauseCanonicalID, predicateNameCanonicalID,
@@ -166,6 +166,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   var controlLocationIndices = Array[Int]()
   var falseIndices = Array[Int]()
   var argumentIndices = Array[Int]()
+  var guardIndices = Array[Int]()
   var templateIndices = Array[Int]()
   var templateRelevanceLabel = Array[Int]()
   var templateCostLabel = Array[Int]()
@@ -298,6 +299,11 @@ class GNNInput(clauseCollection:ClauseInfo) {
     modifyTemplateLabel(hintLabel,cost,nodeUniqueName)
     templateCanonicalID += 1
   }
+  def incrementGuardIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
+    guardIndices :+=GNNNodeID
+    //todo: collect some learning labels
+    incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
+  }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
     clauseIndices :+=GNNNodeID
     if (!clauseInfo.isEmpty && clausesInCE.map(_.toString).contains(clauseInfo.head.toString)) {
@@ -409,6 +415,10 @@ class GNNInput(clauseCollection:ClauseInfo) {
       case "template" => {
         nodeSymbols :+= nodeClass + "_" + templateCanonicalID.toString
         templateCanonicalID += 1
+      }
+      case "guard" => {
+        nodeSymbols :+= nodeClass + "_" + guardCanonicalID.toString
+        guardCanonicalID += 1
       }
       case "controlFlowHyperEdge"=>
         nodeSymbols :+= nodeClass + "_" + controlFlowHyperEdgeCanonicalID.toString
@@ -689,6 +699,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
       case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName,hintLabel)
       case "clause"=> gnn_input.incrementClauseIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
+      case "guard"=> gnn_input.incrementGuardIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
       case _ => gnn_input.incrementNodeIds(canonicalName, className, labelName)
     }
   }
@@ -797,6 +808,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("templateRelevanceLabel", IntArray(gnn_input.templateRelevanceLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateCostLabel", IntArray(gnn_input.templateCostLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("guardIndices", IntArray(gnn_input.guardIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseBinaryOccurrenceInCounterExampleList", IntArray(gnn_input.clausesOccurrenceInCounterExample), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("binaryAdjacentList", PairArray(gnn_input.binaryAdjacency.binaryEdge.sorted), writer, lastFiledFlag)
