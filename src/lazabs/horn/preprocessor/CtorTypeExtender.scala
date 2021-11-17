@@ -31,11 +31,11 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression.{Predicate, Sort, and}
-import ap.theories.ADT
+import ap.theories.{ADT, Theory}
 import ap.types.MonoSortedPredicate
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 LinkedHashMap}
+                                 LinkedHashMap, HashSet => MHashSet}
 
 object CtorTypeExtender {
 
@@ -127,6 +127,7 @@ object CtorTypeExtender {
 class CtorTypeExtender extends ArgumentExpander {
 
   import IExpression._
+  import HornPreprocessor.Clauses
 
   val name = "adding constructor id arguments"
 
@@ -141,9 +142,21 @@ class CtorTypeExtender extends ArgumentExpander {
   def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
     val adtSort = sort.asInstanceOf[ADT.ADTProxySort]
-    val idfun = adtSort.adtTheory.ctorIds(adtSort.sortNum)
-    Some((List((idfun(v(0)), idfun.resSort, "ctor_id")), None))
+    if (usedTheories contains adtSort.adtTheory) {
+      val idfun = adtSort.adtTheory.ctorIds(adtSort.sortNum)
+      Some((List((idfun(v(0)), idfun.resSort, "ctor_id")), None))
+    } else {
+      None
+    }
   }
+
+  override def setup(clauses : Clauses) : Unit = {
+    usedTheories.clear
+    for (clause <- clauses)
+      usedTheories ++= clause.theories
+  }
+
+  private val usedTheories = new MHashSet[Theory]
 
   def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
