@@ -56,6 +56,11 @@ abstract class ArgumentExpander extends HornPreprocessor {
    */
   def isExpandableSort(s : Sort) : Boolean
 
+  /**
+   * Set up the preprocessor for the given set of clauses.
+   */
+  def setup(clauses : Clauses) : Unit = {}
+
   override def isApplicable(clauses : Clauses) : Boolean =
     (HornClauses allPredicates clauses) exists {
       p => predArgumentSorts(p) exists isExpandableSort
@@ -80,6 +85,8 @@ abstract class ArgumentExpander extends HornPreprocessor {
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
+    setup(clauses)
+
     val predicates =
       HornClauses allPredicates clauses
     val newPreds =

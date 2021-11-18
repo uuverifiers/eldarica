@@ -46,6 +46,8 @@ object SymbolFactory {
   val clausifyPreprocSettings = Param.CLAUSIFIER.set(normalPreprocSettings,
                                                      Param.ClausifierOptions.Simple)
 
+  val SKOLEM_BATCH_SIZE_INIT  = 1 << 8
+  val SKOLEM_BATCH_SIZE_LIMIT = 1 << 16
 }
 
   class SymbolFactory(theories : Seq[Theory]) {
@@ -99,10 +101,26 @@ object SymbolFactory {
 
     private var skolemCounter = 0
 
+    private var skolemBatchSize = SKOLEM_BATCH_SIZE_INIT
+    private var skolemConstIt : Iterator[ConstantTerm] = Iterator.empty
+
     def genSkolemConstant : ConstantTerm = {
-      val num = skolemCounter
-      skolemCounter = skolemCounter + 1
-      genConstant("sk" + num)
+      if (!skolemConstIt.hasNext) {
+        // declare the Skolem constants in batches; otherwise the
+        // frequent changes of the term order slows down translation
+        // of clauses to NormClause
+        skolemConstIt =
+          (for (_ <- 0 until skolemBatchSize) yield {
+             val num = skolemCounter
+             skolemCounter = skolemCounter + 1
+             genConstant("sk" + num)
+           }).toIndexedSeq.iterator
+
+        if (skolemBatchSize < SKOLEM_BATCH_SIZE_LIMIT)
+          skolemBatchSize = skolemBatchSize * 2
+      }
+
+      skolemConstIt.next
     }
 
     def addSymbol(c : ConstantTerm) : Unit =

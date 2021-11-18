@@ -128,6 +128,7 @@ class GlobalParameters extends Cloneable {
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
   var arrayQuantification : Option[Int] = None
+  var expandADTArguments = true
   var princess = false
   var staticAccelerate = false
   var dynamicAccelerate = false
@@ -215,6 +216,7 @@ class GlobalParameters extends Cloneable {
     that.finiteDomainPredBound = this.finiteDomainPredBound
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
+    that.expandADTArguments = this.expandADTArguments
     that.princess = this.princess
     that.staticAccelerate = this.staticAccelerate
     that.dynamicAccelerate = this.dynamicAccelerate
@@ -340,7 +342,7 @@ object Main {
 
 
   val greeting =
-    "Eldarica v2.0.6.\n(C) Copyright 2012-2021 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.7.\n(C) Copyright 2012-2021 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
