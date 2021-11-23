@@ -223,8 +223,8 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     println
     AbsReader.printHints(unitTwoVariableTemplates)
 
-//    println
-//    Console.err.println("Checks needed: " + checks)
+    println
+    Console.err.println("Checks needed: " + checks)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -396,7 +396,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                                  else
                                    5)
          }) ++ List(defaultTemplates(context.relationSymbols.keys filterNot (
-                                       _ == HornClauses.FALSE), 20))
+                                       _ == HornClauses.FALSE), 100))
       )))
 
   def defaultTemplates(preds : Iterable[Predicate],
@@ -642,16 +642,28 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
             for ((f, h) <- hintWithFlags) yield h match {
               case h : VerifHintTplElement => (f, h.cost)
             }
+
           val hintLattice =
-            PowerSetLattice.invertedWithCosts(flags).cachedFilter {
-                (flags : Set[IFormula]) => scope {
+            PowerSetLattice.invertedWithCosts(flags).filterWithBounds {
+                (flags : Set[IFormula], optFeasible, optInfeasible) => scope {
+                  checks = checks + 1
 //                  print("-")
+
                   for ((f, _) <- hintWithFlags)
                     if (!(flags contains f))
                       !! (!f)
-                  val r = ??? == ProverStatus.Sat
-//                  print(".")
-                  r
+
+                  ??? match {
+                    case ProverStatus.Sat => {
+                      optFeasible(flags2 =>
+                        hintWithFlags forall {
+                          case (f, _) => (flags2 contains f) ||
+                                         evalPartial(f) != Some(true) }
+                      )
+                    }
+                    case ProverStatus.Unsat =>
+                      optInfeasible(_ => false)
+                  }
                 }}
 
           val results =
