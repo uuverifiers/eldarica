@@ -223,8 +223,8 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     println
     AbsReader.printHints(unitTwoVariableTemplates)
 
-    println
-    Console.err.println("Checks needed: " + checks)
+//    println
+//    Console.err.println("Checks needed: " + checks)
   }
 
   //////////////////////////////////////////////////////////////////////////////
