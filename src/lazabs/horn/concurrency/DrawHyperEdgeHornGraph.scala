@@ -147,10 +147,11 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  val falseControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
   //  createNode(canonicalName=falseControlFlowNodeName, labelName="FALSE", className="CONTROL", shape=nodeShapeMap("CONTROL"))
   //  controlFlowNodeSetCrossGraph("FALSE") = falseControlFlowNodeName
-  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
 
   val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
   //bodyReplacedClauses.foreach(println)
+  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- bodyReplacedClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
+
   for (clause <- bodyReplacedClauses) {
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
     val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
@@ -254,7 +255,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         }
       }
     } else {
-
       if (guardSet.isEmpty) {
         guardRootNodeList :+=drawTrueGuardCondition()
       } else if (guardSet.size == 1) {
@@ -504,12 +504,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
    <3> any variable assignment (assignment of values to the variables occurring in C) that satisfies the constraint of C also satisfies (1).
    */
 
+
     val normalizedClause=clause.normalize()
     //replace intersect arguments in body and add arg=arg' to constrains
     val replacedClause = DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(normalizedClause)
     //val argumentCanonilizedClauses=getArgumentReplacedClause(replacedClause)
     //val simplifiedArgumentCanonilizedClauses=getSimplifiedClauses(argumentCanonilizedClauses)
     val simplifyedClauses=HintsSelection.getSimplifiedClauses(replacedClause) //quantify constraintand
+
     val finalSimplifiedClauses=simplifyedClauses //change to replacedClause see not simplified constraints
 
     //var guardList = Set[IFormula]()
