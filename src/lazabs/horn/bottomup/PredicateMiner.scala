@@ -98,33 +98,18 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     val basePredicateLattice =
       PowerSetLattice.invertedWithCosts(allPredsWithSize)
 
-    basePredicateLattice.filterObjectsWithBounds(
-      obj => {
-        val testedSet = basePredicateLattice getLabel obj
+    basePredicateLattice.filterWithBounds(
+      (testedSet, optFeasible, optInfeasible) => {
         sufficientSubset(testedSet) match {
-          case Some(usedSet) => {
+          case Left(usedSet) => {
             assert(usedSet.toSet subsetOf testedSet)
-            var res = obj
-
-            var cont = usedSet.size < (basePredicateLattice getLabel res).size
-            while (cont) {
-              val succs = basePredicateLattice succ res
-              cont = false
-              while (succs.hasNext && !cont) {
-                val s = succs.next
-                if (usedSet.toSet subsetOf (basePredicateLattice getLabel s)) {
-                  res = s
-                  cont = true
-                }
-              }
-            }
-
-            assert(usedSet.size == (basePredicateLattice getLabel res).size)
-
-            Left(res)
+            optFeasible(s => usedSet.toSet subsetOf s)
           }
-          case None =>
-            Right(obj)
+          case Right(cexPreds) => {
+            optInfeasible(s =>
+              s forall { pred =>
+                !(cexPreds contains pred.rs) || (testedSet contains pred) })
+          }
         }
       }
     )
@@ -237,6 +222,9 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
 
     println
     AbsReader.printHints(unitTwoVariableTemplates)
+
+//    println
+//    Console.err.println("Checks needed: " + checks)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -296,12 +284,15 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     result.toSeq
   }
 
+  private var checks = 0
+
   /**
    * Check whether the given set of predicates is sufficient to show
    * satisfiability of the problem.
    */
   def isSufficient(preds : Iterable[RelationSymbolPred]) : Boolean = {
     print(".")
+    checks = checks + 1
     val newPredStore = new PredicateStore(context)
     newPredStore addRelationSymbolPreds preds
     try {
@@ -310,7 +301,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
       }
       true
     } catch {
-      case PredGenException => {
+      case _ : PredGenException => {
         false
       }
     }
@@ -321,8 +312,10 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
    * satisfiability of the problem.
    */
   def sufficientSubset(preds : Iterable[RelationSymbolPred])
-                     : Option[Iterable[RelationSymbolPred]] = {
+                     : Either[Iterable[RelationSymbolPred],
+                              Set[RelationSymbol]] = {
     print(".")
+    checks = checks + 1
     val newPredStore = new PredicateStore(context)
     newPredStore addRelationSymbolPreds preds
 //    println("trying " + preds.size)
@@ -336,20 +329,23 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
               pred <- state.preds.iterator)
          yield pred).toSet
 //    println("reduced to " + usedPreds.size)
-      Some(usedPreds)
+      Left(usedPreds)
     } catch {
-      case PredGenException => {
-        None
+      case e : PredGenException => {
+        val relSyms =
+          (for (AndNode(clause) <- e.d.iterator) yield clause.head._1).toSet
+        Right(relSyms)
       }
     }
   }
 
-  private object PredGenException extends Exception
+  private class PredGenException(val d : Dag[AndOrNode[NormClause, Unit]])
+          extends Exception
 
   private def exceptionalPredGen(d : Dag[AndOrNode[NormClause, Unit]]) 
                                : Either[Seq[(Predicate, Seq[Conjunction])],
                                         Dag[(IAtom, NormClause)]] =
-   throw PredGenException
+   throw new PredGenException(d)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -400,7 +396,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
                                  else
                                    5)
          }) ++ List(defaultTemplates(context.relationSymbols.keys filterNot (
-                                       _ == HornClauses.FALSE), 20))
+                                       _ == HornClauses.FALSE), 100))
       )))
 
   def defaultTemplates(preds : Iterable[Predicate],
@@ -646,16 +642,28 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
             for ((f, h) <- hintWithFlags) yield h match {
               case h : VerifHintTplElement => (f, h.cost)
             }
+
           val hintLattice =
-            PowerSetLattice.invertedWithCosts(flags).cachedFilter {
-                (flags : Set[IFormula]) => scope {
+            PowerSetLattice.invertedWithCosts(flags).filterWithBounds {
+                (flags : Set[IFormula], optFeasible, optInfeasible) => scope {
+                  checks = checks + 1
 //                  print("-")
+
                   for ((f, _) <- hintWithFlags)
                     if (!(flags contains f))
                       !! (!f)
-                  val r = ??? == ProverStatus.Sat
-//                  print(".")
-                  r
+
+                  ??? match {
+                    case ProverStatus.Sat => {
+                      optFeasible(flags2 =>
+                        hintWithFlags forall {
+                          case (f, _) => (flags2 contains f) ||
+                                         evalPartial(f) != Some(true) }
+                      )
+                    }
+                    case ProverStatus.Unsat =>
+                      optInfeasible(_ => false)
+                  }
                 }}
 
           val results =
