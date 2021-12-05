@@ -36,7 +36,7 @@ import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, spAPI}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, replaceMultiSamePredicateInBody, spAPI}
 import play.api.libs.json.{JsSuccess, Json}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
@@ -93,9 +93,9 @@ case class NodeInfo(canonicalName:String,labelName:String,className:String,shape
   var fillColor="white"
 }
 
-class GNNInput(clauseCollection:ClauseInfo) {
-  val simpClauses=clauseCollection.simplifiedClause
-  val clausesInCE = clauseCollection.clausesInCounterExample
+class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
+//  val simpClauses=clauseCollection.simplifiedClause
+//  val clausesInCE = clauseCollection.clausesInCounterExample
   var GNNNodeID = 0
   var hyperEdgeNodeID = 0
   var TotalNodeID = 0
@@ -178,7 +178,7 @@ class GNNInput(clauseCollection:ClauseInfo) {
   var argumentInfoHornGraphList = new ArrayBuffer[argumentInfoHronGraph]
   var nodeNameToIDMap = MuMap[String, Int]()
 
-  val learningLabel= new FormLearningLabels(clauseCollection)
+  val learningLabel= new FormLearningLabels(simpClauses,clausesInCE)
   val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
   val predicateStrongConnectedComponentLabel=learningLabel.getStrongConnectedComponentPredicateList()
 
@@ -435,7 +435,14 @@ class GNNInput(clauseCollection:ClauseInfo) {
 class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   val sp = new Simplifier()
   val spAPI = ap.SimpleAPI.spawn
-  val simpClauses = clausesCollection.simplifiedClause
+  val simpClauses= GlobalParameters.get.hornGraphType match {
+    case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
+      val replacedClause=(for (c<-clausesCollection.simplifiedClause) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
+      for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
+    }
+    case _=>clausesCollection.simplifiedClause
+  }
+  //val simpClauses = clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
@@ -460,7 +467,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val constantNodeSetCrossGraph = scala.collection.mutable.Map[String, String]()
   var astEdgeType = ""
   var astEndNodeType=""
-  val gnn_input = new GNNInput(clausesCollection)
+  val gnn_input = new GNNInput(simpClauses,clausesInCE)
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
 
   edgeNameMap += ("templateAST"->"tplAST")

@@ -131,6 +131,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   for (clause <- simpClauses; a <- clause.allAtoms) {
     createPredicateLayerNodesAndEdges(a)
   }
+  //simpClauses.take(2).tail.foreach(println(_))
   for (clause <- simpClauses) {
     constantNodeSetInOneClause.clear()
     //clause layer: create clause node

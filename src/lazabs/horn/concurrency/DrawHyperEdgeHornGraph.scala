@@ -148,11 +148,12 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  createNode(canonicalName=falseControlFlowNodeName, labelName="FALSE", className="CONTROL", shape=nodeShapeMap("CONTROL"))
   //  controlFlowNodeSetCrossGraph("FALSE") = falseControlFlowNodeName
 
-  val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
-  //bodyReplacedClauses.foreach(println)
-  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- bodyReplacedClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
 
-  for (clause <- bodyReplacedClauses) {
+  //val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
+  //bodyReplacedClauses.foreach(println)
+  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
+
+  for (clause <- simpClauses) {
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
     val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
     //draw head predicate node and argument node

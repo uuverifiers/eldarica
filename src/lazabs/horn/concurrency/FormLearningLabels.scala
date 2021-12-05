@@ -1,16 +1,16 @@
 package lazabs.horn.concurrency
 import java.io.{File, PrintWriter}
-
 import ap.terfor.preds.Predicate
 import ap.parser.IAtom
 import lazabs.GlobalParameters
-import lazabs.horn.concurrency.DrawHornGraph.addQuotes
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
+import lazabs.horn.concurrency.HintsSelection.replaceMultiSamePredicateInBody
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
 
-class FormLearningLabels (clauseCollection: ClauseInfo){
-  val simpClauses=clauseCollection.simplifiedClause
-  val clausesInCE=clauseCollection.clausesInCounterExample
+class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
+//  val simpClauses=clauseCollection.simplifiedClause
+//  val clausesInCE=clauseCollection.clausesInCounterExample
   //hints: VerificationHints
   class predicateNodeInfo(nodeName:String,index:Int){
     val name=nodeName
