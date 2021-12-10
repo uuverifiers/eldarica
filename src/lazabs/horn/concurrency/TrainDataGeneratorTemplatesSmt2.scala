@@ -292,7 +292,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
-      val simplifiedClausesForGraph=HintsSelection.simplifyClausesForGraphs(simplifiedClauses,simpHints)//hints
+      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
       val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints)
       val predAbs=Console.withOut(outStream) {
         val predAbs =

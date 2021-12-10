@@ -94,8 +94,6 @@ case class NodeInfo(canonicalName:String,labelName:String,className:String,shape
 }
 
 class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
-//  val simpClauses=clauseCollection.simplifiedClause
-//  val clausesInCE = clauseCollection.clausesInCounterExample
   var GNNNodeID = 0
   var hyperEdgeNodeID = 0
   var TotalNodeID = 0
@@ -435,14 +433,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: VerificationHintsInfo, argumentInfoList: ArrayBuffer[argumentInfo]) {
   val sp = new Simplifier()
   val spAPI = ap.SimpleAPI.spawn
-  val simpClauses= GlobalParameters.get.hornGraphType match {
-    case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
-      val replacedClause=(for (c<-clausesCollection.simplifiedClause) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
-      for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
-    }
-    case _=>clausesCollection.simplifiedClause
-  }
-  //val simpClauses = clausesCollection.simplifiedClause
+  val simpClauses= clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
   val graphType = GlobalParameters.get.hornGraphType match {
     case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"

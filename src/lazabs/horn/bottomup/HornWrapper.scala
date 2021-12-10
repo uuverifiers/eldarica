@@ -406,8 +406,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //    }
   //  }
 
-  val simplifiedClausesForGraph = HintsSelection.simplifyClausesForGraphs(simplifiedClauses, simpHints)// remove from benchmark if there are multiple atom in body
+
+  val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+  HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
   HintsSelection.checkMaxNode(simplifiedClausesForGraph)
+
   val sp = new Simplifier
   val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length)
 

@@ -246,7 +246,7 @@ object TrainDataGeneratorPredicatesSmt2 {
       //simplify clauses. get rid of some redundancy
       val spAPI = ap.SimpleAPI.spawn
       val sp=new Simplifier
-      val simplePredicatesGeneratorClauses=HintsSelection.simplifyClausesForGraphs(simplifiedClauses,simpHints)//hints
+      val simplePredicatesGeneratorClauses=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
 
       //read hint from file
       if (GlobalParameters.get.readHints==true){

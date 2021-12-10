@@ -50,6 +50,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.CEGAR
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
@@ -97,6 +98,12 @@ object HintsSelection {
     predGenerator
   }
 
+  def filterInvalidInputs(simplifiedClausesForGraph: Clauses): Unit ={
+    if (simplifiedClausesForGraph.length==1 && simplifiedClausesForGraph.head.body.isEmpty){
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no-simplified-clauses")
+      sys.exit()
+    }
+  }
   def checkMaxNode(simplifiedClausesForGraph: Clauses): Unit = {
     var totalNodeNumebr = 0
     val clauseNumber = simplifiedClausesForGraph.length
@@ -576,34 +583,17 @@ object HintsSelection {
     clonedGlovalParameter
   }
 
-  def simplifyClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
-    //if the body has two same predicates move this example
-//    if (GlobalParameters.get.separateMultiplePredicatesInBody==true){
-//      for (c<-simplifiedClauses){
-//        val pbodyStrings= new MHashSet[String]
-//        for(pbody<-c.body; if !pbodyStrings.add(pbody.pred.toString)){
-//          println("pbodyStrings",pbodyStrings)
-//          println(pbody.pred.toString)
-//          moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/lia-lin-multiple-predicates-in-body/"+getFileName(),"multiple-predicates-in-body")
-//          sys.exit()
-//        }
-//      }
-//    }
-
-//    moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/shell-timeout/"+getFileName(),"shell-timeout")
-//    sys.exit()
-
+  def normalizedClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
     val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
-
-    val simplePredicatesGeneratorClauses = GlobalParameters.get.hornGraphType match {
-      case DrawHornGraph.HornGraphType.hyperEdgeGraph | DrawHornGraph.HornGraphType.equivalentHyperedgeGraph | DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => {
-        for(clause<-csSimplifiedClauses) yield clause.normalize()
+    GlobalParameters.get.hornGraphType match {
+      case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
+        val replacedClause=(for (c<-csSimplifiedClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
+        for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
       }
-      case _ => csSimplifiedClauses
+      case _=>csSimplifiedClauses
     }
-    simplePredicatesGeneratorClauses
-    //csSimplifiedClauses
+
   }
 
 
@@ -1550,7 +1540,6 @@ object HintsSelection {
         println(s"could NOT move the file $sourceFilename")
       }
     }
-    println(Console.RED+message)
   }
   def removeRelativeFiles(fileName:String): Unit ={
     val currentDirectory = new java.io.File(GlobalParameters.get.fileName).getParentFile.getPath
