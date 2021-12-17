@@ -229,7 +229,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     var guardRootNodeList: Array[String] = Array()
     if (withOutAndConnectionToHyperedge == true) {
       if (guardSet.isEmpty) {
-        guardRootNodeList :+= drawTrueGuardCondition()
+        guardRootNodeList :+= drawTrueNode()//drawTrueGuardCondition()
       } else {
         //astEdgeType = "guardAST"
         astEdgeType = "AST"
@@ -257,33 +257,16 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       }
     } else {
       if (guardSet.isEmpty) {
-        guardRootNodeList :+=drawTrueGuardCondition()
+        guardRootNodeList :+=drawTrueNode()//drawTrueGuardCondition()
       } else if (guardSet.size == 1) {
         //astEdgeType = "guardAST"
         astEdgeType = "AST"
         for (guard <- guardSet) {
           if (guard.isTrue){
-            guardRootNodeList :+=drawTrueGuardCondition()
+            guardRootNodeList :+=drawTrueNode()//drawTrueGuardCondition()
           } else{
             val guardRootNodeName = drawAST(guard)
-            //guardRootNodeList :+=guardRootNodeName
-            val guardName = guardNodePrefix + gnn_input.GNNNodeID
-            createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
-            guardRootNodeList :+= guardName
-            //val trueNodeForGuard=drawTrueNode()
-            //addBinaryEdge(trueNodeForGuard, andName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-            addBinaryEdge(guardRootNodeName, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-            for (a <- normalizedClause.allAtoms; if a.pred.name != "FALSE") {
-              guardSubGraph = guardSubGraph ++ Map(a.pred -> (guardSubGraph(a.pred) ++ Seq(Tuple2(guardName,guard))))
-            }
-            for (hyperEdgeNode <- hyperEdgeList) {
-              //hyperEdgeNode.guardName += guardRootNodeName
-              hyperEdgeNode.guardName += guardName
-              GlobalParameters.get.hornGraphType match {
-                case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardName, addConcretinizedTernaryEdge)
-                case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, guardName, addTernaryEdge)
-              }
-            }
+            guardRootNodeList :+=guardRootNodeName
           }
         }
       } else {
@@ -297,22 +280,26 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           }
           guardRootNodeList :+= guardRootNodeName
         }
-        //connect guards by guard node
-        val guardName = guardNodePrefix + gnn_input.GNNNodeID
-        createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
-        for (frn <- guardRootNodeList)
-          addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-        //connect & to hyperedge
-        for (hyperEdgeNode <- hyperEdgeList) {
-          val rootASTForHyperedge=guardName
-          hyperEdgeNode.guardName += rootASTForHyperedge
-          GlobalParameters.get.hornGraphType match {
-            case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addConcretinizedTernaryEdge)
-            case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
-          }
+      }
+
+      //connect guards by guard node
+      val guardName = guardNodePrefix + gnn_input.GNNNodeID
+      createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
+      for (frn <- guardRootNodeList)
+        addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
+      //connect guard to hyperedge
+      for (hyperEdgeNode <- hyperEdgeList) {
+        val rootASTForHyperedge=guardName
+        hyperEdgeNode.guardName += rootASTForHyperedge
+        GlobalParameters.get.hornGraphType match {
+          case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addConcretinizedTernaryEdge)
+          case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
         }
       }
     }
+
+
+
     if (GlobalParameters.get.getLabelFromCounterExample == true) {//todo: label guardRootNodeList
       //create clause node and connect with guards
       val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
