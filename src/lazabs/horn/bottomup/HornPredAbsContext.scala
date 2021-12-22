@@ -57,6 +57,17 @@ trait HornPredAbsContext[CC] {
   val relationSymbols : Map[Predicate, RelationSymbol]
   val relationSymbolOccurrences : Map[RelationSymbol, Vector[(NormClause, Int, Int)]]
 
+  protected def computeRSOccurrences = {
+    val relationSymbolOccurrences =
+      (for (rs <- relationSymbols.values)
+         yield (rs -> new ArrayBuffer[(NormClause, Int, Int)])).toMap
+    for ((c@NormClause(_, body, _), _) <- normClauses.iterator;
+         ((rs, occ), i) <- body.iterator.zipWithIndex) {
+      relationSymbolOccurrences(rs) += ((c, occ, i))
+    }
+    relationSymbolOccurrences mapValues (_.toVector)
+  }
+
   val relationSymbolBounds : Map[RelationSymbol, Conjunction]
   val relationSymbolReducers : Map[RelationSymbol, ReduceWithConjunction]
 
@@ -102,9 +113,38 @@ trait HornPredAbsContext[CC] {
   
   val hasher : IHasher
 
+  protected def createHasher =
+    if (useHashing)
+      new Hasher(sf.order, sf.reducerSettings)
+    else
+      InactiveHasher
+
   val clauseHashIndexes : Map[NormClause, Int]
 
+  protected def computeClauseHashIndexes =
+    (for ((clause, _) <- normClauses.iterator)
+     yield (clause, hasher addFormula clause.constraint)).toMap
+
 }
+
+class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
+      extends HornPredAbsContext[CC] {
+  val rand                      = underlying.rand
+  val theories                  = underlying.theories
+  val sf                        = underlying.sf
+  val useHashing                = underlying.useHashing
+  val normClauses               = underlying.normClauses
+  val relationSymbols           = underlying.relationSymbols
+  val relationSymbolOccurrences = underlying.relationSymbolOccurrences
+  val relationSymbolBounds      = underlying.relationSymbolBounds
+  val relationSymbolReducers    = underlying.relationSymbolReducers
+  val goalSettings              = underlying.goalSettings
+  val emptyProver               = underlying.emptyProver
+  val hasher                    = underlying.hasher
+  val clauseHashIndexes         = underlying.clauseHashIndexes
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
                         (iClauses : Iterable[CC]) extends HornPredAbsContext[CC] {
@@ -148,11 +188,14 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
 
   implicit val sf = new SymbolFactory(theories)
 
-  val relationSymbols =
-    (for (c <- iClauses.iterator;
-          lit <- (Iterator single c.head) ++ c.body.iterator;
-          p = lit.predicate)
-     yield (p -> RelationSymbol(p))).toMap
+  val relationSymbols = {
+    val preds =
+      (for (c <- iClauses.iterator;
+            lit <- (Iterator single c.head) ++ c.body.iterator;
+            p = lit.predicate)
+       yield p).toSet
+    (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
+  }
 
   // make sure that arguments constants have been instantiated
   for (c <- iClauses) {
@@ -204,16 +247,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
         (normClauses groupBy { c => c._1.body.size }).toList sortBy (_._1))
     println("   " + clauses.size + " clauses with " + num + " body literals")
 
-  val relationSymbolOccurrences = {
-    val relationSymbolOccurrences =
-      (for (rs <- relationSymbols.values)
-         yield (rs -> new ArrayBuffer[(NormClause, Int, Int)])).toMap
-    for ((c@NormClause(_, body, _), _) <- normClauses.iterator;
-         ((rs, occ), i) <- body.iterator.zipWithIndex) {
-      relationSymbolOccurrences(rs) += ((c, occ, i))
-    }
-    relationSymbolOccurrences mapValues (_.toVector)
-  }
+  val relationSymbolOccurrences = computeRSOccurrences
 
   val goalSettings = {
     var gs = GoalSettings.DEFAULT
@@ -241,16 +275,10 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
 
   // Hashing/sampling to speed up implication checks
 
-  val hasher =
-    if (useHashing)
-      new Hasher(sf.order, sf.reducerSettings)
-    else
-      InactiveHasher
+  val hasher = createHasher
 
   // Add clause constraints to hasher
 
-  val clauseHashIndexes =
-    (for ((clause, _) <- normClauses.iterator)
-     yield (clause, hasher addFormula clause.constraint)).toMap
+  val clauseHashIndexes = computeClauseHashIndexes
 
 }
