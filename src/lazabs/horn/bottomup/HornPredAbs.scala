@@ -129,7 +129,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   lazabs.GlobalParameters.get.setupApUtilDebug
   
-  val context = new HornPredAbsContext(iClauses)
+  val context : HornPredAbsContext[CC] = new HornPredAbsContextImpl(iClauses)
   import context._
 
   val predStore = new PredicateStore(context)

@@ -34,7 +34,7 @@ import ap.proof.ModelSearchProver
 import ap.proof.theoryPlugins.PluginSequence
 import ap.proof.tree.SeededRandomDataSource
 import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.TypeTheory
 import ap.parameters.{Param, GoalSettings}
@@ -43,8 +43,71 @@ import ap.util.Timeout
 import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
 import scala.util.Random
 
-class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
-                        (iClauses : Iterable[CC]) {
+trait HornPredAbsContext[CC] {
+
+  val rand : Random
+
+  val theories : Seq[Theory]
+  val sf : SymbolFactory
+
+  val useHashing : Boolean
+
+  val normClauses : Seq[(NormClause, CC)]
+
+  val relationSymbols : Map[Predicate, RelationSymbol]
+  val relationSymbolOccurrences : Map[RelationSymbol, Vector[(NormClause, Int, Int)]]
+
+  val relationSymbolBounds : Map[RelationSymbol, Conjunction]
+  val relationSymbolReducers : Map[RelationSymbol, ReduceWithConjunction]
+
+  val goalSettings : GoalSettings
+
+  val emptyProver : ModelSearchProver.IncProver
+
+  private var hardValidityCheckNum = 0
+  private var hardValidityCheckThreshold = 27
+  private var hardValidityCheckNumSqrt = 3
+
+  def isValid(prover : ModelSearchProver.IncProver) : Boolean =
+    prover.isObviouslyValid ||
+    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
+      hardValidityCheckNum = hardValidityCheckNum + 1
+      if (hardValidityCheckNum == hardValidityCheckThreshold) {
+        hardValidityCheckNum = 0
+        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
+        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
+      }
+
+      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
+        (prover checkValidity true) match {
+          case Left(m) =>
+            if (m.isFalse) {
+              true
+            } else {
+              hasher addModel m
+              false
+            }
+          case Right(_) =>
+            throw new Exception("Unexpected prover result")
+        }
+      else
+        !prover.isObviouslyUnprovable &&
+         ((prover checkValidity false) match {
+            case Left(m) if (m.isFalse) => true
+            case Left(_) => false
+            case Right(_) =>
+              throw new Exception("Unexpected prover result")
+          })
+    }
+  
+  val hasher : IHasher
+
+  val clauseHashIndexes : Map[NormClause, Int]
+
+}
+
+class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
+                        (iClauses : Iterable[CC]) extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
 
@@ -174,47 +237,9 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
     prover
   }
 
-  var hardValidityCheckNum = 0
-  var hardValidityCheckThreshold = 27
-  var hardValidityCheckNumSqrt = 3
-
-  def isValid(prover : ModelSearchProver.IncProver) : Boolean =
-    prover.isObviouslyValid ||
-    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
-      hardValidityCheckNum = hardValidityCheckNum + 1
-      if (hardValidityCheckNum == hardValidityCheckThreshold) {
-        hardValidityCheckNum = 0
-        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
-        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
-      }
-
-      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
-        (prover checkValidity true) match {
-          case Left(m) =>
-            if (m.isFalse) {
-              true
-            } else {
-              hasher addModel m
-              false
-            }
-          case Right(_) =>
-            throw new Exception("Unexpected prover result")
-        }
-      else
-        !prover.isObviouslyUnprovable &&
-         ((prover checkValidity false) match {
-            case Left(m) if (m.isFalse) => true
-            case Left(_) => false
-            case Right(_) =>
-              throw new Exception("Unexpected prover result")
-          })
-    }
-  
   //////////////////////////////////////////////////////////////////////////////
 
   // Hashing/sampling to speed up implication checks
-
-  var hasherChecksHit, hasherChecksMiss = 0
 
   val hasher =
     if (useHashing)
