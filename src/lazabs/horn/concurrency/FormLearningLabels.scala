@@ -7,6 +7,8 @@ import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.HintsSelection.replaceMultiSamePredicateInBody
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
+import scala.:+
+
 
 class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 //  val simpClauses=clauseCollection.simplifiedClause
@@ -32,38 +34,57 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
   def getStrongConnectedComponentPredicateList(): Map[String,Int] ={
     var nodeCounter=0
     var predicateNameSet:Set[String]=Set()
-    var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map()
-    for (clause<-simpClauses;p<-clause.predicates){
-      if (!predicateNameSet.contains(p.name))
+    var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map("Initial"->new predicateNodeInfo("Initial",nodeCounter))
+    for (clause<-simpClauses;p<-clause.allAtoms){
+      if (!predicateNameSet.contains(p.pred.name))
         {
-          predicateName2NodeMap=predicateName2NodeMap.updated(p.name,new predicateNodeInfo(p.name,nodeCounter))
+          predicateName2NodeMap=predicateName2NodeMap.updated(p.pred.name,new predicateNodeInfo(p.pred.name,nodeCounter))
           nodeCounter+=1
-          predicateNameSet+=p.name
+          predicateNameSet+=p.pred.name
         }
 
     }
     //build and visualize graph
     val writerPredicateGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
+    var predicateNameMap=scala.collection.mutable.Map[String, String]()
+    var predicateCounter=1
+    val controlPrefix="CONTROL_"
     writerPredicateGraph.write("digraph dag {" + "\n")
     for(clause<-simpClauses) {
       //create head node
       val headName=clause.head.pred.name
-      writerPredicateGraph.write(addQuotes(headName) +
-        " [label=" + addQuotes(headName)  + " shape=" + "box" + "];" + "\n")
-      for (body<-clause.body){
-        //create body node
-        val bodyName=body.pred.name
-        writerPredicateGraph.write(addQuotes(bodyName) +
-          " [label=" + addQuotes(bodyName)  + " shape=" + "box" + "];" + "\n")
-        //add edge
-        writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
-        predicateName2NodeMap(headName).predecessorNameList:+=bodyName
-        predicateName2NodeMap(bodyName).successorNameList:+=headName
-        predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
+      if (!predicateNameMap.contains(headName))
+        addNodeForCircleGraph(headName)
+
+      if (clause.body.isEmpty){
+        if (!predicateNameMap.contains("Initial"))
+          addNodeForCircleGraph("Initial")
+        addAEdgeForCircleGraph(headName,"Initial")
+      }else{
+        for (body<-clause.body){
+          //create body node
+          val bodyName = body.pred.name
+          if (!predicateNameMap.contains(bodyName))
+            addNodeForCircleGraph(bodyName)
+          //add edge
+          addAEdgeForCircleGraph(headName,bodyName)
+        }
       }
     }
     writerPredicateGraph.write("}" + "\n")
     writerPredicateGraph.close()
+    def addNodeForCircleGraph(nodeName:String): Unit ={
+      writerPredicateGraph.write(addQuotes(nodeName) +
+        " [label=" + addQuotes(controlPrefix + predicateCounter.toString + ":" + nodeName) + " shape=" + "box" + "];" + "\n")
+      predicateCounter = predicateCounter + 1
+      predicateNameMap(nodeName)=controlPrefix+predicateCounter.toString
+    }
+    def addAEdgeForCircleGraph(headName:String,bodyName:String): Unit ={
+      writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
+      predicateName2NodeMap(headName).predecessorNameList:+=bodyName
+      predicateName2NodeMap(bodyName).successorNameList:+=headName
+      predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
+    }
 
     //form g: Map[Int, List[Int]]
     val g = for (node<-predicateName2NodeMap.values) yield (node.nodeIndex-> node.successorIndexList)
@@ -81,7 +102,9 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 
 
     //form predicate node occurrence in strong connected graph
-    var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p.name->0)).toMap
+    //var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p.name->0)).toMap
+    var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.allAtoms ) yield (p.pred.name->0)).toMap
+    predicateOccurrenceMap+=("Initial"->0)
     for (c<-circles;p<-c) if (predicateOccurrenceMap.keySet.contains(p)){
       //predicateOccurrenceMap=predicateOccurrenceMap.updated(p,predicateOccurrenceMap(p)+1)
       predicateOccurrenceMap=predicateOccurrenceMap.updated(p,1)
@@ -109,14 +132,25 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 
   }
 
-  def getPredicateOccurenceInClauses(): Map[Predicate,Int] ={
+  def getPredicateOccurenceInClauses(): Map[String,Int] ={
     //form predicate head occurrence in clauses
-    var predicateOccurrenceMap:Map[Predicate,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p->0)).toMap
-    for(clause<-simpClauses;a<-clause.allAtoms){
-      if (predicateOccurrenceMap.keySet.contains(a.pred))
-        predicateOccurrenceMap=predicateOccurrenceMap.updated(a.pred,predicateOccurrenceMap(a.pred)+1)
-        //new Predicate("Initial",0)
+    //var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.allAtoms if (p.pred.name!="FALSE") ) yield (p.pred.name->0)).toMap
+    var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.allAtoms ) yield (p.pred.name->0)).toMap
+    predicateOccurrenceMap+=("Initial"->0)
+    for(clause<-simpClauses){
+      if (clause.body.isEmpty){
+        if (predicateOccurrenceMap.keySet.contains(clause.head.pred.name))
+          predicateOccurrenceMap=predicateOccurrenceMap.updated(clause.head.pred.name,predicateOccurrenceMap(clause.head.pred.name)+1)
+        predicateOccurrenceMap=predicateOccurrenceMap.updated("Initial",predicateOccurrenceMap("Initial")+1)
+      } else{
+        for (a<-clause.allAtoms){
+          if (predicateOccurrenceMap.keySet.contains(a.pred.name))
+            predicateOccurrenceMap=predicateOccurrenceMap.updated(a.pred.name,predicateOccurrenceMap(a.pred.name)+1)
+        }
+      }
+
     }
+
     predicateOccurrenceMap
   }
 

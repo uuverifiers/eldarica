@@ -142,8 +142,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   var hyperEdgeList = scala.collection.mutable.ArrayBuffer[hyperEdgeInfo]()
   //create unique Initial and FALSE node
   val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
-  createNode(canonicalName = initialControlFlowNodeName, labelName = "Initial", className = "CONTROL", shape = nodeShapeMap("CONTROL"))
-  controlFlowNodeSetCrossGraph("Initial") = initialControlFlowNodeName
+//  createNode(canonicalName = initialControlFlowNodeName, labelName = "Initial", className = "CONTROL", shape = nodeShapeMap("CONTROL"))
+//  controlFlowNodeSetCrossGraph("Initial") = initialControlFlowNodeName
+  drawPredicateNode(initialControlFlowNodeName,"Initial","CONTROL")
   //  val falseControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
   //  createNode(canonicalName=falseControlFlowNodeName, labelName="FALSE", className="CONTROL", shape=nodeShapeMap("CONTROL"))
   //  controlFlowNodeSetCrossGraph("FALSE") = falseControlFlowNodeName
@@ -167,7 +168,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
         if (!controlFlowNodeSetCrossGraph.keySet.contains(normalizedClause.head.pred.name)) {
           //draw predicate node
           val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
-          drawPredicateNode(controlFlowNodeName, normalizedClause.head.pred.name, "CONTROL")
+          drawPredicateNode(controlFlowNodeName, normalizedClause.head.pred.name, "CONTROL",labelName = "")
           //draw argument node
           drawArgumentNodeForPredicate(normalizedClause.head, controlFlowNodeName)
           controlFlowNodeName
@@ -200,7 +201,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           //draw predicate node
           val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
           bodyNodeNameList :+= controlFlowNodeName
-          drawPredicateNode(controlFlowNodeName, body.pred.name, "CONTROL")
+          drawPredicateNode(controlFlowNodeName, body.pred.name, "CONTROL",labelName = "")
           //draw control flow hyperedge node between body and head
           val controlFlowHyperedgeName = controlFlowHyperEdgeNodePrefix + gnn_input.controlFlowHyperEdgeCanonicalID.toString
           matchAndCreateHyperEdgeNode(controlFlowHyperedgeName, "guarded CFHE Clause " + clauseNumber.toString, "controlFlowHyperEdge")
@@ -447,9 +448,10 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   }
 
-  def drawPredicateNode(controlFlowNodeName: String, predicateName: String, className: String): Unit = {
+  def drawPredicateNode(controlFlowNodeName: String, predicateName: String, className: String,labelName:String=""): Unit = {
     //draw predicate node
-    createNode(controlFlowNodeName, predicateName, className, nodeShapeMap(className))
+    val lName= if (labelName.isEmpty) predicateName else labelName
+    createNode(controlFlowNodeName, lName, className, nodeShapeMap(className))
     controlFlowNodeSetCrossGraph(predicateName) = controlFlowNodeName
   }
 

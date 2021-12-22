@@ -99,10 +99,18 @@ object HintsSelection {
   }
 
   def filterInvalidInputs(simplifiedClausesForGraph: Clauses): Unit ={
+    //simplified to false<-false
     if (simplifiedClausesForGraph.length==1 && simplifiedClausesForGraph.head.body.isEmpty){
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no-simplified-clauses")
       sys.exit()
     }
+    //no argument
+//    val argumentList=(for (c<-simplifiedClausesForGraph;a<-c.allAtoms) yield {a.args}).flatten
+//    if (argumentList.length==0){
+//      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-dataflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no-dataflow")
+//      sys.exit()
+//    }
+
   }
   def checkMaxNode(simplifiedClausesForGraph: Clauses): Unit = {
     var totalNodeNumebr = 0

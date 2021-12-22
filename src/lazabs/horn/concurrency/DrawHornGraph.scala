@@ -179,7 +179,6 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   val learningLabel= new FormLearningLabels(simpClauses,clausesInCE)
   val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
   val predicateStrongConnectedComponentLabel=learningLabel.getStrongConnectedComponentPredicateList()
-
   def incrementTemplates(element:String,fromID:Int,toID:Int): Unit ={
     element match {
       case "verifHintTplPred"=>verifHintTplPredEdges.incrementBinaryEdge(fromID, toID)
@@ -313,7 +312,8 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   def incrementControlLocationIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     controlLocationIndices :+= GNNNodeID
-    for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
+    println("predicateOccurrenceInClauseLabel",predicateOccurrenceInClauseLabel)
+    for (l<-predicateOccurrenceInClauseLabel) if (l._1==nodeName) {
       predicateIndices :+= GNNNodeID
       predicateOccurrenceInClause :+= l._2
       predicateStrongConnectedComponent:+=predicateStrongConnectedComponentLabel(nodeName)
@@ -323,7 +323,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   }
 
   def incrementPredicateIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
-    for (l<-predicateOccurrenceInClauseLabel) if (l._1.name==nodeName) {
+    for (l<-predicateOccurrenceInClauseLabel) if (l._1==nodeName) {
       predicateIndices :+= GNNNodeID
       predicateOccurrenceInClause :+= l._2
       predicateStrongConnectedComponent:+=predicateStrongConnectedComponentLabel(nodeName)
@@ -819,6 +819,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("predicateStrongConnectedComponent", IntArray(gnn_input.predicateStrongConnectedComponent), writer, lastFiledFlag)
     GlobalParameters.get.hornGraphType match {
       case DrawHornGraph.HornGraphType.hyperEdgeGraph=> {
+//        if (gnn_input.AST_1Edges.binaryEdge.length==0 || gnn_input.AST_2Edges.binaryEdge.length==0){
+//          println("gnn_input.AST_1Edges.binaryEdge",gnn_input.AST_1Edges.binaryEdge.length)
+//        }
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("guardASTEdges", PairArray(gnn_input.guardASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("ASTEdges", PairArray(gnn_input.ASTEdges.binaryEdge), writer, lastFiledFlag)

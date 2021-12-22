@@ -102,6 +102,7 @@ class GlobalParameters extends Cloneable {
   var intervals = true
   var prettyPrint = false
   var smtPrettyPrint = false
+  var graphPrettyPrint = false
 //  var interpolation = false
   var ntsPrint = false
   var printIntermediateClauseSets = false
@@ -194,6 +195,7 @@ class GlobalParameters extends Cloneable {
     that.intervals = this.intervals
     that.prettyPrint = this.prettyPrint
     that.smtPrettyPrint = this.smtPrettyPrint
+    that. graphPrettyPrint = this.graphPrettyPrint
     that.ntsPrint = this.ntsPrint
     that.printIntermediateClauseSets = this.printIntermediateClauseSets
     that.horn = this.horn
@@ -432,6 +434,7 @@ object Main {
       }
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
+      case "-gp" :: rest => graphPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)

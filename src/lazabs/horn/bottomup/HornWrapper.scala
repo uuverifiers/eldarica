@@ -408,11 +408,20 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+  if (GlobalParameters.get.graphPrettyPrint==true){
+    println("--------simplified clauses--------")
+    simplifiedClauses.map(_.toPrologString).foreach(println(_))
+    println("--------normalized clauses--------")
+    simplifiedClausesForGraph.map(_.toPrologString).foreach(println(_))
+  }
   HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
   HintsSelection.checkMaxNode(simplifiedClausesForGraph)
 
   val sp = new Simplifier
   val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length)
+
+
+
 
   if (simplifiedClausesForGraph.isEmpty) {
     HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
