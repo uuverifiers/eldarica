@@ -147,7 +147,10 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
 ////////////////////////////////////////////////////////////////////////////////
 
 class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
-                        (iClauses : Iterable[CC]) extends HornPredAbsContext[CC] {
+                            (iClauses : Iterable[CC],
+                             intervalAnalysis : Boolean = true,
+                             intervalAnalysisIgnoredSyms : Set[Predicate] = Set())
+      extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
 
@@ -216,15 +219,24 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       rawNormClauses.put(NormClause(c, (p) => relationSymbols(p)), c)
     }
 
-    if (lazabs.GlobalParameters.get.intervals) {
+    if (intervalAnalysis) {
       val res = new LinkedHashMap[NormClause, CC]
 
+      // We introduce lower-bound clauses for the symbols not to be
+      // considered in interval analysis
+
+      val additionalClauses =
+        for (p <- intervalAnalysisIgnoredSyms)
+        yield NormClause(Conjunction.TRUE, List(), (relationSymbols(p), 0))
+
       val propagator =
-        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
+        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq ++
+                                  additionalClauses,
                                 sf.reducerSettings)
 
       for ((nc, oc) <- propagator.result)
-        res.put(nc, rawNormClauses(oc))
+        if (!(additionalClauses contains oc))
+          res.put(nc, rawNormClauses(oc))
 
       (res.toSeq, propagator.rsBounds)
     } else {

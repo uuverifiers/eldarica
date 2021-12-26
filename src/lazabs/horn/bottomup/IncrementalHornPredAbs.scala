@@ -46,6 +46,7 @@ class IncrementalHornPredAbs
                  [CC <% HornClauses.ConstraintClause]
                  (iClauses : Iterable[CC],
                   initialPredicates : Map[Predicate, Seq[IFormula]],
+                  substitutableSyms : Set[Predicate],
                   predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
                                        Either[Seq[(Predicate, Seq[Conjunction])],
                                               Dag[(IAtom, NormClause)]],
@@ -54,7 +55,9 @@ class IncrementalHornPredAbs
 
   lazabs.GlobalParameters.get.setupApUtilDebug
 
-  val baseContext : HornPredAbsContext[CC] = new HornPredAbsContextImpl(iClauses)
+  val baseContext : HornPredAbsContext[CC] =
+    new HornPredAbsContextImpl(iClauses,
+                               intervalAnalysisIgnoredSyms = substitutableSyms)
 
   /**
    * Apply the given substitution to all clauses, and check
@@ -65,9 +68,10 @@ class IncrementalHornPredAbs
   def checkWithSubstitution(subst : Map[Predicate, Conjunction])
                           : Either[Map[Predicate, Conjunction],
                                    Dag[(IAtom, CC)]] = {
-    assert(subst forall { case (p, c) =>
-             c.constants.isEmpty &&
-             (c.variables forall { v => v.index < p.arity }) })
+    assert((subst.keys forall substitutableSyms) &&
+           (subst forall { case (p, c) =>
+              c.constants.isEmpty &&
+              (c.variables forall { v => v.index < p.arity }) }))
 
     val rsSubst =
       (for ((p, c) <- subst) yield (baseContext.relationSymbols(p), c)).toMap
