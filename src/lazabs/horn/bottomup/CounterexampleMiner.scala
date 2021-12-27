@@ -31,6 +31,7 @@ package lazabs.horn.bottomup
 
 import ap.Signature
 import ap.parser._
+import ap.theories.TheoryCollector
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
@@ -67,9 +68,12 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
                                 localVariables : Seq[ConstantTerm],
                                 sig : Signature) : Conjunction =
         clause.instantiateConstraint(headArguments,
-                                     bodyArguments,
+                                     bodyArguments.init,
                                      localVariables,
                                      sig)
+
+      override def collectTheories(coll : TheoryCollector) : Unit =
+        clause collectTheories coll
     }
 
   val solver =
