@@ -55,9 +55,18 @@ class IncrementalHornPredAbs
 
   lazabs.GlobalParameters.get.setupApUtilDebug
 
+  private val outStream =
+     if (lazabs.GlobalParameters.get.logStat)
+       Console.err
+     else
+       HornWrapper.NullStream
+
   val baseContext : HornPredAbsContext[CC] =
-    new HornPredAbsContextImpl(iClauses,
-                               intervalAnalysisIgnoredSyms = substitutableSyms)
+    Console.withOut(outStream) {
+      new HornPredAbsContextImpl(iClauses,
+                                 intervalAnalysisIgnoredSyms =
+                                   substitutableSyms)
+    }
 
   /**
    * Apply the given substitution to all clauses, and check
@@ -86,7 +95,8 @@ class IncrementalHornPredAbs
              if !newClause.constraint.isFalse)
         yield (newClause, cc)
 
-      println("Remaining clauses: " + normClauses.size)
+      if (lazabs.GlobalParameters.get.log)
+        println("Testing substitution, remaining clauses: " + normClauses.size)
 
       override val relationSymbolOccurrences = computeRSOccurrences
       override val hasher                    = createHasher

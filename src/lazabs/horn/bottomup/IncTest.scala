@@ -10,7 +10,7 @@ import ap.terfor.conjunctions.Conjunction
 
 object IncTest extends App {
 
-  lazabs.GlobalParameters.get.assertions = false
+  lazabs.GlobalParameters.get.assertions = true
 
   def expect[A](x : A, expected : A => Boolean) : A = {
     assert(expected(x))
