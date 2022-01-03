@@ -163,6 +163,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   var controlLocationIndices = Array[Int]()
   var falseIndices = Array[Int]()
+  var initialIndices = Array[Int]()
   var argumentIndices = Array[Int]()
   var guardIndices = Array[Int]()
   var templateIndices = Array[Int]()
@@ -266,6 +267,10 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   def incrementFalseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     falseIndices :+= GNNNodeID
+    incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
+  }
+  def incrementInitialIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
+    initialIndices :+= GNNNodeID
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -422,6 +427,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
         nodeSymbols :+= nodeClass + "_" + controlFlowHyperEdgeCanonicalID.toString
       case "dataFlowHyperEdge"=>
         nodeSymbols :+= nodeClass + "_" + dataFlowHyperEdgeCanonicalID.toString
+      case "Initial" => nodeSymbols :+= nodeName
       case "FALSE" => nodeSymbols :+= nodeName
       case "operator" => nodeSymbols :+= nodeName
       case "constant" => nodeSymbols :+= nodeName
@@ -695,6 +701,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case "CONTROL" => gnn_input.incrementControlLocationIndicesAndNodeIds(canonicalName, className, labelName)
       case "predicateName" => gnn_input.incrementPredicateIndicesAndNodeIds(canonicalName, className, labelName)
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
+      case "Initial" => gnn_input.incrementInitialIndicesAndNodeIds(canonicalName, className, labelName)
       case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName,hintLabel)
       case "clause"=> gnn_input.incrementClauseIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
       case "guard"=> gnn_input.incrementGuardIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
@@ -798,6 +805,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("nodeIds", IntArray(gnn_input.nodeIds), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("nodeSymbolList", StringArray(gnn_input.nodeSymbols), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("initialIndices", IntArray(gnn_input.initialIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIndices", IntArray(argumentIndicesList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentBoundList", PairStringArray(argumentBoundList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentBinaryOccurrenceList", IntArray(argumentBinaryOccurrenceList.toArray), writer, lastFiledFlag)

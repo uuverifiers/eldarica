@@ -46,8 +46,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     }
     //build and visualize graph
     val writerPredicateGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
-    var predicateNameMap=scala.collection.mutable.Map[String, String]()
-    var predicateCounter=1
+    var predicateNameMap=Set[String]()
     val controlPrefix="CONTROL_"
     writerPredicateGraph.write("digraph dag {" + "\n")
     for(clause<-simpClauses) {
@@ -57,9 +56,9 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
         addNodeForCircleGraph(headName)
 
       if (clause.body.isEmpty){
-        if (!predicateNameMap.contains("Initial"))
-          addNodeForCircleGraph("Initial")
-        addAEdgeForCircleGraph(headName,"Initial")
+//        if (!predicateNameMap.contains("Initial"))
+//          addNodeForCircleGraph("Initial")
+//        addAEdgeForCircleGraph(headName,"Initial")
       }else{
         for (body<-clause.body){
           //create body node
@@ -75,9 +74,8 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     writerPredicateGraph.close()
     def addNodeForCircleGraph(nodeName:String): Unit ={
       writerPredicateGraph.write(addQuotes(nodeName) +
-        " [label=" + addQuotes(controlPrefix + predicateCounter.toString + ":" + nodeName) + " shape=" + "box" + "];" + "\n")
-      predicateCounter = predicateCounter + 1
-      predicateNameMap(nodeName)=controlPrefix+predicateCounter.toString
+        " [label=" + addQuotes(nodeName) + " shape=" + "box" + "];" + "\n")
+      predicateNameMap+=nodeName
     }
     def addAEdgeForCircleGraph(headName:String,bodyName:String): Unit ={
       writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
@@ -104,7 +102,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     //form predicate node occurrence in strong connected graph
     //var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.predicates if (p.name!="FALSE") ) yield (p.name->0)).toMap
     var predicateOccurrenceMap:Map[String,Int]=(for(clause<-simpClauses;p<-clause.allAtoms ) yield (p.pred.name->0)).toMap
-    predicateOccurrenceMap+=("Initial"->0)
+    //predicateOccurrenceMap+=("Initial"->0)
     for (c<-circles;p<-c) if (predicateOccurrenceMap.keySet.contains(p)){
       //predicateOccurrenceMap=predicateOccurrenceMap.updated(p,predicateOccurrenceMap(p)+1)
       predicateOccurrenceMap=predicateOccurrenceMap.updated(p,1)
