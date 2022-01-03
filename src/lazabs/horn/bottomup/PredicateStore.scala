@@ -139,6 +139,8 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  var hasherChecksHit, hasherChecksMiss = 0
+
   def predIsConsequenceWithHasher(pred : RelationSymbolPred, rsOcc : Int,
                                   reducer : ReduceWithConjunction,
                                   prover : => ModelSearchProver.IncProver,

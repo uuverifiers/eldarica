@@ -34,7 +34,7 @@ import ap.proof.ModelSearchProver
 import ap.proof.theoryPlugins.PluginSequence
 import ap.proof.tree.SeededRandomDataSource
 import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.TypeTheory
 import ap.parameters.{Param, GoalSettings}
@@ -43,8 +43,114 @@ import ap.util.Timeout
 import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
 import scala.util.Random
 
-class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
-                        (iClauses : Iterable[CC]) {
+trait HornPredAbsContext[CC] {
+
+  val rand : Random
+
+  val theories : Seq[Theory]
+  val sf : SymbolFactory
+
+  val useHashing : Boolean
+
+  val normClauses : Seq[(NormClause, CC)]
+
+  val relationSymbols : Map[Predicate, RelationSymbol]
+  val relationSymbolOccurrences : Map[RelationSymbol, Vector[(NormClause, Int, Int)]]
+
+  protected def computeRSOccurrences = {
+    val relationSymbolOccurrences =
+      (for (rs <- relationSymbols.values)
+         yield (rs -> new ArrayBuffer[(NormClause, Int, Int)])).toMap
+    for ((c@NormClause(_, body, _), _) <- normClauses.iterator;
+         ((rs, occ), i) <- body.iterator.zipWithIndex) {
+      relationSymbolOccurrences(rs) += ((c, occ, i))
+    }
+    relationSymbolOccurrences mapValues (_.toVector)
+  }
+
+  val relationSymbolBounds : Map[RelationSymbol, Conjunction]
+  val relationSymbolReducers : Map[RelationSymbol, ReduceWithConjunction]
+
+  val goalSettings : GoalSettings
+
+  val emptyProver : ModelSearchProver.IncProver
+
+  private var hardValidityCheckNum = 0
+  private var hardValidityCheckThreshold = 27
+  private var hardValidityCheckNumSqrt = 3
+
+  def isValid(prover : ModelSearchProver.IncProver) : Boolean =
+    prover.isObviouslyValid ||
+    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
+      hardValidityCheckNum = hardValidityCheckNum + 1
+      if (hardValidityCheckNum == hardValidityCheckThreshold) {
+        hardValidityCheckNum = 0
+        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
+        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
+      }
+
+      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
+        (prover checkValidity true) match {
+          case Left(m) =>
+            if (m.isFalse) {
+              true
+            } else {
+              hasher addModel m
+              false
+            }
+          case Right(_) =>
+            throw new Exception("Unexpected prover result")
+        }
+      else
+        !prover.isObviouslyUnprovable &&
+         ((prover checkValidity false) match {
+            case Left(m) if (m.isFalse) => true
+            case Left(_) => false
+            case Right(_) =>
+              throw new Exception("Unexpected prover result")
+          })
+    }
+  
+  val hasher : IHasher
+
+  protected def createHasher =
+    if (useHashing)
+      new Hasher(sf.order, sf.reducerSettings)
+    else
+      InactiveHasher
+
+  val clauseHashIndexes : Map[NormClause, Int]
+
+  protected def computeClauseHashIndexes =
+    (for ((clause, _) <- normClauses.iterator)
+     yield (clause, hasher addFormula clause.constraint)).toMap
+
+}
+
+class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
+      extends HornPredAbsContext[CC] {
+  val rand                      = underlying.rand
+  val theories                  = underlying.theories
+  val sf                        = underlying.sf
+  val useHashing                = underlying.useHashing
+  val normClauses               = underlying.normClauses
+  val relationSymbols           = underlying.relationSymbols
+  val relationSymbolOccurrences = underlying.relationSymbolOccurrences
+  val relationSymbolBounds      = underlying.relationSymbolBounds
+  val relationSymbolReducers    = underlying.relationSymbolReducers
+  val goalSettings              = underlying.goalSettings
+  val emptyProver               = underlying.emptyProver
+  val hasher                    = underlying.hasher
+  val clauseHashIndexes         = underlying.clauseHashIndexes
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
+                            (iClauses : Iterable[CC],
+                             intervalAnalysis : Boolean = true,
+                             intervalAnalysisIgnoredSyms : Set[Predicate] = Set())
+      extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
 
@@ -85,11 +191,14 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
 
   implicit val sf = new SymbolFactory(theories)
 
-  val relationSymbols =
-    (for (c <- iClauses.iterator;
-          lit <- (Iterator single c.head) ++ c.body.iterator;
-          p = lit.predicate)
-     yield (p -> RelationSymbol(p))).toMap
+  val relationSymbols = {
+    val preds =
+      (for (c <- iClauses.iterator;
+            lit <- (Iterator single c.head) ++ c.body.iterator;
+            p = lit.predicate)
+       yield p).toSet
+    (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
+  }
 
   // make sure that arguments constants have been instantiated
   for (c <- iClauses) {
@@ -110,15 +219,24 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
       rawNormClauses.put(NormClause(c, (p) => relationSymbols(p)), c)
     }
 
-    if (lazabs.GlobalParameters.get.intervals) {
+    if (intervalAnalysis) {
       val res = new LinkedHashMap[NormClause, CC]
 
+      // We introduce lower-bound clauses for the symbols not to be
+      // considered in interval analysis
+
+      val additionalClauses =
+        for (p <- intervalAnalysisIgnoredSyms)
+        yield NormClause(Conjunction.TRUE, List(), (relationSymbols(p), 0))
+
       val propagator =
-        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq,
+        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq ++
+                                  additionalClauses,
                                 sf.reducerSettings)
 
       for ((nc, oc) <- propagator.result)
-        res.put(nc, rawNormClauses(oc))
+        if (!(additionalClauses contains oc))
+          res.put(nc, rawNormClauses(oc))
 
       (res.toSeq, propagator.rsBounds)
     } else {
@@ -141,16 +259,7 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
         (normClauses groupBy { c => c._1.body.size }).toList sortBy (_._1))
     println("   " + clauses.size + " clauses with " + num + " body literals")
 
-  val relationSymbolOccurrences = {
-    val relationSymbolOccurrences =
-      (for (rs <- relationSymbols.values)
-         yield (rs -> new ArrayBuffer[(NormClause, Int, Int)])).toMap
-    for ((c@NormClause(_, body, _), _) <- normClauses.iterator;
-         ((rs, occ), i) <- body.iterator.zipWithIndex) {
-      relationSymbolOccurrences(rs) += ((c, occ, i))
-    }
-    relationSymbolOccurrences mapValues (_.toVector)
-  }
+  val relationSymbolOccurrences = computeRSOccurrences
 
   val goalSettings = {
     var gs = GoalSettings.DEFAULT
@@ -174,58 +283,14 @@ class HornPredAbsContext[CC <% HornClauses.ConstraintClause]
     prover
   }
 
-  var hardValidityCheckNum = 0
-  var hardValidityCheckThreshold = 27
-  var hardValidityCheckNumSqrt = 3
-
-  def isValid(prover : ModelSearchProver.IncProver) : Boolean =
-    prover.isObviouslyValid ||
-    Timeout.withChecker(lazabs.GlobalParameters.get.timeoutChecker) {
-      hardValidityCheckNum = hardValidityCheckNum + 1
-      if (hardValidityCheckNum == hardValidityCheckThreshold) {
-        hardValidityCheckNum = 0
-        hardValidityCheckThreshold = hardValidityCheckThreshold + 2
-        hardValidityCheckNumSqrt = hardValidityCheckNumSqrt + 1
-      }
-
-      if (hasher.acceptsModels && (rand nextInt hardValidityCheckNumSqrt) == 0)
-        (prover checkValidity true) match {
-          case Left(m) =>
-            if (m.isFalse) {
-              true
-            } else {
-              hasher addModel m
-              false
-            }
-          case Right(_) =>
-            throw new Exception("Unexpected prover result")
-        }
-      else
-        !prover.isObviouslyUnprovable &&
-         ((prover checkValidity false) match {
-            case Left(m) if (m.isFalse) => true
-            case Left(_) => false
-            case Right(_) =>
-              throw new Exception("Unexpected prover result")
-          })
-    }
-  
   //////////////////////////////////////////////////////////////////////////////
 
   // Hashing/sampling to speed up implication checks
 
-  var hasherChecksHit, hasherChecksMiss = 0
-
-  val hasher =
-    if (useHashing)
-      new Hasher(sf.order, sf.reducerSettings)
-    else
-      InactiveHasher
+  val hasher = createHasher
 
   // Add clause constraints to hasher
 
-  val clauseHashIndexes =
-    (for ((clause, _) <- normClauses.iterator)
-     yield (clause, hasher addFormula clause.constraint)).toMap
+  val clauseHashIndexes = computeClauseHashIndexes
 
 }

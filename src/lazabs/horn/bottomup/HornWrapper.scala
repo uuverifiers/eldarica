@@ -719,6 +719,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println
           cex.map(_._1).prettyPrint
         }
+        val res =
         if (lazabs.GlobalParameters.get.needFullCEX) {
           val fullCEX = preprocBackTranslator translate cex
           HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
@@ -726,6 +727,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         } else {
           Right(for (p <- cex) yield p._1)
         }
+
+        if (lazabs.GlobalParameters.get.mineCounterexamples)
+          new CounterexampleMiner(simplifiedClauses, predGenerator)
+
+        res
       }
     }
   }

@@ -33,9 +33,11 @@ import ap.parser._
 import HornClauses.ConstraintClause
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.{Term, TermOrder, ConstantTerm, VariableTerm, TerForConvenience}
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst}
 import ap.util.Seqs
+
+import scala.collection.mutable.ArrayBuffer
 
   object NormClause {
     def apply[CC](c : CC, predMap : Predicate => RelationSymbol)
@@ -168,6 +170,40 @@ import ap.util.Seqs
 
     def updateConstraint(newConstraint : Conjunction) =
       NormClause(newConstraint, body, head)
+
+    def substituteRS(subst : Map[RelationSymbol, Conjunction]) : NormClause = {
+      val newConstraints = new ArrayBuffer[Conjunction]
+      val remBody = body filter {
+        case (rs, occ) =>
+          (subst get rs) match {
+            case Some(f) => {
+              newConstraints += VariableSubst(0, rs.arguments(occ), order)(f)
+              false
+            }
+            case None =>
+              true
+          }
+      }
+
+      val newHead =
+        (subst get head._1) match {
+          case Some(f) => {
+            newConstraints +=
+              !VariableSubst(0, head._1.arguments(head._2), order)(f)
+            (RelationSymbol(HornClauses.FALSE), 0)
+          }
+          case None =>
+            head
+        }
+
+      if (newConstraints.isEmpty) {
+        this
+      } else {
+        newConstraints += constraint
+        NormClause(sf reduce Conjunction.conj(newConstraints, order),
+                   remBody, newHead)
+      }
+    }
 
     override def toString =
       "" + head._1.toString(head._2) +

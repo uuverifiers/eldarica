@@ -52,6 +52,11 @@ object HornClauses {
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 
+  def allPredicatesCC[CC <% HornClauses.ConstraintClause]
+                     (clauses : Iterable[CC]) : Set[Predicate] =
+    (for (clause <- clauses.iterator;
+          p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
+
   def allTermsSimple(terms : Iterable[ITerm]) : Boolean =
     terms forall {
       case SimpleTerm(_) => true
@@ -319,6 +324,9 @@ object HornClauses {
                             Signature(Set(), Set(), order.orderedConstants, order))
     def collectTheories(coll : TheoryCollector) : Unit = {}
     override def toString = head.toString + " :- " + body.mkString(", ")
+
+    def predicates : Set[Predicate] =
+      (for (l <- Iterator(head) ++ body.iterator) yield l.predicate).toSet
   }
 
   //////////////////////////////////////////////////////////////////////////////

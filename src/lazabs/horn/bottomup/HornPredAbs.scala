@@ -29,37 +29,20 @@
 
 package lazabs.horn.bottomup
 
-import ap.basetypes.IdealInt
-
-
-import ap.{Signature, SimpleAPI, PresburgerTools}
+import ap.Signature
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
-                      ReducerSettings}
-import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience,
-                  Term, Formula}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
-                               SeqReducerPluginFactory}
-import ap.terfor.preds.{Predicate, Atom}
-import ap.terfor.substitutions.{ConstantSubst, VariableSubst, VariableShiftSubst}
+import ap.parameters.PreprocessingSettings
+import ap.terfor.{ConstantTerm, TerForConvenience}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.preds.Predicate
+import ap.terfor.substitutions.ConstantSubst
+import ap.proof.QuantifierElimProver
+import ap.theories.TheoryCollector
+import ap.types.{Sort, MonoSortedPredicate}
 
-import ap.proof.{ModelSearchProver, QuantifierElimProver}
-import ap.util.Seqs
-import ap.theories.{Theory, TheoryCollector}
-import ap.types.{IntToTermTranslator, MonoSortedPredicate, Sort, TypeTheory}
-import SimpleAPI.ProverStatus
-import lazabs.prover.{Leaf, Tree}
 import Util._
 import DisjInterpolator._
 import lazabs.GlobalParameters
-
-
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 LinkedHashSet, LinkedHashMap,
-                                 ArrayBuffer, Queue, PriorityQueue,
-                                 ArrayBuilder}
-
-import scala.util.{Random, Sorting}
 
 object HornPredAbs {
 
@@ -136,7 +119,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   lazabs.GlobalParameters.get.setupApUtilDebug
 
   
-  val context = new HornPredAbsContext(iClauses)
+  val context : HornPredAbsContext[CC] = new HornPredAbsContextImpl(iClauses)
   import context._
 
   val predStore = new PredicateStore(context)
