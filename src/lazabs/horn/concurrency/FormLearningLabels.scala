@@ -34,7 +34,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
   def getStrongConnectedComponentPredicateList(): Map[String,Int] ={
     var nodeCounter=0
     var predicateNameSet:Set[String]=Set()
-    var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map("Initial"->new predicateNodeInfo("Initial",nodeCounter))
+    var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map()//Map("Initial"->new predicateNodeInfo("Initial",nodeCounter))
     for (clause<-simpClauses;p<-clause.allAtoms){
       if (!predicateNameSet.contains(p.pred.name))
         {
@@ -47,6 +47,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     //build and visualize graph
     val writerPredicateGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
     var predicateNameMap=Set[String]()
+    var edgeSet:Set[Tuple2[String,String]]=Set()
     val controlPrefix="CONTROL_"
     writerPredicateGraph.write("digraph dag {" + "\n")
     for(clause<-simpClauses) {
@@ -66,7 +67,10 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
           if (!predicateNameMap.contains(bodyName))
             addNodeForCircleGraph(bodyName)
           //add edge
-          addAEdgeForCircleGraph(headName,bodyName)
+          if (!edgeSet.contains(Tuple2(headName,bodyName))) {
+            addAEdgeForCircleGraph(headName,bodyName)
+            edgeSet=edgeSet+Tuple2(headName,bodyName)
+          }
         }
       }
     }

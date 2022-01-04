@@ -317,7 +317,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   def incrementControlLocationIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String): Unit = {
     controlLocationIndices :+= GNNNodeID
-    println("predicateOccurrenceInClauseLabel",predicateOccurrenceInClauseLabel)
+    //println("predicateOccurrenceInClauseLabel",predicateOccurrenceInClauseLabel)
     for (l<-predicateOccurrenceInClauseLabel) if (l._1==nodeName) {
       predicateIndices :+= GNNNodeID
       predicateOccurrenceInClause :+= l._2
