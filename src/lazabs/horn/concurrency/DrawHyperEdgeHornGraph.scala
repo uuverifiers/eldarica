@@ -291,16 +291,17 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
       for (frn <- guardRootNodeList)
         addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
-      //connect guard to hyperedge
-      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow) {
+      //connect guard to CFHE and DFHE
+      for (hyperEdgeNode <- hyperEdgeList) {
         val rootASTForHyperedge=guardName
         hyperEdgeNode.guardName += rootASTForHyperedge
         GlobalParameters.get.hornGraphType match {
           case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addConcretinizedTernaryEdge)
           case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
         }
-        addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
       }
+      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow)
+      addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
     }
 
 
