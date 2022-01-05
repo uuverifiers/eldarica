@@ -101,6 +101,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
   edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm (tpl)")
   edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
+  edgeNameMap += ("controlLocationEdgeForSCC" -> "SCCctrl")
   //turn on/off edge's label
   var edgeNameSwitch = true
   if (edgeNameSwitch == false) {
@@ -291,13 +292,14 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
       for (frn <- guardRootNodeList)
         addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
       //connect guard to hyperedge
-      for (hyperEdgeNode <- hyperEdgeList) {
+      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow) {
         val rootASTForHyperedge=guardName
         hyperEdgeNode.guardName += rootASTForHyperedge
         GlobalParameters.get.hornGraphType match {
           case HornGraphType.concretizedHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addConcretinizedTernaryEdge)
           case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
         }
+        addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
       }
     }
 

@@ -133,6 +133,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   val controlFlowHyperEdges = new Adjacency("controlFlowHyperEdge", 3)
   val dataFlowHyperEdges = new Adjacency("dataFlowHyperEdge", 3)
   val clauseEdges = new Adjacency("clauseEdge", 2)
+  val controlLocationEdgeForSCC = new Adjacency("controlLocationEdgeForSCC", 2)
 
   //edge category for layer version horn graph
   val predicateArgumentEdges = new Adjacency("predicateArgument", 2)
@@ -214,6 +215,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "clause" => clauseEdges.incrementBinaryEdge(fromID,toID)
           case "controlFlowHyperEdge"=> controlFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "dataFlowHyperEdge" => dataFlowHyperEdges.incrementBinaryEdge(fromID,toID)
+          case "controlLocationEdgeForSCC" => controlLocationEdgeForSCC.incrementBinaryEdge(fromID,toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }
@@ -845,6 +847,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("controlLocationEdgeForSCC", PairArray(gnn_input.controlLocationEdgeForSCC.binaryEdge.distinct), writer, lastFiledFlag)
       }
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph| DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>{
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)
@@ -857,6 +860,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("dataFlowASTEdges", PairArray(gnn_input.dataFlowASTEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", PairArray(gnn_input.controlFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", PairArray(gnn_input.dataFlowHyperEdges.binaryEdge), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("controlLocationEdgeForSCC", PairArray(gnn_input.controlLocationEdgeForSCC.binaryEdge.distinct), writer, lastFiledFlag)
       }
       case _ => {
         writeGNNInputFieldToJSONFile("predicateArgumentEdges", PairArray(gnn_input.predicateArgumentEdges.binaryEdge), writer, lastFiledFlag)
