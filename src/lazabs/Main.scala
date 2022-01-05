@@ -149,6 +149,7 @@ class GlobalParameters extends Cloneable {
   var eogCEX = false;
   var plainCEX = false;
   var simplifiedCEX = false;
+  var cexInSMT = false;
   var assertions = false
   var verifyInterpolants = false
   var minePredicates = false
@@ -238,6 +239,7 @@ class GlobalParameters extends Cloneable {
     that.pngNo = this.pngNo
     that.eogCEX = this.eogCEX
     that.plainCEX = this.plainCEX
+    that.cexInSMT = this.cexInSMT
     that.simplifiedCEX = this.simplifiedCEX
     that.assertions = this.assertions
     that.verifyInterpolants = this.verifyInterpolants
@@ -597,6 +599,7 @@ object Main {
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
       case "-eogCEX" :: rest => pngNo = false; eogCEX = true; arguments(rest)
       case "-cex" :: rest => plainCEX = true; arguments(rest)
+      case "-scex" :: rest => plainCEX = true; cexInSMT = true; arguments(rest)
       case "-cexSimplified" :: rest => simplifiedCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
       case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
@@ -609,9 +612,10 @@ object Main {
           " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" +
           " -statistics\tDisplay statistics (implied by -log)\n" +
           " -t:time\tSet timeout (in seconds)\n" +
-          " -cex\t\tShow textual counterexamples\n" +
-          " -dotCEX\tOutput counterexample in dot format\n" +
-          " -eogCEX\tDisplay counterexample using eog\n" +
+          " -cex\t\tShow textual counterexamples\n" + 
+          " -scex\t\tShow textual counterexamples in SMT-LIB format\n" + 
+          " -dotCEX\tOutput counterexample in dot format\n" + 
+          " -eogCEX\tDisplay counterexample using eog\n" + 
           " -m:func\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +

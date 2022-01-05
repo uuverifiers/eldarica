@@ -35,7 +35,10 @@ import global._
 import bottomup._
 
 import bottomup.RelationSymbol
-import abstractions.{AbsLattice}
+import abstractions.AbsLattice
+import lazabs.horn.bottomup.Util.Dag
+
+import ap.parser._
 
 
 object Solve {
@@ -108,7 +111,7 @@ object Solve {
 
             if (lazabs.GlobalParameters.get.plainCEX) {
               println
-              cex.prettyPrint
+              dagPrettyPrint(cex)
             }
 
             Util.show(cex, "horn-cex")
@@ -154,4 +157,17 @@ object Solve {
         }
       }    
   }
+
+  def dagPrettyPrint(cex : Dag[IFormula]) =
+    if (lazabs.GlobalParameters.get.cexInSMT) {
+      val smtCEX = cex map {
+        f => f match {
+          case IAtom(HornClauses.FALSE, _) => "false"
+          case f => SMTLineariser asString f
+        }
+      }
+      smtCEX.prettyPrint
+    } else {
+      cex.prettyPrint
+    }
 }
