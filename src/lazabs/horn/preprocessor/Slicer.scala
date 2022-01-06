@@ -35,7 +35,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
 
-import ap.theories.ADT
+import ap.theories.{ADT, TheoryRegistry}
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.types.MonoSortedPredicate
@@ -107,11 +107,10 @@ object Slicer extends HornPreprocessor {
               val bodyStates =
                 for (c <- children) yield newNext(c - 1)._1
               val simpleMapping =
-                (for ((IAtom(_, formal), IAtom(_, actual)) <-
-                        body.iterator zip bodyStates.iterator;
-                      (IConstant(c), t) <- formal.iterator zip actual.iterator)
-                 yield (c, t)).toMap
+                computeHeapArgMapping(clause, oldClause, bodyStates, newHeadArgs)
 
+              // check whether the values of all head arguments can
+              // now be derived
               val usedHeadArgs    = usedArgs(head.pred)
               val argIt           = newHeadArgs.iterator
               var unknownArgument = false
@@ -192,6 +191,80 @@ object Slicer extends HornPreprocessor {
       }
 
     (newClauses, newHints, translator)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def computeHeapArgMapping(newClause : Clause,
+                                    oldClause : Clause,
+                                    oldBodyStates : Seq[IAtom],
+                                    newHeadArgs : Seq[ITerm])
+                                  : Map[ConstantTerm, ITerm] = {
+    val Clause(newHead, newBody, newConstraint) = newClause
+    val Clause(oldHead, oldBody, oldConstraint) = oldClause
+
+    assert(newHeadArgs.size == newHead.args.size)
+    assert(oldBody.size == oldBodyStates.size)
+
+    val bodyMapping =
+      ((for ((IAtom(_, formal), IAtom(_, actual)) <-
+             oldBody.iterator zip oldBodyStates.iterator;
+             (IConstant(c), t) <- formal.iterator zip actual.iterator)
+        yield (c, t)) ++ (
+       (for ((IConstant(c), t) <- newHead.args.iterator zip newHeadArgs.iterator)
+        yield (c, t)))).toMap
+
+    val occurrenceNums = new MHashMap[ConstantTerm, Int] {
+      override def default(c : ConstantTerm) : Int = 0
+    }
+    val counter = new Counter(occurrenceNums)
+    counter.visitWithoutResult(oldConstraint, ())
+
+    for (a <- oldBody)
+      counter.visitWithoutResult(a, ())
+    for (t <- newHead.args)
+      counter.visitWithoutResult(t, ())
+
+    // extract further values from the constraint
+    var mapping  = bodyMapping
+    val literals = LineariseVisitor(oldConstraint, IBinJunctor.And)
+
+    var oldSize  = -1
+
+    while (oldSize < mapping.size) {
+      oldSize = mapping.size
+      val EvalTerm = new EvaluatableTerm(mapping)
+
+      for (lit <- literals) lit match {
+        case Eq(EvalTerm(s), IConstant(c))
+            if !(mapping contains c) &&
+               Sort.sortOf(s) == Sort.sortOf(c) =>
+          mapping = mapping + (c -> s)
+        case Eq(IConstant(c), EvalTerm(s))
+            if !(mapping contains c) &&
+               Sort.sortOf(s) == Sort.sortOf(c) =>
+          mapping = mapping + (c -> s)
+        case Eq(IConstant(c), IConstant(d))
+            if !(mapping contains c) && occurrenceNums(c) == 1 &&
+               !(mapping contains d) && occurrenceNums(d) == 1 &&
+               Sort.sortOf(c) == Sort.sortOf(d) => {
+          val t = Sort.sortOf(c).individuals.head
+          mapping = mapping + (c -> t) + (d -> t)
+        }
+        case _ =>
+          // nothing
+      }
+    }
+
+    for (t <- oldHead.args) t match {
+      case IConstant(c) =>
+        if (!(mapping contains c) && occurrenceNums(c) == 0)
+          mapping = mapping + (c -> Sort.sortOf(c).individuals.head)
+      case _ =>
+        // nothing
+    }
+
+    mapping
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -352,7 +425,7 @@ object Slicer extends HornPreprocessor {
         Some(t)
       case Sort.MultipleValueBool.True | Sort.MultipleValueBool.False =>
         Some(t)
-      case IFunApp(f@ADT.Constructor(_, _), args) => {
+      case IFunApp(f, args) if TheoryRegistry.lookupSymbol(f).isDefined => {
         val argTerms = args map (unapply(_))
         if (argTerms forall (_.isDefined))
           Some(IFunApp(f, argTerms map (_.get)))
@@ -362,6 +435,30 @@ object Slicer extends HornPreprocessor {
       case _
         => None
     }
+  }
+
+  private class EvaluatableTerm(m : Map[ConstantTerm, ITerm]) {
+    def unapply(t : ITerm) : Option[ITerm] =
+      SimplifyingConstantSubstVisitor(t, m) match {
+        case ConcreteTerm(s) => Some(s)
+        case _ => None
+      }
+  }
+
+  private class Counter(exprOccurrences : MHashMap[ConstantTerm, Int])
+          extends CollectingVisitor[Unit, Unit] {
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      t match {
+        case IConstant(c) => {
+          exprOccurrences.put(c, exprOccurrences.getOrElse(c, 0) + 1)
+          KeepArg
+        }
+        case _ =>
+          KeepArg
+      }
+
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
 
 }
