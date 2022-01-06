@@ -126,6 +126,7 @@ class GlobalParameters extends Cloneable {
   var assertions = false
   var verifyInterpolants = false
   var minePredicates = false
+  var mineCounterexamples = false
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
@@ -214,6 +215,8 @@ class GlobalParameters extends Cloneable {
     that.assertions = this.assertions
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
+    that.minePredicates = this.minePredicates
+    that.mineCounterexamples = this.mineCounterexamples
   }
 
   override def clone : GlobalParameters = {
@@ -375,6 +378,8 @@ object Main {
       case "-pHints" :: rest => templateBasedInterpolationPrint = true; arguments(rest)
 
       case "-minePredicates" :: rest => minePredicates = true; arguments(rest)
+
+      case "-mineCounterexamples" :: rest => mineCounterexamples = true; arguments(rest)
 
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 

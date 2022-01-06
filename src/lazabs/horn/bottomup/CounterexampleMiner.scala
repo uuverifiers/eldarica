@@ -106,13 +106,6 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
       })
   }
 
-  def njoin(objs : cexLattice.LatticeObject*) : cexLattice.LatticeObject =
-    if (objs.isEmpty) {
-      cexLattice.top
-    } else {
-      objs reduceLeft (cexLattice.join(_, _))
-    }
-
   private def flagsToIndexes(flags : Set[Predicate]) : Seq[Int] =
     (for (f <- flags) yield (clauseFlags indexOf f)).toVector.sorted
 
@@ -120,9 +113,10 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
   println("Clauses contained in every counterexample:")
 
   {
-    val j = njoin((for (obj <- cexLattice.succ(cexLattice.bottom);
-                        if !cexLattice.isFeasible(obj))
-                   yield obj).toList : _*)
+    val j = cexLattice.njoin(
+              (for (obj <- cexLattice.succ(cexLattice.bottom);
+                    if !cexLattice.isFeasible(obj))
+               yield obj).toList : _*)
     val notNeeded = cexLattice getLabel j
     val needed = (clauseFlags filterNot notNeeded).toSet
     println(flagsToIndexes(needed))
