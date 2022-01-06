@@ -719,6 +719,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println
           cex.map(_._1).prettyPrint
         }
+
         val res =
         if (lazabs.GlobalParameters.get.needFullCEX) {
           val fullCEX = preprocBackTranslator translate cex

@@ -275,6 +275,8 @@ class GlobalParameters extends Cloneable {
     that.readCost=this.readCost
     that.rdm=this.rdm
     that.moveFile = this.moveFile
+    that.minePredicates = this.minePredicates
+    that.mineCounterexamples = this.mineCounterexamples
   }
 
   override def clone : GlobalParameters = {
