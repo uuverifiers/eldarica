@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,7 +51,8 @@ object Main extends App {
   predAbs.result match {
     case Right(cex) => {
       println("NOT SOLVABLE")
-      Util.show(for (p <- cex) yield p._1, "horn-cex")
+      if (!lazabs.GlobalParameters.get.pngNo)
+        Util.show(for (p <- cex) yield p._1, "horn-cex")
       cex.prettyPrint
     }
     case Left(solution) =>
