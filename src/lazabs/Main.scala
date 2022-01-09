@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2022 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,9 @@ object GlobalParameters {
     new scala.util.DynamicVariable[GlobalParameters] (new GlobalParameters)
 
   def get : GlobalParameters = parameters.value
+
+  def withValue[A](p : GlobalParameters)(comp : => A) : A =
+    parameters.withValue(p)(comp)
 }
 
 class GlobalParameters extends Cloneable {
@@ -349,7 +352,7 @@ object Main {
 
 
   val greeting =
-    "Eldarica v2.0.7.\n(C) Copyright 2012-2021 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.7.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {

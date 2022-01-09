@@ -64,7 +64,8 @@ object MainBenchmarks extends App {
   predAbs.result match {
     case Right(cex) => {
       println("NOT SOLVABLE")
-      Util.show(for (p <- cex) yield p._1, "horn-cex")
+      if (!lazabs.GlobalParameters.get.pngNo)
+        Util.show(for (p <- cex) yield p._1, "horn-cex")
       cex.prettyPrint
     }
     case Left(solution) =>
