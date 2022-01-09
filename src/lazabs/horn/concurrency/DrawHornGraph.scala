@@ -695,7 +695,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Int=0): Unit = {
-    gnn_input.nodeInfoList+=(canonicalName->new NodeInfo(canonicalName,labelName,className,shape))
+    gnn_input.nodeInfoList+=(canonicalName->new NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape))
 //    writerGraph.write(addQuotes(canonicalName) +
 //      " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
     className match {

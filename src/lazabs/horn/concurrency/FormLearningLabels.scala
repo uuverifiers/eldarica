@@ -56,23 +56,18 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
       if (!predicateNameMap.contains(headName))
         addNodeForCircleGraph(headName)
 
-      if (clause.body.isEmpty){
-//        if (!predicateNameMap.contains("Initial"))
-//          addNodeForCircleGraph("Initial")
-//        addAEdgeForCircleGraph(headName,"Initial")
-      }else{
-        for (body<-clause.body){
-          //create body node
-          val bodyName = body.pred.name
-          if (!predicateNameMap.contains(bodyName))
-            addNodeForCircleGraph(bodyName)
-          //add edge
-          if (!edgeSet.contains(Tuple2(headName,bodyName))) {
-            addAEdgeForCircleGraph(headName,bodyName)
-            edgeSet=edgeSet+Tuple2(headName,bodyName)
-          }
+      for (body<-clause.body){
+        //create body node
+        val bodyName = body.pred.name
+        if (!predicateNameMap.contains(bodyName))
+          addNodeForCircleGraph(bodyName)
+        //add edge
+        if (!edgeSet.contains(Tuple2(headName,bodyName))) {
+          addAEdgeForCircleGraph(headName,bodyName)
+          edgeSet=edgeSet+Tuple2(headName,bodyName)
         }
       }
+
     }
     writerPredicateGraph.write("}" + "\n")
     writerPredicateGraph.close()

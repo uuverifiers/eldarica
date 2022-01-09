@@ -138,14 +138,46 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   nodeShapeMap += ("dataFlowHyperEdge" -> "diamond")
   nodeShapeMap += ("clause" -> "component")
 
+//  //draw predicates node for scc task only
+//  var predicateEdgeSet:Set[Tuple2[String,String]]=Set()
+//  for (clause <- simpClauses) {
+//    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
+//    if (normalizedClause.head.pred.name=="FALSE"){
+//      createNode(canonicalName="FALSE", labelName="FALSE", className="FALSE", shape=nodeShapeMap("CONTROL"))
+//      controlFlowNodeSetCrossGraph("FALSE") = "FALSE"
+//    }
+//    if (!controlFlowNodeSetCrossGraph.keySet.contains(normalizedClause.head.pred.name)){
+//      val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+//      drawPredicateNode(controlFlowNodeName, normalizedClause.head.pred.name, "CONTROL",labelName = "")
+//    }
+//    for (b<-normalizedClause.body){
+//      if (!controlFlowNodeSetCrossGraph.keySet.contains(b.pred.name)){
+//        val controlFlowBodyNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+//        drawPredicateNode(controlFlowBodyNodeName, b.pred.name, "CONTROL",labelName = "")
+//      }
+//
+//      if (!predicateEdgeSet.contains(Tuple2(clause.head.pred.name,b.pred.name))) {
+//        addBinaryEdge(controlFlowNodeSetCrossGraph(b.pred.name),controlFlowNodeSetCrossGraph(clause.head.pred.name),"controlLocationEdgeForSCC")
+//        predicateEdgeSet=predicateEdgeSet+Tuple2(clause.head.pred.name,b.pred.name)
+//      }
+//    }
+//  }
+
+
   //val sp = new Simplifier()
   var tempID = 0
   var clauseNumber = 0
   var hyperEdgeList = scala.collection.mutable.ArrayBuffer[hyperEdgeInfo]()
+
+  //val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
+  //bodyReplacedClauses.foreach(println)
+  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
+
+
   //create unique Initial and FALSE node
   //val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
-//  createNode(canonicalName = initialControlFlowNodeName, labelName = "Initial", className = "CONTROL", shape = nodeShapeMap("CONTROL"))
-//  controlFlowNodeSetCrossGraph("Initial") = initialControlFlowNodeName
+  //  createNode(canonicalName = initialControlFlowNodeName, labelName = "Initial", className = "CONTROL", shape = nodeShapeMap("CONTROL"))
+  //  controlFlowNodeSetCrossGraph("Initial") = initialControlFlowNodeName
   val initialControlFlowNodeName = "Initial"
   drawPredicateNode(initialControlFlowNodeName,"Initial","Initial")
   //  val falseControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
@@ -153,9 +185,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //  controlFlowNodeSetCrossGraph("FALSE") = falseControlFlowNodeName
 
 
-  //val bodyReplacedClauses=(for (c<-simpClauses) yield replaceMultiSamePredicateInBody(c)).flatten// replace multiple same predicate in body
-  //bodyReplacedClauses.foreach(println)
-  var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
 
   for (clause <- simpClauses) {
     //simplify clauses by quantifiers and replace arguments to _0,_1,...
@@ -300,10 +329,10 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
         }
       }
-      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow)
-      addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
-    }
 
+//      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow && hyperEdgeNode.fromName!="Initial" )
+//      addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
+    }
 
 
     if (GlobalParameters.get.getLabelFromCounterExample == true) {//todo: label guardRootNodeList
@@ -325,6 +354,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     binaryOperatorSubGraphSetInOneClause.clear()
     unaryOperatorSubGraphSetInOneClause.clear()
   }
+
 
     //draw templates
     astEdgeType = "AST"//"templateAST"
