@@ -317,7 +317,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
       //connect guards by guard node
       val guardName = guardNodePrefix + gnn_input.GNNNodeID
-      createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"))
+      createNode(guardName, labelName = "G", "guard", nodeShapeMap("guard"), Seq(clause))
       for (frn <- guardRootNodeList)
         addBinaryEdge(frn, guardName, "guardAST", edgeDirectionMap("guardAST")) //AST,guardAST
       //connect guard to CFHE and DFHE
@@ -329,24 +329,25 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
           case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph => drawHyperEdge(hyperEdgeNode, rootASTForHyperedge, addTernaryEdge)//updateTernaryEdge
         }
       }
-
+        //add predicate edges for scc task
 //      for (hyperEdgeNode <- hyperEdgeList; if hyperEdgeNode.hyperEdgeType==HyperEdgeType.controlFlow && hyperEdgeNode.fromName!="Initial" )
 //      addBinaryEdge(hyperEdgeNode.fromName,hyperEdgeNode.toName,label = "controlLocationEdgeForSCC")
     }
 
 
-    if (GlobalParameters.get.getLabelFromCounterExample == true) {//todo: label guardRootNodeList
-      //create clause node and connect with guards
-      val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
-      createNode(clauseNodeName, clauseNodeName, "clause", nodeShapeMap("clause"), Seq(clause))
-      //add edges to the clause
-      for (guardRootNode <- guardRootNodeList) { //from guards to clause
-        addBinaryEdge(guardRootNode, clauseNodeName, "AST")//guardAST
-      }
-      addBinaryEdge(clauseNodeName, headNodeName, label = "clause") //from clause to head
-      for (bodyNodeName <- bodyNodeNameList) //from body to clause
-        addBinaryEdge(bodyNodeName, clauseNodeName, "clause")
-    }
+//    if (GlobalParameters.get.getLabelFromCounterExample == true) {
+//      //create clause node and connect with guards
+//      val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
+//      createNode(clauseNodeName, clauseNodeName, "clause", nodeShapeMap("clause"), Seq(clause))
+//      //add edges to the clause
+//      for (guardRootNode <- guardRootNodeList) { //from guards to clause
+//        addBinaryEdge(guardRootNode, clauseNodeName, "AST")//guardAST
+//      }
+//      addBinaryEdge(clauseNodeName, headNodeName, label = "clause") //from clause to head
+//      for (bodyNodeName <- bodyNodeNameList) //from body to clause
+//        addBinaryEdge(bodyNodeName, clauseNodeName, "clause")
+//    }
+
     clauseNumber += 1
 
     hyperEdgeList.clear()

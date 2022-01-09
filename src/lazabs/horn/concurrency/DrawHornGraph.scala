@@ -305,7 +305,10 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   }
   def incrementGuardIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
     guardIndices :+=GNNNodeID
-    //todo: collect some learning labels
+    if (!clauseInfo.isEmpty && clausesInCE.map(_.toString).contains(clauseInfo.head.toString)) {
+      clausesOccurrenceInCounterExample :+=1
+    } else
+      clausesOccurrenceInCounterExample :+=0
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={

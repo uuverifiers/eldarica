@@ -658,18 +658,19 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }
 
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
-        val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
-        println("clausesInCE:")
-        clausesInCE.foreach(x=>println(x.toPrologString))
+        //val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
+        println("Mining counter example labels ...")
+        val CEMiner=new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
+        val clausesInCE= for ((c,i)<-simplifiedClausesForGraph.zipWithIndex;
+                                            if CEMiner.unionMinimalCounterexampleIndexs.contains(i))yield{c}
+        println("Mining counter example labels finished ")
+
         val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
           argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
         val hintsCollection = new VerificationHintsInfo(VerificationHints(Map()), VerificationHints(Map()), VerificationHints(Map()))
         val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, clausesInCE)
-
-        new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
-        sys.exit()
         GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
-
+        sys.exit()
       }
 
       lazabs.GlobalParameters.get.predicateOutputFile match {

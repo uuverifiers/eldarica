@@ -111,7 +111,7 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
 
   println
   println("Clauses contained in every counterexample:")
-
+  val minimalCounterexampleIndexs=
   {
     val j = cexLattice.njoin(
               (for (obj <- cexLattice.succ(cexLattice.bottom);
@@ -119,13 +119,15 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
                yield obj).toList : _*)
     val notNeeded = cexLattice getLabel j
     val needed = (clauseFlags filterNot notNeeded).toSet
-    println(flagsToIndexes(needed))
+    val neededIndexs=flagsToIndexes(needed)
+    println(neededIndexs)
+    neededIndexs
   }
 
   println
   println("Union of the minimal counterexample sets:")
-  println(
-    flagsToIndexes(cexLattice.getLabel(Algorithms.maximalFeasibleObjectMeet(cexLattice)(cexLattice.bottom))))
+  val unionMinimalCounterexampleIndexs=flagsToIndexes(cexLattice.getLabel(Algorithms.maximalFeasibleObjectMeet(cexLattice)(cexLattice.bottom)))
+  println(unionMinimalCounterexampleIndexs)
 
   println
   println("Minimal counterexample sets:")
