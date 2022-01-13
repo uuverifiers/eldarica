@@ -660,9 +660,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       if (GlobalParameters.get.getLabelFromCounterExample == true) {
         //val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
         println("Mining counter example labels ...")
-        val CEMiner=new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
-        val clausesInCE= for ((c,i)<-simplifiedClausesForGraph.zipWithIndex;
-                                            if CEMiner.unionMinimalCounterexampleIndexs.contains(i))yield{c}
+        val CEMiner = new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
+        val clausesInCE =
+          if (GlobalParameters.get.unionOption == true)
+            for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
+                 if CEMiner.unionMinimalCounterexampleIndexs.contains(i)) yield {c}
+          else
+            for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
+                 if CEMiner.commonCounterexampleIndexs.contains(i)) yield {c}
         println("Mining counter example labels finished ")
 
         val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,

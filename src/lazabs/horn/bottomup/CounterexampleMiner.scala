@@ -111,7 +111,7 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
 
   println
   println("Clauses contained in every counterexample:")
-  val minimalCounterexampleIndexs=
+  val commonCounterexampleIndexs=
   {
     val j = cexLattice.njoin(
               (for (obj <- cexLattice.succ(cexLattice.bottom);
