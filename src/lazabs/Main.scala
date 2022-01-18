@@ -727,6 +727,6 @@ object Main {
     if (message == null)
       println("error")
     else
-      println("(error \"" + message.replace("\"", "\"\"\"") + "\")")
+      println("(error \"" + ap.parser.SMTLineariser.escapeString(message) + "\")")
   
 }
