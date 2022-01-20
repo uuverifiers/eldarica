@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2022 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -671,7 +671,7 @@ class SMTHornReader protected[parser] (
 
       setupTheoryPlugin(new Plugin {
         import Plugin.GoalState
-        def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+        override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
           goalState(goal) match {
             case GoalState.Final => {
               val occurringPreds =
@@ -683,13 +683,13 @@ class SMTHornReader protected[parser] (
 
               if (axioms.isFalse) {
                 qfClauses += goal.facts
-                Some((Conjunction.FALSE, Conjunction.TRUE))
+                List(Plugin.AddFormula(Conjunction.TRUE))
               } else {
-                Some((axioms.negate, Conjunction.TRUE))
+                List(Plugin.AddFormula(axioms))
               }
             }
             case _ =>
-              None
+              List()
           }
       })
 

@@ -35,3 +35,13 @@ for name in $TESTS; do
     echo $name
     $LAZABS -cex -ssol -abstract:off -arrayQuans:off "$@" $name 2>&1 | grep -v 'at '
 done
+
+# Tests with interpolation abstractions turned on
+
+TESTS="array-elim.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -ssol -arrayQuans:off "$@" $name 2>&1 | grep -v 'at '
+done
