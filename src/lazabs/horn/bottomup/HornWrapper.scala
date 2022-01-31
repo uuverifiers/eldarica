@@ -415,6 +415,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
 
+    if (lazabs.GlobalParameters.get.boundsAnalysis) {
+      new BoundAnalyzer(simplifiedClauses, predGenerator)
+      throw PrintingFinishedException
+    }
+
     val predAbs = Console.withOut(outStream) {
       println
       println(
