@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,6 +53,9 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
   val clauseFlags =
     for ((_, n) <- iClauses.zipWithIndex) yield new Predicate("f_" + n, 0)
 
+  val clauseFlagsSet =
+    clauseFlags.toSet
+
   val augmentedClauses =
     for ((clause, f) <- iClauses zip clauseFlags) yield new ConstraintClause {
       def head = clause.head
@@ -100,8 +103,17 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
                         else
                           Conjunction.FALSE))).toMap
         solver.checkWithSubstitution(subst) match {
-          case Left(sol) => optInfeasible(_ => false)
-          case Right(cex) => optFeasible(_ => false)
+          case Left(sol) =>
+            optInfeasible(_ => false)
+
+          case Right(cex) => {
+            val usedFlags =
+              (for ((_, clause) <- cex.iterator;
+                    p <- clause.predicates.iterator;
+                    if clauseFlagsSet contains p)
+               yield p).toSet
+            optFeasible(set2 => usedFlags subsetOf set2)
+          }
         }
       })
   }
