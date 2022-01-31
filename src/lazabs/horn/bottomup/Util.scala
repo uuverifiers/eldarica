@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -283,7 +283,6 @@ object Util {
   //////////////////////////////////////////////////////////////////////////////
 
   def show[D](d : Dag[D], name : String) : Unit = {
-    if (!lazabs.GlobalParameters.get.pngNo) {
       val runTime = Runtime.getRuntime   
       val filename = if (lazabs.GlobalParameters.get.dotSpec)
                        lazabs.GlobalParameters.get.dotFile
@@ -301,7 +300,6 @@ object Util {
         proc = runTime.exec( "eog " + filename + ".png")
 //    proc.waitFor
       }
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

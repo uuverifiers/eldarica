@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -275,7 +275,7 @@ class HornWrapper(constraints: Seq[HornClause],
     else
       List()
 
-  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] =
+  val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] =
     ParallelComputation(params) {
       new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
                            allHints, preprocBackTranslator,
@@ -408,7 +408,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val result : Either[Map[Predicate, IFormula], Dag[IAtom]] = {
+  val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
         CEGAR.CounterexampleMethod.AllShortest
@@ -450,17 +450,26 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       predAbs
     }
 
+    // save the current configuration, to make sure that the lazily
+    // computed solutions or counterexamples are computed with the
+    // same settings
+    val currentParams = GlobalParameters.get.clone
+
     predAbs.result match {
       case Left(res) => {
-        val r =
-          if (lazabs.GlobalParameters.get.needFullSolution) {
-            val fullSol = preprocBackTranslator translate res
-            HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
-            Left(fullSol)
-          } else {
-            // only keep relation symbols that were also part of the orginal problem
-            Left(res filterKeys allPredicates(unsimplifiedClauses))
+        def solFun() =
+          lazabs.GlobalParameters.withValue(currentParams) {
+            if (lazabs.GlobalParameters.get.needFullSolution) {
+              val fullSol = preprocBackTranslator translate res
+              HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
+              fullSol
+            } else {
+              // only keep relation symbols that were also part of the orginal problem
+              res filterKeys allPredicates(unsimplifiedClauses)
+            }
           }
+
+        val r = Left(solFun _)
 
         if (lazabs.GlobalParameters.get.minePredicates)
           new PredicateMiner(predAbs)
@@ -474,19 +483,22 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
           cex.map(_._1).prettyPrint
         }
 
-        val res =
-        if (lazabs.GlobalParameters.get.needFullCEX) {
-          val fullCEX = preprocBackTranslator translate cex
-          HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
-          Right(for (p <- fullCEX) yield p._1)
-        } else {
-          Right(for (p <- cex) yield p._1)
-        }
+        def cexFun() =
+          lazabs.GlobalParameters.withValue(currentParams) {
+            if (lazabs.GlobalParameters.get.needFullCEX) {
+              val fullCEX = preprocBackTranslator translate cex
+              HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
+              for (p <- fullCEX) yield p._1
+            } else {
+              for (p <- cex) yield p._1
+            }
+          }
 
         if (lazabs.GlobalParameters.get.mineCounterexamples)
           new CounterexampleMiner(simplifiedClauses, predGenerator)
 
-        res
+        Right(cexFun _)
+
       }
     }
   }

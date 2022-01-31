@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -325,6 +325,14 @@ object IdentityDomain extends AbstractDomain {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object StrideDomain {
+  private def isConsideredSort(s : Sort) : Boolean = s match {
+    case Sort.Numeric(_)                => true
+    case ModuloArithmetic.ModSort(_, _) => true
+    case _                              => false
+  }
+}
+
 /**
  * Stride domain: for each argument of a relation variable, remember
  * whether the value of the argument is equal to some initial argument
@@ -333,6 +341,7 @@ object IdentityDomain extends AbstractDomain {
 class StrideDomain(sizeBound : Int, p : SimpleAPI)
       extends AbstractDomain {
 
+  import StrideDomain._
   import HornClauses.Clause
 
   type Element = List[Option[Set[(Int, IdealInt)]]]
@@ -404,22 +413,27 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
 
           val offsetCandidates : Array[List[(Int, ITerm, IdealInt)]] =
             (for (headArg <- headArgs) yield {
-               val headVal = eval(headArg)
-               var num = 0
-               (for (IAtom(_, b) <- body.iterator;
-                     bodyArg <- b.iterator;
-                     if ({
-                            num = num + 1
-                            (headArg, bodyArg) match {
-                              case (IConstant(c), IConstant(d)) =>
-                                c == d ||
-                                ((constraintConsts contains c) &&
-                                 (constraintConsts contains d))
-                              case _ => true
-                            }
-                          })) yield {
-                  (num - 1, bodyArg, headVal - eval(bodyArg))
-                }).toList
+               if (isConsideredSort(Sort sortOf headArg)) {
+                 val headVal = eval(headArg)
+                 var num = 0
+                 (for (IAtom(_, b) <- body.iterator;
+                       bodyArg <- b.iterator;
+                       if ({
+                             num = num + 1
+                             isConsideredSort(Sort sortOf bodyArg) &&
+                             ((headArg, bodyArg) match {
+                                case (IConstant(c), IConstant(d)) =>
+                                  c == d ||
+                                  ((constraintConsts contains c) &&
+                                     (constraintConsts contains d))
+                                case _ => true
+                              })
+                           })) yield {
+                    (num - 1, bodyArg, headVal - eval(bodyArg))
+                  }).toList
+               } else {
+                 List()
+               }
              }).toArray
 
           Some((for ((headArg, headArgNum) <- headArgs.iterator.zipWithIndex) yield {
@@ -433,7 +447,6 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
                 offsetCandidates(headArgNum).head
               offsetCandidates(headArgNum) =
                 offsetCandidates(headArgNum).tail
-                
 
               for (f <- nonOverflowFors)
                 !! (f)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -101,11 +101,17 @@ object PrincessWrapper {
     case BooleanType()            => Sort.MultipleValueBool
     case AdtType(s)               => s //??? sorts are in ADT.sorts
     case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
-    case ArrayType(index, obj)    => ExtArray(List(type2Sort(index)), type2Sort(obj)).sort
+    case ArrayType(index, obj)    => ExtArray(List(toNormalBool(type2Sort(index))),
+                                              toNormalBool(type2Sort(obj))).sort
     case HeapType(s)              => s
     case HeapAddressType(hs)      => hs.AddressSort
     case _ =>
       throw new Exception("Unhandled type: " + t)
+  }
+
+  private def toNormalBool(s : Sort) : Sort = s match {
+    case Sort.MultipleValueBool => Sort.Bool
+    case s => s
   }
 
   def sort2Type(s : Sort) : Type = s match {
