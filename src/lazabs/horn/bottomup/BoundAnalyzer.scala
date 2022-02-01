@@ -48,7 +48,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object BoundAnalyzer {
 
-  private val TO = 5000
+  private val DefaultTimeOut = 5000
   private val MaxBound = IdealInt("10000000000000000000000000")
 
 }
@@ -176,6 +176,7 @@ class BoundAnalyzer[CC <% HornClauses.ConstraintClause]
 
   private def withTimeout[A](comp : => A) : Unit = {
     val startTime = System.currentTimeMillis
+    val TO = lazabs.GlobalParameters.get.timeout.getOrElse(DefaultTimeOut)
 
     lazabs.GlobalParameters.get.timeoutChecker = {
       () => if (System.currentTimeMillis - startTime > TO.toLong)
@@ -185,68 +186,72 @@ class BoundAnalyzer[CC <% HornClauses.ConstraintClause]
     try {
       comp
     } catch {
-      case lazabs.Main.TimeoutException => // continue
+      case lazabs.Main.TimeoutException =>
+        Console.err.println(" timeout")
+        // continue
+    }
+  }
+
+  private def testBound(pred : Predicate, argIndex : Int,
+                        testValue : IdealInt, upper : Boolean) = {
+    Console.err.print("   testing " + testValue + " ...")
+
+    val subst =
+      (for (p <- allPreds)
+       yield (boundPredicates(p) -> Conjunction.TRUE)).toMap + (
+        boundPredicates(pred) ->
+          (if (upper)
+             (conj(v(argIndex) <= testValue))
+           else
+             (conj(v(argIndex) >= testValue))))
+
+    solver.checkWithSubstitution(subst) match {
+      case Left(_) => {
+        Console.err.println(" is bound!")
+        (if (upper) upperBounds else lowerBounds).put(
+          (pred, argIndex), testValue)
+      }
+      case Right(cex) => {
+        Console.err.println(" nope")
+        addObservedValues(cex)
+      }
     }
   }
 
   for (pred <- allPreds; argIndex <- consideredArgs(pred)) {
     if (lowerBounds contains ((pred, argIndex))) {
-      Console.err.println("Already have lower bound for " + pred.name + ", index " + argIndex)
+      Console.err.println(
+        "Already have lower bound for " + pred.name + ", index " + argIndex)
     } else {
-      Console.err.println("Computing lower bound for " + pred.name + ", index " + argIndex)
+      Console.err.println(
+        "Computing lower bound for " + pred.name + ", index " + argIndex)
 
       withTimeout {
-      while (!(lowerBounds contains ((pred, argIndex))) &&
-               getLowerTestValue(pred, argIndex).abs <= MaxBound) {
-        val testValue = getLowerTestValue(pred, argIndex)
-        Console.err.print("testing " + testValue + " ...")
-
-        val subst =
-          (for (p <- allPreds)
-           yield (boundPredicates(p) -> Conjunction.TRUE)).toMap + (
-            boundPredicates(pred) -> conj(v(argIndex) >= testValue))
-
-        solver.checkWithSubstitution(subst) match {
-          case Left(_) => {
-            Console.err.println(" is bound!")
-            lowerBounds.put((pred, argIndex), testValue)
-          }
-          case Right(cex) => {
-            Console.err.println
-            addObservedValues(cex)
-          }
-        }
+        testBound(pred, argIndex, -MaxBound, false)
       }
+
+      withTimeout {
+        while (!(lowerBounds contains ((pred, argIndex))) &&
+                 getLowerTestValue(pred, argIndex).abs <= MaxBound)
+          testBound(pred, argIndex, getLowerTestValue(pred, argIndex), false)
       }
     }
 
     if (upperBounds contains ((pred, argIndex))) {
-      Console.err.println("Already have upper bound for " + pred.name + ", index " + argIndex)
+      Console.err.println(
+        "Already have upper bound for " + pred.name + ", index " + argIndex)
     } else {
-      Console.err.println("Computing upper bound for " + pred.name + ", index " + argIndex)
+      Console.err.println(
+        "Computing upper bound for " + pred.name + ", index " + argIndex)
 
       withTimeout {
-      while (!(upperBounds contains ((pred, argIndex))) &&
-               getUpperTestValue(pred, argIndex).abs <= MaxBound) {
-        val testValue = getUpperTestValue(pred, argIndex)
-        Console.err.print("testing " + testValue + " ...")
-
-        val subst =
-          (for (p <- allPreds)
-           yield (boundPredicates(p) -> Conjunction.TRUE)).toMap + (
-            boundPredicates(pred) -> conj(v(argIndex) <= testValue))
-
-        solver.checkWithSubstitution(subst) match {
-          case Left(_) => {
-            Console.err.println(" is bound!")
-            upperBounds.put((pred, argIndex), testValue)
-          }
-          case Right(cex) => {
-            Console.err.println
-            addObservedValues(cex)
-          }
-        }
+        testBound(pred, argIndex, MaxBound, true)
       }
+
+      withTimeout {
+        while (!(upperBounds contains ((pred, argIndex))) &&
+                 getUpperTestValue(pred, argIndex).abs <= MaxBound)
+          testBound(pred, argIndex, getUpperTestValue(pred, argIndex), true)
       }
     }
   }
@@ -255,8 +260,8 @@ class BoundAnalyzer[CC <% HornClauses.ConstraintClause]
     println("Predicate " + pred.name)
     for (n <- consideredArgs(pred)) {
       println("  Argument " + n + ": " +
-                ((lowerBounds get ((pred, n))).toSeq.map(_ => "lower") ++
-                   (upperBounds get ((pred, n))).toSeq.map(_ => "upper")).mkString(", "))
+                ((lowerBounds get ((pred, n))).toSeq.map(_ => "lower-bounded") ++
+                   (upperBounds get ((pred, n))).toSeq.map(_ => "upper-bounded")).mkString(", "))
     }
   }
 
