@@ -744,8 +744,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println
           cex.map(_._1).prettyPrint
         }
-
-	clause-analysis
         def cexFun() =
           lazabs.GlobalParameters.withValue(currentParams) {
             if (lazabs.GlobalParameters.get.needFullCEX) {
@@ -762,8 +760,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
         Right(cexFun _)
 
-
-	clause-analysis
       }
     }
   }
