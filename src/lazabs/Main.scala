@@ -158,6 +158,8 @@ class GlobalParameters extends Cloneable {
   var verifyInterpolants = false
   var minePredicates = false
   var mineCounterexamples = false
+  var boundsAnalysis = false
+  var boundsAnalysisTO = 5000
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
@@ -282,6 +284,8 @@ class GlobalParameters extends Cloneable {
     that.moveFile = this.moveFile
     that.minePredicates = this.minePredicates
     that.mineCounterexamples = this.mineCounterexamples
+    that.boundsAnalysis = this.boundsAnalysis
+    that.boundsAnalysisTO = this.boundsAnalysisTO
   }
 
   override def clone : GlobalParameters = {
@@ -551,6 +555,13 @@ object Main {
       case "-minePredicates" :: rest => minePredicates = true; arguments(rest)
 
       case "-mineCounterexamples" :: rest => mineCounterexamples = true; arguments(rest)
+
+      case "-boundsAnalysis" :: rest => boundsAnalysis = true; arguments(rest)
+
+      case tTimeout :: rest if (tTimeout.startsWith("-boundsAnalysisTO:")) =>
+        boundsAnalysisTO =
+          (java.lang.Float.parseFloat(tTimeout.drop(18)) * 1000).toInt;
+        arguments(rest)
 
       case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 

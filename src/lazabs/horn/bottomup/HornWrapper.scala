@@ -631,6 +631,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
 
+    if (lazabs.GlobalParameters.get.boundsAnalysis) {
+      new BoundAnalyzer(simplifiedClauses, predGenerator)
+      throw PrintingFinishedException
+    }
+
     val predAbs = Console.withOut(outStream) {
       println
       println(
@@ -739,6 +744,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           println
           cex.map(_._1).prettyPrint
         }
+
+	clause-analysis
         def cexFun() =
           lazabs.GlobalParameters.withValue(currentParams) {
             if (lazabs.GlobalParameters.get.needFullCEX) {
@@ -750,7 +757,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
             }
           }
 
+        if (lazabs.GlobalParameters.get.mineCounterexamples)
+          new CounterexampleMiner(simplifiedClauses, predGenerator)
+
         Right(cexFun _)
+
+
+	clause-analysis
       }
     }
   }
