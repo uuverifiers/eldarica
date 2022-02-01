@@ -164,6 +164,27 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 //  }
 
 
+  //draw pure scc graph only
+//  var predicateEdgeSet: Set[Tuple2[String, String]] = Set()
+//  for (clause <- simpClauses if clause.head.pred.name != "FALSE") {
+//    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
+//    if (!controlFlowNodeSetCrossGraph.keySet.contains(normalizedClause.head.pred.name)) {
+//      val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+//      drawPredicateNode(controlFlowNodeName, normalizedClause.head.pred.name, "CONTROL", labelName = "")
+//    }
+//    for (b <- normalizedClause.body) {
+//      if (!controlFlowNodeSetCrossGraph.keySet.contains(b.pred.name)) {
+//        val controlFlowBodyNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
+//        drawPredicateNode(controlFlowBodyNodeName, b.pred.name, "CONTROL", labelName = "")
+//      }
+//      if (!predicateEdgeSet.contains(Tuple2(clause.head.pred.name, b.pred.name))) {
+//        addBinaryEdge(controlFlowNodeSetCrossGraph(b.pred.name), controlFlowNodeSetCrossGraph(clause.head.pred.name), "controlLocationEdgeForSCC")
+//        predicateEdgeSet = predicateEdgeSet + Tuple2(clause.head.pred.name, b.pred.name)
+//      }
+//    }
+//  }
+
+
   //val sp = new Simplifier()
   var tempID = 0
   var clauseNumber = 0

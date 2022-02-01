@@ -20,6 +20,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     var predecessorNameList:List[String]=List()
     var successorNameList:List[String]=List()
     var successorIndexList:List[Int]=List()
+    var transitiveNameList:List[String]=List()
     def prettyPrint(): Unit ={
       println(nodeIndex+":"+name)
       print("predecessors:")
@@ -67,7 +68,25 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
           edgeSet=edgeSet+Tuple2(headName,bodyName)
         }
       }
+    }
 
+    //todo:add transitive edge
+    //initialize transitiveNameList to include its next hop neighbor and itself
+    for(p<-predicateName2NodeMap) {
+      p._2.transitiveNameList=p._2.successorNameList:+p._1
+    }
+    //draw transitive edge
+    for (p<-predicateName2NodeMap;successorName<-p._2.successorNameList){
+      transitiveEdge(p._2,predicateName2NodeMap(successorName))
+    }
+    def transitiveEdge(initialNode: predicateNodeInfo, nextNode: predicateNodeInfo): Unit = {
+      for (pName <- nextNode.successorNameList) {
+        if (!initialNode.transitiveNameList.contains(pName)) {
+          initialNode.transitiveNameList :+= pName
+          writerPredicateGraph.write(addQuotes(initialNode.name) + " -> " + addQuotes(pName) + " [label=" + "t" + "]" + "\n")
+          transitiveEdge(initialNode, predicateName2NodeMap(pName))
+        }
+      }
     }
     writerPredicateGraph.write("}" + "\n")
     writerPredicateGraph.close()
@@ -77,7 +96,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
       predicateNameMap+=nodeName
     }
     def addAEdgeForCircleGraph(headName:String,bodyName:String): Unit ={
-      writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + "\n")
+      writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + " [label=" + "scc" + "]" +"\n")
       predicateName2NodeMap(headName).predecessorNameList:+=bodyName
       predicateName2NodeMap(bodyName).successorNameList:+=headName
       predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
