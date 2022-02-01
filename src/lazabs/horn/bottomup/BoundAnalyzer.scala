@@ -48,7 +48,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object BoundAnalyzer {
 
-  private val DefaultTimeOut = 5000
   private val MaxBound = IdealInt("10000000000000000000000000")
 
 }
@@ -176,7 +175,7 @@ class BoundAnalyzer[CC <% HornClauses.ConstraintClause]
 
   private def withTimeout[A](comp : => A) : Unit = {
     val startTime = System.currentTimeMillis
-    val TO = lazabs.GlobalParameters.get.timeout.getOrElse(DefaultTimeOut)
+    val TO = lazabs.GlobalParameters.get.boundsAnalysisTO
 
     lazabs.GlobalParameters.get.timeoutChecker = {
       () => if (System.currentTimeMillis - startTime > TO.toLong)
