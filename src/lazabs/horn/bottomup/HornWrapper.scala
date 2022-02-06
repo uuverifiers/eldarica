@@ -407,6 +407,36 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //  }
 
 
+  private val predGenerator =
+    if (GlobalParameters.get.generateTemplates == true) {
+      val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
+      val initialTemplates =
+        if (GlobalParameters.get.rdm) {
+          HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+        } else if (GlobalParameters.get.readTemplates) {
+          val fullTemplates =
+            if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists == true)
+              HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+            else
+              combTemplates
+          val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
+          predictedTemplates
+        }
+        else if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists && GlobalParameters.get.readTrueLabel){
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
+        }
+        else combTemplates
+      if (GlobalParameters.get.log) {
+        println("initialTemplates")
+        initialTemplates.pretyPrintHints()
+      }
+
+      getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
+    } else {
+      getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
+    }
+
+
   val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
   if (GlobalParameters.get.graphPrettyPrint==true){
     println("--------simplified clauses--------")
@@ -590,34 +620,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicatesForCEGAR.toInitialPredicates, exceptionalPredGen, localCounterexampleMethod, outStream, getFileName())
   }
 
-  private val predGenerator =
-    if (GlobalParameters.get.generateTemplates == true) {
-      val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
-      val initialTemplates =
-        if (GlobalParameters.get.rdm) {
-          HintsSelection.randomLabelTemplates(combTemplates, 0.2)
-        } else if (GlobalParameters.get.readTemplates) {
-          val fullTemplates =
-            if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists == true)
-              HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-            else
-              combTemplates
-          val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
-          predictedTemplates
-        }
-        else if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists && GlobalParameters.get.readTrueLabel){
-          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
-        }
-        else combTemplates
-      if (GlobalParameters.get.log) {
-        println("initialTemplates")
-        initialTemplates.pretyPrintHints()
-      }
-
-      getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
-    } else {
-      getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
-    }
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
@@ -631,10 +633,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
 
-    if (lazabs.GlobalParameters.get.boundsAnalysis) {
-      new BoundAnalyzer(simplifiedClauses, predGenerator)
-      throw PrintingFinishedException
-    }
+//    if (lazabs.GlobalParameters.get.boundsAnalysis) {
+//      //simplifiedClauses
+//      new BoundAnalyzer(simplifiedClausesForGraph, predGenerator)
+//      sys.exit()
+//      //throw PrintingFinishedException
+//    }
 
     val predAbs = Console.withOut(outStream) {
       println

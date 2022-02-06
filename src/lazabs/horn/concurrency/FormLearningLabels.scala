@@ -32,7 +32,8 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
     }
   }
 
-  def getStrongConnectedComponentPredicateList(): Map[String,Int] ={
+  def getStrongConnectedComponentPredicateList(): (Map[String,Int],List[(String,String)]) ={
+    var transitiveEdgeList:List[(String,String)]=List()
     var nodeCounter=0
     var predicateNameSet:Set[String]=Set()
     var predicateName2NodeMap:Map[String,predicateNodeInfo]=Map()//Map("Initial"->new predicateNodeInfo("Initial",nodeCounter))
@@ -72,9 +73,9 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 
     //todo:add transitive edge
     //initialize transitiveNameList to include its next hop neighbor and itself
-    for(p<-predicateName2NodeMap) {
-      p._2.transitiveNameList=p._2.successorNameList:+p._1
-    }
+//    for(p<-predicateName2NodeMap) {
+//      p._2.transitiveNameList=p._2.successorNameList:+p._1
+//    }
     //draw transitive edge
     for (p<-predicateName2NodeMap;successorName<-p._2.successorNameList){
       transitiveEdge(p._2,predicateName2NodeMap(successorName))
@@ -84,6 +85,8 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
         if (!initialNode.transitiveNameList.contains(pName)) {
           initialNode.transitiveNameList :+= pName
           writerPredicateGraph.write(addQuotes(initialNode.name) + " -> " + addQuotes(pName) + " [label=" + "t" + "]" + "\n")
+          //if (!transitiveEdgeList.contains((initialNode.name,pName)))
+          transitiveEdgeList:+=(initialNode.name,pName)
           transitiveEdge(initialNode, predicateName2NodeMap(pName))
         }
       }
@@ -130,7 +133,7 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
       predicateOccurrenceMap=predicateOccurrenceMap.updated(p,1)
 
     //println(predicateOccurrenceMap)
-    predicateOccurrenceMap
+    (predicateOccurrenceMap,transitiveEdgeList)
   }
 
   def traversal(node:predicateNodeInfo,nodeMap:Map[String,predicateNodeInfo]): Unit ={

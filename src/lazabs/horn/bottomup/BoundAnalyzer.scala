@@ -263,5 +263,7 @@ class BoundAnalyzer[CC <% HornClauses.ConstraintClause]
                    (upperBounds get ((pred, n))).toSeq.map(_ => "upper-bounded")).mkString(", "))
     }
   }
+//  println("upperBounds",upperBounds)
+//  println("lowerBounds",lowerBounds)
 
 }

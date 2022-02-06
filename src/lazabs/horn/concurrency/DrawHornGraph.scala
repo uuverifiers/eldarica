@@ -161,6 +161,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   val subTermConstantOperatorEdges = new Adjacency("subTermConstantOperator", 2)
   val subTermOperatorOperatorEdges = new Adjacency("subTermOperatorOperator", 2)
   val subTermScOperatorEdges = new Adjacency("subTermScOperator", 2)
+  val predicateTransitiveEdges = new Adjacency("transitive", 2)
 
   var controlLocationIndices = Array[Int]()
   var falseIndices = Array[Int]()
@@ -180,7 +181,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   val learningLabel= new FormLearningLabels(simpClauses,clausesInCE)
   val predicateOccurrenceInClauseLabel=learningLabel.getPredicateOccurenceInClauses()
-  val predicateStrongConnectedComponentLabel=learningLabel.getStrongConnectedComponentPredicateList()
+  val (predicateStrongConnectedComponentLabel,transitiveEdgeList)=learningLabel.getStrongConnectedComponentPredicateList()
   def incrementTemplates(element:String,fromID:Int,toID:Int): Unit ={
     element match {
       case "verifHintTplPred"=>verifHintTplPredEdges.incrementBinaryEdge(fromID, toID)
@@ -216,6 +217,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "controlFlowHyperEdge"=> controlFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "dataFlowHyperEdge" => dataFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "controlLocationEdgeForSCC" => controlLocationEdgeForSCC.incrementBinaryEdge(fromID,toID)
+          case "transitive" => predicateTransitiveEdges.incrementBinaryEdge(fromID,toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }
@@ -851,6 +853,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         writeGNNInputFieldToJSONFile("controlFlowHyperEdges", TripleArray(gnn_input.controlFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("dataFlowHyperEdges", TripleArray(gnn_input.dataFlowHyperEdges.ternaryEdge), writer, lastFiledFlag)
         writeGNNInputFieldToJSONFile("controlLocationEdgeForSCC", PairArray(gnn_input.controlLocationEdgeForSCC.binaryEdge.distinct), writer, lastFiledFlag)
+        writeGNNInputFieldToJSONFile("predicateTransitiveEdges", PairArray(gnn_input.predicateTransitiveEdges.binaryEdge.distinct), writer, lastFiledFlag)
       }
       case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph| DrawHornGraph.HornGraphType.concretizedHyperedgeGraph=>{
         writeGNNInputFieldToJSONFile("argumentEdges", PairArray(gnn_input.argumentEdges.binaryEdge), writer, lastFiledFlag)

@@ -101,7 +101,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
   edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm (tpl)")
   edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
-  edgeNameMap += ("controlLocationEdgeForSCC" -> "SCCctrl")
+  edgeNameMap += ("controlLocationEdgeForSCC" -> "p")
+  edgeNameMap += ("transitive" -> "t")
   //turn on/off edge's label
   var edgeNameSwitch = true
   if (edgeNameSwitch == false) {
@@ -166,7 +167,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   //draw pure scc graph only
 //  var predicateEdgeSet: Set[Tuple2[String, String]] = Set()
-//  for (clause <- simpClauses if clause.head.pred.name != "FALSE") {
+//  for (clause <- simpClauses; if clause.head.pred.name != "FALSE") {
 //    val (dataFlowSet, guardSet, normalizedClause) = getDataFlowAndGuard(clause)
 //    if (!controlFlowNodeSetCrossGraph.keySet.contains(normalizedClause.head.pred.name)) {
 //      val controlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
@@ -182,6 +183,15 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 //        predicateEdgeSet = predicateEdgeSet + Tuple2(clause.head.pred.name, b.pred.name)
 //      }
 //    }
+//  }
+
+  //draw scc self-edge
+//  for(p<-gnn_input.predicateStrongConnectedComponentLabel;if p._2==1){
+//    addBinaryEdge(controlFlowNodeSetCrossGraph(p._1),controlFlowNodeSetCrossGraph(p._1),label = "controlLocationEdgeForSCC")
+//  }
+  //draw transitive edge
+//  for (e<-gnn_input.transitiveEdgeList;if e._2!="FALSE"){
+//    addBinaryEdge(controlFlowNodeSetCrossGraph(e._1),controlFlowNodeSetCrossGraph(e._2),label = "transitive")
 //  }
 
 

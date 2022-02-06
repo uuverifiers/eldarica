@@ -1849,6 +1849,25 @@ object HintsSelection {
     arguments
   }
 
+  def argumentBoundAnalysis(argumentList: Array[(IExpression.Predicate, Int)],simplifiedClausesForGraph:Clauses,
+                            predGenerator:  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): ArrayBuffer[argumentInfo] ={
+    val arguments = getArgumentInfo(argumentList)
+    val b=new BoundAnalyzer(simplifiedClausesForGraph, predGenerator)
+    for (arg<-arguments){
+      val lowerB=matchArgumentBound(b.lowerBounds.get(arg.location,arg.index))
+      val upperB=matchArgumentBound(b.upperBounds.get(arg.location,arg.index))
+      if (GlobalParameters.get.graphPrettyPrint==true)
+        println(arg.headName+":"+"argument"+arg.index+":["+lowerB+","+upperB+"]")
+      arg.bound=(lowerB,upperB)
+    }
+    arguments
+  }
+  def matchArgumentBound[A](bound:Option[A]): String ={
+    bound match {
+      case Some(x) => "1"
+      case None => "0"
+    }
+  }
   def getArgumentOccurrenceInHints(file: String,
                                    argumentList: Array[(IExpression.Predicate, Int)],
                                    positiveHints: VerificationHints,
@@ -1920,14 +1939,20 @@ object HintsSelection {
 
     val argumentInfo = if (argumentOccurrence==true && argumentBound==true){
       val argumentOccurrenceInfo = HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
-      val argumentBoundInfo = HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      val argumentBoundInfo = GlobalParameters.get.boundsAnalysis match {
+        case true=>argumentBoundAnalysis(argumentList,simplifiedClausesForGraph,predGenerator)
+        case false=>getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      }
       for (a<-(argumentOccurrenceInfo zip argumentBoundInfo)) yield {
         a._1.bound=a._2.bound
         a._1}
     }else if (argumentOccurrence==true){
       HintsSelection.writeArgumentOccurrenceInHintsToFile(GlobalParameters.get.fileName, argumentList, simpHints, countOccurrence = false)
     }else if (argumentBound==true){
-      HintsSelection.getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      GlobalParameters.get.boundsAnalysis match {
+        case true=>argumentBoundAnalysis(argumentList,simplifiedClausesForGraph,predGenerator)
+        case false=>getArgumentBoundForSmt(argumentList,disjunctive,simplifiedClausesForGraph,simpHints,predGenerator)
+      }
     } else{
       getArgumentInfo(argumentList)
     }
