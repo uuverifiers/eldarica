@@ -86,11 +86,11 @@ class Adjacency(edge_name: String, edge_number: Int) {
   def incrementTernaryEdge(from: Int, to1: Int, to2: Int): Unit =
     ternaryEdge :+= Tuple3(from, to1, to2)
 }
-case class NodeInfo(canonicalName:String,labelName:String,className:String,shape:String){
+case class NodeInfo(canonicalName:String,labelName:String,className:String,shape:String,_fillColor:String="while"){
   var labelList:Seq[Int]=Seq()
   var predictedLabelList:Seq[Int]=Seq()
   var color="black"
-  var fillColor="white"
+  var fillColor=_fillColor
 }
 
 class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
@@ -699,8 +699,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     }
   }
 
-  def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Int=0): Unit = {
-    gnn_input.nodeInfoList+=(canonicalName->new NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape))
+  def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Int=0,nodeLabel:Int=0): Unit = {
+    val NInfo= if(nodeLabel==1) new NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape,_fillColor = "green")
+    else NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape,_fillColor = "white")
+    gnn_input.nodeInfoList+=(canonicalName->NInfo)
 //    writerGraph.write(addQuotes(canonicalName) +
 //      " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
     className match {
