@@ -203,6 +203,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   var guardSubGraph:Map[Predicate,Seq[Tuple2[String,IFormula]]] = (for (clause <- simpClauses; a <- clause.allAtoms; if a.pred.name != "FALSE") yield a.pred -> Seq()).toMap
 
 
+  //create a dummy node
+  createNode("dummy",labelName = "dummy",className = "dummy",shape = "component")
+
   //create unique Initial and FALSE node
   //val initialControlFlowNodeName = controlNodePrefix + gnn_input.CONTROLCanonicalID.toString
   //  createNode(canonicalName = initialControlFlowNodeName, labelName = "Initial", className = "CONTROL", shape = nodeShapeMap("CONTROL"))
@@ -387,14 +390,18 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     unaryOperatorSubGraphSetInOneClause.clear()
   }
 
+    //draw scc self-edge
+    for(p<-gnn_input.predicateStrongConnectedComponentLabel;if p._2==1){
+      addBinaryEdge(controlFlowNodeSetCrossGraph(p._1),controlFlowNodeSetCrossGraph(p._1),label = "transitive")
+    }
 
     //draw templates
     astEdgeType = "AST"//"templateAST"
     val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()//drawTemplatesWithNode()
     for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
       addBinaryEdge(controlFlowNodeSetCrossGraph(head), templateNodeName._1, templateNodeName._2)
-    for (n<-gnn_input.nodeInfoList){ //draw all nodes
 
+    for (n<-gnn_input.nodeInfoList){ //draw all nodes
       if (n._2.labelList.isEmpty) {
         writerGraph.write(addQuotes(n._2.canonicalName) +
           " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +

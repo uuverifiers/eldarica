@@ -77,9 +77,9 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 //      p._2.transitiveNameList=p._2.successorNameList:+p._1
 //    }
     //draw transitive edge
-    for (p<-predicateName2NodeMap;successorName<-p._2.successorNameList){
-      transitiveEdge(p._2,predicateName2NodeMap(successorName))
-    }
+//    for (p<-predicateName2NodeMap;successorName<-p._2.successorNameList){
+//      transitiveEdge(p._2,predicateName2NodeMap(successorName))
+//    }
     def transitiveEdge(initialNode: predicateNodeInfo, nextNode: predicateNodeInfo): Unit = {
       for (pName <- nextNode.successorNameList) {
         if (!initialNode.transitiveNameList.contains(pName)) {
