@@ -429,6 +429,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
   }
 
+  if (GlobalParameters.get.getSMT2 == true) {
+    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
+    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
+  }
+
 
   private val predGenerator =
     if (GlobalParameters.get.generateTemplates == true) {
@@ -510,14 +515,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       val hintsCollection = new VerificationHintsInfo(initialPredicates, truePredicates, VerificationHints(Map()),predictedPredicates) //labeledPredicates
       GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
     }
-    Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".unlabeledPredicates.tpl")) {
-      AbsReader.printHints(initialPredicates)
+    if (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true){
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".unlabeledPredicates.tpl")) {
+        AbsReader.printHints(initialPredicates)}
     }
     sys.exit()
   }
-  if (GlobalParameters.get.getSMT2 == true) {
-    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
-  }
+
 
   if (GlobalParameters.get.checkSolvability == true) {
     val predicateMap=HintsSelection.getAllOptionFold(simplifiedClausesForGraph,disjunctive)

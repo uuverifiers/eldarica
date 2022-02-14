@@ -47,11 +47,11 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
 
     }
     //build and visualize graph
-    val writerPredicateGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
+    var ciecleFileString:String=""
     var predicateNameMap=Set[String]()
     var edgeSet:Set[Tuple2[String,String]]=Set()
     val controlPrefix="CONTROL_"
-    writerPredicateGraph.write("digraph dag {" + "\n")
+    ciecleFileString=ciecleFileString+"digraph dag {" + "\n"
     for(clause<-simpClauses) {
       //create head node
       val headName=clause.head.pred.name
@@ -84,22 +84,30 @@ class FormLearningLabels (simpClauses:Clauses,clausesInCE:Clauses){
       for (pName <- nextNode.successorNameList) {
         if (!initialNode.transitiveNameList.contains(pName)) {
           initialNode.transitiveNameList :+= pName
-          writerPredicateGraph.write(addQuotes(initialNode.name) + " -> " + addQuotes(pName) + " [label=" + "t" + "]" + "\n")
+          ciecleFileString=ciecleFileString+addQuotes(initialNode.name) + " -> " + addQuotes(pName) + " [label=" + "t" + "]" + "\n"
           //if (!transitiveEdgeList.contains((initialNode.name,pName)))
           transitiveEdgeList:+=(initialNode.name,pName)
           transitiveEdge(initialNode, predicateName2NodeMap(pName))
         }
       }
     }
-    writerPredicateGraph.write("}" + "\n")
-    writerPredicateGraph.close()
+    ciecleFileString=ciecleFileString+"}" + "\n"
+
+
+    if(GlobalParameters.get.graphPrettyPrint){
+      val writerPredicateGraph1 = new PrintWriter(new File(GlobalParameters.get.fileName + "." + "circles" + ".gv"))
+      writerPredicateGraph1.write(ciecleFileString)
+      writerPredicateGraph1.close()
+    }
+
+
     def addNodeForCircleGraph(nodeName:String): Unit ={
-      writerPredicateGraph.write(addQuotes(nodeName) +
-        " [label=" + addQuotes(nodeName) + " shape=" + "box" + "];" + "\n")
+      ciecleFileString=ciecleFileString+addQuotes(nodeName) +
+        " [label=" + addQuotes(nodeName) + " shape=" + "box" + "];" + "\n"
       predicateNameMap+=nodeName
     }
     def addAEdgeForCircleGraph(headName:String,bodyName:String): Unit ={
-      writerPredicateGraph.write(addQuotes(bodyName) + " -> " + addQuotes(headName) + " [label=" + "scc" + "]" +"\n")
+      ciecleFileString=ciecleFileString+addQuotes(bodyName) + " -> " + addQuotes(headName) + " [label=" + "scc" + "]" +"\n"
       predicateName2NodeMap(headName).predecessorNameList:+=bodyName
       predicateName2NodeMap(bodyName).successorNameList:+=headName
       predicateName2NodeMap(bodyName).successorIndexList:+=predicateName2NodeMap(headName).nodeIndex
