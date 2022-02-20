@@ -65,7 +65,7 @@ class argumentInfoHronGraph(headName: String, ind: Int, globalIndex: Int) {
   val index = ind
   val name = "argument" + ind.toString
   var score = 0
-  var bound: Pair[String, String] = (addQuotes("None"),addQuotes("None"))
+  var bound: Pair[String, String] =(addQuotes("None"),addQuotes("None"))
   val globalIndexInGraph = globalIndex
   var binaryOccurrenceInTemplates=0
   var constNames=Array[String]()
@@ -91,6 +91,7 @@ case class NodeInfo(canonicalName:String,labelName:String,className:String,shape
   var predictedLabelList:Seq[Int]=Seq()
   var color="black"
   var fillColor=_fillColor
+  var clauseString=""
 }
 
 class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
@@ -175,6 +176,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   var predicateIndices = Array[Int]()
   var predicateOccurrenceInClause = Array[Int]()
   var clausesOccurrenceInCounterExample = Array[Int]()
+  var predictedLabel=Array[Int]()
   var predicateStrongConnectedComponent = Array[Int]()
   var argumentInfoHornGraphList = new ArrayBuffer[argumentInfoHronGraph]
   var nodeNameToIDMap = MuMap[String, Int]()
@@ -309,16 +311,18 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
     guardIndices :+=GNNNodeID
     if (!clauseInfo.isEmpty && clausesInCE.map(_.toString).contains(clauseInfo.head.toString)) {
       clausesOccurrenceInCounterExample :+=1
-    } else
+    } else {
       clausesOccurrenceInCounterExample :+=0
+    }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
   def incrementClauseIndicesAndNodeIds(nodeUniqueName: String, nodeClass: String, nodeName: String,clauseInfo:Clauses): Unit ={
     clauseIndices :+=GNNNodeID
     if (!clauseInfo.isEmpty && clausesInCE.map(_.toString).contains(clauseInfo.head.toString)) {
       clausesOccurrenceInCounterExample :+=1
-    } else
+    } else {
       clausesOccurrenceInCounterExample :+=0
+    }
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -330,7 +334,6 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
       predicateOccurrenceInClause :+= l._2
       predicateStrongConnectedComponent:+=predicateStrongConnectedComponentLabel(nodeName)
     }
-
     incrementNodeIds(nodeUniqueName, nodeClass, nodeName)
   }
 
@@ -700,9 +703,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
   def createNode(canonicalName: String, labelName: String, className: String, shape: String, clauseLabelInfo:Clauses=Seq(),hintLabel:Int=0,nodeLabel:Int=0): Unit = {
-    val NInfo= if(nodeLabel==1) new NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape,_fillColor = "green")
-    else NodeInfo(canonicalName,labelName+":"+gnn_input.GNNNodeID.toString,className,shape,_fillColor = "white")
-    gnn_input.nodeInfoList+=(canonicalName->NInfo)
+    val NInfo = if (nodeLabel == 1) new NodeInfo(canonicalName, labelName + ":" + gnn_input.GNNNodeID.toString, className, shape, _fillColor = "green")
+    else NodeInfo(canonicalName, labelName + ":" + gnn_input.GNNNodeID.toString, className, shape, _fillColor = "white")
+    if(!clauseLabelInfo.isEmpty)
+      NInfo.clauseString=clauseLabelInfo.head.toString
+    gnn_input.nodeInfoList += (canonicalName -> NInfo)
 //    writerGraph.write(addQuotes(canonicalName) +
 //      " [label=" + addQuotes(labelName) + " nodeName=" + addQuotes(canonicalName) + " class=" + className + " shape=" + addQuotes(shape) + "];" + "\n")
     className match {
@@ -825,6 +830,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("guardIndices", IntArray(gnn_input.guardIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseBinaryOccurrenceInCounterExampleList", IntArray(gnn_input.clausesOccurrenceInCounterExample), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("predictedLabel", IntArray(gnn_input.predictedLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("controlLocationIndices", IntArray(gnn_input.controlLocationIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("binaryAdjacentList", PairArray(gnn_input.binaryAdjacency.binaryEdge.sorted), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("ternaryAdjacencyList", TripleArray(gnn_input.ternaryAdjacency.ternaryEdge), writer, lastFiledFlag)
@@ -1078,13 +1084,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
 
-  def drawTemplates(): Seq[(String,Seq[(String,String)])]={
-    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
-    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
-    val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
-
+  def readPredictedLabelFromJson(): Array[Int] ={
     val input_file=GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
-    val predictedLabel=if(new java.io.File(input_file).exists&&detectIfAJSONFieldExists("predictedLabel",GlobalParameters.get.fileName)==true){
+    if(new java.io.File(input_file).exists&&detectIfAJSONFieldExists("predictedLabel",GlobalParameters.get.fileName)==true){
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)
       val predictedLabel= (json_data \ "predictedLabel").validate[Array[Int]] match {
@@ -1092,6 +1094,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
       predictedLabel
     }else Array()
+  }
+  def drawTemplates(): Seq[(String,Seq[(String,String)])]={
+    val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
+    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
+    val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
+
+    val predictedLabel=readPredictedLabelFromJson()
 
 
     var counter=0

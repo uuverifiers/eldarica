@@ -369,18 +369,18 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     }
 
 
-    if (GlobalParameters.get.getLabelFromCounterExample == true) {
-      //create clause node and connect with guards
-      val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
-      createNode(clauseNodeName, clauseNodeName, "clause", nodeShapeMap("clause"), Seq(clause))
-      //add edges to the clause
-      for (guardRootNode <- guardRootNodeList) { //from guards to clause
-        addBinaryEdge(guardRootNode, clauseNodeName, "AST")//guardAST
-      }
-      addBinaryEdge(clauseNodeName, headNodeName, label = "clause") //from clause to head
-      for (bodyNodeName <- bodyNodeNameList) //from body to clause
-        addBinaryEdge(bodyNodeName, clauseNodeName, "clause")
-    }
+//    if (GlobalParameters.get.getLabelFromCounterExample == true) {
+//      //create clause node and connect with guards
+//      val clauseNodeName = clauseNodePrefix + gnn_input.clauseCanonicalID.toString
+//      createNode(clauseNodeName, clauseNodeName, "clause", nodeShapeMap("clause"), Seq(clause))
+//      //add edges to the clause
+//      for (guardRootNode <- guardRootNodeList) { //from guards to clause
+//        addBinaryEdge(guardRootNode, clauseNodeName, "AST")//guardAST
+//      }
+//      addBinaryEdge(clauseNodeName, headNodeName, label = "clause") //from clause to head
+//      for (bodyNodeName <- bodyNodeNameList) //from body to clause
+//        addBinaryEdge(bodyNodeName, clauseNodeName, "clause")
+//    }
 
     clauseNumber += 1
 
@@ -390,35 +390,77 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     unaryOperatorSubGraphSetInOneClause.clear()
   }
 
-    //draw scc self-edge
-    for(p<-gnn_input.predicateStrongConnectedComponentLabel;if p._2==1){
-      addBinaryEdge(controlFlowNodeSetCrossGraph(p._1),controlFlowNodeSetCrossGraph(p._1),label = "transitive")
-    }
+  //draw scc self-edge
+  for (p <- gnn_input.predicateStrongConnectedComponentLabel; if p._2 == 1) {
+    addBinaryEdge(controlFlowNodeSetCrossGraph(p._1), controlFlowNodeSetCrossGraph(p._1), label = "transitive")
+  }
 
-    //draw templates
-    astEdgeType = "AST"//"templateAST"
-    val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()//drawTemplatesWithNode()
-    for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
-      addBinaryEdge(controlFlowNodeSetCrossGraph(head), templateNodeName._1, templateNodeName._2)
+  //draw templates
+  astEdgeType = "AST" //"templateAST"
+  val templateNameList = if (GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates() //drawTemplatesWithNode()
+  for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
+    addBinaryEdge(controlFlowNodeSetCrossGraph(head), templateNodeName._1, templateNodeName._2)
 
-    for (n<-gnn_input.nodeInfoList){ //draw all nodes
-      if (n._2.labelList.isEmpty) {
-        writerGraph.write(addQuotes(n._2.canonicalName) +
-          " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
-          " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +" color="+n._2.color+ " fillcolor="+n._2.fillColor + " style=filled"+"];" + "\n")
-      } else {
-        var labelContent=""
-        var predictedLabelContent=""
-        for (l<-n._2.labelList)
-          labelContent=labelContent+l.toString+"|"
-        labelContent=labelContent.dropRight(1)
-        for (l<-n._2.predictedLabelList)
-          predictedLabelContent=predictedLabelContent+l.toString+"|"
-        predictedLabelContent=predictedLabelContent.dropRight(1)
-        val finalLabelContent=(n._2.labelName+"|" + labelContent)
-        val finalPredictedLabelContent=(n._2.labelName+"|" + predictedLabelContent)
-        writerGraph.write(addQuotes(n._2.canonicalName) + "[shape=record label="+"\"{"+"{"+finalLabelContent+"}|{"+finalPredictedLabelContent+"}"+"}\""+"];"+"\n")
+
+  val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
+
+  if (GlobalParameters.get.graphPrettyPrint) {
+    //vasualize argument bound labels
+    if(GlobalParameters.get.argumentBoundLabel){
+      for (arg<-gnn_input.argumentInfoHornGraphList){
+        gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._1.toInt //lower bound
+        //gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._2.toInt //upper bound
       }
+    }
+    //visualize counter-example labels
+    if(GlobalParameters.get.getLabelFromCounterExample){
+      for(n<-gnn_input.nodeInfoList){
+        if(n._2.className=="guard" || n._2.className=="clause"){
+          if(clausesInCE.map(_.toString).contains(n._2.clauseString))
+            n._2.labelList:+=1
+          else
+            n._2.labelList:+=0
+        }
+      }
+    }
+    //visualized predicted label
+    val predictedLabel = readPredictedLabelFromJson()
+    if (!predictedLabel.isEmpty) {
+      var counter = 0
+      for (n <- gnn_input.nodeInfoList) {
+        if (!n._2.labelList.isEmpty) {
+          n._2.predictedLabelList :+= predictedLabel(counter)
+          if (predictedLabel(counter)==n._2.labelList(0))
+            n._2.fillColor="green"
+          else
+            n._2.fillColor="red"
+          counter = counter + 1
+        }
+      }
+      gnn_input.predictedLabel=predictedLabel
+    }
+  }
+
+  //draw all nodes
+  for (n <- gnn_input.nodeInfoList) {
+    if (n._2.labelList.isEmpty) {
+      writerGraph.write(addQuotes(n._2.canonicalName) +
+        " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
+        " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) + " color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled" + "];" + "\n")
+    } else {//with colorful highlights
+      var labelContent = ""
+      var predictedLabelContent = ""
+      for (l <- n._2.labelList)
+        labelContent = labelContent + l.toString + "|"
+      labelContent = labelContent.dropRight(1)
+      for (l <- n._2.predictedLabelList)
+        predictedLabelContent = predictedLabelContent + l.toString + "|"
+      predictedLabelContent = predictedLabelContent.dropRight(1)
+      val finalLabelContent = (n._2.labelName + "|" + labelContent)
+      val finalPredictedLabelContent = (n._2.labelName + "|" + predictedLabelContent)
+      writerGraph.write(addQuotes(n._2.canonicalName) + "[ "+" color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled"
+        +" shape=record label=" + "\"{" + "{" + finalLabelContent + "}|{" + finalPredictedLabelContent + "}" + "}\"" + "];" + "\n")
+    }
 
   }
 
@@ -427,7 +469,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
 
   if (GlobalParameters.get.withoutGraphJSON==false){
-    val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()
     writeGNNInputToJSONFile(argumentIDList, argumentNameList, argumentOccurrenceList,
       argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList)
   }

@@ -410,6 +410,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+  if (GlobalParameters.get.getSMT2 == true) {
+    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
+    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
+    //sys.exit()
+  }
 
   if (GlobalParameters.get.graphPrettyPrint==true){
     println("--------simplified clauses--------")
@@ -427,11 +432,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   if (simplifiedClausesForGraph.isEmpty) {
     HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
     sys.exit()
-  }
-
-  if (GlobalParameters.get.getSMT2 == true) {
-    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
-    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
   }
 
 
