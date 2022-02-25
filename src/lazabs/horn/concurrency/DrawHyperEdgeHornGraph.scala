@@ -427,7 +427,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     val predictedLabel = readPredictedLabelFromJson()
     if (!predictedLabel.isEmpty) {
       var counter = 0
-      for (n <- gnn_input.nodeInfoList) {
+      for (n <- gnn_input.nodeInfoList.toSeq.sortBy(_._2.globalIndex)) {
         if (!n._2.labelList.isEmpty) {
           n._2.predictedLabelList :+= predictedLabel(counter)
           if (predictedLabel(counter)==n._2.labelList(0))

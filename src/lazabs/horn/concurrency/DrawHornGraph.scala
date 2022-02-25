@@ -92,6 +92,8 @@ case class NodeInfo(canonicalName:String,labelName:String,className:String,shape
   var color="black"
   var fillColor=_fillColor
   var clauseString=""
+  var globalIndex = -1
+
 }
 
 class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
@@ -355,6 +357,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
     }
     nodeIds :+= GNNNodeID
     nodeNameToIDMap(nodeUniqueName) = GNNNodeID
+    nodeInfoList(nodeUniqueName).globalIndex=GNNNodeID
     GNNNodeID += 1
     nodeClass match {
       case "CONTROL" => {
