@@ -49,10 +49,11 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHintTplInEqTerm}
+import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{getFileName,conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getFileName, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
 
 import scala.collection.immutable.Set
 
@@ -409,10 +410,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
 
-  val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
+    case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+    case _ => simplifiedClauses
+  }
+
   if (GlobalParameters.get.getSMT2 == true) {
     HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
-    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClausesForGraph) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
+    HintsSelection.writeSMTFormatToFile(for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
     //sys.exit()
   }
 
@@ -483,7 +488,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }else if(GlobalParameters.get.generateTemplates){
         if (GlobalParameters.get.withoutGraphJSON)
          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")//todo:boolean template predicate-2 will be treated as Eq term
-        else {generateCombinationTemplates(simplifiedClauses,onlyLoopHead = true)}
+        else {generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = true)}
       } else{
         VerificationHints(Map()) ++ simpHints
       }
@@ -767,7 +772,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           }
 
         if (lazabs.GlobalParameters.get.mineCounterexamples)
-          new CounterexampleMiner(simplifiedClauses, predGenerator)
+          new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
 
         Right(cexFun _)
 

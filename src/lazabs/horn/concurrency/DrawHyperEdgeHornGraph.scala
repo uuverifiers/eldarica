@@ -408,8 +408,10 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
     //vasualize argument bound labels
     if(GlobalParameters.get.argumentBoundLabel){
       for (arg<-gnn_input.argumentInfoHornGraphList){
-        gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._1.toInt //lower bound
-        //gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._2.toInt //upper bound
+        if (GlobalParameters.get.visualizeLowerBound)
+          gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._1.toInt //lower bound
+        else
+          gnn_input.nodeInfoList(arg.canonicalName).labelList:+=arg.bound._2.toInt //upper bound
       }
     }
     //visualize counter-example labels

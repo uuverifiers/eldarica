@@ -160,6 +160,7 @@ class GlobalParameters extends Cloneable {
   var mineCounterexamples = false
   var boundsAnalysis = false
   var boundsAnalysisTO = 5000
+  var visualizeLowerBound = false
   var timeoutChecker : () => Unit = () => ()
 
   def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
@@ -286,6 +287,8 @@ class GlobalParameters extends Cloneable {
     that.mineCounterexamples = this.mineCounterexamples
     that.boundsAnalysis = this.boundsAnalysis
     that.boundsAnalysisTO = this.boundsAnalysisTO
+    that.visualizeLowerBound = this.visualizeLowerBound
+
   }
 
   override def clone : GlobalParameters = {
@@ -557,6 +560,8 @@ object Main {
       case "-mineCounterexamples" :: rest => mineCounterexamples = true; arguments(rest)
 
       case "-boundsAnalysis" :: rest => boundsAnalysis = true; arguments(rest)
+
+      case "-visualizeLowerBound" :: rest => visualizeLowerBound = true; arguments(rest)
 
       case tTimeout :: rest if (tTimeout.startsWith("-boundsAnalysisTO:")) =>
         boundsAnalysisTO =
