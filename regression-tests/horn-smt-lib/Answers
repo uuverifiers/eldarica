@@ -17,8 +17,8 @@ sat
 (define-fun f_s3 ((A Int) (B Int) (C Int) (D Int)) Bool (and (= D B) (and (and (and (<= B 100) (<= C 102)) (>= C 91)) (= (mod C 2) 0))))
 (define-fun f_sf ((A Int) (B Int) (C Int) (D Int)) Bool (and (= D B) (or (and (= C 92) (<= B 112)) (and (and (and (and (<= B 112) (>= B 101)) (<= C 102)) (>= C 91)) (and (= (mod C 2) 0) (or (>= (- B C) 13) (or (and (= (- B C) 12) (= (mod (+ 1 B) 2) 0)) (and (= (mod C 2) 0) (or (>= (- B C) 12) (or (and (= (- B C) 11) (= (mod (+ 1 B) 2) 0)) (and (= (- B C) 10) (= (mod B 2) 0))))))))))))
 (define-fun main_s1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F C) (= E B)) (= D A)))
-(define-fun main_s2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= E B) (= D A)) (<= F 100)) (= (mod (* (- 1) F) 2) 0)))
-(define-fun main_s3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= E 92) (= D A)) (<= F 100)) (= (mod (* (- 1) F) 2) 0)))
+(define-fun main_s2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= E B) (= D A)) (<= F 100)) (= (mod F 2) 0)))
+(define-fun main_s3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (and (= E 92) (= D A)) (<= F 100)) (= (mod F 2) 0)))
 (define-fun main_sf ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool true)
 
 palindrome.nts.smt2
