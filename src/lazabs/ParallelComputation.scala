@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2018-2022 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ object ParallelComputation {
 class ParallelComputation[A](comp: => A,
                              parameters : Seq[GlobalParameters],
                              startDelay : Int = 100,
-                             checkPeriod : Int = 50) {
+                             checkPeriod : Int = 10) {
 
   private var resultOpt : Option[A] = None
   private var exceptionOpt : Option[Throwable] = None
@@ -66,7 +66,7 @@ class ParallelComputation[A](comp: => A,
 
          GlobalParameters.parameters.value = p
          p.timeoutChecker = () => {
-           if (resultOpt.isDefined || exceptionOpt.isDefined)
+           if (resultOpt.isDefined)
              throw StoppedException
          }
 
@@ -87,10 +87,11 @@ class ParallelComputation[A](comp: => A,
        thread
      }).toList
 
-  while (resultOpt.isEmpty && exceptionOpt.isEmpty)
+  while (resultOpt.isEmpty &&
+           (threads exists { t => t.getState != Thread.State.TERMINATED }))
     try {
       GlobalParameters.get.timeoutChecker()
-      threads.head join checkPeriod
+      Thread.sleep(checkPeriod)
     } catch {
       case t : Throwable =>
         exceptionOpt = Some(t)
