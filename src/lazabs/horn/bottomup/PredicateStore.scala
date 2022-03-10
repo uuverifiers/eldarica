@@ -35,14 +35,45 @@ import ap.terfor.{TermOrder, TerForConvenience}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.substitutions.VariableSubst
+import ap.theories.ExtArray
 import ap.proof.ModelSearchProver
+import ap.types.Sort
 import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object PredicateStore {
+  import IExpression._
 
-  class PredicateGenException(msg : String) extends Exception(msg)
+  class  PredicateGenException(msg : String)
+         extends Exception(msg)
+  object QuantifierInPredException
+         extends PredicateGenException("cannot handle quantifier in predicate")
+
+  /**
+   * Visitor for instantiating quantifiers in a formula with given
+   * terms. This is sometimes a way to get rid of quantifiers in
+   * interpolants over arrays.
+   */
+  class InstantiatingVisitor(terms : Map[Sort, Seq[ITerm]])
+                       extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (t update subres) match {
+        case ISortedQuantified(q, s, f)
+            if terms.contains(s) =>
+              q match {
+                case Quantifier.ALL =>
+                  and(for (t <- terms(s))
+                      yield IExpression.subst(f, List(t), -1))
+                case Quantifier.EX =>
+                  or (for (t <- terms(s))
+                      yield IExpression.subst(f, List(t), -1))
+              }
+        case newT => newT
+      }
+    
+  }
 
 }
 
@@ -126,8 +157,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       val newC = PresburgerTools.elimQuantifiersWithPreds(c)
       if (!ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
               if (positive) newC else newC.negate, Map()))
-        throw new PredicateGenException(
-          "cannot handle quantifiers in predicates")
+        throw QuantifierInPredException
       newC
     }
 
@@ -278,7 +308,31 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
 
       val iabsy =
         sf.postprocessing(f, simplify = true)
-      val (rawF, posF, negF) = rsPredsToInternal(iabsy)
+
+      val (rawF, posF, negF) =
+        try {
+          rsPredsToInternal(iabsy)
+        } catch {
+          case QuantifierInPredException => {
+            val arrayConsts =
+              for (c <- SymbolCollector constantsSorted iabsy;
+                   if (Sort sortOf c).isInstanceOf[ExtArray.ArraySort])
+              yield IConstant(c)
+
+            if (arrayConsts.isEmpty)
+              throw QuantifierInPredException
+
+            val constsMap  = arrayConsts.groupBy(Sort.sortOf _)
+
+            val visitor    = new InstantiatingVisitor(constsMap)
+            val inst       = visitor.visit(iabsy, ()).asInstanceOf[IFormula]
+
+            val simplifier = new ap.interpolants.ExtArraySimplifier
+            val simpInst   = simplifier(inst)
+
+            rsPredsToInternal(simpInst)
+          }
+        }
 
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)

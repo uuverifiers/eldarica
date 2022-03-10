@@ -57,8 +57,9 @@ class ParallelComputation[A](comp: => A,
                              startDelay : Int = 100,
                              checkPeriod : Int = 10) {
 
-  private var resultOpt : Option[A] = None
+  private var resultOpt    : Option[A]         = None
   private var exceptionOpt : Option[Throwable] = None
+  private var stopAll      : Boolean           = false
 
   private val threads =
     (for (p <- parameters.iterator; if resultOpt.isEmpty) yield {
@@ -66,7 +67,7 @@ class ParallelComputation[A](comp: => A,
 
          GlobalParameters.parameters.value = p
          p.timeoutChecker = () => {
-           if (resultOpt.isDefined)
+           if (stopAll)
              throw StoppedException
          }
 
@@ -87,15 +88,20 @@ class ParallelComputation[A](comp: => A,
        thread
      }).toList
 
-  while (resultOpt.isEmpty &&
-           (threads exists { t => t.getState != Thread.State.TERMINATED }))
+  while (!stopAll &&
+         resultOpt.isEmpty &&
+         (threads exists { t => t.getState != Thread.State.TERMINATED }))
     try {
       GlobalParameters.get.timeoutChecker()
       Thread.sleep(checkPeriod)
     } catch {
-      case t : Throwable =>
+      case t : Throwable => {
         exceptionOpt = Some(t)
+        stopAll = true
+      }
     }
+
+  stopAll = true
 
   for (t <- threads)
     t.join
