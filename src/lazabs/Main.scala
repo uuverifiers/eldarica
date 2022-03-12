@@ -87,7 +87,7 @@ class GlobalParameters extends Cloneable {
   var concurrentC = false
   var global = false
   var disjunctive = false
-  var splitClauses = false
+  var splitClauses : Int = 1
   var displaySolutionProlog = false
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
@@ -379,7 +379,10 @@ object Main {
 
       case "-minePredicates" :: rest => minePredicates = true; arguments(rest)
 
-      case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
+      case splitMode :: rest if (splitMode startsWith "-splitClauses:") => {
+        splitClauses = splitMode.drop(14).toInt
+        arguments(rest)
+      }
 
       case arithMode :: rest if (arithMode startsWith "-arithMode:") => {
         arithmeticMode = arithMode match {
@@ -477,7 +480,8 @@ object Main {
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
-          " -splitClauses\tTurn clause constraints into pure inequalities\n" +
+          " -splitClauses:n\tAggressiveness when splitting disjunctions in clauses\n" +
+          "                \t                     (0 <= n <= 2, default: 1)\n" +
           
           "\n" +
           " -hin\t\tExpect input in Prolog Horn format\n" +  

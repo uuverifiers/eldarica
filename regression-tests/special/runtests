@@ -10,7 +10,7 @@ $LAZABS -assert -pngNo -abstract:off -t:20 "$@" array-exception.smt2 2>&1 | grep
 
 echo
 echo fib.smt2
-$LAZABS -abstract -splitClauses -pngNo -hints:fib.hints -abstractTO:6 -t:120 "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
+$LAZABS -abstract -splitClauses:2 -pngNo -hints:fib.hints -abstractTO:6 -t:120 "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
 
 # Heap tests that cannot be run with option -assert
 
