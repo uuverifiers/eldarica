@@ -38,23 +38,25 @@ object ParallelComputation {
    * <code>parameters</code> list is empty, the computation will just be
    * run with the current global parameters.
    */
-  def apply[A](parameters : Seq[GlobalParameters],
-               startDelay : Int = 200,
+  def apply[A](parameters  : Seq[GlobalParameters],
+               startDelay  : Int = 200,
                checkPeriod : Int = 50)
               (comp: => A) =
     if (parameters.isEmpty)
       comp
     else
-      (new ParallelComputation(comp, parameters, startDelay, checkPeriod)).result
+      (new ParallelComputation(for (_ <- parameters) yield (() => comp),
+                               parameters, startDelay, checkPeriod)).result
+
 }
 
 /**
  * Simple class to do some computation in parallel for several settings,
  * and stop all threads as soon as one of them has produced a result.
  */
-class ParallelComputation[A](comp: => A,
-                             parameters : Seq[GlobalParameters],
-                             startDelay : Int = 100,
+class ParallelComputation[A](comps       : Seq[() => A],
+                             parameters  : Seq[GlobalParameters],
+                             startDelay  : Int = 100,
                              checkPeriod : Int = 10) {
 
   private var resultOpt    : Option[A]         = None
@@ -62,7 +64,8 @@ class ParallelComputation[A](comp: => A,
   private var stopAll      : Boolean           = false
 
   private val threads =
-    (for (p <- parameters.iterator; if resultOpt.isEmpty) yield {
+    (for ((p, comp) <- parameters.iterator zip comps.iterator;
+          if resultOpt.isEmpty) yield {
        val thread = new Thread(new Runnable { def run : Unit = {
 
          GlobalParameters.parameters.value = p
@@ -72,7 +75,7 @@ class ParallelComputation[A](comp: => A,
          }
 
          try {
-           resultOpt = Some(comp)
+           resultOpt = Some(comp())
          } catch {
            case StoppedException | TimeoutException =>
              // nothing

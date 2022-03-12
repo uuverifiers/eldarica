@@ -55,6 +55,10 @@ object GlobalParameters {
         ConcurrentC, AutoDetect = Value
   }
 
+  object Portfolio extends Enumeration {
+    val None, Template, General = Value
+  }
+
   val parameters =
     new scala.util.DynamicVariable[GlobalParameters] (new GlobalParameters)
 
@@ -96,7 +100,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
-  var templateBasedInterpolationPortfolio = false
+  var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""
   var cegarPostHintsFile : String = ""
@@ -186,7 +190,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
-    that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
@@ -228,6 +232,15 @@ class GlobalParameters extends Cloneable {
   def withAndWOTemplates : Seq[GlobalParameters] =
     List({
            val p = this.clone
+           p.templateBasedInterpolation = false
+           p
+         },
+         this.clone)
+
+  def generalPortfolioParams : Seq[GlobalParameters] =
+    List({
+           val p = this.clone
+           p.splitClauses = 0
            p.templateBasedInterpolation = false
            p
          },
@@ -326,7 +339,14 @@ object Main {
 //      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
-      case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
+      case "-abstractPO" :: rest => {
+        portfolio = GlobalParameters.Portfolio.Template
+        arguments(rest)
+      }
+      case "-portfolio" :: rest => {
+        portfolio = GlobalParameters.Portfolio.General
+        arguments(rest)
+      }
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty

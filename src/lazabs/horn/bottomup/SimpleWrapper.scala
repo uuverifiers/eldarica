@@ -60,8 +60,13 @@ object SimpleWrapper {
     val errOutput =
       if (debuggingOutput) Console.err else HornWrapper.NullStream
 
-    GlobalParameters.get.templateBasedInterpolation = useTemplates
-    GlobalParameters.get.templateBasedInterpolationPortfolio = useAbstractPO
+    GlobalParameters.get.templateBasedInterpolation =
+      useTemplates
+    GlobalParameters.get.portfolio =
+      if (useAbstractPO)
+        GlobalParameters.Portfolio.Template
+      else
+        GlobalParameters.Portfolio.None
 
     Console.withErr(errOutput) { Console.withOut(Console.err) {
       var (newClauses, allHints, backTranslator) = {
@@ -71,7 +76,7 @@ object SimpleWrapper {
       }
   
       val params =
-        if (GlobalParameters.get.templateBasedInterpolationPortfolio)
+        if (GlobalParameters.get.portfolio == GlobalParameters.Portfolio.Template)
           GlobalParameters.get.withAndWOTemplates
         else
           List()
