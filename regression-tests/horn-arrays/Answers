@@ -90,9 +90,9 @@ Initially:                                             9         2
 
 
 Theories: Types, ADT(red, green, blue, nil, cons), BitShiftMultiplication
-Unique satisfiable clauses: 8
+Unique satisfiable clauses: 15
    2 clauses with 0 body literals
-   6 clauses with 1 body literals
+   13 clauses with 1 body literals
 
 --------------------------------- Statistics -----------------------------------
 CEGAR iterations:                                      4
