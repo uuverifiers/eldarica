@@ -12,6 +12,14 @@ echo
 echo fib.smt2
 $LAZABS -abstract -splitClauses:2 -pngNo -hints:fib.hints -abstractTO:6 -t:120 "$@" fib.smt2 2>&1 | grep -v "^Elapsed Time"
 
+TESTS="no-splitting.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -assert -cex -abstract:off -splitClauses:0 -t:30 "$@" $name 2>&1 | grep -v 'at '
+done
+
 # Heap tests that cannot be run with option -assert
 
 TESTS="list-001.c-1.smt2 \
