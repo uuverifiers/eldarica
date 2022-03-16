@@ -301,7 +301,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0.7.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.8.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -500,6 +500,7 @@ object Main {
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
+          " -portfolio\tRun different standard configurations in parallel\n" +
           " -splitClauses:n\tAggressiveness when splitting disjunctions in clauses\n" +
           "                \t                     (0 <= n <= 2, default: 1)\n" +
           
