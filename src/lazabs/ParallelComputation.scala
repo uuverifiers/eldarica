@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2018-2022 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,40 +38,44 @@ object ParallelComputation {
    * <code>parameters</code> list is empty, the computation will just be
    * run with the current global parameters.
    */
-  def apply[A](parameters : Seq[GlobalParameters],
-               startDelay : Int = 200,
+  def apply[A](parameters  : Seq[GlobalParameters],
+               startDelay  : Int = 200,
                checkPeriod : Int = 50)
               (comp: => A) =
     if (parameters.isEmpty)
       comp
     else
-      (new ParallelComputation(comp, parameters, startDelay, checkPeriod)).result
+      (new ParallelComputation(for (_ <- parameters) yield (() => comp),
+                               parameters, startDelay, checkPeriod)).result
+
 }
 
 /**
  * Simple class to do some computation in parallel for several settings,
  * and stop all threads as soon as one of them has produced a result.
  */
-class ParallelComputation[A](comp: => A,
-                             parameters : Seq[GlobalParameters],
-                             startDelay : Int = 100,
-                             checkPeriod : Int = 50) {
+class ParallelComputation[A](comps       : Seq[() => A],
+                             parameters  : Seq[GlobalParameters],
+                             startDelay  : Int = 100,
+                             checkPeriod : Int = 10) {
 
-  private var resultOpt : Option[A] = None
+  private var resultOpt    : Option[A]         = None
   private var exceptionOpt : Option[Throwable] = None
+  private var stopAll      : Boolean           = false
 
   private val threads =
-    (for (p <- parameters.iterator; if resultOpt.isEmpty) yield {
+    (for ((p, comp) <- parameters.iterator zip comps.iterator;
+          if resultOpt.isEmpty) yield {
        val thread = new Thread(new Runnable { def run : Unit = {
 
          GlobalParameters.parameters.value = p
          p.timeoutChecker = () => {
-           if (resultOpt.isDefined || exceptionOpt.isDefined)
+           if (stopAll)
              throw StoppedException
          }
 
          try {
-           resultOpt = Some(comp)
+           resultOpt = Some(comp())
          } catch {
            case StoppedException | TimeoutException =>
              // nothing
@@ -87,14 +91,20 @@ class ParallelComputation[A](comp: => A,
        thread
      }).toList
 
-  while (resultOpt.isEmpty && exceptionOpt.isEmpty)
+  while (!stopAll &&
+         resultOpt.isEmpty &&
+         (threads exists { t => t.getState != Thread.State.TERMINATED }))
     try {
       GlobalParameters.get.timeoutChecker()
-      threads.head join checkPeriod
+      Thread.sleep(checkPeriod)
     } catch {
-      case t : Throwable =>
+      case t : Throwable => {
         exceptionOpt = Some(t)
+        stopAll = true
+      }
     }
+
+  stopAll = true
 
   for (t <- threads)
     t.join

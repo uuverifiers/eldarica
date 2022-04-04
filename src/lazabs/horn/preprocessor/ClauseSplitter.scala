@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,8 @@ import lazabs.prover.PrincessWrapper
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.util.Seqs
+import ap.types.Sort
+import ap.theories.ModuloArithmetic
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -56,31 +58,23 @@ class ClauseSplitter extends HornPreprocessor {
 
   def process(clauses : Clauses, hints : VerificationHints)
              : (Clauses, VerificationHints, BackTranslator) = {
-    val newClauses = SimpleAPI.withProver { p =>
-      // turn the resulting formula into DNF, and split positive equations
-      // (which often gives better performance)
-
-      import p._
+    val newClauses = {
+      // Split negated equations in clauses constraints, which
+      // sometimes gives better performance
 
       val newClauses = new ArrayBuffer[Clause]
 
-      for (clause@Clause(head, body, constraint) <- clauses) scope {
-        addConstantsRaw(SymbolCollector constantsSorted constraint)
-        for (d <- ap.PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint)))
-          for (f <- splitPosEquations(Transform2NNF(!asIFormula(d)))) {
-            if (newClauses.size % 100 == 0)
-              lazabs.GlobalParameters.get.timeoutChecker()
-            val newClause = Clause(head, body, Transform2NNF(!f))
-            newClauses += newClause
-            clauseBackMapping.put(newClause, clause)
-          }
+      for (clause@Clause(head, body, constraint) <- clauses) {
+        for (f <- splitPosEquations(Transform2NNF(!constraint))) {
+          if (newClauses.size % 100 == 0)
+            lazabs.GlobalParameters.get.timeoutChecker()
+          val newClause = Clause(head, body, Transform2NNF(!f))
+          newClauses += newClause
+          clauseBackMapping.put(newClause, clause)
+        }
       }
 
-      newClauses
-
-//      (for (Clause(head, body, constraint) <- clauses4.iterator;
-//            constraint2 <- splitConstraint(~constraint))
-//       yield Clause(head, body, Transform2NNF(!constraint2))).toList
+      newClauses.toSeq
     }
 
     val translator = new BackTranslator {
@@ -117,11 +111,24 @@ class ClauseSplitter extends HornPreprocessor {
       }
   }
 
+  object SplittableSort {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case Sort.Numeric(s)              => Some(s)
+      case s : ModuloArithmetic.ModSort => Some(s)
+      case _                            => None
+    }
+  }
+
   def splitPosEquations(f : IFormula) : Seq[IFormula] = {
+    import Sort.{:::, Numeric}
     val split =
       or(for (g <- LineariseVisitor(f, IBinJunctor.Or)) yield g match {
-           case EqZ(t) => geqZero(t) & geqZero(-t)
-           case g => g
+           case Eq(s ::: SplittableSort(_), t ::: SplittableSort(_)) =>
+             (s <= t) & (s >= t)
+           case EqZ(t ::: SplittableSort(_)) =>
+             geqZero(t) & geqZero(-t)
+           case g =>
+             g
          })
     LineariseVisitor(CNFSimplifier(split), IBinJunctor.And)
   }

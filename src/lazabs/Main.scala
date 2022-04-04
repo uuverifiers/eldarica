@@ -55,6 +55,10 @@ object GlobalParameters {
         ConcurrentC, AutoDetect = Value
   }
 
+  object Portfolio extends Enumeration {
+    val None, Template, General = Value
+  }
+
   val parameters =
     new scala.util.DynamicVariable[GlobalParameters] (new GlobalParameters)
 
@@ -87,7 +91,7 @@ class GlobalParameters extends Cloneable {
   var concurrentC = false
   var global = false
   var disjunctive = false
-  var splitClauses = false
+  var splitClauses : Int = 1
   var displaySolutionProlog = false
   var displaySolutionSMT = false
   var format = GlobalParameters.InputFormat.AutoDetect
@@ -96,7 +100,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var templateBasedInterpolationTimeout = 2000
-  var templateBasedInterpolationPortfolio = false
+  var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""
   var cegarPostHintsFile : String = ""
@@ -186,7 +190,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
-    that.templateBasedInterpolationPortfolio = this.templateBasedInterpolationPortfolio
+    that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
@@ -228,6 +232,15 @@ class GlobalParameters extends Cloneable {
   def withAndWOTemplates : Seq[GlobalParameters] =
     List({
            val p = this.clone
+           p.templateBasedInterpolation = false
+           p
+         },
+         this.clone)
+
+  def generalPortfolioParams : Seq[GlobalParameters] =
+    List({
+           val p = this.clone
+           p.splitClauses = 0
            p.templateBasedInterpolation = false
            p
          },
@@ -288,7 +301,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0.7.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.8.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -326,7 +339,14 @@ object Main {
 //      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
-      case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
+      case "-abstractPO" :: rest => {
+        portfolio = GlobalParameters.Portfolio.Template
+        arguments(rest)
+      }
+      case "-portfolio" :: rest => {
+        portfolio = GlobalParameters.Portfolio.General
+        arguments(rest)
+      }
       case "-abstract:manual" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
@@ -379,7 +399,10 @@ object Main {
 
       case "-minePredicates" :: rest => minePredicates = true; arguments(rest)
 
-      case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
+      case splitMode :: rest if (splitMode startsWith "-splitClauses:") => {
+        splitClauses = splitMode.drop(14).toInt
+        arguments(rest)
+      }
 
       case arithMode :: rest if (arithMode startsWith "-arithMode:") => {
         arithmeticMode = arithMode match {
@@ -477,7 +500,9 @@ object Main {
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
-          " -splitClauses\tTurn clause constraints into pure inequalities\n" +
+          " -portfolio\tRun different standard configurations in parallel\n" +
+          " -splitClauses:n\tAggressiveness when splitting disjunctions in clauses\n" +
+          "                \t                     (0 <= n <= 2, default: 1)\n" +
           
           "\n" +
           " -hin\t\tExpect input in Prolog Horn format\n" +  
