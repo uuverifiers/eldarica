@@ -1,0 +1,6 @@
+
+lazabs.horn.tests.IncTest
+Starting incremental test ...
+Right(DagNode((FALSE,Clause(FALSE,List(f2, I(x, y, n)),(((x + -1 * 2 * n) + -1) >= 0))),List(1),DagNode((I(0, 0, -1),Clause(I(0, 0, n),List(f0, Init(n)),true)),List(),DagEmpty)))
+Left(Map(I/3 -> (-1*_0 + 2*_1 >= 0 & -1*_0 + 2*_2 + -1 >= 0 & _0 >= 0)))
+Right(DagNode((FALSE,Clause(FALSE,List(f2, I(x, y, n)),(((x + -1 * 2 * n) + -1) >= 0))),List(1),DagNode((I(0, 0, -1),Clause(I(0, 0, n),List(f0, Init(n)),true)),List(),DagEmpty)))

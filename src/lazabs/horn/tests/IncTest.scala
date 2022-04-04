@@ -1,7 +1,8 @@
 
-package lazabs.horn.bottomup
+package lazabs.horn.tests
 
 import ap.SimpleAPI
+import lazabs.horn.bottomup._
 import HornClauses._
 import ap.parser._
 import IExpression.Sort
@@ -12,10 +13,7 @@ object IncTest extends App {
 
   lazabs.GlobalParameters.get.assertions = true
 
-  def expect[A](x : A, expected : A => Boolean) : A = {
-    assert(expected(x))
-    x
-  }
+  println("Starting incremental test ...")
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
@@ -54,19 +52,22 @@ object IncTest extends App {
               Map(
                 Init -> TRUE, f0 -> TRUE, f1 -> TRUE, f2 -> TRUE
               ))
+    println(r1)
     assert(r1.isRight)
 
     val r2 = incSolver.checkWithSubstitution(
           Map(
                 Init -> (v(0) > 0), f0 -> TRUE, f1 -> TRUE, f2 -> TRUE
               ))
+    println(r2)
     assert(r2.isLeft)
 
     val r3 = incSolver.checkWithSubstitution(
           Map(
                 Init -> TRUE, f0 -> TRUE, f1 -> FALSE, f2 -> TRUE
               ))
-    assert(r2.isLeft)
+    println(r3)
+    assert(r3.isRight)
 
   }
 
