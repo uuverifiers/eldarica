@@ -236,6 +236,7 @@ class HornWrapper(constraints  : Seq[HornClause],
           val preprocessor = new DefaultPreprocessor
           preprocessor.process(unsimplifiedClauses, hints)
         }
+      }
 
       if (GlobalParameters.get.printHornSimplified) {
         //      println("-------------------------------")
@@ -269,8 +270,9 @@ class HornWrapper(constraints  : Seq[HornClause],
       }
       (simplifiedClauses, simpPreHints, backTranslator)
     }
+    val (simplifiedClauses, simpPreHints, preprocBackTranslator) =preprocessClauses(unsimplifiedClauses,hints)
 
-  private val postHints: VerificationHints = {
+  val postHints: VerificationHints = {
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
@@ -282,16 +284,6 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   val allHints = simpPreHints ++ postHints
 
-
-  val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] =
-    ParallelComputation(params) {
-      new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
-        allHints, preprocBackTranslator,
-        disjunctive, outStream).result
-    }
-
-
-private val (simplifiedClauses, simpPreHints, preprocBackTranslator) =preprocessClauses(unsimplifiedClauses,hints)
 
   //////////////////////////////////////////////////////////////////////////////
 

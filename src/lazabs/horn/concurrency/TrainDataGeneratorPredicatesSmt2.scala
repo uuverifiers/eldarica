@@ -196,11 +196,7 @@ object TrainDataGeneratorPredicatesSmt2 {
           (simplifiedClauses, simpHints, backTranslator)
         }
       GlobalParameters.get.timeoutChecker()
-      val params =
-        if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
-          lazabs.GlobalParameters.get.withAndWOTemplates
-        else
-          List()
+
       /////////////////////////////////////////////////////////////////////////////
       //InnerHornWrapper
 

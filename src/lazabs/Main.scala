@@ -483,7 +483,10 @@ object Main {
 //      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
-      case "-abstractPO" :: rest => templateBasedInterpolationPortfolio = true; arguments(rest)
+      case "-abstractPO" :: rest => {
+        portfolio = GlobalParameters.Portfolio.Template
+        arguments(rest)
+      }
       case "-abstract:empty" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
@@ -492,6 +495,7 @@ object Main {
       case "-abstract:all" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.All
+        arguments(rest)}
       case "-portfolio" :: rest => {
         portfolio = GlobalParameters.Portfolio.General
         arguments(rest)
@@ -582,8 +586,6 @@ object Main {
         boundsAnalysisTO =
           (java.lang.Float.parseFloat(tTimeout.drop(18)) * 1000).toInt;
         arguments(rest)
-
-      case "-splitClauses" :: rest => splitClauses = true; arguments(rest)
 
       case splitMode :: rest if (splitMode startsWith "-splitClauses:") => {
         splitClauses = splitMode.drop(14).toInt
