@@ -66,7 +66,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def postStages : List[HornPreprocessor] =
     List(new ClauseShortener) ++
-    (if (GlobalParameters.get.splitClauses)
+    (if (GlobalParameters.get.splitClauses >= 2)
       List(new ClauseSplitter) else List()) ++
     (if (GlobalParameters.get.staticAccelerate)
       List(Accelerator) else List()) ++
@@ -157,7 +157,7 @@ class DefaultPreprocessor extends HornPreprocessor {
       condenseClauses
 
     // Possibly split disjunctive clause constraints, and the condense again
-    {
+    if (GlobalParameters.get.splitClauses >= 1) {
       val oldClauses = curClauses
       applyStage(new BooleanClauseSplitter)
       if (curClauses != oldClauses)

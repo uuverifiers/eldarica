@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,15 +35,53 @@ import ap.terfor.{TermOrder, TerForConvenience}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.substitutions.VariableSubst
+import ap.theories.ExtArray
 import ap.proof.ModelSearchProver
+import ap.types.Sort
 import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
+object PredicateStore {
+  import IExpression._
+
+  class  PredicateGenException(msg : String)
+         extends Exception(msg)
+  object QuantifierInPredException
+         extends PredicateGenException("cannot handle quantifier in predicate")
+
+  /**
+   * Visitor for instantiating quantifiers in a formula with given
+   * terms. This is sometimes a way to get rid of quantifiers in
+   * interpolants over arrays.
+   */
+  class InstantiatingVisitor(terms : Map[Sort, Seq[ITerm]])
+                       extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (t update subres) match {
+        case ISortedQuantified(q, s, f)
+            if terms.contains(s) =>
+              q match {
+                case Quantifier.ALL =>
+                  and(for (t <- terms(s))
+                      yield IExpression.subst(f, List(t), -1))
+                case Quantifier.EX =>
+                  or (for (t <- terms(s))
+                      yield IExpression.subst(f, List(t), -1))
+              }
+        case newT => newT
+      }
+    
+  }
+
+}
 
 class PredicateStore[CC <% HornClauses.ConstraintClause]
                     (context : HornPredAbsContext[CC]) {
 
   import context._
+  import PredicateStore._
 
   var implicationChecks = 0
   var implicationChecksPos = 0
@@ -121,7 +159,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       println("newC: " + newC)
       if (!ap.terfor.conjunctions.IterativeClauseMatcher.isMatchableRec(
               if (positive) newC else newC.negate, Map()))
-        throw new Exception("Cannot handle general quantifiers in predicates at the moment")
+        throw QuantifierInPredException
       newC
     }
   }
@@ -201,7 +239,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
               substF2 = rsReducer(subst(f));
               substF <- splitPredicate(substF2);
               if (reallyAddPredicate(substF, rs));
-              pred = genSymbolPred(substF, rs);
+              pred <- genSymbolPredBestEffort(substF, rs).toSeq;
               if (!(predicates(rs) exists
                       (_.rawPred == pred.rawPred)))) yield {
            addRelationSymbolPred(pred)
@@ -248,6 +286,18 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       }
     }
 
+  private def genSymbolPredBestEffort(f  : Conjunction,
+                                      rs : RelationSymbol)
+                                         : Option[RelationSymbolPred] =
+    try {
+      Some(genSymbolPred(f, rs))
+    } catch {
+      case t : PredicateGenException =>
+        if (lazabs.GlobalParameters.get.log)
+          println("Warning: dropping predicate: " + t.getMessage)
+        None
+    }
+
   private def genSymbolPred(f : Conjunction,
                             rs : RelationSymbol) : RelationSymbolPred =
     if (Seqs.disjoint(f.predicates, sf.functionalPreds)) {
@@ -264,7 +314,31 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
 
       val iabsy =
         sf.postprocessing(f, simplify = true)
-      val (rawF, posF, negF) = rsPredsToInternal(iabsy)
+
+      val (rawF, posF, negF) =
+        try {
+          rsPredsToInternal(iabsy)
+        } catch {
+          case QuantifierInPredException => {
+            val arrayConsts =
+              for (c <- SymbolCollector constantsSorted iabsy;
+                   if (Sort sortOf c).isInstanceOf[ExtArray.ArraySort])
+              yield IConstant(c)
+
+            if (arrayConsts.isEmpty)
+              throw QuantifierInPredException
+
+            val constsMap  = arrayConsts.groupBy(Sort.sortOf _)
+
+            val visitor    = new InstantiatingVisitor(constsMap)
+            val inst       = visitor.visit(iabsy, ()).asInstanceOf[IFormula]
+
+            val simplifier = new ap.interpolants.ExtArraySimplifier
+            val simpInst   = simplifier(inst)
+
+            rsPredsToInternal(simpInst)
+          }
+        }
 
 //      println(" -> pos: " + posF)
 //      println(" -> neg: " + negF)

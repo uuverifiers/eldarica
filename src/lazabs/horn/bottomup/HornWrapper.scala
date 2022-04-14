@@ -141,14 +141,18 @@ object HornWrapper {
     })
   }
 
+  type ResultType = Either[() => Map[Predicate, IFormula], () => Dag[IAtom]]
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class HornWrapper(constraints: Seq[HornClause],
-                  uppaalAbsMap: Option[Map[String, AbsLattice]],
-                  lbe: Boolean,
-                  disjunctive: Boolean) {
+class HornWrapper(constraints  : Seq[HornClause], 
+                  uppaalAbsMap : Option[Map[String, AbsLattice]],
+                  lbe          : Boolean,
+                  disjunctive  : Boolean) {
+
+  import HornWrapper.ResultType
 
   def printClauses(cs: Seq[Clause]) = {
     for (c <- cs) {
@@ -218,9 +222,14 @@ class HornWrapper(constraints: Seq[HornClause],
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  private val (simplifiedClauses, simpPreHints, preprocBackTranslator) =
-    Console.withErr(outStream) {
-      val (simplifiedClauses, simpPreHints, backTranslator) =
+
+  def preprocessClauses(clauses : Seq[Clause],
+                        hints   : VerificationHints)
+                                :(Seq[Clause],
+                                  VerificationHints,
+                                  BackTranslator) = {
+    val (simplifiedClauses, simpPreHints, backTranslator) =
+      Console.withErr(outStream) {
         if (lbe) {
           (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
         } else {
@@ -245,6 +254,7 @@ class HornWrapper(constraints: Seq[HornClause],
         //      println("-------------------------------")
         //      printClauses(simplifiedClauses)
         //      println("-------------------------------")
+
       }
 
       if (GlobalParameters.get.printHornSimplifiedSMT) {
@@ -255,10 +265,8 @@ class HornWrapper(constraints: Seq[HornClause],
 
         SMTLineariser("", "HORN", "", Nil, predsToDeclare,
           simplifiedClauses.map(_ toFormula))
-
         throw PrintingFinishedException
       }
-
       (simplifiedClauses, simpPreHints, backTranslator)
     }
 
@@ -274,11 +282,6 @@ class HornWrapper(constraints: Seq[HornClause],
 
   val allHints = simpPreHints ++ postHints
 
-  val params =
-    if (lazabs.GlobalParameters.get.templateBasedInterpolationPortfolio)
-      lazabs.GlobalParameters.get.withAndWOTemplates
-    else
-      List()
 
   val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] =
     ParallelComputation(params) {
@@ -286,6 +289,9 @@ class HornWrapper(constraints: Seq[HornClause],
         allHints, preprocBackTranslator,
         disjunctive, outStream).result
     }
+
+
+private val (simplifiedClauses, simpPreHints, preprocBackTranslator) =preprocessClauses(unsimplifiedClauses,hints)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -362,6 +368,40 @@ class HornWrapper(constraints: Seq[HornClause],
 
     }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  def standardCheck() : ResultType = {
+    val (simplifiedClauses, allHints, preprocBackTranslator) =
+      preprocessClauses(unsimplifiedClauses, hints)
+    (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+                          allHints, preprocBackTranslator,
+                          disjunctive, outStream)).result
+  }
+
+  def templatePOCheck(delay : Int) : ResultType = {
+    val (simplifiedClauses, allHints, preprocBackTranslator) =
+      preprocessClauses(unsimplifiedClauses, hints)
+
+    ParallelComputation(GlobalParameters.get.withAndWOTemplates,
+                        startDelay = delay) {
+      (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+                            allHints, preprocBackTranslator,
+                            disjunctive, outStream)).result
+    }
+  }
+
+  val result =
+    GlobalParameters.get.portfolio match {
+      case GlobalParameters.Portfolio.None =>
+        standardCheck()
+      case GlobalParameters.Portfolio.Template =>
+        templatePOCheck(1000)
+      case GlobalParameters.Portfolio.General =>
+        (new ParallelComputation(List(standardCheck _, () => templatePOCheck(3000)),
+                                 GlobalParameters.get.generalPortfolioParams,
+                                 startDelay = 5000)).result
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -374,7 +414,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
                        outStream: java.io.OutputStream) {
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
-    lazabs.GlobalParameters.get.templateBasedInterpolationType
+    GlobalParameters.get.templateBasedInterpolationType
 
   private lazy val absBuilder =
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
@@ -699,7 +739,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         sys.exit()
       }
 
-      lazabs.GlobalParameters.get.predicateOutputFile match {
+      GlobalParameters.get.predicateOutputFile match {
         case "" =>
         // nothing
         case filename => {
@@ -732,8 +772,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     predAbs.result match {
       case Left(res) => {
         def solFun() =
-          lazabs.GlobalParameters.withValue(currentParams) {
-            if (lazabs.GlobalParameters.get.needFullSolution) {
+          GlobalParameters.withValue(currentParams) {
+            if (GlobalParameters.get.needFullSolution) {
               val fullSol = preprocBackTranslator translate res
               HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
               fullSol
@@ -745,7 +785,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
         val r = Left(solFun _)
 
-        if (lazabs.GlobalParameters.get.minePredicates)
+        if (GlobalParameters.get.minePredicates)
           new PredicateMiner(predAbs)
 
         r
@@ -756,13 +796,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         println(Console.RED + "-" * 10 + "unsat" + "-" * 10)
         if (GlobalParameters.get.moveFile == true)
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + getFileName())
-        if (lazabs.GlobalParameters.get.simplifiedCEX) {
+        if (GlobalParameters.get.simplifiedCEX) {
           println
           cex.map(_._1).prettyPrint
         }
         def cexFun() =
-          lazabs.GlobalParameters.withValue(currentParams) {
-            if (lazabs.GlobalParameters.get.needFullCEX) {
+          GlobalParameters.withValue(currentParams) {
+            if (GlobalParameters.get.needFullCEX) {
               val fullCEX = preprocBackTranslator translate cex
               HornWrapper.verifyCEX(fullCEX, unsimplifiedClauses)
               for (p <- fullCEX) yield p._1

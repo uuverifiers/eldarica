@@ -16,6 +16,6 @@ TESTS="init.cleaned.smt2"
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -abstract -splitClauses -arrayQuans:1 -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -abstract -splitClauses:2 -arrayQuans:1 -pngNo -ssol "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 

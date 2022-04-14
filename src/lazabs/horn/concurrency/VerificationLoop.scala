@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -238,7 +238,7 @@ class VerificationLoop(system : ParametricEncoder.System,
       }
 
     val params =
-      if (GlobalParameters.get.templateBasedInterpolationPortfolio)
+      if (GlobalParameters.get.portfolio == GlobalParameters.Portfolio.Template)
         GlobalParameters.get.withAndWOTemplates
       else
         List()

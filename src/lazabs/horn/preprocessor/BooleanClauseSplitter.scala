@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,11 +46,19 @@ import ap.types.MonoSortedPredicate
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
 
+object BooleanClauseSplitter {
+
+  private val SPLITTING_TO = 3000
+  private val GLOBAL_SPLITTING_TO = 30000
+
+}
+
 /**
  * Elimination of remaining Boolean structure in clauses.
  */
 class BooleanClauseSplitter extends HornPreprocessor {
   import HornPreprocessor._
+  import BooleanClauseSplitter._
 
   val name : String = "Boolean clause splitting"
 
@@ -173,24 +181,40 @@ class BooleanClauseSplitter extends HornPreprocessor {
                      (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(headAtom, body, constraint) = clause
 
-        // transform the clause constraint to DNF, and create a separate
-        // clause for each disjunct
+    // transform the clause constraint to DNF, and create a separate
+    // clause for each disjunct
 
     val newClauses =
         if (ContainsSymbol isPresburger constraint) p.scope {
           import p._
           addConstantsRaw(SymbolCollector constantsSorted constraint)
           val disjuncts =
-              PresburgerTools.nonDNFEnumDisjuncts(
-                asConjunction(constraint))
-          (for (d <- disjuncts; if !d.isFalse) yield
-           Clause(headAtom, body, asIFormula(d))).toIndexedSeq
+            PresburgerTools.nonDNFEnumDisjuncts(asConjunction(constraint))
+          (for (d <- disjuncts; if !d.isFalse)
+           yield Clause(headAtom, body, asIFormula(d))).toIndexedSeq
         } else {
-          // TODO: this might not be effective at all
-          for (conjunct <- HornReader.cnf_if_needed(
-                             Transform2NNF(~constraint))) yield {
-            Clause(headAtom, body, ~conjunct)
+          val conjuncts =
+            LineariseVisitor(constraint, IBinJunctor.And)
+          val (presConjuncts, otherConjuncts) =
+            conjuncts partition (ContainsSymbol isPresburger _)
+
+          if (presConjuncts exists (needsSplittingPos _)) p.scope {
+            import p._
+            val presConstraint  = and(presConjuncts)
+            val otherConstraint = and(otherConjuncts)
+            addConstantsRaw(SymbolCollector constantsSorted presConstraint)
+            val disjuncts =
+              PresburgerTools.nonDNFEnumDisjuncts(asConjunction(presConstraint))
+            (for (d <- disjuncts; if !d.isFalse)
+             yield Clause(headAtom, body,
+                          asIFormula(d) & otherConstraint)).toIndexedSeq
+          } else {
+            List(clause)
           }
+
+// Model-based DNF conversion tends to be too slow here!
+//          (for (f <- DNFConverter mbDNF constraint)
+//           yield Clause(headAtom, body, f)).toIndexedSeq
         }
 
     if (addBackMapping) {
@@ -202,9 +226,6 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
     newClauses
   }
-
-  private val SPLITTING_TO = 3000
-  private val GLOBAL_SPLITTING_TO = 30000
 
   private val globalStartTime = System.currentTimeMillis
 
@@ -256,139 +277,6 @@ class BooleanClauseSplitter extends HornPreprocessor {
       needsSplittingPos(f1)
     case _ =>
       false
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  // Code for model-based transformation to DNF; not finished yet
-
-  private def modelBased2DNF(f : IFormula) : Seq[IFormula] = {
-    val consts = SymbolCollector constantsSorted f
-    val res = new ArrayBuffer[IFormula]
-
-    SimpleAPI.withProver { modelConstructor =>
-    SimpleAPI.withProver { implicationChecker =>
-      modelConstructor.addConstantsRaw(consts)
-      implicationChecker.addConstantsRaw(consts)
-
-      val flags = implicationChecker.createBooleanVariables(SizeVisitor(f))
-      modelConstructor !! f
-      implicationChecker ?? f
-
-      while (modelConstructor.??? == ProverStatus.Sat) {
-        GlobalParameters.get.timeoutChecker()
-
-        val litCollector =
-          new CriticalAtomsCollector(modelConstructor.partialModel)
-        val criticalLits = litCollector.visit(f, ()) match {
-          case Some((true, fors)) =>
-            fors
-          case _ =>
-            throw new IllegalArgumentException("Could not dnf-transform " + f)
-        }
-
-        println(criticalLits)
-
-        val neededCriticalLits = implicationChecker.scope {
-          import implicationChecker._
-
-          val neededFlags = flags take criticalLits.size
-          for ((flag, lit) <- neededFlags zip criticalLits)
-            !! (flag ==> lit)
-
-          val flagValue = Array.fill(neededFlags.size)(true)
-
-          for (n <- 0 until neededFlags.size) {
-            scope {
-              flagValue(n) = false
-              for (j <- n until neededFlags.size)
-                !! (neededFlags(j) <===> flagValue(j))
-              ??? match {
-                case ProverStatus.Valid =>
-                  // nothing
-                case _ =>
-                  flagValue(n) = true
-              }
-            }
-
-            !! (neededFlags(n) <===> flagValue(n))
-          }
-
-          and(for ((lit, true) <- criticalLits.iterator zip flagValue.iterator)
-              yield lit)
-        }
-
-        println(neededCriticalLits)
-println
-
-        res += neededCriticalLits
-println(res.size)
-        modelConstructor !! ~neededCriticalLits
-      }
-    }}
-//throw new Exception
-    List()
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private class CriticalAtomsCollector(model : SimpleAPI.PartialModel)
-          extends CollectingVisitor[Unit, Option[(Boolean, Seq[IFormula])]] {
-
-    override def preVisit(t : IExpression,
-                          arg : Unit) : PreVisitResult = t match {
-      case IBoolLit(value) =>
-        ShortCutResult(Some((value, List())))
-      case LeafFormula(f) => (model eval f) match {
-        case Some(true) =>
-          ShortCutResult(Some((true, List(f))))
-        case Some(false) =>
-          ShortCutResult(Some((false, List(~f))))
-        case None =>
-          ShortCutResult(None)
-      }
-      case _ =>
-        KeepArg
-    }
-
-    def postVisit(t : IExpression, arg : Unit,
-                  subres : Seq[Option[(Boolean, Seq[IFormula])]])
-                : Option[(Boolean, Seq[IFormula])] = t match {
-      case Disj(f1, f2) => subres match {
-        case Seq(r1@Some((true, fors1)), r2@Some((true, fors2))) =>
-          if (fors2.size < fors1.size) r2 else r1
-        case Seq(r@Some((true, fors)), _) =>
-          r
-        case Seq(_, r@Some((true, fors))) =>
-          r
-        case Seq(Some((false, fors1)), Some((false, fors2))) =>
-          Some((false, fors1 ++ fors2))
-        case _ =>
-          None
-      }
-      case Conj(f1, f2) => subres match {
-        case Seq(r1@Some((false, fors1)), r2@Some((false, fors2))) =>
-          if (fors2.size < fors1.size) r2 else r1
-        case Seq(r@Some((false, fors)), _) =>
-          r
-        case Seq(_, r@Some((false, fors))) =>
-          r
-        case Seq(Some((true, fors1)), Some((true, fors2))) =>
-          Some((true, fors1 ++ fors2))
-        case _ =>
-          None
-      }
-      case IBinFormula(IBinJunctor.Eqv, f1, f2) => subres match {
-        case Seq(Some((v1, fors1)), Some((v2, fors2))) =>
-          Some((v1 == v2, fors1 ++ fors2))
-        case _ =>
-          None
-      }
-      case INot(f) =>
-        for ((value, fors) <- subres.head) yield (!value, fors)
-      case t =>
-        throw new IllegalArgumentException("Cannot handle " + t)
-    }
   }
 
 }
