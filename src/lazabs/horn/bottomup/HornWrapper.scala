@@ -418,7 +418,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   if (GlobalParameters.get.getSMT2 == true) {
     HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
     HintsSelection.writeSMTFormatToFile(for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
-    //sys.exit()
+    sys.exit()
   }
 
   if (GlobalParameters.get.graphPrettyPrint==true){
