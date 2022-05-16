@@ -91,6 +91,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("dataFlowAST" -> "data")
   edgeNameMap += ("guardAST" -> "guard")
   edgeNameMap += ("AST" -> "AST")
+  edgeNameMap += ("AST_0" -> "AST_0")//unary AST
   edgeNameMap += ("AST_1" -> "AST_1")
   edgeNameMap += ("AST_2" -> "AST_2")
   edgeNameMap += ("argument" -> "arg")
@@ -114,6 +115,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeDirectionMap += ("dataFlowAST" -> false)
   edgeDirectionMap += ("guardAST" -> false)
   edgeDirectionMap += ("AST" -> false)
+  edgeDirectionMap += ("AST_0" -> false)
   edgeDirectionMap += ("AST_1" -> false)
   edgeDirectionMap += ("AST_2" -> false)
   edgeDirectionMap += ("argument" -> false)
