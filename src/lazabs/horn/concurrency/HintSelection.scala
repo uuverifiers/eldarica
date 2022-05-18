@@ -359,8 +359,7 @@ object HintsSelection {
         VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
       else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection,"templateRelevanceLabel")
       truePositiveHints
-    }
-    else if (GlobalParameters.get.generateSimplePredicates == true) {
+    } else if (GlobalParameters.get.generateSimplePredicates == true) {
       val (simpleGeneratedPredicates, _, _) =
         HintsSelection.getSimplePredicates(simplifiedClausesForGraph,verbose=false,deduplicate = false)
       transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++simpHints
@@ -675,11 +674,14 @@ object HintsSelection {
     measurementList
   }
 
-  def writePredicatesToFiles(unlabeledPredicates:VerificationHints,labeledPredicates:VerificationHints,fileName:String=GlobalParameters.get.fileName): Unit ={
+  def writePredicatesToFiles(unlabeledPredicates:VerificationHints,labeledPredicates:VerificationHints,minedPredicates:VerificationHints,fileName:String=GlobalParameters.get.fileName): Unit ={
     Console.withOut(new java.io.FileOutputStream(fileName+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(unlabeledPredicates)}
     Console.withOut(new java.io.FileOutputStream(fileName+".labeledPredicates.tpl")) {
       AbsReader.printHints(labeledPredicates)}
+    if(!minedPredicates.isEmpty)
+      Console.withOut(new java.io.FileOutputStream(fileName+".minedPredicates.tpl")) {
+        AbsReader.printHints(minedPredicates)}
   }
 
   def writeTemplateDistributionToFiles(simplifiedClauses:Clauses,initialTemplates:VerificationHints,minedTemplates:VerificationHints): Unit ={
@@ -957,6 +959,7 @@ object HintsSelection {
       }
     predictedHints
   }
+
 
   def detectIfAJSONFieldExists(readLabel: String = "predictedLabel",fileName:String=GlobalParameters.get.fileName): Boolean ={
     val input_file = fileName+".hyperEdgeHornGraph.JSON"

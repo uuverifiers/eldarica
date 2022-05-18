@@ -53,8 +53,12 @@ import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 import lazabs.horn.concurrency.{ClauseInfo, DrawHornGraph, DrawHyperEdgeHornGraph, DrawLayerHornGraph, FormLearningLabels, GraphTranslator, HintsSelection, ReaderMain, VerificationHintsInfo, simplifiedHornPredAbsForArgumentBounds}
-import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, generateCombinationTemplates, getClausesInCounterExamples, getFileName, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.HintsSelection.{conjunctTwoPredicates, detectIfAJSONFieldExists, generateCombinationTemplates, getClausesInCounterExamples, getFileName, getInitialPredicates, getLoopHeadsWithSort, getParametersFromVerifHintElement, getPredGenerator, getReconstructedInitialTemplatesForPrediction, getSimplifiedClauses, mergeTemplates, sp, transformPredicateMapToVerificationHints}
+import lazabs.horn.concurrency.TemplateSelectionUtils._
+import play.api.libs.json.JsValue.jsValueToJsLookup
+import play.api.libs.json.{JsSuccess, Json}
 
+import java.io.{File, PrintWriter}
 import scala.collection.immutable.Set
 
 
@@ -440,13 +444,17 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //  }
 
 
-
-
-  val simplifiedClausesForGraph = GlobalParameters.get.hornGraphType match {
-    case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
-    case _ => simplifiedClauses
+  val simplifiedClausesForGraph =
+    if (GlobalParameters.get.getHornGraph == true) {
+      GlobalParameters.get.hornGraphType match {
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+        case _ => simplifiedClauses
+      }
+    } else simplifiedClauses
+  if (GlobalParameters.get.getHornGraph == true) {
+    HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
+    HintsSelection.checkMaxNode(simplifiedClausesForGraph)
   }
-
   if (GlobalParameters.get.getSMT2 == true) {
     HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
     HintsSelection.writeSMTFormatToFile(for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
@@ -459,10 +467,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     println("--------normalized clauses--------")
     simplifiedClausesForGraph.map(_.toPrologString).foreach(println(_))
   }
-  HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
-  HintsSelection.checkMaxNode(simplifiedClausesForGraph)
 
-  val sp = new Simplifier
+
+  //val sp = new Simplifier
   val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length)
 
 
@@ -517,11 +524,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           }
         }
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
-      }else if(GlobalParameters.get.generateTemplates){
+      } else if (GlobalParameters.get.generateTemplates) {
         if (GlobalParameters.get.withoutGraphJSON)
-         HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")//todo:boolean template predicate-2 will be treated as Eq term
-        else {generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = true)}
-      } else{
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates") //todo:boolean template predicate-2 will be treated as Eq term
+        else {
+          generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true)
+        }
+      } else if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists) {
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+      } else {
         VerificationHints(Map()) ++ simpHints
       }
 
@@ -540,7 +551,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       GraphTranslator.separateGraphByPredicates(initialPredicates, VerificationHints(Map()), clauseCollection, argumentInfo)
     } else {
       //read labeled and predicted
-      val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists)
+      val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists)
         HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
       else if ((new java.io.File(GlobalParameters.get.fileName + "." + "hyperEdgeHornGraph" + ".JSON")).exists)
         HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
@@ -683,12 +694,27 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //      sys.exit()
 //      //throw PrintingFinishedException
 //    }
+    //write solving time upper bound to json file
+    val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvingTime" + ".JSON"
+    if(GlobalParameters.get.getSolvingTime){
+      if (!new java.io.File(solvingTimeFileName).exists) {
+        val threeHours = 60 * 60 * 3
+        val initialFields: Map[String, Int] = Map("RelationalEqs" -> threeHours, "Term" -> threeHours, "Octagon" -> threeHours,
+          "RelationalIneqs" -> threeHours, "splitClauses" -> GlobalParameters.get.splitClauses)
+        writeSolvingTimeToJSON(solvingTimeFileName, initialFields)
+      } else {
+        val fields = readJSONFieldToMap(solvingTimeFileName)
+        writeSolvingTimeToJSON(solvingTimeFileName, fields.updated("splitClauses", GlobalParameters.get.splitClauses))
+      }
+    }
 
+
+
+    val startTime = System.currentTimeMillis
     val predAbs = Console.withOut(outStream) {
       println
       println(
         "----------------------------------- CEGAR --------------------------------------")
-
       val predAbs =
         new HornPredAbs(simplifiedClausesForGraph,
           initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
@@ -754,6 +780,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }
 
       predAbs
+    }
+    val endTime = System.currentTimeMillis
+    //update solving time to json file
+    val solvingTime=((endTime - startTime) / 1000).toInt
+    if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
+      val fields=readJSONFieldToMap(solvingTimeFileName)
+      writeSolvingTimeToJSON(solvingTimeFileName,fields.updated(GlobalParameters.get.templateBasedInterpolationType.toString,solvingTime))
     }
 
     // save the current configuration, to make sure that the lazily

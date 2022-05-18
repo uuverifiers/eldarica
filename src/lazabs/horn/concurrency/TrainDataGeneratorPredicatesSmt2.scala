@@ -358,7 +358,7 @@ object TrainDataGeneratorPredicatesSmt2 {
               val hintsCollection=new VerificationHintsInfo(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))//labeledPredicates
               GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
             }
-            HintsSelection.writePredicatesToFiles(unlabeledPredicates,labeledPredicates)
+            HintsSelection.writePredicatesToFiles(unlabeledPredicates,labeledPredicates,VerificationHints(Map()))
 
             //write predicates to files:
 

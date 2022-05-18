@@ -38,6 +38,7 @@ import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
 import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, replaceMultiSamePredicateInBody, spAPI}
 import play.api.libs.json.{JsSuccess, Json}
+import lazabs.horn.concurrency.TemplateSelectionUtils.{_}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -934,108 +935,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     (argumentIDList, argumentNameList, argumentOccurrenceList,argumentBoundList,argumentIndicesList,argumentBinaryOccurrenceList)
   }
 
-  def writeGNNInputFieldToJSONFile(fieldName: String, fiedlContent: Arrays, writer: PrintWriter, lastFiledFlag: Boolean): Unit = {
-    fiedlContent match {
-      case StringArray(x) => writeOneField(fieldName, x, writer)
-      case IntArray(x) => writeOneField(fieldName, x, writer)
-      case PairArray(x) => writeOneField(fieldName, x, writer)
-      case TripleArray(x) => writeOneField(fieldName, x, writer)
-      case PairStringArray(x)=> writePairStringArrayField(fieldName, x, writer)
-    }
-    if (lastFiledFlag == false)
-      writer.write(",\n")
-    else
-      writer.write("\n")
-  }
-
-  sealed abstract class Arrays
-
-  case class StringArray(x: Array[String]) extends Arrays
-
-  case class IntArray(x: Array[Int]) extends Arrays
-
-  case class PairArray(x: Array[Pair[Int, Int]]) extends Arrays
-  case class PairStringArray(x: Array[Pair[String, String]]) extends Arrays
-
-  case class TripleArray(x: Array[Triple[Int, Int, Int]]) extends Arrays
-
-  def writeOneField(fieldName: String, fiedlContent: Array[Pair[Int, Int]], writer: PrintWriter): Unit = {
-    writer.write(addQuotes(fieldName))
-    writer.write(":")
-    writer.write("[")
-    val filedSize = fiedlContent.size - 1
-    for ((p, i) <- fiedlContent.zipWithIndex) {
-      writer.write("[")
-      writer.write(p._1.toString)
-      writer.write(",")
-      writer.write(p._2.toString)
-      writer.write("]")
-      if (i < filedSize)
-        writer.write(",")
-    }
-    writer.write("]")
-  }
-  def writePairStringArrayField(fieldName: String, fiedlContent: Array[Pair[String, String]], writer: PrintWriter): Unit = {
-    writer.write(addQuotes(fieldName))
-    writer.write(":")
-    writer.write("[")
-    val filedSize = fiedlContent.size - 1
-    for ((p, i) <- fiedlContent.zipWithIndex) {
-      writer.write("[")
-      writer.write(p._1)
-      writer.write(",")
-      writer.write(p._2)
-      writer.write("]")
-      if (i < filedSize)
-        writer.write(",")
-    }
-    writer.write("]")
-  }
-
-  def writeOneField(fieldName: String, fiedlContent: Array[Triple[Int, Int, Int]], writer: PrintWriter): Unit = {
-    writer.write(addQuotes(fieldName))
-    writer.write(":")
-    writer.write("[")
-    val filedSize = fiedlContent.size - 1
-    for ((p, i) <- fiedlContent.zipWithIndex) {
-      writer.write("[")
-      writer.write(p._1.toString)
-      writer.write(",")
-      writer.write(p._2.toString)
-      writer.write(",")
-      writer.write(p._3.toString)
-      writer.write("]")
-      if (i < filedSize)
-        writer.write(",")
-    }
-    writer.write("]")
-  }
-
-  def writeOneField(fieldName: String, fiedlContent: Array[Int], writer: PrintWriter): Unit = {
-    writer.write(addQuotes(fieldName))
-    writer.write(":")
-    writer.write("[")
-    val filedSize = fiedlContent.size - 1
-    for ((p, i) <- fiedlContent.zipWithIndex) {
-      writer.write(p.toString)
-      if (i < filedSize)
-        writer.write(",")
-    }
-    writer.write("]")
-  }
-
-  def writeOneField(fieldName: String, fiedlContent: Array[String], writer: PrintWriter): Unit = {
-    writer.write(addQuotes(fieldName))
-    writer.write(":")
-    writer.write("[")
-    val filedSize = fiedlContent.size - 1
-    for ((p, i) <- fiedlContent.zipWithIndex) {
-      writer.write(addQuotes(p.toString))
-      if (i < filedSize)
-        writer.write(",")
-    }
-    writer.write("]")
-  }
   def drawPredicatesWithNode(clauseGuardMap: Map[Predicate, Seq[Tuple2[String,IFormula]]]=Map()): Seq[(String,Seq[String])] ={ //with template node
     val quantifiedClauseGuardMap = {
       for ((k, v) <- clauseGuardMap) yield k -> {

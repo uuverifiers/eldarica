@@ -92,6 +92,7 @@ class GlobalParameters extends Cloneable {
   var readTemplates=false
   var rank=0.0
   var getSMT2=false
+  var getSolvingTime=false
   var getHornGraph=false
   var getAllHornGraph=false
   var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
@@ -271,6 +272,7 @@ class GlobalParameters extends Cloneable {
     that.readHints=this.readHints
     that.readTemplates=this.readTemplates
     that.getSMT2=this.getSMT2
+    that.getSolvingTime=this.getSolvingTime
     that.getHornGraph=this.getHornGraph
     that.getAllHornGraph=this.getAllHornGraph
     that.getLabelFromCounterExample=this.getLabelFromCounterExample
@@ -413,6 +415,7 @@ object Main {
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-readTemplates" :: rest => readTemplates = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
+      case "-getSolvingTime" :: rest => getSolvingTime = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
       case "-getLabelFromCounterExample":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getLabelFromCounterExample:union":: rest =>{getLabelFromCounterExample = true; unionOption = true; arguments(rest)}
@@ -727,6 +730,7 @@ object Main {
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -maxNode:n\t if the node number exceeded this number, stop drawing\n"+
           " -getSMT2\t get SMT2 file\n"+
+          " -getSolvingTime\t get Solving time in JSON file\n"+
           " -getLabelFromCounterExample:option\t  Interp. union. predicate occurrence in counter example\n"+
           " -argumentOccurenceLabel\t  argument occurrence in hints\n"+
           " -argumentBoundLabel\t  get argument lower and upper bound\n"+

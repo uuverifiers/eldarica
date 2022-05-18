@@ -224,6 +224,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       //set all cost to 0
       val combinationTemplates=generateCombinationTemplates(simplifiedClauses,onlyLoopHead = false)
 
+      //todo: read the option with the best solving time to compute the training data
       val initialTemplates=
         if(GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Empty)
           VerificationHints(Map())
@@ -235,7 +236,7 @@ object TrainDataGeneratorTemplatesSmt2 {
           absBuilder.relationAbstractions(false)
         else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.RelationalIneqs)
           absBuilder.relationAbstractions(true)
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.All)
+        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.All)//donn't use this one
           mergedHeuristic//setAllCost(mergedHeuristic)
         else
           combinationTemplates
@@ -286,10 +287,11 @@ object TrainDataGeneratorTemplatesSmt2 {
       GlobalParameters.get.timeoutChecker()
 
       //simplify clauses. get rid of some redundancy
-      val spAPI = ap.SimpleAPI.spawn
-      val sp=new Simplifier
+//      val spAPI = ap.SimpleAPI.spawn
+//      val sp=new Simplifier
       val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
       val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints)
+      if (GlobalParameters.get.debugLog){println("Solving by CEGAR...")}
       val predAbs=Console.withOut(outStream) {
         val predAbs =
           new HornPredAbs(simplifiedClausesForGraph,
@@ -297,9 +299,8 @@ object TrainDataGeneratorTemplatesSmt2 {
             counterexampleMethod)
         predAbs
       }
-
-
-      def labelTemplates(unlabeledPredicates:VerificationHints): (VerificationHints,VerificationHints) ={
+      def labelTemplates(unlabeledTemplates:VerificationHints): (VerificationHints,VerificationHints) ={
+        if (GlobalParameters.get.debugLog){println("Mining the templates...")}
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
@@ -316,15 +317,23 @@ object TrainDataGeneratorTemplatesSmt2 {
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+fileName,"empty-mined-label")
           sys.exit()
         }
-        val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledPredicates.predicateHints;
+        val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledTemplates.predicateHints;
                                                     (kf,vf)<-filteredPositiveTemplates.predicateHints;
                                                     if kp.name==kf.name) yield
           kp -> (for (p<-vp;if termContains(vf.map(getParametersFromVerifHintElement(_)),getParametersFromVerifHintElement(p))._1) yield p)
         )
+        if (GlobalParameters.get.debugLog){
+          println("-"*10+"unlabeledTemplates"+"-"*10)
+          unlabeledTemplates.pretyPrintHints()
+          println("-"*10+"labeledTemplates"+"-"*10)
+          labeledTemplates.pretyPrintHints()
+        }
         (positiveTemplates,labeledTemplates)
         //filteredPositiveTemplates
       }
-      //todo: reconstruct labels
+
+
+      //todo: for debug: reconstruct labels
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(2,3)++x.slice(8,9)))//2-8,3-10
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(5,13)++x.slice(5,13)++x.slice(18,39)))
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(5,6)++x.slice(7,8)++x.slice(9,10)++x.slice(11,12)++x.slice(23,24)++x.slice(27,28)++x.slice(31,32)++x.slice(35,36)))
@@ -337,12 +346,7 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       val (positiveTemplates,labeledTemplates)=labelTemplates(unlabeledTemplates)
       //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
-      if (GlobalParameters.get.debugLog){
-        println("-"*10+"unlabeledTemplates"+"-"*10)
-        unlabeledTemplates.pretyPrintHints()
-        println("-"*10+"labeledTemplates"+"-"*10)
-        labeledTemplates.pretyPrintHints()
-      }
+
 
 
       if(labeledTemplates.totalPredicateNumber==0){
@@ -352,17 +356,23 @@ object TrainDataGeneratorTemplatesSmt2 {
 
 
       //Output graphs
-      val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-      val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
-        argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
-      if (GlobalParameters.get.separateByPredicates==true){
-        GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
-      }else{
-        val hintsCollection=new VerificationHintsInfo(unlabeledTemplates,labeledTemplates,VerificationHints(Map()))//labeledPredicates
-        GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+      if(GlobalParameters.get.getHornGraph){
+        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+        val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+          argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
+        if (GlobalParameters.get.separateByPredicates==true){
+          GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
+        }else{
+          val hintsCollection=new VerificationHintsInfo(unlabeledTemplates,labeledTemplates,VerificationHints(Map()))//labeledPredicates
+          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+        }
       }
-      HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates)
+
+      HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
       //writeTemplateDistributionToFiles(simplifiedClausesForGraph,unlabeledTemplates,positiveTemplates)
+
+
+
 
       //todo: draw separate labels
 //      var templateCounter=0
