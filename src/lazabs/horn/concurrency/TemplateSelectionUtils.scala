@@ -1,5 +1,7 @@
 package lazabs.horn.concurrency
 
+import lazabs.GlobalParameters
+import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.concurrency.DrawHornGraph.addQuotes
 import lazabs.horn.concurrency.HintsSelection.detectIfAJSONFieldExists
 import play.api.libs.json.{JsSuccess, JsValue, Json}
@@ -7,6 +9,14 @@ import play.api.libs.json.{JsSuccess, JsValue, Json}
 import java.io.{File, PrintWriter}
 
 object TemplateSelectionUtils{
+
+  def outputPrologFile(normalizedClauses:Seq[Clause],typeName:String="normalized"): Unit ={
+    val writerGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "."+typeName+".prolog"))
+    for (c<-normalizedClauses)
+      writerGraph.write(c.toPrologString+"\n")
+    writerGraph.close()
+  }
+
   def writeGNNInputFieldToJSONFile(fieldName: String, fiedlContent: Arrays, writer: PrintWriter, lastFiledFlag: Boolean): Unit = {
     fiedlContent match {
       case StringArray(x) => writeOneField(fieldName, x, writer)

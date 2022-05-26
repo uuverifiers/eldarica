@@ -355,7 +355,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
     //check if total node number larger than max_node
     if(nodeIds.size>GlobalParameters.get.maxNode){
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/exceed-max-node/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length),message = "node number >= maxNode" )
-      //HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
+      HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
       sys.exit()
     }
     nodeIds :+= GNNNodeID

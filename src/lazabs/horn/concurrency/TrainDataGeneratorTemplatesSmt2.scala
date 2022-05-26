@@ -31,16 +31,19 @@ package lazabs.horn.concurrency
 
 import ap.parser._
 import lazabs.GlobalParameters
+import lazabs.Main.PrintingFinishedException
 import lazabs.ast.ASTree._
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintInitPred, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplInEqTermPosNeg, VerifHintTplPred, VerifHintTplPredPosNeg}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, EmptyVerificationHints, VerificationHints, _}
 import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.PredicateMiner.TemplateExtraction
 import lazabs.horn.bottomup.{HornTranslator, _}
 import lazabs.horn.concurrency.HintsSelection.{containsPred, generateCombinationTemplates, getClausesInCounterExamples, getInitialPredicates, getParametersFromVerifHintElement, getPredGenerator, isArgBoolean, isAtomaticTerm, mergeTemplates, resetElementCost, setAllCost, termContains, transformPredicateMapToVerificationHints, writeTemplateDistributionToFiles}
 import lazabs.horn.global._
+import lazabs.horn.preprocessor.HornPreprocessor.BackTranslator
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import java.nio.file.{Files, Paths, StandardCopyOption}
@@ -130,7 +133,6 @@ object TrainDataGeneratorTemplatesSmt2 {
           yield (p.name -> p)).toMap
 
       //////////////////////////////////////////////////////////////////////////////
-
       val hints: VerificationHints =
         GlobalParameters.get.cegarHintsFile match {
           case "" =>
@@ -160,69 +162,92 @@ object TrainDataGeneratorTemplatesSmt2 {
           }
         }
 
-      //////////////////////////////////////////////////////////////////////////////
-
-      val (simplifiedClauses, simpHints, preprocBackTranslator) =
-        Console.withErr(outStream) {
-          val (simplifiedClauses, simpHints, backTranslator) =
+      //////////////////////////////////////////////////////////////
+      def preprocessClauses(clauses : Seq[Clause],
+                            hints   : VerificationHints)
+      :(Seq[Clause],
+        VerificationHints,
+        BackTranslator) = {
+        //TemplateSelectionUtils.outputPrologFile(unsimplifiedClauses,"unsimplified")
+        val (simplifiedClauses, simpPreHints, backTranslator) =
+          Console.withErr(outStream) {
             if (lbe) {
               (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
             } else {
               val preprocessor = new DefaultPreprocessor
               preprocessor.process(unsimplifiedClauses, hints)
             }
-
-          if (GlobalParameters.get.printHornSimplified) {
-            //      println("-------------------------------")
-            //      printClauses(simplifiedClauses)
-            //      println("-------------------------------")
-
-            println("Clauses after preprocessing:")
-            for (c <- simplifiedClauses)
-              println(c.toPrologString)
-
-            //val aux = simplifiedClauses map (horn2Eldarica(_))
-            //      val aux = horn2Eldarica(simplifiedClauses)
-            //      println(lazabs.viewer.HornPrinter(aux))
-            //      simplifiedClauses = aux map (transform(_))
-            //      println("-------------------------------")
-            //      printClauses(simplifiedClauses)
-            //      println("-------------------------------")
           }
+        //TemplateSelectionUtils.outputPrologFile(simplifiedClauses,"simplified")
 
-          (simplifiedClauses, simpHints, backTranslator)
+        if (GlobalParameters.get.printHornSimplified) {
+          //      println("-------------------------------")
+          //      printClauses(simplifiedClauses)
+          //      println("-------------------------------")
+
+          println("Clauses after preprocessing:")
+          for (c <- simplifiedClauses)
+            println(c.toPrologString)
+          throw PrintingFinishedException
+
+          //val aux = simplifiedClauses map (horn2Eldarica(_))
+          //      val aux = horn2Eldarica(simplifiedClauses)
+          //      println(lazabs.viewer.HornPrinter(aux))
+          //      simplifiedClauses = aux map (transform(_))
+          //      println("-------------------------------")
+          //      printClauses(simplifiedClauses)
+          //      println("-------------------------------")
+
         }
+
+        if (GlobalParameters.get.printHornSimplifiedSMT) {
+          val predsToDeclare = (for (c <- simplifiedClauses
+                                     if c.head.pred != HornClauses.FALSE) yield {
+            c.predicates
+          }).flatten.toSet.toList
+
+          SMTLineariser("", "HORN", "", Nil, predsToDeclare,
+            simplifiedClauses.map(_ toFormula))
+          throw PrintingFinishedException
+        }
+        (simplifiedClauses, simpPreHints, backTranslator)
+      }
+      //////////////////////////////////////////////////////////////////////////////
+      val (simplifiedClauses, simpHints, preprocBackTranslator) =preprocessClauses(unsimplifiedClauses,hints)
       GlobalParameters.get.timeoutChecker()
 
       /////////////////////////////////////////////////////////////////////////////
+
+      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
+      //val simplifiedClausesForGraph=simplifiedClauses
 
 
       val abstractionType =
         lazabs.GlobalParameters.get.templateBasedInterpolationType
 
       lazy val absBuilder =
-        new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
+        new StaticAbstractionBuilder(simplifiedClausesForGraph, abstractionType)
 
       lazy val autoAbstraction: AbstractionMap =
         absBuilder.abstractionRecords
 
       val fileName=HintsSelection.getFileName()
 
-      if (simplifiedClauses.isEmpty) {
+      if (simplifiedClausesForGraph.isEmpty) {
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
         sys.exit()
       }
 
-      HintsSelection.checkMaxNode(simplifiedClauses)
+      HintsSelection.checkMaxNode(simplifiedClausesForGraph)
 
-      val loopDetector = new LoopDetector(simplifiedClauses)
+      val loopDetector = new LoopDetector(simplifiedClausesForGraph)
 
 
       val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
         absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
 
       //set all cost to 0
-      val combinationTemplates=generateCombinationTemplates(simplifiedClauses,onlyLoopHead = false)
+      val combinationTemplates=generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
 
       //todo: read the option with the best solving time to compute the training data
       val initialTemplates=
@@ -242,7 +267,7 @@ object TrainDataGeneratorTemplatesSmt2 {
           combinationTemplates
 
       if (GlobalParameters.get.debugLog){
-        simplifiedClauses.map(_.toPrologString).foreach(println)
+        simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
         println("loop heads",loopDetector.loopHeads)
         println("abs1:termAbstractions")
         absBuilder.termAbstractions.pretyPrintHints()
@@ -289,7 +314,7 @@ object TrainDataGeneratorTemplatesSmt2 {
       //simplify clauses. get rid of some redundancy
 //      val spAPI = ap.SimpleAPI.spawn
 //      val sp=new Simplifier
-      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
+
       val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints)
       if (GlobalParameters.get.debugLog){println("Solving by CEGAR...")}
       val predAbs=Console.withOut(outStream) {

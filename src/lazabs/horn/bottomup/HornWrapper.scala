@@ -34,8 +34,7 @@ import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
-import lazabs.GlobalParameters
-import lazabs.ParallelComputation
+import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.Main.{PrintingFinishedException, StoppedException, TimeoutException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
@@ -444,22 +443,44 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //  }
 
 
+//  val simplifiedClausesForGraph =
+//    if (GlobalParameters.get.getHornGraph == true) {
+//      GlobalParameters.get.hornGraphType match {
+//        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph =>
+//          {
+//            val normalizedHornSMT2FileName=GlobalParameters.get.fileName + "-normalized.smt2"
+//            if (new java.io.File(normalizedHornSMT2FileName).exists == true)
+//              lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
+//            else
+//              HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+//          }
+//        case _ => {
+//          val simplifiedHornSMT2FileName=GlobalParameters.get.fileName + "-simplified.smt2"
+//          if (new java.io.File(simplifiedHornSMT2FileName).exists == true)
+//            lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
+//          else
+//            simplifiedClauses
+//        }
+//      }
+//    } else simplifiedClauses
+
+  if (GlobalParameters.get.getSMT2 == true) {
+    //HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
+    HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
+    val normalizedClauses=for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
+    HintsSelection.writeSMTFormatToFile(normalizedClauses, GlobalParameters.get.fileName + "-normalized")
+    sys.exit()
+  }
+
   val simplifiedClausesForGraph =
     if (GlobalParameters.get.getHornGraph == true) {
-      GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
-        case _ => simplifiedClauses
-      }
+      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
     } else simplifiedClauses
   if (GlobalParameters.get.getHornGraph == true) {
     HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
     HintsSelection.checkMaxNode(simplifiedClausesForGraph)
   }
-  if (GlobalParameters.get.getSMT2 == true) {
-    HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
-    HintsSelection.writeSMTFormatToFile(for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-normalized")
-    sys.exit()
-  }
+
 
   if (GlobalParameters.get.graphPrettyPrint==true){
     println("--------simplified clauses--------")
@@ -560,6 +581,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         HintsSelection.readPredictedHints(simplifiedClausesForGraph, initialPredicates)
       else
         VerificationHints(Map())
+
       val hintsCollection = new VerificationHintsInfo(initialPredicates, truePredicates, VerificationHints(Map()),predictedPredicates) //labeledPredicates
       GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
     }
@@ -580,7 +602,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
     val solvabilityList = {
-      if (GlobalParameters.get.generateTemplates) { //template slection task
+      if (GlobalParameters.get.generateTemplates) { //template selection task
         (for ((fieldName, initialTemplates) <- predicateMap) yield {
 //          val reconstructedInitialTemplates =
 //            if (fieldName == "predictedInitialPredicates" || fieldName == "fullInitialPredicates")
@@ -696,16 +718,18 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //    }
     //write solving time upper bound to json file
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvingTime" + ".JSON"
+    val initialFieldsSeq=Seq("RelationalEqs_splitClauses_0","Term_splitClauses_0","Octagon_splitClauses_0","RelationalIneqs_splitClauses_0",
+      "RelationalEqs_splitClauses_1","Term_splitClauses_1","Octagon_splitClauses_1","RelationalIneqs_splitClauses_1")
     if(GlobalParameters.get.getSolvingTime){
-      if (!new java.io.File(solvingTimeFileName).exists) {
-        val threeHours = 60 * 60 * 3
-        val initialFields: Map[String, Int] = Map("RelationalEqs" -> threeHours, "Term" -> threeHours, "Octagon" -> threeHours,
-          "RelationalIneqs" -> threeHours, "splitClauses" -> GlobalParameters.get.splitClauses)
+      if (!new java.io.File(solvingTimeFileName).exists) {//create solving time JSON file
+        val timeout = 60 * 60 * 3
+        val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
         writeSolvingTimeToJSON(solvingTimeFileName, initialFields)
-      } else {
-        val fields = readJSONFieldToMap(solvingTimeFileName)
-        writeSolvingTimeToJSON(solvingTimeFileName, fields.updated("splitClauses", GlobalParameters.get.splitClauses))
       }
+//      else { //update the splitClause option in JSON file
+//        val fields = readJSONFieldToMap(solvingTimeFileName)
+//        writeSolvingTimeToJSON(solvingTimeFileName, fields.updated("splitClauses", GlobalParameters.get.splitClauses))
+//      }
     }
 
 
@@ -785,8 +809,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     //update solving time to json file
     val solvingTime=((endTime - startTime) / 1000).toInt
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
-      val fields=readJSONFieldToMap(solvingTimeFileName)
-      writeSolvingTimeToJSON(solvingTimeFileName,fields.updated(GlobalParameters.get.templateBasedInterpolationType.toString,solvingTime))
+      val fields=readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq)
+      writeSolvingTimeToJSON(solvingTimeFileName,fields.updated(GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
     }
 
     // save the current configuration, to make sure that the lazily

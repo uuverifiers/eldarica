@@ -48,8 +48,8 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 
 object BooleanClauseSplitter {
 
-  private val SPLITTING_TO = 3000
-  private val GLOBAL_SPLITTING_TO = 30000
+  private val SPLITTING_TO = 3000 //1-hourp
+  private val GLOBAL_SPLITTING_TO = 30000//millisecons// 1-hour
 
 }
 

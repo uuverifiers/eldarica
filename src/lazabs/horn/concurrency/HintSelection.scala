@@ -52,6 +52,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
+import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
 
@@ -596,9 +597,15 @@ object HintsSelection {
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
         val replacedClause=(for ((c,i)<-csSimplifiedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i)).flatten// replace multiple same predicate in body
-        for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
+        //replacedClause
+        //for (c<-replacedClause) yield c.normalize()
+        //for (c<-replacedClause) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
+        //for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(c)
+        val normalizedClauses=for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
+        //outputPrologFile(normalizedClauses)
+        normalizedClauses
       }
-      case _=>csSimplifiedClauses
+      case _=>simplifiedClauses//csSimplifiedClauses
     }
 
   }
@@ -1560,7 +1567,7 @@ object HintsSelection {
       }
     })
     try{
-      for (file<-relativeFiles)
+      for (file<-relativeFiles;if file.toString!=GlobalParameters.get.fileName)
         Files.delete(file.toPath)
     }catch {case _=>println("no relative files")}
   }
