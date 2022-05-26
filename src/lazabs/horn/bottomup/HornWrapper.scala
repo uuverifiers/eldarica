@@ -271,22 +271,19 @@ class HornWrapper(constraints  : Seq[HornClause],
           simplifiedClauses.map(_ toFormula))
         throw PrintingFinishedException
       }
+      val postHints: VerificationHints = {
+        val name2Pred =
+          (for (Clause(head, body, _) <- simplifiedClauses.iterator;
+                IAtom(p, _) <- (head :: body).iterator)
+          yield (p.name -> p)).toMap
+        readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
+      }
+      if (!postHints.predicateHints.isEmpty)
+        postHints.pretyPrintHints()
+
+      val allHints = simpPreHints ++ postHints
       (simplifiedClauses, simpPreHints, backTranslator)
     }
-    val (simplifiedClauses, simpPreHints, preprocBackTranslator) =preprocessClauses(unsimplifiedClauses,hints)
-
-  val postHints: VerificationHints = {
-    val name2Pred =
-      (for (Clause(head, body, _) <- simplifiedClauses.iterator;
-            IAtom(p, _) <- (head :: body).iterator)
-      yield (p.name -> p)).toMap
-    readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
-  }
-  if (!postHints.predicateHints.isEmpty)
-    postHints.pretyPrintHints()
-
-  val allHints = simpPreHints ++ postHints
-
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -463,6 +460,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //        }
 //      }
 //    } else simplifiedClauses
+
 
   if (GlobalParameters.get.getSMT2 == true) {
     //HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
@@ -718,23 +716,17 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //    }
     //write solving time upper bound to json file
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvingTime" + ".JSON"
-    val initialFieldsSeq=Seq("RelationalEqs_splitClauses_0","Term_splitClauses_0","Octagon_splitClauses_0","RelationalIneqs_splitClauses_0",
-      "RelationalEqs_splitClauses_1","Term_splitClauses_1","Octagon_splitClauses_1","RelationalIneqs_splitClauses_1")
-    if(GlobalParameters.get.getSolvingTime){
-      if (!new java.io.File(solvingTimeFileName).exists) {//create solving time JSON file
-        val timeout = 60 * 60 * 3
-        val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
-        writeSolvingTimeToJSON(solvingTimeFileName, initialFields)
-      }
-//      else { //update the splitClause option in JSON file
-//        val fields = readJSONFieldToMap(solvingTimeFileName)
-//        writeSolvingTimeToJSON(solvingTimeFileName, fields.updated("splitClauses", GlobalParameters.get.splitClauses))
-//      }
+    val initialFieldsSeq=Seq("solvingTime_RelationalEqs_splitClauses_0","solvingTime_Term_splitClauses_0","solvingTime_Octagon_splitClauses_0","solvingTime_RelationalIneqs_splitClauses_0",
+      "solvingTime_RelationalEqs_splitClauses_1","solvingTime_Term_splitClauses_1","solvingTime_Octagon_splitClauses_1","solvingTime_RelationalIneqs_splitClauses_1",
+      "cegarIterationNumber_RelationalEqs_splitClauses_0","cegarIterationNumber_Term_splitClauses_0","cegarIterationNumber_Octagon_splitClauses_0","cegarIterationNumber_RelationalIneqs_splitClauses_0",
+      "cegarIterationNumber_RelationalEqs_splitClauses_1","cegarIterationNumber_Term_splitClauses_1","cegarIterationNumber_Octagon_splitClauses_1","cegarIterationNumber_RelationalIneqs_splitClauses_1")
+    if(GlobalParameters.get.getSolvingTime && !new java.io.File(solvingTimeFileName).exists){
+      //create solving time JSON file
+      val timeout = 60 * 60 * 3 * 1000 //milliseconds
+      val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
+      writeSolvingTimeToJSON(solvingTimeFileName, initialFields)
     }
 
-
-
-    val startTime = System.currentTimeMillis
     val predAbs = Console.withOut(outStream) {
       println
       println(
@@ -805,12 +797,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
       predAbs
     }
-    val endTime = System.currentTimeMillis
-    //update solving time to json file
-    val solvingTime=((endTime - startTime) / 1000).toInt
+
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
-      val fields=readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq)
-      writeSolvingTimeToJSON(solvingTimeFileName,fields.updated(GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
+      val cegarIterationNumber=predAbs.cegar.iterationNum
+      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime).toInt//milliseconds
+      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated("solvingTime_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
+      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated("cegarIterationNumber_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber))
     }
 
     // save the current configuration, to make sure that the lazily
