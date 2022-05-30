@@ -191,15 +191,14 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   //draw templates
   astEdgeType = "templateAST"
   val templateNameList=if(GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates()
-  for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList)
-    addBinaryEdge(predicateNameMap(head).predicateCanonicalName,templateNodeName._1,templateNodeName._2)
-
+  for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList) {
+    addBinaryEdge(from=predicateNameMap(head).predicateCanonicalName,to=templateNodeName._1,label=templateNodeName._2)
+  }
   for (n<-gnn_input.nodeInfoList){ //draw all nodes
     writerGraph.write(addQuotes(n._2.canonicalName) +
       " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
       " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +"color="+n._2.color+ "];" + "\n")
   }
-
 
   writerGraph.write("}" + "\n")
   writerGraph.close()
@@ -285,11 +284,13 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
         createNode(predicateNodeCanonicalName,
           pred.pred.name, "predicateName", nodeShapeMap("predicateName"))
         var tempID = 0
-        for (headArg <- pred.args) {
+        var argumentNodeArray = Array[(String,String)]()
+        for ((headArg,i) <- pred.args.zipWithIndex) {
           val argumentNodeCanonicalName = predicateArgumentPrefix + gnn_input.predicateArgumentCanonicalID.toString
           //create argument node
           createNode(argumentNodeCanonicalName,
             "Arg" + tempID.toString, "predicateArgument", nodeShapeMap("predicateArgument"))
+          argumentNodeArray :+= ("_"+i.toString,argumentNodeCanonicalName)
           //create edge from argument to predicate
           GlobalParameters.get.hornGraphType match {
             case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => addBinaryEdge(argumentNodeCanonicalName, predicateNodeCanonicalName, "controlArgument", edgeDirectionMap("controlArgument"))
@@ -300,6 +301,7 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
           updateArgumentInfoHornGraphList(pred.pred.name, tempID, argumentNodeCanonicalName, headArg)
           tempID += 1
         }
+        argumentNodeSetCrossGraph(pred.pred.name) = argumentNodeArray
       } else {
         val predicateNodeCanonicalName = "FALSE"
         predicateNameMap += (pred.pred.name -> new predicateInfo(predicateNodeCanonicalName))

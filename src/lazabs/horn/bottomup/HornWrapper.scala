@@ -440,26 +440,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   //  }
 
 
-//  val simplifiedClausesForGraph =
-//    if (GlobalParameters.get.getHornGraph == true) {
-//      GlobalParameters.get.hornGraphType match {
-//        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph =>
-//          {
-//            val normalizedHornSMT2FileName=GlobalParameters.get.fileName + "-normalized.smt2"
-//            if (new java.io.File(normalizedHornSMT2FileName).exists == true)
-//              lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
-//            else
-//              HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
-//          }
-//        case _ => {
-//          val simplifiedHornSMT2FileName=GlobalParameters.get.fileName + "-simplified.smt2"
-//          if (new java.io.File(simplifiedHornSMT2FileName).exists == true)
-//            lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
-//          else
-//            simplifiedClauses
-//        }
-//      }
-//    } else simplifiedClauses
+
 
 
   if (GlobalParameters.get.getSMT2 == true) {
@@ -470,10 +451,33 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
   }
 
+
   val simplifiedClausesForGraph =
     if (GlobalParameters.get.getHornGraph == true) {
-      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+      GlobalParameters.get.hornGraphType match {
+        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => {
+          val normalizedHornSMT2FileName = GlobalParameters.get.fileName + "-normalized.smt2"
+          if (new java.io.File(normalizedHornSMT2FileName).exists == true) {
+            println("read " + GlobalParameters.get.fileName + "-normalized.smt2")
+            lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
+          } else
+            HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+        }
+        case _ => {
+          val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
+          if (new java.io.File(simplifiedHornSMT2FileName).exists == true) {
+            println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
+            lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
+          } else
+            simplifiedClauses
+        }
+      }
     } else simplifiedClauses
+//  val simplifiedClausesForGraph =
+//    if (GlobalParameters.get.getHornGraph == true) {
+//      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+//    } else simplifiedClauses
+
   if (GlobalParameters.get.getHornGraph == true) {
     HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
     HintsSelection.checkMaxNode(simplifiedClausesForGraph)
@@ -572,10 +576,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       //read labeled and predicted
       val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists)
         HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
-      else if ((new java.io.File(GlobalParameters.get.fileName + "." + "hyperEdgeHornGraph" + ".JSON")).exists)
+      else if (new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON").exists)
         HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
       else VerificationHints(Map())
-      val predictedPredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "hyperEdgeHornGraph" + ".JSON")).exists)
+      val predictedPredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON")).exists)
         HintsSelection.readPredictedHints(simplifiedClausesForGraph, initialPredicates)
       else
         VerificationHints(Map())

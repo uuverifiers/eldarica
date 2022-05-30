@@ -33,6 +33,7 @@ import ap.util.{Debug, Timeout}
 import lazabs.art.SearchMethod._
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.HintsSelection.getFileName
 import lazabs.horn.concurrency.{CCReader, HintsSelection}
 import lazabs.nts._
 import lazabs.prover._
@@ -992,31 +993,31 @@ object Main {
 
   } catch {
     case TimeoutException | StoppedException =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + getFileName)
       printError(" timeout", GlobalParameters.get.format)
     }
     case  MainTimeoutException =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/time-out-exception/" + getFileName())
       printError("main timeout", GlobalParameters.get.format)
     }
       // nothing
     case _ : java.lang.OutOfMemoryError =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/out-of-memory/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/out-of-memory/" + getFileName())
       printError("out of memory", GlobalParameters.get.format)
     }
     case _ : java.lang.StackOverflowError =>{
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/stack-overflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/stack-overflow/" + getFileName())
       printError("stack overflow", GlobalParameters.get.format)
     }
     case t : Exception =>{
       printError(t.getMessage, GlobalParameters.get.format)
       t.printStackTrace()
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + getFileName())
     }
     case x:Any=>{
       printError("other-error", GlobalParameters.get.format)
       println(Console.RED + x.toString)
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"),GlobalParameters.get.fileName.length))
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/other-error/" + getFileName())
     }
 
 

@@ -96,12 +96,6 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   edgeNameMap += ("AST_2" -> "AST_2")
   edgeNameMap += ("argument" -> "arg")
   edgeNameMap += ("clause" -> "clause")
-  edgeNameMap += ("template" -> "template")
-  edgeNameMap += ("verifHintTplPred" -> "Pred")
-  edgeNameMap += ("verifHintTplPredPosNeg" -> "PredPosNeg")
-  edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
-  edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm (tpl)")
-  edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
   edgeNameMap += ("controlLocationEdgeForSCC" -> "p")
   edgeNameMap += ("transitive" -> "t")
   //turn on/off edge's label
@@ -400,8 +394,9 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   //draw templates
   astEdgeType = "AST" //"templateAST"
   val templateNameList = if (GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates() //drawTemplatesWithNode()
-  for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList)
+  for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList) {
     addBinaryEdge(controlFlowNodeSetCrossGraph(head), templateNodeName._1, templateNodeName._2)
+  }
 
 
   val (argumentIDList, argumentNameList, argumentOccurrenceList, argumentBoundList, argumentIndicesList, argumentBinaryOccurrenceList) = matchArguments()

@@ -31,13 +31,13 @@ import ap.parser.ConstantSubstVisitor
 import ap.SimpleAPI.ProverStatus
 import ap.{PresburgerTools, Prover, SimpleAPI}
 import ap.basetypes.IdealInt
-import ap.parser.IExpression._
+import ap.parser.IExpression.{Predicate, _}
 import ap.parser.{IExpression, IFormula, _}
 import ap.proof.certificates.ReduceInference
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
-import ap.types.{SortedPredicate, TypeTheory}
+import ap.types.{MonoSortedPredicate, Sort, SortedPredicate, TypeTheory}
 import ap.util.{Seqs, Timeout}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
@@ -48,13 +48,16 @@ import lazabs.horn.bottomup
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.CEGAR
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.bottomup.PrincessFlataWrappers.MHashMap
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
 import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
-import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor}
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints, simplify}
+import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor, SymbolSplitter}
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, NameFactory, VerificationHints, simplify}
+import lazabs.horn.preprocessor.SymbolSplitter.{BoolSort, ClausePropagator, concreteArguments, wrapBool}
 
 import java.io.{File, FilenameFilter, PrintWriter}
 import java.lang.System.currentTimeMillis
@@ -63,6 +66,7 @@ import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashSet => MHashSet
 import scala.io.Source
 import play.api.libs.json._
 
+import scala.collection.immutable.BitSet
 import scala.util.Random
 
 case class wrappedHintWithID(ID:Int,head:String, hint:String)
@@ -596,7 +600,8 @@ object HintsSelection {
     val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
-        val replacedClause=(for ((c,i)<-csSimplifiedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i)).flatten// replace multiple same predicate in body
+        val nameFactory       = NameFactory predNameFactory csSimplifiedClauses
+        val replacedClause=(for ((c,i)<-csSimplifiedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i,nameFactory)).flatten// replace multiple same predicate in body
         //replacedClause
         //for (c<-replacedClause) yield c.normalize()
         //for (c<-replacedClause) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
@@ -610,6 +615,18 @@ object HintsSelection {
 
   }
 
+  def getHornGraphTypeString(): Unit = {
+    GlobalParameters.get.hornGraphType match {
+      case HornGraphType.hyperEdgeGraph => {}
+      case HornGraphType.equivalentHyperedgeGraph => {}
+      case HornGraphType.concretizedHyperedgeGraph => {}
+      case HornGraphType.monoDirectionLayerGraph=>{}
+      case HornGraphType.hybridDirectionLayerGraph=>{}
+      case HornGraphType.biDirectionLayerGraph=>{}
+      case HornGraphType.clauseRelatedTaskLayerGraph=>{}
+      case HornGraphType.fineGrainedEdgeTypeLayerGraph=>{}
+    }
+  }
 
 
   def writeInfoToJSON[A](fields:Seq[(String, A)],suffix:String=""): Unit ={
@@ -1190,7 +1207,8 @@ object HintsSelection {
     //println(Console.BLUE + "clauseConstraintQuantify finished")
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
-  def replaceMultiSamePredicateInBody(clause: Clause,clauseIndex:Int): Clauses ={
+
+  def replaceMultiSamePredicateInBody(clause: Clause,clauseIndex:Int,nameFactory:NameFactory): Clauses ={
     //if head == body: p(x)<-p(a) => p(x)<-p'(a), p'(a)<-p(a)
     //if multiple same relation symbos in the body: p(x)<-p'(a),p'(b)=> p(x)<-p'(a),p''(b), p''(b)<-p'(b)
     val originalBodyPredicatesList=clause.body
@@ -1200,7 +1218,14 @@ object HintsSelection {
     var count=1
     val renamedClauseBody=for(pbody<-clause.body)yield{
       if (!pbodyStrings.add(pbody.pred.name)){
-        val renamedBodyPredicate=IAtom(new Predicate(pbody.pred.name+"_"+clauseIndex.toString+"_"+count.toString,pbody.pred.arity),pbody.args)
+        val newPredicateName=pbody.pred.name+"_"+clauseIndex.toString+"_"+count.toString
+        //val renamedBodyPredicate=IAtom(new Predicate(newPredicateName,pbody.pred.arity),pbody.args)
+        val renamedBodyPredicate=IAtom(MonoSortedPredicate(nameFactory newName newPredicateName, predArgumentSorts(pbody.pred)),pbody.args)
+
+
+        //todo:
+        //SymbolSplitter  renamePred
+        //MonoSortedPredicate()
         //println("replace",pbody,"by",renamedBodyPredicate)
         renamedBodyPredicatesList=renamedBodyPredicatesList:+renamedBodyPredicate
         count=count+1
@@ -1550,7 +1575,7 @@ object HintsSelection {
         StandardCopyOption.REPLACE_EXISTING
       )
       if (path != null) {
-        removeRelativeFiles(sourceFilename)
+        removeRelativeFiles(sourceFilename,true)
         println(s"moved the file $sourceFilename to $destinationFilename successfully")
 //        if (GlobalParameters.get.extractTemplates==true || GlobalParameters.get.extractPredicates==true)
 //          removeRelativeFiles(sourceFilename)
@@ -1559,17 +1584,23 @@ object HintsSelection {
       }
     }
   }
-  def removeRelativeFiles(fileName:String): Unit ={
+  def removeRelativeFiles(fileName:String,removeSourceFile:Boolean=false): Unit ={
     val currentDirectory = new java.io.File(GlobalParameters.get.fileName).getParentFile.getPath
     val relativeFiles = new java.io.File(currentDirectory).listFiles(new FilenameFilter {
       override def accept(dir: java.io.File, name: String): Boolean = {
         name.startsWith(HintsSelection.getFileName())
       }
     })
-    try{
-      for (file<-relativeFiles;if file.toString!=GlobalParameters.get.fileName)
-        Files.delete(file.toPath)
-    }catch {case _=>println("no relative files")}
+    try {
+      if (removeSourceFile == true)
+        for (file <- relativeFiles)
+          Files.delete(file.toPath)
+      else
+        for (file <- relativeFiles; if file.toString != GlobalParameters.get.fileName)
+          Files.delete(file.toPath)
+    } catch {
+      case _ => println("no relative files")
+    }
   }
   def copyRenameFile(sourceFilename: String, destinationFilename: String): Unit = {
     val path = Files.copy(

@@ -212,19 +212,19 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "AST_0" => AST_0Edges.incrementBinaryEdge(fromID, toID)
           case "AST_1" => AST_1Edges.incrementBinaryEdge(fromID, toID)
           case "AST_2" => AST_2Edges.incrementBinaryEdge(fromID, toID)
-          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
-          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
-          case "verifHintTplPred" => incrementTemplates("verifHintTplPred",fromID, toID)
-          case "verifHintTplPredPosNeg" => incrementTemplates("verifHintTplPredPosNeg",fromID, toID)
-          case "verifHintTplEqTerm" => incrementTemplates("verifHintTplEqTerm",fromID, toID)
-          case "verifHintTplInEqTerm" => incrementTemplates("verifHintTplInEqTerm",fromID, toID)
-          case "verifHintTplInEqTermPosNeg" => incrementTemplates("verifHintTplInEqTermPosNeg",fromID, toID)
           case "argument" => argumentEdges.incrementBinaryEdge(fromID, toID)
           case "clause" => clauseEdges.incrementBinaryEdge(fromID,toID)
           case "controlFlowHyperEdge"=> controlFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "dataFlowHyperEdge" => dataFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "controlLocationEdgeForSCC" => controlLocationEdgeForSCC.incrementBinaryEdge(fromID,toID)
           case "transitive" => predicateTransitiveEdges.incrementBinaryEdge(fromID,toID)
+          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
+          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
+          case "verifHintTplPred" => incrementTemplates("verifHintTplPred",fromID, toID)
+          case "verifHintTplPredPosNeg" => incrementTemplates("verifHintTplPredPosNeg",fromID, toID)
+          case "verifHintTplEqTerm" => incrementTemplates("verifHintTplEqTerm",fromID, toID)
+          case "verifHintTplInEqTerm" => incrementTemplates("verifHintTplInEqTerm",fromID, toID)
+          case "verifHintTplInEqTermPosNeg" => incrementTemplates("verifHintTplInEqTermPosNeg",fromID, toID)
           case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }
@@ -241,8 +241,6 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "guard" => guardEdges.incrementBinaryEdge(fromID, toID)
           case "data" => dataEdges.incrementBinaryEdge(fromID, toID)
           case "subTerm" => subTermEdges.incrementBinaryEdge(fromID, toID)
-          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
-          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "predicateInstanceHead"=> predicateInstanceHeadEdges.incrementBinaryEdge(fromID, toID)
           case "predicateInstanceBody"=> predicateInstanceBodyEdges.incrementBinaryEdge(fromID, toID)
           case "controlArgumentHead"=> controlArgumentHeadEdges.incrementBinaryEdge(fromID, toID)
@@ -256,7 +254,14 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "subTermConstantOperator"=>subTermConstantOperatorEdges.incrementBinaryEdge(fromID, toID)
           case "subTermOperatorOperator"=>subTermOperatorOperatorEdges.incrementBinaryEdge(fromID, toID)
           case "subTermScOperator"=>subTermScOperatorEdges.incrementBinaryEdge(fromID, toID)
-
+          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
+          case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
+          case "verifHintTplPred" => incrementTemplates("verifHintTplPred",fromID, toID)
+          case "verifHintTplPredPosNeg" => incrementTemplates("verifHintTplPredPosNeg",fromID, toID)
+          case "verifHintTplEqTerm" => incrementTemplates("verifHintTplEqTerm",fromID, toID)
+          case "verifHintTplInEqTerm" => incrementTemplates("verifHintTplInEqTerm",fromID, toID)
+          case "verifHintTplInEqTermPosNeg" => incrementTemplates("verifHintTplInEqTermPosNeg",fromID, toID)
+          case _ => unknownEdges.incrementBinaryEdge(fromID, toID)
         }
       }
     }
@@ -457,16 +462,17 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val spAPI = ap.SimpleAPI.spawn
   val simpClauses= clausesCollection.simplifiedClause
   val clausesInCE = clausesCollection.clausesInCounterExample
-  val graphType = GlobalParameters.get.hornGraphType match {
-    case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
-    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "hybrid-layerHornGraph"
-    case DrawHornGraph.HornGraphType.biDirectionLayerGraph => "bi-layerHornGraph"
-    case DrawHornGraph.HornGraphType.monoDirectionLayerGraph => "mono-layerHornGraph"
-    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => "clause-related-task-layerHornGraph"
-    case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => "fine-grained-edge-type-layerHornGraph"
-    case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph => "equivalent-hyperedgeGraph"
-    case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => "concretized-hyperedgeGraph"
-  }
+  val graphType = GlobalParameters.get.hornGraphType.toString
+//  match {
+//    case DrawHornGraph.HornGraphType.hyperEdgeGraph => "hyperEdgeHornGraph"
+//    case DrawHornGraph.HornGraphType.hybridDirectionLayerGraph => "hybrid-layerHornGraph"
+//    case DrawHornGraph.HornGraphType.biDirectionLayerGraph => "bi-layerHornGraph"
+//    case DrawHornGraph.HornGraphType.monoDirectionLayerGraph => "mono-layerHornGraph"
+//    case DrawHornGraph.HornGraphType.clauseRelatedTaskLayerGraph => "clause-related-task-layerHornGraph"
+//    case DrawHornGraph.HornGraphType.fineGrainedEdgeTypeLayerGraph => "fine-grained-edge-type-layerHornGraph"
+//    case DrawHornGraph.HornGraphType.equivalentHyperedgeGraph => "equivalent-hyperedgeGraph"
+//    case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => "concretized-hyperedgeGraph"
+//  }
   val templateNodePrefix = "template_"
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
@@ -484,7 +490,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   val writerGraph = new PrintWriter(new File(file + "." + graphType + ".gv"))
 
   edgeNameMap += ("templateAST"->"tplAST")
-  edgeNameMap += ("template"->"predicate")
+  //edgeNameMap += ("template"->"predicate")
+  edgeNameMap += ("template" -> "template")
+  edgeNameMap += ("verifHintTplPred" -> "Pred")
+  edgeNameMap += ("verifHintTplPredPosNeg" -> "PredPosNeg")
+  edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
+  edgeNameMap += ("verifHintTplInEqTerm" -> "InEqTerm (tpl)")
+  edgeNameMap += ("verifHintTplInEqTermPosNeg" -> "InEqTermPosNeg")
   edgeDirectionMap += ("templateAST"->false)
   edgeDirectionMap += ("template" -> false)
   nodeShapeMap += ("template" -> "component")
@@ -1007,7 +1019,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
 
     val predictedLabel=readPredictedLabelFromJson()
-
 
     var counter=0
     val tempHeadMap=
