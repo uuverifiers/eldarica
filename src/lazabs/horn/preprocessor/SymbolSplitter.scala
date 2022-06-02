@@ -119,6 +119,7 @@ object SymbolSplitter extends HornPreprocessor {
       val newClauses =
         (for ((clause, concreteArgs) <-
                 clauses.iterator zip clauseArguments.iterator) yield {
+
           val newLits =
             for ((IAtom(p, as), concArgs) <- clause.allAtoms zip concreteArgs)
             yield (for (newP <- renamePred(p, concArgs))

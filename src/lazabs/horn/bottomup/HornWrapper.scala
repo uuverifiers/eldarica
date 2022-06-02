@@ -446,8 +446,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   if (GlobalParameters.get.getSMT2 == true) {
     //HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
     HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
-    val normalizedClauses=for (c <- HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
-    HintsSelection.writeSMTFormatToFile(normalizedClauses, GlobalParameters.get.fileName + "-normalized")
+    HintsSelection.writeSMTFormatToFile(HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints),
+      GlobalParameters.get.fileName + "-normalized")
     sys.exit()
   }
 
@@ -473,6 +473,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         }
       }
     } else simplifiedClauses
+
 //  val simplifiedClausesForGraph =
 //    if (GlobalParameters.get.getHornGraph == true) {
 //      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)

@@ -37,6 +37,7 @@ import ap.proof.certificates.ReduceInference
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
+import ap.types.Sort.MultipleValueBool.{False, True}
 import ap.types.{MonoSortedPredicate, Sort, SortedPredicate, TypeTheory}
 import ap.util.{Seqs, Timeout}
 import lazabs.GlobalParameters
@@ -596,21 +597,29 @@ object HintsSelection {
   }
 
   def normalizedClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
-    val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
-    val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
-        val nameFactory       = NameFactory predNameFactory csSimplifiedClauses
-        val replacedClause=(for ((c,i)<-csSimplifiedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i,nameFactory)).flatten// replace multiple same predicate in body
-        //replacedClause
-        //for (c<-replacedClause) yield c.normalize()
-        //for (c<-replacedClause) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
-        //for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(c)
-        val normalizedClauses=for (c<-replacedClause) yield HintsSelection.getSimplifiedClauses(DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c.normalize()))
-        //outputPrologFile(normalizedClauses)
+        val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
+        val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
+
+        val normalized= for (c<-csSimplifiedClauses) yield c.normalize()
+        val bodyReplaced=(for ((c,i)<-normalized.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i)).flatten// replace multiple same predicate in body
+        val argumentReplaced= for (c<-bodyReplaced) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
+        val simplified= for (c<-argumentReplaced) yield HintsSelection.getSimplifiedClauses(c)
+        val normalizedClauses=simplified
+        if(GlobalParameters.get.getSMT2){
+          HintsSelection.writeSMTFormatToFile(normalizedClauses, GlobalParameters.get.fileName + "-normalized")
+          outputPrologFile(normalizedClauses,"normalized")
+        }
         normalizedClauses
       }
-      case _=>simplifiedClauses//csSimplifiedClauses
+      case _=>{
+        if(GlobalParameters.get.getSMT2){
+          HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
+          outputPrologFile(simplifiedClauses,"simplified")
+        }
+        simplifiedClauses
+      }//csSimplifiedClauses}
     }
 
   }
@@ -1141,6 +1150,7 @@ object HintsSelection {
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
             IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
+    println("read "+hintType)
     HintsSelection.readHints(fileName+"."+hintType+".tpl", name2Pred)
   }
 
@@ -1208,37 +1218,35 @@ object HintsSelection {
     Clause(clause.head, clause.body, simplifyedConstraints)
   }
 
-  def replaceMultiSamePredicateInBody(clause: Clause,clauseIndex:Int,nameFactory:NameFactory): Clauses ={
+
+  def replaceMultiSamePredicateInBody(clause: Clause,clauseIndex:Int): Clauses ={
     //if head == body: p(x)<-p(a) => p(x)<-p'(a), p'(a)<-p(a)
     //if multiple same relation symbos in the body: p(x)<-p'(a),p'(b)=> p(x)<-p'(a),p''(b), p''(b)<-p'(b)
-    val originalBodyPredicatesList=clause.body
+    var originalBodyPredicatesList:List[IAtom]=List()
     var renamedBodyPredicatesList:List[IAtom]=List()
     val pbodyStrings= new MHashSet[String]
     pbodyStrings.add(clause.head.pred.name)
     var count=1
-    val renamedClauseBody=for(pbody<-clause.body)yield{
-      if (!pbodyStrings.add(pbody.pred.name)){
-        val newPredicateName=pbody.pred.name+"_"+clauseIndex.toString+"_"+count.toString
-        //val renamedBodyPredicate=IAtom(new Predicate(newPredicateName,pbody.pred.arity),pbody.args)
-        val renamedBodyPredicate=IAtom(MonoSortedPredicate(nameFactory newName newPredicateName, predArgumentSorts(pbody.pred)),pbody.args)
+    val renamedClauseBodys=for(b<-clause.body)yield{
+      if (!pbodyStrings.add(b.pred.name)){ //if there is repeatative body name
+        val newPredicateName=b.pred.name+"_"+clauseIndex.toString+"_"+count.toString
 
+        //val renamedBodyPredicate=IAtom(new Predicate(newPredicateName,b.pred.arity),b.args)
+        val monosortedPredicate = MonoSortedPredicate(newPredicateName, predArgumentSorts(b.pred))
+        val renamedBodyPredicate=IAtom(monosortedPredicate,b.args)
 
-        //todo:
-        //SymbolSplitter  renamePred
-        //MonoSortedPredicate()
-        //println("replace",pbody,"by",renamedBodyPredicate)
         renamedBodyPredicatesList=renamedBodyPredicatesList:+renamedBodyPredicate
+        originalBodyPredicatesList=originalBodyPredicatesList:+b
         count=count+1
         renamedBodyPredicate
       }else{
-        pbody
+        b
       }
-
     }
-    val supplementaryClauses= (for ((b,ob)<- renamedBodyPredicatesList zip originalBodyPredicatesList) yield{
-      Clause(b, List(ob), true)
-    }).toSeq
-    Seq(Clause(clause.head, renamedClauseBody, clause.constraint)) ++ supplementaryClauses
+
+    val supplementaryClauses= for ((rb,ob)<- renamedBodyPredicatesList zip originalBodyPredicatesList) yield{
+      Clause(rb, List(ob), true)}
+    Seq(Clause(clause.head, renamedClauseBodys, clause.constraint)) ++ supplementaryClauses
   }
   def getDataFlowAndGuardWitoutPrint(clause: Clause): (Seq[IFormula], Seq[IFormula]) ={
     val normalizedClause=clause.normalize()

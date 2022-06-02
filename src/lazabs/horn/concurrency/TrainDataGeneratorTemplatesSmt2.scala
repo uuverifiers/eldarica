@@ -45,7 +45,7 @@ import lazabs.horn.concurrency.HintsSelection.{containsPred, generateCombination
 import lazabs.horn.global._
 import lazabs.horn.preprocessor.HornPreprocessor.BackTranslator
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
-
+import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import scala.util.Random
 
@@ -379,23 +379,29 @@ object TrainDataGeneratorTemplatesSmt2 {
         sys.exit()
       }
 
-
-      //Output graphs
-      if(GlobalParameters.get.getHornGraph){
-        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
-        val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
-          argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
-        if (GlobalParameters.get.separateByPredicates==true){
-          GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
-        }else{
-          val hintsCollection=new VerificationHintsInfo(unlabeledTemplates,labeledTemplates,VerificationHints(Map()))//labeledPredicates
-          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
-        }
-      }
-
       HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
       //writeTemplateDistributionToFiles(simplifiedClausesForGraph,unlabeledTemplates,positiveTemplates)
 
+//      if (GlobalParameters.get.getSMT2 == true) {
+//        //HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
+//        HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
+//        val normalizedClauses=HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
+//        HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-normalized")
+//        outputPrologFile(normalizedClauses)
+//      }
+
+//      //Output graphs
+//      if(GlobalParameters.get.getHornGraph){
+//        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph,Seq())
+//        val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+//          argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
+//        if (GlobalParameters.get.separateByPredicates==true){
+//          GraphTranslator.separateGraphByPredicates(unlabeledTemplates,labeledTemplates,clauseCollection,argumentInfo)
+//        }else{
+//          val hintsCollection=new VerificationHintsInfo(unlabeledTemplates,labeledTemplates,VerificationHints(Map()))//labeledPredicates
+//          GraphTranslator.drawAllHornGraph(clauseCollection,hintsCollection,argumentInfo)
+//        }
+//      }
 
 
 

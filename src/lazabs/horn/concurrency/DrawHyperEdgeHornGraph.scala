@@ -34,10 +34,12 @@ import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parser.smtlib.Absyn.ConstantTerm
 import ap.terfor.preds.Predicate
+import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import ap.types.Sort.Integer.newConstant
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.DrawHyperEdgeHornGraph.HyperEdgeType
 import lazabs.horn.concurrency.HintsSelection.{predicateQuantify, replaceMultiSamePredicateInBody, timeoutForPredicateDistinct}
@@ -55,9 +57,10 @@ object DrawHyperEdgeHornGraph {
     var f: IFormula = clause.constraint
     def replaceArgumentInBody(body: IAtom): IAtom = {
       var argList: Seq[ITerm] = Seq()
-      for (arg <- body.args) {
+      for ((arg,s)<- body.args zip predArgumentSorts(body.pred)) {
         if ((for (a<-clause.head.args) yield a.toString).contains(arg.toString)) {
-          val ic = IConstant(newConstant(arg.toString + "__"))
+          //val ic = IConstant(newConstant(arg.toString + "__"))
+          val ic = IConstant(new SortedConstantTerm((arg.toString + "__"),s))
           //replace argument
           argList :+= ic
           //add equation in constrains
@@ -65,6 +68,7 @@ object DrawHyperEdgeHornGraph {
         } else
           argList :+= arg
       }
+      //val monosortedPredicate = MonoSortedPredicate(body.pred.name, predArgumentSorts(body.pred))
       IAtom(body.pred, argList)
     }
 
