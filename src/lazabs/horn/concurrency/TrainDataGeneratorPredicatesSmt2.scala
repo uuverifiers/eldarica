@@ -246,16 +246,16 @@ object TrainDataGeneratorPredicatesSmt2 {
 
       //read hint from file
       if (GlobalParameters.get.readHints==true){
-        val hintType="unlabeledPredicates"
-        println("-"*10 + "read predicate from ."+hintType+".tpl" + "-"*10)
-        val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,hintType).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
+        val unlabledPredicatesFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+        val labledPredicatesFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+        val initialPredicates =VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses,unlabledPredicatesFileName).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))//simplify after read
         val initialHintsCollection=new VerificationHintsInfo(initialPredicates,VerificationHints(Map()),VerificationHints(Map()))
         //read predicted hints from JSON
         val predictedPositiveHints= HintsSelection.readPredictedHints(simplePredicatesGeneratorClauses,initialPredicates)
         Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName+".predictedHints.tpl")) {
           AbsReader.printHints(predictedPositiveHints)}
-        val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
-          VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+        val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + labledPredicatesFileName + ".tpl").exists == true)
+          VerificationHints(HintsSelection.wrappedReadHints(simplePredicatesGeneratorClauses, labledPredicatesFileName).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
         else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection, "templateRelevanceLabel")
         val hintsCollection=new VerificationHintsInfo(initialPredicates,truePositiveHints,initialPredicates.filterPredicates(truePositiveHints.predicateHints.keySet))
         val clauseCollection = new ClauseInfo(simplePredicatesGeneratorClauses,Seq())

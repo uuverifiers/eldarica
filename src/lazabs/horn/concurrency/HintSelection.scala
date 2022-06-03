@@ -151,16 +151,18 @@ object HintsSelection {
     //read from unlabeled .tpl file
     //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+    val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+    val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
     lazy val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
     val fullInitialPredicates =
-      if ((new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl")).exists == true)
-        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+      if ((new java.io.File(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")).exists == true)
+        HintsSelection. wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName)
       else
         combTemplates
     val emptyInitialPredicates = VerificationHints(Map())
     val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
-    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
-      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates") else emptyInitialPredicates
+    val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl")).exists == true)
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName) else emptyInitialPredicates
     //val truePredicates = emptyInitialPredicates
     val randomPredicates = HintsSelection.randomLabelTemplates(combTemplates, 0.2)
 
@@ -359,10 +361,12 @@ object HintsSelection {
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
     if (GlobalParameters.get.readHints == true) {
-      val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
+      val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+      val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+      val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
       val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
-      val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists == true)
-        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
+      val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl").exists == true)
+        VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
       else HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection,"templateRelevanceLabel")
       truePositiveHints
     } else if (GlobalParameters.get.generateSimplePredicates == true) {
@@ -707,13 +711,20 @@ object HintsSelection {
     measurementList
   }
 
+  def getClauseType(): String = {
+    GlobalParameters.get.hornGraphType match {
+      case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => "normalized"
+      case _ => "simplified"
+    }
+  }
   def writePredicatesToFiles(unlabeledPredicates:VerificationHints,labeledPredicates:VerificationHints,minedPredicates:VerificationHints,fileName:String=GlobalParameters.get.fileName): Unit ={
-    Console.withOut(new java.io.FileOutputStream(fileName+".unlabeledPredicates.tpl")) {
+    val clauseType = getClauseType()
+    Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".unlabeledPredicates.tpl")) {
       AbsReader.printHints(unlabeledPredicates)}
-    Console.withOut(new java.io.FileOutputStream(fileName+".labeledPredicates.tpl")) {
+    Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".labeledPredicates.tpl")) {
       AbsReader.printHints(labeledPredicates)}
     if(!minedPredicates.isEmpty)
-      Console.withOut(new java.io.FileOutputStream(fileName+".minedPredicates.tpl")) {
+      Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".minedPredicates.tpl")) {
         AbsReader.printHints(minedPredicates)}
   }
 
@@ -981,7 +992,7 @@ object HintsSelection {
         val initialHintsCollection = new VerificationHintsInfo(fullInitialPredicates, VerificationHints(Map()), VerificationHints(Map()))
         if (GlobalParameters.get.separateByPredicates == true)
           HintsSelection.readPredicateLabelFromMultipleJSON(initialHintsCollection, simplifiedClausesForGraph, "predictedLabel")
-        else if (new java.io.File(GlobalParameters.get.fileName + ".hyperEdgeHornGraph.JSON").exists)
+        else if (new java.io.File(GlobalParameters.get.fileName + "."+GlobalParameters.get.hornGraphType.toString+".JSON").exists)
           HintsSelection.readPredicateLabelFromOneJSON(initialHintsCollection, "predictedLabel")
         else VerificationHints(Map())
       }
@@ -995,7 +1006,7 @@ object HintsSelection {
 
 
   def detectIfAJSONFieldExists(readLabel: String = "predictedLabel",fileName:String=GlobalParameters.get.fileName): Boolean ={
-    val input_file = fileName+".hyperEdgeHornGraph.JSON"
+    val input_file = fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
     val json_content = scala.io.Source.fromFile(input_file).mkString
     val json_data = Json.parse(json_content)
     try{(json_data \ readLabel).validate[Array[Int]] match {
@@ -1016,8 +1027,9 @@ object HintsSelection {
     val trunk=(totalPredicateNumber/batch_size.toFloat).ceil.toInt
     val fimeNameList= for (t<- (0 until trunk))yield{GlobalParameters.get.fileName+"-"+t.toString}
     val allPositiveList=(for (fileName<-fimeNameList)yield{
-      if(new java.io.File(fileName+".hyperEdgeHornGraph.JSON").exists == true){
-        val currenInitialHints=wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates",fileName).predicateHints.toSeq sortBy (_._1.name)
+      if(new java.io.File(fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON").exists == true){
+        val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+        val currenInitialHints=wrappedReadHints(simplifiedClausesForGraph,unlabeledPredicateFileName,fileName).predicateHints.toSeq sortBy (_._1.name)
         readPredicateLabelFromJSON(fileName, currenInitialHints, readLabel)
       }else{
         emptyMap
@@ -1035,7 +1047,7 @@ object HintsSelection {
 
   def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
                                  readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
-    val input_file=fileName+".hyperEdgeHornGraph.JSON"
+    val input_file=fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
     if(detectIfAJSONFieldExists(readLabel,fileName)==true){
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)
@@ -1099,7 +1111,7 @@ object HintsSelection {
 
   def readPredicateLabelFromJSONBinaryClassification(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
                                  readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
-    val input_file=fileName+".hyperEdgeHornGraph.JSON"
+    val input_file=fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
     if(detectIfAJSONFieldExists(readLabel,fileName)==true){
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)
@@ -1150,8 +1162,8 @@ object HintsSelection {
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
             IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
-    println("read "+hintType)
-    HintsSelection.readHints(fileName+"."+hintType+".tpl", name2Pred)
+    println("read "+fileName+hintType+".tpl")
+    HintsSelection.readHints(fileName+hintType+".tpl", name2Pred)
   }
 
   def readHints(filename : String,

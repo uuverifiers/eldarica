@@ -308,8 +308,9 @@ class VerificationLoop(system : ParametricEncoder.System,
         println("simpHints:")
         simpHints.pretyPrintHints()
         val emptyInitialPredicates = VerificationHints(Map())
-        val optimizedHints = if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists == true)
-          HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates")
+        val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+        val optimizedHints = if ((new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl")).exists == true)
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph,labeledPredicateFileName)
         //VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"labeledPredicates").toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_))))
         else emptyInitialPredicates
         // inconsistency between encoder.globalHints and simpHints

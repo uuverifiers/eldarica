@@ -218,92 +218,33 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       /////////////////////////////////////////////////////////////////////////////
 
-      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)//hints
-      //val simplifiedClausesForGraph=simplifiedClauses
-
-
-      val abstractionType =
-        lazabs.GlobalParameters.get.templateBasedInterpolationType
-
-      lazy val absBuilder =
-        new StaticAbstractionBuilder(simplifiedClausesForGraph, abstractionType)
-
-      lazy val autoAbstraction: AbstractionMap =
-        absBuilder.abstractionRecords
-
-      val fileName=HintsSelection.getFileName()
+      //simplify clauses. get rid of some redundancy
+      //      val spAPI = ap.SimpleAPI.spawn
+      //      val sp=new Simplifier
+      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)
 
       if (simplifiedClausesForGraph.isEmpty) {
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
         sys.exit()
       }
-
       HintsSelection.checkMaxNode(simplifiedClausesForGraph)
-
-      val loopDetector = new LoopDetector(simplifiedClausesForGraph)
-
-
-      val mergedHeuristic=mergeTemplates(VerificationHints.union(Seq(absBuilder.termAbstractions,absBuilder.octagonAbstractions,
-        absBuilder.relationAbstractions(false))))//absBuilder.relationAbstractions(true)
-
-      //set all cost to 0
-      val combinationTemplates=generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
-
-      //todo: read the option with the best solving time to compute the training data
-      val initialTemplates=
-        if(GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Empty)
-          VerificationHints(Map())
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Term)
-          absBuilder.termAbstractions
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.Octagon)
-          absBuilder.octagonAbstractions
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.RelationalEqs)
-          absBuilder.relationAbstractions(false)
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.RelationalIneqs)
-          absBuilder.relationAbstractions(true)
-        else if (GlobalParameters.get.templateBasedInterpolationType==AbstractionType.All)//donn't use this one
-          mergedHeuristic//setAllCost(mergedHeuristic)
-        else
-          combinationTemplates
-
-      if (GlobalParameters.get.debugLog){
-        simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
-        println("loop heads",loopDetector.loopHeads)
-        println("abs1:termAbstractions")
-        absBuilder.termAbstractions.pretyPrintHints()
-        println("abs2:octagonAbstractions")
-        absBuilder.octagonAbstractions.pretyPrintHints()
-        println("abs3:relationAbstractions")
-        absBuilder.relationAbstractions(false).pretyPrintHints()
-        //      println("abs4:relationAbstractions")
-        //      absBuilder.relationAbstractions(true).pretyPrintHints()
-        println("mergedAutoAbstractions")
-        mergedHeuristic.pretyPrintHints()
-        println("generatedCombinationTemplates")
-        combinationTemplates.pretyPrintHints()
-        println("initialTemplates")
-        initialTemplates.pretyPrintHints()
-      }
-
-
-      val initialTemplatesAbstraction=absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)
-
+      /////////////////////////////////////////////////////////////////////////////
+      lazy val absBuilder =
+        new StaticAbstractionBuilder(simplifiedClausesForGraph, lazabs.GlobalParameters.get.templateBasedInterpolationType)
+      lazy val autoAbstraction: AbstractionMap =
+        absBuilder.abstractionRecords
       /** Manually provided interpolation abstraction hints */
       lazy val hintsAbstraction: AbstractionMap =
         if (simpHints.isEmpty)
           Map()
         else
           absBuilder.loopDetector hints2AbstractionRecord simpHints
-
-
-      //////////////////////////////////////////////////////////////////////////////
-
-      val predGenerator =getPredGenerator(Seq(hintsAbstraction,autoAbstraction,
-        initialTemplatesAbstraction),outStream)
-
       if (GlobalParameters.get.templateBasedInterpolationPrint &&
         !simpHints.isEmpty)
         ReaderMain.printHints(simpHints, name = "Manual verification hints:")
+
+
+      val predGenerator =getPredGenerator(Seq(hintsAbstraction,autoAbstraction),outStream)
 
       //////////////////////////////////////////////////////////////////////////////
 
@@ -311,11 +252,8 @@ object TrainDataGeneratorTemplatesSmt2 {
       val counterexampleMethod =HintsSelection.getCounterexampleMethod(disjunctive)
       GlobalParameters.get.timeoutChecker()
 
-      //simplify clauses. get rid of some redundancy
-//      val spAPI = ap.SimpleAPI.spawn
-//      val sp=new Simplifier
+      val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints) //empty
 
-      val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints)
       if (GlobalParameters.get.debugLog){println("Solving by CEGAR...")}
       val predAbs=Console.withOut(outStream) {
         val predAbs =
@@ -339,7 +277,7 @@ object TrainDataGeneratorTemplatesSmt2 {
           filteredPositiveTemplates.pretyPrintHints()
         }
         if(filteredPositiveTemplates.isEmpty){
-          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+fileName,"empty-mined-label")
+          HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+HintsSelection.getFileName(),"empty-mined-label")
           sys.exit()
         }
         val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledTemplates.predicateHints;
@@ -357,7 +295,7 @@ object TrainDataGeneratorTemplatesSmt2 {
         //filteredPositiveTemplates
       }
 
-
+      val combinationTemplates=generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
       //todo: for debug: reconstruct labels
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(2,3)++x.slice(8,9)))//2-8,3-10
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(5,13)++x.slice(5,13)++x.slice(18,39)))
@@ -373,9 +311,8 @@ object TrainDataGeneratorTemplatesSmt2 {
       //val labeledTemplates=randomLabelTemplates(unlabeledTemplates,0.5)
 
 
-
       if(labeledTemplates.totalPredicateNumber==0){
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+fileName,"labeledPredicates is empty")
+        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
         sys.exit()
       }
 

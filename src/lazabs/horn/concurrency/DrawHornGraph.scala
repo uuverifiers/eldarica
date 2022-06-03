@@ -1003,7 +1003,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
 
   def readPredictedLabelFromJson(): Array[Int] ={
-    val input_file=GlobalParameters.get.fileName+".hyperEdgeHornGraph.JSON"
+    val input_file=GlobalParameters.get.fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
     if(new java.io.File(input_file).exists&&detectIfAJSONFieldExists("predictedLabel",GlobalParameters.get.fileName)==true){
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)

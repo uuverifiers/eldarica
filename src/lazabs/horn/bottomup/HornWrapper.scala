@@ -494,15 +494,14 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   //val sp = new Simplifier
-  val fileName=GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length)
-
 
   if (simplifiedClausesForGraph.isEmpty) {
-    HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + fileName, message = "no simplified clauses")
+    HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
     sys.exit()
   }
 
-
+  val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+  val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
   private val predGenerator =
     if (GlobalParameters.get.generateTemplates == true) {
       val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
@@ -511,15 +510,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           HintsSelection.randomLabelTemplates(combTemplates, 0.2)
         } else if (GlobalParameters.get.readTemplates) {
           val fullTemplates =
-            if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists == true)
-              HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+            if (new java.io.File(GlobalParameters.get.fileName +unlabeledPredicateFileName+ ".tpl").exists == true)
+              HintsSelection.wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName)
             else
               combTemplates
           val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
           predictedTemplates
         }
-        else if ((new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl")).exists && GlobalParameters.get.readTrueLabel){
-          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
+        else if ((new java.io.File(GlobalParameters.get.fileName +labeledPredicateFileName+ ".tpl")).exists && GlobalParameters.get.readTrueLabel){
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName)
         }
         else combTemplates
       if (GlobalParameters.get.log) {
@@ -550,12 +549,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         transformPredicateMapToVerificationHints(simpleGeneratedPredicates) ++ (simpHints)
       } else if (GlobalParameters.get.generateTemplates) {
         if (GlobalParameters.get.withoutGraphJSON)
-          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates") //todo:boolean template predicate-2 will be treated as Eq term
+          HintsSelection.wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName) //todo:boolean template predicate-2 will be treated as Eq term
         else {
           generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true)
         }
-      } else if (new java.io.File(GlobalParameters.get.fileName + "." + "unlabeledPredicates" + ".tpl").exists) {
-        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
+      } else if (new java.io.File(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl").exists) {
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName)
       } else {
         VerificationHints(Map()) ++ simpHints
       }
@@ -575,8 +574,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       GraphTranslator.separateGraphByPredicates(initialPredicates, VerificationHints(Map()), clauseCollection, argumentInfo)
     } else {
       //read labeled and predicted
-      val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + "." + "labeledPredicates" + ".tpl").exists)
-        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "labeledPredicates")
+      val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl").exists)
+        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName)
       else if (new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON").exists)
         HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
       else VerificationHints(Map())
@@ -585,11 +584,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       else
         VerificationHints(Map())
 
-      val hintsCollection = new VerificationHintsInfo(initialPredicates, truePredicates, VerificationHints(Map()),predictedPredicates) //labeledPredicates
+      val hintsCollection = new VerificationHintsInfo(initialPredicates, truePredicates, VerificationHints(Map()),predictedPredicates)
       GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
     }
     if (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true){
-      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".unlabeledPredicates.tpl")) {
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + labeledPredicateFileName+".tpl")) {
         AbsReader.printHints(initialPredicates)}
     }
     sys.exit()
