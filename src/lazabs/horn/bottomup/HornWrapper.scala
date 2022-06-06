@@ -435,7 +435,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
       !simpHints.isEmpty)
-    ReaderMain.printHints(simpHints, name = "Manual verification hints:")
+    AbsReader.printHints(simpHints)
 
   //////////////////////////////////////////////////////////////////////////////
 
