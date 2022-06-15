@@ -601,29 +601,43 @@ object HintsSelection {
   }
 
   def normalizedClausesForGraphs(simplifiedClauses:Clauses,hints:VerificationHints): Clauses ={
+    import lazabs.horn.bottomup.HornWrapper._
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
-        val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
-        val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
+        val normalizedHornSMT2FileName = GlobalParameters.get.fileName + "-normalized.smt2"
+        if (new java.io.File(normalizedHornSMT2FileName).exists == true) {
+          println("read " + GlobalParameters.get.fileName + "-normalized.smt2")
+          lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
+        }else{
+          val uniqueClauses = HintsSelection.distinctByString(simplifiedClauses)
+          val (csSimplifiedClauses,_,_)=cs.process(uniqueClauses.distinct,hints)
 
-        val normalized= for (c<-csSimplifiedClauses) yield c.normalize()
-        val bodyReplaced=(for ((c,i)<-normalized.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i)).flatten// replace multiple same predicate in body
-        val argumentReplaced= for (c<-bodyReplaced) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
-        val simplified= for (c<-argumentReplaced) yield HintsSelection.getSimplifiedClauses(c)
-        val normalizedClauses=simplified
-        if(GlobalParameters.get.getSMT2){
-          HintsSelection.writeSMTFormatToFile(normalizedClauses, GlobalParameters.get.fileName + "-normalized")
-          outputPrologFile(normalizedClauses,"normalized")
+          val normalized= for (c<-csSimplifiedClauses) yield c.normalize()
+          val bodyReplaced=(for ((c,i)<-normalized.zipWithIndex) yield replaceMultiSamePredicateInBody(c,i)).flatten// replace multiple same predicate in body
+          val argumentReplaced= for (c<-bodyReplaced) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c)
+          val simplified= for (c<-argumentReplaced) yield HintsSelection.getSimplifiedClauses(c)
+          val normalizedClauses=simplified
+          if(GlobalParameters.get.getSMT2){
+            HintsSelection.writeSMTFormatToFile(normalizedClauses, GlobalParameters.get.fileName + "-normalized")
+            outputPrologFile(normalizedClauses,"normalized")
+          }
+          normalizedClauses
         }
-        normalizedClauses
       }
       case _=>{
-        if(GlobalParameters.get.getSMT2){
-          HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
-          outputPrologFile(simplifiedClauses,"simplified")
+
+        val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
+        if (new java.io.File(simplifiedHornSMT2FileName).exists == true) {
+          println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
+          lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
+        }else{
+          if(GlobalParameters.get.getSMT2){
+            HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
+            outputPrologFile(simplifiedClauses,"simplified")
+          }
+          simplifiedClauses
         }
-        simplifiedClauses
-      }//csSimplifiedClauses}
+      }
     }
 
   }

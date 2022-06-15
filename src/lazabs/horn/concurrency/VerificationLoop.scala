@@ -39,8 +39,9 @@ import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, DisjInterpolator, HornClauses, HornPredAbs, HornWrapper, NormClause, TemplateInterpolator, Util}
 import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
-import lazabs.horn.concurrency.HintsSelection.{initialIDForHints}
+import lazabs.horn.concurrency.HintsSelection.initialIDForHints
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 
 import scala.concurrent.TimeoutException
@@ -261,6 +262,7 @@ class VerificationLoop(system : ParametricEncoder.System,
       //get smt
       if(GlobalParameters.get.getSMT2==true){
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)  //write smt2 format to file
+        outputPrologFile(simpClauses,"smt2")
         println(encoder.allClauses)
       }
 

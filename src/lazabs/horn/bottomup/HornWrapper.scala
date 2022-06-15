@@ -444,40 +444,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   if (GlobalParameters.get.getSMT2 == true) {
-    //HintsSelection.writeSMTFormatToFile(for (c <- simplifiedClauses) yield DrawHyperEdgeHornGraph.replaceIntersectArgumentInBody(c), GlobalParameters.get.fileName + "-simplified")
-    HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
-    HintsSelection.writeSMTFormatToFile(HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints),
-      GlobalParameters.get.fileName + "-normalized")
+    GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
+    GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
+    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
     sys.exit()
   }
 
 
-  val simplifiedClausesForGraph =
-    if (GlobalParameters.get.getHornGraph == true) {
-      GlobalParameters.get.hornGraphType match {
-        case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph => {
-          val normalizedHornSMT2FileName = GlobalParameters.get.fileName + "-normalized.smt2"
-          if (new java.io.File(normalizedHornSMT2FileName).exists == true) {
-            println("read " + GlobalParameters.get.fileName + "-normalized.smt2")
-            lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
-          } else
-            HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
-        }
-        case _ => {
-          val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
-          if (new java.io.File(simplifiedHornSMT2FileName).exists == true) {
-            println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
-            lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
-          } else
-            simplifiedClauses
-        }
-      }
-    } else simplifiedClauses
-
-//  val simplifiedClausesForGraph =
-//    if (GlobalParameters.get.getHornGraph == true) {
-//      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, simpHints)
-//    } else simplifiedClauses
+  val simplifiedClausesForGraph =HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
 
   if (GlobalParameters.get.getHornGraph == true) {
     HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)

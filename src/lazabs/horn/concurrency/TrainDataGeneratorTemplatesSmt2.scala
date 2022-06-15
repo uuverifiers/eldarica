@@ -46,6 +46,7 @@ import lazabs.horn.global._
 import lazabs.horn.preprocessor.HornPreprocessor.BackTranslator
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
+
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import scala.util.Random
 
@@ -221,13 +222,14 @@ object TrainDataGeneratorTemplatesSmt2 {
       //simplify clauses. get rid of some redundancy
       //      val spAPI = ap.SimpleAPI.spawn
       //      val sp=new Simplifier
-      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,simpHints)
+      val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,VerificationHints(Map()))
+
 
       if (simplifiedClausesForGraph.isEmpty) {
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
         sys.exit()
       }
-      HintsSelection.checkMaxNode(simplifiedClausesForGraph)
+      //HintsSelection.checkMaxNode(simplifiedClausesForGraph)
       /////////////////////////////////////////////////////////////////////////////
       lazy val absBuilder =
         new StaticAbstractionBuilder(simplifiedClausesForGraph, lazabs.GlobalParameters.get.templateBasedInterpolationType)
@@ -254,7 +256,10 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       val initialPredicatesForCEGAR =getInitialPredicates(simplifiedClausesForGraph,simpHints) //empty
 
-      if (GlobalParameters.get.debugLog){println("Solving by CEGAR...")}
+      if (GlobalParameters.get.debugLog){
+        simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
+        println("Solving by CEGAR...")
+      }
       val predAbs=Console.withOut(outStream) {
         val predAbs =
           new HornPredAbs(simplifiedClausesForGraph,
@@ -267,13 +272,16 @@ object TrainDataGeneratorTemplatesSmt2 {
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
+        val costThreshold=20
         val filteredPositiveTemplates= VerificationHints((for((k,ps)<-positiveTemplates.predicateHints) yield {
-          k->ps.filter(getParametersFromVerifHintElement(_)._2<20)
+          k->ps.filter(getParametersFromVerifHintElement(_)._2<costThreshold)
         }).filterNot(_._2.isEmpty))
         if (GlobalParameters.get.debugLog){
-          println("unitTwoVariableTemplates")
+          println("predicates from " +lazabs.GlobalParameters.get.templateBasedInterpolationType.toString)
+          absBuilder.abstractionHints.pretyPrintHints()
+          println("mined predicates (unitTwoVariableTemplates)")
           positiveTemplates.pretyPrintHints()
-          println("filteredPositiveTemplates")
+          println("filtered mined predicates")
           filteredPositiveTemplates.pretyPrintHints()
         }
         if(filteredPositiveTemplates.isEmpty){
