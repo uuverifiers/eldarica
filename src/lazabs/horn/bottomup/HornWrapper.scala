@@ -451,8 +451,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
   }
 
+  println("read " + GlobalParameters.get.fileName )
+  val simplifiedClausesForGraph =
+    if (GlobalParameters.get.readSMT2)
+      lazabs.horn.parser.HornReader.fromSMT(GlobalParameters.get.fileName) map ((new HornTranslator).transform(_))
+    else
+      HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
 
-  val simplifiedClausesForGraph =HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
 
   if (GlobalParameters.get.getHornGraph == true) {
     HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
@@ -534,7 +539,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         VerificationHints(Map()) ++ simpHints
       }
 
-
     if (initialPredicates.totalPredicateNumber == 0 && (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true)) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
       sys.exit()
@@ -545,15 +549,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
     val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, Seq())
 
+    val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl").exists)
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName)
+    else if (new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON").exists)
+      HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
+    else VerificationHints(Map())
+
     if (GlobalParameters.get.separateByPredicates == true) {
-      GraphTranslator.separateGraphByPredicates(initialPredicates, VerificationHints(Map()), clauseCollection, argumentInfo)
+      GraphTranslator.separateGraphByPredicates(initialPredicates, truePredicates, clauseCollection, argumentInfo)
     } else {
-      //read labeled and predicted
-      val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl").exists)
-        HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName)
-      else if (new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON").exists)
-        HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
-      else VerificationHints(Map())
+      //read predicted
       val predictedPredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON")).exists)
         HintsSelection.readPredictedHints(simplifiedClausesForGraph, initialPredicates)
       else

@@ -272,7 +272,7 @@ object TrainDataGeneratorTemplatesSmt2 {
         val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
         //val predMiner=new PredicateMiner(predAbs)
         val positiveTemplates=predMiner.unitTwoVariableTemplates//predMiner.variableTemplates
-        val costThreshold=20
+        val costThreshold=99
         val filteredPositiveTemplates= VerificationHints((for((k,ps)<-positiveTemplates.predicateHints) yield {
           k->ps.filter(getParametersFromVerifHintElement(_)._2<costThreshold)
         }).filterNot(_._2.isEmpty))

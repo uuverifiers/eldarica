@@ -85,6 +85,7 @@ class GlobalParameters extends Cloneable {
   var extractTemplates=false
   var extractPredicates=false
   var separateByPredicates=false
+  var separateByPredicatesBatchSize=200
   var measurePredictedPredicates=false
   var singleMeasurement=false
   var labelSimpleGeneratedPredicates=false
@@ -93,6 +94,7 @@ class GlobalParameters extends Cloneable {
   var readTemplates=false
   var rank=0.0
   var getSMT2=false
+  var readSMT2=false
   var getSolvingTime=false
   var getHornGraph=false
   var getAllHornGraph=false
@@ -266,6 +268,7 @@ class GlobalParameters extends Cloneable {
     that.extractTemplates=this.extractTemplates
     that.extractPredicates=this.extractPredicates
     that.separateByPredicates=this.separateByPredicates
+    that.separateByPredicatesBatchSize=this.separateByPredicatesBatchSize
     that.measurePredictedPredicates=this.measurePredictedPredicates
     that.singleMeasurement=this.singleMeasurement
     that.labelSimpleGeneratedPredicates=this.labelSimpleGeneratedPredicates
@@ -273,6 +276,7 @@ class GlobalParameters extends Cloneable {
     that.readHints=this.readHints
     that.readTemplates=this.readTemplates
     that.getSMT2=this.getSMT2
+    that.readSMT2=this.readSMT2
     that.getSolvingTime=this.getSolvingTime
     that.getHornGraph=this.getHornGraph
     that.getAllHornGraph=this.getAllHornGraph
@@ -398,7 +402,6 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-extractTemplates" :: rest => extractTemplates = true; arguments(rest)
       case "-extractPredicates" :: rest => extractPredicates = true; arguments(rest)
-      case "-separateByPredicates" :: rest => separateByPredicates = true; arguments(rest)
       case "-measurePredictedPredicates" :: rest=> measurePredictedPredicates=true; arguments(rest)
       case "-singleMeasurement" :: rest=> singleMeasurement=true; arguments(rest)
       case "-labelSimpleGeneratedPredicates"::rest => labelSimpleGeneratedPredicates = true; arguments(rest)
@@ -416,6 +419,7 @@ object Main {
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-readTemplates" :: rest => readTemplates = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
+      case "-readSMT2" :: rest => readSMT2 = true; arguments(rest)
       case "-getSolvingTime" :: rest => getSolvingTime = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
       case "-getLabelFromCounterExample":: rest =>getLabelFromCounterExample = true; arguments(rest)
@@ -549,6 +553,10 @@ object Main {
       case _maxNode :: rest if (_maxNode.startsWith("-maxNode:")) =>
         maxNode = java.lang.Integer.parseInt(_maxNode.drop("-maxNode:".length));
         arguments(rest)
+      case _separateByPredicates :: rest if (_separateByPredicates.startsWith("-separateByPredicates:")) => {
+        separateByPredicates = true;
+        separateByPredicatesBatchSize = java.lang.Integer.parseInt(_separateByPredicates.drop("-separateByPredicates:".length))
+        arguments(rest)}
       case _solvabilityTimeout :: rest if (_solvabilityTimeout.startsWith("-solvabilityTimeout:")) =>
         solvabilityTimeout =
           (java.lang.Float.parseFloat(_solvabilityTimeout.drop("-solvabilityTimeout:".length))*1000 ).toInt;
@@ -731,6 +739,7 @@ object Main {
           " -rank:n\t use top n or score above n ranked hints read from file\n"+
           " -maxNode:n\t if the node number exceeded this number, stop drawing\n"+
           " -getSMT2\t get SMT2 file\n"+
+          " -readSMT2\t read SMT2 file without preprocessing\n"+
           " -getSolvingTime\t get Solving time in JSON file\n"+
           " -getLabelFromCounterExample:option\t  Interp. union. predicate occurrence in counter example\n"+
           " -argumentOccurenceLabel\t  argument occurrence in hints\n"+

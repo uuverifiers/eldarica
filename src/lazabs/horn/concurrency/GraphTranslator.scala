@@ -5,6 +5,7 @@ import ap.parser.IExpression.Predicate
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.{AbsReader, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
+import lazabs.horn.concurrency.HintsSelection.getParametersFromVerifHintElement
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
 import scala.collection.mutable.ArrayBuffer
@@ -41,30 +42,29 @@ object GraphTranslator {
     //      100
     //    else 200
     //    if (totalPredicateNumber>=10000)
-    200
+    GlobalParameters.get.separateByPredicatesBatchSize
   }
 
   def separateGraphByPredicates(unlabeledPredicates: VerificationHints, labeledPredicates: VerificationHints, clauseCollection: ClauseInfo, argumentInfo: ArrayBuffer[argumentInfo]): Unit = {
     val totalPredicateNumber = unlabeledPredicates.totalPredicateNumber
     println("total unlabeled number", totalPredicateNumber)
     val batch_size = getBatchSize(clauseCollection.simplifiedClause, totalPredicateNumber)
-    //val batch_size=4
-    println("batch_size", batch_size)
+    //todo: separate by relation symbol
     val trunk = (totalPredicateNumber / batch_size.toFloat).ceil.toInt
+    val predicateNumberRatio = for ((k, v) <- unlabeledPredicates.predicateHints) yield k -> v.size / totalPredicateNumber.toFloat
+    println("batch_size", batch_size,"trunk",trunk,"predicateNumberRatio",predicateNumberRatio)
     val trunkList =
-    if (GlobalParameters.get.generateTemplates == true) {
-      val predicateNumberRatio = for ((k, v) <- unlabeledPredicates.predicateHints) yield k -> v.size / totalPredicateNumber.toFloat
       for (t <- 0 until trunk) yield {
         val unlabeled = VerificationHints(for ((k, v) <- unlabeledPredicates.predicateHints) yield {
           val batch_size_per_head = (predicateNumberRatio(k) * batch_size).ceil.toInt
           val sliceEnd = if (batch_size_per_head * (t + 1) >= v.size) v.size else batch_size_per_head * (t + 1)
           k -> v.slice(batch_size_per_head * t, sliceEnd)
         })
-        val labeled=
+        val labeled =
           if (!labeledPredicates.isEmpty) {
             VerificationHints(for ((k, v) <- unlabeled.predicateHints) yield {
-              //todo:change to logic compare
-              val labelList = for (l <- labeledPredicates.predicateHints(k); if v.contains(l)) yield l
+              //logic compare
+              val labelList = for (l <- labeledPredicates.predicateHints(k); if HintsSelection.termContains(v.map(getParametersFromVerifHintElement(_)), getParametersFromVerifHintElement(l))._1) yield l
               k -> labelList
             })
           } else {
@@ -72,26 +72,45 @@ object GraphTranslator {
           }
         (unlabeled, labeled)
       }
-    } else {
-      val predicateNumberRatio = for ((k, v) <- unlabeledPredicates.toInitialPredicates) yield k -> v.size / totalPredicateNumber.toFloat
-      for (t <- 0 until trunk) yield {
-        val unlabeled = for ((k, v) <- unlabeledPredicates.toInitialPredicates) yield {
-          val batch_size_per_head = (predicateNumberRatio(k) * batch_size).ceil.toInt
-          val sliceEnd = if (batch_size_per_head * (t + 1) >= v.size) v.size else batch_size_per_head * (t + 1)
-          k -> v.slice(batch_size_per_head * t, sliceEnd)
-        }
-        val labeled: Map[Predicate, Seq[IFormula]] =
-          if (!labeledPredicates.isEmpty) {
-            for ((k, v) <- unlabeled) yield {
-              val labelList = for (l <- labeledPredicates.toInitialPredicates(k); if HintsSelection.containsPred(l, v)) yield l
-              k -> labelList
-            }
-          } else {
-            Map()
-          }
-        (HintsSelection.transformPredicateMapToVerificationHints(unlabeled), HintsSelection.transformPredicateMapToVerificationHints(labeled))
-      }
-    }
+//    val trunkList =
+//    if (GlobalParameters.get.generateTemplates == true) {
+//      for (t <- 0 until trunk) yield {
+//        val unlabeled = VerificationHints(for ((k, v) <- unlabeledPredicates.predicateHints) yield {
+//          val batch_size_per_head = (predicateNumberRatio(k) * batch_size).ceil.toInt
+//          val sliceEnd = if (batch_size_per_head * (t + 1) >= v.size) v.size else batch_size_per_head * (t + 1)
+//          k -> v.slice(batch_size_per_head * t, sliceEnd)
+//        })
+//        val labeled=
+//          if (!labeledPredicates.isEmpty) {
+//            VerificationHints(for ((k, v) <- unlabeled.predicateHints) yield {
+//              //logic compare
+//              val labelList = for (l <- labeledPredicates.predicateHints(k); if HintsSelection.termContains(v.map(getParametersFromVerifHintElement(_)),getParametersFromVerifHintElement(l))._1) yield l
+//              k -> labelList
+//            })
+//          } else {
+//            VerificationHints(Map())
+//          }
+//        (unlabeled, labeled)
+//      }
+//    } else {
+//      for (t <- 0 until trunk) yield {
+//        val unlabeled = for ((k, v) <- unlabeledPredicates.toInitialPredicates) yield {
+//          val batch_size_per_head = (predicateNumberRatio(k) * batch_size).ceil.toInt
+//          val sliceEnd = if (batch_size_per_head * (t + 1) >= v.size) v.size else batch_size_per_head * (t + 1)
+//          k -> v.slice(batch_size_per_head * t, sliceEnd)
+//        }
+//        val labeled: Map[Predicate, Seq[IFormula]] =
+//          if (!labeledPredicates.isEmpty) {
+//            for ((k, v) <- unlabeled) yield {
+//              val labelList = for (l <- labeledPredicates.toInitialPredicates(k); if HintsSelection.containsPred(l, v)) yield l
+//              k -> labelList
+//            }
+//          } else {
+//            Map()
+//          }
+//        (HintsSelection.transformPredicateMapToVerificationHints(unlabeled), HintsSelection.transformPredicateMapToVerificationHints(labeled))
+//      }
+//    }
 
     for ((t, i) <- trunkList.zipWithIndex) {
       val fileName = GlobalParameters.get.fileName + "-" + i.toString

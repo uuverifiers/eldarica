@@ -32,13 +32,13 @@ import java.io.{File, PrintWriter}
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess}
+import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess, VerificationHints}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, replaceMultiSamePredicateInBody, spAPI}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, replaceMultiSamePredicateInBody, spAPI, termContains}
 import play.api.libs.json.{JsSuccess, Json}
-import lazabs.horn.concurrency.TemplateSelectionUtils.{_}
+import lazabs.horn.concurrency.TemplateSelectionUtils._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MuMap}
 
@@ -954,19 +954,24 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }.filter(!_._2.isTrue).filter(!_._2.isFalse)
     }
     val tempHeadMap=
-    for((hp,templates)<-hints.initialHints.toInitialPredicates.toSeq.sortBy(_._1.name)) yield {
+    for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
       constantNodeSetInOneClause.clear()
       val templateNameList=
       for (t<-templates) yield {
         val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
         val templateNodeLabelName="predicate_"+gnn_input.templateCanonicalID.toString
         //templateNameList:+=templateNodeName
-        val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) 1 else 0
+        //use termContains instead of containsPred
+        //val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) 1 else 0
+        val hintLabel= if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && termContains(hints.positiveHints.predicateHints(hp).map(getParametersFromVerifHintElement(_)),getParametersFromVerifHintElement(t))._1) 1 else 0
+        println(t.toString,hintLabel)
         createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
         //drawAST(e,templateNodeName)
-        val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.containsPred(t, Seq(f)))) yield s
+        //val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.containsPred(t, Seq(f)))) yield s
+        val existedSubGraphRoot = for ((s, f) <- quantifiedClauseGuardMap(hp) if (HintsSelection.containsPred(getParametersFromVerifHintElement(t)._1.asInstanceOf[IFormula], Seq(f)))) yield s
         if (existedSubGraphRoot.isEmpty) {
-          val predicateASTRootName=drawAST(t)
+
+          val predicateASTRootName=drawAST(getParametersFromVerifHintElement(t)._1)
           addBinaryEdge(predicateASTRootName,templateNodeName,"templateAST")
         } else
           addBinaryEdge(existedSubGraphRoot.head,templateNodeName,"templateAST")//astEdgeType
@@ -979,13 +984,14 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
   def drawPredicate(): Seq[(String,Seq[(String,String)])] ={
     val tempHeadMap=
-      for((hp,templates)<-hints.initialHints.toInitialPredicates.toSeq.sortBy(_._1.name)) yield {
+      for((hp,templates)<-hints.initialHints.predicateHints.toSeq.sortBy(_._1.name)) yield {
         constantNodeSetInOneClause.clear()
         val templateNameList=
           for (t<-templates) yield {
-            val predicateASTRootName=drawAST(t)
+            val predicateASTRootName=drawAST(getParametersFromVerifHintElement(t)._1)
             //update JSON
-            val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) 1 else 0
+            //val hintLabel = if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && HintsSelection.containsPred(t,hints.positiveHints.toInitialPredicates(hp))) 1 else 0
+            val hintLabel= if (hints.positiveHints.toInitialPredicates.keySet.map(_.toString).contains(hp.toString) && termContains(hints.positiveHints.predicateHints(hp).map(getParametersFromVerifHintElement(_)),getParametersFromVerifHintElement(t))._1) 1 else 0
             gnn_input.updateTemplateIndicesAndNodeIds(predicateASTRootName,hintLabel)
             (predicateASTRootName,"template")
           }
@@ -1023,6 +1029,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     var counter=0
     val tempHeadMap=
       for((hp,templates)<-unlabeledTemplates) yield {
+        //println(hp)
         argumentNodeSetInPredicates.clear()
         for (a<-argumentNodeSetCrossGraph(hp.name)){
           argumentNodeSetInPredicates(a._1)=a._2
@@ -1035,6 +1042,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             //encode label to multi-class
             //val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
             val (hintLabel,cost) = encodeLabelToMultiClass(positiveTemplates,t,hp,templates)
+            //println(t,hintLabel)
             //draw boolean predicate as single term node
             val transfomedT=transformBooleanPredicateToTerm(t)
             val templateASTRootName=drawAST(transfomedT._1)
@@ -1122,6 +1130,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   def getHintLabelUsefulness(positiveSeq: Seq[(IExpression, Int, TemplateType.Value)],t:(IExpression, Int, TemplateType.Value)):
   (TemplateTypeUsefulNess.Value,Int) ={
       val (b, c) = HintsSelection.termContains(positiveSeq, t)
+    //println(Console.BLUE+ t.toString()+":"+b.toString)
       b match {
         case true=>
           t._3 match {
