@@ -33,17 +33,12 @@ import ap.parser._
 import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
-import lazabs.{ParallelComputation, GlobalParameters}
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
-  HornWrapper}
-import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
-  LoopDetector, AbstractionRecord,
-  VerificationHints}
-import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.{GlobalParameters, ParallelComputation}
+import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornTranslator, HornWrapper, TemplateInterpolator, Util}
+import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
-import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
-  ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 
 object VerificationLoop {
 
@@ -239,8 +234,17 @@ class VerificationLoop(system : ParametricEncoder.System,
       if(GlobalParameters.get.getSMT2){
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)
         TemplateSelectionUtils.outputPrologFile(simpClauses,"smt2")
+        if (GlobalParameters.get.debugLog)
+          simpClauses.map(_.toPrologString).foreach(println)
         sys.exit()
       }
+      val finalClauses= if (GlobalParameters.get.readSMT2) {
+        val smt2FileName=GlobalParameters.get.fileName+".smt2"
+        println("read " + smt2FileName)
+        lazabs.horn.parser.HornReader.fromSMT(smt2FileName) map ((new HornTranslator).transform(_))
+      }else simpClauses
+      if (GlobalParameters.get.debugLog)
+        finalClauses.map(_.toPrologString).foreach(println)
 
       val params =
         if (GlobalParameters.get.portfolio == GlobalParameters.Portfolio.Template)
@@ -253,7 +257,7 @@ class VerificationLoop(system : ParametricEncoder.System,
           Console.withErr(Console.out) {
             val builder =
               new StaticAbstractionBuilder(
-                simpClauses,
+                finalClauses,
                 GlobalParameters.get.templateBasedInterpolationType)
             val autoAbstractionMap =
               builder.abstractionRecords
@@ -284,7 +288,7 @@ class VerificationLoop(system : ParametricEncoder.System,
         println
         println(
           "----------------------------------- CEGAR --------------------------------------")
-        new HornPredAbs(simpClauses,
+        new HornPredAbs(finalClauses,
           simpHints.toInitialPredicates,
           interpolator).result
       }

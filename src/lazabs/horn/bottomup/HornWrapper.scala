@@ -451,13 +451,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
   }
 
-  println("read " + GlobalParameters.get.fileName )
+
   val simplifiedClausesForGraph =
-    if (GlobalParameters.get.readSMT2)
+    if (GlobalParameters.get.readSMT2) {
+      println("read " + GlobalParameters.get.fileName)
       lazabs.horn.parser.HornReader.fromSMT(GlobalParameters.get.fileName) map ((new HornTranslator).transform(_))
+    }
     else
       HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
-
+  if (GlobalParameters.get.debugLog)
+    simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
 
   if (GlobalParameters.get.getHornGraph == true) {
     HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
@@ -480,8 +483,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     sys.exit()
   }
 
-  val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
-  val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+  val unlabeledPredicateFileName=".unlabeledPredicates"//"-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+  val labeledPredicateFileName=".labeledPredicates"//"-"+HintsSelection.getClauseType()+ ".labeledPredicates"
   private val predGenerator =
     if (GlobalParameters.get.generateTemplates == true) {
       val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)

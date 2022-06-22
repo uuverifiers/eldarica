@@ -732,14 +732,11 @@ object HintsSelection {
     }
   }
   def writePredicatesToFiles(unlabeledPredicates:VerificationHints,labeledPredicates:VerificationHints,minedPredicates:VerificationHints,fileName:String=GlobalParameters.get.fileName): Unit ={
-    val clauseType = getClauseType()
-    Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".unlabeledPredicates.tpl")) {
-      AbsReader.printHints(unlabeledPredicates)}
-    Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".labeledPredicates.tpl")) {
-      AbsReader.printHints(labeledPredicates)}
+    val clauseType = ""//"-"+getClauseType()
+    Console.withOut(new java.io.FileOutputStream(fileName+clauseType+".unlabeledPredicates.tpl")) {AbsReader.printHints(unlabeledPredicates)}
+    Console.withOut(new java.io.FileOutputStream(fileName+clauseType+".labeledPredicates.tpl")) {AbsReader.printHints(labeledPredicates)}
     if(!minedPredicates.isEmpty)
-      Console.withOut(new java.io.FileOutputStream(fileName+"-"+clauseType+".minedPredicates.tpl")) {
-        AbsReader.printHints(minedPredicates)}
+      Console.withOut(new java.io.FileOutputStream(fileName+clauseType+".minedPredicates.tpl")) {AbsReader.printHints(minedPredicates)}
   }
 
   def writeTemplateDistributionToFiles(simplifiedClauses:Clauses,initialTemplates:VerificationHints,minedTemplates:VerificationHints): Unit ={
