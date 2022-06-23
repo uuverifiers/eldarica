@@ -224,9 +224,15 @@ object TrainDataGeneratorTemplatesSmt2 {
       //      val sp=new Simplifier
       val simplifiedClausesForGraph=HintsSelection.normalizedClausesForGraphs(simplifiedClauses,VerificationHints(Map()))
 
-
       if (simplifiedClausesForGraph.isEmpty) {
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
+        sys.exit()
+      }
+
+      if (GlobalParameters.get.generateTemplates){
+        val unlabeledPredicateFileName=".unlabeledPredicates"
+        val generatedTpl = generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) //false
+        Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")) {AbsReader.printHints(generatedTpl)}
         sys.exit()
       }
       //HintsSelection.checkMaxNode(simplifiedClausesForGraph)
