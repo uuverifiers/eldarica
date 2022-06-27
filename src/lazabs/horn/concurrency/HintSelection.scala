@@ -151,20 +151,19 @@ object HintsSelection {
     //read from unlabeled .tpl file
     //val simpleGeneratedInitialPredicates=transformPredicateMapToVerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph,"unlabeledPredicates").toInitialPredicates.mapValues(_.filterNot(_.isTrue).filterNot(_.isFalse)))
     //val fullInitialPredicates = HintsSelection.wrappedReadHints(simplifiedClausesForGraph, "unlabeledPredicates")
-    val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
-    val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
-    lazy val combTemplates=HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
+    val unlabeledPredicateFileName= ".unlabeledPredicates"
+    val labeledPredicateFileName= ".labeledPredicates"
     val fullInitialPredicates =
-      if ((new java.io.File(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")).exists == true)
+      if (new java.io.File(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl").exists) {
         HintsSelection. wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName)
-      else
-        combTemplates
+      } else
+        HintsSelection.generateCombinationTemplates(simplifiedClausesForGraph)
     val emptyInitialPredicates = VerificationHints(Map())
-    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, combTemplates)
+    val predictedPredicates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullInitialPredicates)
     val truePredicates = if ((new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl")).exists == true)
       HintsSelection.wrappedReadHints(simplifiedClausesForGraph, labeledPredicateFileName) else emptyInitialPredicates
     //val truePredicates = emptyInitialPredicates
-    val randomPredicates = HintsSelection.randomLabelTemplates(combTemplates, 0.2)
+    val randomPredicates = HintsSelection.randomLabelTemplates(fullInitialPredicates, 0.2)
 
     //add other abstract option
     val abstractFold= if (GlobalParameters.get.generateTemplates){
@@ -361,8 +360,10 @@ object HintsSelection {
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
     if (GlobalParameters.get.readHints == true) {
-      val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
-      val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+//      val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+//      val labeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".labeledPredicates"
+val unlabeledPredicateFileName=".unlabeledPredicates"
+      val labeledPredicateFileName= ".labeledPredicates"
       val initialPredicates = VerificationHints(HintsSelection.wrappedReadHints(simplifiedClausesForGraph, unlabeledPredicateFileName).toInitialPredicates.mapValues(_.map(sp(_)).map(VerificationHints.VerifHintInitPred(_)))) //simplify after read
       val initialHintsCollection = new VerificationHintsInfo(initialPredicates, VerificationHints(Map()), VerificationHints(Map()))
       val truePositiveHints = if (new java.io.File(GlobalParameters.get.fileName + labeledPredicateFileName + ".tpl").exists == true)
@@ -1039,7 +1040,7 @@ object HintsSelection {
     val fimeNameList= for (t<- (0 until trunk))yield{GlobalParameters.get.fileName+"-"+t.toString}
     val allPositiveList=(for (fileName<-fimeNameList)yield{
       if(new java.io.File(fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON").exists == true){
-        val unlabeledPredicateFileName="-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
+        val unlabeledPredicateFileName= ".unlabeledPredicates"
         val currenInitialHints=wrappedReadHints(simplifiedClausesForGraph,unlabeledPredicateFileName,fileName).predicateHints.toSeq sortBy (_._1.name)
         readPredicateLabelFromJSON(fileName, currenInitialHints, readLabel)
       }else{
@@ -1081,7 +1082,7 @@ object HintsSelection {
           })
         }).toMap
         res
-      }else{
+      }else{ //read from multi-classification
         val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
           k-> (for ((p,l)<-v zip label if l!=0) yield {
             l match {

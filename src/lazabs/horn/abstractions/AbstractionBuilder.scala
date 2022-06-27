@@ -42,7 +42,7 @@ import scala.collection.mutable.ListBuffer
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, LearnedTerm,All = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, LearnedTerm,All,Random,Unlabeled,Labeled,PredictedCG,PredictedCDHG = Value
   }
 }
 
@@ -293,6 +293,7 @@ class StaticAbstractionBuilder(
         relationAbstractions(true)
       case AbstractionType.All=>
         termAbstractions++octagonAbstractions++relationAbstractions(false)
+      case _=>{emptyAbstractions}
 
     }
 

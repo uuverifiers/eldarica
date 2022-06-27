@@ -504,6 +504,26 @@ object Main {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.All
         arguments(rest)}
+      case "-abstract:unlabeled" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Unlabeled
+        arguments(rest)}
+      case "-abstract:labeled" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Labeled
+        arguments(rest)}
+      case "-abstract:predictedCG" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.PredictedCG
+        arguments(rest)}
+      case "-abstract:predictedCDHG" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.PredictedCDHG
+        arguments(rest)}
+      case "-abstract:random" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Random
+        arguments(rest)}
       case "-portfolio" :: rest => {
         portfolio = GlobalParameters.Portfolio.General
         arguments(rest)
