@@ -231,6 +231,7 @@ class VerificationLoop(system : ParametricEncoder.System,
           preprocessor.process(encoder.allClauses, encoder.globalHints)
         }
 
+      //////////////////////////////////////////////
       if(GlobalParameters.get.getSMT2){
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)
         TemplateSelectionUtils.outputPrologFile(simpClauses,"smt2")
@@ -245,6 +246,7 @@ class VerificationLoop(system : ParametricEncoder.System,
       }else simpClauses
       if (GlobalParameters.get.debugLog)
         finalClauses.map(_.toPrologString).foreach(println)
+      ////////////////////////////////////////////////
 
       val params =
         if (GlobalParameters.get.portfolio == GlobalParameters.Portfolio.Template)

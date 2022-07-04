@@ -625,24 +625,23 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
           normalizedClauses
         }
       }
-      case _=>{
-
-        val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
-        if (new java.io.File(simplifiedHornSMT2FileName).exists == true) {
-          println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
-          lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
-        }else{
-          if(GlobalParameters.get.getSMT2){
-            HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
-            outputPrologFile(simplifiedClauses,"simplified")
-          }
-          simplifiedClauses
-        }
-      }
+      case _=>{getSimplifiedSMT2Files(simplifiedClauses)}
     }
-
   }
 
+  def getSimplifiedSMT2Files(simplifiedClauses: Clauses): Clauses ={
+    val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
+    if (new java.io.File(simplifiedHornSMT2FileName).exists) {
+      println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
+      lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
+    }else{
+      if(GlobalParameters.get.getSMT2){
+        HintsSelection.writeSMTFormatToFile(simplifiedClauses, GlobalParameters.get.fileName + "-simplified")
+        outputPrologFile(simplifiedClauses,"simplified")
+      }
+      simplifiedClauses
+    }
+  }
   def getHornGraphTypeString(): Unit = {
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph => {}

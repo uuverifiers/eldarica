@@ -520,6 +520,10 @@ object Main {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.PredictedCDHG
         arguments(rest)}
+      case "-abstract:mined" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Mined
+        arguments(rest)}
       case "-abstract:random" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Random
