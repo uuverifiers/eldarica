@@ -98,7 +98,7 @@ class GlobalParameters extends Cloneable {
   var getSolvingTime=false
   var getHornGraph=false
   var getAllHornGraph=false
-  var hornGraphType:HornGraphType.Value=HornGraphType.hyperEdgeGraph
+  var hornGraphType:HornGraphType.Value=HornGraphType.monoDirectionLayerGraph
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"

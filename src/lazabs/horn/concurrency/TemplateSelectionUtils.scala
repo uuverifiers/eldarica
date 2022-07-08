@@ -114,9 +114,9 @@ object TemplateSelectionUtils{
     }
     writer.write("]")
   }
-  def readOneJSONFieldToMap(fieldName:String,fileName:String,json_data: JsValue,fields:Map[String,Int]): Map[String,Int] ={
+  def readOneJSONFieldToMap(fieldName:String,fileName:String,json_data: JsValue,fields:Map[String,String]): Map[String,String] ={
     try{
-      val stRelationalEqs= (json_data \ fieldName).validate[Array[Int]] match {
+      val stRelationalEqs= (json_data \ fieldName).validate[Array[String]] match {
         case JsSuccess(st,_)=> st
       }
       fields++Map(fieldName->stRelationalEqs.head)
@@ -124,8 +124,8 @@ object TemplateSelectionUtils{
       case _=> fields
     }
   }
-  def readJSONFieldToMap(solvingTimeFileName:String,fieldNames:Seq[String]=Seq("RelationalEqs","Term","Octagon","RelationalIneqs","splitClauses")): Map[String,Int] ={
-    var fields:Map[String,Int]=Map()
+  def readJSONFieldToMap(solvingTimeFileName:String,fieldNames:Seq[String]=Seq("RelationalEqs","Term","Octagon","RelationalIneqs","splitClauses")): Map[String,String] ={
+    var fields:Map[String,String]=Map()
     val json_content = scala.io.Source.fromFile(solvingTimeFileName).mkString
     val json_data = Json.parse(json_content)
     //println("json_data",json_data)
@@ -134,14 +134,14 @@ object TemplateSelectionUtils{
     fields
   }
 
-  def writeSolvingTimeToJSON(solvingTimeFileName:String,fields:Map[String,Int]): Unit ={
+  def writeSolvingTimeToJSON(solvingTimeFileName:String,fields:Map[String,String]): Unit ={
     val writer = new PrintWriter(new File(solvingTimeFileName))
     writer.write("{\n")
     var lastFiledFlag= false
     for (f<-fields)
-      writeGNNInputFieldToJSONFile(f._1, IntArray(Array[Int](f._2)), writer, lastFiledFlag)
+      writeGNNInputFieldToJSONFile(f._1, StringArray(Array[String](f._2)), writer, lastFiledFlag)
     lastFiledFlag = true
-    writeGNNInputFieldToJSONFile("dummyFiled", IntArray(Array[Int]()), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("dummyFiled", StringArray(Array[String]()), writer, lastFiledFlag)
     writer.write("}")
     writer.close()
   }

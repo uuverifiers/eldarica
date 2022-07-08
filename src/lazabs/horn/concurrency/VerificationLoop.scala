@@ -232,6 +232,14 @@ class VerificationLoop(system : ParametricEncoder.System,
         }
 
       //////////////////////////////////////////////
+      //preprocess twice
+//      val preprocessor = new DefaultPreprocessor
+//      val (simpClauses, simpHints, backTranslator) =
+//      Console.withErr(Console.out) {
+//        preprocessor.process(preprocessor.process(encoder.allClauses, encoder.globalHints)._1,encoder.globalHints)
+//      }
+
+
       if(GlobalParameters.get.getSMT2){
         HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)
         TemplateSelectionUtils.outputPrologFile(simpClauses,"smt2")

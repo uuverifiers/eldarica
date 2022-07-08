@@ -444,10 +444,12 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   if (GlobalParameters.get.getSMT2 == true) {
+    import java.util.Calendar
     GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
     HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
     GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
     HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
+    //Thread.sleep(10*1000)//sleep 10 seconds for writing files
     sys.exit()
   }
 
@@ -526,16 +528,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     val abstractFields=Seq(AbstractionType.Empty ,AbstractionType.Unlabeled ,AbstractionType.Labeled,
       AbstractionType.PredictedCG,AbstractionType.PredictedCDHG ,AbstractionType.Random,AbstractionType.Term ,AbstractionType.Octagon,AbstractionType.RelationalEqs,
       AbstractionType.RelationalIneqs,AbstractionType.Mined).map(_.toString):+"Off"
-    val solving_time_ = 60 * 60 * 3
+    val solving_time_ = 60 * 60 * 3 * 1000
     val number_of_templates_ = 0
     val solvability_ = 0
-    val cegar_time_ = 60 * 60 * 3
+    val cegar_time_ = 60 * 60 * 3 * 1000
     val initialSolvabilityMap=(for (af <- abstractFields; f <- Seq(("solving_time_", solving_time_), ("number_of_templates_", number_of_templates_),
       ("solvability_", solvability_),("cegar_time_", cegar_time_))) yield {
       (f._1 + af + "_splitClauses_"+GlobalParameters.get.splitClauses.toString) -> f._2
     }).toMap
     if (!new java.io.File(solvabilityFileName).exists) //initialize solvability file
-      writeSolvingTimeToJSON(solvabilityFileName, initialSolvabilityMap)
+      writeSolvingTimeToJSON(solvabilityFileName, initialSolvabilityMap.mapValues(_.toString))
 
     // get templates from differernt abstract options
     val predGeneratorTemplates = {
@@ -579,13 +581,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     else
       "Off"
     writeSolvingTimeToJSON(solvabilityFileName,
-      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).updated("solving_time_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
+      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).mapValues(_.toString).updated("solving_time_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime.toString))
     writeSolvingTimeToJSON(solvabilityFileName,
-      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).updated("cegar_time_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber))
+      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).mapValues(_.toString).updated("cegar_time_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber.toString))
     writeSolvingTimeToJSON(solvabilityFileName,
-      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).updated("solvability_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvability))
+      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).mapValues(_.toString).updated("solvability_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvability.toString))
     writeSolvingTimeToJSON(solvabilityFileName,
-      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).updated("number_of_templates_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,numberOfTemplates))
+      readJSONFieldToMap(solvabilityFileName,fieldNames=initialSolvabilityMap.keySet.toSeq).mapValues(_.toString).updated("number_of_templates_"+templateBasedInterpolationTypeName+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,numberOfTemplates.toString))
 
 
 
@@ -785,7 +787,16 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       //create solving time JSON file
       val timeout = 60 * 60 * 3 * 1000 //milliseconds
       val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
-      writeSolvingTimeToJSON(solvingTimeFileName, initialFields)
+      writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
+    }
+    val measurementFileName = GlobalParameters.get.fileName + "." + "measurement" + ".JSON"
+    val initialFieldsSeqForMeasurement=Seq("timeConsumptionForCEGAR","itearationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime")
+    val additionalFields:Map[String,String]=Map(("abstractOptionption"->GlobalParameters.get.templateBasedInterpolationType.toString))
+    val measurementFields=initialFieldsSeqForMeasurement++additionalFields.keys.toSeq
+    val timeout = 60 * 60 * 3 * 1000 //milliseconds
+    if (GlobalParameters.get.singleMeasurement && !new java.io.File(measurementFileName).exists){ //initialize measurement file
+      val measurementMap: Map[String, String] = (for (e<-initialFieldsSeqForMeasurement) yield e->timeout.toString).toMap
+      writeSolvingTimeToJSON(measurementFileName, measurementMap++additionalFields)
     }
 
     val predAbs = Console.withOut(outStream) {
@@ -798,12 +809,11 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
           counterexampleMethod)
 
       if (GlobalParameters.get.singleMeasurement){
-        //write measurement to JSON file
-        val measurementList:Seq[Tuple2[String,Double]]=Seq(Tuple2("timeConsumptionForCEGAR",predAbs.cegar.cegarEndTime-predAbs.cegar.cegarStartTime)
-          ,Tuple2("itearationNumber",predAbs.cegar.iterationNum),
-          Tuple2("generatedPredicateNumber",predAbs.cegar.generatedPredicateNumber),Tuple2("averagePredicateSize",predAbs.cegar.averagePredicateSize),
-          Tuple2("predicateGeneratorTime",predAbs.cegar.predicateGeneratorTime))
-        HintsSelection.writeInfoToJSON(measurementList,suffix = "measure")
+        val meaturementResults=Seq((predAbs.cegar.cegarEndTime-predAbs.cegar.cegarStartTime).toInt,predAbs.cegar.iterationNum,
+          predAbs.cegar.generatedPredicateNumber,
+          predAbs.cegar.averagePredicateSize.toInt,predAbs.cegar.predicateGeneratorTime.toInt)
+        for ((f,m)<-initialFieldsSeqForMeasurement.zip(meaturementResults))
+          writeSolvingTimeToJSON(measurementFileName,readJSONFieldToMap(measurementFileName,fieldNames=measurementFields).updated(f,m.toString))
       }
 
 
@@ -860,10 +870,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     }
 
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
-      val cegarIterationNumber=predAbs.cegar.iterationNum
-      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime).toInt//milliseconds
-      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated("solvingTime_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
-      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated("cegarIterationNumber_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber))
+      val cegarIterationNumber=predAbs.cegar.iterationNum.toString
+      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime).toInt.toString//milliseconds
+      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).mapValues(_.toString).updated("solvingTime_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
+      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).mapValues(_.toString).updated("cegarIterationNumber_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber))
     }
 
     // save the current configuration, to make sure that the lazily

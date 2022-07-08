@@ -31,7 +31,7 @@ package lazabs.horn.abstractions
 
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.concurrency.ReaderMain
+import lazabs.horn.concurrency.{HintsSelection, ReaderMain}
 import ap.basetypes.IdealInt
 import ap.theories.nia.GroebnerMultiplication
 import ap.parser._
@@ -137,6 +137,10 @@ class StaticAbstractionBuilder(
     })
 
   //////////////////////////////////////////////////////////////////////////////
+
+  def minedAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".minedPredicates"+ ".tpl").exists == true)
+    HintsSelection.wrappedReadHints(clauses, ".minedPredicates")
+  else VerificationHints(Map())
 
   def emptyAbstractions = VerificationHints(
     for ((head, _) <- loopDetector.loopBodies) yield {
@@ -293,6 +297,8 @@ class StaticAbstractionBuilder(
         relationAbstractions(true)
       case AbstractionType.All=>
         termAbstractions++octagonAbstractions++relationAbstractions(false)
+      case AbstractionType.Mined=>
+        minedAbstractions
       case _=>{emptyAbstractions}
 
     }

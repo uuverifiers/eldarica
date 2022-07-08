@@ -1174,7 +1174,10 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
             IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
     println("read "+fileName+hintType+".tpl")
-    HintsSelection.readHints(fileName+hintType+".tpl", name2Pred)
+    val readHints=HintsSelection.readHints(fileName+hintType+".tpl", name2Pred)
+    if (GlobalParameters.get.debugLog)
+      readHints.pretyPrintHints()
+    readHints
   }
 
   def readHints(filename : String,

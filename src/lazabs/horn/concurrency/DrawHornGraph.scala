@@ -36,7 +36,7 @@ import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess, Verificat
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes, isNumeric}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, replaceMultiSamePredicateInBody, spAPI, termContains}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, getParametersFromVerifHintElement, printPredicateInMapFormat, replaceMultiSamePredicateInBody, spAPI, termContains}
 import play.api.libs.json.{JsSuccess, Json}
 import lazabs.horn.concurrency.TemplateSelectionUtils._
 
@@ -175,6 +175,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   var guardIndices = Array[Int]()
   var templateIndices = Array[Int]()
   var templateRelevanceLabel = Array[Int]()
+  var templateRelevanceBooleanTypeList = Array[Int]()
   var templateCostLabel = Array[Int]()
   var clauseIndices = Array[Int]()
   var predicateIndices = Array[Int]()
@@ -844,6 +845,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateIndices", IntArray(gnn_input.templateIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateRelevanceLabel", IntArray(gnn_input.templateRelevanceLabel), writer, lastFiledFlag)
+    writeGNNInputFieldToJSONFile("templateRelevanceBooleanTypeList", IntArray(gnn_input.templateRelevanceBooleanTypeList), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateCostLabel", IntArray(gnn_input.templateCostLabel), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("clauseIndices", IntArray(gnn_input.clauseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("guardIndices", IntArray(gnn_input.guardIndices), writer, lastFiledFlag)
@@ -1021,7 +1023,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
-
     val predictedLabel=readPredictedLabelFromJson()
 
     var counter=0
@@ -1104,25 +1105,26 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->3,
       (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseful)->4)
     if (positiveMap.keySet.map(_.toString).contains(hp.toString)) {
+      val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
       t._3 match {
         case TemplateType.TplEqTerm=>{
-          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
           val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
           val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
+          gnn_input.templateRelevanceBooleanTypeList:+=0
           (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
         }
         case TemplateType.TplInEqTerm=>{
-          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
           val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplEqTerm)
           val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
+          gnn_input.templateRelevanceBooleanTypeList:+=0
           (encodingMap(correspondingTUsefulness._1,tUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
         }
         case TemplateType.TplPredPosNeg=>{
-          val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
+          gnn_input.templateRelevanceBooleanTypeList:+=1
           (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
         }
       }
-    }else (4, 100)
+    }else (0,100)//(4, 100)
   }
 
   def getHintLabelUsefulness(positiveSeq: Seq[(IExpression, Int, TemplateType.Value)],t:(IExpression, Int, TemplateType.Value)):
