@@ -37,12 +37,12 @@ import ap.theories.nia.GroebnerMultiplication
 import ap.parser._
 import play.api.libs.json.{JsSuccess, JsValue}
 import play.api.libs.json.JsValue.jsValueToJsLookup
-
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType}
 import scala.collection.mutable.ListBuffer
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, LearnedTerm,All,Random,Unlabeled,Labeled,PredictedCG,PredictedCDHG,Mined = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs,All,Random,Unlabeled,Labeled,PredictedCG,PredictedCDHG,Mined = Value
   }
 }
 
@@ -138,9 +138,7 @@ class StaticAbstractionBuilder(
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def minedAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".minedPredicates"+ ".tpl").exists == true)
-    HintsSelection.wrappedReadHints(clauses, ".minedPredicates")
-  else VerificationHints(Map())
+
 
   def emptyAbstractions = VerificationHints(
     for ((head, _) <- loopDetector.loopBodies) yield {
@@ -149,6 +147,34 @@ class StaticAbstractionBuilder(
       // just create some unit lattice (with exactly one element)
       (head, List())
     })
+  def minedAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".minedPredicates"+ ".tpl").exists == true)
+    HintsSelection.wrappedReadHints(clauses, ".minedPredicates")
+  else VerificationHints(Map())
+  def unlabeledAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".unlabeledPredicates"+ ".tpl").exists == true)
+    HintsSelection.wrappedReadHints(clauses, ".unlabeledPredicates")
+  else VerificationHints(Map())
+  def labeledAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".labeledPredicates"+ ".tpl").exists == true)
+    HintsSelection.wrappedReadHints(clauses, ".labeledPredicates")
+  else VerificationHints(Map())
+
+  def randomAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".unlabeledPredicates"+ ".tpl").exists == true) {
+    val unlabeledTempaltes=HintsSelection.wrappedReadHints(clauses, ".unlabeledPredicates")
+    HintsSelection.randomLabelTemplates(unlabeledTempaltes, 0.2)
+  } else VerificationHints(Map())
+
+  def predictedCGAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".unlabeledPredicates"+ ".tpl").exists == true) {
+    import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType}
+    val unlabeledTempaltes=HintsSelection.wrappedReadHints(clauses, ".unlabeledPredicates")
+    GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+    HintsSelection.readPredictedHints(clauses, unlabeledTempaltes)
+  } else VerificationHints(Map())
+  def predictedCDHGAbstractions = if (new java.io.File(GlobalParameters.get.fileName +".unlabeledPredicates"+ ".tpl").exists == true) {
+    import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType}
+    val unlabeledTempaltes=HintsSelection.wrappedReadHints(clauses, ".unlabeledPredicates")
+    GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
+    HintsSelection.readPredictedHints(clauses, unlabeledTempaltes)
+  } else VerificationHints(Map())
+
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -216,91 +242,32 @@ class StaticAbstractionBuilder(
          for ((t, c) <- allCosts) yield VerifHintTplEqTerm(t, c))
     })
 
-  def termAbstractionsLearnedFromGNN = {
-    println("-----")
-    val argumentInfoWrapList = readArgumentCostFromJSONFile
-    (VerificationHints(
-      for ((loopHead, argOffsets) <-
-             ModifiedLoopVarsDetector.varOffsets(loopDetector)) yield {
-        println("loopHead",loopHead.name)
-
-        val ArgsCosts =
-          for (k <- 0 until loopHead.arity) yield {
-            var score:Int=0
-            for (arg <- argumentInfoWrapList if (arg.head==loopHead.name && k==arg.index)) {
-              score=arg.score.toInt //todo: not use toInt, directly use float number? Or at least transform >0.5 to 1 and <0.5 to 0
-            }
-            (v(k) -> score)
-          }
-
-        (loopHead,
-          for ((t, c) <- ArgsCosts)
-            yield {
-              println(t,c)
-              VerifHintTplEqTerm(t, c)})
-      })
-      )
-
-  }
-
-  def readArgumentCostFromJSONFile ={
-    import play.api.libs.json._
-    val input_file = GlobalParameters.get.fileName
-    val json_content = scala.io.Source.fromFile(input_file+".JSON").mkString
-    val json_data = Json.parse(json_content)
-    val argumentScoreList=(json_data \ "predictedArgumentScores").validate[ListBuffer[Double]] match {
-      case JsSuccess(predictedArgumentScores,_)=>{
-        predictedArgumentScores}
-    }
-    val argumentIDList=(json_data \ "argumentIDList").validate[ListBuffer[Int]] match {
-      case JsSuccess(argumentIDList,_)=>{
-        argumentIDList}
-    }
-    val argumentNameList=(json_data \ "argumentNameList").validate[ListBuffer[String]] match {
-      case JsSuccess(argumentNameList,_)=>{
-        argumentNameList}
-    }
-    var argumentInfoWrapList = new ListBuffer[argumentInfoWrap]()
-    (argumentIDList,argumentNameList,argumentScoreList).zipped foreach { (id,fullName,score) =>
-      //println(id,fullName,score)
-      val index=fullName.substring(fullName.indexOf("argument")+"argument".size)
-      val head=fullName.substring(0,fullName.lastIndexOf("/"))
-      argumentInfoWrapList += new argumentInfoWrap(id,head,index.toInt,score)
-    }
-    (argumentInfoWrapList)
-  }
-
-  class argumentInfoWrap(ID:Int,headName:String,argumentIndex:Int,argumentScore:Double){
-    val id=ID
-    val head=headName
-    val index=argumentIndex
-    val score=argumentScore
-  }
 
   //////////////////////////////////////////////////////////////////////////////
 
   import StaticAbstractionBuilder._
 
-  val abstractionHints : VerificationHints =
+  val abstractionHints: VerificationHints =
     abstractionType match {
       case AbstractionType.Empty =>
         emptyAbstractions
       case AbstractionType.Term =>
         termAbstractions
-      case AbstractionType.LearnedTerm =>
-        termAbstractionsLearnedFromGNN
       case AbstractionType.Octagon =>
         octagonAbstractions
       case AbstractionType.RelationalEqs =>
         relationAbstractions(false)
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
-      case AbstractionType.All=>
-        termAbstractions++octagonAbstractions++relationAbstractions(false)
-      case AbstractionType.Mined=>
-        minedAbstractions
-      case _=>{emptyAbstractions}
-
+      case AbstractionType.All =>
+        termAbstractions ++ octagonAbstractions ++ relationAbstractions(false)
+      case AbstractionType.Mined => minedAbstractions
+      case AbstractionType.Unlabeled => unlabeledAbstractions
+      case AbstractionType.Labeled => labeledAbstractions
+      case AbstractionType.Random => randomAbstractions
+      case AbstractionType.PredictedCG => predictedCGAbstractions
+      case AbstractionType.PredictedCDHG => predictedCDHGAbstractions
+      case _ => emptyAbstractions
     }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)

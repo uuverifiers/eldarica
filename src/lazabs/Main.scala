@@ -557,11 +557,6 @@ object Main {
         templateBasedInterpolationType = AbstractionType.RelationalIneqs
         arguments(rest)
       }
-      case "-abstract:learnedTerm" :: rest => {
-        templateBasedInterpolation = true
-        templateBasedInterpolationType = AbstractionType.LearnedTerm
-        arguments(rest)
-      }
       case "-abstract:off" :: rest => {
         templateBasedInterpolation = false
         arguments(rest)
