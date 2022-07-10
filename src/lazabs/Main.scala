@@ -899,18 +899,18 @@ object Main {
         }
         return
       }
-      if (extractTemplates) {
-        try {
-          lazabs.horn.concurrency.TrainDataGeneratorTemplatesSmt2(clauseSet, absMap, global, disjunctive,
-            drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
-        } catch {
-          case x:Any => {
-            println(Console.RED + x.toString)
-            throw MainTimeoutException
-          }
-        }
-        return
-      }
+//      if (extractTemplates) {
+//        try {
+//          lazabs.horn.concurrency.TrainDataGeneratorTemplatesSmt2(clauseSet, absMap, global, disjunctive,
+//            drawRTree, lbe) //generate train data.  clauseSet error may caused by import package
+//        } catch {
+//          case x:Any => {
+//            println(Console.RED + x.toString)
+//            throw MainTimeoutException
+//          }
+//        }
+//        return
+//      }
 
 
       if(solFileName != "") {

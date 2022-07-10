@@ -602,6 +602,15 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     HintsSelection.checkSolvability(simplifiedClausesForGraph, initialPredicatesForCEGAR.toInitialPredicates, exceptionalPredGen, localCounterexampleMethod, outStream, getFileName())
   }
 
+  //test solvability
+  if (GlobalParameters.get.getSolvingTime || GlobalParameters.get.checkSolvability){
+    getSolvability(simplifiedClausesForGraph,initialPredicatesForCEGAR.toInitialPredicates,predGenerator)
+  }
+
+  if(GlobalParameters.get.extractTemplates)
+    mineTemplates(simplifiedClausesForGraph,simpHints.toInitialPredicates,predGenerator)
+
+
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
     !simpHints.isEmpty)
     ReaderMain.printHints(simpHints, name = "Manual verification hints:")
@@ -621,19 +630,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //      sys.exit()
 //      //throw PrintingFinishedException
 //    }
-    //write solving time upper bound to json file
-    val jsonFileName= if (GlobalParameters.get.getSolvingTime) "solvingTime" else if (GlobalParameters.get.checkSolvability) "solvability" else ""
-    val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
-    val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","solvability")
-    val AbstractionTypeFields=AbstractionType.values.toSeq
-    val splitClausesOption=Seq("splitClauses_0","splitClauses_1")
-    val initialFieldsSeq=for (m<-meansureFields;a<-AbstractionTypeFields;s<-splitClausesOption) yield m+"_"+a+"_"+s
-    if(!jsonFileName.isEmpty && !new java.io.File(solvingTimeFileName).exists){
-      //create solving time JSON file
-      val timeout = 60 * 60 * 3 * 1000 //milliseconds
-      val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
-      writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
-    }
 
     val predAbs = Console.withOut(outStream) {
       println
@@ -643,34 +639,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         new HornPredAbs(simplifiedClausesForGraph,
           initialPredicatesForCEGAR.toInitialPredicates, predGenerator,
           counterexampleMethod)
-
-
-      if (GlobalParameters.get.log){
-        val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
-        println("unitTwoVariableTemplates")
-        predMiner.unitTwoVariableTemplates.pretyPrintHints()
-      }
-
-      if (GlobalParameters.get.getLabelFromCounterExample == true) {
-        //val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
-        println("Mining counter example labels ...")
-        val CEMiner = new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
-        val clausesInCE =
-          if (GlobalParameters.get.unionOption == true)
-            for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
-                 if CEMiner.unionMinimalCounterexampleIndexs.contains(i)) yield {c}
-          else
-            for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
-                 if CEMiner.commonCounterexampleIndexs.contains(i)) yield {c}
-        println("Mining counter example labels finished ")
-
-        val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
-          argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
-        val hintsCollection = new VerificationHintsInfo(VerificationHints(Map()), VerificationHints(Map()), VerificationHints(Map()))
-        val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, clausesInCE)
-        GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
-        sys.exit()
-      }
 
       GlobalParameters.get.predicateOutputFile match {
         case "" =>
@@ -697,21 +665,33 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       predAbs
     }
 
-    if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
-      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime)//milliseconds
-      val cegarIterationNumber=predAbs.cegar.iterationNum
-      val generatedPredicateNumber=predAbs.cegar.generatedPredicateNumber
-      val averagePredicateSize=predAbs.cegar.averagePredicateSize
-      val predicateGeneratorTime=predAbs.cegar.predicateGeneratorTime
-      val solvability=1
-      val resultList=Seq(solvingTime,cegarIterationNumber,generatedPredicateNumber,averagePredicateSize,predicateGeneratorTime,solvability).map(_.toInt).map(_.toString)
-      for ((m,v)<-meansureFields.zip(resultList)) {
-        writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated(m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,v))
-      }
 
 
-//      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).mapValues(_.toString).updated("solvingTime_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,solvingTime))
-//      writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).mapValues(_.toString).updated("cegarIterationNumber_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,cegarIterationNumber))
+    if (GlobalParameters.get.log){
+      val predMiner=Console.withOut(outStream){new PredicateMiner(predAbs)}
+      println("unitTwoVariableTemplates")
+      predMiner.unitTwoVariableTemplates.pretyPrintHints()
+    }
+
+    if (GlobalParameters.get.getLabelFromCounterExample == true) {
+      //val clausesInCE = getClausesInCounterExamples(predAbs.result, simplifiedClausesForGraph)
+      println("Mining counter example labels ...")
+      val CEMiner = new CounterexampleMiner(simplifiedClausesForGraph, predGenerator)
+      val clausesInCE =
+        if (GlobalParameters.get.unionOption == true)
+          for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
+               if CEMiner.unionMinimalCounterexampleIndexs.contains(i)) yield {c}
+        else
+          for ((c, i) <- simplifiedClausesForGraph.zipWithIndex;
+               if CEMiner.commonCounterexampleIndexs.contains(i)) yield {c}
+      println("Mining counter example labels finished ")
+
+      val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+        argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
+      val hintsCollection = new VerificationHintsInfo(VerificationHints(Map()), VerificationHints(Map()), VerificationHints(Map()))
+      val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, clausesInCE)
+      GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
+      sys.exit()
     }
 
     // save the current configuration, to make sure that the lazily

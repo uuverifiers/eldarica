@@ -1024,6 +1024,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
     val predictedLabel=readPredictedLabelFromJson()
+    gnn_input.predictedLabel = predictedLabel
+
 
     var counter=0
     val tempHeadMap=
@@ -1050,10 +1052,18 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             //println(t._1,hintLabel)
 
             //read predicted label from JSON
-            if (predictedLabel.isEmpty)
+            if (predictedLabel.isEmpty) {
               gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= 0
-            else
+            }
+            else {
               gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= predictedLabel(counter)
+              //draw predicted label color
+              if (predictedLabel(counter)==hintLabel)
+                gnn_input.nodeInfoList(templateASTRootName).fillColor = "green"
+              else
+                gnn_input.nodeInfoList(templateASTRootName).fillColor = "red"
+            }
+
             counter=counter+1
 
             (templateASTRootName,"verifHint"+t._3.toString)

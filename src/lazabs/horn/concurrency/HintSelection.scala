@@ -606,7 +606,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
     GlobalParameters.get.hornGraphType match {
       case HornGraphType.hyperEdgeGraph | HornGraphType.equivalentHyperedgeGraph | HornGraphType.concretizedHyperedgeGraph=>{
         val normalizedHornSMT2FileName = GlobalParameters.get.fileName + "-normalized.smt2"
-        if (new java.io.File(normalizedHornSMT2FileName).exists == true) {
+        if (new java.io.File(normalizedHornSMT2FileName).exists == true && GlobalParameters.get.readSMT2) {
           println("read " + GlobalParameters.get.fileName + "-normalized.smt2")
           lazabs.horn.parser.HornReader.fromSMT(normalizedHornSMT2FileName) map ((new HornTranslator).transform(_))
         }else{
@@ -631,7 +631,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
 
   def getSimplifiedSMT2Files(simplifiedClauses: Clauses): Clauses ={
     val simplifiedHornSMT2FileName = GlobalParameters.get.fileName + "-simplified.smt2"
-    if (new java.io.File(simplifiedHornSMT2FileName).exists) {
+    if (new java.io.File(simplifiedHornSMT2FileName).exists && GlobalParameters.get.readSMT2) {
       println("read " + GlobalParameters.get.fileName + "-simplified.smt2")
       lazabs.horn.parser.HornReader.fromSMT(simplifiedHornSMT2FileName) map ((new HornTranslator).transform(_))
     }else{
