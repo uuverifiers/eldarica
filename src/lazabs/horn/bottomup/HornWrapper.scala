@@ -607,9 +607,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     mineTemplates(simplifiedClausesForGraph,simpHints.toInitialPredicates,predGenerator)
 
 
-  if (GlobalParameters.get.templateBasedInterpolationPrint &&
-    !simpHints.isEmpty)
-    ReaderMain.printHints(simpHints, name = "Manual verification hints:")
+  if (GlobalParameters.get.templateBasedInterpolationPrint && !simpHints.isEmpty)
+    AbsReader.printHints(simpHints)
+
 
   //////////////////////////////////////////////////////////////////////////////
 

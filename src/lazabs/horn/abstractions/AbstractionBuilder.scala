@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer, Chencheng Liang All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -271,7 +271,7 @@ class StaticAbstractionBuilder(
     }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)
-    ReaderMain printHints abstractionHints
+    AbsReader printHints abstractionHints
 
   val abstractionRecords : AbstractionRecord.AbstractionMap =
     loopDetector.hints2AbstractionRecord(abstractionHints)

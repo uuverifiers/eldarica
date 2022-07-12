@@ -204,3 +204,7 @@ sat
    Ignoring hints for Inv
 
 sat
+Warning: ignoring get-model
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(define-fun |inv:0| ((A Int) (B Int)) Bool (and (and (>= (* 2 A) B) (<= A 1001)) (>= B 0)))

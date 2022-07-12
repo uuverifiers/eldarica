@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -198,9 +198,23 @@ class AbsReader(input : java.io.Reader) {
 
     val predArities = new MHashMap[String, Int]
 
+    def translateSymbolRef(symref : SymbolRef) : String =
+      symref.asInstanceOf[IdentifierRef]
+            .identifier_
+            .asInstanceOf[SymbolIdent]
+            .symbol_ match {
+        case s : NormalSymbol =>
+          s.normalsymbolt_
+        case s : QuotedSymbol => {
+          val str = s.quotedsymbolt_
+          str.substring(1, str.size - 1)
+       }
+     }
+
+
     def translatePredRef(predrefC : PredRefC) : (String, Int) = {
       val predref = predrefC.asInstanceOf[PredRef]
-      val predName = printer print predref.symbolref_
+      val predName = translateSymbolRef(predref.symbolref_)
 
       for (variableC <- predref.listsortedvariablec_.reverseIterator) {
         val variable = variableC.asInstanceOf[SortedVariable]

@@ -40,7 +40,7 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
-                    MulTheory, ModuloArithmetic, ExtArray, Heap}
+                    MulTheory, ModuloArithmetic, ExtArray, Heap, DivZero}
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -212,6 +212,36 @@ object HornReader {
                   arg : Context[Unit],
                   subres : Seq[Unit]) : Unit = ()
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Visitor for eliminating the functions encoding division and
+   * modulo by zero. Those functions (reflecting SMT-LIB semantics)
+   * cannot be handle properly in Horn clauses.
+   */
+  object DivZeroEliminator extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    def apply(f : IFormula) = visit(f, ()).asInstanceOf[IFormula]
+
+    def isDivZeroFunction(f : IFunction) : Boolean =
+      TheoryRegistry.lookupSymbol(f) match {
+        case Some(_ : DivZero) => true
+        case _                 => false
+      }
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(f, Seq(t)) if isDivZeroFunction(f) => {
+        val sort = Sort sortOf t
+        println("Warning: eliminating div-zero function")
+        sort.eps(false)
+      }
+      case _ =>
+        t update subres
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -224,7 +254,7 @@ class SMTHornReader protected[parser] (
 
   import IExpression._
   import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor,
-                     QuantifiedBodyPredsVisitor}
+                     QuantifiedBodyPredsVisitor, DivZeroEliminator}
 
   private val outStream =
      if (lazabs.GlobalParameters.get.logStat)
@@ -345,7 +375,9 @@ class SMTHornReader protected[parser] (
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val clauses = LineariseVisitor(Transform2NNF(!f), IBinJunctor.And)
+  val clauses = Console.withOut(outStream) {
+    LineariseVisitor(Transform2NNF(DivZeroEliminator(!f)), IBinJunctor.And)
+  }
 
   if (!signature.theories.isEmpty)
     Console.withOut(outStream) {
@@ -358,16 +390,19 @@ class SMTHornReader protected[parser] (
         case _ : Heap         => false
         case _ : ADT          => false
         case _ : MulTheory    => false
+        case _ : DivZero      => false
         case TypeTheory       => false
         case ModuloArithmetic => false
         case _                => true
       })
-    throw new Exception ("Combination of theories is not supported")
+    throw new Exception ("Combination of theories is not supported: " +
+                           signature.theories.mkString(", "))
 
   val canEliminateBodyQuantifiers =
     signature.theories forall {
       case _ : SimpleArray => true
       case _ : ExtArray    => true
+      case _ : DivZero     => true
       case TypeTheory      => true
       case _               => false
     }
