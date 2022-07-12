@@ -281,13 +281,14 @@ class VerificationLoop(system : ParametricEncoder.System,
           } else {
           DagInterpolator.interpolatingPredicateGenCEXAndOr _
         }
+        ////////////////////////////////////////////////////////////////////////////
         if (GlobalParameters.get.getSolvingTime || GlobalParameters.get.checkSolvability){
-          getSolvability(simpClauses,simpHints.toInitialPredicates,interpolator)
+          getSolvability(encoder.allClauses,simpClauses,simpHints.toInitialPredicates,interpolator)
         }
         if (GlobalParameters.get.extractTemplates) {
           mineTemplates(simpClauses,simpHints.toInitialPredicates,interpolator)
         }
-
+        ////////////////////////////////////////////////////////////////////////////
         println
         println(
           "----------------------------------- CEGAR --------------------------------------")

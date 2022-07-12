@@ -154,7 +154,8 @@ object VerificationHints {
     import VerificationHints._
 
     val predicateHints : Map[Predicate, Seq[VerifHintElement]]
-    /////////////////DEBUG///////////
+
+    /////////////////Statistics///////////
     def pretyPrintHints() = {
       println(Console.BLUE+"-----------------------------------")
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
@@ -179,10 +180,8 @@ object VerificationHints {
         v.size
       }).max
     }
-    def getPredicateHints() = {
-      predicateHints
-    }
-    /////////////////DEBUG///////////
+
+    /////////////////Statistics///////////
 
     def isEmpty = predicateHints.isEmpty
 

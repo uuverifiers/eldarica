@@ -350,6 +350,30 @@ object HintsSelection {
   }
 
 
+  def getVerificationHintsStatistics(verifHints:VerificationHints): (Int,Int,Int,Int) ={
+    var twoVariablesTemplatesList:Seq[IExpression]=Seq()
+    var oneVariablesTemplatesList:Seq[IExpression]=Seq()
+    for (e<-verifHints.predicateHints.values.flatten){
+      val ve =getParametersFromVerifHintElement(e)
+      ve._3 match {
+        case TemplateType.TplPred=> oneVariablesTemplatesList:+=ve._1
+        case TemplateType.TplPredPosNeg =>{
+          println(Console.BLUE+"debug")
+          oneVariablesTemplatesList:+=ve._1}
+        case TemplateType.TplEqTerm => {
+          println(Console.BLUE+"TplEqTerm "+ve._1.toString)
+          twoVariablesTemplatesList:+=ve._1}
+        case TemplateType.TplInEqTerm=> {
+          println(Console.BLUE+"TplInEqTerm "+ve._1.toString)
+          twoVariablesTemplatesList:+=ve._1}
+        case TemplateType.TplInEqTermPosNeg=>{
+          println(Console.BLUE+"TplInEqTermPosNeg "+ve._1.toString)
+          twoVariablesTemplatesList:+=ve._1}
+      }
+    }
+    (oneVariablesTemplatesList.size,twoVariablesTemplatesList.size,verifHints.totalPredicateNumber,verifHints.totalHeadNumber)
+  }
+
   def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
     case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
     case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
@@ -1168,6 +1192,12 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
     }else Map()
   }
 
+  def wrappedReadHintsCheckExistence(simplifiedClausesForGraph:Seq[Clause],templateTypeName:String,defaultTemplates:VerificationHints): VerificationHints ={
+    if (new java.io.File(GlobalParameters.get.fileName +templateTypeName+ ".tpl").exists == true)
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, templateTypeName)
+    else
+      defaultTemplates
+  }
   def wrappedReadHints(simplifiedClausesForGraph:Seq[Clause],hintType:String="",fileName:String=GlobalParameters.get.fileName):VerificationHints={
     val name2Pred =
       (for (Clause(head, body, _) <- simplifiedClausesForGraph.iterator;
@@ -1664,7 +1694,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
     hints match {
       case h: VerificationHints => {
         var tempHints = VerificationHints(Map()) //sort the hints
-        for ((oneHintKey, oneHintValue) <- h.getPredicateHints()) {
+        for ((oneHintKey, oneHintValue) <- h.predicateHints) {
           val tempSeq = oneHintValue.sortBy(_.toString)
           tempHints = tempHints.addPredicateHints(Map(oneHintKey -> tempSeq))
         }
@@ -1831,7 +1861,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
 
   def initialIDForHints(simpHints: VerificationHints): Seq[wrappedHintWithID] = {
     var counter = 0
-    val wrappedHintsList = for ((head,hints) <- simpHints.getPredicateHints();oneHint <- hints) yield{
+    val wrappedHintsList = for ((head,hints) <- simpHints.predicateHints;oneHint <- hints) yield{
       counter = counter + 1
       wrappedHintWithID(counter, head.name, oneHint.toString)
     }
@@ -1951,7 +1981,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
     if (countOccurrence == true) {
       //get hint info list
       var positiveHintInfoList: ArrayBuffer[hintInfo] = ArrayBuffer[hintInfo]()
-      for ((head, hintList) <- positiveHints.getPredicateHints()) {
+      for ((head, hintList) <- positiveHints.predicateHints) {
         for (h <- hintList) h match {
           case VerifHintInitPred(p) => {
             positiveHintInfoList += new hintInfo(p, "VerifHintInitPred", head)

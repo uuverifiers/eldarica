@@ -1021,7 +1021,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
   def drawTemplates(): Seq[(String,Seq[(String,String)])]={
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
-    val positiveTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
+    val minedTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
     val predictedTemplates = hints.predictedHints.predicateHints.transform((k, v) => v.map(getParametersFromVerifHintElement(_)))
     val predictedLabel=readPredictedLabelFromJson()
     gnn_input.predictedLabel = predictedLabel
@@ -1029,7 +1029,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
     var counter=0
     val tempHeadMap=
-      for((hp,templates)<-unlabeledTemplates) yield {
+      for((hp,unlabeledT)<-unlabeledTemplates) yield {
         //println(hp)
         argumentNodeSetInPredicates.clear()
         for (a<-argumentNodeSetCrossGraph(hp.name)){
@@ -1039,10 +1039,10 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         binaryOperatorSubGraphSetInOneClause.clear()
         unaryOperatorSubGraphSetInOneClause.clear()
         val templateNameList=
-          for (t<-templates) yield {
+          for (t<-unlabeledT) yield {
             //encode label to multi-class
-            //val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
-            val (hintLabel,cost) = encodeLabelToMultiClass(positiveTemplates,t,hp,templates)
+            //val (hintLabel,cost) = getHintLabelAndCost(minedTemplates,t,hp)
+            val (hintLabel,cost) = encodeLabelToMultiClass(minedTemplates,t,hp,unlabeledT)
             //println(t,hintLabel)
             //draw boolean predicate as single term node
             val transfomedT=transformBooleanPredicateToTerm(t)
@@ -1106,7 +1106,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       }
     tempHeadMap
   }
-  def encodeLabelToMultiClass(positiveMap: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
+  def encodeLabelToMultiClass(minedMap: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
                               hp:Predicate,currentTemplateSeq:Seq[(IExpression, Int, TemplateType.Value)]): (Int,Int) ={
     val encodingMap=Map(
       (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseless)->0,
@@ -1114,25 +1114,34 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->2,
       (TemplateTypeUsefulNess.TplEqTermUseful,TemplateTypeUsefulNess.TplInEqTermUseful,TemplateTypeUsefulNess.TplPredPosNegUseless)->3,
       (TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,TemplateTypeUsefulNess.TplPredPosNegUseful)->4)
-    if (positiveMap.keySet.map(_.toString).contains(hp.toString)) {
-      val tUsefulness=getHintLabelUsefulness(positiveMap(hp),t)
+    if (minedMap.keySet.map(_.toString).contains(hp.toString)) { // loop head check
+      val tUsefulness=getHintLabelUsefulness(minedMap(hp),t)
       t._3 match {
-        case TemplateType.TplEqTerm=>{
-          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
-          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
-          gnn_input.templateRelevanceBooleanTypeList:+=0
-          (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+        case TemplateType.TplPred=>{//predicate
+          gnn_input.templateRelevanceBooleanTypeList:+=1
+          (0,100)
         }
-        case TemplateType.TplInEqTerm=>{
-          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplEqTerm)
-          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplEqTermUseless,100)}else getHintLabelUsefulness(positiveMap(hp),correspondingT.head)
-          gnn_input.templateRelevanceBooleanTypeList:+=0
-          (encodingMap(correspondingTUsefulness._1,tUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
-        }
-        case TemplateType.TplPredPosNeg=>{
+        case TemplateType.TplPredPosNeg=>{ //predicate-2
           gnn_input.templateRelevanceBooleanTypeList:+=1
           (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
         }
+        case TemplateType.TplEqTerm=>{ //term
+          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
+          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(minedMap(hp),correspondingT.head)
+          gnn_input.templateRelevanceBooleanTypeList:+=0
+          (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+        }
+        case TemplateType.TplInEqTerm=>{ //inequality-term
+          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplEqTerm)
+          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplEqTermUseless,100)}else getHintLabelUsefulness(minedMap(hp),correspondingT.head)
+          gnn_input.templateRelevanceBooleanTypeList:+=0
+          (encodingMap(correspondingTUsefulness._1,tUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+        }
+        case TemplateType.TplInEqTermPosNeg=>{//inequality-term-2
+          gnn_input.templateRelevanceBooleanTypeList:+=0
+          (0,100)
+        }
+
       }
     }else (0,100)//(4, 100)
   }

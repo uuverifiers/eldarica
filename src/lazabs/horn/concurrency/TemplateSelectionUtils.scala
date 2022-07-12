@@ -12,7 +12,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornPredAbs, NormClause, PredicateMiner}
 import lazabs.horn.concurrency.DrawHornGraph.addQuotes
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getParametersFromVerifHintElement, termContains}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getParametersFromVerifHintElement, termContains, wrappedReadHintsCheckExistence}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -156,20 +156,56 @@ object TemplateSelectionUtils{
     writer.close()
   }
 
-  def getSolvability(simplifiedClausesForGraph:Clauses,initialPredicatesForCEGAR:Map[Predicate, Seq[IFormula]],predGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-    Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, NormClause)]]): Unit ={
+  def getSolvability(unsimplifiedClauses: Seq[Clause],
+                     simplifiedClausesForGraph:Seq[Clause],
+                     initialPredicatesForCEGAR:Map[Predicate, Seq[IFormula]],
+                     predGenerator : Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit ={
     //todo: add more statistic info such as number of clauses.
+    val unlabeledTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".unlabeledPredicates",VerificationHints(Map()))
+    val unlabeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(unlabeledTemplates)
+    val labeledTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".labeledPredicates",VerificationHints(Map()))
+    val labeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(labeledTemplates)
+    val minedTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".minedPredicates",VerificationHints(Map()))
+    val minedTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(minedTemplates)
+    println("unlabeledTemplatesStatistics",unlabeledTemplatesStatistics)
+    println("labeledTemplatesStatistics",labeledTemplatesStatistics)
+    println("minedTemplatesStatistics",minedTemplatesStatistics)
     val jsonFileName= if (GlobalParameters.get.getSolvingTime) "solvingTime" else if (GlobalParameters.get.checkSolvability) "solvability" else ""
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
-    val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber","averagePredicateSize","predicateGeneratorTime","solvability")
+    val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber",
+      "averagePredicateSize","predicateGeneratorTime","solvability",
+      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSize","relationSymbolNumber",
+    "minedSingleVariableTemplatesNumber","minedBinaryVariableTemplatesNumber","minedTemplateNumber","minedTemplateRelationSymbolNumber",
+      "labeledSingleVariableTemplatesNumber","labeledBinaryVariableTemplatesNumber","labeledTemplateNumber","labeledTemplateRelationSymbolNumber",
+      "unlabeledSingleVariableTemplatesNumber","unlabeledBinaryVariableTemplatesNumber","unlabeledTemplateNumber","unlabeledTemplateRelationSymbolNumber")
     val AbstractionTypeFields=AbstractionType.values.toSeq
     val splitClausesOption=Seq("splitClauses_0","splitClauses_1")
-    val initialFieldsSeq=for (m<-meansureFields;a<-AbstractionTypeFields;s<-splitClausesOption) yield m+"_"+a+"_"+s
+    val initialFieldsSeq= (for (m<-meansureFields;a<-AbstractionTypeFields;s<-splitClausesOption) yield (m+"_"+a+"_"+s->(m,a,s))).toMap
     if(!jsonFileName.isEmpty && !new java.io.File(solvingTimeFileName).exists){
       //create solving time JSON file
       val timeout = 60 * 60 * 3 * 1000 //milliseconds
-      val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
+      //val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
+      val initialFields: Map[String, Int] = (
+        for ((k,v)<-initialFieldsSeq) yield v._1 match {
+          case "clauseNumberBeforeSimplification"=>k->unsimplifiedClauses.length
+          case "clauseNumberAfterSimplification"=>k->simplifiedClausesForGraph.length
+          case "smt2FileSize"=>k->new File(GlobalParameters.get.fileName).length().toInt//bytes
+          case "relationSymbolNumber"=>k->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_)
+          case "minedSingleVariableTemplatesNumber"=> k->minedTemplatesStatistics._1
+          case "minedBinaryVariableTemplatesNumber"=> k->minedTemplatesStatistics._2
+          case "minedTemplateNumber"=>k->minedTemplatesStatistics._3
+          case "minedTemplateRelationSymbolNumber"=>k->minedTemplatesStatistics._4
+          case "labeledSingleVariableTemplatesNumber"=> k->labeledTemplatesStatistics._1
+          case "labeledBinaryVariableTemplatesNumber"=> k->labeledTemplatesStatistics._2
+          case "labeledTemplateNumber"=>k->labeledTemplatesStatistics._3
+          case "labeledTemplateRelationSymbolNumber"=>k->labeledTemplatesStatistics._4
+          case "unlabeledSingleVariableTemplatesNumber"=> k->unlabeledTemplatesStatistics._1
+          case "unlabeledBinaryVariableTemplatesNumber"=> k->unlabeledTemplatesStatistics._2
+          case "unlabeledTemplateNumber"=>k->unlabeledTemplatesStatistics._3
+          case "unlabeledTemplateRelationSymbolNumber"=>k->unlabeledTemplatesStatistics._4
+          case _=>k->timeout
+          }
+        ).toMap
       writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
     }
 
@@ -184,9 +220,10 @@ object TemplateSelectionUtils{
       val averagePredicateSize=predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime=predAbs.cegar.predicateGeneratorTime
       val solvability=1
-      val resultList=Seq(solvingTime,cegarIterationNumber,generatedPredicateNumber,averagePredicateSize,predicateGeneratorTime,solvability).map(_.toInt).map(_.toString)
+      val resultList=Seq(solvingTime,cegarIterationNumber,generatedPredicateNumber,
+        averagePredicateSize,predicateGeneratorTime,solvability).map(_.toInt).map(_.toString)
       for ((m,v)<-meansureFields.zip(resultList)) {
-        writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq).updated(m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,v))
+        writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq.keys.toSeq).updated(m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,v))
       }
     }
     sys.exit()
