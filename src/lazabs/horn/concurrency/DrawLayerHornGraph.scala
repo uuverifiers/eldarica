@@ -194,11 +194,9 @@ class DrawLayerHornGraph(file: String, clausesCollection: ClauseInfo, hints: Ver
   for ((head,templateNodeNameList)<-templateNameList;templateNodeName<-templateNodeNameList) {
     addBinaryEdge(from=predicateNameMap(head).predicateCanonicalName,to=templateNodeName._1,label=templateNodeName._2)
   }
-  for (n<-gnn_input.nodeInfoList){ //draw all nodes
-    writerGraph.write(addQuotes(n._2.canonicalName) +
-      " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
-      " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) +"color="+n._2.color+ "];" + "\n")
-  }
+
+  drawAllNodes()
+
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

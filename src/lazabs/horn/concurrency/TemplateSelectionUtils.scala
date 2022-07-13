@@ -10,9 +10,9 @@ import lazabs.horn.abstractions.{StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CEGAR, HornPredAbs, NormClause, PredicateMiner}
+import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, HornTranslator, NormClause, PredicateMiner}
 import lazabs.horn.concurrency.DrawHornGraph.addQuotes
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getParametersFromVerifHintElement, termContains, wrappedReadHintsCheckExistence}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getArgumentInfo, getParametersFromVerifHintElement, termContains, wrappedReadHintsCheckExistence}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -287,6 +287,46 @@ object TemplateSelectionUtils{
     HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
 
     sys.exit()
+  }
+
+  def getHornGraphForTemplatesSelection(simpClauses:Seq[Clause]): Unit ={
+    val simplifiedClausesForGraph = HintsSelection.normalizedClausesForGraphs(simpClauses, VerificationHints(Map()))
+    if (GlobalParameters.get.debugLog)
+      simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
+
+    if (GlobalParameters.get.getHornGraph == true) {
+      HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
+      HintsSelection.checkMaxNode(simplifiedClausesForGraph)
+    }
+
+    val unlabeledTemplates=HintsSelection.wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".unlabeledPredicates",generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) )
+    if (unlabeledTemplates.totalPredicateNumber == 0 ) {
+      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
+      sys.exit()
+    }
+    val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + ".labeledPredicates" + ".tpl").exists)
+      HintsSelection.wrappedReadHints(simplifiedClausesForGraph, ".labeledPredicates")
+    else if (new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON").exists)
+      HintsSelection.readPredicateLabelFromOneJSON(new VerificationHintsInfo(unlabeledTemplates, VerificationHints(Map()), VerificationHints(Map())), "templateRelevanceLabel")
+    else VerificationHints(Map())
+
+    val predictedPredicates = if ((new java.io.File(GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON")).exists)
+      HintsSelection.readPredictedHints(simplifiedClausesForGraph, unlabeledTemplates)
+    else
+      VerificationHints(Map())
+
+    //    val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
+    //      argumentOccurrence = GlobalParameters.get.argumentOccurenceLabel,argumentBound =GlobalParameters.get.argumentBoundLabel)
+    val argumentList = (for (p <- HornClauses.allPredicates(simplifiedClausesForGraph)) yield (p, p.arity)).toArray.sortBy(_._1.name)
+    val argumentInfo =getArgumentInfo(argumentList)
+
+    val clauseCollection = new ClauseInfo(simplifiedClausesForGraph, Seq())
+
+    val hintsCollection = new VerificationHintsInfo(unlabeledTemplates, truePredicates, VerificationHints(Map()),predictedPredicates)
+    GraphTranslator.drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo)
+
+    sys.exit()
+
   }
 
 

@@ -445,27 +445,7 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
   }
 
   //draw all nodes
-  for (n <- gnn_input.nodeInfoList) {
-    if (n._2.labelList.isEmpty) {
-      writerGraph.write(addQuotes(n._2.canonicalName) +
-        " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
-        " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) + " color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled" + "];" + "\n")
-    } else {//with colorful highlights
-      var labelContent = ""
-      var predictedLabelContent = ""
-      for (l <- n._2.labelList)
-        labelContent = labelContent + l.toString + "|"
-      labelContent = labelContent.dropRight(1)
-      for (l <- n._2.predictedLabelList)
-        predictedLabelContent = predictedLabelContent + l.toString + "|"
-      predictedLabelContent = predictedLabelContent.dropRight(1)
-      val finalLabelContent = (n._2.labelName + "|" + labelContent)
-      val finalPredictedLabelContent = (n._2.labelName + "|" + predictedLabelContent)
-      writerGraph.write(addQuotes(n._2.canonicalName) + "[ "+" color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled"
-        +" shape=record label=" + "\"{" + "{" + finalLabelContent + "}|{" + finalPredictedLabelContent + "}" + "}\"" + "];" + "\n")
-    }
-
-  }
+  drawAllNodes()
 
   writerGraph.write("}" + "\n")
   writerGraph.close()

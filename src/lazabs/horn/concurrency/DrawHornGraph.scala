@@ -298,13 +298,13 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
   }
 
   def modifyTemplateLabel(hintLabel: Int, cost: Int, nodeUniqueName: String): Unit = {
-    hintLabel match {
-      case 0 => nodeInfoList(nodeUniqueName).color = "red"
-      case 1 => nodeInfoList(nodeUniqueName).color = "green"
-      case 2 => nodeInfoList(nodeUniqueName).color = "blue"
-      case 3 => nodeInfoList(nodeUniqueName).color = "yellow"
-      case 4 => nodeInfoList(nodeUniqueName).color = "black"
-    }
+//    hintLabel match {
+//      case 0 => nodeInfoList(nodeUniqueName).color = "red"
+//      case 1 => nodeInfoList(nodeUniqueName).color = "green"
+//      case 2 => nodeInfoList(nodeUniqueName).color = "blue"
+//      case 3 => nodeInfoList(nodeUniqueName).color = "yellow"
+//      case 4 => nodeInfoList(nodeUniqueName).color = "black"
+//    }
     nodeInfoList(nodeUniqueName).labelList :+= hintLabel
     templateRelevanceLabel :+= hintLabel
     templateCostLabel :+= cost
@@ -1027,7 +1027,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     val predictedLabel=readPredictedLabelFromJson()
     gnn_input.predictedLabel = predictedLabel
 
-
     var counter=0
     val tempHeadMap=
       for((hp,unlabeledT)<-unlabeledTemplates) yield {
@@ -1059,7 +1058,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
             else {
               gnn_input.nodeInfoList(templateASTRootName).predictedLabelList :+= predictedLabel(counter)
               //draw predicted label color
-              if (predictedLabel(counter)==hintLabel)
+              if (predictedLabel(counter) == hintLabel)
                 gnn_input.nodeInfoList(templateASTRootName).fillColor = "green"
               else
                 gnn_input.nodeInfoList(templateASTRootName).fillColor = "red"
@@ -1214,6 +1213,29 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     gnn_input.argumentInfoHornGraphList += localArgInfo
   }
 
+  def drawAllNodes(): Unit ={
+    for (n <- gnn_input.nodeInfoList) {
+      if (n._2.labelList.isEmpty) {
+        writerGraph.write(addQuotes(n._2.canonicalName) +
+          " [label=" + addQuotes(n._2.labelName) + " nodeName=" + addQuotes(n._2.canonicalName) +
+          " class=" + n._2.className + " shape=" + addQuotes(n._2.shape) + " color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled" + "];" + "\n")
+      } else {//with colorful highlights
+        var labelContent = ""
+        var predictedLabelContent = ""
+        for (l <- n._2.labelList)
+          labelContent = labelContent + l.toString + "|"
+        labelContent = labelContent.dropRight(1)
+        for (l <- n._2.predictedLabelList)
+          predictedLabelContent = predictedLabelContent + l.toString + "|"
+        predictedLabelContent = predictedLabelContent.dropRight(1)
+        val finalLabelContent = (n._2.labelName + "|" + labelContent)
+        val finalPredictedLabelContent = (n._2.labelName + "|" + predictedLabelContent)
+        writerGraph.write(addQuotes(n._2.canonicalName) + "[ "+" color=" + n._2.color + " fillcolor=" + n._2.fillColor + " style=filled"
+          +" shape=record label=" + "\"{" + "{" + finalLabelContent + "}|{" + finalPredictedLabelContent + "}" + "}\"" + "];" + "\n")
+      }
+
+    }
+  }
 }
 
 
