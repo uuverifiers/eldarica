@@ -31,6 +31,7 @@ package lazabs.horn.concurrency
 import java.io.{File, PrintWriter}
 import ap.parser.IExpression._
 import ap.parser.{IExpression, _}
+import ap.types.Sort.{:::, AnyBool}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.{TemplateType, TemplateTypeUsefulNess, VerificationHints}
 import lazabs.horn.bottomup.HornClauses.Clause
@@ -1126,16 +1127,19 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
         }
         case TemplateType.TplEqTerm=>{ //term
-          //predicate-2 will match this, differerntiate boolean by Sort
-          //          if (ve._1.length<2)
-          //          Sort sortOf ve._1.asInstanceOf[ITerm] match {
-          //            case MultipleValueBool=>{println(Console.RED+"MultipleValueBool ")} //Boolean
-          //            case _=>{println(Sort sortOf ve._1.asInstanceOf[ITerm])}
-          //          }
-          val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
-          val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(minedMap(hp),correspondingT.head)
-          gnn_input.templateRelevanceBooleanTypeList:+=0
-          (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+          //predicate-2 will match TplEqTerm, differerntiate boolean by Sort
+          t._1 match {
+            case (e : ITerm) ::: AnyBool(_) => {
+              gnn_input.templateRelevanceBooleanTypeList:+=1
+              (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
+            }
+            case e : ITerm => {
+              val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
+              val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(minedMap(hp),correspondingT.head)
+              gnn_input.templateRelevanceBooleanTypeList:+=0
+              (encodingMap(tUsefulness._1,correspondingTUsefulness._1,TemplateTypeUsefulNess.TplPredPosNegUseless),tUsefulness._2)
+            }
+          }
         }
         case TemplateType.TplInEqTerm=>{ //inequality-term
           val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplEqTerm)
@@ -1159,13 +1163,23 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       b match {
         case true=>
           t._3 match {
-            case TemplateType.TplEqTerm=>(TemplateTypeUsefulNess.TplEqTermUseful, c)
+            case TemplateType.TplEqTerm=>{
+              t._1 match {
+                case (e : ITerm) ::: AnyBool(_) => (TemplateTypeUsefulNess.TplPredPosNegUseful, c)
+                case e : ITerm => (TemplateTypeUsefulNess.TplEqTermUseful, c)
+              }
+            }
             case TemplateType.TplInEqTerm=>(TemplateTypeUsefulNess.TplInEqTermUseful,c)
             case TemplateType.TplPredPosNeg=>(TemplateTypeUsefulNess.TplPredPosNegUseful,c)
           }
         case false=>
           t._3 match {
-            case TemplateType.TplEqTerm=>(TemplateTypeUsefulNess.TplEqTermUseless, c)
+            case TemplateType.TplEqTerm=>{
+              t._1 match {
+                case (e : ITerm) ::: AnyBool(_) => (TemplateTypeUsefulNess.TplPredPosNegUseless, c)
+                case e : ITerm => (TemplateTypeUsefulNess.TplEqTermUseless, c)
+              }
+            }
             case TemplateType.TplInEqTerm=>(TemplateTypeUsefulNess.TplInEqTermUseless,c)
             case TemplateType.TplPredPosNeg=>(TemplateTypeUsefulNess.TplPredPosNegUseless,c)
           }

@@ -352,6 +352,7 @@ object HintsSelection {
 
 
   def getVerificationHintsStatistics(verifHints:VerificationHints): (Int,Int,Int,Int) ={
+    //todo: //predicate-2 matches TplEqTerm, need to be differentiate by Sort if necessary
     var twoVariablesTemplatesList:Seq[IExpression]=Seq()
     var oneVariablesTemplatesList:Seq[IExpression]=Seq()
     def incrementTemplateList(e:IExpression): Unit ={
@@ -364,17 +365,10 @@ object HintsSelection {
       val ve =getParametersFromVerifHintElement(e)
       ve._3 match {
         case TemplateType.TplPred=> oneVariablesTemplatesList:+=ve._1
-        case TemplateType.TplPredPosNeg =>{
-          oneVariablesTemplatesList:+=ve._1}
-        case TemplateType.TplEqTerm => {
-          incrementTemplateList(ve._1)
-        }
-        case TemplateType.TplInEqTerm=> {
-          incrementTemplateList(ve._1)
-        }
-        case TemplateType.TplInEqTermPosNeg=>{
-          incrementTemplateList(ve._1)
-        }
+        case TemplateType.TplPredPosNeg =>{oneVariablesTemplatesList:+=ve._1}
+        case TemplateType.TplEqTerm => {incrementTemplateList(ve._1)}
+        case TemplateType.TplInEqTerm=> {incrementTemplateList(ve._1)}
+        case TemplateType.TplInEqTermPosNeg=>{incrementTemplateList(ve._1)}
       }
     }
     (oneVariablesTemplatesList.size,twoVariablesTemplatesList.size,verifHints.totalPredicateNumber,verifHints.totalHeadNumber)
@@ -382,19 +376,19 @@ object HintsSelection {
 
   def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
     case VerifHintTplPred(f,cost)=>{
-      println(Console.BLUE+"TplPred "+f.toString)
+      //println(Console.BLUE+"TplPred "+f.toString)
       (f,cost,TemplateType.TplPred)}
     case VerifHintTplPredPosNeg(f,cost)=>{
-      println(Console.RED+"TplPredPosNeg "+f.toString)
+      //println(Console.RED+"TplPredPosNeg "+f.toString)
       (f,cost,TemplateType.TplPredPosNeg)}
     case VerifHintTplEqTerm(t,cost)=>{
-      println(Console.BLUE+"TplEqTerm "+t.toString)
+      //println(Console.BLUE+"TplEqTerm "+t.toString)
       (t,cost,TemplateType.TplEqTerm)}
     case VerifHintTplInEqTerm(t,cost)=>{
-      println(Console.BLUE+"TplInEqTerm "+t.toString)
+      //println(Console.BLUE+"TplInEqTerm "+t.toString)
       (t,cost,TemplateType.TplInEqTerm)}
     case VerifHintTplInEqTermPosNeg(t,cost)=>{
-      println(Console.BLUE+"TplInEqTermPosNeg "+t.toString)
+      //println(Console.BLUE+"TplInEqTermPosNeg "+t.toString)
       (t,cost,TemplateType.TplInEqTermPosNeg)}
   }
 
