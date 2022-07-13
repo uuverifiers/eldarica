@@ -1126,6 +1126,12 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
           (encodingMap(TemplateTypeUsefulNess.TplEqTermUseless,TemplateTypeUsefulNess.TplInEqTermUseless,tUsefulness._1),tUsefulness._2)
         }
         case TemplateType.TplEqTerm=>{ //term
+          //predicate-2 will match this, differerntiate boolean by Sort
+          //          if (ve._1.length<2)
+          //          Sort sortOf ve._1.asInstanceOf[ITerm] match {
+          //            case MultipleValueBool=>{println(Console.RED+"MultipleValueBool ")} //Boolean
+          //            case _=>{println(Sort sortOf ve._1.asInstanceOf[ITerm])}
+          //          }
           val correspondingT=currentTemplateSeq.filter(x=>x._1==t._1&&x._3==TemplateType.TplInEqTerm)
           val correspondingTUsefulness=if(correspondingT.isEmpty){(TemplateTypeUsefulNess.TplInEqTermUseless,100)}else getHintLabelUsefulness(minedMap(hp),correspondingT.head)
           gnn_input.templateRelevanceBooleanTypeList:+=0

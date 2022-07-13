@@ -167,14 +167,12 @@ object TemplateSelectionUtils{
     val labeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(labeledTemplates)
     val minedTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".minedPredicates",VerificationHints(Map()))
     val minedTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(minedTemplates)
-    println("unlabeledTemplatesStatistics",unlabeledTemplatesStatistics)
-    println("labeledTemplatesStatistics",labeledTemplatesStatistics)
-    println("minedTemplatesStatistics",minedTemplatesStatistics)
+
     val jsonFileName= if (GlobalParameters.get.getSolvingTime) "solvingTime" else if (GlobalParameters.get.checkSolvability) "solvability" else ""
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
     val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber",
       "averagePredicateSize","predicateGeneratorTime","solvability",
-      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSize","relationSymbolNumber",
+      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSizeByte","relationSymbolNumber",
     "minedSingleVariableTemplatesNumber","minedBinaryVariableTemplatesNumber","minedTemplateNumber","minedTemplateRelationSymbolNumber",
       "labeledSingleVariableTemplatesNumber","labeledBinaryVariableTemplatesNumber","labeledTemplateNumber","labeledTemplateRelationSymbolNumber",
       "unlabeledSingleVariableTemplatesNumber","unlabeledBinaryVariableTemplatesNumber","unlabeledTemplateNumber","unlabeledTemplateRelationSymbolNumber")
@@ -187,9 +185,9 @@ object TemplateSelectionUtils{
       //val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
       val initialFields: Map[String, Int] = (
         for ((k,v)<-initialFieldsSeq) yield v._1 match {
-          case "clauseNumberBeforeSimplification"=>k->unsimplifiedClauses.length
-          case "clauseNumberAfterSimplification"=>k->simplifiedClausesForGraph.length
-          case "smt2FileSize"=>k->new File(GlobalParameters.get.fileName).length().toInt//bytes
+          case "clauseNumberBeforeSimplification"=>k->{unsimplifiedClauses.length}
+          case "clauseNumberAfterSimplification"=>k->{simplifiedClausesForGraph.length}
+          case "smt2FileSizeByte"=>k->new File(GlobalParameters.get.fileName).length().toInt//bytes
           case "relationSymbolNumber"=>k->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_)
           case "minedSingleVariableTemplatesNumber"=> k->minedTemplatesStatistics._1
           case "minedBinaryVariableTemplatesNumber"=> k->minedTemplatesStatistics._2

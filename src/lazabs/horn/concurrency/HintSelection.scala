@@ -37,6 +37,7 @@ import ap.proof.certificates.ReduceInference
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryCollector
+import ap.types.Sort.MultipleValueBool
 import ap.types.Sort.MultipleValueBool.{False, True}
 import ap.types.{MonoSortedPredicate, Sort, SortedPredicate, TypeTheory}
 import ap.util.{Seqs, Timeout}
@@ -353,33 +354,48 @@ object HintsSelection {
   def getVerificationHintsStatistics(verifHints:VerificationHints): (Int,Int,Int,Int) ={
     var twoVariablesTemplatesList:Seq[IExpression]=Seq()
     var oneVariablesTemplatesList:Seq[IExpression]=Seq()
+    def incrementTemplateList(e:IExpression): Unit ={
+      if (e.length<2)
+        oneVariablesTemplatesList:+=e
+      else
+        twoVariablesTemplatesList:+=e
+    }
     for (e<-verifHints.predicateHints.values.flatten){
       val ve =getParametersFromVerifHintElement(e)
       ve._3 match {
         case TemplateType.TplPred=> oneVariablesTemplatesList:+=ve._1
         case TemplateType.TplPredPosNeg =>{
-          println(Console.BLUE+"debug")
           oneVariablesTemplatesList:+=ve._1}
         case TemplateType.TplEqTerm => {
-          println(Console.BLUE+"TplEqTerm "+ve._1.toString)
-          twoVariablesTemplatesList:+=ve._1}
+          incrementTemplateList(ve._1)
+        }
         case TemplateType.TplInEqTerm=> {
-          println(Console.BLUE+"TplInEqTerm "+ve._1.toString)
-          twoVariablesTemplatesList:+=ve._1}
+          incrementTemplateList(ve._1)
+        }
         case TemplateType.TplInEqTermPosNeg=>{
-          println(Console.BLUE+"TplInEqTermPosNeg "+ve._1.toString)
-          twoVariablesTemplatesList:+=ve._1}
+          incrementTemplateList(ve._1)
+        }
       }
     }
     (oneVariablesTemplatesList.size,twoVariablesTemplatesList.size,verifHints.totalPredicateNumber,verifHints.totalHeadNumber)
   }
 
   def getParametersFromVerifHintElement(element:VerifHintElement):(IExpression,Int,TemplateType.Value)=element match {
-    case VerifHintTplPred(f,cost)=>{(f,cost,TemplateType.TplPred)}
-    case VerifHintTplPredPosNeg(f,cost)=>{(f,cost,TemplateType.TplPredPosNeg)}
-    case VerifHintTplEqTerm(t,cost)=>{(t,cost,TemplateType.TplEqTerm)}
-    case VerifHintTplInEqTerm(t,cost)=>{(t,cost,TemplateType.TplInEqTerm)}
-    case VerifHintTplInEqTermPosNeg(t,cost)=>{(t,cost,TemplateType.TplInEqTermPosNeg)}
+    case VerifHintTplPred(f,cost)=>{
+      println(Console.BLUE+"TplPred "+f.toString)
+      (f,cost,TemplateType.TplPred)}
+    case VerifHintTplPredPosNeg(f,cost)=>{
+      println(Console.RED+"TplPredPosNeg "+f.toString)
+      (f,cost,TemplateType.TplPredPosNeg)}
+    case VerifHintTplEqTerm(t,cost)=>{
+      println(Console.BLUE+"TplEqTerm "+t.toString)
+      (t,cost,TemplateType.TplEqTerm)}
+    case VerifHintTplInEqTerm(t,cost)=>{
+      println(Console.BLUE+"TplInEqTerm "+t.toString)
+      (t,cost,TemplateType.TplInEqTerm)}
+    case VerifHintTplInEqTermPosNeg(t,cost)=>{
+      println(Console.BLUE+"TplInEqTermPosNeg "+t.toString)
+      (t,cost,TemplateType.TplInEqTermPosNeg)}
   }
 
   def getInitialPredicates(simplifiedClausesForGraph:Clauses,simpHints:VerificationHints): VerificationHints ={
