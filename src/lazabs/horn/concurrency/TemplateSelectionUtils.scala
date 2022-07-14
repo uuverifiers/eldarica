@@ -161,6 +161,7 @@ object TemplateSelectionUtils{
                      initialPredicatesForCEGAR:Map[Predicate, Seq[IFormula]],
                      predGenerator : Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit ={
     //todo: add more statistic info such as number of clauses.
+    println(Console.BLUE+"--------------check solvability ---------------")
     val unlabeledTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".unlabeledPredicates",VerificationHints(Map()))
     val unlabeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(unlabeledTemplates)
     val labeledTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".labeledPredicates",VerificationHints(Map()))

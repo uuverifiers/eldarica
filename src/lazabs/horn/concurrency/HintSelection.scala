@@ -1042,10 +1042,12 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
         else VerificationHints(Map())
       }
     }
-    if (GlobalParameters.get.debugLog == true)
-      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".predictedHints.tpl")) {
-        AbsReader.printHints(predictedHints)
-      }
+    if (GlobalParameters.get.debugLog == true) {
+      println("----------predicted Hints----------")
+      predictedHints.pretyPrintHints()
+      //Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".predictedHints.tpl")) {AbsReader.printHints(predictedHints)}
+    }
+
     predictedHints
   }
 
