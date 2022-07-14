@@ -36,7 +36,7 @@ import ap.SimpleAPI.ProverStatus
 import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.bottomup.{DagInterpolator, HornClauses, HornPredAbs, HornTranslator, HornWrapper, TemplateInterpolator, Util}
 import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, LoopDetector, StaticAbstractionBuilder, VerificationHints}
-import lazabs.horn.concurrency.TemplateSelectionUtils.{getHornGraphForTemplatesSelection, getSolvability, mineTemplates}
+import lazabs.horn.concurrency.TemplateSelectionUtils.{getHornGraphForTemplatesSelection, getSMT2Files, getSolvability, mineTemplates}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
@@ -234,13 +234,9 @@ class VerificationLoop(system : ParametricEncoder.System,
 
       //////////////////////////////////////////////
 
-      if(GlobalParameters.get.getSMT2){
-        HintsSelection.writeSMTFormatToFile(simpClauses,GlobalParameters.get.fileName)
-        TemplateSelectionUtils.outputPrologFile(simpClauses,"smt2")
-        if (GlobalParameters.get.debugLog)
-          simpClauses.map(_.toPrologString).foreach(println)
-        sys.exit()
-      }
+      if(GlobalParameters.get.getSMT2)
+        getSMT2Files(simpClauses)
+
       ////////////////////////////////////////////////
 
       val params =

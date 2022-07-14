@@ -443,15 +443,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
 
-  if (GlobalParameters.get.getSMT2 == true) {
-    import java.util.Calendar
-    GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
-    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
-    GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
-    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
-    //Thread.sleep(10*1000)//sleep 10 seconds for writing files
-    sys.exit()
-  }
+  if (GlobalParameters.get.getSMT2 == true)
+    getSMT2Files(simplifiedClauses)
 
 
   val simplifiedClausesForGraph =

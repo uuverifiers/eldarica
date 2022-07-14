@@ -1152,7 +1152,18 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         }
 
       }
-    }else (0,100)//(4, 100)
+    }else {
+      t._3 match {
+        case  TemplateType.TplPred | TemplateType.TplPredPosNeg =>gnn_input.templateRelevanceBooleanTypeList:+=1
+        case _=>{
+          t._1 match {
+            case (e : ITerm) ::: AnyBool(_) => gnn_input.templateRelevanceBooleanTypeList:+=1
+            case _ => gnn_input.templateRelevanceBooleanTypeList:+=0
+          }
+        }
+      }
+      (0,100)
+    }
   }
 
   def getHintLabelUsefulness(positiveSeq: Seq[(IExpression, Int, TemplateType.Value)],t:(IExpression, Int, TemplateType.Value)):

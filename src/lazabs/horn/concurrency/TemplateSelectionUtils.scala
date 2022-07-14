@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, HornTranslator, NormClause, PredicateMiner}
-import lazabs.horn.concurrency.DrawHornGraph.addQuotes
+import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getArgumentInfo, getParametersFromVerifHintElement, termContains, wrappedReadHintsCheckExistence}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
@@ -327,6 +327,13 @@ object TemplateSelectionUtils{
 
     sys.exit()
 
+  }
+  def getSMT2Files(simplifiedClauses:Seq[Clause]): Unit ={
+    GlobalParameters.get.hornGraphType=HornGraphType.monoDirectionLayerGraph
+    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
+    GlobalParameters.get.hornGraphType=HornGraphType.hyperEdgeGraph
+    HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
+    sys.exit()
   }
 
 

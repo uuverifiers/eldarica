@@ -309,7 +309,7 @@ object TrainDataGeneratorTemplatesSmt2 {
         //filteredPositiveTemplates
       }
 
-      val combinationTemplates=generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
+      val combinationTemplates=generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = true)//false
       //todo: for debug: reconstruct labels
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(2,3)++x.slice(8,9)))//2-8,3-10
       //val unlabeledTemplates=VerificationHints(combinationTemplates.predicateHints.mapValues(x=>x.slice(5,13)++x.slice(5,13)++x.slice(18,39)))
