@@ -173,7 +173,7 @@ object TemplateSelectionUtils{
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
     val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber",
       "averagePredicateSize","predicateGeneratorTime","solvability",
-      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSizeByte","relationSymbolNumber",
+      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSizeByte","relationSymbolNumberBeforeSimplification","relationSymbolNumberAfterSimplification",
     "minedSingleVariableTemplatesNumber","minedBinaryVariableTemplatesNumber","minedTemplateNumber","minedTemplateRelationSymbolNumber",
       "labeledSingleVariableTemplatesNumber","labeledBinaryVariableTemplatesNumber","labeledTemplateNumber","labeledTemplateRelationSymbolNumber",
       "unlabeledSingleVariableTemplatesNumber","unlabeledBinaryVariableTemplatesNumber","unlabeledTemplateNumber","unlabeledTemplateRelationSymbolNumber")
@@ -189,7 +189,8 @@ object TemplateSelectionUtils{
           case "clauseNumberBeforeSimplification"=>k->{unsimplifiedClauses.length}
           case "clauseNumberAfterSimplification"=>k->{simplifiedClausesForGraph.length}
           case "smt2FileSizeByte"=>k->new File(GlobalParameters.get.fileName).length().toInt//bytes
-          case "relationSymbolNumber"=>k->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_)
+          case "relationSymbolNumberBeforeSimplification"=>k->unsimplifiedClauses.map(_.allAtoms.length).reduce(_+_)
+          case "relationSymbolNumberAfterSimplification"=>k->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_)
           case "minedSingleVariableTemplatesNumber"=> k->minedTemplatesStatistics._1
           case "minedBinaryVariableTemplatesNumber"=> k->minedTemplatesStatistics._2
           case "minedTemplateNumber"=>k->minedTemplatesStatistics._3

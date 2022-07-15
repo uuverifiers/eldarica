@@ -1020,6 +1020,15 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       predictedLabel
     }else Array()
   }
+  def isBooleanTemplate(t: (IExpression, Int, TemplateType.Value)): Boolean ={
+    if (t._3==TemplateType.TplEqTerm){
+      t._1 match {
+        case (e : ITerm) ::: AnyBool(_) => true
+        case _ => false
+      }
+    } else false
+
+  }
   def drawTemplates(): Seq[(String,Seq[(String,String)])]={
     val unlabeledTemplates = hints.initialHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_))).toSeq.sortBy(_._1.name)
     val minedTemplates = hints.positiveHints.predicateHints.transform((k,v)=>v.map(getParametersFromVerifHintElement(_)))
@@ -1066,7 +1075,11 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 
             counter=counter+1
 
-            (templateASTRootName,"verifHint"+t._3.toString)
+            //todo: predicate-2 is read as EqTerm. change it to TplPredPosNeg edgetype
+            if (isBooleanTemplate(t))
+              (templateASTRootName, "verifHint" + TemplateType.TplPredPosNeg.toString)
+            else
+              (templateASTRootName, "verifHint" + t._3.toString)
           }
         hp.name->templateNameList
       }
