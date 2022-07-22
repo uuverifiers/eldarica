@@ -142,11 +142,11 @@ object ExtendedQuantifierPreprocessor {
                   ite(blo === bhi,
                     (hlo === i) & (hhi === i + 1) & (hres === o),
                     ite((blo - 1 === i),
-                      (hres === bres + o) & (hlo === i), // todo: use  actual fun from theory
+                      (hres === bres + o) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
                       ite(bhi === i,
-                        (hres === bres + o) & (hhi === i + 1),
+                        (hres === bres + o) & (hhi === i + 1 & hlo === blo),
                         ite(blo <= i & bhi > i,
-                          hres === bres, // no change within bounds
+                          hres === bres & hlo === blo & hhi === bhi, // no change within bounds
                           (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
                 newConstraint = newConstraint &&& instConstraint
                 val newHeadArgs : Seq[ITerm] =
