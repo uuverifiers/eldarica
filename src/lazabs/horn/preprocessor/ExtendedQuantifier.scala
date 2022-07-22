@@ -57,7 +57,7 @@ class ExtendedQuantifier(name            : String,
   val arrayTheory = ExtArray(Seq(Sort.Integer), arrayObjectSort)
 
   // this theory depends on the theory of extensional arrays with specified sorts
-  override val dependencies: Iterable[Theory] = List()
+  override val dependencies: Iterable[Theory] = List(arrayTheory)
 
   // fun : (a : array, lo : Int, hi : Int) => Obj
   val fun = MonoSortedIFunction(
@@ -80,4 +80,18 @@ class ExtendedQuantifier(name            : String,
   override val axioms: Formula = Conjunction.TRUE
   override val totalityAxioms: Formula = Conjunction.TRUE
   override def plugin: Option[Plugin] = None
+}
+
+object ExtendedQuantifier {
+  /**
+   * Extractor recognising the <code>fun</code> function of
+   * any ExtendedQuantifier theory.
+   */
+  object ExtendedQuantifierFun {
+    def unapply(f : IFunction) : Option[ExtendedQuantifier] =
+      (TheoryRegistry lookupSymbol f) match {
+        case Some(t : ExtendedQuantifier) if f == t.fun => Some(t)
+        case _ => None
+      }
+  }
 }

@@ -31,14 +31,12 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression._
-
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
 import lazabs.horn.bottomup.Util.Dag
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Default preprocessing pipeline used in Eldarica.
@@ -54,7 +52,9 @@ class DefaultPreprocessor extends HornPreprocessor {
     List(ReachabilityChecker,
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         new ClauseInliner)
+         new ClauseInliner,
+         new ExtendedQuantifierPreprocessor.GhostVariableAdder,
+         new ExtendedQuantifierPreprocessor.Instrumenter)
 
   def extendingStages : List[HornPreprocessor] =
     if (GlobalParameters.get.expandADTArguments)
@@ -62,10 +62,12 @@ class DefaultPreprocessor extends HornPreprocessor {
            new SizeArgumentExtender,
            new CtorTypeExtender)
     else
-      List()
+      List(
+        new HeapSizeArgumentExtender) // todo (zafer): fix this in main repo)
 
   def postStages : List[HornPreprocessor] =
-    List(new ClauseShortener) ++
+    List(
+      new ClauseShortener) ++
     (if (GlobalParameters.get.splitClauses >= 2)
       List(new ClauseSplitter) else List()) ++
     (if (GlobalParameters.get.staticAccelerate)
@@ -106,6 +108,17 @@ class DefaultPreprocessor extends HornPreprocessor {
 
         val (newClauses, newHints, translator) =
           stage.process(curClauses, curHints)
+
+        if (curClauses != newClauses) {
+          println("=" * 80)
+          println("Before " + stage.name)
+          curClauses.foreach(c => println(c.toPrologString))
+          println
+          println("After " + stage.name)
+          newClauses.foreach(c => println(c.toPrologString))
+          println("=" * 80)
+        }
+
         curClauses = newClauses
         curHints = newHints
 
@@ -138,8 +151,8 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
-        if (GlobalParameters.get.slicing)
-          applyStage(Slicer)
+//        if (GlobalParameters.get.slicing) // disabled for now to prevent optimization of ghost variables
+//          applyStage(Slicer)
         curSize = curClauses.size
       }
     }
@@ -151,7 +164,8 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     condenseClauses
 
-    // check whether any ADT or Heap arguments can be extended
+    // check whether any ADT or Heap arguments can be extended or
+    // ghost variables need to be added
     if (applyStages(extendingStages))
       condenseClauses
 

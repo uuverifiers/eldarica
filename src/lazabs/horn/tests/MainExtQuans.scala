@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,8 @@ import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
+import lazabs.horn.abstractions.{EmptyVerificationHints, VerificationHints}
+import lazabs.horn.preprocessor.DefaultPreprocessor
 
 object MainExtQuans extends App {
 
@@ -51,23 +53,31 @@ object MainExtQuans extends App {
 
   {
     val a = new SortedConstantTerm("a", ar.sort)
-    val lo = new ConstantTerm("lo")
-    val hi = new ConstantTerm("hi")
+    val i = new ConstantTerm("i")
+    val o = new SortedConstantTerm("o",ar.objSort)
+    val o2 = new SortedConstantTerm("o'",ar.objSort)
+
 
     val p = for (i <- 0 until 4) yield (new MonoSortedPredicate("p" + i,
-      Seq(ar.sort, Sort.Integer, Sort.Integer)))
+      Seq(ar.sort, Sort.Integer)))
 
     val clauses = List(
-      p(0)(a, lo, hi)          :- true,
-      p(1)(ar.const(1), 0, 10) :- p(0)(a, lo, hi),
-      false                    :- (p(1)(a, lo, hi),
-                                  extQuan.fun(a, lo, hi) < 10)
+      p(0)(a, i)     :- (i === 0),
+      p(0)(a, i + 1) :- (p(0)(a, i), 3 === ar.select(a, i), i < 10),
+      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
+      false          :- (p(1)(a, i),
+                        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
     )
 
-    println("Solving " + clauses + " ...")
+    val preprocessor = new DefaultPreprocessor
+    val (simpClauses, _, backTranslator) =
+      Console.withErr(Console.out) {
+        preprocessor.process(clauses, EmptyVerificationHints)
+      }
+    println("Solving " + simpClauses + " ...")
 
     val predAbs =
-      new HornPredAbs(clauses, Map(),
+      new HornPredAbs(simpClauses, Map(),
         DagInterpolator.interpolatingPredicateGenCEXAndOr _)
 
     println
