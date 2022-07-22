@@ -6,7 +6,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.abstractions.{StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.abstractions.{AbsReader, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
@@ -234,6 +234,13 @@ object TemplateSelectionUtils{
       Dag[(IAtom, NormClause)]]): Unit ={
     //full code in TrainDataGeneratorTemplatesSmt2.scala
 
+    if (GlobalParameters.get.generateTemplates){
+      val unlabeledPredicateFileName=".unlabeledPredicates"
+      val generatedTpl = generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) //false
+      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")) {AbsReader.printHints(generatedTpl)}
+      sys.exit()
+    }
+
     val predAbs =
       new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
 
@@ -286,7 +293,10 @@ object TemplateSelectionUtils{
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
       sys.exit()
     }
-    HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
+    HintsSelection.writeTemplatesToFile(unlabeledTemplates,"unlabeledPredicates")
+    HintsSelection.writeTemplatesToFile(labeledTemplates,"labeledPredicates")
+    HintsSelection.writeTemplatesToFile(positiveTemplates,"minedPredicates")
+    //HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
 
     sys.exit()
   }

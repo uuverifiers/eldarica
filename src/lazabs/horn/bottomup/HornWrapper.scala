@@ -455,14 +455,13 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     else
       HintsSelection.normalizedClausesForGraphs(simplifiedClauses, VerificationHints(Map()))
 
-  if (GlobalParameters.get.debugLog)
-    simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
-
-  if (GlobalParameters.get.getHornGraph == true) {
-    HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
-    HintsSelection.checkMaxNode(simplifiedClausesForGraph)
+  if (simplifiedClausesForGraph.isEmpty) {
+    HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
+    sys.exit()
   }
 
+  if (GlobalParameters.get.debugLog)
+    simplifiedClausesForGraph.map(_.toPrologString).foreach(println)
 
   if (GlobalParameters.get.graphPrettyPrint==true){
     println("--------simplified clauses--------")
@@ -471,13 +470,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     simplifiedClausesForGraph.map(_.toPrologString).foreach(println(_))
   }
 
-
   //val sp = new Simplifier
 
-  if (simplifiedClausesForGraph.isEmpty) {
-    HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
-    sys.exit()
-  }
 
   val unlabeledPredicateFileName=".unlabeledPredicates"//"-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
   val labeledPredicateFileName=".labeledPredicates"//"-"+HintsSelection.getClauseType()+ ".labeledPredicates"
@@ -521,6 +515,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
 
   if (GlobalParameters.get.getHornGraph == true && GlobalParameters.get.getLabelFromCounterExample==false) {
+
+    HintsSelection.filterInvalidInputs(simplifiedClausesForGraph)
+    HintsSelection.checkMaxNode(simplifiedClausesForGraph)
+
     val initialPredicates =
       if (GlobalParameters.get.generateSimplePredicates == true) {
         val (simpleGeneratedPredicates, constraintPredicates, pairwisePredicates)

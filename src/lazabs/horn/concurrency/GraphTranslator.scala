@@ -120,7 +120,9 @@ object GraphTranslator {
         println("unlabeled", t._1.totalPredicateNumber)
         println("labeled", t._2.totalPredicateNumber)
         drawAllHornGraph(clauseCollection, hintsCollection, argumentInfo, fileName)
-        HintsSelection.writePredicatesToFiles(t._1, t._2,VerificationHints(Map()), fileName)
+        HintsSelection.writeTemplatesToFile(t._1,"unlabeledPredicates")
+        HintsSelection.writeTemplatesToFile(t._2,"labeledPredicates")
+        //HintsSelection.writePredicatesToFiles(t._1, t._2,VerificationHints(Map()), fileName)
       }
 
     }

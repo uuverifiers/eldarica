@@ -207,6 +207,7 @@ object HintsSelection {
   def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
     val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
       val numberOfLabeledTemplates=(v.size*ratio).toInt
+      Random.setSeed(42)
       val randomShuffledTemplates=Random.shuffle(v)
       k-> (for (i<-0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
     }
@@ -773,6 +774,11 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
       Console.withOut(new java.io.FileOutputStream(fileName+clauseType+".minedPredicates.tpl")) {AbsReader.printHints(minedPredicates)}
   }
 
+  def writeTemplatesToFile(t:VerificationHints,absOption:String,fileName:String=GlobalParameters.get.fileName): Unit ={
+    val clauseType = ""//"-"+getClauseType()
+    Console.withOut(new java.io.FileOutputStream(fileName+clauseType+"."+absOption+".tpl")) {AbsReader.printHints(t)}
+  }
+
   def writeTemplateDistributionToFiles(simplifiedClauses:Clauses,initialTemplates:VerificationHints,minedTemplates:VerificationHints): Unit ={
     val loopHeadsWithSort= getLoopHeadsWithSort(simplifiedClauses)
     val predicateWithArgumentSort=(for ((pred,args) <- loopHeadsWithSort) yield {
@@ -1094,6 +1100,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
 
   def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
                                  readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
+
     val input_file=fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
 
     println("read predicted label from "+input_file)
@@ -1122,6 +1129,10 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
       }else{ //read from multi-classification
         val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
           k-> (for ((p,l)<-v zip label if l!=0) yield {
+            //todo: set cost according to the shape of the templates. more variables less cost
+            //getCostbyTemplateShape()
+            //todo: set cost according to the logit value from NNs
+
             l match {
               case 1=>{p match {
                 case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,c)
@@ -1154,8 +1165,12 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
       labeledPredicates
 
     }else Map()
-
   }
+
+  def getCostbyTemplateShape(e:IExpression): Int ={
+    100 - SizeVisitor(e)
+  }
+
 
 
   def readPredicateLabelFromJSONBinaryClassification(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],

@@ -330,7 +330,10 @@ object TrainDataGeneratorTemplatesSmt2 {
         sys.exit()
       }
 
-      HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
+      //HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)
+      HintsSelection.writeTemplatesToFile(unlabeledTemplates,"unlabeledPredicates")
+      HintsSelection.writeTemplatesToFile(labeledTemplates,"labeledPredicates")
+      HintsSelection.writeTemplatesToFile(positiveTemplates,"minedPredicates")
       //writeTemplateDistributionToFiles(simplifiedClausesForGraph,unlabeledTemplates,positiveTemplates)
 
 //      if (GlobalParameters.get.getSMT2 == true) {

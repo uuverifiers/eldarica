@@ -270,6 +270,10 @@ class StaticAbstractionBuilder(
       case _ => emptyAbstractions
     }
 
+  if (GlobalParameters.get.debugLog)
+      HintsSelection.writeTemplatesToFile(abstractionHints,abstractionType.toString)
+
+
   if (GlobalParameters.get.templateBasedInterpolationPrint)
     AbsReader printHints abstractionHints
 
