@@ -357,7 +357,7 @@ object HintsSelection {
     var twoVariablesTemplatesList:Seq[IExpression]=Seq()
     var oneVariablesTemplatesList:Seq[IExpression]=Seq()
     def incrementTemplateList(e:IExpression): Unit ={
-      if (e.length<2)
+      if (SymbolCollector.variables(e).size<2)
         oneVariablesTemplatesList:+=e
       else
         twoVariablesTemplatesList:+=e
@@ -1098,77 +1098,112 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
   }
 
 
-  def readPredicateLabelFromJSON(fileName:String, initialHints:Seq[(Predicate, Seq[VerifHintElement])],
-                                 readLabel:String="predictedLabel"): Map[Predicate, Seq[VerifHintElement]]={
+  def readPredicateLabelFromJSON(fileName: String, initialHints: Seq[(Predicate, Seq[VerifHintElement])],
+                                 readLabel: String = "predictedLabel"): Map[Predicate, Seq[VerifHintElement]] = {
 
-    val input_file=fileName+"."+GlobalParameters.get.hornGraphType.toString+".JSON"
+    val input_file = fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON"
 
-    println("read predicted label from "+input_file)
-    if(detectIfAJSONFieldExists(readLabel,fileName)==true){
+    println("read predicted label from " + input_file)
+    if (detectIfAJSONFieldExists(readLabel, fileName) == true) {
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)
-      val predictedLabel= (json_data \ readLabel).validate[Array[Int]] match {
-        case JsSuccess(templateLabel,_)=> templateLabel
+      val predictedLabel = (json_data \ readLabel).validate[Array[Int]] match {
+        case JsSuccess(templateLabel, _) => templateLabel
       }
-      val mapLengthList=for ((k,v)<-initialHints) yield v.length
-      var splitTail=predictedLabel
-      val splitedPredictedLabel = for(l<-mapLengthList) yield {
-        val temp=splitTail.splitAt(l)._1
-        splitTail=splitTail.splitAt(l)._2
-        temp
-      }
-      val labeledPredicates=
-      if (GlobalParameters.get.readCost){
-        val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-          k-> (for((p,l)<-v zip label) yield p match {
-            case VerifHintTplEqTerm(t,c)=> VerifHintTplEqTerm(t,l)
-            case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,l)
-          })
-        }).toMap
-        res
-      }else{ //read from multi-classification
-        val res=(for (((k,v),label)<-initialHints zip splitedPredictedLabel) yield {
-          k-> (for ((p,l)<-v zip label if l!=0) yield {
-            //todo: set cost according to the shape of the templates. more variables less cost
-            //getCostbyTemplateShape()
-            //todo: set cost according to the logit value from NNs
+      val mapLengthList = for ((k, v) <- initialHints) yield v.length
+      val splitedPredictedLabel = splitLabel(mapLengthList, predictedLabel)
 
-            l match {
-              case 1=>{p match {
-                case VerifHintTplEqTerm(t,c)=>VerifHintTplEqTerm(t,c)
-                case VerifHintTplInEqTerm(t,c)=>VerifHintTplEqTerm(t,c)
-                }
-              }
-              case 2=>{p match {
-                case VerifHintTplEqTerm(t,c)=>VerifHintTplInEqTerm(t,c)
-                case VerifHintTplInEqTerm(t,c)=>VerifHintTplInEqTerm(t,c)
-                }
-              }
-              case 3|4=>{p}
-            }
-          } ).distinct //match labels with predicates
-        }).filterNot(_._2.isEmpty).toMap //delete empty head
-        if(GlobalParameters.get.debugLog==true){
-          println("input_file",input_file)
-          println("predictedLabel",predictedLabel.toList.length,predictedLabel.toList)
-          for (x<-splitedPredictedLabel)
-            println(x.toSeq,x.size)
-          println("--------Filtered initial predicates---------")
-          for((k,v)<-res) {
-            println(k)
-            for(p<-v)
-              println(p)
+      val labeledPredicates =
+        if (GlobalParameters.get.readCost) {
+          val res = (for (((k, v), label) <- initialHints zip splitedPredictedLabel) yield {
+            k -> (for ((p, l) <- v zip label) yield p match {
+              case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, l)
+              case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, l)
+            })
+          }).toMap
+          res
+        } else { //read from multi-classification
+          val predictedLabelLogit = (json_data \ (readLabel + "Logit")).validate[Array[Double]] match {
+            case JsSuccess(templateLabel, _) => templateLabel
           }
+          val normalizedPredictedLabelLogit = predictedLabelLogit.map(sigmoid(_))
+          //      val templateRelevanceBooleanTypeList= (json_data \ "templateRelevanceBooleanTypeList").validate[Array[Int]] match {
+          //        case JsSuccess(templateLabel,_)=> templateLabel
+          //      }
+          val splitedPredictedLabelLogit = splitLabel(mapLengthList, normalizedPredictedLabelLogit)
+
+          val res = (for ((((k, v), label), labelLogit) <- initialHints zip splitedPredictedLabel zip splitedPredictedLabelLogit) yield {
+            k -> (for (((p, l), logit) <- v zip label zip labelLogit if l != 0) yield {
+              l match {
+                case 1 => {
+                  p match {
+                    case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                    case VerifHintTplInEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                  }
+                }
+                case 2 => {
+                  p match {
+                    case VerifHintTplEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                    case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                  }
+                }
+                case 3 | 4 => {
+                  p match {
+                    case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                    case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                    case VerifHintTplPredPosNeg(t, c) => VerifHintTplPredPosNeg(t, getCost(t, logit, c))
+                  }
+                }
+              }
+            }).distinct //match labels with predicates
+          }).filterNot(_._2.isEmpty).toMap //delete empty head
+          if (GlobalParameters.get.debugLog == true) {
+            println("input_file", input_file)
+            println("predictedLabel", predictedLabel.toList.length, predictedLabel.toList)
+            for (x <- splitedPredictedLabel)
+              println(x.toSeq, x.size)
+            println("--------Filtered initial predicates---------")
+            for ((k, v) <- res) {
+              println(k)
+              for (p <- v)
+                println(p)
+            }
+          }
+          res
         }
-        res
-      }
       labeledPredicates
 
-    }else Map()
+    } else Map()
   }
 
   def getCostbyTemplateShape(e:IExpression): Int ={
-    100 - SizeVisitor(e)
+    100 - SymbolCollector.variables(e).size
+  }
+  def getCostByLogitValue(logitValue:Double):Int={
+    100 - (logitValue*100).toInt
+  }
+  def getCost(e:IExpression,logitValue:Double,originalCost:Int): Int ={
+    if (GlobalParameters.get.readCostType == "shape")
+      getCostbyTemplateShape(e)
+    else if (GlobalParameters.get.readCostType == "logit") {
+      getCostByLogitValue(logitValue)
+    } else
+      originalCost
+  }
+
+
+  def sigmoid(x:Double): Double ={
+    math.pow(math.E,x)/(math.pow(math.E,x) + 1)
+  }
+
+  def splitLabel[T](mapLengthList: Seq[Int],readLabel:Array[T]): Seq[Array[T]] ={
+    var splitTail=readLabel
+    val splitedPredictedLabel = for(l<-mapLengthList) yield {
+      val temp=splitTail.splitAt(l)._1
+      splitTail=splitTail.splitAt(l)._2
+      temp
+    }
+    splitedPredictedLabel
   }
 
 

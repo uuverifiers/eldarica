@@ -73,6 +73,7 @@ class GlobalParameters extends Cloneable {
   var withoutGraphJSON=false
   var checkSolvability=false
   var readCost=false
+  var readCostType : String = ""
   var rdm=false
   var onlyInitialPredicates=false
   var generateSimplePredicates=false
@@ -201,6 +202,7 @@ class GlobalParameters extends Cloneable {
     that.in = this.in
     that.fileName = this.fileName
     that.funcName = this.funcName
+    that.readCostType=this.readCostType
     that.solFileName = this.solFileName
     that.timeout = this.timeout
     that.spuriousness = this.spuriousness
@@ -600,6 +602,11 @@ object Main {
 
       case tFile :: rest if (tFile.startsWith("-pPredicates:")) => {
         predicateOutputFile = tFile drop 13
+        arguments(rest)
+      }
+
+      case rCostType :: rest if (rCostType.startsWith("-readCostType:")) => {
+        readCostType = rCostType drop "-readCostType:".length
         arguments(rest)
       }
 

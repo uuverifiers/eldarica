@@ -160,7 +160,6 @@ object TemplateSelectionUtils{
                      simplifiedClausesForGraph:Seq[Clause],
                      initialPredicatesForCEGAR:Map[Predicate, Seq[IFormula]],
                      predGenerator : Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit ={
-    //todo: add more statistic info such as number of clauses.
     println(Console.BLUE+"--------------check solvability ---------------")
     val unlabeledTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".unlabeledPredicates",VerificationHints(Map()))
     val unlabeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(unlabeledTemplates)
@@ -266,10 +265,10 @@ object TemplateSelectionUtils{
         println("filtered mined predicates")
         filteredPositiveTemplates.pretyPrintHints()
       }
-      if(filteredPositiveTemplates.isEmpty){
-        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+HintsSelection.getFileName(),"empty-mined-label")
-        sys.exit()
-      }
+//      if(filteredPositiveTemplates.isEmpty){
+//        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+HintsSelection.getFileName(),"empty-mined-label")
+//        sys.exit()
+//      }
       val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledTemplates.predicateHints;
                                                   (kf,vf)<-filteredPositiveTemplates.predicateHints;
                                                   if kp.name==kf.name) yield
@@ -289,10 +288,10 @@ object TemplateSelectionUtils{
     val unlabeledTemplates=combinationTemplates
     val (positiveTemplates,labeledTemplates)=labelTemplates(unlabeledTemplates)
 
-    if(labeledTemplates.totalPredicateNumber==0){
-      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
-      sys.exit()
-    }
+//    if(labeledTemplates.totalPredicateNumber==0){
+//      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
+//      sys.exit()
+//    }
     HintsSelection.writeTemplatesToFile(unlabeledTemplates,"unlabeledPredicates")
     HintsSelection.writeTemplatesToFile(labeledTemplates,"labeledPredicates")
     HintsSelection.writeTemplatesToFile(positiveTemplates,"minedPredicates")
