@@ -48,7 +48,8 @@ object MainExtQuans extends App {
   val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
 
   def sum (a : ITerm, b : ITerm) : ITerm = a + b
-  val extQuan = new ExtendedQuantifier("sum", ar.objSort, sum)
+  def invSum (a : ITerm, b : ITerm) : ITerm = a - b
+  val extQuan = new ExtendedQuantifier("sum", ar.objSort, sum, Some(invSum))
   TheoryRegistry.register(extQuan)
 
   {
@@ -61,13 +62,24 @@ object MainExtQuans extends App {
     val p = for (i <- 0 until 4) yield (new MonoSortedPredicate("p" + i,
       Seq(ar.sort, Sort.Integer)))
 
+    // SELECT (read)
+//    val clauses = L ist(
+//      p(0)(a, i)     :- (i === 0),
+//      p(0)(a, i + 1) :- (p(0)(a, i), 3 === ar.select(a, i), i < 10),
+//      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
+//      false          :- (p(1)(a, i),
+//                        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
+//    )
+
+    // STORE (write)
     val clauses = List(
       p(0)(a, i)     :- (i === 0),
-      p(0)(a, i + 1) :- (p(0)(a, i), 3 === ar.select(a, i), i < 10),
+      p(0)(ar.store(a, i, 3), i + 1) :- (p(0)(a, i), i < 10),
       p(1)(a, i)     :- (p(0)(a, i), i >= 10),
       false          :- (p(1)(a, i),
-                        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
+        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
     )
+
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =

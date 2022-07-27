@@ -127,10 +127,10 @@ object ExtendedQuantifierPreprocessor {
             conjunct match {
               // we can assume f(a, i) = o due to normalization of clauses
               // select(a, i) = o
-              case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a, i)), o) =>
-                val ((blo, iblo), (bhi, ibhi), (bres, ibres)) = getGhostVarTriplets( // todo: fix
+              case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o) =>
+                val ((blo, iblo), (bhi, ibhi), (bres, ibres)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
-                val ((_, ihlo), (_, ihhi), (_, ihres)) = getGhostVarTriplets( // todo: fix
+                val ((_, ihlo), (_, ihhi), (_, ihres)) = getGhostVarTriplet( // todo: fix
                   head.pred.asInstanceOf[MonoSortedPredicate], head.args).head
                 val indexSort = arrayTheory.indexSorts.head
                 val (hlo, hhi, hres) =
@@ -163,9 +163,38 @@ object ExtendedQuantifierPreprocessor {
                 instrumented = true
               // store(a1, i, o) = a2
               case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
-                val (lo, hi, res) = getGhostVarTriplets( // todo: fix
+                val ((blo, _), (bhi, _), (bres, _)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
-                ??? // todo: add instrumentation constraints
+                val ((_, ihlo), (_, ihhi), (_, ihres)) = getGhostVarTriplet( // todo: fix
+                  head.pred.asInstanceOf[MonoSortedPredicate], head.args).head
+                val indexSort = arrayTheory.indexSorts.head
+                val (hlo, hhi, hres) =
+                  (IConstant(new SortedConstantTerm("lo'",indexSort)),
+                    IConstant(new SortedConstantTerm("hi'",indexSort)),
+                    IConstant(new SortedConstantTerm("res'",arrayTheory.objSort))
+                  )
+                val instConstraint =
+                  ite(blo === bhi,
+                    (hlo === i) & (hhi === i + 1) & (hres === o),
+                    ite((blo - 1 === i),
+                      (hres === bres + o) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
+                      ite(bhi === i,
+                        (hres === bres + o) & (hhi === i + 1 & hlo === blo),
+                        ite(blo <= i & bhi > i,
+                          hres === (bres + o - arrayTheory.select(a1, i)) & hlo === blo & hhi === bhi, //relate to prev val
+                          (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
+                newConstraint = newConstraint &&& instConstraint
+                val newHeadArgs : Seq[ITerm] =
+                  for ((arg : ITerm, ind : Int) <- newHead.args.zipWithIndex) yield {
+                    ind match {
+                      case `ihlo`  => hlo
+                      case `ihhi`  => hhi
+                      case `ihres` => hres
+                      case _ => arg
+                    }
+                  }
+                newHead = IAtom(head.pred, newHeadArgs)
+                //??? // todo: add instrumentation constraints
               // add new constraint newConstraint = newConstraint &&& ...
                 instrumented = true
 //                // f : (a : array, lo : Int, hi : Int) => Obj
@@ -181,7 +210,7 @@ object ExtendedQuantifierPreprocessor {
           // handle (1)
           if (body.isEmpty && !instrumented) { // an entry clause
 
-            for (((lo,_), (hi,_), (res,_)) <- getGhostVarTriplets(
+            for (((lo,_), (hi,_), (res,_)) <- getGhostVarTriplet(
               head.pred.asInstanceOf[MonoSortedPredicate], head.args))
               newConstraint = newConstraint &&& lo === 0 & hi === 0
           } else if (body.isEmpty && instrumented) {
@@ -210,7 +239,7 @@ object ExtendedQuantifierPreprocessor {
       (newClauses, hints, translator)
     }
 
-    private def getGhostVarTriplets (pred : MonoSortedPredicate,
+    private def getGhostVarTriplet (pred : MonoSortedPredicate,
                                      args : Seq[ITerm]) :
                                                   Seq[((ITerm, Int), (ITerm, Int), (ITerm, Int))] = {
       val headArrayInds =

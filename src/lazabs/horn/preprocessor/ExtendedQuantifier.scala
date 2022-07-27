@@ -45,10 +45,12 @@ import ap.types.MonoSortedIFunction
  * @param name            : name of the aggregation function fun
  * @param arrayObjectSort : array object sort
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
+ * @param invReduceUp     : only for cancellative reduce operations
  */
 class ExtendedQuantifier(name            : String,
                          arrayObjectSort : Sort,
-                         reduceOp        : (ITerm, ITerm) => ITerm)
+                         reduceOp        : (ITerm, ITerm) => ITerm,
+                         invReduceOp : Option[(ITerm, ITerm) => ITerm])
   extends Theory {
 
   // currently we fix the index sort to Sort.Integer, object sort is parameterised.
