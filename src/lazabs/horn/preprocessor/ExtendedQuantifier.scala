@@ -56,6 +56,9 @@ class ExtendedQuantifier(name            : String,
   // currently we fix the index sort to Sort.Integer, object sort is parameterised.
   val arrayIndexSort : Sort = Sort.Integer
 
+  val redOp = reduceOp
+  val invRedOp = invReduceOp
+
   val arrayTheory = ExtArray(Seq(Sort.Integer), arrayObjectSort)
 
   // this theory depends on the theory of extensional arrays with specified sorts

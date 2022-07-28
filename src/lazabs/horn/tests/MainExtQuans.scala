@@ -59,11 +59,11 @@ object MainExtQuans extends App {
     val o2 = new SortedConstantTerm("o'",ar.objSort)
 
 
-    val p = for (i <- 0 until 4) yield (new MonoSortedPredicate("p" + i,
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
       Seq(ar.sort, Sort.Integer)))
 
-    // SELECT (read)
-//    val clauses = L ist(
+     //SELECT (read)
+//    val clauses = List(
 //      p(0)(a, i)     :- (i === 0),
 //      p(0)(a, i + 1) :- (p(0)(a, i), 3 === ar.select(a, i), i < 10),
 //      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
@@ -71,7 +71,8 @@ object MainExtQuans extends App {
 //                        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
 //    )
 
-    // STORE (write)
+//    // STORE (write)
+
     val clauses = List(
       p(0)(a, i)     :- (i === 0),
       p(0)(ar.store(a, i, 3), i + 1) :- (p(0)(a, i), i < 10),
@@ -79,7 +80,7 @@ object MainExtQuans extends App {
       false          :- (p(1)(a, i),
         extQuan.fun(a, 0, 10) =/= 30) // right-open interval
     )
-
+//
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =

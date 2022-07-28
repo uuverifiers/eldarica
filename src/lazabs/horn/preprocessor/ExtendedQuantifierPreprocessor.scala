@@ -86,6 +86,20 @@ object ExtendedQuantifierPreprocessor {
       //  4: Pick some subset of assertions containing the aggregate operator,
       //     and rewrite them.
 
+      /*FIRST PASS: Gather theory for each array*/
+      val arrToFunHashmap = new MHashMap[ITerm, ExtendedQuantifier]() //Keep track of what kind of extended quantifier used for each array
+          for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
+            val extQuantifierApps =
+              ExtQuantifierFunctionApplicationCollector(constraint)
+            for (IFunApp(f, Seq(a, _, _)) <- extQuantifierApps) {
+              f match {
+                case ExtendedQuantifier.ExtendedQuantifierFun(exq) =>
+                  arrToFunHashmap += (a -> exq)
+                case _ => //nothing
+              }
+            }
+          }
+
       val newClauses =
         for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
           var newHead = head
@@ -100,6 +114,7 @@ object ExtendedQuantifierPreprocessor {
           val extQuantifierApps =
             ExtQuantifierFunctionApplicationCollector(constraint)
 
+
           if (extQuantifierApps.nonEmpty) {
             // rewrite this constraint
             for (app@IFunApp(f, Seq(a, lo, hi)) <- extQuantifierApps) {
@@ -108,6 +123,7 @@ object ExtendedQuantifierPreprocessor {
               val blo = body.head.args(arrayInd + 1)
               val bhi = body.head.args(arrayInd + 2)
               val result = body.head.args(arrayInd + 3)
+
               newConstraint = ExpressionReplacingVisitor(
                 newConstraint,
                 replaced = app,
@@ -128,6 +144,10 @@ object ExtendedQuantifierPreprocessor {
               // we can assume f(a, i) = o due to normalization of clauses
               // select(a, i) = o
               case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o) =>
+                val exq = arrToFunHashmap.get(a) match {
+                  case Some(e:ExtendedQuantifier) => e
+                  case _ => ??? //TODO: if no theory found then I guess no instrumentation needed?
+                }
                 val ((blo, iblo), (bhi, ibhi), (bres, ibres)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
                 val ((_, ihlo), (_, ihhi), (_, ihres)) = getGhostVarTriplet( // todo: fix
@@ -142,9 +162,9 @@ object ExtendedQuantifierPreprocessor {
                   ite(blo === bhi,
                     (hlo === i) & (hhi === i + 1) & (hres === o),
                     ite((blo - 1 === i),
-                      (hres === bres + o) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
+                      (hres === exq.redOp(bres, o)) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
                       ite(bhi === i,
-                        (hres === bres + o) & (hhi === i + 1 & hlo === blo),
+                        (hres === exq.redOp(bres, o)) & (hhi === i + 1 & hlo === blo),
                         ite(blo <= i & bhi > i,
                           hres === bres & hlo === blo & hhi === bhi, // no change within bounds
                           (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
@@ -163,6 +183,10 @@ object ExtendedQuantifierPreprocessor {
                 instrumented = true
               // store(a1, i, o) = a2
               case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
+                val exq = arrToFunHashmap.get(a1) match {
+                  case Some(e:ExtendedQuantifier) => e
+                  case _ => ??? //TODO: if no theory found then I guess no instrumentation needed?
+                }
                 val ((blo, _), (bhi, _), (bres, _)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
                 val ((_, ihlo), (_, ihhi), (_, ihres)) = getGhostVarTriplet( // todo: fix
@@ -173,15 +197,20 @@ object ExtendedQuantifierPreprocessor {
                     IConstant(new SortedConstantTerm("hi'",indexSort)),
                     IConstant(new SortedConstantTerm("res'",arrayTheory.objSort))
                   )
+                def ifInsideBounds_help(o:ITerm, o_prev:ITerm, res:ITerm) =
+                  exq.invRedOp match {
+                    case Some(f) => exq.redOp(f(res, o_prev), o)
+                    case _ => ??? //TODO: Implement non-cancellative case
+                  }
                 val instConstraint =
                   ite(blo === bhi,
                     (hlo === i) & (hhi === i + 1) & (hres === o),
                     ite((blo - 1 === i),
-                      (hres === bres + o) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
+                      (hres === exq.redOp(bres, o)) & (hlo === i) & hhi === bhi, // todo: use  actual fun from theory
                       ite(bhi === i,
-                        (hres === bres + o) & (hhi === i + 1 & hlo === blo),
+                        (hres === exq.redOp(bres, o)) & (hhi === i + 1 & hlo === blo),
                         ite(blo <= i & bhi > i,
-                          hres === (bres + o - arrayTheory.select(a1, i)) & hlo === blo & hhi === bhi, //relate to prev val
+                          hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
                           (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
                 newConstraint = newConstraint &&& instConstraint
                 val newHeadArgs : Seq[ITerm] =
