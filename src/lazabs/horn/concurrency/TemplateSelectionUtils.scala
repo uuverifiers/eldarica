@@ -1,20 +1,26 @@
 package lazabs.horn.concurrency
 
+import ap.PresburgerTools
 import ap.parser.IExpression.Predicate
 import ap.parser.{IAtom, IFormula}
+import ap.terfor.TerForConvenience
+import ap.terfor.TerForConvenience.{conj, disj, v}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
+import ap.terfor.substitutions.ConstantSubst
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.{AbsReader, StaticAbstractionBuilder, VerificationHints}
+import lazabs.horn.bottomup.CEGAR.Counterexample
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, HornTranslator, NormClause, PredicateMiner}
+import lazabs.horn.bottomup.{AbstractState, CEGAR, HornClauses, HornPredAbs, HornPredAbsContext, HornTranslator, HornWrapper, NormClause, PredicateMiner, PredicateStore}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
-import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getArgumentInfo, getParametersFromVerifHintElement, termContains, wrappedReadHintsCheckExistence}
+import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getArgumentInfo, getParametersFromVerifHintElement, getPredGenerator, termContains, wrappedReadHintsCheckExistence}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
+import scala.util.Random
 
 import java.io.{File, PrintWriter}
 
@@ -207,9 +213,18 @@ object TemplateSelectionUtils{
         ).toMap
       writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
     }
-
-    val predAbs =
-      new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
+    val outStream = Console.err
+    val predAbs = Console.withOut(outStream) {
+      if (GlobalParameters.get.templateBasedInterpolationType == AbstractionType.Combined) {
+        val predGeneratorSeq = for (abstractOption <- Seq(AbstractionType.Octagon, AbstractionType.Term, AbstractionType.RelationalEqs, AbstractionType.RelationalIneqs,
+          AbstractionType.PredictedCG, AbstractionType.PredictedCDHG, AbstractionType.Unlabeled, AbstractionType.Random)) yield
+          (abstractOption, getPredGenerator(Seq((new StaticAbstractionBuilder(simplifiedClausesForGraph, abstractOption)).abstractionRecords), outStream = outStream))
+        new TemplateSelectionHornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator, predGeneratorSeq)
+      }
+      else {
+        new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
+      }
+    }
 
 
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
@@ -349,9 +364,186 @@ object TemplateSelectionUtils{
 
 
 
+  def getRandomElement[A](seq: Seq[A]): A =
+    {
+      val random = new Random
+      if (GlobalParameters.get.fixRandomSeed)
+        random.setSeed(42)
+      seq(random.nextInt(seq.length))
+    }
 
+}
 
+class TemplateSelectionHornPredAbs[CC <% HornClauses.ConstraintClause]
+(iClauses : Iterable[CC],
+ initialPredicates : Map[Predicate, Seq[IFormula]],
+ predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
+   Either[Seq[(Predicate, Seq[Conjunction])],
+     Dag[(IAtom, NormClause)]],
+ predicateGeneratorSeq : Seq[(StaticAbstractionBuilder.AbstractionType.Value,Dag[AndOrNode[NormClause, Unit]] =>
+   Either[Seq[(Predicate, Seq[Conjunction])],
+     Dag[(IAtom, NormClause)]])],
+ counterexampleMethod : CEGAR.CounterexampleMethod.Value=
+   CEGAR.CounterexampleMethod.FirstBestShortest
 
+) extends HornPredAbs(iClauses, initialPredicates, predicateGenerator, counterexampleMethod=
+  CEGAR.CounterexampleMethod.FirstBestShortest) {
 
+  //println(Console.BLUE+"TemplateSelectionHornPredAbs DEBUG")
+
+  //Why is my abstract or overridden val null?
+  // https://docs.scala-lang.org/tutorials/FAQ/initialization-order.html
+  override lazy val cegar = new TemplateSelectionCEGAR(context, predStore,
+    predicateGenerator,predicateGeneratorSeq,counterexampleMethod)
+
+}
+
+class TemplateSelectionCEGAR[CC <% HornClauses.ConstraintClause]
+(context : HornPredAbsContext[CC],
+ predStore : PredicateStore[CC],
+ predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
+   Either[Seq[(Predicate, Seq[Conjunction])],
+     Dag[(IAtom, NormClause)]],
+ predicateGeneratorSeq : Seq[(StaticAbstractionBuilder.AbstractionType.Value,Dag[AndOrNode[NormClause, Unit]] =>
+   Either[Seq[(Predicate, Seq[Conjunction])],
+     Dag[(IAtom, NormClause)]])],
+ counterexampleMethod : CEGAR.CounterexampleMethod.Value =
+ CEGAR.CounterexampleMethod.FirstBestShortest) extends CEGAR (context, predStore, predicateGenerator, counterexampleMethod=
+  CEGAR.CounterexampleMethod.FirstBestShortest) {
+  import CEGAR._
+  import context._
+  import predStore._
+
+  println(Console.BLUE+" TemplateSelectionCEGAR start")
+
+  println("predicateGeneratorSeq",predicateGeneratorSeq.map(_._1).toString())
+
+  override lazy val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
+  /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
+      inferenceAPIProver = p */ {
+
+    if (lazabs.GlobalParameters.get.log) {
+      println
+      println("Starting CEGAR ... ...")
+    }
+
+    import TerForConvenience._
+    var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
+
+    while (!nextToProcess.isEmpty && res == null) {
+      lazabs.GlobalParameters.get.timeoutChecker()
+
+      /*
+            // The invariants supposed to be preserved by the subsumption mechanism
+            assert(
+              (maxAbstractStates forall {
+                case (rs, preds) => (preds subsetOf activeAbstractStates(rs)) &&
+                                    (preds forall { s => activeAbstractStates(rs) forall {
+                                                         t => s == t || !subsumes(t, s) } }) }) &&
+              (backwardSubsumedStates forall {
+                case (s, t) => s != t && subsumes(t, s) &&
+                               (activeAbstractStates(s.rs) contains s) &&
+                               !(maxAbstractStates(s.rs) contains s) &&
+                               (activeAbstractStates(t.rs) contains t) }) &&
+              (forwardSubsumedStates forall {
+                case (s, t) => s != t && subsumes(t, s) &&
+                               !(activeAbstractStates(s.rs) contains s) &&
+                               (activeAbstractStates(t.rs) contains t) }) &&
+              (activeAbstractStates forall {
+                case (rs, preds) =>
+                               preds forall { s => (maxAbstractStates(rs) contains s) ||
+                               (backwardSubsumedStates contains s) } }) &&
+              (postponedExpansions forall {
+                case (from, _, _, _) => from exists (backwardSubsumedStates contains _) })
+            )
+      */
+
+      val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
+
+      if (states exists (backwardSubsumedStates contains _)) {
+        postponedExpansions += expansion
+      } else {
+        try {
+          for (e <- genEdge(clause, states, assumptions))
+            addEdge(e)
+        } catch {
+          case Counterexample(from, clause) => {
+            // we might have to process this case again, since
+            // the extracted counterexample might not be the only one
+            // leading to this abstract state
+            nextToProcess.enqueue(states, clause, assumptions)
+
+            val clauseDag = extractCounterexample(from, clause)
+            iterationNum = iterationNum + 1
+
+            if (lazabs.GlobalParameters.get.log) {
+              println
+              print("Found counterexample #" + iterationNum + ", refining ... ")
+
+              if (lazabs.GlobalParameters.get.logCEX) {
+                println
+                clauseDag.prettyPrint
+              }
+            }
+
+            {
+              //todo: merge preds from differernt predicateGenerator
+              //todo: change predicateGenerator in differernt iterations
+              val randomPredGenerator=TemplateSelectionUtils.getRandomElement(predicateGeneratorSeq)
+              println(Console.BLUE+"current predGenerator",randomPredGenerator._1)
+
+              val predStartTime = System.currentTimeMillis
+
+              //val preds = predicateGenerator(clauseDag)
+              val preds = randomPredGenerator._2(clauseDag)
+
+              predicateGeneratorTime =
+                predicateGeneratorTime + System.currentTimeMillis - predStartTime
+              preds
+            } match {
+              case Right(trace) => {
+                if (lazabs.GlobalParameters.get.log)
+                  print(" ... failed, counterexample is genuine")
+                val clauseMapping = normClauses.toMap
+                res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
+              }
+              case Left(newPredicates) => {
+                if (lazabs.GlobalParameters.get.log)
+                  println(" ... adding predicates:")
+                addPredicates(newPredicates)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (res == null) {
+      assert(nextToProcess.isEmpty)
+
+      implicit val order = sf.order
+
+      res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
+                       if (rs.pred != HornClauses.FALSE)) yield {
+        val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
+          conj((for (f <- fors.iterator) yield f.rawPred) ++
+            (Iterator single relationSymbolBounds(rs)))
+        })
+        val simplified = //!QuantifierElimProver(!rawFor, true, order)
+          PresburgerTools elimQuantifiersWithPreds rawFor
+
+        val symMap =
+          (rs.arguments.head.iterator zip (
+            for (i <- 0 until rs.arity) yield v(i)).iterator).toMap
+        val subst = ConstantSubst(symMap, order)
+
+        rs.pred -> subst(simplified)
+      }).toMap)
+    }
+
+    //    inferenceAPIProver = null
+
+    res
+  }
 }
 

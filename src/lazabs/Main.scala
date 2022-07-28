@@ -75,6 +75,7 @@ class GlobalParameters extends Cloneable {
   var readCost=false
   var readCostType : String = ""
   var rdm=false
+  var fixRandomSeed=false
   var onlyInitialPredicates=false
   var generateSimplePredicates=false
   var generateTemplates=false
@@ -418,6 +419,7 @@ object Main {
       case "-readTrueLabel" :: rest => readTrueLabel = true; arguments(rest)
       case "-readCost" :: rest => readCost = true; arguments(rest)
       case "-rdm" :: rest => rdm = true; arguments(rest)
+      case "-fixRandomSeed" :: rest => fixRandomSeed = true; arguments(rest)
       case "-readHints" :: rest => readHints = true; arguments(rest)
       case "-readTemplates" :: rest => readTemplates = true; arguments(rest)
       case "-getSMT2" :: rest => getSMT2 = true; arguments(rest)
@@ -500,6 +502,11 @@ object Main {
       case "-abstract:empty" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Empty
+        arguments(rest)
+      }
+      case "-abstract:combined" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Combined
         arguments(rest)
       }
       case "-abstract:all" :: rest => {
@@ -760,6 +767,7 @@ object Main {
           " -readTrueLabel \t read tru label\n"+
           " -readCost \t read template cost from file\n"+
           " -rdm \t random label initial templates\n"+
+          " -fixRandomSeed \t fix random seed by 42\n"+
           " -absTimeout:time\t set timeout for labeling hints\n"+
           " -solvabilityTimeout:time\t set timeout for solvability\n"+
           " -rank:n\t use top n or score above n ranked hints read from file\n"+

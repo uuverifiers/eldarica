@@ -207,8 +207,10 @@ object HintsSelection {
   def randomLabelTemplates(unlabeledPredicates:VerificationHints,ratio:Double): VerificationHints ={
     val labeledTemplates=for((k,v)<-unlabeledPredicates.predicateHints) yield {
       val numberOfLabeledTemplates=(v.size*ratio).toInt
-      Random.setSeed(42)
-      val randomShuffledTemplates=Random.shuffle(v)
+      val random= new Random
+      if (GlobalParameters.get.fixRandomSeed)
+        random.setSeed(42)
+      val randomShuffledTemplates=random.shuffle(v)
       k-> (for (i<-0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
     }
     VerificationHints(labeledTemplates)

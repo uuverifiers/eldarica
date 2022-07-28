@@ -132,7 +132,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
   
-  val cegar = new CEGAR(context, predStore,
+  lazy val cegar = new CEGAR(context, predStore,
                         predicateGenerator, counterexampleMethod)
   import cegar._
   import CEGAR._

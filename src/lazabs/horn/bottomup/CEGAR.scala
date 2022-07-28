@@ -119,7 +119,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   val cegarStartTime = System.currentTimeMillis
 
-  val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
+  lazy val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
     /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
         inferenceAPIProver = p */ {
 
@@ -188,6 +188,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             }
         
             {
+              //todo: merge preds from differernt predicateGenerator
+              //todo: change predicateGenerator in differernt iterations
               val predStartTime = System.currentTimeMillis
               val preds = predicateGenerator(clauseDag)
               predicateGeneratorTime =
