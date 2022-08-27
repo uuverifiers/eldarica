@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,12 +61,19 @@ class ClauseInliner extends HornPreprocessor {
   val name : String = "clause inlining"
 
   def process(clauses : Clauses, hints : VerificationHints)
+      : (Clauses, VerificationHints, BackTranslator) =
+    process(clauses, hints, Set())
+
+  override
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     for (clause <- clauses)
       if (SizeVisitor(clause.constraint) > CONSTRAINT_SIZE_LIMIT)
         blockedPreds ++= clause.predicates
 
     blockedPreds += HornClauses.FALSE
+    blockedPreds ++= frozenPredicates
 
     val (newClauses, newHints) = elimLinearDefs(clauses, hints)
 

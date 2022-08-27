@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,6 +48,12 @@ class PartialConstraintEvaluator extends HornPreprocessor {
   private var symbolCounter = 0
 
   def process(clauses : Clauses, hints : VerificationHints)
+      : (Clauses, VerificationHints, BackTranslator) =
+    process(clauses, hints, Set())
+
+  override
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val clauseMapping = new MHashMap[Clause, Clause]
 
