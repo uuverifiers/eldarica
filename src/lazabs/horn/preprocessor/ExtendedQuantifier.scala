@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,12 +46,12 @@ import ap.types.MonoSortedIFunction
  * @param name            : name of the aggregation function fun
  * @param arrayObjectSort : array object sort
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
- * @param invReduceUp     : only for cancellative reduce operations
+ * @param invReduceOp     : only for cancellative reduce operations
  */
 class ExtendedQuantifier(name            : String,
                          arrayObjectSort : Sort,
                          reduceOp        : (ITerm, ITerm) => ITerm,
-                         invReduceOp : Option[(ITerm, ITerm) => ITerm])
+                         invReduceOp     : Option[(ITerm, ITerm) => ITerm])
   extends Theory {
 
   // currently we fix the index sort to Sort.Integer, object sort is parameterised.
