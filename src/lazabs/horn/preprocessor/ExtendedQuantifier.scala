@@ -45,11 +45,13 @@ import ap.types.MonoSortedIFunction
  * correct encoding during the preprocessing of the input clauses.
  * @param name            : name of the aggregation function fun
  * @param arrayObjectSort : array object sort
+// * @param zero            : term to return for empty ranges
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
  * @param invReduceOp     : only for cancellative reduce operations
  */
 class ExtendedQuantifier(name            : String,
                          arrayObjectSort : Sort,
+//                       zero            : ITerm,
                          reduceOp        : (ITerm, ITerm) => ITerm,
                          invReduceOp     : Option[(ITerm, ITerm) => ITerm])
   extends Theory {
@@ -74,18 +76,33 @@ class ExtendedQuantifier(name            : String,
 
   /**
    * The theory introduces the single extended quantifier function.
-   * Since this function will be preprocessed away, the rest of the overrides
-   * are not needed.
    */
   override val functions: Seq[IFunction] = Seq(fun)
-  override val predicates: Seq[Predicate] = Nil
-  override val functionPredicateMapping: Seq[(IFunction, Predicate)] = Nil
-  override val functionalPredicates: Set[Predicate] = Set()
+
+  val (funPredicates, axioms1, order, functionTranslation) = Theory.genAxioms(
+    theoryFunctions = functions,
+    //theoryAxioms = theoryAxioms,
+    theoryAxioms = i(true),
+    otherTheories = dependencies.toList)
+
+  override val predicates: Seq[Predicate] = funPredicates
+  override val functionPredicateMapping: Seq[(IFunction, Predicate)] =
+    functions zip funPredicates
+  override val functionalPredicates: Set[Predicate] = funPredicates.toSet
   override val predicateMatchConfig: PredicateMatchConfig = Map()
   override val triggerRelevantFunctions: Set[IFunction] = Set()
   override val axioms: Formula = Conjunction.TRUE
   override val totalityAxioms: Formula = Conjunction.TRUE
   override def plugin: Option[Plugin] = None
+
+  override def isSoundForSat( // todo
+                              theories : Seq[Theory],
+                              config : Theory.SatSoundnessConfig.Value) : Boolean =
+    config match {
+      case Theory.SatSoundnessConfig.Elementary  => true
+      case Theory.SatSoundnessConfig.Existential => true
+      case _                                     => false
+    }
 }
 
 object ExtendedQuantifier {

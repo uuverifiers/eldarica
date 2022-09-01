@@ -80,7 +80,6 @@ object MainExtQuans extends App {
       false          :- (p(1)(a, i),
         extQuan.fun(a, 0, 10) =/= 30) // right-open interval
     )
-//
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =
@@ -97,10 +96,10 @@ object MainExtQuans extends App {
     predAbs.result match {
       case Right(cex) => {
         println("NOT SOLVABLE")
-        cex.prettyPrint
+        backTranslator.translate(cex).prettyPrint
       }
       case Left(solution) =>
-        println("SOLVABLE: " + solution)
+        println("SOLVABLE: " + backTranslator.translate(solution))
     }
   }
 }

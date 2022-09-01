@@ -45,6 +45,8 @@ object ExtendedQuantifierPreprocessor {
    * A Horn preprocessor that adds instrumentation code for extended quantifiers.
    */
 
+  val funAppBackTranslation = new MHashMap[Predicate, Seq[IFormula]]
+
   class Instrumenter extends HornPreprocessor {
 
     val name: String = "Extended quantifier instrumenter"
@@ -121,9 +123,16 @@ object ExtendedQuantifierPreprocessor {
             for (app@IFunApp(f, Seq(a, lo, hi)) <- extQuantifierApps) {
               // todo: below code is experimental and will not work in most cases!
               val arrayInd = body.head.args.indexOf(a)
-              val blo = body.head.args(arrayInd + 1)
-              val bhi = body.head.args(arrayInd + 2)
-              val result = body.head.args(arrayInd + 3)
+              val loInd = arrayInd + 1
+              val hiInd = arrayInd + 2
+              val resInd = arrayInd + 3
+              val blo = body.head.args(loInd)
+              val bhi = body.head.args(hiInd)
+              val result = body.head.args(resInd)
+
+              funAppBackTranslation += ((body.head.pred, funAppBackTranslation.
+                getOrElse(body.head.pred, Nil) ++
+                Seq(f(v(arrayInd), v(loInd), v(hiInd)) === v(resInd))))
 
               newConstraint = ExpressionReplacingVisitor(
                 newConstraint,
@@ -182,6 +191,7 @@ object ExtendedQuantifierPreprocessor {
                 newHead = IAtom(head.pred, newHeadArgs)
                 // update head atom with new lo, hi and res
                 instrumented = true
+
               // store(a1, i, o) = a2
               case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
                 val exq = arrToFunHashmap.get(a1) match {
@@ -224,8 +234,6 @@ object ExtendedQuantifierPreprocessor {
                     }
                   }
                 newHead = IAtom(head.pred, newHeadArgs)
-                //??? // todo: add instrumentation constraints
-              // add new constraint newConstraint = newConstraint &&& ...
                 instrumented = true
 //                // f : (a : array, lo : Int, hi : Int) => Obj
 //                val newConjuncts =
@@ -257,18 +265,24 @@ object ExtendedQuantifierPreprocessor {
         }
 
       val translator = new BackTranslator {
-        def translate(solution : Solution) = {
-          // if some predicates completely disappeared as the result of
-          // eliminating clauses, those can be set to false
-          ???
-        }
+        def translate(solution : Solution) =
+          solution.map{
+            case (pred, formula) if funAppBackTranslation contains pred =>
+              var newF = formula
+              for (funApp <- funAppBackTranslation(pred))
+                newF = formula & funApp
+              (pred, newF)
+            case other => other
+          }
+
         def translate(cex : CounterExample) =
-          ???
+          for (p <- cex) yield (p._1, clauseBackMapping(p._2))
       }
 
       (newClauses, hints, translator)
     }
 
+    // todo: refactor this, should not have side effects...
     private def getGhostVarTriplet (pred : MonoSortedPredicate,
                                      args : Seq[ITerm]) :
                                                   Seq[((ITerm, Int), (ITerm, Int), (ITerm, Int))] = {
@@ -278,10 +292,11 @@ object ExtendedQuantifierPreprocessor {
       // todo: below code is very fragile, implement better way to extract (lo, hi, res)
       //  it works because the ghost vars are always added after the array term
       //  but some of them might get deleted during other preprocessing stages
-      for (arrayInd <- headArrayInds) yield {(
-        (args(arrayInd + 1),arrayInd + 1), // lo
-        (args(arrayInd + 2),arrayInd + 2), // hi
-        (args(arrayInd + 3),arrayInd + 3)) // res
+      for (arrayInd <- headArrayInds) yield {
+        val lo = arrayInd + 1
+        val hi = arrayInd + 2
+        val res = arrayInd + 3
+        ((args(lo),lo), (args(hi),hi), (args(res),res))
       }
     }
 
