@@ -36,8 +36,6 @@ import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.Clause
 import IExpression._
-
-
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 object ExtendedQuantifierPreprocessor {
@@ -343,6 +341,8 @@ object ExtendedQuantifierPreprocessor {
 
     val name = "ghost variable adder"
 
+    val ghostVarsInPred = new MHashMap[Predicate, Seq[ConstantTerm]]
+
     def expand(pred: Predicate, argNum: Int, sort: Sort)
     : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
       val arraySort = sort.asInstanceOf[ExtArray.ArraySort]
@@ -356,6 +356,9 @@ object ExtendedQuantifierPreprocessor {
         (new SortedConstantTerm(loName, indexSort), indexSort, loName),
         (new SortedConstantTerm(hiName, indexSort), indexSort, hiName),
         (new SortedConstantTerm(resName, objSort), objSort, resName))
+
+      ghostVarsInPred.put(pred, ghostVars.map(_._1.asInstanceOf[IConstant].c))
+
       Some(ghostVars, None)
     }
 
@@ -371,5 +374,13 @@ object ExtendedQuantifierPreprocessor {
     override def isExpandableSort(s: Sort): Boolean =
       s.isInstanceOf[ExtArray.ArraySort]
 
+    override def postprocessSolution(p : Predicate, f : IFormula) : IFormula = {
+      ghostVarsInPred get p match {
+        case Some(ghostVars) =>
+          val quanF = quanConsts(IExpression.Quantifier.EX, ghostVars, f)
+          (new Simplifier) (quanF)
+        case None => f
+      }
+    }
   }
 }
