@@ -128,6 +128,10 @@ object HornPrinter {
       case HeapPred(heap, name, exprList) =>
         name + "(" + exprList.map(printExp).mkString(", ") + ")"
       // TODO: ??
+
+      case ExtQuantifierFun(extQuantifier, exprList) =>
+        extQuantifier.fun.name + "(" + exprList.map(printExp).mkString(", ") + ")"
+
       case Variable(_,Some(index)) => 
         if (index < vars.size)
           vars(index)

@@ -42,6 +42,7 @@ import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
 import ap.types.MonoSortedIFunction
+import lazabs.horn.preprocessor.ExtendedQuantifier
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -269,6 +270,11 @@ class PrincessWrapper {
         val termArgs = exprList.map(f2pterm(_))
         pred(termArgs : _*)
 
+      // Extended quantifiers
+      case ExtQuantifierFun(extQuantifier, exprList) =>
+        val termArgs = exprList.map(f2pterm(_))
+        extQuantifier.fun(termArgs : _*)
+
       // Bit-vectors
 
       case BVconst(bits, value) =>
@@ -457,12 +463,15 @@ class PrincessWrapper {
       case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
         ADTtest(adt, sortNum, rvT(e))
 
-      // Theory of heap
+      // Theory of heaps
       case IFunApp(f@Heap.HeapFunExtractor(h), e) =>
         HeapFun(h, f.name, e.map(rvT(_)))
 
-      // Bit-vectors
+      // Theory of extended quantifiers
+      case IFunApp(f@ExtendedQuantifier.ExtendedQuantifierFun(extQuantifier), e) =>
+        ExtQuantifierFun(extQuantifier, e.map(rvT(_)))
 
+      // Bit-vectors
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO),
                        IIntLit(upper), IIntLit(value))) => {
