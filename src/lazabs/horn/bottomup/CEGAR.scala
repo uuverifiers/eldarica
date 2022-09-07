@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,6 +63,10 @@ object CEGAR {
 
   val MaxNOr = 5
 
+  type CEGARStateQueue = PriorityStateQueue
+
+  val POSTPONED_EXPANSION_PENALTY = 1000000
+
 }
 
 class CEGAR[CC <% HornClauses.ConstraintClause]
@@ -102,7 +106,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val nextToProcess = new PriorityStateQueue
+  val nextToProcess = new CEGARStateQueue
 
   // Expansions that have been postponed due to backwards subsumption
   val postponedExpansions =
@@ -128,6 +132,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
     import TerForConvenience._
     var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
+
+    var postponedExpansionCount = 0
 
     while (!nextToProcess.isEmpty && res == null) {
       lazabs.GlobalParameters.get.timeoutChecker()
@@ -167,10 +173,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             addEdge(e)
         } catch {
           case Counterexample(from, clause) => {
-            // we might have to process this case again, since
-            // the extracted counterexample might not be the only one
-            // leading to this abstract state
-            nextToProcess.enqueue(states, clause, assumptions)
+            if (postponedExpansionCount > nextToProcess.size)
+              throw new Exception("Predicate generation failed")
 
             val clauseDag = extractCounterexample(from, clause)
             iterationNum = iterationNum + 1
@@ -201,7 +205,10 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
               case Left(newPredicates) => {
                 if (lazabs.GlobalParameters.get.log)
                   println(" ... adding predicates:")
-                addPredicates(newPredicates)
+                if (addPredicates(newPredicates, expansion))
+                  postponedExpansionCount = 0
+                else
+                  postponedExpansionCount = postponedExpansionCount + 1
               }
             }
           }
@@ -361,11 +368,21 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def addPredicates(preds : Seq[(Predicate, Seq[Conjunction])]) = {
+  def addPredicates(preds : Seq[(Predicate, Seq[Conjunction])],
+                    expansion : nextToProcess.Expansion) : Boolean = {
     val predsToAdd = preparePredicates(preds)
 
-    if (predsToAdd.isEmpty)
-      throw new Exception("Predicate generation failed")
+    if (predsToAdd.isEmpty) {
+      println("Could not eliminate counterexample, postponing it")
+      val (a, b, c, d) = expansion
+      nextToProcess.enqueue((a, b, c, d + POSTPONED_EXPANSION_PENALTY))
+      return false
+    } else {
+      // we might have to process this case again, since
+      // the extracted counterexample might not be the only one
+      // leading to this abstract state
+      nextToProcess.enqueue(expansion)
+    }
 
     // update the edges of the reachability graph with the new predicates;
     // but only consider the edges that will still be reachable afterwards
@@ -452,8 +469,10 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     postponedExpansions reduceToSize 0
     postponedExpansions ++= remainingExp
 
-    for ((states, clause, assumptions, time) <- reactivatedExp)
-      nextToProcess.enqueue(states, clause, assumptions, time)
+    for (exp <- reactivatedExp)
+      nextToProcess.enqueue(exp)
+
+    true
   }
 
   //////////////////////////////////////////////////////////////////////////////

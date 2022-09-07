@@ -76,6 +76,12 @@ class DefaultPreprocessor extends HornPreprocessor {
      })
 
   def process(clauses : Clauses, hints : VerificationHints)
+             : (Clauses, VerificationHints, BackTranslator) =
+    process(clauses, hints, Set())
+
+  override
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     var curClauses = clauses
     var curHints = hints
@@ -99,13 +105,14 @@ class DefaultPreprocessor extends HornPreprocessor {
     val translators = new ArrayBuffer[BackTranslator]
 
     def applyStage(stage : HornPreprocessor) : Boolean =
-      if (!curClauses.isEmpty && stage.isApplicable(curClauses)) {
+      if (!curClauses.isEmpty &&
+            stage.isApplicable(curClauses, frozenPredicates)) {
         GlobalParameters.get.timeoutChecker()
 
         val startTime = System.currentTimeMillis
 
         val (newClauses, newHints, translator) =
-          stage.process(curClauses, curHints)
+          stage.process(curClauses, curHints, frozenPredicates)
         curClauses = newClauses
         curHints = newHints
 
