@@ -206,11 +206,11 @@ object ExtendedQuantifierPreprocessor {
                     IConstant(new SortedConstantTerm("hi'",indexSort)),
                     IConstant(new SortedConstantTerm("res'",arrayTheory.objSort))
                   )
-                def ifInsideBounds_help(o:ITerm, o_prev:ITerm, res:ITerm) =
+                /*def ifInsideBounds_help(o:ITerm, o_prev:ITerm, res:ITerm) =
                   exq.invRedOp match {
                     case Some(f) => exq.redOp(f(res, o_prev), o)
                     case _ => ??? //TODO: Implement non-cancellative case
-                  }
+                  }*/
                 val instConstraint =
                   ite(blo === bhi,
                     (hlo === i) & (hhi === i + 1) & (hres === o),
@@ -219,7 +219,11 @@ object ExtendedQuantifierPreprocessor {
                       ite(bhi === i,
                         (hres === exq.redOp(bres, o)) & (hhi === i + 1 & hlo === blo),
                         ite(blo <= i & bhi > i,
-                          hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
+                          exq.invRedOp match {
+                            case Some(f) => hres === exq.redOp(f(bres, arrayTheory.select(a1, i)), o) & hlo === blo & hhi === bhi
+                            case _ => (hlo === i) & (hhi === i + 1) & (hres === o)//??? //TODO: Implement non-cancellative case
+                          },
+                          //hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
                           (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
                 newConstraint = newConstraint &&& instConstraint
                 val newHeadArgs : Seq[ITerm] =
