@@ -88,19 +88,17 @@ object ExtendedQuantifierPreprocessor {
       //     and rewrite them.
 
       /*FIRST PASS: Gather theory for each array*/
-      val arrToFunHashmap = new MHashMap[ITerm, ExtendedQuantifier]() //Keep track of what kind of extended quantifier used for each array
-          for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
-            val extQuantifierApps =
-              ExtQuantifierFunctionApplicationCollector(constraint)
-            for (IFunApp(f, Seq(a, _, _)) <- extQuantifierApps) {
-              f match {
-                case ExtendedQuantifier.ExtendedQuantifierFun(exq) =>
-                  arrToFunHashmap += (a -> exq)
-                case _ => //nothing
-              }
-            }
+      val arrToFunHashmap = new MHashMap[String, ExtendedQuantifier]() //Keep track of what kind of extended quantifier used for each array
+      for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
+        val extQuantifierApps = ExtQuantifierFunctionApplicationCollector(constraint)
+        for (IFunApp(f, Seq(a, _, _)) <- extQuantifierApps) {
+          f match {
+            case ExtendedQuantifier.ExtendedQuantifierFun(exq) =>
+              arrToFunHashmap += (a.toString() -> exq)
+            case _ => //nothing
           }
-
+        }
+      }
       val newClauses =
         for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
           var newHead = head
@@ -152,7 +150,7 @@ object ExtendedQuantifierPreprocessor {
               // we can assume f(a, i) = o due to normalization of clauses
               // select(a, i) = o
               case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o) =>
-                val exq = arrToFunHashmap.get(a) match {
+                val exq = arrToFunHashmap.get(a.toString()) match {
                   case Some(e:ExtendedQuantifier) => e
                   case _ => ??? //TODO: if no theory found then I guess no instrumentation needed?
                 }
@@ -192,7 +190,7 @@ object ExtendedQuantifierPreprocessor {
 
               // store(a1, i, o) = a2
               case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
-                val exq = arrToFunHashmap.get(a1) match {
+                val exq = arrToFunHashmap.get(a1.toString()) match {
                   case Some(e:ExtendedQuantifier) => e
                   case _ => ??? //TODO: if no theory found then I guess no instrumentation needed?
                 }
