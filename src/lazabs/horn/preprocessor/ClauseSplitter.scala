@@ -56,7 +56,8 @@ class ClauseSplitter extends HornPreprocessor {
 
   private val clauseBackMapping = new MHashMap[Clause, Clause]
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val newClauses = {
       // Split negated equations in clauses constraints, which

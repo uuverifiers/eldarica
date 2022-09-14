@@ -75,11 +75,6 @@ class DefaultPreprocessor extends HornPreprocessor {
        case n           => List(new FiniteDomainPredicates (n))
      })
 
-  def process(clauses : Clauses, hints : VerificationHints)
-             : (Clauses, VerificationHints, BackTranslator) =
-    process(clauses, hints, Set())
-
-  override
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {

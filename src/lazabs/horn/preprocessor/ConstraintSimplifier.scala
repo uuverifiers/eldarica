@@ -230,11 +230,6 @@ class ConstraintSimplifier extends HornPreprocessor {
 
   val name : String = "constraint simplification"
 
-  def process(clauses : Clauses, hints : VerificationHints)
-      : (Clauses, VerificationHints, BackTranslator) =
-    process(clauses, hints, Set())
-
-  override
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {

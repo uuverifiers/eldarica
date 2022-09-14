@@ -76,9 +76,12 @@ class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Class used to expand ADT predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
+ * 
+ * TODO: make this as subclass of the ArgumentExpander
  */
 class HeapExpander(val name : String,
                   expansion : HeapExpander.Expansion) extends HornPreprocessor {
@@ -92,7 +95,8 @@ class HeapExpander(val name : String,
         (predArgumentSorts(p) exists (_.isInstanceOf[HeapSort]))
     }
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val predicates =
       HornClauses allPredicates clauses
@@ -116,7 +120,7 @@ class HeapExpander(val name : String,
     // First search for predicates with arguments that should be expanded
     //
 
-    for (pred <- predicates) {
+    for (pred <- predicates; if !(frozenPredicates contains pred)) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
       val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, Sort, String)]]]
