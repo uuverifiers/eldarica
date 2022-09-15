@@ -44,18 +44,26 @@ object ExtendedQuantifierPreprocessor {
   object RelatedArrayTermsAndExtendedQuantifiersDomain extends AbstractDomain {
     val name = "related array terms and extended quantifier theories"
 
-    type Element = Option[Seq[(Set[ITerm], Set[ExtendedQuantifier])]]
+    // This abstract domain tries to infer the extended quantifier theories for
+    // (array) terms appearing in a clause (Left[ITerm]) and
+    // (predicate - predicate argument index) pairs (Left(Predicate, Int)).
+    // Since each term might be associated with multiple extended quantifiers,
+    // a set of theories is returned.
+    type Element =
+      Option[Seq[(Set[Either[ITerm, (Predicate, Int)]], Set[ExtendedQuantifier])]]
 
     def bottom(p : Predicate) : Element = None
     def isBottom(b : Element) : Boolean = b.isEmpty
 
+    // join merges the sets of an element if the intersection of their terms
+    // is not empty.
     def join(a : Element, b : Element) : Element =
       a match {
         case None => b
         case Some(aArgs) => b match {
           case None => a
           case Some(bArgs) =>
-            val mergedArgs: Seq[(Set[ITerm], Set[ExtendedQuantifier])] =
+            val mergedArgs: Set[(Set[Either[ITerm, (Predicate, Int)]], Set[ExtendedQuantifier])] =
               (for ((aTerms, aTheories) <- aArgs) yield {
                 (for((bTerms, bTheories) <- bArgs) yield {
                   if ((aTerms intersect bTerms).nonEmpty) {
@@ -64,27 +72,33 @@ object ExtendedQuantifierPreprocessor {
                     aArgs ++ bArgs
                   }
                 }).flatten
-              }).flatten
+              }).flatten.toSet
 
             // mergedArgs might contain elements with same terms, merge them too
             var changed = true
-            val toBeDropped = new MHashSet[(Set[ITerm], Set[ExtendedQuantifier])]
-            val toBeAdded = new MHashSet[(Set[ITerm], Set[ExtendedQuantifier])]
+            val toBeDropped =
+              new MHashSet[(Set[Either[ITerm, (Predicate, Int)]],
+                Set[ExtendedQuantifier])]
+            val toBeAdded =
+              new MHashSet[(Set[Either[ITerm, (Predicate, Int)]],
+                Set[ExtendedQuantifier])]
             while(changed) {
               changed = false
               for (Seq(merged1@(aTerms, aTheories),
-                    merged2@(bTerms, bTheories)) <- mergedArgs.combinations(2)) {
+                    merged2@(bTerms, bTheories)) <-
+                     mergedArgs.toSeq.combinations(2)) {
                 if ((aTerms intersect bTerms).nonEmpty) {
                   toBeDropped += merged1
                   toBeDropped += merged2
-                  toBeAdded   +=
-                    ((aTerms union bTerms, aTheories union bTheories))
-                  changed = true
+                  changed = toBeAdded.add(
+                    ((aTerms union bTerms, aTheories union bTheories)))
                 } else {
+                  // nothing needed
                 }
               }
             }
-            Some(((toBeAdded.toSet ++ mergedArgs.toSet) diff toBeDropped.toSet).toSeq)
+            Some((toBeAdded.toSet ++
+              (mergedArgs diff toBeDropped.toSet)).toSeq)
         }
       }
 
@@ -98,46 +112,97 @@ object ExtendedQuantifierPreprocessor {
           val conjuncts : Seq[IFormula] =
             LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
 
+          // first we join the elements coming from the body elements
           val elemFromBody : Element =
             bodyVals.reduceOption((a, b) => join(a, b)).getOrElse(None)
 
-          val elemFromHead : Element = {
-            val terms = for(a@IConstant(SortedConstantTerm(_, sort)) <- head.args
-                               if sort.isInstanceOf[ExtArray.ArraySort])
-              yield a.asInstanceOf[ITerm]
-            Some(terms.map(term => (Set(term), Set[ExtendedQuantifier]())))
+          // the elements we merged in the previous step will not contain the
+          // local terms of this clause, those we obtain by iterating over all
+          // (Predicate, Int) pairs, and adding terms at those indices
+          // from literals with those predicates.
+          val elemFromBodyInThisClause : Element = {
+            elemFromBody match {
+              case Some(elem) =>
+                val newTermsAndTheories =
+                  for ((terms, theories : Set[ExtendedQuantifier]) <- elem) yield {
+                    val newTerms : Set[Either[ITerm, (Predicate, Int)]] =
+                      (for (Right((pred, argInd)) <- terms) yield {
+                        for (literal <- Seq(head) ++ body if literal.pred == pred)
+                          yield Left(literal.args(argInd))
+                      }).flatten
+                    (newTerms, theories)
+                  }
+                join(Some(newTermsAndTheories), elemFromBody)
+              case None =>
+                elemFromBody
+            }
           }
 
-          var newElement = join(elemFromHead, elemFromBody)
+          // We also add any elements from the head literal.
+          // Note that the head argument terms are added in the previous step,
+          // so no need to do it here again.
+          val elemFromHead : Element = {
+            val termSets =
+              for((a@IConstant(SortedConstantTerm(_, sort)), argInd) <-
+                    head.args.zipWithIndex
+                  if sort.isInstanceOf[ExtArray.ArraySort])
+                yield Set(Left(a.asInstanceOf[ITerm]).
+                  asInstanceOf[Either[ITerm, (Predicate, Int)]],
+                  Right((head.pred, argInd)))
+            Some(termSets.map(termSet => (termSet, Set[ExtendedQuantifier]())))
+          }
+
+          // collects a set of (Pred, Int) pairs if term appears as argument
+          // to any predicate in the clause.
+          def getPredArgsMatchingTerm(term : ITerm) :
+          Set[Either[ITerm, (Predicate, Int)]] =
+            (for(literal <- Seq(clause.head) ++ clause.body
+                 if literal.args.contains(term)) yield {
+              Right(literal.pred, literal.args.indexOf(term))
+            }).toSet
+
+          var newElement = join(elemFromHead, elemFromBodyInThisClause)
           var changed = true
 
+          // this loop runs to fixed point inside a clause, applying the
+          // abstract transformer.
           while(changed) {
             changed = false
             val oldElement = newElement
             for (conjunct <- conjuncts) conjunct match {
               case Eq(IFunApp(f@ExtArray.Store(_), Seq(a, _, _)), b) =>
-                val termSet : Set[ITerm] = Set(a, b)
+                val termSet : Set[Either[ITerm, (Predicate, Int)]] =
+                  Set(Left(a), Left(b))
                 val theorySet : Set[ExtendedQuantifier] = Set()
-                val conjunctElem : Element = Some(Seq((termSet, theorySet)))
+                val predArgSet = getPredArgsMatchingTerm(a) ++
+                  getPredArgsMatchingTerm(b)
+                val conjunctElem : Element =
+                  Some(Seq((termSet ++ predArgSet, theorySet)))
                 newElement = join(conjunctElem, elemFromBody)
               case Eq(IConstant(SortedConstantTerm(a, s1)),
               IConstant(SortedConstantTerm(b, s2)))
                 if s1 == s2 && s1.isInstanceOf[ExtArray.ArraySort] =>
-                val termSet : Set[ITerm] = Set(a, b)
+                val termSet : Set[Either[ITerm, (Predicate, Int)]] =
+                  Set(Left(a), Left(b))
                 val theorySet : Set[ExtendedQuantifier] = Set()
-                val conjunctElem : Element = Some(Seq((termSet, theorySet)))
+                val predArgSet =
+                  getPredArgsMatchingTerm(a) ++ getPredArgsMatchingTerm(b)
+                val conjunctElem : Element =
+                  Some(Seq((termSet ++ predArgSet, theorySet)))
                 newElement = join(conjunctElem, elemFromBody)
               case Eq(IFunApp(f@ExtendedQuantifier.ExtendedQuantifierFun(exq),
-                              Seq(a, _, _)), b) =>
-                val termSet : Set[ITerm] = Set(a, b)
+                              Seq(a, _, _)), _) =>
+                val termSet : Set[Either[ITerm, (Predicate, Int)]] =
+                  Set(Left(a))
                 val theorySet : Set[ExtendedQuantifier] = Set(exq)
-                val conjunctElem : Element = Some(Seq((termSet, theorySet)))
+                val predArgSet = getPredArgsMatchingTerm(a)
+                val conjunctElem : Element =
+                  Some(Seq((termSet ++ predArgSet, theorySet)))
                 newElement = join (conjunctElem, elemFromBody)
-              case conjunct =>
+              case _ =>
               // nothing
             }
-            if(oldElement != newElement)
-              changed = true
+            changed = oldElement != newElement
           }
           newElement
         }
@@ -203,7 +268,11 @@ object ExtendedQuantifierPreprocessor {
         new AbstractAnalyser(clauses ++ goalClausesWithHeadPred,
           RelatedArrayTermsAndExtendedQuantifiersDomain).result
 
-      def getTheoriesForTerm(pred : Predicate, term : ITerm) : Set[ExtendedQuantifier] =
+      // returns the extended quantifiers for a given term
+      // the term is either an ITerm, or a (Predicate, Int) pair.
+      def getTheoriesForTerm(pred : Predicate,
+                             term : Either[ITerm, (Predicate, Int)]) :
+      Set[ExtendedQuantifier] =
         predToRelatedTermsAndExtQuanTheories(pred).getOrElse(Set()).find{
           case (terms, _) =>
             terms contains term
@@ -263,7 +332,7 @@ object ExtendedQuantifierPreprocessor {
               // we can assume f(a, i) = o due to normalization of clauses
               // select(a, i) = o
               case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o) =>
-                val exqs = getTheoriesForTerm(clause.head.pred, a)
+                val exqs = getTheoriesForTerm(clause.head.pred, Left(a))
                 if(exqs.isEmpty)
                   ??? //TODO: if no theory found then I guess no instrumentation needed?
                 val exq : ExtendedQuantifier = exqs.head // todo: taking the first theory for now
@@ -303,7 +372,7 @@ object ExtendedQuantifierPreprocessor {
 
               // store(a1, i, o) = a2
               case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
-                val exqs = getTheoriesForTerm(clause.head.pred, a1)
+                val exqs = getTheoriesForTerm(clause.head.pred, Left(a1))
                 if(exqs.isEmpty)
                   ??? //TODO: if no theory found then I guess no instrumentation needed?
                 val exq : ExtendedQuantifier = exqs.head // todo: taking the first theory for now
