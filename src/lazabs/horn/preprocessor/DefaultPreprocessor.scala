@@ -151,8 +151,8 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
         applyStage(ReachabilityChecker)
-//        if (GlobalParameters.get.slicing) // disabled for now to prevent optimization of ghost variables
-//          applyStage(Slicer)
+        if (GlobalParameters.get.slicing) // disabled for now to prevent optimization of ghost variables
+          applyStage(Slicer)
         curSize = curClauses.size
       }
     }
