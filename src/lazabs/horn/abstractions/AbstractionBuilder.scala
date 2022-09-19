@@ -267,6 +267,7 @@ class StaticAbstractionBuilder(
       case AbstractionType.Random => randomAbstractions
       case AbstractionType.PredictedCG => predictedCGAbstractions
       case AbstractionType.PredictedCDHG => predictedCDHGAbstractions
+      case AbstractionType.Combined=> emptyAbstractions //todo
       case _ => emptyAbstractions
     }
 
