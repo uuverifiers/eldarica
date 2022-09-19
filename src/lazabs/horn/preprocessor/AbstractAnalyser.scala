@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 
 package lazabs.horn.preprocessor
 
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.bottomup.HornClauses
 import HornClauses.Clause
 import HornPreprocessor.Clauses
@@ -73,7 +74,8 @@ object AbstractAnalyser {
 }
 
 class AbstractAnalyser[Domain <: AbstractAnalyser.AbstractDomain]
-                      (clauses : Clauses, val domain : Domain) {
+                      (clauses : Clauses, val domain : Domain,
+                       frozenPredicates : Set[Predicate]) {
 
   val result : GMap[Predicate, domain.Element] = {
     val allPreds = HornClauses allPredicates clauses
@@ -90,14 +92,25 @@ class AbstractAnalyser[Domain <: AbstractAnalyser.AbstractDomain]
 
     val abstractValues = new MHashMap[Predicate, domain.Element]
     for (p <- allPreds)
-      abstractValues.put(p, domain bottom p)
+      if (frozenPredicates contains p) {
+        // set the frozen predicates to the top value
+        val sorts = predArgumentSorts(p)
+        val args  = for (s <- sorts) yield s.newConstant("X")
+        val head  = IAtom(p, args)
+        val prop  = domain transformerFor Clause(head, List(), true)
+        abstractValues.put(p, prop transform List())
+      } else {
+        // everything else to bottom
+        abstractValues.put(p, domain bottom p)
+      }
 
     val clausesTodo = new LinkedHashSet[Int]
 
     // start with the clauses with empty body
-    for ((Clause(IAtom(p, _), Seq(), _), n) <-
+    for ((Clause(IAtom(p, _), body, _), n) <-
            clauseSeq.iterator.zipWithIndex;
-         if p != HornClauses.FALSE)
+         if p != HornClauses.FALSE;
+         if body forall { case IAtom(q, _) => frozenPredicates contains q })
       clausesTodo += n
       
     while (!clausesTodo.isEmpty) {

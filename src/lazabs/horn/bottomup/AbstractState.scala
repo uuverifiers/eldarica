@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,13 +59,13 @@ import Util._
 
   trait StateQueue {
     type TimeType
+    type Expansion = (Seq[AbstractState], NormClause, Conjunction, TimeType)
     def isEmpty : Boolean
+    def size : Int
     def enqueue(states : Seq[AbstractState],
                 clause : NormClause, assumptions : Conjunction) : Unit
-    def enqueue(states : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                time : TimeType) : Unit
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType)
+    def enqueue(exp : Expansion) : Unit
+    def dequeue : Expansion
     def removeGarbage(reachableStates : scala.collection.Set[AbstractState])
     def incTime : Unit = {}
   }
@@ -75,19 +75,19 @@ import Util._
     private var states = List[(Seq[AbstractState], NormClause, Conjunction)]()
     def isEmpty : Boolean =
       states.isEmpty
+    def size : Int =
+      states.size
     def enqueue(s : Seq[AbstractState],
                 clause : NormClause, assumptions : Conjunction) : Unit = {
       states = (s, clause, assumptions) :: states
 //      println("enqueuing ... " +  (s, clause, assumptions))
     }
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                time : TimeType) : Unit =
-      enqueue(s, clause, assumptions)
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType) = {
-      val res = states.head
+    def enqueue(exp : Expansion) : Unit =
+      enqueue(exp._1, exp._2, exp._3)
+    def dequeue : Expansion = {
+      val (a, b, c) = states.head
       states = states.tail
-      (res._1, res._2, res._3, ())
+      (a, b, c, ())
     }
     def removeGarbage(reachableStates : scala.collection.Set[AbstractState]) = 
       states = states filter {
@@ -100,34 +100,37 @@ import Util._
 
     private var time = 0
 
-    private def priority(s : (Seq[AbstractState], NormClause, Conjunction, Int)) = {
-      val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _, birthTime) = s
+    private def priority(s : Expansion) = {
+      val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+           birthTime) = s
       (headSym match {
         case HornClauses.FALSE => -10000
         case _ => 0
-      }) + (for (AbstractState(_, preds) <- states.iterator) yield preds.size).sum + birthTime
+       }) + (
+        for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum +
+      birthTime
     }
 
-    private implicit val ord = new Ordering[(Seq[AbstractState], NormClause, Conjunction, Int)] {
-      def compare(s : (Seq[AbstractState], NormClause, Conjunction, Int),
-                  t : (Seq[AbstractState], NormClause, Conjunction, Int)) =
+    private implicit val ord = new Ordering[Expansion] {
+      def compare(s : Expansion, t : Expansion) =
         priority(t) - priority(s)
     }
 
-    private val states = new PriorityQueue[(Seq[AbstractState], NormClause, Conjunction, Int)]
+    private val states = new PriorityQueue[Expansion]
 
     def isEmpty : Boolean =
       states.isEmpty
+    def size : Int =
+      states.size
     def enqueue(s : Seq[AbstractState],
                 clause : NormClause, assumptions : Conjunction) : Unit = {
       states += ((s, clause, assumptions, time))
     }
-    def enqueue(s : Seq[AbstractState],
-                clause : NormClause, assumptions : Conjunction,
-                t : TimeType) : Unit = {
-      states += ((s, clause, assumptions, t))
+    def enqueue(exp : Expansion) : Unit = {
+      states += exp
     }
-    def dequeue : (Seq[AbstractState], NormClause, Conjunction, TimeType) =
+    def dequeue : Expansion =
       states.dequeue
     def removeGarbage(reachableStates : scala.collection.Set[AbstractState]) = {
       val remainingStates = (states.iterator filter {

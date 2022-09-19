@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,20 +78,27 @@ class HeapModifyExtractor(allocs : ArrayBuffer[(IFunApp, Heap)],
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Class used to expand ADT predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
+ * 
+ * TODO: make this as subclass of the ArgumentExpander
  */
 class HeapExpander(val name : String,
                   expansion : HeapExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
 
-  override def isApplicable(clauses : Clauses) : Boolean =
+  override def isApplicable(clauses : Clauses,
+                            frozenPredicates : Set[Predicate]) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p => predArgumentSorts(p) exists (_.isInstanceOf[HeapSort])
+      p =>
+        !(frozenPredicates contains p) &&
+        (predArgumentSorts(p) exists (_.isInstanceOf[HeapSort]))
     }
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val predicates =
       HornClauses allPredicates clauses
@@ -115,7 +122,7 @@ class HeapExpander(val name : String,
     // First search for predicates with arguments that should be expanded
     //
 
-    for (pred <- predicates) {
+    for (pred <- predicates; if !(frozenPredicates contains pred)) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
       val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, Sort, String)]]]

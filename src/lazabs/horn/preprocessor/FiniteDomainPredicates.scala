@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,7 +49,8 @@ class FiniteDomainPredicates(domainSizeBound : Int) extends HornPreprocessor {
 
   val name : String = "adding finite domain init. predicates"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val allPreds =
       HornClauses allPredicates clauses
@@ -75,9 +76,12 @@ class FiniteDomainPredicates(domainSizeBound : Int) extends HornPreprocessor {
     (clauses, hints ++ VerificationHints(newHints), IDENTITY_TRANSLATOR)
   }
 
-  override def isApplicable(clauses : Clauses) : Boolean =
+  override def isApplicable(clauses : Clauses,
+                            frozenPredicates : Set[Predicate]) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p => predArgumentSorts(p) exists { s => s.cardinality.isDefined }
+      p =>
+        !(frozenPredicates contains p) &&
+        (predArgumentSorts(p) exists { s => s.cardinality.isDefined })
     }
 
 }

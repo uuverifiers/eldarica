@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2020-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -196,10 +196,12 @@ class UniqueConstructorExpander extends ArgumentExpander {
 
   val name = "inlining ADT constructors"
 
-  override def process(clauses : Clauses, hints : VerificationHints)
+  override def process(clauses : Clauses, hints : VerificationHints,
+                       frozenPredicates : Set[Predicate])
                     : (Clauses, VerificationHints, BackTranslator) = {
-    ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain)).result
-    super.process(clauses, hints)
+    ctorElements = (new AbstractAnalyser(clauses, CtorTypeDomain,
+                                         frozenPredicates)).result
+    super.process(clauses, hints, frozenPredicates)
   }
 
   private var ctorElements : GMap[Predicate, CtorTypeDomain.Element] = _

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,8 +51,8 @@ class DefaultPreprocessor extends HornPreprocessor {
   val clauseNumWidth = 10
 
   def preStages : List[HornPreprocessor] =
-    List(ReachabilityChecker,
-         new PartialConstraintEvaluator,
+    (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
+    List(new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner)
 
@@ -75,7 +75,8 @@ class DefaultPreprocessor extends HornPreprocessor {
        case n           => List(new FiniteDomainPredicates (n))
      })
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     var curClauses = clauses
     var curHints = hints
@@ -99,13 +100,14 @@ class DefaultPreprocessor extends HornPreprocessor {
     val translators = new ArrayBuffer[BackTranslator]
 
     def applyStage(stage : HornPreprocessor) : Boolean =
-      if (!curClauses.isEmpty && stage.isApplicable(curClauses)) {
+      if (!curClauses.isEmpty &&
+            stage.isApplicable(curClauses, frozenPredicates)) {
         GlobalParameters.get.timeoutChecker()
 
         val startTime = System.currentTimeMillis
 
         val (newClauses, newHints, translator) =
-          stage.process(curClauses, curHints)
+          stage.process(curClauses, curHints, frozenPredicates)
         curClauses = newClauses
         curHints = newHints
 
@@ -137,10 +139,10 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(new UniqueConstructorExpander)
         applyStage(new ConstraintSimplifier)
         applyStage(new ClauseInliner)
-        applyStage(SimplePropagators.HeapDefinednessPropagator)
-        applyStage(ReachabilityChecker)
-        if (GlobalParameters.get.slicing)
+        if (GlobalParameters.get.slicing) {
+          applyStage(ReachabilityChecker)
           applyStage(Slicer)
+        }
         curSize = curClauses.size
       }
     }

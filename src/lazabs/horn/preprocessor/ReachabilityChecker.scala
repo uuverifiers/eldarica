@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,16 +52,19 @@ object ReachabilityChecker extends HornPreprocessor {
 
   val name : String = "eliminating fwd/bwd unreachable clauses"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val allPredicates = HornClauses allPredicates clauses
 
     ////////////////////////////////////////////////////////////////////////////
     // check fwd reachability
-    val fwdReachable, fwdUnreachable = new MHashSet[Predicate]
+    val fwdReachable = new MHashSet[Predicate]
+    fwdReachable ++= frozenPredicates
 
     val fwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
+      workList ++= fwdReachable
 
       // add entry predicates
       for (Clause(IAtom(p, _), Seq(), _) <- clauses)
@@ -94,12 +97,13 @@ object ReachabilityChecker extends HornPreprocessor {
     // check bwd reachability
     val bwdReachable = new MHashSet[Predicate]
 
+    // FALSE is exit
+    bwdReachable += HornClauses.FALSE
+    bwdReachable ++= frozenPredicates
+
     val bwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
-
-      // FALSE is exit
-      bwdReachable += HornClauses.FALSE
-      workList push HornClauses.FALSE
+      workList ++= bwdReachable
 
       // fixed-point iteration
       val clausesWithHeadPred = fwdReachableClauses groupBy (_.head.pred)

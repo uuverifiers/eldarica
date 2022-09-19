@@ -66,7 +66,8 @@ class BooleanClauseSplitter extends HornPreprocessor {
   private val tempPredicates = new MHashSet[Predicate]
   private val clauseBackMapping = new MHashMap[Clause, (Clause, Tree[Int])]
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
 
     val newClauses = SimpleAPI.withProver { p =>
