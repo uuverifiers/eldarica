@@ -55,6 +55,7 @@ object MainExtQuans extends App {
   {
     val a = new SortedConstantTerm("a", ar.sort)
     val i = new ConstantTerm("i")
+    val s = new ConstantTerm("s")
     val o = new SortedConstantTerm("o",ar.objSort)
     val o2 = new SortedConstantTerm("o'",ar.objSort)
 
@@ -73,13 +74,25 @@ object MainExtQuans extends App {
 
 //    // STORE (write)
 
-    val clauses = List(
-      p(0)(a, i)     :- (i === 0),
-      p(0)(ar.store(a, i, 3), i + 1) :- (p(0)(a, i), i < 10),
-      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
-      false          :- (p(1)(a, i),
-        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
-    )
+//    val clauses = List(
+//      p(0)(a, i)     :- (i === 0),
+//      p(0)(ar.store(a, i, 3), i + 1) :- (p(0)(a, i), i < 10),
+//      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
+//      false          :- (p(1)(a, i),
+//        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
+//    )
+
+    val p3 = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+      Seq(ar.sort, Sort.Integer, Sort.Integer)))
+
+//    SELECT (read) - unsafe
+        val clauses = List(
+          p3(0)(a, i, s)     :- (i === 0, s === 0),
+          p3(0)(a, i + 1, s) :- (p3(0)(a, i, s), o === ar.select(a, i), i < 10),
+          p3(1)(a, i, s)     :- (p3(0)(a, i, s), i >= 10),
+          false          :- (p3(1)(a, i, s),
+                            extQuan.fun(a, 0, 10) =/= s) // right-open interval
+        )
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =

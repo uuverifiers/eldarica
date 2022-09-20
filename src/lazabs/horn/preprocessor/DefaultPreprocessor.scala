@@ -56,7 +56,8 @@ class DefaultPreprocessor extends HornPreprocessor {
          new ConstraintSimplifier,
          new ClauseInliner,
          new ExtendedQuantifierPreprocessor.GhostVariableAdder,
-         new ExtendedQuantifierPreprocessor.Instrumenter)
+         new ExtendedQuantifierPreprocessor.Instrumenter
+)
 
   def extendingStages : List[HornPreprocessor] =
     if (GlobalParameters.get.expandADTArguments)

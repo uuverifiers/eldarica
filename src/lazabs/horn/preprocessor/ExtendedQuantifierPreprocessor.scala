@@ -178,7 +178,8 @@ object ExtendedQuantifierPreprocessor {
                   getPredArgsMatchingTerm(b)
                 val conjunctElem : Element =
                   Some(Seq((termSet ++ predArgSet, theorySet)))
-                newElement = join(conjunctElem, elemFromBody)
+                newElement = join (newElement,
+                  join (conjunctElem, elemFromBodyInThisClause))
               case Eq(IConstant(SortedConstantTerm(a, s1)),
               IConstant(SortedConstantTerm(b, s2)))
                 if s1 == s2 && s1.isInstanceOf[ExtArray.ArraySort] =>
@@ -189,7 +190,8 @@ object ExtendedQuantifierPreprocessor {
                   getPredArgsMatchingTerm(a) ++ getPredArgsMatchingTerm(b)
                 val conjunctElem : Element =
                   Some(Seq((termSet ++ predArgSet, theorySet)))
-                newElement = join(conjunctElem, elemFromBody)
+                newElement = join (newElement,
+                  join (conjunctElem, elemFromBodyInThisClause))
               case Eq(IFunApp(f@ExtendedQuantifier.ExtendedQuantifierFun(exq),
                               Seq(a, _, _)), _) =>
                 val termSet : Set[Either[ITerm, (Predicate, Int)]] =
@@ -198,7 +200,8 @@ object ExtendedQuantifierPreprocessor {
                 val predArgSet = getPredArgsMatchingTerm(a)
                 val conjunctElem : Element =
                   Some(Seq((termSet ++ predArgSet, theorySet)))
-                newElement = join (conjunctElem, elemFromBody)
+                newElement = join (newElement,
+                  join (conjunctElem, elemFromBodyInThisClause))
               case _ =>
               // nothing
             }
@@ -225,14 +228,16 @@ object ExtendedQuantifierPreprocessor {
      * Enabled for clauses that have extended quantifiers.
      */
     // todo: might need to be updated for recursive instrumentation.
-    override def isApplicable(clauses: Clauses): Boolean =
+    override def isApplicable(clauses: Clauses,
+                              frozenPredicates : Set[Predicate]): Boolean =
       clauses.flatMap(c => c.theories).exists(t =>
         t.isInstanceOf[ExtendedQuantifier])
 
     /**
      * Transformer method
      */
-    def process(clauses: Clauses, hints: VerificationHints)
+    def process(clauses: Clauses, hints: VerificationHints,
+                frozenPredicates : Set[Predicate])
     : (Clauses, VerificationHints, BackTranslator) = {
       // ghost variables should have been added by GhostVariableAdder at this point
 
@@ -266,13 +271,19 @@ object ExtendedQuantifierPreprocessor {
 
       val predToRelatedTermsAndExtQuanTheories =
         new AbstractAnalyser(clauses ++ goalClausesWithHeadPred,
-          RelatedArrayTermsAndExtendedQuantifiersDomain).result
+          RelatedArrayTermsAndExtendedQuantifiersDomain, Set()).result
 
-      // returns the extended quantifiers for a given term
-      // the term is either an ITerm, or a (Predicate, Int) pair.
-      def getTheoriesForTerm(pred : Predicate,
+      // Returns the extended quantifiers for a given term in a clause.
+      // The term is either an ITerm, or a (Predicate, Int) pair.
+      def getTheoriesForTerm(clause : HornClauses.Clause,
                              term : Either[ITerm, (Predicate, Int)]) :
-      Set[ExtendedQuantifier] =
+      Set[ExtendedQuantifier] = {
+        // Finds any predicate that is not FALSE and uses it.
+        // This works because all predicates should have the same abstract
+        // element at fixed point.
+        val pred : Predicate =
+          (Seq(clause.head) ++
+            clause.body).filter(_.pred != HornClauses.FALSE).head.pred
         predToRelatedTermsAndExtQuanTheories(pred).getOrElse(Set()).find{
           case (terms, _) =>
             terms contains term
@@ -280,6 +291,7 @@ object ExtendedQuantifierPreprocessor {
           case Some((_, theories)) => theories
           case None => Set()
         }
+      }
 
       val newClauses =
         for (clause@HornClauses.Clause(head, body, constraint) <- clauses) yield {
@@ -331,10 +343,11 @@ object ExtendedQuantifierPreprocessor {
             conjunct match {
               // we can assume f(a, i) = o due to normalization of clauses
               // select(a, i) = o
-              case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o) =>
-                val exqs = getTheoriesForTerm(clause.head.pred, Left(a))
-                if(exqs.isEmpty)
-                  ??? //TODO: if no theory found then I guess no instrumentation needed?
+              case c@Eq(IFunApp(ExtArray.Select(arrayTheory), Seq(a:ITerm, i)), o)
+              if //getTheoriesForTerm(clause, Left(a)).nonEmpty &&
+                head.pred.isInstanceOf[MonoSortedPredicate] &&
+                body.forall(_.pred.isInstanceOf[MonoSortedPredicate]) => // todo: this is not a proper fix, but should prevent an exception for getting ghost vars in simple programs
+                val exqs = getTheoriesForTerm(clause, Left(a))
                 val exq : ExtendedQuantifier = exqs.head // todo: taking the first theory for now
                 val ((blo, iblo), (bhi, ibhi), (bres, ibres)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
@@ -371,10 +384,11 @@ object ExtendedQuantifierPreprocessor {
                 instrumented = true
 
               // store(a1, i, o) = a2
-              case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2) =>
-                val exqs = getTheoriesForTerm(clause.head.pred, Left(a1))
-                if(exqs.isEmpty)
-                  ??? //TODO: if no theory found then I guess no instrumentation needed?
+              case c@Eq(IFunApp(ExtArray.Store(arrayTheory), Seq(a1, i, o)), a2)
+                if //getTheoriesForTerm(clause, Left(a1)).nonEmpty &&
+                  head.pred.isInstanceOf[MonoSortedPredicate] &&
+                  body.forall(_.pred.isInstanceOf[MonoSortedPredicate]) => // todo: this is not a proper fix, but should prevent an exception for getting ghost vars
+                val exqs = getTheoriesForTerm(clause, Left(a1))
                 val exq : ExtendedQuantifier = exqs.head // todo: taking the first theory for now
                 val ((blo, _), (bhi, _), (bres, _)) = getGhostVarTriplet( // todo: fix
                   body.head.pred.asInstanceOf[MonoSortedPredicate], body.head.args).head
@@ -546,7 +560,8 @@ object ExtendedQuantifierPreprocessor {
       Some(ghostVars, None)
     }
 
-    override def setup(clauses: Clauses): Unit = {
+    override def setup(clauses: Clauses,
+                       frozenPredicates : Set[Predicate]): Unit = {
       //    usedTheories.clear
       //    for (clause <- clauses)
       //      usedTheories ++= clause.theories
