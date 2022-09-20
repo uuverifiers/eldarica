@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -230,7 +230,8 @@ class ConstraintSimplifier extends HornPreprocessor {
 
   val name : String = "constraint simplification"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val clauseMapping        = new MHashMap[Clause, Clause]
     val maybeEliminatedPreds = new MHashSet[Predicate]

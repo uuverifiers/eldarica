@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,11 +59,15 @@ abstract class ArgumentExpander extends HornPreprocessor {
   /**
    * Set up the preprocessor for the given set of clauses.
    */
-  def setup(clauses : Clauses) : Unit = {}
+  def setup(clauses : Clauses,
+            frozenPredicates : Set[Predicate]) : Unit = {}
 
-  override def isApplicable(clauses : Clauses) : Boolean =
+  override def isApplicable(clauses : Clauses,
+                            frozenPredicates : Set[Predicate]) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p => predArgumentSorts(p) exists isExpandableSort
+      p =>
+        !(frozenPredicates contains p) &&
+        (predArgumentSorts(p) exists isExpandableSort)
     }
 
   /**
@@ -83,9 +87,10 @@ abstract class ArgumentExpander extends HornPreprocessor {
    */
   def postprocessSolution(p : Predicate, f : IFormula) : IFormula = f
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
-    setup(clauses)
+    setup(clauses, frozenPredicates)
 
     val predicates =
       HornClauses allPredicates clauses
@@ -110,7 +115,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
     // First search for predicates with arguments that should be expanded
     //
 
-    for (pred <- predicates) {
+    for (pred <- predicates; if !(frozenPredicates contains pred)) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
       val addedArgs  = new ArrayBuffer[Option[(Seq[(ITerm, Sort, String)],

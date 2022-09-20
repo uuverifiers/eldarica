@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,8 @@
 
 package lazabs.horn.preprocessor
 
+import ap.terfor.preds.Predicate
+
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.Dag
 
@@ -45,9 +47,13 @@ object Accelerator extends HornPreprocessor {
 
   val name : String = "acceleration"
 
-  def process(clauses : Clauses, hints : VerificationHints)
-             : (Clauses, VerificationHints, BackTranslator) = {
-    val newClauses = HornAccelerate.accelerate(clauses)
-    (newClauses, hints, IDENTITY_TRANSLATOR)
-  }
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
+             : (Clauses, VerificationHints, BackTranslator) =
+    if (frozenPredicates.isEmpty) {
+      val newClauses = HornAccelerate.accelerate(clauses)
+      (newClauses, hints, IDENTITY_TRANSLATOR)
+    } else {
+      (clauses, hints, IDENTITY_TRANSLATOR)
+    }
 }

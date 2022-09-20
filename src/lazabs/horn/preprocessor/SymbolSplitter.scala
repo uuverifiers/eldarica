@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,7 +54,8 @@ object SymbolSplitter extends HornPreprocessor {
 
   val name : String = "cloning of relation symbols"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
 
     val clauseArguments =
@@ -65,8 +66,12 @@ object SymbolSplitter extends HornPreprocessor {
               clauses.iterator zip clauseArguments.iterator;
             (IAtom(p, _), args) <-
               clause.allAtoms.iterator zip allArgs.iterator;
-            bits =
-              BitSet((for ((Some(_), i) <- args.zipWithIndex) yield i) : _*))
+            bits = {
+              if (frozenPredicates contains p)
+                BitSet()
+              else
+                BitSet((for ((Some(_), i) <- args.zipWithIndex) yield i) : _*)
+            })
        yield (p -> bits)).toSeq groupBy (_._1) mapValues {
          bits => (bits map (_._2)) reduceLeft (_ & _)
        }
