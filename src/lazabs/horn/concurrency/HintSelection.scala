@@ -95,8 +95,8 @@ object HintsSelection {
         if (fullAbstractionMap.isEmpty)
           DagInterpolator.interpolatingPredicateGenCEXAndOr _
         else if (GlobalParameters.get.combineTemplates){
-          TemplateInterpolator.interpolatingPredicateGenCEXAbsGNNGen((absMaps.head,absMaps.tail.head),
-            lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+          TemplateSelectionUtils.interpolatingPredicateGenCEXAbsGNNGen(absMaps.head,absMaps.tail.head,
+            lazabs.GlobalParameters.get.templateBasedInterpolationTimeout) _
         } else
           TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(fullAbstractionMap,
             lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)

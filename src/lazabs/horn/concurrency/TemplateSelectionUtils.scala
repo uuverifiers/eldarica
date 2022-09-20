@@ -9,19 +9,20 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.terfor.substitutions.ConstantSubst
 import lazabs.GlobalParameters
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.{AbsReader, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.CEGAR.Counterexample
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{AbstractState, CEGAR, HornClauses, HornPredAbs, HornPredAbsContext, HornTranslator, HornWrapper, NormClause, PredicateMiner, PredicateStore}
+import lazabs.horn.bottomup.{AbstractState, CEGAR, HornClauses, HornPredAbs, HornPredAbsContext, HornTranslator, HornWrapper, NormClause, PredicateMiner, PredicateStore, TemplateInterpolator}
 import lazabs.horn.concurrency.DrawHornGraph.{HornGraphType, addQuotes}
 import lazabs.horn.concurrency.HintsSelection.{detectIfAJSONFieldExists, generateCombinationTemplates, getArgumentInfo, getParametersFromVerifHintElement, getPredGenerator, termContains, wrappedReadHintsCheckExistence}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
-import scala.util.Random
 
+import scala.util.Random
 import java.io.{File, PrintWriter}
 
 object TemplateSelectionUtils{
@@ -215,13 +216,7 @@ object TemplateSelectionUtils{
     }
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      if (GlobalParameters.get.templateBasedInterpolationType == AbstractionType.Combined) {
-        //todo rewrite predGenerator.
         new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
-      }
-      else {
-        new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
-      }
     }
 
 
@@ -360,7 +355,40 @@ object TemplateSelectionUtils{
     sys.exit()
   }
 
+  def interpolatingPredicateGenCEXAbsGNNGen(template: AbstractionMap, templateGNN: AbstractionMap, timeout: Long)
+                                           (clauseDag: Dag[AndOrNode[NormClause, Unit]])
+  : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
+    Dag[(IAtom, NormClause)]] = {
+    val predgen1 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(template, timeout)
+    val predgen2 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(templateGNN, timeout)
 
+    (predgen1(clauseDag), predgen2(clauseDag)) match {
+      case (Left(newPredicate1), Left(newPredicate2)) => {
+
+
+//        println()
+//        for (p<-newPredicate1)
+//          println(Console.BLUE+p)
+//        for (p <- newPredicate2)
+//          println(Console.GREEN + p)
+
+        val commonHead = (for (p1 <- newPredicate1; p2 <- newPredicate2; if p1._1 == p2._1) yield {
+          (p1._1, (p1._2 ++ p2._2).distinct)
+        }).distinct
+        val p1Unique = for (p1 <- newPredicate1; if !newPredicate2.map(_._1).contains(p1._1)) yield p1
+        val p2Unique = for (p2 <- newPredicate2; if !newPredicate1.map(_._1).contains(p2._1)) yield p2
+        val mergedPredicates = commonHead ++ p1Unique ++ p2Unique
+
+//        for (p <- mergedPredicates)
+//          println(Console.CYAN_B + p)
+
+        Left(mergedPredicates)
+      }
+      case (Right(cex1), Right(cex2)) => {
+        Right(cex1)
+      }
+    }
+  }
 
   def getRandomElement[A](seq: Seq[A]): A =
     {

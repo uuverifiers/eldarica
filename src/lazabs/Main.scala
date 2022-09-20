@@ -305,6 +305,7 @@ class GlobalParameters extends Cloneable {
     that.boundsAnalysisTO = this.boundsAnalysisTO
     that.visualizeLowerBound = this.visualizeLowerBound
 
+
   }
 
   override def clone : GlobalParameters = {
@@ -429,6 +430,7 @@ object Main {
       case "-readSMT2" :: rest => readSMT2 = true; arguments(rest)
       case "-getSolvingTime" :: rest => getSolvingTime = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
+      case "-hyperGraph" :: rest => hornGraphType = HornGraphType.hyperEdgeGraph; arguments(rest)
       case "-getLabelFromCounterExample":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getLabelFromCounterExample:union":: rest =>{getLabelFromCounterExample = true; unionOption = true; arguments(rest)}
       case "-argumentOccurenceLabel":: rest =>argumentOccurenceLabel = true; arguments(rest)
