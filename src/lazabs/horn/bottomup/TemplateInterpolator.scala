@@ -30,32 +30,28 @@
 
 package lazabs.horn.bottomup
 
-import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
-                                 TermExtendingLattice, MUXSearcher,
-                                 TermIneqLattice, PredicateLattice,
-                                 AbstractionRecord}
+import lazabs.horn.abstractions.{AbsLattice, AbstractionRecord, MUXSearcher, PredicateLattice, ProductLattice, TermExtendingLattice, TermIneqLattice, TermSubsetLattice}
 import AbstractionRecord.AbstractionMap
-
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.theories.TheoryCollector
-import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience, Term, OneTerm, Formula}
+import ap.terfor.{ConstantTerm, Formula, OneTerm, TerForConvenience, Term, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.substitutions.{ConstantSubst, VariableSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.util.Seqs
 import ap.util.Timeout
-
-import lazabs.prover.{Tree, Leaf}
+import lazabs.prover.{Leaf, Tree}
 import Util._
 import DisjInterpolator._
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 LinkedHashMap, LinkedHashSet, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 import ap.SimpleAPI
 import SimpleAPI.{ProverStatus, TimeoutException}
+
+import scala.collection.immutable.List
 
 
 object TemplateInterpolator {
@@ -102,19 +98,111 @@ object TemplateInterpolator {
 
 
   //////////////////////////////////////////////////////////////////////////////
+  def interpolatingPredicateGenCEXAbsGNNGen(absMapPair: Tuple2[AbstractionMap,AbstractionMap], timeout: Long) =
+    abstractInterpolatingPredicateGNNGen(x => createAbstractConstraintTreesGen(x, absMapPair._1, timeout),
+      x => createAbstractConstraintTreesGen(x, absMapPair._2, timeout),
+      true) _
+
+  private def abstractInterpolatingPredicateGNNGen(constraintGenAbs: Tree[Either[NormClause, RelationSymbol]] => //clauseTree
+                                                   Option[(Tree[Seq[ConstantTerm]], //vocabularyTree
+                                                     Seq[(Tree[Conjunction], TermOrder)])], //constraintTrees
+                                                   constraintGenGNN: Tree[Either[NormClause, RelationSymbol]] => //clauseTree
+                                                     Option[(Tree[Seq[ConstantTerm]], //vocabularyTree
+                                                       Seq[(Tree[Conjunction], TermOrder)])], //constraintTrees
+                                                 alwaysAddOrdinaryInterpolants: Boolean)
+                                               (clauseDag: Dag[AndOrNode[NormClause, Unit]]) //?
+  : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
+    Dag[(IAtom, NormClause)]] = //counter-example
+    DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
+      case Left(partialTree) => {
+        // let's try some abstraction ...
+        val abstractPreds =
+          constraintGenAbs(partialTree) match {
+            case Some((vocabularyTree, constraintTrees)) => {
+              for ((constrTree, order) <- constraintTrees) yield {
+                DagInterpolator.callInterpolator(partialTree, constrTree,
+                  vocabularyTree, order) match {
+                  case Left(preds) => preds
+                  case Right(_) => throw new UnsupportedOperationException
+                }
+              }
+            }
+            case None =>
+              List()
+          }
+        //predicates generated from GNN selected templates
+        val abstractGNNPreds =
+          constraintGenGNN(partialTree) match {
+            case Some((vocabularyTree, constraintTrees)) => {
+              for ((constrTree, order) <- constraintTrees) yield {
+                DagInterpolator.callInterpolator(partialTree, constrTree,
+                  vocabularyTree, order) match {
+                  case Left(preds) => preds
+                  case Right(_) => throw new UnsupportedOperationException
+                }
+              }
+            }
+            case None =>
+              List()
+          }
+
+        println()
+        for (e<-abstractPreds){
+          println(Console.BLUE+e)
+        }
+        for (e <- abstractGNNPreds) {
+          println(Console.GREEN + e)
+        }
+
+        val mergedPreds = (abstractPreds ++ abstractGNNPreds).distinct
+        for (e <- mergedPreds) {
+          println(Console.YELLOW + e)
+        }
+
+
+          val allPreds =
+          if (alwaysAddOrdinaryInterpolants || mergedPreds.isEmpty) {
+            // also compute normal interpolants
+            val Left(basicPreds) = DagInterpolator.partialPredicateGen(partialTree, false)
+            basicPreds :: mergedPreds.toList
+          } else {
+            mergedPreds
+          }
+
+        println()
+        for (e <- allPreds) {
+          println(Console.CYAN_B + e)
+        }
+
+        val allPredMaps = allPreds map (_.toMap)
+
+        val allRelSyms = new LinkedHashSet[Predicate]
+        for (m <- allPreds)
+          for ((p, _) <- m)
+            allRelSyms += p
+
+        Left(for (p <- allRelSyms.toSeq) yield (
+          p, (for (m <- allPredMaps;
+                   c <- m.getOrElse(p, Seq())) yield c).distinct))
+      }
+      case Right(cex) =>
+        Right(cex)
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def interpolatingPredicateGenCEXAbsGen(absMap : AbstractionMap, timeout : Long) =
     abstractInterpolatingPredicateGen(x => createAbstractConstraintTreesGen(x, absMap, timeout),
                                       true) _
 
   private def abstractInterpolatingPredicateGen(
-                constraintGen : Tree[Either[NormClause, RelationSymbol]] =>
-                                Option[(Tree[Seq[ConstantTerm]],
-                                        Seq[(Tree[Conjunction], TermOrder)])],
+                constraintGen : Tree[Either[NormClause, RelationSymbol]] => //clauseTree
+                                Option[(Tree[Seq[ConstantTerm]], //vocabularyTree
+                                        Seq[(Tree[Conjunction], TermOrder)])], //constraintTrees
                 alwaysAddOrdinaryInterpolants : Boolean)
-                (clauseDag : Dag[AndOrNode[NormClause, Unit]])
-                     : Either[Seq[(Predicate, Seq[Conjunction])],
-                              Dag[(IAtom, NormClause)]] =
+                (clauseDag : Dag[AndOrNode[NormClause, Unit]]) //?
+                     : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
+                              Dag[(IAtom, NormClause)]] = //counter-example
     DagInterpolator.cexGuidedExpansion(DagInterpolator.stripOrNodes(clauseDag)) match {
       case Left(partialTree) => {
         // let's try some abstraction ...

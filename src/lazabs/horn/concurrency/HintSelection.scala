@@ -94,9 +94,11 @@ object HintsSelection {
         val fullAbstractionMap =absMaps.reduce(AbstractionRecord.mergeMaps(_,_))
         if (fullAbstractionMap.isEmpty)
           DagInterpolator.interpolatingPredicateGenCEXAndOr _
-        else
-          TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-            fullAbstractionMap,
+        else if (GlobalParameters.get.combineTemplates){
+          TemplateInterpolator.interpolatingPredicateGenCEXAbsGNNGen((absMaps.head,absMaps.tail.head),
+            lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
+        } else
+          TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(fullAbstractionMap,
             lazabs.GlobalParameters.get.templateBasedInterpolationTimeout)
       } else {
         DagInterpolator.interpolatingPredicateGenCEXAndOr _
@@ -1179,7 +1181,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
   }
 
   def getCostbyTemplateShape(e:IExpression): Int ={
-    100 - SymbolCollector.variables(e).size
+    2 - SymbolCollector.variables(e).size
   }
   def getCostByLogitValue(logitValue:Double):Int={
     100 - (logitValue*100).toInt

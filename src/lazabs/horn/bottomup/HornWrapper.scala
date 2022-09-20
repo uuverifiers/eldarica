@@ -476,9 +476,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   val unlabeledPredicateFileName=".unlabeledPredicates"//"-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
   val labeledPredicateFileName=".labeledPredicates"//"-"+HintsSelection.getClauseType()+ ".labeledPredicates"
   val minedPredicateFileName=".minedPredicates"
+  val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
   private val predGenerator =
     if (GlobalParameters.get.generateTemplates == true) {
-      val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
       val initialTemplates =
         if (GlobalParameters.get.rdm) {
           HintsSelection.randomLabelTemplates(combTemplates, 0.2)
@@ -496,6 +496,10 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
       }
 
       getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
+    } else if (GlobalParameters.get.combineTemplates) {
+      val fullTemplates = HintsSelection.wrappedReadHintsCheckExistence(simplifiedClausesForGraph, unlabeledPredicateFileName, combTemplates)
+      val predictedTemplates = HintsSelection.readPredictedHints(simplifiedClausesForGraph, fullTemplates)
+      getPredGenerator(Seq(autoAbstraction,absBuilder.loopDetector.hints2AbstractionRecord(predictedTemplates)), outStream)
     } else {
       getPredGenerator(Seq(hintsAbstraction, autoAbstraction), outStream)
     }
