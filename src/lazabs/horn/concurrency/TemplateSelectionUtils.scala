@@ -27,6 +27,10 @@ import java.io.{File, PrintWriter}
 
 object TemplateSelectionUtils{
 
+  object CombineTemplateStrategy extends Enumeration {
+    val union, random = Value
+  }
+
   def outputPrologFile(normalizedClauses:Seq[Clause],typeName:String="normalized"): Unit ={
     val writerGraph = new PrintWriter(new File(GlobalParameters.get.fileName + "."+typeName+".prolog"))
     for (c<-normalizedClauses)
@@ -177,41 +181,36 @@ object TemplateSelectionUtils{
 
     val jsonFileName= if (GlobalParameters.get.getSolvingTime) "solvingTime" else if (GlobalParameters.get.checkSolvability) "solvability" else ""
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
+    val fixedFields:Map[String,Int]=Map("clauseNumberBeforeSimplification"->unsimplifiedClauses.length,
+      "clauseNumberAfterSimplification"->simplifiedClausesForGraph.length,
+      "smt2FileSizeByte"->new File(GlobalParameters.get.fileName).length().toInt, //bytes,
+      "relationSymbolNumberBeforeSimplification"->unsimplifiedClauses.map(_.allAtoms.length).reduce(_+_),
+      "relationSymbolNumberAfterSimplification"->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_),
+      "minedSingleVariableTemplatesNumber"->minedTemplatesStatistics._1,
+      "minedBinaryVariableTemplatesNumber"->minedTemplatesStatistics._2,
+      "minedTemplateNumber"->minedTemplatesStatistics._3,
+      "minedTemplateRelationSymbolNumber"->minedTemplatesStatistics._4,
+      "labeledSingleVariableTemplatesNumber"->labeledTemplatesStatistics._1,
+      "labeledBinaryVariableTemplatesNumber"->labeledTemplatesStatistics._2,
+      "labeledTemplateNumber"->labeledTemplatesStatistics._3,
+      "labeledTemplateRelationSymbolNumber"->labeledTemplatesStatistics._4,
+      "unlabeledSingleVariableTemplatesNumber"->unlabeledTemplatesStatistics._1,
+      "unlabeledBinaryVariableTemplatesNumber"->unlabeledTemplatesStatistics._2,
+      "unlabeledTemplateNumber"->unlabeledTemplatesStatistics._3,
+      "unlabeledTemplateRelationSymbolNumber"->unlabeledTemplatesStatistics._4)
     val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber",
-      "averagePredicateSize","predicateGeneratorTime","solvability",
-      "clauseNumberBeforeSimplification","clauseNumberAfterSimplification","smt2FileSizeByte","relationSymbolNumberBeforeSimplification","relationSymbolNumberAfterSimplification",
-    "minedSingleVariableTemplatesNumber","minedBinaryVariableTemplatesNumber","minedTemplateNumber","minedTemplateRelationSymbolNumber",
-      "labeledSingleVariableTemplatesNumber","labeledBinaryVariableTemplatesNumber","labeledTemplateNumber","labeledTemplateRelationSymbolNumber",
-      "unlabeledSingleVariableTemplatesNumber","unlabeledBinaryVariableTemplatesNumber","unlabeledTemplateNumber","unlabeledTemplateRelationSymbolNumber")
-    val AbstractionTypeFields=AbstractionType.values.toSeq
+      "averagePredicateSize","predicateGeneratorTime","solvability")
+    val combianedOptions=Seq("Term","Octagon","RelationalEqs","RelationalIneqs","Mined")
+    val explorationRate=Seq(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9)
+    val combinedAbstractTypeFields=for(g<-Seq("_hyperEdgeGraph_union_","_monoDirectionLayerGraph_union_");a<-combianedOptions) yield a+g+"0.0"
+    val randomAbstractTypeFields=for(g<-Seq("_hyperEdgeGraph_random_","_monoDirectionLayerGraph_random_");e<-explorationRate.map(_.toString);a<-combianedOptions) yield a+g+e
+    val AbstractionTypeFields=AbstractionType.values.map(_.toString).toSeq ++ combinedAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption=Seq("splitClauses_0","splitClauses_1")
-    val initialFieldsSeq= (for (m<-meansureFields;a<-AbstractionTypeFields;s<-splitClausesOption) yield (m+"_"+a+"_"+s->(m,a,s))).toMap
+    val costOption=Seq("cost_shape","cost_logit","cost_same")
+    val initialFieldsSeq= (for (m<-meansureFields;a<-AbstractionTypeFields;s<-splitClausesOption;c<-costOption) yield (m+"_"+a+"_"+s+"_"+c)->(m,a,s,c)).toMap
+    val timeout = 60 * 60 * 3 * 1000 //milliseconds
+    val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
     if(!jsonFileName.isEmpty && !new java.io.File(solvingTimeFileName).exists){
-      //create solving time JSON file
-      val timeout = 60 * 60 * 3 * 1000 //milliseconds
-      //val initialFields: Map[String, Int] = (for (e<-initialFieldsSeq) yield e->timeout).toMap
-      val initialFields: Map[String, Int] = (
-        for ((k,v)<-initialFieldsSeq) yield v._1 match {
-          case "clauseNumberBeforeSimplification"=>k->{unsimplifiedClauses.length}
-          case "clauseNumberAfterSimplification"=>k->{simplifiedClausesForGraph.length}
-          case "smt2FileSizeByte"=>k->new File(GlobalParameters.get.fileName).length().toInt//bytes
-          case "relationSymbolNumberBeforeSimplification"=>k->unsimplifiedClauses.map(_.allAtoms.length).reduce(_+_)
-          case "relationSymbolNumberAfterSimplification"=>k->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_)
-          case "minedSingleVariableTemplatesNumber"=> k->minedTemplatesStatistics._1
-          case "minedBinaryVariableTemplatesNumber"=> k->minedTemplatesStatistics._2
-          case "minedTemplateNumber"=>k->minedTemplatesStatistics._3
-          case "minedTemplateRelationSymbolNumber"=>k->minedTemplatesStatistics._4
-          case "labeledSingleVariableTemplatesNumber"=> k->labeledTemplatesStatistics._1
-          case "labeledBinaryVariableTemplatesNumber"=> k->labeledTemplatesStatistics._2
-          case "labeledTemplateNumber"=>k->labeledTemplatesStatistics._3
-          case "labeledTemplateRelationSymbolNumber"=>k->labeledTemplatesStatistics._4
-          case "unlabeledSingleVariableTemplatesNumber"=> k->unlabeledTemplatesStatistics._1
-          case "unlabeledBinaryVariableTemplatesNumber"=> k->unlabeledTemplatesStatistics._2
-          case "unlabeledTemplateNumber"=>k->unlabeledTemplatesStatistics._3
-          case "unlabeledTemplateRelationSymbolNumber"=>k->unlabeledTemplatesStatistics._4
-          case _=>k->timeout
-          }
-        ).toMap
       writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
     }
     val outStream = Console.err
@@ -221,7 +220,7 @@ object TemplateSelectionUtils{
 
 
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
-      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime)//milliseconds
+      val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds
       val cegarIterationNumber=predAbs.cegar.iterationNum
       val generatedPredicateNumber=predAbs.cegar.generatedPredicateNumber
       val averagePredicateSize=predAbs.cegar.averagePredicateSize
@@ -230,7 +229,19 @@ object TemplateSelectionUtils{
       val resultList=Seq(solvingTime,cegarIterationNumber,generatedPredicateNumber,
         averagePredicateSize,predicateGeneratorTime,solvability).map(_.toInt).map(_.toString)
       for ((m,v)<-meansureFields.zip(resultList)) {
-        writeSolvingTimeToJSON(solvingTimeFileName,readJSONFieldToMap(solvingTimeFileName,fieldNames=initialFieldsSeq.keys.toSeq).updated(m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString,v))
+        val newField=
+        if (GlobalParameters.get.combineTemplates)
+          (m + "_" + GlobalParameters.get.templateBasedInterpolationType+"_"+GlobalParameters.get.hornGraphType + "_"+GlobalParameters.get.combineTemplateStrategy +"_"+GlobalParameters.get.explorationRate+ "_splitClauses_" + GlobalParameters.get.splitClauses.toString + "_cost_" + GlobalParameters.get.readCostType, v)
+        else
+          (m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString+"_cost_"+GlobalParameters.get.readCostType,v)
+        val oldFields=readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
+        val updatedFields=
+        if (oldFields.map(_._1).toSeq.contains(newField._1))
+          oldFields.updated(newField._1, newField._2)
+        else
+          (oldFields.toSeq++Seq((newField._1,newField._2))).toMap
+        writeSolvingTimeToJSON(solvingTimeFileName, updatedFields)
+
       }
     }
     sys.exit()
@@ -355,7 +366,43 @@ object TemplateSelectionUtils{
     sys.exit()
   }
 
-  def interpolatingPredicateGenCEXAbsGNNGen(template: AbstractionMap, templateGNN: AbstractionMap, timeout: Long)
+  def randomPredicateGenerator(template: AbstractionMap, templateGNN: AbstractionMap, timeout: Long,explorationRate:Float)
+                              (clauseDag: Dag[AndOrNode[NormClause, Unit]])
+  : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
+    Dag[(IAtom, NormClause)]] = {
+    val predgen1 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(template, timeout)
+    val predgen2 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(templateGNN, timeout)
+    (predgen1(clauseDag), predgen2(clauseDag)) match {
+      case (Left(newPredicate1), Left(newPredicate2)) => {
+//        if (newPredicate1!=newPredicate2){
+//          for (p <- newPredicate1)
+//            println(Console.BLUE + p)
+//          for (p <- newPredicate2)
+//            println(Console.GREEN + p)
+//        }
+
+        val random = new Random
+        if (GlobalParameters.get.fixRandomSeed)
+          random.setSeed(42)
+
+        if (random.nextInt(10)<10*explorationRate) {
+//          for (p <- newPredicate2)
+//            println(Console.CYAN_B + p)
+          Left(newPredicate2)
+        } else {
+//          for (p <- newPredicate1)
+//            println(Console.CYAN_B + p)
+          Left(newPredicate1)
+        }
+
+      }
+      case (Right(cex1), Right(cex2)) => {
+        Right(cex1)
+      }
+    }
+  }
+
+  def combinedPredicateGenerator(template: AbstractionMap, templateGNN: AbstractionMap, timeout: Long)
                                            (clauseDag: Dag[AndOrNode[NormClause, Unit]])
   : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
     Dag[(IAtom, NormClause)]] = {
@@ -365,13 +412,14 @@ object TemplateSelectionUtils{
     (predgen1(clauseDag), predgen2(clauseDag)) match {
       case (Left(newPredicate1), Left(newPredicate2)) => {
 
-
-//        println()
-//        for (p<-newPredicate1)
-//          println(Console.BLUE+p)
-//        for (p <- newPredicate2)
-//          println(Console.GREEN + p)
-
+//        if (newPredicate1!=newPredicate2){
+//          println()
+//          for (p <- newPredicate1)
+//            println(Console.BLUE + p)
+//          for (p <- newPredicate2)
+//            println(Console.GREEN + p)
+//
+//        }
         val commonHead = (for (p1 <- newPredicate1; p2 <- newPredicate2; if p1._1 == p2._1) yield {
           (p1._1, (p1._2 ++ p2._2).distinct)
         }).distinct

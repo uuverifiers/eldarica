@@ -56,7 +56,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, _}
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.GraphTranslator.getBatchSize
-import lazabs.horn.concurrency.TemplateSelectionUtils.outputPrologFile
+import lazabs.horn.concurrency.TemplateSelectionUtils.{CombineTemplateStrategy, outputPrologFile}
 import lazabs.horn.preprocessor.{ConstraintSimplifier, HornPreprocessor, SymbolSplitter}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, NameFactory, VerificationHints, simplify}
 import lazabs.horn.preprocessor.SymbolSplitter.{BoolSort, ClausePropagator, concreteArguments, wrapBool}
@@ -92,10 +92,15 @@ object HintsSelection {
     val predGenerator = Console.withErr(outStream) {
       if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
         val fullAbstractionMap =absMaps.reduce(AbstractionRecord.mergeMaps(_,_))
-        if (fullAbstractionMap.isEmpty)
+        if (fullAbstractionMap.isEmpty) {
           DagInterpolator.interpolatingPredicateGenCEXAndOr _
-        else if (GlobalParameters.get.combineTemplates){
-          TemplateSelectionUtils.interpolatingPredicateGenCEXAbsGNNGen(absMaps.head,absMaps.tail.head,
+          //randomPredicateGenerator
+        } else if(GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.random) {
+          TemplateSelectionUtils.randomPredicateGenerator(absMaps.head, absMaps.tail.head,
+            lazabs.GlobalParameters.get.templateBasedInterpolationTimeout,GlobalParameters.get.explorationRate) _
+        } else if (GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.union){
+
+          TemplateSelectionUtils.combinedPredicateGenerator(absMaps.head,absMaps.tail.head,
             lazabs.GlobalParameters.get.templateBasedInterpolationTimeout) _
         } else
           TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(fullAbstractionMap,
@@ -1052,11 +1057,11 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
         else VerificationHints(Map())
       }
     }
-    if (GlobalParameters.get.debugLog == true) {
-      println("----------predicted Hints----------")
-      predictedHints.pretyPrintHints()
-      //Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + ".predictedHints.tpl")) {AbsReader.printHints(predictedHints)}
-    }
+//    if (GlobalParameters.get.debugLog == true)
+//      predictedHints.pretyPrintHints("predicted templates")
+//
+//    if (GlobalParameters.get.writeTemplateToFile)
+//      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + "."+GlobalParameters.get.hornGraphType.toString+"PredictedHints.tpl")) {AbsReader.printHints(predictedHints)}
 
     predictedHints
   }

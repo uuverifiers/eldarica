@@ -272,7 +272,15 @@ class StaticAbstractionBuilder(
     }
 
   if (GlobalParameters.get.debugLog)
-      HintsSelection.writeTemplatesToFile(abstractionHints,abstractionType.toString)
+    abstractionHints.pretyPrintHints(abstractionType.toString)
+
+  if (GlobalParameters.get.writeTemplateToFile) {
+    println("write template to file")
+    abstractionHints.pretyPrintHints(abstractionType.toString)
+    HintsSelection.writeTemplatesToFile(abstractionHints,abstractionType.toString)
+    if (GlobalParameters.get.terminateEarly)
+      sys.exit()
+  }
 
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)

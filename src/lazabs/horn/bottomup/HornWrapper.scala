@@ -494,7 +494,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         println("initialTemplates")
         initialTemplates.pretyPrintHints()
       }
-
       getPredGenerator(Seq(absBuilder.loopDetector.hints2AbstractionRecord(initialTemplates)), outStream)
     } else if (GlobalParameters.get.combineTemplates) {
       val fullTemplates = HintsSelection.wrappedReadHintsCheckExistence(simplifiedClausesForGraph, unlabeledPredicateFileName, combTemplates)

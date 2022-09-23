@@ -34,6 +34,7 @@ import lazabs.art.SearchMethod._
 import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.DrawHornGraph.HornGraphType
 import lazabs.horn.concurrency.HintsSelection.getFileName
+import lazabs.horn.concurrency.TemplateSelectionUtils.CombineTemplateStrategy
 import lazabs.horn.concurrency.{CCReader, HintsSelection}
 import lazabs.nts._
 import lazabs.prover._
@@ -96,12 +97,14 @@ class GlobalParameters extends Cloneable {
   var readHints=false
   var readTemplates=false
   var rank=0.0
+  var explorationRate: Float=0
   var getSMT2=false
   var readSMT2=false
   var getSolvingTime=false
   var getHornGraph=false
   var getAllHornGraph=false
   var hornGraphType:HornGraphType.Value=HornGraphType.monoDirectionLayerGraph
+  var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.union
   var in: InputStream = null
   var fileName = ""
   var funcName = "main"
@@ -158,6 +161,8 @@ class GlobalParameters extends Cloneable {
   var logStat = false
   var printHornSimplified = false
   var printHornSimplifiedSMT = false
+  var writeTemplateToFile=false
+  var terminateEarly=false
   var dotSpec = false
   var dotFile : String = null
   var pngNo = true;
@@ -253,6 +258,8 @@ class GlobalParameters extends Cloneable {
     that.logStat = this.logStat
     that.printHornSimplified = this.printHornSimplified
     that.printHornSimplifiedSMT = this.printHornSimplifiedSMT
+    that.writeTemplateToFile = this.writeTemplateToFile
+    that.terminateEarly = this.terminateEarly
     that.dotSpec = this.dotSpec
     that.dotFile = this.dotFile
     that.pngNo = this.pngNo
@@ -268,6 +275,7 @@ class GlobalParameters extends Cloneable {
     that.solvabilityTimeout=this.solvabilityTimeout
     that.mainTimeout=this.mainTimeout
     that.rank = this.rank
+    that.explorationRate = this.explorationRate
     //that.printHints = this.printHints
     that.extractTemplates=this.extractTemplates
     that.extractPredicates=this.extractPredicates
@@ -414,7 +422,6 @@ object Main {
       case "-varyGeneratedPredicates":: rest => varyGeneratedPredicates =true; arguments(rest)
       case "-generateSimplePredicates" :: rest => generateSimplePredicates = true; arguments(rest)
       case "-generateTemplates" :: rest => generateTemplates = true; arguments(rest)
-      case "-combineTemplates" :: rest => combineTemplates = true; arguments(rest)
       case "-onlyInitialPredicates" :: rest => onlyInitialPredicates = true; arguments(rest)
       case "-moveFile" :: rest => moveFile = true; arguments(rest)
       case "-checkSolvability" :: rest => checkSolvability = true; arguments(rest)
@@ -435,6 +442,16 @@ object Main {
       case "-getLabelFromCounterExample:union":: rest =>{getLabelFromCounterExample = true; unionOption = true; arguments(rest)}
       case "-argumentOccurenceLabel":: rest =>argumentOccurenceLabel = true; arguments(rest)
       case "-argumentBoundLabel":: rest =>argumentBoundLabel = true; arguments(rest)
+      case "-combineTemplates:union" :: rest => {
+        combineTemplates = true
+        combineTemplateStrategy=CombineTemplateStrategy.union
+        arguments(rest)
+      }
+      case "-combineTemplates:random" :: rest => {
+        combineTemplates = true
+        combineTemplateStrategy = CombineTemplateStrategy.random
+        arguments(rest)
+      }
       case "-getHornGraph" :: rest => {
         getHornGraph = true
         getAllHornGraph = true
@@ -600,7 +617,11 @@ object Main {
         arguments(rest)
       case _rank :: rest if (_rank.startsWith("-rank:")) =>
         rank =
-          (java.lang.Float.parseFloat(_rank.drop(6))); //parse input string
+          (java.lang.Float.parseFloat(_rank.drop("-rank:".length))); //parse input string
+        arguments(rest)
+      case _explorationRate :: rest if (_explorationRate.startsWith("-explorationRate:")) =>
+        explorationRate =
+          (java.lang.Float.parseFloat(_explorationRate.drop("-explorationRate:".length)));
         arguments(rest)
 
       case tFile :: rest if (tFile.startsWith("-hints:")) => {
@@ -691,6 +712,8 @@ object Main {
         setLogLevel((logOption drop 5).toInt); arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
       case "-logSimplifiedSMT" :: rest => printHornSimplifiedSMT = true; arguments(rest)
+      case "-writeTemplateToFile" :: rest => writeTemplateToFile = true; arguments(rest)
+      case "-terminateEarly" :: rest => terminateEarly = true; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
@@ -764,7 +787,7 @@ object Main {
           " -varyGeneratedPredicates\t vary generated predicates from CEGAR process without change of logic mearnings\n"+
           " -generateSimplePredicates\t generate simple predicates\n"+
           " -generateTemplates\t generate templates\n"+
-          " -combineTemplates\t combine predicted and existed templates\n"+
+          " -combineTemplates:union, random\t combine predicted and existed templates\n"+
           " -onlyInitialPredicates\t extract predicates using initial predicates only\n"+
           " -moveFile\t if exception occur, move file to excepion directory\n"+
           " -checkSolvability \t check solvability for different initial predicate settings\n"+

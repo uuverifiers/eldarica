@@ -156,8 +156,8 @@ object VerificationHints {
     val predicateHints : Map[Predicate, Seq[VerifHintElement]]
 
     /////////////////Statistics///////////
-    def pretyPrintHints() = {
-      println(Console.BLUE+"-----------------------------------")
+    def pretyPrintHints(message:String="") = {
+      println(Console.BLUE+"---------------"+message+"--------------------")
       for((key,value)<-predicateHints.toSeq.sortBy(_._1.name)){
         var counter=0
         println(key.toString(),value.size)
