@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ import lazabs.GlobalParameters
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.SimpleAPI
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parser.IExpression._
@@ -341,7 +342,8 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
   // Eliminate quantifiers in a formula; currently this implementation only
   // handles Presburger formulae
   
-  def elimQuans(f : IFormula, constants : Seq[ConstantTerm]) : IFormula = {
+  /*
+  def elimQuansX(f : IFormula, constants : Seq[ConstantTerm]) : IFormula = {
     val (intFormula, signature) = toInternal(f, constants, List())
     val order = signature.order
     
@@ -350,9 +352,17 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
     
     interpolantSimplifier(Internal2InputAbsy(withoutQuans, Map()))
   }
+   */
+  
+  def elimQuans(f : IFormula, constants : Seq[ConstantTerm]) : IFormula =
+    SimpleAPI.withProver { p =>
+      p.addConstantsRaw(constants)
+      p.simplify(f)
+    }
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /*
   def dnfSimplify(f : IFormula, constants : Seq[ConstantTerm]) : IFormula = {
     val (intFormula, signature) = toInternal(!f, constants, List())
     val order = signature.order
@@ -361,6 +371,10 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
     
     interpolantSimplifier(Internal2InputAbsy(simplified, Map()))
   }
+   */
+
+  def dnfSimplify(f : IFormula, constants : Seq[ConstantTerm]) : IFormula =
+    or(DNFConverter.qeDNF(f))
   
   //////////////////////////////////////////////////////////////////////////////
   // Constructing interpolants of formulae
