@@ -243,7 +243,19 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
 
   //////////////////////////////////////////////////////////////////////////////
   // Checking satisfiability of a formula
-  
+
+  def isSat(problem : IFormula,
+            constants : Seq[ConstantTerm],
+            booleanVars : Seq[Predicate]) : Boolean =
+    SimpleAPI.withProver { p =>
+      import p._
+      addConstantsRaw(constants)
+      addRelations(booleanVars)
+      !! (problem)
+      ??? == SimpleAPI.ProverStatus.Sat
+    }
+
+  /*
   def isSat(problem : IFormula,
             constants : Seq[ConstantTerm],
             booleanVars : Seq[Predicate]) : Boolean = {
@@ -265,6 +277,7 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
       !prover(Conjunction.implies(backPred, formula, order), signature).closingConstraint.isTrue
     }
   }
+   */
 
   private def toInternal(problem : IFormula,
                          constants : Seq[ConstantTerm],

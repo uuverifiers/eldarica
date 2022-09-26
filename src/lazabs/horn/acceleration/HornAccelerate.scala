@@ -127,9 +127,13 @@ object HornAccelerate {
        : Seq[(HornClauses.Clause, Seq[HornClauses.Clause])] =
     (new HornAccelerate(orig)).accelerate
 
+  val CYCLES_TO_ACCELERATE = 10
+
 }
 
 class HornAccelerate(orig : Seq[HornClauses.Clause]) {
+
+  import HornAccelerate.CYCLES_TO_ACCELERATE
 
   // split the clauses into lower-bound, upper-bound, and dependent clauses
   val (lb,ub,dep) = {
@@ -279,10 +283,10 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
       // find arbitrary cycle
 //      val n = scc(0)
 //      val cycle : Seq[this.dg.DepEdge] = dg.anyPath(n, n, scc).get
-      val cycles = for (n <- scc.iterator;
-                        c <- dg.anyPath(n, n, scc).iterator) yield c
-      if (cycles.hasNext) {
-        val cycle = cycles.next
+
+      val cycles = (for (n <- scc.iterator;
+                         c <- dg.anyPath(n, n, scc).iterator) yield c).toSeq
+      for (cycle <- cycles.sortBy(_.size).take(CYCLES_TO_ACCELERATE)) {
         val hcycle = for (e <- cycle) yield e.c
         // inline it and obtain a horn clause of the form P /\ ... => P
         val hSelfLoop = HornManipulate.inlineSequence(hcycle)
@@ -346,6 +350,7 @@ object PrincessFlataWrappers {
     
     val e = PrincessWrapper.formula2Eldarica(f,symbolMap_p2e,false)
 
+    try {
     val accEld = FlataWrapper.accelerate(List(List(e)),AccelerationStrategy.PRECISE) match {
       case Some(e: Expression) => e
       case None => return None
@@ -365,5 +370,11 @@ object PrincessFlataWrappers {
     var accElimRen = ConstantSubstVisitor(accElim, replacement.toMap)
     
     Some(accElimRen.asInstanceOf[IFormula])
+    } catch {
+      case t : FlataWrapper.FlataException => {
+        Console.err.println("Warning: " + t.getMessage())
+        None
+      }
+    }
   }
 }
