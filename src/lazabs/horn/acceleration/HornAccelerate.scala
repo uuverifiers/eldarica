@@ -286,6 +286,16 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
 
       val cycles = (for (n <- scc.iterator;
                          c <- dg.anyPath(n, n, scc).iterator) yield c).toSeq
+
+/*
+    TODO: compare different ways of picking paths to be accelerated
+
+      val cycles =
+        for (n <- scc;
+             c <- dg.simplePaths(n, n, scc.toSet);
+             if !c.isEmpty) yield c
+*/
+
       for (cycle <- cycles.sortBy(_.size).take(CYCLES_TO_ACCELERATE)) {
         val hcycle = for (e <- cycle) yield e.c
         // inline it and obtain a horn clause of the form P /\ ... => P
