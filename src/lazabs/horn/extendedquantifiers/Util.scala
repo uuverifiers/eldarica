@@ -1,4 +1,4 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression.Eq
 import ap.parser.{CollectingVisitor, IAtom, IExpression, IFormula, IFunApp, ITerm}

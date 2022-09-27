@@ -1,15 +1,15 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression.Predicate
 import ap.parser._
 import ap.types.SortedConstantTerm
 import lazabs.horn.bottomup.HornClauses.Clause
-import GhostVariableAdder._
 import Util._
 import ap.parser.IExpression._
+import GhostVariableAdder._
 
 abstract class
-ClauseInstrumenter(extendedQuantifier  : ExtendedQuantifier) {
+ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
   protected def instrumentStore (storeInfo  : StoreInfo,
                                  bodyTerms  : GhostVariableTerms) : Seq[IFormula]
   protected def instrumentSelect(selectInfo : SelectInfo,

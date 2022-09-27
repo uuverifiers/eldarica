@@ -1,4 +1,4 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression.Predicate
 import lazabs.horn.preprocessor.HornPreprocessor

@@ -42,7 +42,7 @@ import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
 import ap.types.MonoSortedIFunction
-import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
+import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
 import scala.collection.mutable.LinkedHashMap
 

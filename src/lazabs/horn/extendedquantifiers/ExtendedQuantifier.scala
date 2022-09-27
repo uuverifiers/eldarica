@@ -1,18 +1,13 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
 import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.parser.{IAtom, IBinJunctor, IConstant, IFormula, IFunction, ITerm, LineariseVisitor, Transform2NNF}
+import ap.parser.{IFunction, ITerm}
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.Formula
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
-import ap.types.{MonoSortedIFunction, SortedConstantTerm}
-import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.preprocessor.extendedquantifiers.GhostVariableAdder.{GhostVariableInds, GhostVariableTerms}
-import lazabs.horn.preprocessor.extendedquantifiers.Util.{ExtendedQuantifierInfo, StoreInfo}
-import ap.parser.IExpression._
-import Util._
+import ap.types.MonoSortedIFunction
 
 
 /**

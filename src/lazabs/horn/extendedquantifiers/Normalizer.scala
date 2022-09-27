@@ -27,13 +27,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression._
 import ap.parser._
-import Util._
 import ap.types.MonoSortedPredicate
 import lazabs.horn.bottomup.HornClauses._
+import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.preprocessor.HornPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor._
 

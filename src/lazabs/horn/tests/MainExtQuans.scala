@@ -34,14 +34,14 @@ import ap.parser._
 import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.abstractions.{EmptyVerificationHints, VerificationHints}
+import lazabs.horn.extendedquantifiers.Normalizer
 import lazabs.horn.preprocessor.DefaultPreprocessor
-import lazabs.horn.preprocessor.extendedquantifiers.Normalizer
 
 object MainExtQuans extends App {
 
   import HornClauses._
   import IExpression._
-  import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
+  import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
@@ -123,7 +123,7 @@ object NormalizerTest extends App {
 
   import HornClauses._
   import IExpression._
-  import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
+  import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)

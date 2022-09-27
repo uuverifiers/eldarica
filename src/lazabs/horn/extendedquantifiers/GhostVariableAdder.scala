@@ -1,12 +1,10 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.{ConstantTerm, Predicate, Sort, quanConsts}
-import ap.parser.{IConstant, IExpression, IFormula, ITerm, Simplifier}
-import ap.theories.ExtArray
+import ap.parser._
 import ap.types.SortedConstantTerm
+import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
+import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.horn.preprocessor.{ArgumentExpander, HornPreprocessor}
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import lazabs.horn.preprocessor.extendedquantifiers.Util.ExtendedQuantifierInfo
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
@@ -28,9 +26,9 @@ object GhostVariableAdder {
 class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
   extends ArgumentExpander {
 
+  import GhostVariableAdder._
   import HornPreprocessor.Clauses
   import IExpression._
-  import GhostVariableAdder._
 
   val name = "ghost variable adder"
 

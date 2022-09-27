@@ -1,10 +1,10 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 import ap.parser.IExpression.{Predicate, _}
 import ap.parser._
 import ap.types.SortedConstantTerm
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.preprocessor.extendedquantifiers.GhostVariableAdder._
-import lazabs.horn.preprocessor.extendedquantifiers.Util._
+import lazabs.horn.extendedquantifiers.GhostVariableAdder._
+import lazabs.horn.extendedquantifiers.Util._
 
 object ExtendedQuantifierRewriter {
   def rewrite (clause       : Clause,

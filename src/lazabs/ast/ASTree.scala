@@ -31,7 +31,7 @@ package lazabs.ast
 
 import lazabs.types._
 import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
-import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
+import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
 
 object ASTree {

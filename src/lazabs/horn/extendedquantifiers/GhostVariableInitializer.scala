@@ -1,12 +1,11 @@
-package lazabs.horn.preprocessor.extendedquantifiers
+package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.Predicate
+import ap.parser.IExpression.{Predicate, _}
 import lazabs.horn.bottomup.HornClauses.Clause
-import GhostVariableAdder._
-import Util._
-import ap.parser.IExpression._
-import lazabs.horn.preprocessor._
+import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
+import lazabs.horn.extendedquantifiers.GhostVariableAdder._
 import lazabs.horn.preprocessor.HornPreprocessor._
+import lazabs.horn.preprocessor._
 
 class GhostVariableInitializer(
   ghostVarInds : Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]])

@@ -29,33 +29,20 @@
 
 package lazabs.horn.tests
 
-import ap.parser.IExpression.Predicate
 import ap.parser._
-import ap.terfor.arithconj.ArithConj
 import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
-import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.bottomup._
-import lazabs.horn.preprocessor.DefaultPreprocessor
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Predicate
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.preprocessor.HornPreprocessor.ComposedBackTranslator
-import lazabs.horn.preprocessor.extendedquantifiers.{Normalizer, SimpleExtendedQuantifierInstrumenter}
-
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import lazabs.horn.extendedquantifiers.InstrumentationLoop
+import HornClauses._
+import IExpression._
+import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
 object ExtQuansWithSearchTest extends App {
-
-  class Result
-  case class Safe(solution : Map[Predicate, Conjunction]) extends Result
-  case class Unsafe(cex : Dag[(IAtom, Clause)]) extends Result
-  case object Inconclusive extends Result
-
-  import HornClauses._
-  import IExpression._
-  import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
-
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
 
@@ -88,102 +75,9 @@ object ExtQuansWithSearchTest extends App {
                         extQuan.fun(a1, 0, 10) =/= 30) // right-open interval
     )
 
-//    // STORE (write)
+    val instrLoop = new InstrumentationLoop(clauses, Map(),
+      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
 
-//    val clauses = List(
-//      p(0)(a, i)     :- (i === 0),
-//      p(0)(ar.store(a, i, 3), i + 1) :- (p(0)(a, i), i < 10),
-//      p(1)(a, i)     :- (p(0)(a, i), i >= 10),
-//      false          :- (p(1)(a, i),
-//        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
-//    )
-
-//    def max (a : ITerm, b : ITerm) : ITerm = IExpression.ite(a >= b, a, b)
-//    val extQuanMax = new ExtendedQuantifier("max", ar.objSort, max, None)
-//    TheoryRegistry.register(extQuanMax)
-//
-////    SELECT (read) - unsafe
-//        val clauses = List(
-//          p(0)(a, i)     :- (i === 0),
-//          p(0)(a, i + 1) :- (p(0)(a, i), o === ar.select(a, i), i < 10),
-//          p(1)(a, i)     :- (p(0)(a, i), i >= 10),
-//          false          :- (p(1)(a, i),
-//                          extQuanMax.fun(a, 0, 10) <= 30) // right-open interval
-//        )
-
-    val preprocessor = new DefaultPreprocessor
-    val (simpClauses, _, backTranslator1) =
-      Console.withErr(Console.out) {
-        preprocessor.process(clauses, EmptyVerificationHints)
-      }
-
-    println("="*80)
-    println("Clauses before instrumentation")
-    println("-"*80 )
-    clauses.foreach(clause => println(clause.toPrologString))
-    println("="*80 + "\n")
-
-    val instrumenter = new SimpleExtendedQuantifierInstrumenter(
-      simpClauses, EmptyVerificationHints, Set.empty)
-
-    println("="*80)
-    println("Clauses after instrumentation")
-    println("-"*80 )
-    instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
-    println("="*80 + "\n")
-
-    val simpClauses2 = instrumenter.instrumentedClauses
-
-//    println("="*80)
-//    println("Clauses after instrumentation (simplified)")
-//    val (simpClauses2, _, backTranslator2) =
-//      Console.withErr(Console.out) {
-//        preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints)
-//      }
-//    simpClauses2.foreach(clause => println(clause.toPrologString))
-//    println("="*80)
-
-    def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-      Map[Predicate, Conjunction] = space.last
-
-    val incSolver =
-      new IncrementalHornPredAbs(simpClauses2,
-        Map(),
-        instrumenter.branchPredicates,
-        DagInterpolator.interpolatingPredicateGenCEXAndOr _)
-
-    // we have m predicates for m locations to instrument, corresponding to the instrumentation constraint.
-    // each instrumentation predicate can be instantiated in n ways
-    // i.e., the search space is n^m.
-    // for the base case, we will have n = 2, with {instrument, noInstrument}, so the search space is 2^m
-
-    val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-    instrumenter.searchSpace.foreach(search =>
-      searchSpace += search.toMap)
-
-    println("Clauses instrumented, starting search for correct instrumentation.")
-
-    var res : Result = Inconclusive
-    // todo: assume empty instrumentation is in searchSpace?
-    while((searchSpace nonEmpty) && res == Inconclusive) {
-      val instrumentation = pickInstrumentation(searchSpace.toSet)
-      println("Remaining search space size: " + searchSpace.size)
-      println("Selected branches: " + instrumentation.map(instr =>
-        instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue*(-1)) + ")").mkString(", "))
-
-      // todo: assuming empty instrumentation is not in searchSpace below
-      // left sol, right cex
-      incSolver.checkWithSubstitution(instrumentation) match {
-        case Right(cex) => {
-          println("unsafe, iterating...")
-          searchSpace -= instrumentation // todo; very stupid implementation that only removes the last instrumentation
-          // backTranslator.translate(cex).prettyPrint
-        }
-        case Left(solution) =>
-          res = Safe(solution)
-      }
-    }
-
-    println(res)
+    println(instrLoop.result)
   }
 }
