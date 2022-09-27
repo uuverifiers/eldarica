@@ -218,6 +218,6 @@ class UniqueConstructorExpander extends ArgumentExpander {
        Some(ctor((for (n <- 0 until sels.size) yield v(n)) : _*)))
     }
 
-  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
+  def isExpandableSort(s : Sort, p : Predicate) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }

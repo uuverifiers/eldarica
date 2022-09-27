@@ -35,12 +35,13 @@ import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.abstractions.{EmptyVerificationHints, VerificationHints}
 import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.extendedquantifiers.Normalizer
 
 object MainExtQuans extends App {
 
   import HornClauses._
   import IExpression._
-  import lazabs.horn.preprocessor.ExtendedQuantifier
+  import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
 
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
@@ -49,7 +50,7 @@ object MainExtQuans extends App {
 
   def sum (a : ITerm, b : ITerm) : ITerm = a + b
   def invSum (a : ITerm, b : ITerm) : ITerm = a - b
-  val extQuan = new ExtendedQuantifier("sum", ar.objSort, sum, Some(invSum))
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum))
   TheoryRegistry.register(extQuan)
 
   {
@@ -82,16 +83,17 @@ object MainExtQuans extends App {
 //        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
 //    )
 
-    val p3 = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
-      Seq(ar.sort, Sort.Integer, Sort.Integer)))
+    def max (a : ITerm, b : ITerm) : ITerm = IExpression.ite(a >= b, a, b)
+    val extQuanMax = new ExtendedQuantifier("max", ar, Int.MinValue, max, None)
+    TheoryRegistry.register(extQuanMax)
 
 //    SELECT (read) - unsafe
         val clauses = List(
-          p3(0)(a, i, s)     :- (i === 0, s === 0),
-          p3(0)(a, i + 1, s) :- (p3(0)(a, i, s), o === ar.select(a, i), i < 10),
-          p3(1)(a, i, s)     :- (p3(0)(a, i, s), i >= 10),
-          false          :- (p3(1)(a, i, s),
-                            extQuan.fun(a, 0, 10) =/= s) // right-open interval
+          p(0)(a, i)     :- (i === 0),
+          p(0)(a, i + 1) :- (p(0)(a, i), o === ar.select(a, i), i < 10),
+          p(1)(a, i)     :- (p(0)(a, i), i >= 10),
+          false          :- (p(1)(a, i),
+                          extQuanMax.fun(a, 0, 10) <= 30) // right-open interval
         )
 
     val preprocessor = new DefaultPreprocessor
@@ -114,5 +116,80 @@ object MainExtQuans extends App {
       case Left(solution) =>
         println("SOLVABLE: " + backTranslator.translate(solution))
     }
+  }
+}
+
+object NormalizerTest extends App {
+
+  import HornClauses._
+  import IExpression._
+  import lazabs.horn.preprocessor.extendedquantifiers.ExtendedQuantifier
+
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+
+  val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+
+  def sum(a: ITerm, b: ITerm): ITerm = a + b
+
+  def invSum(a: ITerm, b: ITerm): ITerm = a - b
+
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum))
+  TheoryRegistry.register(extQuan)
+
+  {
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val a2 = new SortedConstantTerm("a2", ar.sort)
+    val a3 = new SortedConstantTerm("a3", ar.sort)
+    val a4 = new SortedConstantTerm("a4", ar.sort)
+    val a5 = new SortedConstantTerm("a5", ar.sort)
+    val i = new ConstantTerm("i")
+    val s = new ConstantTerm("s")
+    val o = new SortedConstantTerm("o", ar.objSort)
+    val o2 = new SortedConstantTerm("o'", ar.objSort)
+
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+      Seq(ar.sort, Sort.Integer)))
+
+    val clauses = List(
+      p(0)(a4, i)     :- (i === 0, a3 === ar.store(a2, 1, 2),  a1 === ar.const(0), a2 === ar.store(a1, 0, 1), o === ar.select(a2, 0), a4 =/= a3),
+      p(1)(a1, i)     :- (p(0)(a1, i), ar.select(a1, 1) >= ar.select(a1, 0)),
+      false           :- (p(1)(a1, i), //ar.select(a1,1) =/= 2)
+        extQuan.fun(a1, 0, 2) =/= 3) // right-open interval
+    )
+
+    val preprocessor = new DefaultPreprocessor
+    val (simpClauses, _, backTranslator) =
+      Console.withErr(Console.out) {
+        preprocessor.process(clauses, EmptyVerificationHints)
+      }
+
+    simpClauses.foreach(clause => println(clause.toPrologString))
+
+    val normalizer = new Normalizer
+
+    val (normalizedClauses, _, backTranslator2) =
+      normalizer.process(simpClauses, EmptyVerificationHints)
+
+    println
+
+    normalizedClauses.foreach(clause => println(clause.toPrologString))
+
+    val predAbs =
+      new HornPredAbs(normalizedClauses, Map(),
+        DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+
+    println
+    predAbs.result match {
+      case Right(cex) => {
+        println("NOT SOLVABLE")
+       // backTranslator.translate(backTranslator2.translate(cex)).prettyPrint
+      }
+      case Left(solution) =>
+        println("SOLVABLE: ") //+
+         // backTranslator.translate(backTranslator2.translate(solution)))
+    }
+
   }
 }

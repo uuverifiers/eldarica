@@ -52,9 +52,9 @@ abstract class ArgumentExpander extends HornPreprocessor {
   val name : String
 
   /**
-   * Determine whether arguments of the given sort might be expanded.
+   * Determine whether arguments of the given sort might be expanded in this predicate.
    */
-  def isExpandableSort(s : Sort) : Boolean
+  def isExpandableSort(s : Sort, p : Predicate) : Boolean
 
   /**
    * Set up the preprocessor for the given set of clauses.
@@ -67,7 +67,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
     (HornClauses allPredicates clauses) exists {
       p =>
         !(frozenPredicates contains p) &&
-        (predArgumentSorts(p) exists isExpandableSort)
+        (predArgumentSorts(p) exists (s => isExpandableSort(s, p)))
     }
 
   /**
@@ -132,7 +132,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
         newSorts  += sort
         addedArgs += None
 
-        if (isExpandableSort(sort))
+        if (isExpandableSort(sort, pred))
           for ((newArguments, oldArgReconstr) <- expand(pred, argNum, sort)) {
             val (addArgs, addSorts, _) = newArguments.unzip3
 

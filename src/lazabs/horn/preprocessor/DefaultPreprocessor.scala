@@ -31,14 +31,10 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression._
-
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.global._
-import lazabs.horn.bottomup.Util.Dag
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Default preprocessing pipeline used in Eldarica.
@@ -54,10 +50,7 @@ class DefaultPreprocessor extends HornPreprocessor {
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
     List(new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         new ClauseInliner,
-         new ExtendedQuantifierPreprocessor.GhostVariableAdder,
-         new ExtendedQuantifierPreprocessor.Instrumenter
-)
+         new ClauseInliner)
 
   def extendingStages : List[HornPreprocessor] =
     if (GlobalParameters.get.expandADTArguments)
@@ -112,16 +105,6 @@ class DefaultPreprocessor extends HornPreprocessor {
 
         val (newClauses, newHints, translator) =
           stage.process(curClauses, curHints, frozenPredicates)
-
-        if (curClauses != newClauses) {
-          println("=" * 80)
-          println("Before " + stage.name)
-          curClauses.foreach(c => println(c.toPrologString))
-          println
-          println("After " + stage.name)
-          newClauses.foreach(c => println(c.toPrologString))
-          println("=" * 80)
-        }
 
         curClauses = newClauses
         curHints = newHints

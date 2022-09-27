@@ -1,0 +1,174 @@
+/**
+ * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package lazabs.horn.preprocessor.extendedquantifiers
+
+import ap.parser.IExpression._
+import ap.parser._
+import Util._
+import ap.types.MonoSortedPredicate
+import lazabs.horn.bottomup.HornClauses._
+import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.preprocessor.HornPreprocessor._
+
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
+/**
+ * Split clauses that have more than one select/store/extquant conjunct.
+ */
+class Normalizer extends HornPreprocessor {
+
+  val name : String = "normalizing clauses for extended quantifier instrumentation"
+
+  private val clauseBackMapping = new MHashMap[Clause, Clause]
+
+  //todo: include extended quantifier conjuncts in normalization
+
+  override def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
+             : (Clauses, VerificationHints, BackTranslator) = {
+    val newClauses = {
+      val newClauses = new ArrayBuffer[Clause]
+
+      for (clause@Clause(head, body, constraint) <- clauses) {
+        val conjuncts : Seq[IFormula] =
+          LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
+
+        val selects = conjuncts filter isSelect
+        val stores = conjuncts filter isStore
+        val consts = conjuncts filter isConst
+        val extQuans = conjuncts filter isExtQuans
+
+
+        val orderedStores : Seq[IFormula] = {
+          val remainingStores = new collection.mutable.HashSet[IFormula]
+          val orderedStores = new ArrayBuffer[IFormula]
+          stores.foreach(remainingStores add)
+          while(remainingStores nonEmpty) {
+            val store = remainingStores.find {store =>
+              val (Seq(a1), _) = getOriginalArrayTerm(store)
+              (remainingStores - store).forall{store2 =>
+                val (Seq(a2), _) = getNewArrayTerm(store2)
+                a1 != a2
+              }
+            }.get // last store will always be "found", forall(emptySet) = true
+            orderedStores += store
+            remainingStores -= store
+          }
+          orderedStores
+        } // todo: review
+
+        // order is important below!
+        val instrumentationConjuncts =
+          consts ++ orderedStores ++ selects ++ extQuans
+
+        val remainingConstraint =
+          conjuncts diff instrumentationConjuncts
+
+        val numNewClauses =
+          instrumentationConjuncts.length - 1
+
+        if(numNewClauses <= 0) {
+          newClauses += clause // no normalization needed
+        } else {
+          // - consts should be in their own clauses and placed first (no ordering)
+          // - stores should be split before the selects and they should be ordered
+          //   within themselves
+          // - reads (select + ext quans) should be split last, no ordering is needed
+          // conjuncts that contain terms not in the new clause are removed
+          // we add all intermediate arrays (created with const/store) to intermediate predicates
+          // body atoms only appear in the first clause, and their args are added to all intermediate predicates
+          // e.g., p :- a1 = const, a2 = store(a1), a3 = store(a2), select(a1), select(a2), c, body
+          // rewritten as
+          // p0(a1,<bodyArgs>)  :- a1 = const, body
+          // p1(a1,...,a2)    :- a2 = store(a1), p0(a1,...), c
+          // p2(a1,...,a2,a3) :- a3 = store(b), p1(a1,...,a2), c
+          // p3(a1,...,a2,a3) :- select(a1), p2(a1,...,a2,a3), c
+          // p :- select(b), p3(a1,a2,a3), c
+          var clauseCount = 0
+
+          for((conjunct, i) <- instrumentationConjuncts zipWithIndex) {
+            val newBody =
+              if(clauseCount == 0) body else List(newClauses.last.head)
+            val (bodyArgs, bodySorts) =
+              collectArgsSortsFromAtoms(newBody)
+            val (arrayTerm, arraySort) = getNewArrayTerm(conjunct)
+            val newHead = if(i < numNewClauses) {
+              val (headArgs, headSorts) = collectArgsSortsFromAtoms(Seq(head))
+              val newPredName =
+                (if (body.nonEmpty)
+                  body.head.pred.name
+                else
+                  if(head.pred != FALSE) head.pred.name
+                  else "pint") + "_" + clauseCount
+              val (newHeadArgs, newHeadSorts) = {
+                (headArgs ++ bodyArgs ++ arrayTerm,
+                  headSorts ++ bodySorts ++ arraySort
+                )
+              }
+              val newHeadPred =
+                MonoSortedPredicate(newPredName, newHeadSorts)
+              IAtom(newHeadPred, newHeadArgs)
+            } else {
+              head
+            }
+
+            val newConstraint =
+              and(remainingConstraint ++ Seq(conjunct))
+            val newClause = Clause(newHead, newBody, newConstraint)
+            newClauses += newClause
+            clauseCount += 1
+            clauseBackMapping.put(newClause, clause)
+          }
+        }
+      }
+      newClauses
+    }
+
+    val translator = new BackTranslator {
+      private val backMapping = clauseBackMapping.toMap
+
+      def translate(solution : Solution) =
+        solution
+
+      def translate(cex : CounterExample) =
+        for (p <- cex) yield {
+          val (a, clause) = p
+          (a, backMapping(clause))
+        }
+    }
+    
+    clauseBackMapping.clear
+
+    (newClauses, hints, translator)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+}

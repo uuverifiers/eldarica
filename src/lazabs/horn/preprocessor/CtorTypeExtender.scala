@@ -159,6 +159,6 @@ class CtorTypeExtender extends ArgumentExpander {
 
   private val usedTheories = new MHashSet[Theory]
 
-  def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
+  def isExpandableSort(s : Sort, p : Predicate) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
 
 }
