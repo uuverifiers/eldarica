@@ -1,3 +1,33 @@
+/**
+ * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package lazabs.horn.extendedquantifiers
 
 import ap.parser._
@@ -45,30 +75,30 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
   : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
 
     var offset = argNum
-    val ghostVars : Seq[(ITerm, Sort, String)] =
+    val ghostVars: Seq[(ITerm, Sort, String)] =
       (for (info <- extendedQuantifierInfos) yield {
-      val baseName = info.exTheory.fun.name // todo: support sets of ghost vars
-      val loName  = baseName + "_lo"
-      val hiName  = baseName + "_hi"
-      val resName = baseName + "_res"
-      val shadowArrName = baseName + "_arr"
-      val arrayTheory = info.exTheory.arrayTheory
-      val indexSort = arrayTheory.indexSorts.head
+        val baseName = info.exTheory.fun.name // todo: support sets of ghost vars
+        val loName = baseName + "_lo"
+        val hiName = baseName + "_hi"
+        val resName = baseName + "_res"
+        val shadowArrName = baseName + "_arr"
+        val arrayTheory = info.exTheory.arrayTheory
+        val indexSort = arrayTheory.indexSorts.head
 
-      val ghostVariableInds =
-        GhostVariableInds(offset+1, offset+2, offset+3, offset+4)
-      val prevMap : Map[Predicate, Seq[GhostVariableInds]] =
-        extQuantifierToGhostVars.getOrElse(info, Map())
-      val newMap : Map[Predicate, Seq[GhostVariableInds]] =
-        Map(pred -> Seq(ghostVariableInds)) ++ prevMap
-      extQuantifierToGhostVars.put(info, newMap)
+        val ghostVariableInds =
+          GhostVariableInds(offset + 1, offset + 2, offset + 3, offset + 4)
+        val prevMap: Map[Predicate, Seq[GhostVariableInds]] =
+          extQuantifierToGhostVars.getOrElse(info, Map())
+        val newMap: Map[Predicate, Seq[GhostVariableInds]] =
+          Map(pred -> Seq(ghostVariableInds)) ++ prevMap
+        extQuantifierToGhostVars.put(info, newMap)
 
-      Seq(
-        (IConstant(new SortedConstantTerm(loName, indexSort)), indexSort, loName),
-        (IConstant(new SortedConstantTerm(hiName, indexSort)), indexSort, hiName),
-        (IConstant(new SortedConstantTerm(resName, arrayTheory.objSort)), arrayTheory.objSort, resName),
-        (IConstant(new SortedConstantTerm(shadowArrName, arrayTheory.sort)), arrayTheory.sort, shadowArrName))
-    }).flatten
+        Seq(
+          (IConstant(new SortedConstantTerm(loName, indexSort)), indexSort, loName),
+          (IConstant(new SortedConstantTerm(hiName, indexSort)), indexSort, hiName),
+          (IConstant(new SortedConstantTerm(resName, arrayTheory.objSort)), arrayTheory.objSort, resName),
+          (IConstant(new SortedConstantTerm(shadowArrName, arrayTheory.sort)), arrayTheory.sort, shadowArrName))
+      }).flatten
 
     ghostVarsInPred.put(pred, ghostVars.map(_._1.asInstanceOf[IConstant].c))
 
@@ -98,11 +128,11 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
   val predMapping = new MHashMap[Predicate, Predicate]
 
   def processAndGetGhostVarMap(clauses: Clauses,
-              hints: VerificationHints,
-              frozenPredicates: Set[Predicate]):
+                               hints: VerificationHints,
+                               frozenPredicates: Set[Predicate]):
   (Clauses, VerificationHints, HornPreprocessor.BackTranslator,
     Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]]) = {
-    val (newClauses, newHints, newFrozenPredicates) =
+    val (newClauses, newHints, backTranslator) =
       super.process(clauses, hints, frozenPredicates)
     val oldNewPredMap = (for ((newC, oldC) <- newClauses zip clauses) yield {
       val oldNewPredMapping = ((oldC.body.map(_.pred) ++ Seq(oldC.head.pred)) zip
@@ -111,14 +141,16 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
     }).flatten.toMap
 
     val ghostVarMap = for ((exqInfo, map) <- extQuantifierToGhostVars) yield {
-      val newMap : Map[Predicate, Seq[GhostVariableInds]] =
-        for((oldPred, ghostVars) <- map) yield {
+      val newMap: Map[Predicate, Seq[GhostVariableInds]] =
+        for ((oldPred, ghostVars) <- map) yield {
           (oldNewPredMap(oldPred), ghostVars)
         }
+      ////      val newExqInfo =
+      ////        ExtendedQuantifierInfo(exqInfo.exTheory, exqInfo.funApp,
+      ////          exqInfo.arrayTerm, exqInfo.loTerm, exqInfo.hiTerm,
+      ////          exqInfo.bodyPreds.map(pred => oldNewPredMap(pred)))
       (exqInfo, newMap)
     }
-
-    (newClauses, newHints, newFrozenPredicates, ghostVarMap.toMap)
+    (newClauses, newHints, backTranslator, ghostVarMap.toMap)
   }
-
 }

@@ -1,3 +1,33 @@
+/**
+ * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression.Predicate
@@ -96,11 +126,15 @@ class InstrumentingPreprocessor(clauses : Clauses,
     val newClauses =
       new ArrayBuffer[Clause]
 
+    val clauseBackMapping = new MHashMap[Clause, Clause]
+
     val numBranchesForPred = new MHashMap[Predicate, Int]
 
     for ((clause, clauseInd) <- clausesForInst.zipWithIndex) {
-      if (clause.head.pred == HornClauses.FALSE)
+      if (clause.head.pred == HornClauses.FALSE) {
         newClauses += clause
+        clauseBackMapping += ((clause, clause))
+      }
       else {
         val instrumentationsForClause =
           for (extendedQuantifierInfo <- extendedQuantifierInfos) yield {
@@ -112,6 +146,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
                     " extended quantifier: " + extendedQuantifierInfo.exTheory.fun.name)
               }
             clauseInstrumenter.instrument(clause,
+              //getGhostVarInds(extendedQuantifierInfo, ghostVarMap),
               ghostVarMap(extendedQuantifierInfo),
               extendedQuantifierInfo)
           }
@@ -144,9 +179,12 @@ class InstrumentingPreprocessor(clauses : Clauses,
             val newConstraint = instrumentation.constraint &&& clause.constraint
             val newClause = Clause(newHead, newBody, newConstraint)
             newClauses += newClause
+            clauseBackMapping += ((newClause, clause))
           }
-        } else
+        } else {
           newClauses += clause
+          clauseBackMapping += ((clause, clause))
+        }
       }
     }
 
@@ -172,10 +210,10 @@ class InstrumentingPreprocessor(clauses : Clauses,
       newClauses, numBranchesForPred.keys.toSet, searchSpace)
 
     val translator = new BackTranslator {
-      def translate(solution : Solution) = ???
+      def translate(solution : Solution) = solution
 
-      def translate(cex : CounterExample) = ???
-        // for (p <- cex) yield (p._1, clauseBackMapping(p._2))
+      def translate(cex : CounterExample) =
+        for (p <- cex) yield (p._1, clauseBackMapping(p._2))
     }
 
     (result, translator)
@@ -197,7 +235,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
     }
 
     val translator = new BackTranslator {
-      def translate(solution : Solution) = ???
+      def translate(solution : Solution) = solution
 
       def translate(cex : CounterExample) =
         for (p <- cex) yield (p._1, clauseBackMapping(p._2))

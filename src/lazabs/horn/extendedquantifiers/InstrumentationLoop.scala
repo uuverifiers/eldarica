@@ -1,6 +1,35 @@
+/**
+ * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.Predicate
 import ap.parser.{IAtom, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
@@ -10,9 +39,10 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{IncrementalHornPredAbs, NormClause, PredicateStore}
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
 import lazabs.horn.preprocessor.DefaultPreprocessor
-import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator}
 
-import scala.collection.mutable.{HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
+import scala.util.Random
 
 object InstrumentationLoop {
   class Result
@@ -28,11 +58,14 @@ class InstrumentationLoop (clauses : Clauses,
                                Dag[(IAtom, NormClause)]]) {
   import InstrumentationLoop._
 
+  val backTranslators = new ArrayBuffer[BackTranslator]
+
   val preprocessor = new DefaultPreprocessor
   val (simpClauses, _, backTranslator1) =
     Console.withErr(Console.out) {
       preprocessor.process(clauses, EmptyVerificationHints)
     }
+  backTranslators += backTranslator1
 
   println("="*80)
   println("Clauses before instrumentation")
@@ -43,25 +76,31 @@ class InstrumentationLoop (clauses : Clauses,
   val instrumenter = new SimpleExtendedQuantifierInstrumenter(
     simpClauses, EmptyVerificationHints, Set.empty)
 
+  backTranslators += instrumenter.backTranslator
+
   println("="*80)
   println("Clauses after instrumentation")
   println("-"*80 )
   instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
   println("="*80 + "\n")
 
-  val simpClauses2 = instrumenter.instrumentedClauses
+  //val simpClauses2 = instrumenter.instrumentedClauses
 
-  //    println("="*80)
-  //    println("Clauses after instrumentation (simplified)")
-  //    val (simpClauses2, _, backTranslator2) =
-  //      Console.withErr(Console.out) {
-  //        preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints)
-  //      }
-  //    simpClauses2.foreach(clause => println(clause.toPrologString))
-  //    println("="*80)
+  println("="*80)
+  println("Clauses after instrumentation (simplified)")
+  val (simpClauses2, _, backTranslator2) =
+    Console.withErr(Console.out) {
+      preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints, instrumenter.branchPredicates)
+    }
+  backTranslators += backTranslator2
+  simpClauses2.foreach(clause => println(clause.toPrologString))
+  println("="*80)
+
+  val backTranslator =
+    new ComposedBackTranslator(backTranslators.reverse)
 
   def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-  Map[Predicate, Conjunction] = space.last
+  Map[Predicate, Conjunction] = Random.shuffle(space.toSeq).head
 
   val incSolver =
     new IncrementalHornPredAbs(simpClauses2,

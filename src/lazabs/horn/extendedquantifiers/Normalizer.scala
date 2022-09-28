@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +33,7 @@ package lazabs.horn.extendedquantifiers
 import ap.parser.IExpression._
 import ap.parser._
 import ap.types.MonoSortedPredicate
+import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.preprocessor.HornPreprocessor
@@ -47,6 +49,7 @@ class Normalizer extends HornPreprocessor {
   val name : String = "normalizing clauses for extended quantifier instrumentation"
 
   private val clauseBackMapping = new MHashMap[Clause, Clause]
+  private val predBackMapping = new MHashMap[Predicate, Predicate]
 
   //todo: include extended quantifier conjuncts in normalization
 
@@ -91,8 +94,11 @@ class Normalizer extends HornPreprocessor {
         val remainingConstraint =
           conjuncts diff instrumentationConjuncts
 
+        val isGoalClause = clause.head.pred == HornClauses.FALSE
+
         val numNewClauses =
-          instrumentationConjuncts.length - 1
+          instrumentationConjuncts.length - 1 +
+            (if (isGoalClause && instrumentationConjuncts.nonEmpty) 1 else 0)
 
         if(numNewClauses <= 0) {
           newClauses += clause // no normalization needed
@@ -113,7 +119,9 @@ class Normalizer extends HornPreprocessor {
           // p :- select(b), p3(a1,a2,a3), c
           var clauseCount = 0
 
-          for((conjunct, i) <- instrumentationConjuncts zipWithIndex) {
+          for((conjunct, i) <-
+                (instrumentationConjuncts ++
+                  (if (isGoalClause) Seq(i(true)) else Nil)) zipWithIndex) {
             val newBody =
               if(clauseCount == 0) body else List(newClauses.last.head)
             val (bodyArgs, bodySorts) =
@@ -134,6 +142,7 @@ class Normalizer extends HornPreprocessor {
               }
               val newHeadPred =
                 MonoSortedPredicate(newPredName, newHeadSorts)
+              predBackMapping += ((newHeadPred, head.pred))
               IAtom(newHeadPred, newHeadArgs)
             } else {
               head
@@ -154,11 +163,24 @@ class Normalizer extends HornPreprocessor {
     val translator = new BackTranslator {
       private val backMapping = clauseBackMapping.toMap
 
-      def translate(solution : Solution) =
-        solution
+      def translate(solution : Solution) = {
+        solution -- predBackMapping.keys
+//        val newSol = new MHashMap[Predicate, IFormula]
+//        for ((newPred, sol) <- solution.iterator)
+//          (predBackMapping get newPred) match {
+//            case Some(pred) if pred != HornClauses.FALSE => {
+//              //val newSol = VariableSubstVisitor(sol, (subst, 1))
+//              // todo: subst for sol
+//              newSol += ((pred, sol))
+//            }
+//            case None =>
+//              newSol += ((newPred, sol))
+//          }
+//        newSol.toMap
+      }
 
       def translate(cex : CounterExample) =
-        for (p <- cex) yield {
+        for (p <- cex) yield { // todo: review
           val (a, clause) = p
           (a, backMapping(clause))
         }
