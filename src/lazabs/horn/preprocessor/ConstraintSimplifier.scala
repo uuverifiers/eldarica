@@ -427,6 +427,91 @@ class ConstraintSimplifier extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Eliminate inequalities and disequations that can be trivially
+   * satisfied.
+   */
+  private def elimDisEquations(headSyms : scala.collection.Set[ConstantTerm],
+                               body : List[IAtom],
+                               conjuncts : Seq[IFormula],
+                               persistentEqs : Seq[IFormula])
+                             : Option[Seq[IFormula]] = {
+    val occurrenceNums = new MHashMap[ConstantTerm, Int]
+
+    for (c <- headSyms)
+      occurrenceNums.put(c, 1)
+
+    for (a <- body.iterator ++ conjuncts.iterator ++ persistentEqs.iterator)
+      for (c <- SymbolCollector constants a)
+        occurrenceNums.put(c, occurrenceNums.getOrElse(c, 0) + 1)
+
+    val singletonConstants =
+      (for ((c, 1) <- occurrenceNums.iterator;
+            if (Sort sortOf c) == Sort.Integer)
+       yield c).toSet
+
+    if (singletonConstants.isEmpty)
+      return None
+
+    val remConjuncts = conjuncts filter {
+      case INot(EqZ(t)) if containsUnitConst(t, singletonConstants) => false
+      case GeqZ(t) if containsSingletonConst(t, singletonConstants) => false
+      case _ => true
+    }
+
+    if (remConjuncts.size == conjuncts.size)
+      None
+    else
+      Some(remConjuncts)
+  }
+
+  private def containsUnitConst(t : ITerm,
+                                consts : Set[ConstantTerm]) : Boolean =
+    asLinearComb(t) match {
+      case Some(m) =>
+        m exists {
+          case (c, coeff) => coeff.isUnit && (consts contains c)
+        }
+      case _ =>
+        false
+    }
+
+  private def containsSingletonConst(t : ITerm,
+                                     consts : Set[ConstantTerm]) : Boolean =
+    asLinearComb(t) match {
+      case Some(m) =>
+        m exists {
+          case (c, coeff) => !coeff.isZero && (consts contains c)
+        }
+      case _ =>
+        false
+    }
+
+  /**
+   * Check whether a given term can be represented as a linear
+   * combination of constants (plus some constant term that is
+   * ignored). The result map, in the positive case, gives the
+   * coefficients of the constants occuring in the linear combination.
+   */
+  private def asLinearComb(t : ITerm)
+                         : Option[Map[ConstantTerm, IdealInt]] = t match {
+    case _ : IIntLit =>
+      Some(Map())
+    case IConstant(c) =>
+      Some(Map(c -> IdealInt.ONE))
+    case ITimes(coeff, t) =>
+      for (m <- asLinearComb(t)) yield m.mapValues(_ * coeff)
+    case IPlus(s, t) =>
+      for (m1 <- asLinearComb(s); m2 <- asLinearComb(t)) yield {
+        m1 ++ (for ((c, coeff) <- m2.iterator)
+               yield (c, m1.getOrElse(c, IdealInt.ZERO) + coeff))
+      }
+    case _ =>
+      None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Apply congruence closure to function applications.
    */
   private def congruenceClosure(conjuncts : Seq[IFormula])
@@ -654,6 +739,12 @@ class ConstraintSimplifier extends HornPreprocessor {
         persistentEqs = newPersistentEqs
         changed       = true
         cont          = true
+      }
+
+      for (newConjuncts <-
+             elimDisEquations(headSyms, body, conjuncts, persistentEqs)) {
+        conjuncts = newConjuncts
+        changed   = true
       }
 
       if (!cont && containsFunctions) {

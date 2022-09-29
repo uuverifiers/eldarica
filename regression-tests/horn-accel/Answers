@@ -311,4 +311,4 @@ unsat
 booleans.smt2
 Warning: ignoring exit
 sat
-(define-fun main_1 ((A Int) (B Int) (C Int) (D Int) (E Bool) (F Int)) Bool (or (= A 0) (and (= A 1) (and (= E true) (and (and (and (and (and (and (>= (+ (* 2 C) (+ (* (- 2) D) F)) B) (>= B 1)) (<= D 499999)) (>= D 1)) (<= F 999999)) (>= F 4)) (and (or (>= (- F B) 2) (and (= (+ B (- (* 2 D) F)) 2) (>= D 2))) (or (and (= (+ B (+ (* (- 2) C) (- (* 2 D) F))) 0) (>= (- D C) 1)) (and (>= (- (+ (* 2 C) (+ (* (- 2) D) F)) B) 1) (>= (- F B) 3)))))))))
+(define-fun main_1 ((A Int) (B Int) (C Int) (D Int) (E Bool) (F Int)) Bool (or (= A 0) (and (= A 1) (and (= E true) (and (and (and (and (and (and (and (and (>= (+ (* 2 C) (+ (* (- 2) D) F)) B) (<= B 999999)) (>= B 0)) (<= C 499998)) (<= D 499999)) (>= D 1)) (<= F 999999)) (>= F 4)) (or (>= (- F B) 3) (and (= (+ B (+ (* (- 2) C) (- (* 2 D) F))) 0) (>= (- D C) 1))))))))
