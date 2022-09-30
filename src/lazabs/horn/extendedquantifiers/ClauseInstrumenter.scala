@@ -41,118 +41,174 @@ import GhostVariableAdder._
 abstract class
 ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
   protected def instrumentStore (storeInfo  : StoreInfo,
+                                 headTerms  : GhostVariableTerms,
                                  bodyTerms  : GhostVariableTerms) : Seq[IFormula]
   protected def instrumentSelect(selectInfo : SelectInfo,
+                                 headTerms  : GhostVariableTerms,
                                  bodyTerms  : GhostVariableTerms) : Seq[IFormula]
   protected def instrumentConst (constInfo  : ConstInfo,
+                                 headTerms  : GhostVariableTerms,
                                  bodyTerms  : GhostVariableTerms) : Seq[IFormula]
 
   protected val arrayTheory = extendedQuantifier.arrayTheory
   protected val indexSort = arrayTheory.indexSorts.head  // todo: assuming 1-d array
 
-  protected val (hlo, hhi, hres, harr) =
-    (IConstant(new SortedConstantTerm("lo'", indexSort)),
-      IConstant(new SortedConstantTerm("hi'", indexSort)),
-      IConstant(new SortedConstantTerm("res'", arrayTheory.objSort)),
-      IConstant(new SortedConstantTerm("arr'", arrayTheory.sort)))
-
   // returns all instrumentations of a clause
   def instrument (clause                 : Clause,
-                  ghostVarInds           : Map[Predicate, Seq[GhostVariableInds]],
+                  allGhostVarInds           : Map[Predicate, Seq[GhostVariableInds]],
                   extendedQuantifierInfo : ExtendedQuantifierInfo) : Seq[Instrumentation] = {
-    // todo: below code must be modified to track multiple ranges (with multiple ghost vars)
-    val hInds = ghostVarInds(clause.head.pred).head
-    val headTermMap : Map[Int, ITerm] = Map(
-      hInds.lo -> hlo, hInds.hi -> hhi, hInds.res -> hres, hInds.arr -> harr)
-
-    // returns instrumentations for body atom, EXCEPT the identity instrumentation
+    // returns instrumentations for body atom, EXCEPT the identity instrumentations
     def instrForBodyAtom(bAtom : IAtom) : Seq[Instrumentation] = {
-      val GhostVariableInds(iblo, ibhi, ibres, ibarr) = ghostVarInds(bAtom.pred).head // todo: support multiple ghost var sets
-      val bodyTerms = GhostVariableTerms(
-        bAtom.args(iblo), bAtom.args(ibhi), bAtom.args(ibres), bAtom.args(ibarr))
-      val conjuncts : Seq[IFormula] =
-        LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
-
-      val instrumentationConstraints : Seq[IFormula] = {
+      (for ((GhostVariableInds(iblo, ibhi, ibres, ibarr), iGhostVars) <-
+              allGhostVarInds(bAtom.pred).zipWithIndex) yield {
+        val bodyTerms = GhostVariableTerms(
+          bAtom.args(iblo), bAtom.args(ibhi), bAtom.args(ibres), bAtom.args(ibarr))
+        val conjuncts : Seq[IFormula] =
+          LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
         val relevantConjuncts =
           conjuncts filter (c => isSelect(c) || isConst(c) || isStore(c))
         if(relevantConjuncts.length > 1)
           throw new Exception("More than one conjunct found for instrumentation," +
             " are the clauses normalized?\n" + clause.toPrologString)
-        relevantConjuncts.headOption match {
-          case Some(c) if isSelect(c) =>
-            instrumentSelect(extractSelectInfo(c), bodyTerms)
-          case Some(c) if isStore(c) =>
-            instrumentStore(extractStoreInfo(c), bodyTerms)
-          case Some(c) if isConst(c) =>
-            instrumentConst(extractConstInfo(c), bodyTerms)
-          case None => Nil
+
+        val headTerms = GhostVariableTerms(
+          IConstant(new SortedConstantTerm("lo'", indexSort)),
+          IConstant(new SortedConstantTerm("hi'", indexSort)),
+          IConstant(new SortedConstantTerm("res'", arrayTheory.objSort)),
+          IConstant(new SortedConstantTerm("arr'", arrayTheory.sort))
+        )
+
+        val ghostVarSetsInPred = allGhostVarInds(clause.head.pred)
+        val hInds = ghostVarSetsInPred(iGhostVars)
+
+        val headTermMap : Map[Int, ITerm] = Map(
+          hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
+          hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
+
+        val instrumentationConstraints : Seq[IFormula] =
+          relevantConjuncts.headOption match {
+            case Some(c) if isSelect(c) =>
+              instrumentSelect(extractSelectInfo(c), headTerms, bodyTerms)
+            case Some(c) if isStore(c) =>
+              instrumentStore(extractStoreInfo(c), headTerms, bodyTerms)
+            case Some(c) if isConst(c) =>
+              instrumentConst(extractConstInfo(c), headTerms, bodyTerms)
+            case None => Nil
+          }
+        for(instrumentationConstraint <- instrumentationConstraints) yield
+          Instrumentation(instrumentationConstraint, headTermMap)
+      }).flatten
+    }
+
+    // todo: correctly compose identity and regular instrumentations for multiple sets of ghost variables!
+
+    // given a sequence of instrumentations produced from a body atom,
+    // produces a sequence of instrumentations with the same size that passes
+    //   unused ghost variables to the matching ghost variables in the head
+    //   without changing their values.
+    //  e.g. h(g1,g2,g3) :- b(g1,g2,g3). Assume g1 & g2 were instrumented,
+    //  we create a new instrumentation where g1 & g2 are instrumented and g3 is
+    //  passed unchanged (the original instrumentation says nothing about g3).
+    def getCompleteInstrumentation (bodyAtom : IAtom,
+                                    inst    : Instrumentation)
+    : Instrumentation = {
+      val bodyGhostVarInds : Seq[GhostVariableInds] =
+        allGhostVarInds(bodyAtom.pred)
+      val headGhostVarInds : Seq[GhostVariableInds] =
+        allGhostVarInds(clause.head.pred)
+      val unusedHeadBodyInds =
+        (headGhostVarInds zip bodyGhostVarInds).filter(inds =>
+          !inst.headTerms.contains(inds._1.lo))
+      val identityInds =
+        for((hInds, bInds) <- unusedHeadBodyInds) yield {
+          val headTerms = GhostVariableTerms(
+            lo = clause.head.args(hInds.lo), hi = clause.head.args(hInds.hi),
+            res = clause.head.args(hInds.res), arr = clause.head.args(hInds.arr))
+          val bodyTerms = GhostVariableTerms(
+            lo = bodyAtom.args(bInds.lo), hi = bodyAtom.args(bInds.hi),
+            res = bodyAtom.args(bInds.res), arr = bodyAtom.args(bInds.arr))
+          val newConjunct =
+            (headTerms.arr === bodyTerms.arr) &&&
+              (headTerms.lo === bodyTerms.lo) &&&
+              (headTerms.hi === bodyTerms.hi) &&&
+              (headTerms.res === bodyTerms.res)
+          val headTermMap : Map[Int, ITerm] = Map(
+            hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
+            hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
+          Instrumentation(newConjunct, headTermMap)
         }
-      }
-
-      for(instrumentationConstraint <- instrumentationConstraints) yield
-        Instrumentation(instrumentationConstraint, headTermMap)
+      identityInds.reduceOption(_ + _).
+        getOrElse(Instrumentation.emptyInstrumentation) + inst
     }
 
-    // returns the identity instrumentation for a body atom
-    def identityInstrumentation (bAtom : IAtom) = {
-      val GhostVariableInds(iblo, ibhi, ibres, ibarr) = ghostVarInds(bAtom.pred).head // todo: support multiple ghost var sets
-      val bodyTerms = GhostVariableTerms(
-        bAtom.args(iblo), bAtom.args(ibhi), bAtom.args(ibres), bAtom.args(ibarr))
-      val newConjunct =
-        (harr === bodyTerms.arr) &&&
-          (hlo === bodyTerms.lo) &&&
-          (hhi === bodyTerms.hi) &&&
-          (hres === bodyTerms.res)
-      Instrumentation(newConjunct, headTermMap)
-    }
+    // returns the identity instrumentation (i.e., all ghost vars are passed unchanged)
+    def identityInstrumentation (bAtom : IAtom) =
+      getCompleteInstrumentation(bAtom, Instrumentation.emptyInstrumentation)
 
-    val instrsForBodyAtoms : Seq[Seq[Instrumentation]] =
-      clause.body map instrForBodyAtom
+    val instrsForBodyAtoms : Seq[(IAtom, Seq[Instrumentation])] =
+      clause.body map (atom => (atom, instrForBodyAtom(atom)))
     val identityInstrsForBodyAtoms : Seq[Instrumentation] =
       clause.body map identityInstrumentation
-    // todo: are ghost terms of each atom initially distinct?
-    instrsForBodyAtoms.reduceOption((instrs1, instrs2) =>
-      Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++ identityInstrsForBodyAtoms
+
+    val numGhostVarSets = allGhostVarInds.head._2.length
+    val combsForBodyAtoms: Seq[Seq[Instrumentation]] =
+      for ((bAtom, instrs) <- instrsForBodyAtoms) yield {
+        val combinations: Seq[Seq[Instrumentation]] =
+          (for (i <- 1 to numGhostVarSets) yield {
+            instrs.combinations(i)
+          }).flatten
+        val completeCombinatons: Seq[Instrumentation] =
+          for (combination <- combinations) yield {
+            getCompleteInstrumentation(bAtom,
+              combination.reduceOption(_ + _).getOrElse(
+                Instrumentation.emptyInstrumentation))
+          }
+        completeCombinatons
+      }
+
+    combsForBodyAtoms.reduceOption((instrs1, instrs2) =>
+      Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++
+      identityInstrsForBodyAtoms
   }
 }
 
 // A simple instrumenter that works for all extended quantifiers, but is very
 // general and thus imprecise.
-// todo: add ghost array assertions
 class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   extends ClauseInstrumenter(extendedQuantifier) {
   override protected
-  def instrumentStore(storeInfo : StoreInfo,
-                      bodyTerms : GhostVariableTerms): Seq[IFormula] = {
+  def instrumentStore(storeInfo: StoreInfo,
+                      headTerms : GhostVariableTerms,
+                      bodyTerms: GhostVariableTerms): Seq[IFormula] = {
     val StoreInfo(a1, a2, i, o, arrayTheory2) = storeInfo
-    if(arrayTheory != arrayTheory2)
+    if (arrayTheory != arrayTheory2)
       Nil
     else {
       import extendedQuantifier._
       import bodyTerms._
       import arrayTheory2._
       val instrConstraint1 =
-        (harr === a2) &&& ite(bodyTerms.lo === bodyTerms.hi,
-          (hlo === i) & (hhi === i + 1) & (hres === o),
+        (headTerms.arr === a2) &&& ite(bodyTerms.lo === bodyTerms.hi,
+          (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
-            (hres === reduceOp(res, o)) & (hlo === i) & hhi === hi,
+            (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (hres === reduceOp(res, o)) & (hhi === i + 1 & hlo === lo),
+              (headTerms.res === reduceOp(res, o)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
                 invReduceOp match {
-                  case Some(f) => hres === reduceOp(f(res, select(a1, i)), o) & hlo === lo & hhi === hi
-                  case _ => (hlo === i) & (hhi === i + 1) & (hres === o) //??? //TODO: Implement non-cancellative case
+                  case Some(f) => headTerms.res === reduceOp(f(res, select(a1, i)), o) & headTerms.lo === lo & headTerms.hi === hi
+                  case _ => (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o) //??? //TODO: Implement non-cancellative case
                 },
                 //hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
-                (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
+                (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       Seq(instrConstraint1)
     }
   }
 
   override protected
   def instrumentSelect(selectInfo : SelectInfo,
-                       bodyTerms : GhostVariableTerms): Seq[IFormula] = {
+                       headTerms  : GhostVariableTerms,
+                       bodyTerms  : GhostVariableTerms): Seq[IFormula] = {
     val SelectInfo(a, i, o, arrayTheory2) = selectInfo
     if (arrayTheory != arrayTheory2)
       Nil
@@ -160,15 +216,15 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       import extendedQuantifier._
       import bodyTerms._
       val instrConstraint1 =
-        (harr === a) &&& ite(lo === hi,
-          (hlo === i) & (hhi === i + 1) & (hres === o),
+        (headTerms.arr === a) &&& ite(lo === hi,
+          (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
-            (hres === reduceOp(res, o)) & (hlo === i) & hhi === hi,
+            (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (hres === reduceOp(res, o)) & (hhi === i + 1 & hlo === lo),
+              (headTerms.res === reduceOp(res, o)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
-                hres === res & hlo === lo & hhi === hi, // no change within bounds
-                (hlo === i) & (hhi === i + 1) & (hres === o))))) // outside bounds, reset
+                headTerms.res === res & headTerms.lo === lo & headTerms.hi === hi, // no change within bounds
+                (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       Seq(instrConstraint1)
     }
   }
@@ -176,5 +232,12 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   // todo: instrument const operation
   override protected
   def instrumentConst(constInfo : ConstInfo,
-                      bodyTerms : GhostVariableTerms): Seq[IFormula] = Nil
+                      headTerms : GhostVariableTerms,
+                      bodyTerms : GhostVariableTerms): Seq[IFormula] =
+    Nil
+
+  //  val ConstInfo(a, o, arrayTheory) = constInfo
+  //  val instr =
+  //    hhi === 10 &&& hlo === 0 &&& harr === a &&&
+  //      hres === extendedQuantifier.reduceOp(o, o)
 }

@@ -48,14 +48,16 @@ class GhostVariableInitializer(
   (Clauses, VerificationHints, HornPreprocessor.BackTranslator) = {
     val entryClauses = clauses.filter(_.body isEmpty)
 
-
     val newClauses = for (clause <- clauses) yield {
       if (entryClauses contains clause) {
         val newConjuncts = for ((exq, predToGhostVars) <- ghostVarInds) yield {
           val ghostVars = predToGhostVars(clause.head.pred)
           // todo: support for multiple ranges
-          val GhostVariableInds(lo, hi, res, arr) = ghostVars.head
-          clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0
+          (for (ghostVarSet <- ghostVars) yield {
+            val GhostVariableInds(lo, hi, res, arr) = ghostVarSet
+            clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&
+              exq.exTheory.identity === clause.head.args(res)
+          }).fold(i(true))((c1, c2) => c1 &&& c2)
         }
         val newConstraint = clause.constraint &&&
           newConjuncts.fold(i(true))((c1, c2) => c1 &&& c2)

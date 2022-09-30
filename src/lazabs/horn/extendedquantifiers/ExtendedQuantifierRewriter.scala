@@ -38,7 +38,7 @@ import lazabs.horn.extendedquantifiers.Util._
 
 object ExtendedQuantifierRewriter {
   def rewrite (clause       : Clause,
-               ghostVarInds : Map[ExtendedQuantifierInfo,
+               allGhostVarInds : Map[ExtendedQuantifierInfo,
                                   Map[Predicate, Seq[GhostVariableInds]]])
   : Clause = {
     // start from the whole constraint
@@ -49,25 +49,57 @@ object ExtendedQuantifierRewriter {
     for (exqInfo@ExtendedQuantifierInfo(exq, app, a, lo, hi) <- extQuantifierInfos) {
       // todo: below code is experimental and will not work in most cases!
 
-      val GhostVariableInds(iblo, ibhi, ibres, ibarr) =
-        ghostVarInds(exqInfo)(clause.body.head.pred).head
-      //  getGhostVarInds(exqInfo, ghostVarInds)(clause.body.head.pred).head
+      val ghostVarTerms: Seq[GhostVariableTerms] =
+        (for (ghostVarInds <- allGhostVarInds(exqInfo)(clause.body.head.pred)) yield {
+          val GhostVariableInds(iblo, ibhi, ibres, ibarr) = ghostVarInds
 
-      val blo = clause.body.head.args(iblo)
-      val bhi = clause.body.head.args(ibhi)
-      val bres = clause.body.head.args(ibres)
-      val barr = clause.body.head.args(ibarr)
+          val blo = clause.body.head.args(iblo)
+          val bhi = clause.body.head.args(ibhi)
+          val bres = clause.body.head.args(ibres)
+          val barr = clause.body.head.args(ibarr)
+          GhostVariableTerms(lo = blo, hi = bhi, res = bres, arr = barr)
+        })
 
-      val (_, sorts) = collectArgsSortsFromAtoms(Seq(clause.body.head))
+      // for [g1, g2, g3] combinations will have
+      // [[g1], [g2], [g3], [g1,g2], [g1,g3], [g2,g3], [g1,g2,g3]]
+      val combinations: Seq[Seq[GhostVariableTerms]] =
+        (for (i <- 1 to ghostVarTerms.length) yield {
+          ghostVarTerms.combinations(i)
+        }).flatten
+
+      // range1 ? res1 : (range 2 ? res2 : (... : range1+range2 ? res1+res : range2+range1 ? res2+res1 : ... ))
+
+      def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : ITerm = {
+        combs.headOption match {
+          case Some(comb) =>
+            if (comb.length == 1) {
+              ite(comb.head.lo === lo & comb.head.hi === hi &
+                  comb.head.arr === a,
+                comb.head.res, // then
+                buildRangeFormula(combs.tail)) // else
+            } else if (comb.length == 2) {
+              ite(comb(0).lo === lo & comb(0).hi === comb(1).lo &
+                  comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
+                  exq.reduceOp(comb(0).res, comb(1).res), // then
+                ite(
+                  comb(0).lo === lo & comb(0).hi === comb(1).lo &
+                    comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
+                  exq.reduceOp(comb(0).res, comb(1).res),
+                  buildRangeFormula(combs.tail)) // else
+                )
+            } else {
+              ??? // todo: generalize this!
+            }
+          case None =>
+            IConstant(new SortedConstantTerm("unknownRes",
+              exqInfo.exTheory.arrayTheory.objSort))
+        }
+      }
 
       newConstraint = ExpressionReplacingVisitor(
         newConstraint,
         replaced = app,
-        replaceWith =
-          ite(blo === lo & bhi === hi & barr === a,
-            bres,
-            IConstant(new SortedConstantTerm("unknownRes", sorts(ibarr))))
-      )
+        replaceWith = buildRangeFormula(combinations))
     }
 
     Clause(clause.head, clause.body, newConstraint)

@@ -41,6 +41,7 @@ import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator}
 
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 import scala.util.Random
 
@@ -73,72 +74,91 @@ class InstrumentationLoop (clauses : Clauses,
   clauses.foreach(clause => println(clause.toPrologString))
   println("="*80 + "\n")
 
-  val instrumenter = new SimpleExtendedQuantifierInstrumenter(
-    simpClauses, EmptyVerificationHints, Set.empty)
+  val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
 
-  backTranslators += instrumenter.backTranslator
-
-  println("="*80)
-  println("Clauses after instrumentation")
-  println("-"*80 )
-  instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
-  println("="*80 + "\n")
-
-  //val simpClauses2 = instrumenter.instrumentedClauses
-
-  println("="*80)
-  println("Clauses after instrumentation (simplified)")
-  val (simpClauses2, _, backTranslator2) =
-    Console.withErr(Console.out) {
-      preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints, instrumenter.branchPredicates)
-    }
-  backTranslators += backTranslator2
-  simpClauses2.foreach(clause => println(clause.toPrologString))
-  println("="*80)
-
-  val backTranslator =
-    new ComposedBackTranslator(backTranslators.reverse)
-
-  def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-  Map[Predicate, Conjunction] = Random.shuffle(space.toSeq).head
-
-  val incSolver =
-    new IncrementalHornPredAbs(simpClauses2,
-      initialPredicates,
-      instrumenter.branchPredicates,
-      predicateGenerator)
-
-  // we have m predicates for m locations to instrument, corresponding to the instrumentation constraint.
-  // each instrumentation predicate can be instantiated in n ways
-  // i.e., the search space is n^m.
-  // for the base case, we will have n = 2, with {instrument, noInstrument}, so the search space is 2^m
-
-  val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-  instrumenter.searchSpace.foreach(search =>
-    searchSpace += search.toMap)
-
-  println("Clauses instrumented, starting search for correct instrumentation.")
+  val instrumenterBackTranslators = new ArrayBuffer[BackTranslator]
 
   var rawResult : Result = Inconclusive
-  // todo: assume empty instrumentation is in searchSpace?
-  while((searchSpace nonEmpty) && rawResult == Inconclusive) {
-    val instrumentation = pickInstrumentation(searchSpace.toSet)
-    println("Remaining search space size: " + searchSpace.size)
-    println("Selected branches: " + instrumentation.map(instr =>
-      instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue*(-1)) + ")").mkString(", "))
 
-    // todo: assuming empty instrumentation is not in searchSpace below
-    // left sol, right cex
-    incSolver.checkWithSubstitution(instrumentation) match {
-      case Right(cex) => {
-        println("unsafe, iterating...")
-        searchSpace -= instrumentation // todo; very stupid implementation that only removes the last instrumentation
-        // backTranslator.translate(cex).prettyPrint
+  var lastSolver : IncrementalHornPredAbs[Clause] = _ // todo :-)
+
+  while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
+    val numRanges = ghostVarRanges.head
+    ghostVarRanges -= numRanges
+    instrumenterBackTranslators.clear()
+
+    println("# ghost variable ranges: " + numRanges)
+    val instrumenter = new SimpleExtendedQuantifierInstrumenter(
+    simpClauses, EmptyVerificationHints, Set.empty, numRanges)
+
+    instrumenterBackTranslators += instrumenter.backTranslator
+
+    println("="*80)
+    println("Clauses after instrumentation")
+    println("-"*80 )
+    instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
+    println("="*80 + "\n")
+
+    //val simpClauses2 = instrumenter.instrumentedClauses
+
+    println("="*80)
+    println("Clauses after instrumentation (simplified)")
+    val (simpClauses2, _, backTranslator2) =
+      Console.withErr(Console.out) {
+        preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints, instrumenter.branchPredicates)
       }
-      case Left(solution) =>
-        rawResult = Safe(solution)
+    instrumenterBackTranslators += backTranslator2
+    simpClauses2.foreach(clause => println(clause.toPrologString))
+    println("="*80)
+
+    def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
+    Map[Predicate, Conjunction] = Random.shuffle(space.toSeq).head
+
+    val incSolver =
+      new IncrementalHornPredAbs(simpClauses2,
+        initialPredicates,
+        instrumenter.branchPredicates,
+        predicateGenerator)
+
+    lastSolver = incSolver
+
+    // we have m predicates for m locations to instrument, corresponding to the instrumentation constraint.
+    // each instrumentation predicate can be instantiated in n ways
+    // i.e., the search space is n^m.
+    // for the base case, we will have n = 2, with {instrument, noInstrument}, so the search space is 2^m
+
+    val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
+    instrumenter.searchSpace.foreach(search =>
+      searchSpace += search.toMap)
+
+    println("Clauses instrumented, starting search for correct instrumentation.")
+
+    // todo: assume empty instrumentation is in searchSpace?
+    while((searchSpace nonEmpty) && rawResult == Inconclusive) {
+      val instrumentation = pickInstrumentation(searchSpace.toSet)
+      println("Remaining search space size: " + searchSpace.size)
+      println("Selected branches: " + instrumentation.map(instr =>
+        instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
+
+      // todo: assuming empty instrumentation is not in searchSpace below
+      // left sol, right cex
+      incSolver.checkWithSubstitution(instrumentation) match {
+        case Right(cex) => {
+          println("unsafe, iterating...")
+          searchSpace -= instrumentation // todo; very stupid implementation that only removes the last instrumentation
+          //backTranslator.translate(cex).prettyPrint
+          // rawResult = Unsafe(cex)
+        }
+        case Left(solution) =>
+          rawResult = Safe(solution)
+      }
     }
   }
+
+  val backTranslator =
+    new ComposedBackTranslator(
+      instrumenterBackTranslators.reverse ++
+      backTranslators.reverse)
 
   /**
    * The result of CEGAR: either a solution of the Horn clauses, or
@@ -149,7 +169,7 @@ class InstrumentationLoop (clauses : Clauses,
     case Safe(solution) =>
       Left(for ((p, c) <- solution)
         yield {
-          (p, (new PredicateStore(incSolver.baseContext)).convertToInputAbsy(
+          (p, (new PredicateStore(lastSolver.baseContext)).convertToInputAbsy(
             p, List(c)).head)
         })
     case Unsafe(trace) =>

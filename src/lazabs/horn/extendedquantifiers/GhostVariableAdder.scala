@@ -53,14 +53,15 @@ object GhostVariableAdder {
  * Class to introduce ghost variables to predicates
  * Adds a set of ghost variables for each extended quantifier.
  */
-class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
+class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
+                         numGhostRanges : Int)
   extends ArgumentExpander {
 
   import GhostVariableAdder._
   import HornPreprocessor.Clauses
   import IExpression._
 
-  val name = "ghost variable adder"
+  val name = "adding " + numGhostRanges + " sets of ghost variables"
 
   private val ghostVarsInPred = new MHashMap[Predicate, Seq[ConstantTerm]]
 
@@ -85,19 +86,22 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
         val arrayTheory = info.exTheory.arrayTheory
         val indexSort = arrayTheory.indexSorts.head
 
-        val ghostVariableInds =
-          GhostVariableInds(offset + 1, offset + 2, offset + 3, offset + 4)
+        val ghostVariableInds : Seq[GhostVariableInds] =
+          for(numGhostRange <- 0 until numGhostRanges) yield {
+            val shift = offset + numGhostRange*4 // 4 is the #ghost vars in a set
+            GhostVariableInds(shift + 1, shift + 2, shift + 3, shift + 4)
+          }
         val prevMap: Map[Predicate, Seq[GhostVariableInds]] =
           extQuantifierToGhostVars.getOrElse(info, Map())
         val newMap: Map[Predicate, Seq[GhostVariableInds]] =
-          Map(pred -> Seq(ghostVariableInds)) ++ prevMap
+          Map(pred -> ghostVariableInds) ++ prevMap
         extQuantifierToGhostVars.put(info, newMap)
 
-        Seq(
-          (IConstant(new SortedConstantTerm(loName, indexSort)), indexSort, loName),
-          (IConstant(new SortedConstantTerm(hiName, indexSort)), indexSort, hiName),
-          (IConstant(new SortedConstantTerm(resName, arrayTheory.objSort)), arrayTheory.objSort, resName),
-          (IConstant(new SortedConstantTerm(shadowArrName, arrayTheory.sort)), arrayTheory.sort, shadowArrName))
+        (for (ghostVarInds <- ghostVariableInds) yield Seq(
+          (IConstant(new SortedConstantTerm(loName + ghostVarInds.lo, indexSort)), indexSort, loName),
+          (IConstant(new SortedConstantTerm(hiName + ghostVarInds.hi, indexSort)), indexSort, hiName),
+          (IConstant(new SortedConstantTerm(resName + ghostVarInds.res, arrayTheory.objSort)), arrayTheory.objSort, resName),
+          (IConstant(new SortedConstantTerm(shadowArrName + ghostVarInds.arr, arrayTheory.sort)), arrayTheory.sort, shadowArrName))).flatten
       }).flatten
 
     ghostVarsInPred.put(pred, ghostVars.map(_._1.asInstanceOf[IConstant].c))
@@ -120,7 +124,7 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo])
     ghostVarsInPred get p match {
       case Some(ghostVars) =>
         val quanF = quanConsts(IExpression.Quantifier.EX, ghostVars, f)
-        (new Simplifier) (quanF)
+        (new Simplifier) (quanF) // todo: review
       case None => f
     }
   }

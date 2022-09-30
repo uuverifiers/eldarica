@@ -30,7 +30,7 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.{IFormula, ITerm}
+import ap.parser.{IExpression, IFormula, ITerm}
 
 // An instrumentation consists of a new constraint and a map from head argument
 // indices (for the ghost variables) to ghost terms used in the constraint
@@ -50,4 +50,6 @@ object Instrumentation {
   def product(instrs1 : Seq[Instrumentation],
               instrs2 : Seq[Instrumentation]) : Seq[Instrumentation] =
     for(instr1 <- instrs1; instr2 <- instrs2) yield instr1 + instr2
+
+  val emptyInstrumentation = Instrumentation(IExpression.i(true), Map())
 }

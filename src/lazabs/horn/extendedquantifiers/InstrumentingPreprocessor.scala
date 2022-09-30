@@ -38,6 +38,7 @@ import Util._
 import ap.terfor.TerForConvenience.conj
 import ap.terfor.TermOrder
 import ap.terfor.conjunctions.Conjunction
+import ap.theories.TheoryRegistry
 import lazabs.horn.bottomup.HornClauses
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -72,7 +73,8 @@ object InstrumentingPreprocessor {
 class InstrumentingPreprocessor(clauses : Clauses,
                                 hints : VerificationHints,
                                 frozenPredicates : Set[Predicate],
-                                clauseInstrumenters : Map[ExtendedQuantifier, ClauseInstrumenter])
+                                clauseInstrumenters : Map[ExtendedQuantifier, ClauseInstrumenter],
+                                numGhostRanges : Int)
 //  extends ClauseInstrumenter with ExtendedQuantifierFunAppRewriter
 {
   import InstrumentingPreprocessor._
@@ -83,7 +85,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
 
   private val translators = new ArrayBuffer[BackTranslator]
 
-  // todo: register theories here?
+  extendedQuantifiers map TheoryRegistry.register
 
   // normalize the clauses
   private val normalizer = new Normalizer
@@ -92,7 +94,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
   translators += backTranslatorNormalized
 
   // add ghost variables for each extended quantifier application
-  private val ghostVariableAdder = new GhostVariableAdder(extendedQuantifierInfos)
+  private val ghostVariableAdder =
+    new GhostVariableAdder(extendedQuantifierInfos, numGhostRanges)
   val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap) =
     ghostVariableAdder.processAndGetGhostVarMap(clausesNormalized, hintsNormalized, frozenPredicates)
   translators += backTranslatorGhost
