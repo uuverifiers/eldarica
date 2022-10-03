@@ -149,6 +149,7 @@ class InstrumentationLoop (clauses : Clauses,
         case Right(cex) => {
           println("unsafe, iterating...")
           searchSpace -= instrumentation // todo; very stupid implementation that only removes the last instrumentation
+          cex.prettyPrint
           //backTranslator.translate(cex).prettyPrint
           // rawResult = Unsafe(cex)
         }

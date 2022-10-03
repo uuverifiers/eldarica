@@ -63,7 +63,8 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
     // returns instrumentations for body atom, EXCEPT the identity instrumentations
     def instrForBodyAtom(bAtom : IAtom) : Seq[Instrumentation] = {
       (for ((GhostVariableInds(iblo, ibhi, ibres, ibarr), iGhostVars) <-
-              allGhostVarInds(bAtom.pred).zipWithIndex) yield {
+              allGhostVarInds(bAtom.pred).zipWithIndex
+            if allGhostVarInds contains clause.head.pred) yield {
         val bodyTerms = GhostVariableTerms(
           bAtom.args(iblo), bAtom.args(ibhi), bAtom.args(ibres), bAtom.args(ibarr))
         val conjuncts : Seq[IFormula] =
@@ -147,7 +148,9 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 
     // returns the identity instrumentation (i.e., all ghost vars are passed unchanged)
     def identityInstrumentation (bAtom : IAtom) =
-      getCompleteInstrumentation(bAtom, Instrumentation.emptyInstrumentation)
+      if(allGhostVarInds contains clause.head.pred)
+        getCompleteInstrumentation(bAtom, Instrumentation.emptyInstrumentation)
+      else Instrumentation.emptyInstrumentation
 
     val instrsForBodyAtoms : Seq[(IAtom, Seq[Instrumentation])] =
       clause.body map (atom => (atom, instrForBodyAtom(atom)))

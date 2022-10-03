@@ -55,7 +55,7 @@ object GhostVariableAdder {
  */
 class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
                          numGhostRanges : Int)
-  extends ArgumentExpander {
+  extends SimpleArgumentExpander {
 
   import GhostVariableAdder._
   import HornPreprocessor.Clauses

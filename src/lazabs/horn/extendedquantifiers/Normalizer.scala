@@ -127,21 +127,28 @@ class Normalizer extends HornPreprocessor {
                   (if (isGoalClause) Seq(i(true)) else Nil)) zipWithIndex) {
             val newBody =
               if(clauseCount == 0) body else List(newClauses.last.head)
-            val (bodyArgs, bodySorts) =
-              collectArgsSortsFromAtoms(newBody)
-            val (arrayTerm, arraySort) = getNewArrayTerm(conjunct)
-            val newHead = if(i < numNewClauses) {
-              val (headArgs, headSorts) = collectArgsSortsFromAtoms(Seq(head))
+//            val (bodyArgs, bodySorts) =
+//              collectArgsSortsFromAtoms(newBody)
+//            val (arrayTerm, arraySort) = getNewArrayTerm(conjunct)
+            val newHead =
+              if (i == numNewClauses - 1 && isGoalClause) {
+                val newHeadPred = new Predicate("false_" + clauseCount, 0)
+                predBackMapping += ((newHeadPred, head.pred))
+                IAtom(newHeadPred, Nil)
+              } else if(i < numNewClauses) {
+              //val (headArgs, headSorts) = collectArgsSortsFromAtoms(Seq(head))
               val newPredName =
-                (if (body.nonEmpty)
-                  body.head.pred.name
-                else
-                  if(head.pred != FALSE) head.pred.name
-                  else "pint") + "_" + clauseCount
+                (if (body.nonEmpty) body.head.pred.name else "entry") + "_" +
+                  head.pred.name + "_" + clauseCount
+//              val (newHeadArgs, newHeadSorts) = {
+//                (headArgs ++ bodyArgs ++ arrayTerm,
+//                  headSorts ++ bodySorts ++ arraySort
+//                )
+//              }
               val (newHeadArgs, newHeadSorts) = {
-                (headArgs ++ bodyArgs ++ arrayTerm,
-                  headSorts ++ bodySorts ++ arraySort
-                )
+                val constants = clause.constantsSorted
+                (constants,
+                  constants.map(c => Sort.sortOf(IConstant(c))))
               }
               val newHeadPred =
                 MonoSortedPredicate(newPredName, newHeadSorts)
@@ -152,7 +159,9 @@ class Normalizer extends HornPreprocessor {
             }
 
             val newConstraint =
-              and(remainingConstraint ++ Seq(conjunct))
+              if (i == numNewClauses && isGoalClause) {
+                IExpression.i(true)
+              } else and(remainingConstraint ++ Seq(conjunct))
             val newClause = Clause(newHead, newBody, newConstraint)
             newClauses += newClause
             clauseCount += 1
