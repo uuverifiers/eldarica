@@ -82,9 +82,9 @@ object ExtendedQuantifierRewriter {
                   comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
                   exq.reduceOp(comb(0).res, comb(1).res), // then
                 ite(
-                  comb(0).lo === lo & comb(0).hi === comb(1).lo &
-                    comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
-                  exq.reduceOp(comb(0).res, comb(1).res),
+                  comb(1).lo === lo & comb(1).hi === comb(0).lo &
+                    comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a,
+                  exq.reduceOp(comb(1).res, comb(0).res),
                   buildRangeFormula(combs.tail)) // else
                 )
             } else {

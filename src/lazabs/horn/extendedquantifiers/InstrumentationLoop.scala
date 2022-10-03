@@ -111,8 +111,15 @@ class InstrumentationLoop (clauses : Clauses,
     simpClauses2.foreach(clause => println(clause.toPrologString))
     println("="*80)
 
+    // orders the space with decreasing order on the number of instrumented clauses
+    // then randomly picks one instrumentation from the first group
+    // i.e., we try first instrumenting everything, then eliminate some branches
     def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-    Map[Predicate, Conjunction] = Random.shuffle(space.toSeq).head
+    Map[Predicate, Conjunction] =
+      Random.shuffle(
+        space.toSeq.groupBy(inst =>
+          inst.count(_._2.arithConj.positiveEqs.head.constant.intValue == -1)).
+          maxBy(g => g._1)._2).head
 
     val incSolver =
       new IncrementalHornPredAbs(simpClauses2,
