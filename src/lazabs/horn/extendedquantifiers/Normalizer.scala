@@ -95,10 +95,12 @@ class Normalizer extends HornPreprocessor {
           conjuncts diff instrumentationConjuncts
 
         val isGoalClause = clause.head.pred == HornClauses.FALSE
+        val isFactClause = clause.body.isEmpty
 
         val numNewClauses =
           instrumentationConjuncts.length - 1 +
-            (if (isGoalClause && instrumentationConjuncts.nonEmpty) 1 else 0)
+            (if ((isGoalClause || isFactClause) &&
+              instrumentationConjuncts.nonEmpty) 1 else 0)
 
         if(numNewClauses <= 0) {
           newClauses += clause // no normalization needed
@@ -120,7 +122,8 @@ class Normalizer extends HornPreprocessor {
           var clauseCount = 0
 
           for((conjunct, i) <-
-                (instrumentationConjuncts ++
+                ((if (isFactClause) Seq(i(true)) else Nil) ++
+                  instrumentationConjuncts ++
                   (if (isGoalClause) Seq(i(true)) else Nil)) zipWithIndex) {
             val newBody =
               if(clauseCount == 0) body else List(newClauses.last.head)

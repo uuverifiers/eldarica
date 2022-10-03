@@ -165,7 +165,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
 
           numBranchesForPred += ((branchPredicate, combinedInstrumentations.length))
 
-          // one new clause per instrumentation in combinedInstrumentations
+          // one new clause per instrumentation inst in combinedInstrumentations
+          //  + n new assertion clauses for the n assertion conjuncts in inst
           for ((instrumentation, branchId) <- combinedInstrumentations zipWithIndex) {
             val newHeadArgs: Seq[ITerm] =
               for ((arg: ITerm, ind: Int) <- clause.head.args.zipWithIndex) yield {
@@ -183,6 +184,14 @@ class InstrumentingPreprocessor(clauses : Clauses,
             val newClause = Clause(newHead, newBody, newConstraint)
             newClauses += newClause
             clauseBackMapping += ((newClause, clause))
+
+            for (assertion <- instrumentation.assertions) {
+              val assertionClause =
+                Clause(IAtom(HornClauses.FALSE, Nil),
+                             newBody, clause.constraint &&& ~assertion)
+              newClauses += assertionClause
+              clauseBackMapping += ((assertionClause, clause)) // todo: review: simply keep track of drop these assertion clauses in backtranslation?
+            }
           }
         } else {
           newClauses += clause

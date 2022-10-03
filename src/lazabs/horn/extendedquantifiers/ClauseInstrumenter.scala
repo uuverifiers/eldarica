@@ -40,15 +40,18 @@ import GhostVariableAdder._
 
 abstract class
 ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
+  case class InstrumentationResult(conjunct : IFormula,
+                                   assertion : IFormula)
+
   protected def instrumentStore (storeInfo  : StoreInfo,
                                  headTerms  : GhostVariableTerms,
-                                 bodyTerms  : GhostVariableTerms) : Seq[IFormula]
+                                 bodyTerms  : GhostVariableTerms) : Seq[InstrumentationResult]
   protected def instrumentSelect(selectInfo : SelectInfo,
                                  headTerms  : GhostVariableTerms,
-                                 bodyTerms  : GhostVariableTerms) : Seq[IFormula]
+                                 bodyTerms  : GhostVariableTerms) : Seq[InstrumentationResult]
   protected def instrumentConst (constInfo  : ConstInfo,
                                  headTerms  : GhostVariableTerms,
-                                 bodyTerms  : GhostVariableTerms) : Seq[IFormula]
+                                 bodyTerms  : GhostVariableTerms) : Seq[InstrumentationResult]
 
   protected val arrayTheory = extendedQuantifier.arrayTheory
   protected val indexSort = arrayTheory.indexSorts.head  // todo: assuming 1-d array
@@ -72,10 +75,10 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
             " are the clauses normalized?\n" + clause.toPrologString)
 
         val headTerms = GhostVariableTerms(
-          IConstant(new SortedConstantTerm("lo'", indexSort)),
-          IConstant(new SortedConstantTerm("hi'", indexSort)),
-          IConstant(new SortedConstantTerm("res'", arrayTheory.objSort)),
-          IConstant(new SortedConstantTerm("arr'", arrayTheory.sort))
+          IConstant(new SortedConstantTerm("lo_" + iGhostVars + "'", indexSort)),
+          IConstant(new SortedConstantTerm("hi_" + iGhostVars + "'", indexSort)),
+          IConstant(new SortedConstantTerm("res_" + iGhostVars + "'", arrayTheory.objSort)),
+          IConstant(new SortedConstantTerm("arr_" + iGhostVars + "'", arrayTheory.sort))
         )
 
         val ghostVarSetsInPred = allGhostVarInds(clause.head.pred)
@@ -85,7 +88,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
           hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
 
-        val instrumentationConstraints : Seq[IFormula] =
+        val instrumentationConstraints : Seq[InstrumentationResult] =
           relevantConjuncts.headOption match {
             case Some(c) if isSelect(c) =>
               instrumentSelect(extractSelectInfo(c), headTerms, bodyTerms)
@@ -96,7 +99,8 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
             case None => Nil
           }
         for(instrumentationConstraint <- instrumentationConstraints) yield
-          Instrumentation(instrumentationConstraint, headTermMap)
+          Instrumentation(instrumentationConstraint.conjunct,
+            Seq(instrumentationConstraint.assertion), headTermMap)
       }).flatten
     }
 
@@ -135,7 +139,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           val headTermMap : Map[Int, ITerm] = Map(
             hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
             hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
-          Instrumentation(newConjunct, headTermMap)
+          Instrumentation(newConjunct, Nil, headTermMap)
         }
       identityInds.reduceOption(_ + _).
         getOrElse(Instrumentation.emptyInstrumentation) + inst
@@ -179,7 +183,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   override protected
   def instrumentStore(storeInfo: StoreInfo,
                       headTerms : GhostVariableTerms,
-                      bodyTerms: GhostVariableTerms): Seq[IFormula] = {
+                      bodyTerms: GhostVariableTerms): Seq[InstrumentationResult] = {
     val StoreInfo(a1, a2, i, o, arrayTheory2) = storeInfo
     if (arrayTheory != arrayTheory2)
       Nil
@@ -201,14 +205,15 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                 },
                 //hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
-      Seq(instrConstraint1)
+      val assertion = lo === hi ||| a1 === arr
+      Seq(InstrumentationResult(instrConstraint1, assertion))
     }
   }
 
   override protected
   def instrumentSelect(selectInfo : SelectInfo,
                        headTerms  : GhostVariableTerms,
-                       bodyTerms  : GhostVariableTerms): Seq[IFormula] = {
+                       bodyTerms  : GhostVariableTerms): Seq[InstrumentationResult] = {
     val SelectInfo(a, i, o, arrayTheory2) = selectInfo
     if (arrayTheory != arrayTheory2)
       Nil
@@ -225,7 +230,8 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
               ite(lo <= i & hi > i,
                 headTerms.res === res & headTerms.lo === lo & headTerms.hi === hi, // no change within bounds
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
-      Seq(instrConstraint1)
+      val assertion = lo === hi ||| a === arr
+      Seq(InstrumentationResult(instrConstraint1, assertion))
     }
   }
 
@@ -233,7 +239,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   override protected
   def instrumentConst(constInfo : ConstInfo,
                       headTerms : GhostVariableTerms,
-                      bodyTerms : GhostVariableTerms): Seq[IFormula] =
+                      bodyTerms : GhostVariableTerms): Seq[InstrumentationResult] =
     Nil
 
   //  val ConstInfo(a, o, arrayTheory) = constInfo
