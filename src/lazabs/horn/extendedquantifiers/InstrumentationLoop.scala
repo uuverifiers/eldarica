@@ -30,18 +30,18 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.{IAtom, IFormula}
+import ap.parser.{IAtom, IExpression, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{IncrementalHornPredAbs, NormClause, PredicateStore}
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
+import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.DefaultPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator}
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 import scala.util.Random
 
@@ -136,10 +136,13 @@ class InstrumentationLoop (clauses : Clauses,
 
     println("Clauses instrumented, starting search for correct instrumentation.")
 
+    var numSteps = 0
+
     // todo: assume empty instrumentation is in searchSpace?
     while((searchSpace nonEmpty) && rawResult == Inconclusive) {
+      numSteps += 1
       val instrumentation = pickInstrumentation(searchSpace.toSet)
-      println("Remaining search space size: " + searchSpace.size)
+      println("(" + numSteps + ") Remaining search space size: " + searchSpace.size)
       println("Selected branches: " + instrumentation.map(instr =>
         instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
 
@@ -147,11 +150,34 @@ class InstrumentationLoop (clauses : Clauses,
       // left sol, right cex
       incSolver.checkWithSubstitution(instrumentation) match {
         case Right(cex) => {
-          println("unsafe, iterating...")
-          searchSpace -= instrumentation // todo; very stupid implementation that only removes the last instrumentation
-          cex.prettyPrint
-          //backTranslator.translate(cex).prettyPrint
-          // rawResult = Unsafe(cex)
+          // check if cex is genuine
+          val cexIsGenuine = false // todo: fix - currently does not work because the rewritten ext quans does not have a branch pred
+//            cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(pred =>
+//              !(instrumenter.branchPredicates contains pred)
+//            )
+
+          if (cexIsGenuine) {
+            println("unsafe")
+            rawResult = Unsafe(cex)
+          } else {
+            //val cext = backTranslator.translate(cex)
+            //cext.prettyPrint
+            println("inconclusive, iterating...")
+            val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
+              instrumenter.branchPredicates contains _.pred)).toSet
+            val ineligibleSearchSpace = searchSpace.filter {
+              search =>
+                val atoms: immutable.Iterable[IAtom] =
+                  search.map(t => IAtom(t._1, Seq(IExpression.i(
+                    t._2.arithConj.positiveEqs.head.constant.intValue * (-1)))))
+                prefix.subsetOf(atoms.toSet)
+            }
+            ineligibleSearchSpace.foreach(s =>
+              searchSpace -= s)
+            // cex.prettyPrint
+            //backTranslator.translate(cex).prettyPrint
+            // rawResult = Unsafe(cex)
+          }
         }
         case Left(solution) =>
           rawResult = Safe(solution)

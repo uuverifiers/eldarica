@@ -158,7 +158,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
           instrumentationsForClause.reduceOption((instrs1, instrs2) =>
             Instrumentation.product(instrs1, instrs2)).getOrElse(Nil)
 
-        if (combinedInstrumentations nonEmpty) {
+        if (combinedInstrumentations.exists(inst =>
+          inst != Instrumentation.emptyInstrumentation)) {
           // we need one branch predicate per instrumented clause
           val branchPredicate =
             new Predicate("Br_" + clauseInd, 1)

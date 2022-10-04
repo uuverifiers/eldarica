@@ -104,6 +104,7 @@ class Normalizer extends HornPreprocessor {
 
         if(numNewClauses <= 0) {
           newClauses += clause // no normalization needed
+          clauseBackMapping.put(clause, clause)
         } else {
           // - consts should be in their own clauses and placed first (no ordering)
           // - stores should be split before the selects and they should be ordered
