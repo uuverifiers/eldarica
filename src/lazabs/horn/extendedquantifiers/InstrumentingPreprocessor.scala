@@ -178,7 +178,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
             // todo: body terms for other body atoms might need to be changed too!
 
             var rewrittenConstraint = clause.constraint
-            for((oldTerm, newTerm) <- instrumentation.termsToRewrite) {
+            for((oldTerm, newTerm) <- instrumentation.rewriteConjuncts) {
               rewrittenConstraint = ExpressionReplacingVisitor(
                 clause.constraint, replaced = oldTerm, replaceWith = newTerm)
             }
@@ -191,12 +191,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
                 LineariseVisitor(Transform2NNF(clause.constraint),
                                                IBinJunctor.And)
               // todo: refactor
-              val rewrittenConjuncts : Seq[IFormula] =
-                conjuncts.filter(conjunct =>
-                  instrumentation.termsToRewrite.keys.exists(
-                    rewrittenTerm =>
-                      conjunct.subExpressions contains rewrittenTerm))
-              IExpression.and(conjuncts diff rewrittenConjuncts)
+              IExpression.and(
+                conjuncts diff instrumentation.rewriteConjuncts.keys.toSeq)
             }
 
             val newClause = Clause(newHead, newBody, newConstraint)

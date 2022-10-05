@@ -142,7 +142,7 @@ class InstrumentationLoop (clauses : Clauses,
     while((searchSpace nonEmpty) && rawResult == Inconclusive) {
       numSteps += 1
       val instrumentation = pickInstrumentation(searchSpace.toSet)
-      println("(" + numSteps + ") Remaining search space size: " + searchSpace.size)
+      println("\n(" + numSteps + ") Remaining search space size: " + searchSpace.size)
       println("Selected branches: " + instrumentation.map(instr =>
         instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
 
@@ -157,12 +157,12 @@ class InstrumentationLoop (clauses : Clauses,
             )
 
           if (cexIsGenuine) {
-            println("unsafe")
+            println("\nunsafe")
             rawResult = Unsafe(cex)
           } else {
             //val cext = backTranslator.translate(cex)
             //cext.prettyPrint
-            println("inconclusive, iterating...")
+            println("\ninconclusive, iterating...")
             val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
               instrumenter.branchPredicates contains _.pred)).toSet
             val ineligibleSearchSpace = searchSpace.filter {

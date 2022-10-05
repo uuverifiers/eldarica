@@ -41,14 +41,14 @@ import ap.parser.{IExpression, IFormula, ITerm}
  * @param assertions: formulas to add assertion clauses for
  * @param headTerms:  a map from the head indices to the new terms used in the
  *                    constraint
- * @param termsToRewrite : a map from existing terms in a clause to what
- *                         they should be rewritten to (if any). This is used
- *                         when rewriting aggregate functions.
+ * @param rewriteConjuncts : a map from existing conjuncts in a clause to what
+ *                           they should be rewritten to (if any). This is used
+ *                           when rewriting aggregate functions.
  */
 case class Instrumentation (constraint         : IFormula,
                             assertions         : Seq[IFormula],
                             headTerms          : Map[Int, ITerm],
-                            termsToRewrite     : Map[ITerm, ITerm]) {
+                            rewriteConjuncts   : Map[IFormula, IFormula]) {
   // Two instrumentations are composed by conjoining the constraints,
   // and taking the union of the head terms. (head term map should be disjoint.)
   def + (that : Instrumentation): Instrumentation = {
@@ -56,12 +56,12 @@ case class Instrumentation (constraint         : IFormula,
     // we should not have any overlapping (in terms of used ghost terms) instrumentations
     assert((headTerms.keys.toSet intersect that.headTerms.keys.toSet).isEmpty)
     // we should be rewriting at most one conjunct due to normalization
-    assert(termsToRewrite.size + that.termsToRewrite.size <= 1)
+    assert(rewriteConjuncts.size + that.rewriteConjuncts.size <= 1)
 
     Instrumentation(constraint &&& that.constraint,
       assertions ++ that.assertions,
       headTerms ++ that.headTerms,
-      termsToRewrite ++ that.termsToRewrite)
+      rewriteConjuncts ++ that.rewriteConjuncts)
   }
 }
 

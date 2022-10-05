@@ -41,9 +41,9 @@ import lazabs.horn.bottomup.HornClauses
 
 abstract class
 ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
-  case class InstrumentationResult(newConjunct  : IFormula,
-                                   rewriteTerms : Map[ITerm, ITerm],
-                                   assertions   : Seq[IFormula])
+  case class InstrumentationResult(newConjunct      : IFormula,
+                                   rewriteConjuncts : Map[IFormula, IFormula],
+                                   assertions       : Seq[IFormula])
 
   protected def instrumentStore (storeInfo  : StoreInfo,
                                  headTerms  : GhostVariableTerms,
@@ -97,7 +97,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           }
         for (result <- instrumentationResults) yield
           Instrumentation(result.newConjunct,
-            result.assertions, Map(), result.rewriteTerms)
+            result.assertions, Map(), result.rewriteConjuncts)
       } else Nil
     }
 
@@ -266,7 +266,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       val assertion = lo === hi ||| a1 === arr
       Seq(InstrumentationResult(newConjunct = instrConstraint1,
-                                              rewriteTerms = Map(),
+                                              rewriteConjuncts = Map(),
                                               assertions = Seq(assertion)))
     }
   }
@@ -293,7 +293,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       val assertion = lo === hi ||| a === arr
       Seq(InstrumentationResult(newConjunct = instrConstraint1,
-                                rewriteTerms = Map(),
+                                rewriteConjuncts = Map(),
                                 assertions = Seq(assertion)))
     }
   }
@@ -318,33 +318,27 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
         ghostVarTerms.combinations(i)
       }).flatten
 
-    val ExtendedQuantifierInfo(_, funApp, a, lo, hi) = exqInfo
+    val ExtendedQuantifierInfo(_, funApp, a, lo, hi, o, conjunct) = exqInfo
 
-    def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : ITerm = {
-      assert(combs.nonEmpty) // todo : replace with Eldarica assertion?
-      // todo: refactor
-      val comb = combs.head
-      comb length match {
-        case 1 if combs.tail.nonEmpty =>
-          ite(comb.head.lo === lo & comb.head.hi === hi &
-            comb.head.arr === a,
-            comb.head.res, // then
-            buildRangeFormula(combs.tail)) // else
-        case 1 if combs.tail.isEmpty =>
-          comb.head.res
-        case 2 if combs.tail.nonEmpty =>
-          ite(comb(0).lo === lo & comb(0).hi === comb(1).lo &
-            comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
-            extendedQuantifier.reduceOp(comb(0).res, comb(1).res), // then
-            ite(
-              comb(1).lo === lo & comb(1).hi === comb(0).lo &
-                comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a,
-              extendedQuantifier.reduceOp(comb(1).res, comb(0).res),
-              buildRangeFormula(combs.tail)) // else
-          )
-        case 2 if combs.tail.isEmpty =>
-          extendedQuantifier.reduceOp(comb(0).res, comb(1).res)
-        case _ => ??? // todo: generalize this!
+    def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : IFormula = {
+      combs.headOption match {
+        case Some(comb) =>
+          comb length match {
+            case 1 =>
+              ((comb.head.lo === lo & comb.head.hi === hi & comb.head.arr === a) ==>
+                (comb.head.res === o)) &&&
+                buildRangeFormula(combs.tail)
+            case 2 =>
+              ((comb(0).lo === lo & comb(0).hi === comb(1).lo &
+                comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
+                (extendedQuantifier.reduceOp(comb(0).res, comb(1).res) === o)) &&&
+                ((comb(1).lo === lo & comb(1).hi === comb(0).lo &
+                  comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
+                  (extendedQuantifier.reduceOp(comb(1).res, comb(0).res) === o)) &&&
+                buildRangeFormula(combs.tail)
+            case _ => ??? // todo: generalize this!
+          }
+        case None => i(true)
       }
     }
 
@@ -373,12 +367,13 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       }
     }
 
-    val rewriteTerm = buildRangeFormula(combinations)
+    val rewriteConjuncts =
+      Map(exqInfo.conjunct -> buildRangeFormula(combinations))
     val assertionFormula = buildAssertionFormula(combinations)
 
-    Seq(InstrumentationResult(newConjunct  = IExpression.i(true),
-                              rewriteTerms = Map(funApp -> rewriteTerm),
-                              assertions   = Seq(assertionFormula)))
+    Seq(InstrumentationResult(newConjunct      = IExpression.i(true),
+                              rewriteConjuncts = rewriteConjuncts,
+                              assertions       = Seq(assertionFormula)))
   }
 
 

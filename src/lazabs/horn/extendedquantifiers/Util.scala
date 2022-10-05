@@ -46,9 +46,9 @@ object Util {
                                     funApp: IFunApp,
                                     arrayTerm: ITerm,
                                     loTerm: ITerm,
-                                    hiTerm: ITerm)//,
-                                    //bodyPreds: Seq[Predicate]) // todo: review
-                                    //bodyArgInds: Option[(Predicate, GhostVariableInds)])
+                                    hiTerm: ITerm,
+                                    objTerm: ITerm,
+                                    conjunct: IFormula)
 
   case class SelectInfo(a: ITerm, i: ITerm, o: ITerm,
                         theory: ExtArray)
@@ -90,13 +90,14 @@ object Util {
   }
 
   class ExtQuantifierFunctionApplicationCollector(
-    extQuantifierInfos: ArrayBuffer[ExtendedQuantifierInfo])
+                                                   extQuantifierInfos: ArrayBuffer[ExtendedQuantifierInfo])
     extends CollectingVisitor[Int, Unit] {
     def postVisit(t: IExpression, boundVars: Int, subres: Seq[Unit]): Unit =
       t match {
-        case app@IFunApp(ExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)) =>
+        case conj@Eq(app@IFunApp(
+        ExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)), o) =>
           extQuantifierInfos +=
-            ExtendedQuantifierInfo(theory, app, a, lo, hi)//, body.map(_.pred))
+            ExtendedQuantifierInfo(theory, app, a, lo, hi, o, conj)
         case _ => // nothing
       }
   }
@@ -153,23 +154,7 @@ object Util {
       val infos: Seq[ExtendedQuantifierInfo] =
         ExtQuantifierFunctionApplicationCollector(constraint)
       infos
-    }).flatten.toSet.toSeq
+    }).flatten.distinct
     allInfos
-//    val groupedInfos =
-//      allInfos.groupBy(exq => (exq.exTheory, exq.bodyPreds))
-//    groupedInfos.filter(_._2.nonEmpty).map(_._2.head).toSeq
-//    groupedInfos.getOrElse(None, Nil) ++
-//      (groupedInfos -- None).filter(_._2.nonEmpty).map(_._2.head).toSeq
   }
-
-//  def getGhostVarInds(extendedQuantifierInfo: ExtendedQuantifierInfo,
-//                      ghostVarInds : Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]])
-//  : Map[Predicate, Seq[GhostVariableInds]] = {
-//    ghostVarInds.getOrElse(extendedQuantifierInfo,
-//      ghostVarInds(ghostVarInds.keys.find(key =>
-//        key.exTheory == extendedQuantifierInfo.exTheory &&
-//          key.bodyPreds == extendedQuantifierInfo.bodyPreds).get)
-//    )
-//  }
-
 }
