@@ -34,17 +34,34 @@ import ap.parser.{IExpression, IFormula, ITerm}
 
 // An instrumentation consists of a new constraint and a map from head argument
 // indices (for the ghost variables) to ghost terms used in the constraint
-case class Instrumentation (constraint : IFormula,
-                            assertions  : Seq[IFormula],
-                            headTerms  : Map[Int, ITerm]) {
+/**
+ *
+ * @param constraint: a new constraint to augment a clause's existing constraint
+ *                    this does not rewrite anything in the original clause
+ * @param assertions: formulas to add assertion clauses for
+ * @param headTerms:  a map from the head indices to the new terms used in the
+ *                    constraint
+ * @param termsToRewrite : a map from existing terms in a clause to what
+ *                         they should be rewritten to (if any). This is used
+ *                         when rewriting aggregate functions.
+ */
+case class Instrumentation (constraint         : IFormula,
+                            assertions         : Seq[IFormula],
+                            headTerms          : Map[Int, ITerm],
+                            termsToRewrite     : Map[ITerm, ITerm]) {
   // Two instrumentations are composed by conjoining the constraints,
   // and taking the union of the head terms. (head term map should be disjoint.)
   def + (that : Instrumentation): Instrumentation = {
-    assert((headTerms.keys.toSet intersect that.headTerms.keys.toSet).isEmpty) // todo: use eldarica assertions
+    // todo: use eldarica assertions
+    // we should not have any overlapping (in terms of used ghost terms) instrumentations
+    assert((headTerms.keys.toSet intersect that.headTerms.keys.toSet).isEmpty)
+    // we should be rewriting at most one conjunct due to normalization
+    assert(termsToRewrite.size + that.termsToRewrite.size <= 1)
 
     Instrumentation(constraint &&& that.constraint,
       assertions ++ that.assertions,
-      headTerms ++ that.headTerms)
+      headTerms ++ that.headTerms,
+      termsToRewrite ++ that.termsToRewrite)
   }
 }
 
@@ -54,5 +71,6 @@ object Instrumentation {
               instrs2 : Seq[Instrumentation]) : Seq[Instrumentation] =
     for(instr1 <- instrs1; instr2 <- instrs2) yield instr1 + instr2
 
-  val emptyInstrumentation = Instrumentation(IExpression.i(true), Nil, Map())
+  val emptyInstrumentation =
+    Instrumentation(IExpression.i(true), Nil, Map(), Map())
 }

@@ -151,10 +151,10 @@ class InstrumentationLoop (clauses : Clauses,
       incSolver.checkWithSubstitution(instrumentation) match {
         case Right(cex) => {
           // check if cex is genuine
-          val cexIsGenuine = false // todo: fix - currently does not work because the rewritten ext quans does not have a branch pred
-//            cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(pred =>
-//              !(instrumenter.branchPredicates contains pred)
-//            )
+          val cexIsGenuine =
+            cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(pred =>
+              !(instrumenter.branchPredicates contains pred)
+            )
 
           if (cexIsGenuine) {
             println("unsafe")

@@ -58,7 +58,6 @@ object Util {
 
   case class ConstInfo(newA: ITerm, o: ITerm, theory: ExtArray)
 
-
   def extractSelectInfo(conjunct: IFormula): SelectInfo = {
     // todo: error checking?
     val Eq(IFunApp(f@ExtArray.Select(theory), Seq(a, i)), o) = conjunct
@@ -82,33 +81,20 @@ object Util {
    * occurring in an expression.
    */
   object ExtQuantifierFunctionApplicationCollector {
-    def apply(t: IExpression, body: Seq[IAtom]): Seq[ExtendedQuantifierInfo] = {
+    def apply(t: IExpression): Seq[ExtendedQuantifierInfo] = {
       val apps = new ArrayBuffer[ExtendedQuantifierInfo]
-      val c = new ExtQuantifierFunctionApplicationCollector(apps, body)
+      val c = new ExtQuantifierFunctionApplicationCollector(apps)
       c.visitWithoutResult(t, 0)
       apps
     }
   }
 
   class ExtQuantifierFunctionApplicationCollector(
-                                                   extQuantifierInfos: ArrayBuffer[ExtendedQuantifierInfo],
-                                                   body: Seq[IAtom])
+    extQuantifierInfos: ArrayBuffer[ExtendedQuantifierInfo])
     extends CollectingVisitor[Int, Unit] {
     def postVisit(t: IExpression, boundVars: Int, subres: Seq[Unit]): Unit =
       t match {
         case app@IFunApp(ExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)) =>
-//          val bodyLoc = body.find(atom =>
-//            atom.args.contains(a) &&
-//              atom.args.contains(lo) &&
-//              atom.args.contains(hi)) match {
-//            case Some(atom) =>
-//              Some((atom.pred, GhostVariableInds(
-//                lo = atom.args.indexOf(lo),
-//                hi = atom.args.indexOf(hi),
-//                res = -1, // inapplicable for an extended quantifier application
-//                arr = atom.args.indexOf(a))))
-//            case None => None
-//          }
           extQuantifierInfos +=
             ExtendedQuantifierInfo(theory, app, a, lo, hi)//, body.map(_.pred))
         case _ => // nothing
@@ -116,22 +102,22 @@ object Util {
   }
 
   def isSelect(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(f@ExtArray.Select(_), Seq(a, i)), o) => true
+    case Eq(IFunApp(ExtArray.Select(_), Seq(a, i)), o) => true
     case _ => false
   }
 
   def isStore(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(f@ExtArray.Store(_), Seq(a1, i, o)), a2) => true
+    case Eq(IFunApp(ExtArray.Store(_), Seq(a1, i, o)), a2) => true
     case _ => false
   }
 
   def isConst(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(f@ExtArray.Const(_), Seq(o)), a) => true
+    case Eq(IFunApp(ExtArray.Const(_), Seq(o)), a) => true
     case _ => false
   }
 
-  def isExtQuans(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(f@ExtendedQuantifier.ExtendedQuantifierFun(_), _), _) => true
+  def isAggregateFun(conjunct: IFormula): Boolean = conjunct match {
+    case Eq(IFunApp(ExtendedQuantifier.ExtendedQuantifierFun(_), _), _) => true
     case _ => false
   }
 
@@ -165,7 +151,7 @@ object Util {
   def gatherExtQuans(clauses: Clauses): Seq[ExtendedQuantifierInfo] = {
     val allInfos = (for (Clause(head, body, constraint) <- clauses) yield {
       val infos: Seq[ExtendedQuantifierInfo] =
-        ExtQuantifierFunctionApplicationCollector(constraint, body)
+        ExtQuantifierFunctionApplicationCollector(constraint)
       infos
     }).flatten.toSet.toSeq
     allInfos

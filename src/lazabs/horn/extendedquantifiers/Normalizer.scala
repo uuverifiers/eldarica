@@ -66,7 +66,7 @@ class Normalizer extends HornPreprocessor {
         val selects = conjuncts filter isSelect
         val stores = conjuncts filter isStore
         val consts = conjuncts filter isConst
-        val extQuans = conjuncts filter isExtQuans
+        val extQuans = conjuncts filter isAggregateFun
 
 
         val orderedStores : Seq[IFormula] = {

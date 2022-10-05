@@ -37,11 +37,13 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import Util._
 import ap.parser.IExpression._
 import GhostVariableAdder._
+import lazabs.horn.bottomup.HornClauses
 
 abstract class
 ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
-  case class InstrumentationResult(conjunct : IFormula,
-                                   assertion : IFormula)
+  case class InstrumentationResult(newConjunct  : IFormula,
+                                   rewriteTerms : Map[ITerm, ITerm],
+                                   assertions   : Seq[IFormula])
 
   protected def instrumentStore (storeInfo  : StoreInfo,
                                  headTerms  : GhostVariableTerms,
@@ -52,14 +54,53 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
   protected def instrumentConst (constInfo  : ConstInfo,
                                  headTerms  : GhostVariableTerms,
                                  bodyTerms  : GhostVariableTerms) : Seq[InstrumentationResult]
+  protected def rewriteAggregateFun (
+                                 exqInfo    : ExtendedQuantifierInfo,
+                              ghostVarTerms : Seq[GhostVariableTerms]) : Seq[InstrumentationResult]
 
   protected val arrayTheory = extendedQuantifier.arrayTheory
   protected val indexSort = arrayTheory.indexSorts.head  // todo: assuming 1-d array
 
   // returns all instrumentations of a clause
   def instrument (clause                 : Clause,
-                  allGhostVarInds           : Map[Predicate, Seq[GhostVariableInds]],
+                  allGhostVarInds        : Map[Predicate, Seq[GhostVariableInds]],
                   extendedQuantifierInfo : ExtendedQuantifierInfo) : Seq[Instrumentation] = {
+    val rewrites : Seq[Instrumentation] = {
+      val conjuncts : Seq[IFormula] =
+        LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
+      val relevantConjuncts =
+        conjuncts filter (c => isAggregateFun(c))
+
+      if (relevantConjuncts nonEmpty) {
+        if (relevantConjuncts.length > 1)
+          throw new Exception("More than one conjunct found for rewriting," +
+            " are the clauses normalized?\n" + clause.toPrologString)
+
+        val ghostVarTerms: Seq[GhostVariableTerms] =
+          (for (ghostVarInds <- allGhostVarInds(clause.body.head.pred)) yield { // todo: review
+            val GhostVariableInds(iblo, ibhi, ibres, ibarr) = ghostVarInds
+
+            val blo = clause.body.head.args(iblo)
+            val bhi = clause.body.head.args(ibhi)
+            val bres = clause.body.head.args(ibres)
+            val barr = clause.body.head.args(ibarr)
+            GhostVariableTerms(lo = blo, hi = bhi, res = bres, arr = barr)
+          })
+
+        val instrumentationResults: Seq[InstrumentationResult] =
+          relevantConjuncts.headOption match {
+            case Some(c) =>
+              assert(extendedQuantifierInfo == // todo: review
+                ExtQuantifierFunctionApplicationCollector(c).head)
+              rewriteAggregateFun(extendedQuantifierInfo, ghostVarTerms)
+            case None => Nil
+          }
+        for (result <- instrumentationResults) yield
+          Instrumentation(result.newConjunct,
+            result.assertions, Map(), result.rewriteTerms)
+      } else Nil
+    }
+
     // returns instrumentations for body atom, EXCEPT the identity instrumentations
     def instrForBodyAtom(bAtom : IAtom) : Seq[Instrumentation] = {
       (for ((GhostVariableInds(iblo, ibhi, ibres, ibarr), iGhostVars) <-
@@ -89,7 +130,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
           hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
 
-        val instrumentationConstraints : Seq[InstrumentationResult] =
+        val instrumentationResults : Seq[InstrumentationResult] =
           relevantConjuncts.headOption match {
             case Some(c) if isSelect(c) =>
               instrumentSelect(extractSelectInfo(c), headTerms, bodyTerms)
@@ -99,9 +140,9 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
               instrumentConst(extractConstInfo(c), headTerms, bodyTerms)
             case None => Nil
           }
-        for(instrumentationConstraint <- instrumentationConstraints) yield
-          Instrumentation(instrumentationConstraint.conjunct,
-            Seq(instrumentationConstraint.assertion), headTermMap)
+        for(result <- instrumentationResults) yield
+          Instrumentation(result.newConjunct,
+            result.assertions, headTermMap, Map())
       }).flatten
     }
 
@@ -117,33 +158,35 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
     def getCompleteInstrumentation (bodyAtom : IAtom,
                                     inst    : Instrumentation)
     : Instrumentation = {
-      val bodyGhostVarInds : Seq[GhostVariableInds] =
-        allGhostVarInds(bodyAtom.pred)
-      val headGhostVarInds : Seq[GhostVariableInds] =
-        allGhostVarInds(clause.head.pred)
-      val unusedHeadBodyInds =
-        (headGhostVarInds zip bodyGhostVarInds).filter(inds =>
-          !inst.headTerms.contains(inds._1.lo))
-      val identityInds =
-        for((hInds, bInds) <- unusedHeadBodyInds) yield {
-          val headTerms = GhostVariableTerms(
-            lo = clause.head.args(hInds.lo), hi = clause.head.args(hInds.hi),
-            res = clause.head.args(hInds.res), arr = clause.head.args(hInds.arr))
-          val bodyTerms = GhostVariableTerms(
-            lo = bodyAtom.args(bInds.lo), hi = bodyAtom.args(bInds.hi),
-            res = bodyAtom.args(bInds.res), arr = bodyAtom.args(bInds.arr))
-          val newConjunct =
-            (headTerms.arr === bodyTerms.arr) &&&
-              (headTerms.lo === bodyTerms.lo) &&&
-              (headTerms.hi === bodyTerms.hi) &&&
-              (headTerms.res === bodyTerms.res)
-          val headTermMap : Map[Int, ITerm] = Map(
-            hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
-            hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
-          Instrumentation(newConjunct, Nil, headTermMap)
-        }
-      identityInds.reduceOption(_ + _).
-        getOrElse(Instrumentation.emptyInstrumentation) + inst
+      if(allGhostVarInds contains clause.head.pred) {
+        val bodyGhostVarInds: Seq[GhostVariableInds] =
+          allGhostVarInds(bodyAtom.pred)
+        val headGhostVarInds: Seq[GhostVariableInds] =
+          allGhostVarInds(clause.head.pred)
+        val unusedHeadBodyInds =
+          (headGhostVarInds zip bodyGhostVarInds).filter(inds =>
+            !inst.headTerms.contains(inds._1.lo))
+        val identityInds =
+          for ((hInds, bInds) <- unusedHeadBodyInds) yield {
+            val headTerms = GhostVariableTerms(
+              lo = clause.head.args(hInds.lo), hi = clause.head.args(hInds.hi),
+              res = clause.head.args(hInds.res), arr = clause.head.args(hInds.arr))
+            val bodyTerms = GhostVariableTerms(
+              lo = bodyAtom.args(bInds.lo), hi = bodyAtom.args(bInds.hi),
+              res = bodyAtom.args(bInds.res), arr = bodyAtom.args(bInds.arr))
+            val newConjunct =
+              (headTerms.arr === bodyTerms.arr) &&&
+                (headTerms.lo === bodyTerms.lo) &&&
+                (headTerms.hi === bodyTerms.hi) &&&
+                (headTerms.res === bodyTerms.res)
+            val headTermMap: Map[Int, ITerm] = Map(
+              hInds.lo -> headTerms.lo, hInds.hi -> headTerms.hi,
+              hInds.res -> headTerms.res, hInds.arr -> headTerms.arr)
+            Instrumentation(newConjunct, Nil, headTermMap, Map())
+          }
+        identityInds.reduceOption(_ + _).
+          getOrElse(Instrumentation.emptyInstrumentation) + inst
+      } else inst
     }
 
     // returns the identity instrumentation (i.e., all ghost vars are passed unchanged)
@@ -156,6 +199,16 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
       clause.body map (atom => (atom, instrForBodyAtom(atom)))
     val identityInstrsForBodyAtoms : Seq[Instrumentation] =
       clause.body map identityInstrumentation
+
+    // this will propagate ghost variables if there is a head
+    val instrsFromRewrites =
+      if(rewrites nonEmpty) {
+        rewrites.map(inst => getCompleteInstrumentation(clause.body.head, inst))
+      } else rewrites
+
+    // if we have a rewrite in this clause, there should not be any other
+    // instrumentations due to normalization.
+    assert(rewrites.isEmpty || instrsForBodyAtoms.forall(_._2.isEmpty)) // todo: eldarica assertions
 
     val numGhostVarSets = allGhostVarInds.head._2.length
     val combsForBodyAtoms: Seq[Seq[Instrumentation]] =
@@ -173,9 +226,12 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
         completeCombinatons
       }
 
-    combsForBodyAtoms.reduceOption((instrs1, instrs2) =>
-      Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++
-      identityInstrsForBodyAtoms
+    if(rewrites isEmpty)
+      combsForBodyAtoms.reduceOption((instrs1, instrs2) =>
+        Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++
+        identityInstrsForBodyAtoms
+    else
+      instrsFromRewrites
   }
 }
 
@@ -209,7 +265,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                 //hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       val assertion = lo === hi ||| a1 === arr
-      Seq(InstrumentationResult(instrConstraint1, assertion))
+      Seq(InstrumentationResult(newConjunct = instrConstraint1,
+                                              rewriteTerms = Map(),
+                                              assertions = Seq(assertion)))
     }
   }
 
@@ -234,7 +292,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                 headTerms.res === res & headTerms.lo === lo & headTerms.hi === hi, // no change within bounds
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
       val assertion = lo === hi ||| a === arr
-      Seq(InstrumentationResult(instrConstraint1, assertion))
+      Seq(InstrumentationResult(newConjunct = instrConstraint1,
+                                rewriteTerms = Map(),
+                                assertions = Seq(assertion)))
     }
   }
 
@@ -244,9 +304,82 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                       headTerms : GhostVariableTerms,
                       bodyTerms : GhostVariableTerms): Seq[InstrumentationResult] =
     Nil
-
   //  val ConstInfo(a, o, arrayTheory) = constInfo
   //  val instr =
   //    hhi === 10 &&& hlo === 0 &&& harr === a &&&
   //      hres === extendedQuantifier.reduceOp(o, o)
+
+  override protected
+  def rewriteAggregateFun(exqInfo       : ExtendedQuantifierInfo,
+                          ghostVarTerms : Seq[GhostVariableTerms]) : Seq[InstrumentationResult] = {
+    // range1 ? res1 : (range 2 ? res2 : (... : range1+range2 ? res1+res : range2+range1 ? res2+res1 : ... ))
+    val combinations: Seq[Seq[GhostVariableTerms]] =
+      (for (i <- 1 to ghostVarTerms.length) yield {
+        ghostVarTerms.combinations(i)
+      }).flatten
+
+    val ExtendedQuantifierInfo(_, funApp, a, lo, hi) = exqInfo
+
+    def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : ITerm = {
+      assert(combs.nonEmpty) // todo : replace with Eldarica assertion?
+      // todo: refactor
+      val comb = combs.head
+      comb length match {
+        case 1 if combs.tail.nonEmpty =>
+          ite(comb.head.lo === lo & comb.head.hi === hi &
+            comb.head.arr === a,
+            comb.head.res, // then
+            buildRangeFormula(combs.tail)) // else
+        case 1 if combs.tail.isEmpty =>
+          comb.head.res
+        case 2 if combs.tail.nonEmpty =>
+          ite(comb(0).lo === lo & comb(0).hi === comb(1).lo &
+            comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a,
+            extendedQuantifier.reduceOp(comb(0).res, comb(1).res), // then
+            ite(
+              comb(1).lo === lo & comb(1).hi === comb(0).lo &
+                comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a,
+              extendedQuantifier.reduceOp(comb(1).res, comb(0).res),
+              buildRangeFormula(combs.tail)) // else
+          )
+        case 2 if combs.tail.isEmpty =>
+          extendedQuantifier.reduceOp(comb(0).res, comb(1).res)
+        case _ => ??? // todo: generalize this!
+      }
+    }
+
+    // this builds a formula to be asserted, such that at least one of the
+    // branches must be taken
+    def buildAssertionFormula(combs : Seq[Seq[GhostVariableTerms]]) : IFormula = {
+      // todo: refactor
+      combs.headOption match {
+        case Some(comb) =>
+          comb length match {
+            case 1 =>
+              val guard =
+                comb.head.lo === lo & comb.head.hi === hi & comb.head.arr === a
+              guard ||| buildAssertionFormula(combs.tail)
+            case 2 =>
+              val c1 =
+                comb(0).lo === lo & comb(0).hi === comb(1).lo &
+                  comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a
+              val c2 =
+                comb(1).lo === lo & comb(1).hi === comb(0).lo &
+                  comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a
+              (c1 &&& c2) ||| buildAssertionFormula(combs.tail)
+            case _ => ??? // todo: generalize this!
+          }
+        case None => IExpression.i(false)
+      }
+    }
+
+    val rewriteTerm = buildRangeFormula(combinations)
+    val assertionFormula = buildAssertionFormula(combinations)
+
+    Seq(InstrumentationResult(newConjunct  = IExpression.i(true),
+                              rewriteTerms = Map(funApp -> rewriteTerm),
+                              assertions   = Seq(assertionFormula)))
+  }
+
+
 }

@@ -110,13 +110,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
   // todo: use DelayedInit instead of process? dropped in Scala 3...
   def process : (InstrumentationResult, VerificationHints, BackTranslator) = {
 
-    val (rewrittenClauses, backTranslatorRewriter) =
-      rewriteClauses(clausesGhostInit)
-
-    translators += backTranslatorRewriter
-
     val (instrumentationResult, instBackTranslator) =
-      instrumentClauses(rewrittenClauses)
+      instrumentClauses(clausesGhostInit)
 
     translators += instBackTranslator
 
@@ -181,7 +176,29 @@ class InstrumentingPreprocessor(clauses : Clauses,
             val newBody = clause.body ++
               Seq(IAtom(branchPredicate, Seq(IExpression.i(branchId))))
             // todo: body terms for other body atoms might need to be changed too!
-            val newConstraint = instrumentation.constraint &&& clause.constraint
+
+            var rewrittenConstraint = clause.constraint
+            for((oldTerm, newTerm) <- instrumentation.termsToRewrite) {
+              rewrittenConstraint = ExpressionReplacingVisitor(
+                clause.constraint, replaced = oldTerm, replaceWith = newTerm)
+            }
+
+            val newConstraint = instrumentation.constraint &&& rewrittenConstraint
+
+            // exclude any rewritten conjuncts from the constraints of assertion clauses
+            val constraintForAssertions = {
+              val conjuncts : Seq[IFormula] =
+                LineariseVisitor(Transform2NNF(clause.constraint),
+                                               IBinJunctor.And)
+              // todo: refactor
+              val rewrittenConjuncts : Seq[IFormula] =
+                conjuncts.filter(conjunct =>
+                  instrumentation.termsToRewrite.keys.exists(
+                    rewrittenTerm =>
+                      conjunct.subExpressions contains rewrittenTerm))
+              IExpression.and(conjuncts diff rewrittenConjuncts)
+            }
+
             val newClause = Clause(newHead, newBody, newConstraint)
             newClauses += newClause
             clauseBackMapping += ((newClause, clause))
@@ -189,7 +206,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
             for (assertion <- instrumentation.assertions) {
               val assertionClause =
                 Clause(IAtom(HornClauses.FALSE, Nil),
-                             newBody, clause.constraint &&& ~assertion)
+                             newBody, constraintForAssertions &&& ~assertion)
               newClauses += assertionClause
               clauseBackMapping += ((assertionClause, clause)) // todo: review: simply keep track of drop these assertion clauses in backtranslation?
             }
@@ -230,31 +247,6 @@ class InstrumentingPreprocessor(clauses : Clauses,
     }
 
     (result, translator)
-
-  }
-
-  private def rewriteClauses(clausesToRewrite : Clauses) : (Clauses, BackTranslator) = {
-    val clauseBackMapping =
-      new MHashMap[Clause, Clause]
-
-    val newClauses =
-      new ArrayBuffer[Clause]
-
-    for (clause <- clausesToRewrite) {
-      val newClause = ExtendedQuantifierRewriter.rewrite(clause, ghostVarMap)
-
-      newClauses += newClause
-      clauseBackMapping += ((newClause, clause))
-    }
-
-    val translator = new BackTranslator {
-      def translate(solution : Solution) = solution
-
-      def translate(cex : CounterExample) =
-        for (p <- cex) yield (p._1, clauseBackMapping(p._2))
-    }
-
-    (newClauses, translator)
 
   }
 
