@@ -65,8 +65,6 @@ class DefaultPreprocessor extends HornPreprocessor {
     List(new ClauseShortener) ++
     (if (GlobalParameters.get.splitClauses >= 2)
       List(new ClauseSplitter) else List()) ++
-    (if (GlobalParameters.get.staticAccelerate)
-      List(Accelerator) else List()) ++
     (GlobalParameters.get.finiteDomainPredBound match {
        case n if n <= 0 => List()
        case n           => List(new FiniteDomainPredicates (n))
@@ -171,6 +169,14 @@ class DefaultPreprocessor extends HornPreprocessor {
       applyStage(SymbolSplitter)
       if (!(curClauses eq oldClauses))
         condenseClauses
+    }
+
+    // Static acceleration
+    if (GlobalParameters.get.staticAccelerate) {
+      if (applyStage(Accelerator)) {
+        applyStage(new BooleanClauseSplitter)
+        condenseClauses
+      }
     }
 
     // Last set of processors

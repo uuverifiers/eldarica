@@ -1,5 +1,7 @@
 /**
- * Copyright (c) 2011-2014 Filip Konecny. All rights reserved.
+ * Copyright (c) 2011-2014 Filip Konecny
+ *               2022      Philipp Ruemmer
+ * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,11 +29,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.acceleration
 
 import ap.parser._
 import IExpression._
 
+import lazabs.horn.bottomup.HornClauses
 
 object DepGraph {
   def apply(orig : Seq[HornClauses.Clause]) = new DepGraph(orig)
@@ -120,14 +123,17 @@ object HornManipulate {
 
 object HornAccelerate {
   
-  def accelerate(orig : Seq[HornClauses.Clause]) : Seq[HornClauses.Clause] = {
-    
+  def accelerate(orig : Seq[HornClauses.Clause])
+       : Seq[(HornClauses.Clause, Seq[HornClauses.Clause])] =
     (new HornAccelerate(orig)).accelerate
-    
-  }
+
+  val CYCLES_TO_ACCELERATE = 10
+
 }
 
 class HornAccelerate(orig : Seq[HornClauses.Clause]) {
+
+  import HornAccelerate.CYCLES_TO_ACCELERATE
 
   // split the clauses into lower-bound, upper-bound, and dependent clauses
   val (lb,ub,dep) = {
@@ -150,7 +156,7 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
 
   // under-approximation of the least solution
   // a solution for a predicate is represented as a horn clause with no predicate in the body
-  var p2sol = new scala.collection.mutable.HashMap[Predicate,HornClauses.Clause]
+  val p2sol = new scala.collection.mutable.HashMap[Predicate,HornClauses.Clause]
   var solQueue : Set[Predicate] = Set()
   for (p <- dg.preds) {
     p2sol.update(p, createSol(p, IBoolLit(false)))
@@ -252,7 +258,7 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
       PrincessFlataWrappers.transformFormula(constr, var_elim, var_bnd)
     }
     val cNorm = HornClauses.Clause(a_new_head,List(a_new_body),normalize)
-    
+
     // next, try to accelerate
     val res_acc = PrincessFlataWrappers.accelerate(cNorm.constraint, var_bnd)
     
@@ -266,21 +272,31 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
     ret
   }
   
-  def accelerate() : Seq[HornClauses.Clause] = {
+  def accelerate() : Seq[(HornClauses.Clause, Seq[HornClauses.Clause])] = {
     
     val sccs = dg.Tarjan.nontrivial
-    
-    var hc : List[HornClauses.Clause] = Nil
+
+    var hc : List[(HornClauses.Clause, Seq[HornClauses.Clause])] = Nil
     
     // for each nontrivial scc  
     for (scc <- sccs) {
       // find arbitrary cycle
 //      val n = scc(0)
 //      val cycle : Seq[this.dg.DepEdge] = dg.anyPath(n, n, scc).get
-      val cycles = for (n <- scc.iterator;
-                        c <- dg.anyPath(n, n, scc).iterator) yield c
-      if (cycles.hasNext) {
-        val cycle = cycles.next
+
+      val cycles = (for (n <- scc.iterator;
+                         c <- dg.anyPath(n, n, scc).iterator) yield c).toSeq
+
+/*
+    TODO: compare different ways of picking paths to be accelerated
+
+      val cycles =
+        for (n <- scc;
+             c <- dg.simplePaths(n, n, scc.toSet);
+             if !c.isEmpty) yield c
+*/
+
+      for (cycle <- cycles.sortBy(_.size).take(CYCLES_TO_ACCELERATE)) {
         val hcycle = for (e <- cycle) yield e.c
         // inline it and obtain a horn clause of the form P /\ ... => P
         val hSelfLoop = HornManipulate.inlineSequence(hcycle)
@@ -289,11 +305,11 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
         val hAcc = selfDep2accelerated(hSelfLoop)
       
         if (hAcc.isDefined) 
-          hc = hAcc.get :: hc
+          hc = ((hAcc.get, hcycle)) :: hc
       }
     }
     
-    hc ::: dg.clauses.toList
+    hc
   }
     
 }
@@ -343,7 +359,8 @@ object PrincessFlataWrappers {
     val symbolMap_p2e = (for (v <- var_all) yield (v, "sc_"+v.name)).toMap
     
     val e = PrincessWrapper.formula2Eldarica(f,symbolMap_p2e,false)
-    
+
+    try {
     val accEld = FlataWrapper.accelerate(List(List(e)),AccelerationStrategy.PRECISE) match {
       case Some(e: Expression) => e
       case None => return None
@@ -351,9 +368,9 @@ object PrincessFlataWrappers {
     
     // retrieve Eldarica representation and a symbol map
     val (List(acc),symbolMap_e2p) = PrincessWrapper.formula2Princess(List(accEld))
-    
+
     val accElim = elimQuans(acc.asInstanceOf[IFormula], symbolMap_e2p.values.toSeq)
-    
+
     // ensure consistency with original symbols by renaming
     val replacement = new MHashMap[ConstantTerm, ITerm]
     for (v <- var_all) {
@@ -363,5 +380,11 @@ object PrincessFlataWrappers {
     var accElimRen = ConstantSubstVisitor(accElim, replacement.toMap)
     
     Some(accElimRen.asInstanceOf[IFormula])
+    } catch {
+      case t : FlataWrapper.FlataException => {
+        Console.err.println("Warning: " + t.getMessage())
+        None
+      }
+    }
   }
 }

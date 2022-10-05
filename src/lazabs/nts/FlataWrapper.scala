@@ -52,6 +52,8 @@ object AccelerationStrategy extends Enumeration {
 }
 
 object FlataWrapper {
+  class FlataException(msg : String) extends Exception(msg)
+
   def Eldarica2Nts(sce: Expression): (nts.parser.Expr,Set[String]) = {
     var variables: Set[String] = Set()
     def e2n(ex: Expression): nts.parser.Expr = ex match {
@@ -77,8 +79,8 @@ object FlataWrapper {
       case NumericalConst(num) => litInt(num.intValue)
       case BoolConst(v) => litBool(v)
       case _ =>
-        println("Error in Flata conversion " + lazabs.viewer.ScalaPrinter(sce))
-        litBool(false)
+        throw new FlataException(
+          "Error in Flata conversion, cannot handle " + lazabs.viewer.ScalaPrinter(ex))
     }
     val result = e2n(sce)
     (result,variables)
