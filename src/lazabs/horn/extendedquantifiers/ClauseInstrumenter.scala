@@ -366,7 +366,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
               val c2 =
                 comb(1).lo === lo & comb(1).hi === comb(0).lo &
                   comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a
-              (c1 &&& c2) ||| buildAssertionFormula(combs.tail)
+              (c1 ||| c2) ||| buildAssertionFormula(combs.tail)
             case _ => ??? // todo: generalize this!
           }
         case None => IExpression.i(false)
