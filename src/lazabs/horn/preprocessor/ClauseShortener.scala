@@ -57,18 +57,20 @@ object ClauseShortener {
                  (for (n <- 0 until newClause.body.size) yield Leaf(n)).toList)
           (newClause, (oldClause, indexTree))
         }
-      new BTranslator(tempPreds, extendedMapping)
+      new BTranslator(tempPreds, extendedMapping, Set())
     }
 
     def withIndexes(tempPreds : Set[Predicate],
-                    backMapping : Map[Clause, (Clause, Tree[Int])])
+                    backMapping : Map[Clause, (Clause, Tree[Int])],
+                    ignoredPreds : Set[Predicate])
                   : BTranslator =
-      new BTranslator(tempPreds, backMapping)
+      new BTranslator(tempPreds, backMapping, ignoredPreds)
 
   }
 
   class BTranslator private (tempPreds : Set[Predicate],
-                             backMapping : Map[Clause, (Clause, Tree[Int])])
+                             backMapping : Map[Clause, (Clause, Tree[Int])],
+                             ignoredPreds : Set[Predicate])
         extends BackTranslator {
 
     def translate(solution : Solution) =
@@ -84,15 +86,19 @@ object ClauseShortener {
           case dag@DagNode((state, clause@Clause(head, body, constraint)),
                            children, _) =>
             // syntactic check: do clauses fit together?
+            val body2 = getActualBody(body)
             state.pred == head.pred &&
-            children.size == body.size &&
-            ((children.iterator zip body.iterator) forall {
+            children.size == body2.size &&
+            ((children.iterator zip body2.iterator) forall {
                case (c, IAtom(pred, _)) =>
                  c > 0 && dag(c)._1.pred == pred })
           })
 
         res
       }
+
+    private def getActualBody(body : Seq[IAtom]) : Seq[IAtom] =
+      body.filterNot(ignoredPreds contains _.pred)
 
     private def translateCEX(dag : CounterExample) : CounterExample =
       dag match {
@@ -101,7 +107,7 @@ object ClauseShortener {
           (backMapping get clause) match {
             case Some((oldClause, indexTree)) => {
               val newChildrenAr =
-                new Array[Int](oldClause.body.size)
+                new Array[Int](getActualBody(oldClause.body).size)
               for ((c, t) <- children.iterator zip indexTree.children.iterator)
                 allProperChildren(dag drop c, t, newChildrenAr, c)
               DagNode((a, oldClause), newChildrenAr.toList, newNext)
@@ -148,7 +154,8 @@ class ClauseShortener extends HornPreprocessor {
       splitClauseBodies3(clauses, hints)
 
     val translator = BTranslator.withIndexes(tempPredicates.toSet,
-                                             clauseBackMapping.toMap)
+                                             clauseBackMapping.toMap,
+                                             frozenPredicates)
 
     tempPredicates.clear
     clauseBackMapping.clear

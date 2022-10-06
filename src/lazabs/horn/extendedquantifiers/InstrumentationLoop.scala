@@ -87,6 +87,7 @@ class InstrumentationLoop (clauses : Clauses,
   var rawResult : Result = Inconclusive
 
   var lastSolver : IncrementalHornPredAbs[Clause] = _ // todo :-)
+  var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
     val numRanges = ghostVarRanges.head
@@ -95,7 +96,8 @@ class InstrumentationLoop (clauses : Clauses,
 
     println("# ghost variable ranges: " + numRanges)
     val instrumenter = new SimpleExtendedQuantifierInstrumenter(
-    simpClauses, curHints, Set.empty, numRanges)
+      simpClauses, curHints, Set.empty, numRanges)
+    lastInstrumenter = instrumenter
 
     instrumenterBackTranslators += instrumenter.backTranslator
     curHints = instrumenter.newHints
@@ -153,9 +155,6 @@ class InstrumentationLoop (clauses : Clauses,
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
 
-    // orders the space with decreasing order on the number of instrumented clauses
-    // then randomly picks one instrumentation from the first group
-    // i.e., we try first instrumenting everything, then eliminate some branches
     def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
     Map[Predicate, Conjunction] = Random.shuffle(space).head
 
@@ -166,11 +165,6 @@ class InstrumentationLoop (clauses : Clauses,
         interpolator)
 
     lastSolver = incSolver
-
-    // we have m predicates for m locations to instrument, corresponding to the instrumentation constraint.
-    // each instrumentation predicate can be instantiated in n ways
-    // i.e., the search space is n^m.
-    // for the base case, we will have n = 2, with {instrument, noInstrument}, so the search space is 2^m
 
     val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
     instrumenter.searchSpace.foreach(search =>
@@ -202,8 +196,6 @@ class InstrumentationLoop (clauses : Clauses,
             println("\nunsafe")
             rawResult = Unsafe(cex)
           } else {
-            //val cext = backTranslator.translate(cex)
-            //cext.prettyPrint
             println("\ninconclusive, iterating...")
             val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
               instrumenter.branchPredicates contains _.pred)).toSet
@@ -216,9 +208,6 @@ class InstrumentationLoop (clauses : Clauses,
             }
             ineligibleSearchSpace.foreach(s =>
               searchSpace -= s)
-            // cex.prettyPrint
-            //backTranslator.translate(cex).prettyPrint
-            // rawResult = Unsafe(cex)
           }
         }
         case Left(solution) =>
@@ -227,7 +216,7 @@ class InstrumentationLoop (clauses : Clauses,
     }
   }
 
-  val backTranslator =
+  private val backTranslator =
     new ComposedBackTranslator(
       instrumenterBackTranslators.reverse ++
       backTranslators.reverse)
@@ -239,15 +228,15 @@ class InstrumentationLoop (clauses : Clauses,
   lazy val result : Either[Map[Predicate, IFormula],
     Dag[(IAtom, Clause)]] = rawResult match {
     case Safe(solution) =>
-      Left(for ((p, c) <- solution)
+      val solF = for ((p, c) <- solution)
         yield {
           (p, (new PredicateStore(lastSolver.baseContext)).convertToInputAbsy(
             p, List(c)).head)
-        })
+        }
+      Left(backTranslator.translate(solF))
     case Unsafe(trace) =>
-      Right(trace)
+      Right(backTranslator.translate(trace))
     case Inconclusive =>
       Right(DagEmpty)
   }
-
 }
