@@ -33,13 +33,14 @@ package lazabs.horn.extendedquantifiers
 import ap.parser.{IAtom, IExpression, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
-import lazabs.horn.abstractions.EmptyVerificationHints
-import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
+import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.{IncrementalHornPredAbs, NormClause, PredicateStore}
+import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, NormClause, PredicateStore, TemplateInterpolator}
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.DefaultPreprocessor
-import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator}
+import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
@@ -53,19 +54,24 @@ object InstrumentationLoop {
 }
 
 class InstrumentationLoop (clauses : Clauses,
-                           initialPredicates : Map[Predicate, Seq[IFormula]],
-                           predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                             Either[Seq[(Predicate, Seq[Conjunction])],
-                               Dag[(IAtom, NormClause)]]) {
+                           hints : VerificationHints,
+                           templateBasedInterpolation : Boolean = false,
+                           templateBasedInterpolationTimeout : Long = 2000,
+                           templateBasedInterpolationType :
+                            StaticAbstractionBuilder.AbstractionType.Value =
+                            StaticAbstractionBuilder.AbstractionType.RelationalEqs,
+                           globalPredicateTemplates: Map[Predicate, Seq[VerifHintElement]] = Map()) {
   import InstrumentationLoop._
 
   val backTranslators = new ArrayBuffer[BackTranslator]
 
   val preprocessor = new DefaultPreprocessor
-  val (simpClauses, _, backTranslator1) =
+  var curHints : VerificationHints = hints
+  val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
-      preprocessor.process(clauses, EmptyVerificationHints)
+      preprocessor.process(clauses, curHints)
     }
+  curHints = newHints1
   backTranslators += backTranslator1
 
   println("="*80)
@@ -89,9 +95,10 @@ class InstrumentationLoop (clauses : Clauses,
 
     println("# ghost variable ranges: " + numRanges)
     val instrumenter = new SimpleExtendedQuantifierInstrumenter(
-    simpClauses, EmptyVerificationHints, Set.empty, numRanges)
+    simpClauses, curHints, Set.empty, numRanges)
 
     instrumenterBackTranslators += instrumenter.backTranslator
+    curHints = instrumenter.newHints
 
     println("="*80)
     println("Clauses after instrumentation")
@@ -103,13 +110,48 @@ class InstrumentationLoop (clauses : Clauses,
 
     println("="*80)
     println("Clauses after instrumentation (simplified)")
-    val (simpClauses2, _, backTranslator2) =
+    val (simpClauses2, newHints2, backTranslator2) =
       Console.withErr(Console.out) {
-        preprocessor.process(instrumenter.instrumentedClauses, EmptyVerificationHints, instrumenter.branchPredicates)
+        preprocessor.process(instrumenter.instrumentedClauses, curHints, instrumenter.branchPredicates)
       }
+    curHints = newHints2
     instrumenterBackTranslators += backTranslator2
     simpClauses2.foreach(clause => println(clause.toPrologString))
     println("="*80)
+
+
+    val interpolator = if (templateBasedInterpolation)
+      Console.withErr(Console.out) {
+        val builder =
+          new StaticAbstractionBuilder(
+            simpClauses2,
+            templateBasedInterpolationType,
+            instrumenter.branchPredicates)
+        val autoAbstractionMap =
+          builder.abstractionRecords
+
+        val abstractionMap: AbstractionMap =
+          if (globalPredicateTemplates.isEmpty) {
+            autoAbstractionMap
+          } else {
+            val loopDetector = builder.loopDetector
+
+            print("Using interpolation templates provided in program: ")
+
+            val hintsAbstractionMap =
+              loopDetector hints2AbstractionRecord curHints
+
+            println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
+
+            AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
+          }
+
+        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+          abstractionMap,
+          templateBasedInterpolationTimeout)
+      } else {
+      DagInterpolator.interpolatingPredicateGenCEXAndOr _
+    }
 
     // orders the space with decreasing order on the number of instrumented clauses
     // then randomly picks one instrumentation from the first group
@@ -119,9 +161,9 @@ class InstrumentationLoop (clauses : Clauses,
 
     val incSolver =
       new IncrementalHornPredAbs(simpClauses2,
-        initialPredicates,
+        curHints.toInitialPredicates,
         instrumenter.branchPredicates,
-        predicateGenerator)
+        interpolator)
 
     lastSolver = incSolver
 

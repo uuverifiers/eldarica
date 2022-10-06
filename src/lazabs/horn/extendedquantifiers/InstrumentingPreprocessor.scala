@@ -107,7 +107,6 @@ class InstrumentingPreprocessor(clauses : Clauses,
     ghostVariableInitializer.process(clausesGhost, hintsGhost, frozenPredicates)
   translators += backTranslatorGhostInit
 
-  // todo: use DelayedInit instead of process? dropped in Scala 3...
   def process : (InstrumentationResult, VerificationHints, BackTranslator) = {
 
     val (instrumentationResult, instBackTranslator) =
@@ -115,8 +114,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
 
     translators += instBackTranslator
 
-    // todo: remove hints/refactor?
-    (instrumentationResult, hints, new ComposedBackTranslator(translators.reverse))
+    (instrumentationResult, hintsGhostInit, new ComposedBackTranslator(translators.reverse))
   }
 
   private def instrumentClauses(clausesForInst : Clauses) :

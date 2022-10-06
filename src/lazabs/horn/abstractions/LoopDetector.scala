@@ -31,24 +31,24 @@ package lazabs.horn.abstractions
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor
-
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.basetypes.IdealInt
+import ap.parser.IExpression.Predicate
 import ap.terfor.ConstantTerm
 import ap.types.Sort
 import ap.theories.ModuloArithmetic
 import ap.parser._
 import ap.util.LRUCache
 
-import scala.collection.mutable.{LinkedHashSet, ArrayBuffer,
-                                 HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Compute loops and loop heads of the given set of clauses,
  * using a generalised version of the dominator relation.
  */
-class LoopDetector(clauses : Seq[HornClauses.Clause]) {
+class LoopDetector(clauses            : Seq[HornClauses.Clause],
+                   substitutablePreds : Set[Predicate] = Set()) {
 
   import IExpression._
   import HornClauses.Clause
@@ -63,14 +63,16 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
     while (oldSize != allPredicates.size) {
       oldSize = allPredicates.size
       for (Clause(IAtom(headP, _), body, _) <- clauses)
-        if (body forall { case IAtom(p, _) => allPredicates contains p })
+        if (body forall { case IAtom(p, _) =>
+          (allPredicates contains p) || (substitutablePreds contains p)})
           allPredicates += headP
     }
   }
 
   val reachableClauses =
     for (clause@Clause(_, body, _) <- clauses;
-         if (body forall { case IAtom(p, _) => allPredicates contains p }))
+         if (body.filter(b => !(substitutablePreds contains b.pred)) forall {
+           case IAtom(p, _) => allPredicates contains p}))
     yield clause
 
   val clausesWithHead =
@@ -84,7 +86,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
 
     val body2head =
       ((for (Clause(IAtom(head, _), body, _) <- reachableClauses;
-                    IAtom(b, _) <- body)
+                    IAtom(b, _) <- body.filter(b =>
+                      !(substitutablePreds contains b.pred)))
         yield (b, head)) groupBy (_._1)) mapValues (_ map (_._2))
 
     val workqueue = new LinkedHashSet[Predicate]
@@ -102,7 +105,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
       val oldSet = domCandidates(p)
       val newSet =
         (for (Clause(_, body, _) <- pClauses.iterator) yield {
-           (Set(p) /: (for (IAtom(q, _) <- body.iterator)
+           (Set(p) /: (for (IAtom(q, _) <- body.filter(b =>
+             !(substitutablePreds contains b.pred)).iterator)
                        yield domCandidates(q))) (_ ++ _)
          }) reduce (_ & _)
 
@@ -119,7 +123,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
 
   val loopHeads =
     (for (clause@Clause(IAtom(p, _), body, _) <- reachableClauses.iterator;
-          if (body exists { case IAtom(q, _) => dominates(p, q) }))
+          if (body.filter(b => !(substitutablePreds contains b.pred)) exists {
+            case IAtom(q, _) => dominates(p, q) }))
      yield p).toSet
 
   val loopBodies =
@@ -132,7 +137,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
          oldSize = bodyPreds.size
          for (Clause(IAtom(p, _), body, _) <- reachableClauses.iterator;
               if (bodyPreds contains p);
-              IAtom(q, _) <- body.iterator;
+              IAtom(q, _) <- body.filter(b =>
+                !(substitutablePreds contains b.pred)).iterator;
               if (dominates(head, q)))
            bodyPreds += q
        }
@@ -140,7 +146,8 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
        (head,
         for (clause@Clause(IAtom(p, _), body, _) <- reachableClauses;
              if ((bodyPreds contains p) &&
-                 (body exists { case IAtom(q, _) => bodyPreds contains q })))
+                 (body.filter(b => !(substitutablePreds contains b.pred)) exists {
+                   case IAtom(q, _) => bodyPreds contains q })))
         yield clause)
      }).toMap
 

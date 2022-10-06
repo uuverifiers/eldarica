@@ -33,6 +33,8 @@ package lazabs.horn.extendedquantifiers
 import ap.parser.IExpression._
 import ap.parser._
 import ap.types.MonoSortedPredicate
+import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.extendedquantifiers.Util._
@@ -59,7 +61,7 @@ class Normalizer extends HornPreprocessor {
     val newClauses = {
       val newClauses = new ArrayBuffer[Clause]
 
-      for (clause@Clause(head, body, constraint) <- clauses) {
+      for ((clause@Clause(head, body, constraint), id) <- clauses.zipWithIndex) {
         val conjuncts : Seq[IFormula] =
           LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
 
@@ -133,23 +135,26 @@ class Normalizer extends HornPreprocessor {
 //            val (arrayTerm, arraySort) = getNewArrayTerm(conjunct)
             val newHead =
               if (i == numNewClauses - 1 && isGoalClause) {
-                val newHeadPred = new Predicate("false_" + clauseCount, 0)
+                val newHeadPred = new Predicate("false_" + id + "_" + clauseCount, 0)
                 predBackMapping += ((newHeadPred, head.pred))
                 IAtom(newHeadPred, Nil)
               } else if(i < numNewClauses) {
               //val (headArgs, headSorts) = collectArgsSortsFromAtoms(Seq(head))
               val newPredName =
                 (if (body.nonEmpty) body.head.pred.name else "entry") + "_" +
-                  head.pred.name + "_" + clauseCount
+                  head.pred.name + "_" + id + "_" + clauseCount
 //              val (newHeadArgs, newHeadSorts) = {
 //                (headArgs ++ bodyArgs ++ arrayTerm,
 //                  headSorts ++ bodySorts ++ arraySort
 //                )
 //              }
               val (newHeadArgs, newHeadSorts) = {
-                val constants = clause.constantsSorted
-                (constants,
-                  constants.map(c => Sort.sortOf(IConstant(c))))
+                val headConstants =
+                  SymbolCollector constantsSorted clause.head
+                val allConstants : Seq[ConstantTerm] =
+                  headConstants ++ (clause.constantsSorted diff headConstants)
+                val newArgs : Seq[ConstantTerm] = allConstants
+                (newArgs, newArgs.map(c => Sort.sortOf(IConstant(c))))
               }
               val newHeadPred =
                 MonoSortedPredicate(newPredName, newHeadSorts)
@@ -172,6 +177,19 @@ class Normalizer extends HornPreprocessor {
       }
       newClauses
     }
+
+    val newPredicateHints : Map[Predicate, Seq[VerifHintElement]] =
+      hints.predicateHints.flatMap{
+        case (oldPred, hint) =>
+          val affectedPreds = predBackMapping.filter{
+            case (newP, oldP) =>  oldP == oldPred
+          }
+          Map(oldPred -> hint) ++ affectedPreds.map{
+            case (newP, oldP) => (newP, hint)
+          }
+      }
+
+    val newHints = VerificationHints(newPredicateHints)
 
     val translator = new BackTranslator {
       private val backMapping = clauseBackMapping.toMap
@@ -201,7 +219,7 @@ class Normalizer extends HornPreprocessor {
     
     clauseBackMapping.clear
 
-    (newClauses, hints, translator)
+    (newClauses, newHints, translator)
   }
 
   //////////////////////////////////////////////////////////////////////////////

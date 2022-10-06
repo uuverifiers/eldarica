@@ -41,6 +41,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.extendedquantifiers.InstrumentationLoop
 import HornClauses._
 import IExpression._
+import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
 object ExtQuansWithSearchTest extends App {
@@ -76,8 +77,7 @@ object ExtQuansWithSearchTest extends App {
                         extQuan.fun(a1, 0, 10) =/= 30) // right-open interval
     )
 
-    val instrLoop = new InstrumentationLoop(clauses, Map(),
-      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
 
     println(instrLoop.result)
   }
