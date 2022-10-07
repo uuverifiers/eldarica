@@ -41,7 +41,8 @@ import ap.terfor.conjunctions.Conjunction
 import ap.theories.TheoryRegistry
 import lazabs.horn.bottomup.HornClauses
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet}
 
 object InstrumentingPreprocessor {
   case class InstrumentationResult(
@@ -84,6 +85,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
     extendedQuantifierInfos.map(_.exTheory).toSet
 
   private val translators = new ArrayBuffer[BackTranslator]
+  private val branchPreds = new MHashSet[Predicate]
 
   extendedQuantifiers map TheoryRegistry.register
 
@@ -158,6 +160,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
             new Predicate("Br_" + clauseInd, 1)
 
           numBranchesForPred += ((branchPredicate, combinedInstrumentations.length))
+          branchPreds += branchPredicate
 
           // one new clause per instrumentation inst in combinedInstrumentations
           //  + n new assertion clauses for the n assertion conjuncts in inst
@@ -231,10 +234,10 @@ class InstrumentingPreprocessor(clauses : Clauses,
       generateSearchSpace(conjsForBranchPred)
 
     val result = InstrumentationResult(
-      newClauses, numBranchesForPred.keys.toSet, searchSpace)
+      newClauses, branchPreds.toSet, searchSpace)
 
     val translator = new BackTranslator {
-      def translate(solution : Solution) = solution
+      def translate(solution : Solution) = solution -- branchPreds
 
       def translate(cex : CounterExample) =
         for (p <- cex) yield (p._1, clauseBackMapping(p._2))
