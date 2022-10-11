@@ -47,6 +47,7 @@ object GhostVariableAdder {
                                  hi  : ITerm,
                                  res : ITerm,
                                  arr : ITerm)
+  val numGhostVars = 4 // number of ghost variables in above classes
 }
 
 /**
@@ -77,7 +78,7 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
 
     var offset = argNum
     val ghostVars: Seq[(ITerm, Sort, String)] =
-      (for (info <- extendedQuantifierInfos) yield {
+      (for ((info, infoId) <- extendedQuantifierInfos zipWithIndex) yield {
         val baseName = info.exTheory.fun.name // todo: support sets of ghost vars
         val loName = baseName + "_lo"
         val hiName = baseName + "_hi"
@@ -88,7 +89,7 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
 
         val ghostVariableInds : Seq[GhostVariableInds] =
           for(numGhostRange <- 0 until numGhostRanges) yield {
-            val shift = offset + numGhostRange*4 // 4 is the #ghost vars in a set
+            val shift = offset + numGhostRange*numGhostVars + numGhostRanges*numGhostVars*infoId
             GhostVariableInds(shift + 1, shift + 2, shift + 3, shift + 4)
           }
         val prevMap: Map[Predicate, Seq[GhostVariableInds]] =

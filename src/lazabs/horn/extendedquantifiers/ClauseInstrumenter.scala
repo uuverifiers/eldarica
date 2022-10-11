@@ -89,11 +89,10 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 
         val instrumentationResults: Seq[InstrumentationResult] =
           relevantConjuncts.headOption match {
-            case Some(c) =>
-              assert(extendedQuantifierInfo == // todo: review
-                ExtQuantifierFunctionApplicationCollector(c).head)
+            case Some(c) if extendedQuantifierInfo == // todo: review
+              ExtQuantifierFunctionApplicationCollector(c).head =>
               rewriteAggregateFun(extendedQuantifierInfo, ghostVarTerms)
-            case None => Nil
+            case _ => Nil
           }
         for (result <- instrumentationResults) yield
           Instrumentation(result.newConjunct,
