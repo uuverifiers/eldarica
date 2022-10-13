@@ -5,3 +5,10 @@ project/
 regression-tests/
 template-parser/
 tools/
+AUTHORS
+build.sbt
+eld
+eld-client
+eldEvn
+LICENSE
+README.md
