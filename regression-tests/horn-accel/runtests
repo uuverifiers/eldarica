@@ -1,0 +1,12 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="flat-loops.smt2 booleans.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol -abstract:off -stac -cex "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done
+

@@ -1,5 +1,7 @@
 /**
- * Copyright (c) 2011-2014 Filip Konecny. All rights reserved.
+ * Copyright (c) 2011-2014 Filip Konecny
+ *                    2022 Philipp Ruemmer
+ * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +29,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.acceleration
+
+import scala.collection.mutable.{ArrayBuffer, Buffer}
 
 abstract class AbsGraph { thisGraph =>
   type Node <: BaseNode
@@ -171,5 +175,29 @@ abstract class AbsGraph { thisGraph =>
     }
   }
 
+  def simplePaths(from : Node,
+                  to   : Node,
+                  via  : Set[Node]) : Iterable[Seq[Edge]] = {
+    val buf = new ArrayBuffer[Seq[Edge]]
+    simplePathsHelp(from, to, via,
+                    List(), if (from == to) Set() else Set(to), buf)
+    buf.toSeq
+  }
+
+  def simplePathsHelp(from : Node,
+                      to   : Node,
+                      via  : Set[Node],
+                      suff : List[Edge],
+                      seen : Set[Node],
+                      acc  : Buffer[Seq[Edge]]) : Unit = {
+    if (from == to)
+      acc += suff
+
+    for (e <- incoming(to)) {
+      val n = e.from()
+      if (!(seen contains n))
+        simplePathsHelp(from, n, via, e :: suff, seen + n, acc)
+    }
+  }
   
 }

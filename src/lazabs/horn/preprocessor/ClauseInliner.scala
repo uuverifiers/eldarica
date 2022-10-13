@@ -156,7 +156,7 @@ class ClauseInliner extends HornPreprocessor {
 
       private def buildSubst(cex : CounterExample) : Map[Int, CounterExample] =
         SimpleAPI.withProver { p =>
-          implicit val _ = p
+          implicit val prover = p
           
           (for ((subCEX@DagNode((a, clause), children, _), i) <-
                   cex.subdagIterator.zipWithIndex;
