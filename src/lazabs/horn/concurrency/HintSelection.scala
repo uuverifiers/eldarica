@@ -116,13 +116,11 @@ object HintsSelection {
     //simplified to false<-false
     if (simplifiedClausesForGraph.length==1 && simplifiedClausesForGraph.head.body.isEmpty){
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no-simplified-clauses")
-      sys.exit()
     }
     //no argument
 //    val argumentList=(for (c<-simplifiedClausesForGraph;a<-c.allAtoms) yield {a.args}).flatten
 //    if (argumentList.length==0){
 //      HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-dataflow/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no-dataflow")
-//      sys.exit()
 //    }
 
   }
@@ -149,7 +147,6 @@ object HintsSelection {
     if (totalNodeNumebr >= GlobalParameters.get.maxNode) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/exceed-max-node/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "node number >= maxNode")
       //HintsSelection.removeRelativeFiles(GlobalParameters.get.fileName)
-      sys.exit()
     }
 
   }
@@ -229,6 +226,10 @@ object HintsSelection {
   }
 
   def generateCombinationTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = true): VerificationHints = {
+    //1. single boolean terms
+    //2. single positive and negative integer terms
+    //3. Eq: integer_term1 +/- integer_term2 =0
+    //3. InEq: +/- (integer_term1 +/- integer_term2) >=0
     val predicatesForCombTemplateGeneration =
       if (onlyLoopHead)
         getLoopHeadsWithSort(simplifiedClauses)
@@ -238,7 +239,6 @@ object HintsSelection {
 
     if (predicatesForCombTemplateGeneration.isEmpty) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/loop-head-empty/" + getFileName(), "loopHeads is empty")
-      sys.exit()
     }
     VerificationHints((for ((pred, args) <- predicatesForCombTemplateGeneration) yield {
       val singleBooleanTerms = for ((a, i) <- args.zipWithIndex; if a._2 == Sort.MultipleValueBool) yield IVariable(i, a._2)
@@ -448,22 +448,14 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
           cegarGeneratedPredicates = transformPredicatesToCanonical(cegar.relevantPredicates, simplePredicatesGeneratorClauses)
         }
         case Right(b) => {
-          println(Console.RED + "-" * 10 + "unsat" + "-" * 10)
-          if (moveFile == true)
-            HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + fileName)
-          if (exit == true)
-            sys.exit()
+            HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/unsat/" + fileName,message="unsat")
         }
       }
-
     }
     catch {
       case lazabs.Main.TimeoutException => {
         println(Console.RED + "-" * 10 + moveFileFolder + "-" * 10)
-        if (moveFile == true)
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/" + moveFileFolder + "/" + fileName)
-        if (exit == true)
-          sys.exit() //throw TimeoutException
         //solveTime = ((currentTimeMillis - startTime) / 1000).toInt
       }
       case _ => println(Console.RED + "-" * 10 + "solvability-debug" + "-" * 10)
@@ -1719,6 +1711,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
       } else {
         println(s"could NOT move the file $sourceFilename")
       }
+      sys.exit()
     }
   }
   def removeRelativeFiles(fileName:String,removeSourceFile:Boolean=false): Unit ={

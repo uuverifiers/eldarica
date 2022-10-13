@@ -226,7 +226,6 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       if (simplifiedClausesForGraph.isEmpty) {
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
-        sys.exit()
       }
 
       if (GlobalParameters.get.generateTemplates){
@@ -292,7 +291,6 @@ object TrainDataGeneratorTemplatesSmt2 {
         }
         if(filteredPositiveTemplates.isEmpty){
           HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+HintsSelection.getFileName(),"empty-mined-label")
-          sys.exit()
         }
         val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledTemplates.predicateHints;
                                                     (kf,vf)<-filteredPositiveTemplates.predicateHints;
@@ -327,7 +325,6 @@ object TrainDataGeneratorTemplatesSmt2 {
 
       if(labeledTemplates.totalPredicateNumber==0){
         HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
-        sys.exit()
       }
 
       //HintsSelection.writePredicatesToFiles(unlabeledTemplates,labeledTemplates,positiveTemplates)

@@ -178,14 +178,14 @@ object TemplateSelectionUtils{
     val labeledTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(labeledTemplates)
     val minedTemplates = wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".minedPredicates",VerificationHints(Map()))
     val minedTemplatesStatistics=HintsSelection.getVerificationHintsStatistics(minedTemplates)
-
     val jsonFileName= if (GlobalParameters.get.getSolvingTime) "solvingTime" else if (GlobalParameters.get.checkSolvability) "solvability" else ""
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + jsonFileName + ".JSON"
     val fixedFields:Map[String,Int]=Map("clauseNumberBeforeSimplification"->unsimplifiedClauses.length,
       "clauseNumberAfterSimplification"->simplifiedClausesForGraph.length,
       "smt2FileSizeByte"->new File(GlobalParameters.get.fileName).length().toInt, //bytes,
       "relationSymbolNumberBeforeSimplification"->unsimplifiedClauses.map(_.allAtoms.length).reduce(_+_),
-      "relationSymbolNumberAfterSimplification"->simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_),
+      "relationSymbolNumberAfterSimplification"->
+        (if(simplifiedClausesForGraph.size!=0) simplifiedClausesForGraph.map(_.allAtoms.length).reduce(_+_) else 0),
       "minedSingleVariableTemplatesNumber"->minedTemplatesStatistics._1,
       "minedBinaryVariableTemplatesNumber"->minedTemplatesStatistics._2,
       "minedTemplateNumber"->minedTemplatesStatistics._3,
@@ -199,7 +199,7 @@ object TemplateSelectionUtils{
       "unlabeledTemplateNumber"->unlabeledTemplatesStatistics._3,
       "unlabeledTemplateRelationSymbolNumber"->unlabeledTemplatesStatistics._4)
     val meansureFields=Seq("solvingTime","cegarIterationNumber","generatedPredicateNumber",
-      "averagePredicateSize","predicateGeneratorTime","solvability")
+      "averagePredicateSize","predicateGeneratorTime","satisfiability")
     val combianedOptions=Seq("Term","Octagon","RelationalEqs","RelationalIneqs","Mined")
     val explorationRate=Seq(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9)
     val combinedAbstractTypeFields=for(g<-Seq("_hyperEdgeGraph_union_","_monoDirectionLayerGraph_union_");a<-combianedOptions) yield a+g+"0.0"
@@ -213,6 +213,7 @@ object TemplateSelectionUtils{
     if(!jsonFileName.isEmpty && !new java.io.File(solvingTimeFileName).exists){
       writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
     }
+
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
         new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
@@ -220,20 +221,25 @@ object TemplateSelectionUtils{
 
 
     if (new java.io.File(solvingTimeFileName).exists){ //update the solving time for current abstract option in JSON file
+      val satisfiability= predAbs.result match {
+        case Left(res) =>1 //SAT
+        case Right(cex)=>0 //UNSAT
+      }
       val solvingTime=(predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds
       val cegarIterationNumber=predAbs.cegar.iterationNum
       val generatedPredicateNumber=predAbs.cegar.generatedPredicateNumber
       val averagePredicateSize=predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime=predAbs.cegar.predicateGeneratorTime
-      val solvability=1
       val resultList=Seq(solvingTime,cegarIterationNumber,generatedPredicateNumber,
-        averagePredicateSize,predicateGeneratorTime,solvability).map(_.toInt).map(_.toString)
+        averagePredicateSize,predicateGeneratorTime,satisfiability).map(_.toInt).map(_.toString)
       for ((m,v)<-meansureFields.zip(resultList)) {
         val newField=
         if (GlobalParameters.get.combineTemplates)
           (m + "_" + GlobalParameters.get.templateBasedInterpolationType+"_"+GlobalParameters.get.hornGraphType + "_"+GlobalParameters.get.combineTemplateStrategy +"_"+GlobalParameters.get.explorationRate+ "_splitClauses_" + GlobalParameters.get.splitClauses.toString + "_cost_" + GlobalParameters.get.readCostType, v)
-        else
+        else {
+          //println(m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString+"_cost_"+GlobalParameters.get.readCostType,v)
           (m+"_"+GlobalParameters.get.templateBasedInterpolationType.toString+"_splitClauses_"+GlobalParameters.get.splitClauses.toString+"_cost_"+GlobalParameters.get.readCostType,v)
+        }
         val oldFields=readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
         val updatedFields=
         if (oldFields.map(_._1).toSeq.contains(newField._1))
@@ -252,12 +258,12 @@ object TemplateSelectionUtils{
       Dag[(IAtom, NormClause)]]): Unit ={
     //full code in TrainDataGeneratorTemplatesSmt2.scala
 
-    if (GlobalParameters.get.generateTemplates){
-      val unlabeledPredicateFileName=".unlabeledPredicates"
-      val generatedTpl = generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) //false
-      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")) {AbsReader.printHints(generatedTpl)}
-      sys.exit()
-    }
+//    if (GlobalParameters.get.generateTemplates){
+//      val unlabeledPredicateFileName=".unlabeledPredicates"
+//      val generatedTpl = generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) //false
+//      Console.withOut(new java.io.FileOutputStream(GlobalParameters.get.fileName + unlabeledPredicateFileName + ".tpl")) {AbsReader.printHints(generatedTpl)}
+//      sys.exit()
+//    }
 
     val predAbs =
       new HornPredAbs(simplifiedClausesForGraph, initialPredicatesForCEGAR, predGenerator)
@@ -286,7 +292,6 @@ object TemplateSelectionUtils{
       }
 //      if(filteredPositiveTemplates.isEmpty){
 //        HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/empty-mined-label/"+HintsSelection.getFileName(),"empty-mined-label")
-//        sys.exit()
 //      }
       val labeledTemplates=VerificationHints(for ((kp,vp)<-unlabeledTemplates.predicateHints;
                                                   (kf,vf)<-filteredPositiveTemplates.predicateHints;
@@ -309,7 +314,6 @@ object TemplateSelectionUtils{
 
 //    if(labeledTemplates.totalPredicateNumber==0){
 //      HintsSelection.moveRenameFile(GlobalParameters.get.fileName,"../benchmarks/exceptions/no-predicates-selected/"+HintsSelection.getFileName(),"labeledPredicates is empty")
-//      sys.exit()
 //    }
     HintsSelection.writeTemplatesToFile(unlabeledTemplates,"unlabeledPredicates")
     HintsSelection.writeTemplatesToFile(labeledTemplates,"labeledPredicates")
@@ -332,7 +336,6 @@ object TemplateSelectionUtils{
     val unlabeledTemplates=HintsSelection.wrappedReadHintsCheckExistence(simplifiedClausesForGraph,".unlabeledPredicates",generateCombinationTemplates(simplifiedClausesForGraph, onlyLoopHead = true) )
     if (unlabeledTemplates.totalPredicateNumber == 0 ) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
-      sys.exit()
     }
     val truePredicates = if (new java.io.File(GlobalParameters.get.fileName + ".labeledPredicates" + ".tpl").exists)
       HintsSelection.wrappedReadHints(simplifiedClausesForGraph, ".labeledPredicates")

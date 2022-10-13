@@ -74,7 +74,7 @@ class GlobalParameters extends Cloneable {
   var withoutGraphJSON=false
   var checkSolvability=false
   var readCost=false
-  var readCostType : String = ""
+  var readCostType : String = "same"
   var rdm=false
   var fixRandomSeed=false
   var onlyInitialPredicates=false

@@ -457,7 +457,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
   if (simplifiedClausesForGraph.isEmpty) {
     HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-simplified-clauses/" + HintsSelection.getFileName(), message = "no simplified clauses")
-    sys.exit()
   }
 
   if (GlobalParameters.get.debugLog)
@@ -555,7 +554,6 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 
     if (initialPredicates.totalPredicateNumber == 0 && (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true)) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
-      sys.exit()
     }
 
     val argumentInfo = HintsSelection.getArgumentLabel(simplifiedClausesForGraph,simpHints,predGenerator,disjunctive,
