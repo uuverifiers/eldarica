@@ -221,7 +221,10 @@ class HornWrapper(constraints  : Seq[HornClause],
       (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
       yield (p.name -> p)).toMap
-    readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
+    val _readHints = readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
+    if (!_readHints.isEmpty)
+      _readHints.pretyPrintHints("cegarHintsFile")
+    _readHints
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -279,10 +282,10 @@ class HornWrapper(constraints  : Seq[HornClause],
         readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
       }
       if (!postHints.predicateHints.isEmpty)
-        postHints.pretyPrintHints()
+        postHints.pretyPrintHints("cegarPostHintsFile")
 
       val allHints = simpPreHints ++ postHints
-      (simplifiedClauses, simpPreHints, backTranslator)
+      (simplifiedClauses, allHints, backTranslator)
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -421,6 +424,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     else
       absBuilder.loopDetector hints2AbstractionRecord simpHints
 
+
   //////////////////////////////////////////////////////////////////////////////
 
   //  private val predGenerator = Console.withErr(outStream) {
@@ -475,7 +479,9 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   val unlabeledPredicateFileName=".unlabeledPredicates"//"-"+HintsSelection.getClauseType()+ ".unlabeledPredicates"
   val labeledPredicateFileName=".labeledPredicates"//"-"+HintsSelection.getClauseType()+ ".labeledPredicates"
   val minedPredicateFileName=".minedPredicates"
+
   val combTemplates = generateCombinationTemplates(simplifiedClausesForGraph,onlyLoopHead = false)
+
   private val predGenerator =
     if (GlobalParameters.get.generateTemplates == true) {
       val initialTemplates =
@@ -552,6 +558,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
         VerificationHints(Map()) ++ simpHints
       }
 
+
     if (initialPredicates.totalPredicateNumber == 0 && (GlobalParameters.get.generateSimplePredicates == true||GlobalParameters.get.generateTemplates==true)) {
       HintsSelection.moveRenameFile(GlobalParameters.get.fileName, "../benchmarks/exceptions/no-initial-predicates/" + GlobalParameters.get.fileName.substring(GlobalParameters.get.fileName.lastIndexOf("/"), GlobalParameters.get.fileName.length), message = "no initial predicates")
     }
@@ -620,6 +627,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
 //    }
 
     val predAbs = Console.withOut(outStream) {
+
       println
       println(
         "----------------------------------- CEGAR --------------------------------------")

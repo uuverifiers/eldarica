@@ -113,6 +113,9 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
 
   //canonical node category for both graph
   var templateCanonicalID=0
+  var templateEqCanonicalID=0
+  var templateIneqCanonicalID=0
+  var templateBoolCanonicalID=0
   var nodeInfoList=Map[String,NodeInfo]()
   var nodeIds = Array[Int]()
   //var nodeSymbols = new ListBuffer[String]()
@@ -220,7 +223,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "dataFlowHyperEdge" => dataFlowHyperEdges.incrementBinaryEdge(fromID,toID)
           case "controlLocationEdgeForSCC" => controlLocationEdgeForSCC.incrementBinaryEdge(fromID,toID)
           case "transitive" => predicateTransitiveEdges.incrementBinaryEdge(fromID,toID)
-          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
+          case "template" | "template_bool"|"template_eq"|"template_ineq" => templateEdges.incrementBinaryEdge(fromID, toID)
           case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
           case "verifHintTplPred" => incrementTemplates("verifHintTplPred",fromID, toID)
           case "verifHintTplPredPosNeg" => incrementTemplates("verifHintTplPredPosNeg",fromID, toID)
@@ -256,7 +259,7 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
           case "subTermConstantOperator"=>subTermConstantOperatorEdges.incrementBinaryEdge(fromID, toID)
           case "subTermOperatorOperator"=>subTermOperatorOperatorEdges.incrementBinaryEdge(fromID, toID)
           case "subTermScOperator"=>subTermScOperatorEdges.incrementBinaryEdge(fromID, toID)
-          case "template" => templateEdges.incrementBinaryEdge(fromID, toID)
+          case "template" | "template_bool"|"template_eq"|"template_ineq"=> templateEdges.incrementBinaryEdge(fromID, toID)
           case "templateAST" => templateASTEdges.incrementBinaryEdge(fromID, toID)
           case "verifHintTplPred" => incrementTemplates("verifHintTplPred",fromID, toID)
           case "verifHintTplPredPosNeg" => incrementTemplates("verifHintTplPredPosNeg",fromID, toID)
@@ -442,6 +445,18 @@ class GNNInput(simpClauses:Clauses,clausesInCE:Clauses) {
         nodeSymbols :+= nodeClass + "_" + templateCanonicalID.toString
         templateCanonicalID += 1
       }
+      case "template_bool" => {
+        nodeSymbols :+= nodeClass + "_" + templateBoolCanonicalID.toString
+        templateBoolCanonicalID += 1
+      }
+      case "template_eq" => {
+        nodeSymbols :+= nodeClass + "_" + templateEqCanonicalID.toString
+        templateEqCanonicalID += 1
+      }
+      case "template_ineq" => {
+        nodeSymbols :+= nodeClass + "_" + templateIneqCanonicalID.toString
+        templateIneqCanonicalID += 1
+      }
       case "guard" => {
         nodeSymbols :+= nodeClass + "_" + guardCanonicalID.toString
         guardCanonicalID += 1
@@ -476,6 +491,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
 //    case DrawHornGraph.HornGraphType.concretizedHyperedgeGraph => "concretized-hyperedgeGraph"
 //  }
   val templateNodePrefix = "template_"
+  val templateEqNodePrefix = "template_eq_"
+  val templateIneqNodePrefix = "template_ineq_"
+  val templateBoolNodePrefix = "template_bool_"
   var edgeNameMap: Map[String, String] = Map()
   var edgeDirectionMap: scala.collection.immutable.Map[String,Boolean] = Map()
   var nodeShapeMap: Map[String, String] = Map()
@@ -494,6 +512,9 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   edgeNameMap += ("templateAST"->"tplAST")
   //edgeNameMap += ("template"->"predicate")
   edgeNameMap += ("template" -> "template")
+  edgeNameMap += ("template_bool" -> "template_bool")
+  edgeNameMap += ("template_eq" -> "template_eq")
+  edgeNameMap += ("template_ineq" -> "template_ineq")
   edgeNameMap += ("verifHintTplPred" -> "Pred")
   edgeNameMap += ("verifHintTplPredPosNeg" -> "PredPosNeg")
   edgeNameMap += ("verifHintTplEqTerm" -> "EqTerm (tpl)")
@@ -736,7 +757,8 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
       case "predicateName" => gnn_input.incrementPredicateIndicesAndNodeIds(canonicalName, className, labelName)
       case "FALSE" => gnn_input.incrementFalseIndicesAndNodeIds(canonicalName, className, labelName)
       case "Initial" => gnn_input.incrementInitialIndicesAndNodeIds(canonicalName, className, labelName)
-      case "template"=>gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName,hintLabel)
+      case "template" | "template_bool"|"template_eq"|"template_ineq"=>
+        gnn_input.incrementTemplateIndicesAndNodeIds(canonicalName, className, labelName,hintLabel)
       case "clause"=> gnn_input.incrementClauseIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
       case "guard"=> gnn_input.incrementGuardIndicesAndNodeIds(canonicalName, className, labelName,clauseLabelInfo)
       case _ => gnn_input.incrementNodeIds(canonicalName, className, labelName)
@@ -841,7 +863,7 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
     writeGNNInputFieldToJSONFile("falseIndices", IntArray(gnn_input.falseIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("initialIndices", IntArray(gnn_input.initialIndices), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentIndices", IntArray(argumentIndicesList.toArray), writer, lastFiledFlag)
-    writeGNNInputFieldToJSONFile("argumentBoundList", PairStringArray(argumentBoundList.toArray), writer, lastFiledFlag)
+    //writeGNNInputFieldToJSONFile("argumentBoundList", PairStringArray(argumentBoundList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentBinaryOccurrenceList", IntArray(argumentBinaryOccurrenceList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("argumentOccurrence", IntArray(argumentOccurrenceList.toArray), writer, lastFiledFlag)
     writeGNNInputFieldToJSONFile("templateIndices", IntArray(gnn_input.templateIndices), writer, lastFiledFlag)
@@ -1050,7 +1072,6 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNameList=
           for (t<-unlabeledT) yield {
             //encode label to multi-class
-            //val (hintLabel,cost) = getHintLabelAndCost(minedTemplates,t,hp)
             val (hintLabel,cost) = encodeLabelToMultiClass(minedTemplates,t,hp,unlabeledT)
             //println(t,hintLabel)
             //draw boolean predicate as single term node
@@ -1096,24 +1117,26 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
         val templateNameList=
           for (t<-templates) yield {
             val templateASTRootName=drawAST(t._1)
-            val (hintLabel,cost) = getHintLabelAndCost(positiveTemplates,t,hp)
+            val (hintLabel,cost) = getBinaryHintLabelAndCost(positiveTemplates,t,hp)
 
-
-            val templateNodeName=templateNodePrefix+gnn_input.templateCanonicalID.toString
-            val templateNodeLabelName="template_"+gnn_input.templateCanonicalID.toString
-            createNode(templateNodeName,templateNodeLabelName,"template",nodeShapeMap("template"),hintLabel=hintLabel)
+            //todo: check how to differentiate bool, Eq, and InEq templates
+            val (templateNodeName, nodeClass) =t._3 match {
+              case TemplateType.TplEqTerm => {
+                if (isBooleanTemplate(t))
+                  (templateBoolNodePrefix+gnn_input.templateBoolCanonicalID.toString,"template_bool")
+                else
+                  (templateEqNodePrefix+gnn_input.templateEqCanonicalID.toString,"template_eq")
+              }
+              case TemplateType.TplInEqTerm => {(templateIneqNodePrefix+gnn_input.templateIneqCanonicalID.toString,"template_ineq")}
+              case TemplateType.TplPredPosNeg => {(templateBoolNodePrefix+gnn_input.templateBoolCanonicalID.toString,"template_bool")}
+              }
+            val templateNodeLabelName=templateNodeName
+            createNode(templateNodeName,templateNodeLabelName,nodeClass,nodeShapeMap("template"),hintLabel=hintLabel)
             addBinaryEdge(templateASTRootName,templateNodeName,"templateAST")
 
 
-            //            gnn_input.updateTemplateIndicesAndNodeIds(templateASTRootName,hintLabel,cost = cost)//update JSON
-            //            //println(t._1,hintLabel)
-            //            //draw predicted label color
-            //            val (predictedHintLabel,predictedCost) = getHintLabelAndCost(predictedTemplates,t,hp)
-            //            if (predictedHintLabel)
-            //              gnn_input.nodeInfoList(templateASTRootName).fillColor = "green"
-
             //(templateASTRootName,"verifHint"+t._3.toString)
-            (templateNodeName,"verifHint"+t._3.toString)
+            (templateNodeName,nodeClass)
           }
         hp.name->templateNameList
       }
@@ -1210,19 +1233,13 @@ class DrawHornGraph(file: String, clausesCollection: ClauseInfo, hints: Verifica
   }
 
 
-  def getHintLabelAndCost(tpl: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
+  def getBinaryHintLabelAndCost(tpl: Map[Predicate, Seq[(IExpression, Int, TemplateType.Value)]],t:(IExpression, Int, TemplateType.Value),
                           hp:Predicate): (Int,Int) ={
 
     if (tpl.keySet.map(_.toString).contains(hp.toString)) {
       val (b, c) = HintsSelection.termContains(tpl(hp), t)
       b match {
-        case true=>
-          t._3 match {
-            case TemplateType.TplPredPosNeg=>(3,c)
-            case TemplateType.TplEqTerm=>(1, c)
-            case TemplateType.TplInEqTerm=>(2,c)
-            case _=>(0,c)
-          }
+        case true=> (1,c)
         case false=>(0, 100)
       }
     } else {

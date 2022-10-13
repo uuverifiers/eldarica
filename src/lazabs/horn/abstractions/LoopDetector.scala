@@ -154,7 +154,7 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
   import VerificationHints._
   import AbstractionRecord.AbstractionMap
 
-  def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap =
+  def hints2AbstractionRecord(allHints : VerificationHints) : AbstractionMap = {
     (for (head <- loopHeads.iterator;
           maybeHints = allHints.predicateHints get head;
           if maybeHints.isDefined;
@@ -206,6 +206,7 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
            iterationThreshold getOrElse 3
        })
      }).toMap
+  }
 
   /*
   Not used, probably bad idea:

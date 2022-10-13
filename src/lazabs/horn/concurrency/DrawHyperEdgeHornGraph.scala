@@ -397,7 +397,8 @@ class DrawHyperEdgeHornGraph(file: String, clausesCollection: ClauseInfo, hints:
 
   //draw templates
   astEdgeType = "AST" //"templateAST"
-  val templateNameList = if (GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates() //drawTemplatesWithNode()
+  //val templateNameList = if (GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplates() //drawTemplatesWithNode()
+  val templateNameList = if (GlobalParameters.get.extractPredicates) drawPredicate() else drawTemplatesWithNode()
   for ((head, templateNodeNameList) <- templateNameList; templateNodeName <- templateNodeNameList) {
     addBinaryEdge(controlFlowNodeSetCrossGraph(head), templateNodeName._1, templateNodeName._2)
   }

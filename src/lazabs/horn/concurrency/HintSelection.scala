@@ -89,16 +89,17 @@ object HintsSelection {
   val cs=new ConstraintSimplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
   def getPredGenerator(absMaps:Seq[AbstractionMap],outStream : java.io.OutputStream):  Util.Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Util.Dag[(IAtom, NormClause)]] ={
+
     val predGenerator = Console.withErr(outStream) {
       if (lazabs.GlobalParameters.get.templateBasedInterpolation) {
         val fullAbstractionMap =absMaps.reduce(AbstractionRecord.mergeMaps(_,_))
         if (fullAbstractionMap.isEmpty) {
           DagInterpolator.interpolatingPredicateGenCEXAndOr _
           //randomPredicateGenerator
-        } else if(GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.random) {
+        } else if(GlobalParameters.get.combineTemplates==true && GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.random) {
           TemplateSelectionUtils.randomPredicateGenerator(absMaps.head, absMaps.tail.head,
             lazabs.GlobalParameters.get.templateBasedInterpolationTimeout,GlobalParameters.get.explorationRate) _
-        } else if (GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.union){
+        } else if (GlobalParameters.get.combineTemplates==true && GlobalParameters.get.combineTemplateStrategy==CombineTemplateStrategy.union){
 
           TemplateSelectionUtils.combinedPredicateGenerator(absMaps.head,absMaps.tail.head,
             lazabs.GlobalParameters.get.templateBasedInterpolationTimeout) _
@@ -1132,32 +1133,46 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
           //        case JsSuccess(templateLabel,_)=> templateLabel
           //      }
           val splitedPredictedLabelLogit = splitLabel(mapLengthList, normalizedPredictedLabelLogit)
+          val res =
+          if (GlobalParameters.get.trainingTask=="binaryClassification"){
+            (for ((((k, v), label), labelLogit) <- initialHints zip splitedPredictedLabel zip splitedPredictedLabelLogit) yield {
+              k -> (for (((p, l), logit) <- v zip label zip labelLogit if l != 0) yield {
+                p match {
+                  case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                  case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                  case VerifHintTplPredPosNeg(t, c) => VerifHintTplPredPosNeg(t, getCost(t, logit, c))
+                }
+              }).distinct //match labels with predicates
+            }).filterNot(_._2.isEmpty).toMap //delete empty head
+          }
+          else{ // multi-classification
+            (for ((((k, v), label), labelLogit) <- initialHints zip splitedPredictedLabel zip splitedPredictedLabelLogit) yield {
+              k -> (for (((p, l), logit) <- v zip label zip labelLogit if l != 0) yield {
+                l match {
+                  case 1 => {
+                    p match {
+                      case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                      case VerifHintTplInEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                    }
+                  }
+                  case 2 => {
+                    p match {
+                      case VerifHintTplEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                      case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                    }
+                  }
+                  case 3 | 4 => {
+                    p match {
+                      case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+                      case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+                      case VerifHintTplPredPosNeg(t, c) => VerifHintTplPredPosNeg(t, getCost(t, logit, c))
+                    }
+                  }
+                }
+              }).distinct //match labels with predicates
+            }).filterNot(_._2.isEmpty).toMap //delete empty head
+          }
 
-          val res = (for ((((k, v), label), labelLogit) <- initialHints zip splitedPredictedLabel zip splitedPredictedLabelLogit) yield {
-            k -> (for (((p, l), logit) <- v zip label zip labelLogit if l != 0) yield {
-              l match {
-                case 1 => {
-                  p match {
-                    case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
-                    case VerifHintTplInEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
-                  }
-                }
-                case 2 => {
-                  p match {
-                    case VerifHintTplEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
-                    case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
-                  }
-                }
-                case 3 | 4 => {
-                  p match {
-                    case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
-                    case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
-                    case VerifHintTplPredPosNeg(t, c) => VerifHintTplPredPosNeg(t, getCost(t, logit, c))
-                  }
-                }
-              }
-            }).distinct //match labels with predicates
-          }).filterNot(_._2.isEmpty).toMap //delete empty head
           if (GlobalParameters.get.debugLog == true) {
             println("input_file", input_file)
             println("predictedLabel", predictedLabel.toList.length, predictedLabel.toList)
@@ -1189,7 +1204,7 @@ val unlabeledPredicateFileName=".unlabeledPredicates"
     else if (GlobalParameters.get.readCostType == "logit") {
       getCostByLogitValue(logitValue)
     } else
-      originalCost
+      originalCost //1
   }
 
 

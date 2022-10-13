@@ -101,6 +101,7 @@ class GlobalParameters extends Cloneable {
   var getSMT2=false
   var readSMT2=false
   var getSolvingTime=false
+  var trainingTask="binaryClassification"
   var getHornGraph=false
   var getAllHornGraph=false
   var hornGraphType:HornGraphType.Value=HornGraphType.monoDirectionLayerGraph
@@ -210,6 +211,7 @@ class GlobalParameters extends Cloneable {
     that.fileName = this.fileName
     that.funcName = this.funcName
     that.readCostType=this.readCostType
+    that.trainingTask = this.trainingTask
     that.solFileName = this.solFileName
     that.timeout = this.timeout
     that.spuriousness = this.spuriousness
@@ -437,7 +439,7 @@ object Main {
       case "-readSMT2" :: rest => readSMT2 = true; arguments(rest)
       case "-getSolvingTime" :: rest => getSolvingTime = true; arguments(rest)
       case "-debugLog" :: rest => debugLog = true; arguments(rest)
-      case "-hyperGraph" :: rest => hornGraphType = HornGraphType.hyperEdgeGraph; arguments(rest)
+      case "-CDHG" :: rest => hornGraphType = HornGraphType.hyperEdgeGraph; arguments(rest)
       case "-getLabelFromCounterExample":: rest =>getLabelFromCounterExample = true; arguments(rest)
       case "-getLabelFromCounterExample:union":: rest =>{getLabelFromCounterExample = true; unionOption = true; arguments(rest)}
       case "-argumentOccurenceLabel":: rest =>argumentOccurenceLabel = true; arguments(rest)
@@ -457,7 +459,7 @@ object Main {
         getAllHornGraph = true
         arguments(rest)
       }
-      case "-getHornGraph:monoDirectionLayerGraph" :: rest => {
+      case "-getHornGraph:CG" :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.monoDirectionLayerGraph
         arguments(rest)
@@ -482,7 +484,7 @@ object Main {
         hornGraphType = HornGraphType.fineGrainedEdgeTypeLayerGraph
         arguments(rest)
       }
-      case "-getHornGraph:hyperEdgeGraph" :: rest => {
+      case "-getHornGraph:CDHG"  :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.hyperEdgeGraph
         arguments(rest)
@@ -640,6 +642,10 @@ object Main {
 
       case rCostType :: rest if (rCostType.startsWith("-readCostType:")) => {
         readCostType = rCostType drop "-readCostType:".length
+        arguments(rest)
+      }
+      case rTrainingTask :: rest if (rTrainingTask.startsWith("-trainingTask:")) => {
+        trainingTask = rTrainingTask drop "-rTrainingTask:".length
         arguments(rest)
       }
 
