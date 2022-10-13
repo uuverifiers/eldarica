@@ -18,7 +18,7 @@ case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, classN
                 color: String = "black", fillColor: String = "while")
 
 
-case class Edge(edge: Array[Int], dotGraphName: String, className: String)
+case class Edge(edge: Array[Int], dotGraphName: String, className: String, style: String = "solid", color: String = "black")
 
 class HornGraph(clauses: Clauses, templates: templateCollection) {
 
@@ -45,7 +45,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     val dotGraphName = canonicalIDName + ":" + readName
     val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeClass, nodeShapeMap(nodeClass))
     globalNodeID += 1
-    canonicalClassIDMap(nodeClass) += 1
+    canonicalClassIDMap.updated(nodeClass, canonicalClassIDMap(nodeClass) + 1)
     newNode
   }
 
@@ -62,6 +62,25 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
     val writerGraph = new PrintWriter(new File(dotFileName)) //todo: open and close file by with:
     writerGraph.write("digraph dag { " + "\n")
+
+    // draw nodes
+    for (n <- nodeList) {
+      val shapeString = " " + "shape" + "=" + n.shape + " "
+      val nameString = " " + "label" + "=" + "\"" + n.dotGraphName + "\"" + " "
+      val colorString = " " + "color" + "=" + n.color + " "
+      val fillcolorString = " " + "fillcolor" + "=" + n.fillColor + " "
+      writerGraph.write(n.nodeID.toString + " " + "[" + shapeString + nameString + colorString + fillcolorString + "]")
+    }
+    // todo: draw hyperedges
+
+    // draw binary edges
+    for ((et, edges) <- edgeMap; if edges.head.edge.length == 2; edge <- edges) {
+      val styleString = " " + "shape" + "=" + edge.style + " "
+      val nameString = " " + "label" + "=" + "\"" + edge.dotGraphName + "\"" + " "
+      val colorString = " " + "color" + "=" + edge.color + " "
+      writerGraph.write(edge.edge.head.toString + " -> " + edge.edge.tail.head.toString +
+        " " + "[" + nameString + styleString + colorString + "]")
+    }
 
     writerGraph.write("} " + "\n")
     writerGraph.close()
@@ -83,13 +102,14 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     //draw control flow
     //create clause head node
     val headNodeID = globalNodeID
-    nodeMap += (globalNodeID, createNode("relationSymbol", clause.head.pred.name))
+    nodeMap += (globalNodeID -> createNode("relationSymbol", clause.head.pred.name))
 
     for (a <- clause.head.args) {
       //create clause head argument nodes
       val argumentNodeID = globalNodeID
-      nodeMap += (globalNodeID, createNode("relationSymbolArgument", a.toString))
+      nodeMap += (globalNodeID -> createNode("relationSymbolArgument", a.toString))
       // add edges with head node
+      println(Console.BLUE+"debug")
       val edgeClass = "relationSymbolArgumentEdge"
       edgeMap(edgeClass).+:(Edge(Array(argumentNodeID, headNodeID), "RSA", edgeClass))
     }
@@ -97,12 +117,11 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
 
     //create body nodes
     for (b <- clause.body)
-      nodeMap += (globalNodeID, createNode("relationSymbol", b.pred.name))
+      nodeMap += (globalNodeID -> createNode("relationSymbol", b.pred.name))
 
   }
   //draw control flow
-
-
+  drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
 }
 
 class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {

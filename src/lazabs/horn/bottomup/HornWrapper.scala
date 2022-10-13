@@ -35,10 +35,9 @@ import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
-
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
-import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
+import lazabs.Main.{PrintingFinishedException, StoppedException, TimeoutException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
 import lazabs.horn.bottomup.HornClauses._
@@ -49,15 +48,13 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import Util._
-import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
-                                 StaticAbstractionBuilder, AbstractionRecord,
-                                 VerificationHints, EmptyVerificationHints}
+import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
+import lazabs.horn.graphs.{CDHG, templateCollection}
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashMap}
+import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
 
 object HornWrapper {
@@ -436,6 +433,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
       !simpHints.isEmpty)
     AbsReader.printHints(simpHints)
+
+  if (GlobalParameters.get.getHornGraph){
+    val templateList = templateCollection()
+    val cdhg= new CDHG(simplifiedClauses,templateList)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
