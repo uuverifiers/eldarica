@@ -1,10 +1,16 @@
 cc-parser/
-
 flata/ 
 project/
 regression-tests/
 template-parser/
 tools/
+
+target/
+.idea/
+.bsp/
+
+*.xml
+
 AUTHORS
 build.sbt
 eld
