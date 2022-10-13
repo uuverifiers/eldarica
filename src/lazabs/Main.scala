@@ -30,10 +30,11 @@
 
 package lazabs
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{FileInputStream, FileNotFoundException, InputStream}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
+import lazabs.horn.graphs.HornGraphType
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -99,6 +100,8 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
+  var getHornGraph = false
+  var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
@@ -189,6 +192,8 @@ class GlobalParameters extends Cloneable {
     that.didIncompleteTransformation = this.didIncompleteTransformation
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
+    that.getHornGraph = this.getHornGraph
+    that.hornGraphType = this.hornGraphType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
@@ -345,6 +350,16 @@ object Main {
       }
       case "-portfolio" :: rest => {
         portfolio = GlobalParameters.Portfolio.General
+        arguments(rest)
+      }
+      case "-getHornGraph:CDHG" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.CDHG
+        arguments(rest)
+      }
+      case "-getHornGraph:CG" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.CG
         arguments(rest)
       }
       case "-abstract:manual" :: rest => {
