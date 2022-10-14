@@ -19,8 +19,8 @@ object GraphUtils {
     val constraintSimplifiedClauses= for (c<-csSimplifiedClauses) yield simplifyConstraint(c)
     val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
     val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)).flatten // replace multiple same predicate in body
-    val finalNormalizedClauses = for (c <- bodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
-    finalNormalizedClauses
+    val argumentReplacedClauses = for (c <- bodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
+    argumentReplacedClauses
   }
   def simplifyClauses(clauses: Clauses, templates: VerificationHints): Unit ={
     val uniqueClauses = distinctByString(clauses)

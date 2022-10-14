@@ -41,8 +41,18 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
   var globalNodeID = 0
   var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- nodeTypes) yield n -> 0).toMap
-  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "box", "dummy" -> "box"))
+  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "box", "initial" -> "box","dummy" -> "box"))
   val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
+
+
+  var nodeMap: Map[Int, Node] = Map()
+  val dummyNode= createNode("dummy", "dummy")
+  var edgeMap: Map[String, Array[Edge]] = (for (t <- edgeTypes) yield {
+    if (ternaryEdgeTypes.contains(t))
+      t -> Array(Edge(Array(0, 0, 0), "dummy:" + t, t))
+    else
+      t -> Array(Edge(Array(0, 0), "dummy:" + t, t))
+  }).toMap
 
   def getNodeShapeMap(updateMap: Map[String, String]): Map[String, String] = {
     (for (n <- nodeTypes) yield {
@@ -62,6 +72,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeType, readName, nodeShapeMap(nodeType))
     globalNodeID += 1
     canonicalNodeTypeIDMap = canonicalNodeTypeIDMap.updated(nodeType, canonicalNodeTypeIDMap(nodeType) + 1)
+    nodeMap += (newNode.nodeID -> newNode)
     newNode
   }
 
@@ -148,18 +159,17 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
 class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
 
-  var nodeMap: Map[Int, Node] = Map(0 -> createNode("dummy", "dummy"))
-  var edgeMap: Map[String, Array[Edge]] = (for (t <- edgeTypes) yield {
-    if (ternaryEdgeTypes.contains(t))
-      t -> Array(Edge(Array(0, 0, 0), "dummy:" + t, t))
-    else
-      t -> Array(Edge(Array(0, 0), "dummy:" + t, t))
-  }).toMap
+
 
   val normalizedClauses = normalizeClauses(clauses,templates.unlabeled)
+
+  //create initial rs node
+  val initialNode = createNode("initial","initial")
+
+
   for (clause <- normalizedClauses) {
-    println(clause)
-    //draw control flow
+    println(clause.toPrologString)
+
     //create head relation symbol node
     createRelationSymbolNodesAndArguments(clause.head)
 
@@ -167,6 +177,7 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     for (b <- clause.body)
       createRelationSymbolNodesAndArguments(b)
 
+    //draw control flow
 
 
   }
@@ -175,18 +186,19 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
   outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
 
 
+  def parseConstraint(): Unit ={
+    
+  }
   def createRelationSymbolNodesAndArguments(atom: IAtom): Unit = {
     val nodeFromExistedList = nodeMap.values.find(_.readName == atom.pred.name)
     if (nodeFromExistedList.isEmpty) { //if node not existed in nodeMap, create new rs node and rsa nodes
       val rsHeadNode: Node = createNode("relationSymbol", atom.pred.name)
-      nodeMap += (rsHeadNode.nodeID -> rsHeadNode)
       for (a <- atom.args) {
         //create clause head argument nodes
-        val argumentNodeID = globalNodeID
-        nodeMap += (globalNodeID -> createNode("relationSymbolArgument", a.toString))
+        val argumentNode = createNode("relationSymbolArgument", a.toString)
         // add edges with head node
         val edgeType = "relationSymbolArgumentEdge"
-        edgeMap = edgeMap.updated(edgeType, edgeMap(edgeType).+:(Edge(Array(argumentNodeID, rsHeadNode.nodeID),
+        edgeMap = edgeMap.updated(edgeType, edgeMap(edgeType).+:(Edge(Array(argumentNode.nodeID, rsHeadNode.nodeID),
           "RSA", edgeType)))
       }
     }
