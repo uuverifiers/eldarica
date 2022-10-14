@@ -1,10 +1,12 @@
 package lazabs.horn.graphs
 
+import ap.parser.IAtom
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import org.antlr.analysis.SemanticContext.TruePredicate
 
-import java.io.{File, PrintWriter}
+import java.io.{BufferedWriter, File, FileWriter, PrintWriter}
 
 object HornGraphType extends Enumeration {
   val CDHG, CG = Value
@@ -13,14 +15,15 @@ object HornGraphType extends Enumeration {
 case class templateCollection(unlabeled: VerificationHints = VerificationHints(Map()), positive: VerificationHints = VerificationHints(Map()),
                               negative: VerificationHints = VerificationHints(Map()), predicted: VerificationHints = VerificationHints(Map()))
 
-case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, className: String, shape: String,
+case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, typeName: String, readName: String, shape: String,
                 labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
                 color: String = "black", fillColor: String = "while")
 
 
-case class Edge(edge: Array[Int], dotGraphName: String, className: String, style: String = "solid", color: String = "black")
+case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style: String = "solid", color: String = "black")
 
 class HornGraph(clauses: Clauses, templates: templateCollection) {
+  val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
 
   val nodeTypes = Seq("relationSymbol", "initial", "false", "relationSymbolArgument", "variables", "operator", "constant", "guard",
     "clause", "clauseHead", "clauseBody", "clauseArgument",
@@ -48,13 +51,17 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     }).toMap
   }
 
+  def checkNodeExistenceByString(readName: String, nodeList: Array[Node]): Boolean = {
+    if (nodeList.map(_.readName).contains(readName)) true else false
+
+  }
 
   def createNode(nodeType: String, readName: String, labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
                  color: String = "black", fillColor: String = "while"): Node = {
     val nodeTypeCanonicalID = canonicalNodeTypeIDMap(nodeType)
     val canonicalIDName = getCanonicalName(nodeType, nodeTypeCanonicalID)
     val dotGraphName = globalNodeID.toString + ":" + getAbbrevCanonicalName(nodeType, nodeTypeCanonicalID) + ":" + readName
-    val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeType, nodeShapeMap(nodeType))
+    val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeType, readName, nodeShapeMap(nodeType))
     globalNodeID += 1
     canonicalNodeTypeIDMap = canonicalNodeTypeIDMap.updated(nodeType, canonicalNodeTypeIDMap(nodeType) + 1)
     newNode
@@ -69,13 +76,9 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   }
 
   def drawDotGraph(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]]): Unit = {
-    val dotFileName =
-      if (GlobalParameters.get.hornGraphType == HornGraphType.CDHG)
-        GlobalParameters.get.fileName + ".hyperEdgeGraph.gv"
-      else
-        GlobalParameters.get.fileName + ".monoDirectionLayerGraph.gv"
+    val dotFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".gv"
 
-    val writerGraph = new PrintWriter(new File(dotFileName)) 
+    val writerGraph = new PrintWriter(new File(dotFileName))
     writerGraph.write("digraph dag { " + "\n")
 
     // draw nodes
@@ -102,8 +105,44 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
   }
 
-  def outputJson(): Unit = {
+  def outputJson(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]]): Unit = {
+    val nodeIndicesList = for (nt <- nodeTypes) yield {
+      nt + "Indices" -> nodeList.filter(_.typeName == nt)
+    }
+    val nodeSymbolList = nodeList.sortBy(_.nodeID)
 
+
+    val jsonFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    val writer = new PrintWriter(new File(jsonFileName))
+    writer.write("{\n")
+
+    //write nodeID
+    writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString)
+    //write nodeSymbolList
+    writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString)
+    //write indices
+    for ((nt, nl) <- nodeIndicesList) {
+      val listString = nl.map(_.nodeID).toSeq.toString()
+      writeOneLineJson(nt, listString)
+    }
+    //write edges
+    for ((edgeType,edges)<-edgeMap){
+      val listString = edges.map(x=>seqToString(x.edge.toSeq.toString())).toSeq.toString()
+      writeOneLineJson(edgeType, listString)
+    }
+
+    writer.write("}")
+    writer.close()
+
+    def writeOneLineJson(head: String, body: String): Unit =
+      writer.write("\"" + head + "\"" + ":\n"  + seqToString(body)  + "," + "\n")
+
+    def seqToString(s: String): String = {
+      if (s.contains("("))
+        "["+s.substring(s.indexOf("(") + 1, s.indexOf(")")) + "]"
+      else
+        s
+    }
   }
 
 }
@@ -111,7 +150,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
 class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
 
-  var nodeMap: Map[Int, Node] = Map(0 -> createNode("dummy", "dummy")) //todo add a dummy node 0
+  var nodeMap: Map[Int, Node] = Map(0 -> createNode("dummy", "dummy"))
   var edgeMap: Map[String, Array[Edge]] = (for (t <- edgeTypes) yield {
     if (ternaryEdgeTypes.contains(t))
       t -> Array(Edge(Array(0, 0, 0), "dummy:" + t, t))
@@ -119,28 +158,39 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
       t -> Array(Edge(Array(0, 0), "dummy:" + t, t))
   }).toMap
   for (clause <- clauses) {
+    println(clause)
     //draw control flow
-    //create clause head node
-    val headNodeID = globalNodeID
-    nodeMap += (globalNodeID -> createNode("relationSymbol", clause.head.pred.name))
-
-    for (a <- clause.head.args) {
-      //create clause head argument nodes
-      val argumentNodeID = globalNodeID
-      nodeMap += (globalNodeID -> createNode("relationSymbolArgument", a.toString))
-      // add edges with head node
-      val edgeClass = "relationSymbolArgumentEdge"
-      edgeMap = edgeMap.updated(edgeClass, edgeMap(edgeClass).+:(Edge(Array(argumentNodeID, headNodeID), "RSA", edgeClass)))
-    }
+    //create head relation symbol node
+    createRelationSymbolNodesAndArguments(clause.head)
 
 
     //create body nodes
     for (b <- clause.body)
-      nodeMap += (globalNodeID -> createNode("relationSymbol", b.pred.name))
+      createRelationSymbolNodesAndArguments(b)
 
   }
-  //draw control flow
+
   drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
+  outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
+
+
+  def createRelationSymbolNodesAndArguments(atom: IAtom): Unit = {
+    val nodeFromExistedList = nodeMap.values.find(_.readName == atom.pred.name)
+    if (nodeFromExistedList.isEmpty) { //if node not existed in nodeMap, create new rs node and rsa nodes
+      val rsHeadNode: Node = createNode("relationSymbol", atom.pred.name)
+      nodeMap += (rsHeadNode.nodeID -> rsHeadNode)
+      for (a <- atom.args) {
+        //create clause head argument nodes
+        val argumentNodeID = globalNodeID
+        nodeMap += (globalNodeID -> createNode("relationSymbolArgument", a.toString))
+        // add edges with head node
+        val edgeType = "relationSymbolArgumentEdge"
+        edgeMap = edgeMap.updated(edgeType, edgeMap(edgeType).+:(Edge(Array(argumentNodeID, rsHeadNode.nodeID),
+          "RSA", edgeType)))
+      }
+    }
+  }
+
 }
 
 class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
