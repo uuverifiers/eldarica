@@ -1,5 +1,5 @@
 package lazabs.horn.graphs
-
+import lazabs.horn.graphs.GraphUtils.{_}
 import ap.parser.IAtom
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
@@ -23,8 +23,7 @@ case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, typeNa
 case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style: String = "solid", color: String = "black")
 
 class HornGraph(clauses: Clauses, templates: templateCollection) {
-  val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
-
+  //node definition
   val nodeTypes = Seq("relationSymbol", "initial", "false", "relationSymbolArgument", "variables", "operator", "constant", "guard",
     "clause", "clauseHead", "clauseBody", "clauseArgument",
     "templateBool", "templateEq", "templateIneq", "dummy")
@@ -32,15 +31,18 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     "relationSymbolArgument" -> "rsa", "variables" -> "var", "operator" -> "op", "constant" -> "c", "guard" -> "g",
     "clause" -> "cla", "clauseHead" -> "ch", "clauseBody" -> "cb", "clauseArgument" -> "ca",
     "templateBool" -> "tb", "templateEq" -> "teq", "templateIneq" -> "tineq", "dummy" -> "dm")
-  val ternaryEdgeTypes = Seq("controlFlowHyperEdge", "dataFlowHyperEdge", "ternaryHyperEdge")
-  val binaryEdgeTypes = Seq("guardEdge", "relationSymbolArgumentEdge", "ASTLeft", "ASTRight"
-    , "AST", "relationSymbolInstanceEdge", "argumentInstanceEdge", "clauseHeadEdge", "clauseBodyEdge",
-    "clauseArgumentEdge", "data", "binaryEdges")
-  val edgeTypes = ternaryEdgeTypes ++ binaryEdgeTypes
-  var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- nodeTypes) yield n -> 0).toMap
-  var globalNodeID = 0
-  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "box", "dummy" -> "box"))
+  // edge definition
+  val ternaryEdgeTypes = Seq("controlFlow", "dataFlow", "ternary").map(_+"HyperEdge")
+  val binaryEdgeTypes = Seq("guard", "relationSymbolArgument", "ASTLeft", "ASTRight"
+    , "AST", "relationSymbolInstance", "argumentInstance", "clauseHead", "clauseBody",
+    "clauseArgument", "data", "binary").map(_+"Edge")
+  val templateEdgeTypes = Seq("template","templateAST").map(_+"Edge")
+  val edgeTypes = ternaryEdgeTypes ++ binaryEdgeTypes ++ templateEdgeTypes
 
+  var globalNodeID = 0
+  var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- nodeTypes) yield n -> 0).toMap
+  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "box", "dummy" -> "box"))
+  val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
 
   def getNodeShapeMap(updateMap: Map[String, String]): Map[String, String] = {
     (for (n <- nodeTypes) yield {
@@ -51,10 +53,6 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     }).toMap
   }
 
-  def checkNodeExistenceByString(readName: String, nodeList: Array[Node]): Boolean = {
-    if (nodeList.map(_.readName).contains(readName)) true else false
-
-  }
 
   def createNode(nodeType: String, readName: String, labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
                  color: String = "black", fillColor: String = "while"): Node = {
@@ -157,16 +155,19 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     else
       t -> Array(Edge(Array(0, 0), "dummy:" + t, t))
   }).toMap
-  for (clause <- clauses) {
+
+  val normalizedClauses = normalizeClauses(clauses,templates.unlabeled)
+  for (clause <- normalizedClauses) {
     println(clause)
     //draw control flow
     //create head relation symbol node
     createRelationSymbolNodesAndArguments(clause.head)
 
-
     //create body nodes
     for (b <- clause.body)
       createRelationSymbolNodesAndArguments(b)
+
+
 
   }
 
@@ -194,5 +195,5 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
 }
 
 class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
-
+  val simplifiedClauses = simplifyClauses(clauses,templates.unlabeled)
 }
