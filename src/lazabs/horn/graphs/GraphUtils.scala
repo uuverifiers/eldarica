@@ -116,5 +116,12 @@ object GraphUtils {
     }
   }
 
+  def printCurrentNodeMap(nodeMap:Map[Int,Node], nodeTypeList:Seq[String]=NodeAndEdgeType.nodeTypes): Unit ={
+    println("-"*10 + "node list" + "-"*10)
+    for (n <- nodeMap.values; if nodeTypeList.contains(n.typeName))
+      println(n.nodeID,n.typeName,n.readName,n.rsName,n.argumentIndex)
+    println("-"*10)
+  }
+
 }
 
