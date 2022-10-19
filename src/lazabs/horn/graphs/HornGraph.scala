@@ -56,8 +56,8 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
   var globalNodeID = 0
   var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- NodeAndEdgeType.nodeTypes) yield n -> 0).toMap
-  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "box",
-    "initial" -> "box", "dummy" -> "box", "guard" -> "box"))
+  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "component",
+    "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "operator" -> "box", "relationSymbolArgument" -> "hexagon"))
   val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
 
 
@@ -74,6 +74,12 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   val initialNode = createNode("initial", "initial")
   //create global constants
   val globalTrueNode = createNode("constant", "true")
+  val globalZoreNode = createNode("constant", "0")
+  val globalConstantList = Array("1")
+  for (readName <- globalConstantList) createNode("constant", readName)
+
+  var clauseConstraintSubExpressionMap: Map[IExpression, Node] = Map()
+
 
   def getNodeShapeMap(updateMap: Map[String, String]): Map[String, String] = {
     (for (n <- NodeAndEdgeType.nodeTypes) yield {
@@ -83,7 +89,6 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
         n -> "circle"
     }).toMap
   }
-
 
   def createNode(nodeType: String, readName: String, labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
                  color: String = "black", fillColor: String = "while", argumentIndex: Int = -1,
@@ -257,32 +262,44 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   }
 
   def constructAST(e: IExpression): Node = {
-    e match {
-      case Eq(t1, t2) => constructBinaryRelation("=", t1, t2)
-      case EqLit(t1, t2) => constructBinaryRelation("=", t1, t2)
-      case EqZ(t) => constructBinaryRelation("=", t, IConstant(new ConstantTerm(0.toString))) //constructUnaryRelation(">=", t)
-      case Geq(t1, t2) => constructBinaryRelation(">=", t1, t2)
-      case GeqZ(t) => constructBinaryRelation(">=", t, IConstant(new ConstantTerm(0.toString)))
-      case Conj(t1, t2) => constructBinaryRelation("&", t1, t2)
-      case Disj(t1, t2) => constructBinaryRelation("|", t1, t2)
-      case IPlus(t1, t2) => constructBinaryRelation("+", t1, t2)
-      case Difference(t1, t2) => constructBinaryRelation("-", t1, t2)
-      case ITimes(coeff, subt) => {
-        if (coeff.intValue == -1)
-          constructUnaryRelation("-", subt)
-        else if (coeff.intValue == 1)
-          constructAST(subt)
-        else
-          constructBinaryRelation("*", IConstant(new ConstantTerm(coeff.intValue.toString)), subt)
+    //merge sub tree
+    clauseConstraintSubExpressionMap.find(x => x._1 == e) match {
+      case Some(subE) => {
+        //println("merge sub tree",subE._1,subE._2.readName)
+        subE._2
       }
-      case IQuantified(quan, subf) => constructUnaryRelation(quan.toString, subf)
-      case INot(subf) => constructUnaryRelation("!", subf)
-      case IBoolLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-      case IIntLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-      case IConstant(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-      case IVariable(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-      case _ => createNode("unknown", "unkown")
+      case None => {
+        val astRootNode = e match {
+          case Eq(t1, t2) => constructBinaryRelation("=", t1, t2)
+          case EqLit(t1, t2) => constructBinaryRelation("=", t1, t2)
+          case EqZ(t) => constructBinaryRelation("=", t, IConstant(new ConstantTerm(0.toString))) //constructUnaryRelation(">=", t)
+          case Geq(t1, t2) => constructBinaryRelation(">=", t1, t2)
+          case GeqZ(t) => constructBinaryRelation(">=", t, IConstant(new ConstantTerm(0.toString)))
+          case Conj(t1, t2) => constructBinaryRelation("&", t1, t2)
+          case Disj(t1, t2) => constructBinaryRelation("|", t1, t2)
+          case IPlus(t1, t2) => constructBinaryRelation("+", t1, t2)
+          case Difference(t1, t2) => constructBinaryRelation("-", t1, t2)
+          case ITimes(coeff, subt) => {
+            if (coeff.intValue == -1)
+              constructUnaryRelation("-", subt)
+            else if (coeff.intValue == 1)
+              constructAST(subt)
+            else
+              constructBinaryRelation("*", IConstant(new ConstantTerm(coeff.intValue.toString)), subt)
+          }
+          case IQuantified(quan, subf) => constructUnaryRelation(quan.toString, subf)
+          case INot(subf) => constructUnaryRelation("!", subf)
+          case IBoolLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
+          case IIntLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
+          case IConstant(c) => constructEndNode(nodeType = "constant", readName = c.toString)
+          case IVariable(c) => constructEndNode(nodeType = "constant", readName = c.toString)
+          case _ => createNode("unknown", "unkown")
+        }
+        clauseConstraintSubExpressionMap = clauseConstraintSubExpressionMap.updated(e, astRootNode)
+        astRootNode
+      }
     }
+
   }
 
   def constructBinaryRelation(op: String, left: IExpression, right: IExpression): Node = {
@@ -293,7 +310,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   }
 
   def constructUnaryRelation(op: String, e: IExpression): Node = {
-    //todo merge op nodes (sub trees)
+
     val opNode = createNode("operator", op)
     val subExpressionNode = constructAST(e)
     createEdge("ASTLeftEdge", Array(subExpressionNode.nodeID, opNode.nodeID))
@@ -373,8 +390,15 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     for ((headArg, df) <- dataFlowFormula) {
       val SE = IExpression.SymbolEquation(df._1)
       df._2 match {
-        case SE(coefficient, rhs) if (!coefficient.isZero) => {
-          val rhsASTRoot = constructAST(coefficient * rhs)
+        case SE(coefficient, rhs) => {
+          //println("coef",coefficient,"rhs",rhs)
+          val rhsASTRoot =
+            if (coefficient.intValue == 0)
+              globalZoreNode
+            else if (coefficient.intValue == 1)
+              constructAST(rhs)
+            else
+              constructAST(coefficient * rhs)
           createEdge("dataFlowHyperEdge", Array(rhsASTRoot.nodeID, guardNode.nodeID, headArg.nodeID))
         }
         case _ => {
@@ -391,9 +415,15 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
         createEdge("controlFlowHyperEdge", Array(rsb.nodeID, guardNode.nodeID, rsHeadNode._1.nodeID))
       }
 
+
+
+    //    for ((k, v) <- clauseConstraintSubExpressionMap)
+    //      println(k, v.readName)
+    clauseConstraintSubExpressionMap = Map()
+    clauseCount += 1
+
     //todo draw templates
 
-    clauseCount += 1
   }
 
   drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
@@ -435,4 +465,6 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
 
 class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
   val simplifiedClauses = simplifyClauses(clauses, templates.unlabeled)
+
+
 }
