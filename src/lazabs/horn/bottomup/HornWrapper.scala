@@ -435,7 +435,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     AbsReader.printHints(simpHints)
 
   if (GlobalParameters.get.getHornGraph){
-    val templateList = templateCollection()
+    val templateList = templateCollection(unlabeled = simpHints)
     val hornGraph = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => new CDHG(simplifiedClauses,templateList)
       case HornGraphType.CG => new CG(simplifiedClauses,templateList)

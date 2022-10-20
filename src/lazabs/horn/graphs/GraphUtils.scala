@@ -16,13 +16,14 @@ object GraphUtils {
   def normalizeClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
     val uniqueClauses = distinctByString(clauses)
     val (csSimplifiedClauses, _, _) = cs.process(uniqueClauses.distinct, templates)
-    val constraintSimplifiedClauses= for (c<-csSimplifiedClauses) yield simplifyConstraint(c)
+    val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
     val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
     val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)).flatten // replace multiple same predicate in body
     val argumentReplacedClauses = for (c <- bodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
     argumentReplacedClauses
   }
-  def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses ={
+
+  def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
     val uniqueClauses = distinctByString(clauses)
     val (csSimplifiedClauses, _, _) = cs.process(uniqueClauses.distinct, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
@@ -116,11 +117,20 @@ object GraphUtils {
     }
   }
 
-  def printCurrentNodeMap(nodeMap:Map[Int,Node], nodeTypeList:Seq[String]=NodeAndEdgeType.nodeTypes): Unit ={
-    println("-"*10 + "node list" + "-"*10)
+  def printCurrentNodeMap(nodeMap: Map[Int, Node], nodeTypeList: Seq[String] = NodeAndEdgeType.nodeTypes): Unit = {
+    println("-" * 10 + "node list" + "-" * 10)
     for (n <- nodeMap.values; if nodeTypeList.contains(n.typeName))
-      println(n.nodeID,n.typeName,n.readName,n.rsName,n.argumentIndex)
-    println("-"*10)
+      println(n.nodeID, n.typeName, n.readName, n.rsName, n.argumentIndex)
+    println("-" * 10)
+  }
+
+  def printListMap[A, B](m: Map[A, Seq[B]], title: String = ""): Unit = {
+    println("-" * 10 + title + "-" * 10)
+    for ((k, v) <- m) {
+      println(k)
+      for (vv <- v)
+        println(vv)
+    }
   }
 
   def getCanonicalName(nodeType: String, canonicalID: Int): String = {
@@ -139,6 +149,7 @@ object GraphUtils {
         n -> defaultAttribute
     }).toMap
   }
+
 
 }
 

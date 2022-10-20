@@ -17,11 +17,11 @@ object HornGraphType extends Enumeration {
 
 object NodeAndEdgeType {
   //node definition
-  val nodeTypes = Seq("relationSymbol", "initial", "false", "relationSymbolArgument", "variables", "operator", "constant", "guard",
+  val nodeTypes = Seq("relationSymbol", "initial", "false", "relationSymbolArgument", "variable", "operator", "constant", "guard",
     "clause", "clauseHead", "clauseBody", "clauseArgument",
     "templateBool", "templateEq", "templateIneq", "dummy", "unknown", "empty")
   val nodeTypesAbbrev = Map("relationSymbol" -> "rs", "initial" -> "initial", "false" -> "false",
-    "relationSymbolArgument" -> "rsa", "variables" -> "var", "operator" -> "op", "constant" -> "c", "guard" -> "g",
+    "relationSymbolArgument" -> "rsa", "variable" -> "var", "operator" -> "op", "constant" -> "c", "guard" -> "g",
     "clause" -> "cla", "clauseHead" -> "ch", "clauseBody" -> "cb", "clauseArgument" -> "ca",
     "templateBool" -> "tb", "templateEq" -> "teq", "templateIneq" -> "tineq", "dummy" -> "dm", "unknown" -> "unk",
     "empty" -> "e")
@@ -52,17 +52,16 @@ case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style:
 
 class HornGraph(clauses: Clauses, templates: templateCollection) {
 
-
   var globalNodeID = 0
   var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- NodeAndEdgeType.nodeTypes) yield n -> 0).toMap
   val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component",
     "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "clause" -> "octagon", "operator" -> "box",
-    "relationSymbolArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box"),
+    "relationSymbolArgument" -> "hexagon", "clauseArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box"),
     elementTypes = NodeAndEdgeType.nodeTypes, "circle")
   val nodeColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "black",
-    "relationSymbolArgument" -> "black"), elementTypes = NodeAndEdgeType.nodeTypes, "black")
-  val nodeFillColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "while",
-    "relationSymbolArgument" -> "while"), elementTypes = NodeAndEdgeType.nodeTypes, "while")
+    "relationSymbolArgument" -> "black", "constant" -> "black"), elementTypes = NodeAndEdgeType.nodeTypes, "black")
+  val nodeFillColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "white",
+    "relationSymbolArgument" -> "white", "constant" -> "white"), elementTypes = NodeAndEdgeType.nodeTypes, "white")
   val edgeColorMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "black"),
     elementTypes = NodeAndEdgeType.edgeTypes, "black")
   val edgeStyleMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "solid"),
@@ -81,11 +80,10 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   }).toMap
 
   //create global constants
-  val globalTrueNode = createNode("constant", "true")()
-  val globalZeroNode = createNode("constant", "0")()
-  val globalConstantNameList = Array("1")
-  val globalConstantNodeList = (for (readName <- globalConstantNameList) yield createNode("constant",
-    readName)()) ++ Seq(globalZeroNode, globalTrueNode)
+  var globalConstantNodeList: Array[Node] = Array()
+  val globalConstantNameList = Array("0")
+  globalConstantNodeList = for (readName <- globalConstantNameList) yield
+    createNode("constant", readName)()
 
   var clauseConstraintSubExpressionMap: Map[IExpression, Node] = Map()
 
@@ -102,9 +100,10 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     canonicalNodeTypeIDMap = canonicalNodeTypeIDMap.updated(nodeType, canonicalNodeTypeIDMap(nodeType) + 1)
     nodeMap += (newNode.nodeID -> newNode)
     currentClauseNodeMap += (newNode.nodeID -> newNode)
+    if (nodeType == "constant")
+      globalConstantNodeList = globalConstantNodeList.+:(newNode)
     newNode
   }
-
 
   def createEdge(edgeType: String, edge: Array[Int])
                 (color: String = edgeColorMap(edgeType), style: String = edgeStyleMap(edgeType)): Unit = {
@@ -136,7 +135,8 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
       val nameString = " " + "label" + "=" + "\"" + n.dotGraphName + "\"" + " "
       val colorString = " " + "color" + "=" + n.color + " "
       val fillcolorString = " " + "fillcolor" + "=" + n.fillColor + " "
-      writerGraph.write(n.nodeID.toString + " " + "[" + shapeString + nameString + colorString + fillcolorString + "]" + "\n")
+      val styleString = " " + "style" + "=" + "filled" + " "
+      writerGraph.write(n.nodeID.toString + " " + "[" + shapeString + nameString + colorString + fillcolorString + styleString + "]" + "\n")
     }
 
     // draw binary edges
@@ -157,7 +157,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
       val shapeString = " " + "shape" + "=" + "diamond" + " "
       val nameString = " " + "label" + "=" + "\"" + et + ":" + clauseID + "\"" + " "
       val colorString = " " + "color" + "=" + edge.color + " "
-      val fillcolorString = " " + "fillcolor" + "=" + "while" + " "
+      val fillcolorString = " " + "fillcolor" + "=" + "white" + " "
       writerGraph.write(hyperEdgeNodeID + " " +
         "[" + shapeString + nameString + colorString + fillcolorString + "]" + "\n")
       hyperEdgeNodeCounter += 1
@@ -320,9 +320,13 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
           case IQuantified(quan, subf) => constructUnaryRelation(quan.toString, subf)
           case INot(subf) => constructUnaryRelation("!", subf)
           case IBoolLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-          case IIntLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-          case IConstant(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-          case IVariable(c) => constructEndNode(nodeType = "constant", readName = c.toString)
+          case IIntLit(c) => {
+            constructEndNode(nodeType = "constant", readName = c.toString)
+          }
+          case IConstant(c) => {
+            constructEndNode(nodeType = "variable", readName = c.toString)
+          }
+          case IVariable(c) => constructEndNode(nodeType = "variable", readName = c.toString)
           case _ => createNode("unknown", "unkown")()
         }
         clauseConstraintSubExpressionMap += (e -> astRootNode)
@@ -402,6 +406,8 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
 
   //create initial rs node
   val initialNode = createNode("initial", "initial")()
+  //create true constant node
+  globalConstantNodeList = globalConstantNodeList.+:(createNode("constant", "true")())
   var clauseCount = 0
 
   for (clause <- normalizedClauses) {
@@ -417,7 +423,7 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     //get AST root nodes
     val guardASTRootList =
       if (guardFormula.isEmpty)
-        Seq(globalTrueNode)
+        Seq(globalConstantNodeList.find(x => x.readName == "true").get)
       else
         for (g <- guardFormula.toSeq) yield {
           constructAST(g)
@@ -425,7 +431,6 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     //connect AST root to guard node
     for (guardASTRoot <- guardASTRootList)
       createEdge("guardEdge", Array(guardASTRoot.nodeID, guardNode.nodeID))()
-
 
 
     //construct dataflow rhs AST root - guard - head argument
@@ -436,7 +441,7 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
           //println("coef",coefficient,"rhs",rhs)
           val rhsASTRoot =
             if (coefficient.intValue == 0)
-              globalZeroNode
+              globalConstantNodeList.find(x => x.readName == "0").get
             else if (coefficient.intValue == 1)
               constructAST(rhs)
             else
@@ -462,7 +467,6 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     currentClauseNodeMap = Map()
     clauseCount += 1
 
-    //todo draw templates
 
     if (GlobalParameters.get.log) {
       println(Console.BLUE + clause.toPrologString)
@@ -473,6 +477,9 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
     }
 
   }
+
+  //todo draw templates
+  printListMap(templates.unlabeled.predicateHints, "unlabeled templates")
 
   drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
   outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
