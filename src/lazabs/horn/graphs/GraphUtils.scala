@@ -22,7 +22,7 @@ object GraphUtils {
     val argumentReplacedClauses = for (c <- bodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
     argumentReplacedClauses
   }
-  def simplifyClauses(clauses: Clauses, templates: VerificationHints): Unit ={
+  def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses ={
     val uniqueClauses = distinctByString(clauses)
     val (csSimplifiedClauses, _, _) = cs.process(uniqueClauses.distinct, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
@@ -121,6 +121,23 @@ object GraphUtils {
     for (n <- nodeMap.values; if nodeTypeList.contains(n.typeName))
       println(n.nodeID,n.typeName,n.readName,n.rsName,n.argumentIndex)
     println("-"*10)
+  }
+
+  def getCanonicalName(nodeType: String, canonicalID: Int): String = {
+    nodeType + "_" + canonicalID.toString
+  }
+
+  def getAbbrevCanonicalName(nodeType: String, canonicalID: Int): String = {
+    NodeAndEdgeType.nodeTypesAbbrev(nodeType) + "_" + canonicalID.toString
+  }
+
+  def getNodeAttributeMap(updateMap: Map[String, String], elementTypes: Seq[String], defaultAttribute: String): Map[String, String] = {
+    (for (n <- elementTypes) yield {
+      if (updateMap.keys.toSeq.contains(n))
+        n -> updateMap(n)
+      else
+        n -> defaultAttribute
+    }).toMap
   }
 
 }

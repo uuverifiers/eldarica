@@ -8,9 +8,8 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
-import org.antlr.analysis.SemanticContext.TruePredicate
 
-import java.io.{BufferedWriter, File, FileWriter, PrintWriter}
+import java.io.{File, PrintWriter}
 
 object HornGraphType extends Enumeration {
   val CDHG, CG = Value
@@ -56,13 +55,24 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
   var globalNodeID = 0
   var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- NodeAndEdgeType.nodeTypes) yield n -> 0).toMap
-  val nodeShapeMap: Map[String, String] = getNodeShapeMap(Map("relationSymbol" -> "component",
-    "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "operator" -> "box", "relationSymbolArgument" -> "hexagon"))
+  val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component",
+    "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "clause" -> "octagon", "operator" -> "box",
+    "relationSymbolArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box"),
+    elementTypes = NodeAndEdgeType.nodeTypes, "circle")
+  val nodeColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "black",
+    "relationSymbolArgument" -> "black"), elementTypes = NodeAndEdgeType.nodeTypes, "black")
+  val nodeFillColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "while",
+    "relationSymbolArgument" -> "while"), elementTypes = NodeAndEdgeType.nodeTypes, "while")
+  val edgeColorMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "black"),
+    elementTypes = NodeAndEdgeType.edgeTypes, "black")
+  val edgeStyleMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "solid"),
+    elementTypes = NodeAndEdgeType.edgeTypes, "solid")
   val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
 
 
   var nodeMap: Map[Int, Node] = Map()
-  val dummyNode = createNode("dummy", "dummy")
+  var currentClauseNodeMap: Map[Int, Node] = Map()
+  val dummyNode = createNode("dummy", "dummy")()
   var edgeMap: Map[String, Array[Edge]] = (for (t <- NodeAndEdgeType.edgeTypes) yield {
     if (NodeAndEdgeType.ternaryEdgeTypes.contains(t))
       t -> Array(Edge(Array(0, 0, 0), "dummy:" + t, t))
@@ -70,42 +80,36 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
       t -> Array(Edge(Array(0, 0), "dummy:" + t, t))
   }).toMap
 
-  //create initial rs node
-  val initialNode = createNode("initial", "initial")
   //create global constants
-  val globalTrueNode = createNode("constant", "true")
-  val globalZoreNode = createNode("constant", "0")
-  val globalConstantList = Array("1")
-  for (readName <- globalConstantList) createNode("constant", readName)
+  val globalTrueNode = createNode("constant", "true")()
+  val globalZeroNode = createNode("constant", "0")()
+  val globalConstantNameList = Array("1")
+  val globalConstantNodeList = (for (readName <- globalConstantNameList) yield createNode("constant",
+    readName)()) ++ Seq(globalZeroNode, globalTrueNode)
 
   var clauseConstraintSubExpressionMap: Map[IExpression, Node] = Map()
 
 
-  def getNodeShapeMap(updateMap: Map[String, String]): Map[String, String] = {
-    (for (n <- NodeAndEdgeType.nodeTypes) yield {
-      if (updateMap.keys.toSeq.contains(n))
-        n -> updateMap(n)
-      else
-        n -> "circle"
-    }).toMap
-  }
-
-  def createNode(nodeType: String, readName: String, labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
-                 color: String = "black", fillColor: String = "while", argumentIndex: Int = -1,
-                 rsName: String = "", clauseID: Int = -1): Node = {
+  def createNode(nodeType: String, readName: String, argumentIndex: Int = -1, rsName: String = "", clauseID: Int = -1,
+                 labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array())
+                (shape: String = nodeShapeMap(nodeType), color: String = nodeColorMap(nodeType), fillColor: String = nodeFillColorMap(nodeType)): Node = {
     val nodeTypeCanonicalID = canonicalNodeTypeIDMap(nodeType)
     val canonicalIDName = getCanonicalName(nodeType, nodeTypeCanonicalID)
     val dotGraphName = globalNodeID.toString + ":" + getAbbrevCanonicalName(nodeType, nodeTypeCanonicalID) + ":" + readName
-    val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeType, readName, nodeShapeMap(nodeType),
-      argumentIndex = argumentIndex, rsName = rsName, clauseID = clauseID)
+    val newNode = Node(globalNodeID, canonicalIDName, dotGraphName, nodeType, readName, shape = shape,
+      argumentIndex = argumentIndex, rsName = rsName, clauseID = clauseID, color = color, fillColor = fillColor)
     globalNodeID += 1
     canonicalNodeTypeIDMap = canonicalNodeTypeIDMap.updated(nodeType, canonicalNodeTypeIDMap(nodeType) + 1)
     nodeMap += (newNode.nodeID -> newNode)
+    currentClauseNodeMap += (newNode.nodeID -> newNode)
     newNode
   }
 
-  def createEdge(edgeType: String, edge: Array[Int]): Unit = {
-    edgeMap = edgeMap.updated(edgeType, edgeMap(edgeType).+:(Edge(edge, NodeAndEdgeType.edgeTypesAbbrev(edgeType), edgeType)))
+
+  def createEdge(edgeType: String, edge: Array[Int])
+                (color: String = edgeColorMap(edgeType), style: String = edgeStyleMap(edgeType)): Unit = {
+    edgeMap = edgeMap.updated(edgeType, edgeMap(edgeType).+:(
+      Edge(edge = edge, dotGraphName = NodeAndEdgeType.edgeTypesAbbrev(edgeType), typeName = edgeType, color = color, style = style)))
     if (edge.length == 2) { //add global binary
       if (edgeType == "ASTLeftEdge" || edgeType == "ASTRightEdge") {
         val etype = "ASTEdge"
@@ -119,13 +123,6 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     }
   }
 
-  def getCanonicalName(nodeType: String, canonicalID: Int): String = {
-    nodeType + "_" + canonicalID.toString
-  }
-
-  def getAbbrevCanonicalName(nodeType: String, canonicalID: Int): String = {
-    NodeAndEdgeType.nodeTypesAbbrev(nodeType) + "_" + canonicalID.toString
-  }
 
   def drawDotGraph(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]]): Unit = {
     val dotFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".gv"
@@ -182,10 +179,8 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
         " " + "[" + edgeNameString + edgeStyleString + edgeColorString + "]" + "\n")
 
     }
-
     writerGraph.write("} " + "\n")
     writerGraph.close()
-
   }
 
   def outputJson(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]]): Unit = {
@@ -193,7 +188,6 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
       nt + "Indices" -> nodeList.filter(_.typeName == nt)
     }
     val nodeSymbolList = nodeList.sortBy(_.nodeID)
-
 
     val jsonFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val writer = new PrintWriter(new File(jsonFileName))
@@ -237,6 +231,42 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     }
   }
 
+  def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Array[Node]) = {
+    //this merge rs and their arguments globally
+    val atomName = atom.pred.name
+    val nodeFromExistedList = findNodeInNodeList(nodeType = "relationSymbol", readName = atomName,
+      nodeList = nodeMap.values.toArray, rsName = atomName)
+    nodeFromExistedList match {
+      case Some(headNode) => {
+        val existedArgList = (for ((arg, i) <- atom.args.zipWithIndex) yield {
+          val argNode = findNodeInNodeList("relationSymbolArgument", readName = arg.toString,
+            nodeList = nodeMap.values.toArray, rsName = headNode.readName, argumentIndex = i).get
+          //change readName for argument in every clause
+          argNode.readName = arg.toString
+          argNode
+        })
+        (headNode, existedArgList.toArray)
+      }
+      case None => createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
+        argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
+
+    }
+  }
+
+  def createNewRelationSymbolNodesAndArguments(atom: IAtom, atomType: String, argumenNodeType: String,
+                                               argumentEdgeType: String, inverseEdgeDirection: Boolean = false): (Node, Array[Node]) = {
+    val atomName = atom.pred.name
+    val rsNode: Node = createNode(atomType, atomName, rsName = atomName)()
+    val argumentNodeList = for ((a, i) <- atom.args.zipWithIndex) yield {
+      //create rs argument nodes
+      val argumentNode = createNode(argumenNodeType, a.toString, argumentIndex = i, rsName = atomName)()
+      // add edges with from argument to rs
+      val edge = if (inverseEdgeDirection == true) Array(rsNode.nodeID, argumentNode.nodeID) else Array(argumentNode.nodeID, rsNode.nodeID)
+      createEdge(argumentEdgeType, edge)()
+      argumentNode
+    }
+    (rsNode, argumentNodeList.toArray)
+  }
 
   def parseConstraint(clause: Clause, rsHeadNode: (Node, Array[Node])): (Set[IFormula], Map[Node, (ITerm, IFormula)]) = {
 
@@ -293,9 +323,9 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
           case IIntLit(c) => constructEndNode(nodeType = "constant", readName = c.toString)
           case IConstant(c) => constructEndNode(nodeType = "constant", readName = c.toString)
           case IVariable(c) => constructEndNode(nodeType = "constant", readName = c.toString)
-          case _ => createNode("unknown", "unkown")
+          case _ => createNode("unknown", "unkown")()
         }
-        clauseConstraintSubExpressionMap = clauseConstraintSubExpressionMap.updated(e, astRootNode)
+        clauseConstraintSubExpressionMap += (e -> astRootNode)
         astRootNode
       }
     }
@@ -305,31 +335,48 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
   def constructBinaryRelation(op: String, left: IExpression, right: IExpression): Node = {
     val opNode = constructUnaryRelation(op, left)
     val rightNode = constructAST(right)
-    createEdge("ASTRightEdge", Array(rightNode.nodeID, opNode.nodeID))
+    createEdge("ASTRightEdge", Array(rightNode.nodeID, opNode.nodeID))()
     opNode
   }
 
   def constructUnaryRelation(op: String, e: IExpression): Node = {
-
-    val opNode = createNode("operator", op)
+    val opNode = createNode("operator", op)()
     val subExpressionNode = constructAST(e)
-    createEdge("ASTLeftEdge", Array(subExpressionNode.nodeID, opNode.nodeID))
+    createEdge("ASTLeftEdge", Array(subExpressionNode.nodeID, opNode.nodeID))()
     opNode
   }
 
   def constructEndNode(nodeType: String, readName: String): Node = {
-    //check if it is an argument node
-    val rsaNodes = nodeMap.values.filter(x => x.typeName == "relationSymbolArgument")
-    findNodeInNodeList(nodeType, readName, rsaNodes.toArray) match {
-      case Some(n) => n
-      case None => {
-        //check if it is created
-        val existedConstantNodes = nodeMap.values.filter(x => (x.typeName == "constant" || x.typeName == "variable"))
-        findNodeInNodeList(nodeType, readName, existedConstantNodes.toArray) match {
-          case Some(n) => n
-          case None => createNode(nodeType, readName)
+    GlobalParameters.get.hornGraphType match {
+      case HornGraphType.CDHG => {
+        val rsaNodes = nodeMap.values.filter(x => x.typeName == "relationSymbolArgument") // merge global rsa
+        findNodeInNodeList(nodeType, readName, rsaNodes.toArray) match { //merge argument node
+          case Some(argNode) => argNode
+          case None => {
+            mergeExistedEndNodeInClauseAndGlobalConstant(nodeType, readName)
+          }
         }
       }
+      case HornGraphType.CG => {
+        val caNodes = currentClauseNodeMap.values.filter(x => x.typeName == "clauseArgument") // find ca in clause
+        val endNode = mergeExistedEndNodeInClauseAndGlobalConstant(nodeType, readName)
+        findNodeInNodeList(nodeType, readName, caNodes.toArray) match {
+          case Some(correspondCANode) =>
+            createEdge("dataEdge", Array(endNode.nodeID, correspondCANode.nodeID))()
+          case None =>
+        }
+        endNode
+      }
+    }
+
+  }
+
+  def mergeExistedEndNodeInClauseAndGlobalConstant(nodeType: String, readName: String): Node = {
+    //check if it is created
+    val existedConstantNodes = (currentClauseNodeMap.values ++ globalConstantNodeList).filter(x => (x.typeName == "constant" || x.typeName == "variable"))
+    findNodeInNodeList(nodeType, readName, existedConstantNodes.toArray) match {
+      case Some(n) => n
+      case None => createNode(nodeType, readName)()
     }
   }
 
@@ -337,6 +384,7 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
                          rsName: String = ""): Option[Node] = {
     nodeType match {
       case "relationSymbolArgument" => nodeList.find(x => (x.rsName == rsName && x.argumentIndex == argumentIndex))
+      case "clauseArgument" => nodeList.find(x => (x.rsName == rsName && x.argumentIndex == argumentIndex))
       case "relationSymbol" => nodeList.find(x => x.rsName == rsName && x.readName == rsName && x.argumentIndex == -1)
       case "constant" => nodeList.find(x => x.readName == readName)
       case "variable" => nodeList.find(x => x.readName == readName)
@@ -350,30 +398,23 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
 
 class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
 
-
   val normalizedClauses = normalizeClauses(clauses, templates.unlabeled)
 
-
+  //create initial rs node
+  val initialNode = createNode("initial", "initial")()
   var clauseCount = 0
 
   for (clause <- normalizedClauses) {
-    println(Console.BLUE + clause.toPrologString)
-
-
     //create head relation symbol node
     val rsHeadNode = createRelationSymbolNodesAndArguments(clause.head)
-
-
     //create body nodes
     val rsBodyNodeList = for (b <- clause.body) yield createRelationSymbolNodesAndArguments(b)
-
-
+    //parse guard and data formula
     val (guardFormula, dataFlowFormula) = parseConstraint(clause, rsHeadNode)
-    println("guardFormula", guardFormula.map(_.toString))
-    println("dataFlowFormula", dataFlowFormula.map(_._2._2.toString))
 
-    //construct guard
-    val guardNode = createNode("guard", "G", clauseID = clauseCount)
+    //construct guard node
+    val guardNode = createNode("guard", "G", clauseID = clauseCount)()
+    //get AST root nodes
     val guardASTRootList =
       if (guardFormula.isEmpty)
         Seq(globalTrueNode)
@@ -381,12 +422,13 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
         for (g <- guardFormula.toSeq) yield {
           constructAST(g)
         }
+    //connect AST root to guard node
     for (guardASTRoot <- guardASTRootList)
-      createEdge("guardEdge", Array(guardASTRoot.nodeID, guardNode.nodeID))
+      createEdge("guardEdge", Array(guardASTRoot.nodeID, guardNode.nodeID))()
 
 
 
-    //construct dataflow rhs ast root - guard - head argument
+    //construct dataflow rhs AST root - guard - head argument
     for ((headArg, df) <- dataFlowFormula) {
       val SE = IExpression.SymbolEquation(df._1)
       df._2 match {
@@ -394,12 +436,12 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
           //println("coef",coefficient,"rhs",rhs)
           val rhsASTRoot =
             if (coefficient.intValue == 0)
-              globalZoreNode
+              globalZeroNode
             else if (coefficient.intValue == 1)
               constructAST(rhs)
             else
               constructAST(coefficient * rhs)
-          createEdge("dataFlowHyperEdge", Array(rhsASTRoot.nodeID, guardNode.nodeID, headArg.nodeID))
+          createEdge("dataFlowHyperEdge", Array(rhsASTRoot.nodeID, guardNode.nodeID, headArg.nodeID))()
         }
         case _ => {
           println("debug df", df)
@@ -407,64 +449,89 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
       }
     }
 
-    //draw control flow : body-guard-head
+    //construct control flow : body-guard-head
     if (rsBodyNodeList.isEmpty)
-      createEdge("controlFlowHyperEdge", Array(initialNode.nodeID, guardNode.nodeID, rsHeadNode._1.nodeID))
+      createEdge("controlFlowHyperEdge", Array(initialNode.nodeID, guardNode.nodeID, rsHeadNode._1.nodeID))()
     else
       for ((rsb, rsbArgs) <- rsBodyNodeList) {
-        createEdge("controlFlowHyperEdge", Array(rsb.nodeID, guardNode.nodeID, rsHeadNode._1.nodeID))
+        createEdge("controlFlowHyperEdge", Array(rsb.nodeID, guardNode.nodeID, rsHeadNode._1.nodeID))()
       }
 
 
-
-    //    for ((k, v) <- clauseConstraintSubExpressionMap)
-    //      println(k, v.readName)
     clauseConstraintSubExpressionMap = Map()
+    currentClauseNodeMap = Map()
     clauseCount += 1
 
     //todo draw templates
+
+    if (GlobalParameters.get.log) {
+      println(Console.BLUE + clause.toPrologString)
+      println("guardFormula", guardFormula.map(_.toString))
+      println("dataFlowFormula", dataFlowFormula.map(_._2._2.toString))
+      //      for ((k, v) <- clauseConstraintSubExpressionMap)
+      //        println(k, v.readName)
+    }
 
   }
 
   drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
   outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
 
-
-  def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Array[Node]) = {
-    val atomName = atom.pred.name
-    val nodeFromExistedList = findNodeInNodeList(nodeType = "relationSymbol", readName = atomName,
-      nodeList = nodeMap.values.toArray, rsName = atomName)
-    nodeFromExistedList match {
-      case Some(headNode) => {
-        val existedArgList = (for ((arg, i) <- atom.args.zipWithIndex) yield {
-          val argNode = findNodeInNodeList("relationSymbolArgument", readName = arg.toString,
-            nodeList = nodeMap.values.toArray, rsName = headNode.readName, argumentIndex = i).get
-          //change readName for argument in every clause
-          argNode.readName = arg.toString
-          argNode
-        })
-        (headNode, existedArgList.toArray)
-      }
-      case None => {
-        val rsNode: Node = createNode("relationSymbol", atomName, rsName = atomName)
-        val argumentNodeList = for ((a, i) <- atom.args.zipWithIndex) yield {
-          //create clause head argument nodes
-          val argumentNode = createNode("relationSymbolArgument", a.toString, argumentIndex = i,
-            rsName = atomName)
-          // add edges with head node
-          createEdge("relationSymbolArgumentEdge", Array(argumentNode.nodeID, rsNode.nodeID))
-          argumentNode
-        }
-        (rsNode, argumentNodeList.toArray)
-      }
-    }
-
-  }
-
 }
 
 class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
   val simplifiedClauses = simplifyClauses(clauses, templates.unlabeled)
+  var clauseCount = 0
 
+  //predicate layer
+  val atomSet = (for (clause <- simplifiedClauses; atom <- clause.allAtoms) yield atom).toSet
+  val rsNodeList = for (atom <- atomSet) yield createRelationSymbolNodesAndArguments(atom)
+
+  currentClauseNodeMap = Map()
+  for (clause <- simplifiedClauses) {
+
+    //clause layer
+    // create clause head and body and their argument nodes
+    val clauseHeadNode = createNewRelationSymbolNodesAndArguments(clause.head, "clauseHead",
+      argumenNodeType = "clauseArgument", argumentEdgeType = "clauseArgumentEdge")
+    val clauseBodyNodeList = for (b <- clause.body) yield createNewRelationSymbolNodesAndArguments(b,
+      "clauseBody", argumenNodeType = "clauseArgument", argumentEdgeType = "clauseArgumentEdge")
+
+    //create clause node
+    val clauseNode = createNode("clause", "clause_" + clauseCount.toString)()
+    //connect clause head and body to clause node
+    createEdge("clauseHeadEdge", Array(clauseHeadNode._1.nodeID, clauseNode.nodeID))()
+    for (cbn <- clauseBodyNodeList)
+      createEdge("clauseBodyEdge", Array(cbn._1.nodeID, clauseNode.nodeID))()
+
+    //connect from clause layer to predicate layer
+    for (c <- clauseBodyNodeList ++ Seq(clauseHeadNode)) {
+      val correspondingRs = rsNodeList.find(x => x._1.rsName == c._1.rsName).get
+      createEdge("relationSymbolInstanceEdge", Array(c._1.nodeID, correspondingRs._1.nodeID))()
+      for (a <- c._2) {
+        val correspondingArg = correspondingRs._2.find(x => x.argumentIndex == a.argumentIndex).get
+        createEdge("argumentInstanceEdge", Array(a.nodeID, correspondingArg.nodeID))()
+      }
+    }
+
+    //constraint layer and connections
+    val subConstraintFormulas = LineariseVisitor(clause.constraint, IBinJunctor.And)
+    val constraintRootNodes = for (subf <- subConstraintFormulas) yield constructAST(subf)
+    for (r <- constraintRootNodes)
+      createEdge("guardEdge", Array(r.nodeID, clauseNode.nodeID))()
+
+
+    clauseConstraintSubExpressionMap = Map()
+    currentClauseNodeMap = Map()
+    clauseCount += 1
+
+    if (GlobalParameters.get.log) {
+      println(Console.BLUE + clause.toPrologString)
+    }
+
+  }
+
+  drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
+  outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
 
 }
