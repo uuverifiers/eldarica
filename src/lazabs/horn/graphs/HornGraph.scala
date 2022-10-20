@@ -1,12 +1,14 @@
 package lazabs.horn.graphs
 
-import ap.parser.IExpression.{Conj, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ}
+import ap.parser.IExpression.{Conj, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ,Predicate}
 import lazabs.horn.graphs.GraphUtils._
 import ap.parser.{IAtom, IBinJunctor, IBoolLit, IConstant, IExpression, IFormula, IIntLit, INot, IPlus, IQuantified, ITerm, ITimes, IVariable, LineariseVisitor, SymbolCollector}
 import ap.terfor.ConstantTerm
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
 import java.io.{File, PrintWriter}
@@ -36,12 +38,11 @@ object NodeAndEdgeType {
   val edgeTypesAbbrev = Map("controlFlowHyperEdge" -> "CFHE", "dataFlowHyperEdge" -> "DFHE", "ternaryHyperEdge" -> "te",
     "guardEdge" -> "G", "relationSymbolArgumentEdge" -> "RSA", "ASTLeftEdge" -> "ASTL", "ASTRightEdge" -> "ASTR"
     , "ASTEdge" -> "AST", "relationSymbolInstanceEdge" -> "RSI", "argumentInstanceEdge" -> "AI", "clauseHeadEdge" -> "CH",
-    "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data", "binaryEdge" -> "be")
+    "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data", "binaryEdge" -> "be"
+    ,"templateEdge"->"t","templateASTEdge"->"tAST")
 
 }
 
-case class templateCollection(unlabeled: VerificationHints = VerificationHints(Map()), positive: VerificationHints = VerificationHints(Map()),
-                              negative: VerificationHints = VerificationHints(Map()), predicted: VerificationHints = VerificationHints(Map()))
 
 case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, typeName: String, var readName: String, shape: String,
                 labelList: Array[Float] = Array(), predictedLabelList: Array[Float] = Array(),
@@ -50,18 +51,20 @@ case class Node(nodeID: Int, canonicalName: String, dotGraphName: String, typeNa
 
 case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style: String = "solid", color: String = "black")
 
-class HornGraph(clauses: Clauses, templates: templateCollection) {
+class HornGraph(clauses: Clauses, templates: Map[String,VerificationHints]) {
 
   var globalNodeID = 0
   var canonicalNodeTypeIDMap: Map[String, Int] = (for (n <- NodeAndEdgeType.nodeTypes) yield n -> 0).toMap
   val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component",
     "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "clause" -> "octagon", "operator" -> "box",
-    "relationSymbolArgument" -> "hexagon", "clauseArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box"),
+    "relationSymbolArgument" -> "hexagon", "clauseArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box",
+  "templateEq"->"box","templateIneq"->"box","templateBool"->"box"),
     elementTypes = NodeAndEdgeType.nodeTypes, "circle")
   val nodeColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "black",
     "relationSymbolArgument" -> "black", "constant" -> "black"), elementTypes = NodeAndEdgeType.nodeTypes, "black")
   val nodeFillColorMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "white",
-    "relationSymbolArgument" -> "white", "constant" -> "white"), elementTypes = NodeAndEdgeType.nodeTypes, "white")
+    "relationSymbolArgument" -> "white", "constant" -> "white",
+    "templateEq"->"red","templateIneq"->"yellow","templateBool"->"green"), elementTypes = NodeAndEdgeType.nodeTypes, "white")
   val edgeColorMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "black"),
     elementTypes = NodeAndEdgeType.edgeTypes, "black")
   val edgeStyleMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "solid"),
@@ -396,13 +399,40 @@ class HornGraph(clauses: Clauses, templates: templateCollection) {
     }
   }
 
+  def constructTemplates(templateMap:Map[String,VerificationHints]): Unit ={
+    //todo predicate-2 will match TplEqTerm, differerntiate boolean by Sort
+    val unlabeledTemplate = templateMap("unlabeled")
+
+    for ((pred,temps)<-unlabeledTemplate.predicateHints;t<-temps){
+      //create template node
+      t match {
+        case VerifHintTplEqTerm(e,cost)=> createTemplateNodeAndCorrespondingEdges("templateEq",pred,e)
+        case  VerifHintTplInEqTerm(e,cost)=> createTemplateNodeAndCorrespondingEdges("templateIneq",pred,e)
+        case VerifHintTplPredPosNeg(e,cost)=> createTemplateNodeAndCorrespondingEdges("templateBool",pred,e)
+      }
+
+    }
+
+    def createTemplateNodeAndCorrespondingEdges(templateType:String,pred:Predicate,e:IExpression): Unit ={
+      val templateNode=createNode(templateType,templateType)()
+      //edge from rs to templates
+      val correspondingRs = nodeMap.values.find(x=>x.typeName=="relationSymbol" && x.readName == pred.name && x.rsName ==pred.name).get
+      createEdge("templateEdge",Array(correspondingRs.nodeID,templateNode.nodeID))()
+      //ast root node
+      val astRootNode = constructAST(e) //todo check merging
+      //edge from ast note to template node
+      createEdge("templateASTEdge",Array(astRootNode.nodeID,templateNode.nodeID))()
+    }
+
+  }
+
 
 }
 
 
-class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
+class CDHG(clauses: Clauses, templates: Map[String,VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String,VerificationHints]) {
 
-  val normalizedClauses = normalizeClauses(clauses, templates.unlabeled)
+  val normalizedClauses = normalizeClauses(clauses, templates("unlabeled"))
 
   //create initial rs node
   val initialNode = createNode("initial", "initial")()
@@ -479,15 +509,16 @@ class CDHG(clauses: Clauses, templates: templateCollection) extends HornGraph(cl
   }
 
   //todo draw templates
-  printListMap(templates.unlabeled.predicateHints, "unlabeled templates")
+  printListMap(templates("unlabeled").predicateHints, "unlabeled templates")
+  constructTemplates(templates)
 
   drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
   outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap)
 
 }
 
-class CG(clauses: Clauses, templates: templateCollection) extends HornGraph(clauses: Clauses, templates: templateCollection) {
-  val simplifiedClauses = simplifyClauses(clauses, templates.unlabeled)
+class CG(clauses: Clauses, templates: Map[String,VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String,VerificationHints]) {
+  val simplifiedClauses = simplifyClauses(clauses, templates("unlabeled"))
   var clauseCount = 0
 
   //predicate layer

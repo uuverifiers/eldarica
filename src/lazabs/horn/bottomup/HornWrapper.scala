@@ -52,7 +52,8 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
-import lazabs.horn.graphs.{CDHG, CG,HornGraphType, templateCollection}
+import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, getTemplateMap, logTime}
+import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -435,10 +436,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     AbsReader.printHints(simpHints)
 
   if (GlobalParameters.get.getHornGraph){
-    val templateList = templateCollection(unlabeled = simpHints)
+    createNewLogFile()
+    val templateList = getTemplateMap(simplifiedClauses)
     val hornGraph = GlobalParameters.get.hornGraphType match {
-      case HornGraphType.CDHG => new CDHG(simplifiedClauses,templateList)
-      case HornGraphType.CG => new CG(simplifiedClauses,templateList)
+      case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses,templateList),"generate CDHG")
+      case HornGraphType.CG => logTime(new CG(simplifiedClauses,templateList),"generate CG")
     }
 
   }
