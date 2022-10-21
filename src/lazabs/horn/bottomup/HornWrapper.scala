@@ -442,6 +442,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses,templateList),"generate CDHG")
       case HornGraphType.CG => logTime(new CG(simplifiedClauses,templateList),"generate CG")
     }
+    System.exit(0)
 
   }
 
