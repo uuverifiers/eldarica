@@ -25,7 +25,7 @@ object TemplateUtils {
   val sp = new Simplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
-  def getTemplateMap(clauses: Clauses): Map[String, VerificationHints] = {
+  def writeTemplateMap(clauses: Clauses): Unit= {
     //notice: templates are only correspond to the original clauses
     val fileTypeList = Seq("unlabeled", "labeled", "predicted", "mined")
     val unlabeledTemplates = logTime(generateTemplates(clauses), "generate template")
@@ -33,11 +33,16 @@ object TemplateUtils {
     val minedTemplates = readTemplateFromFile(clauses, "mined")
     val labeledTemplates = getLabeledTemplates(unlabeledTemplates, minedTemplates)
     writeTemplatesToFile(labeledTemplates, "labeled")
+  }
 
+  def readTemplateMap(clauses: Clauses): Map[String, VerificationHints] = {
+    //notice: templates are only correspond to the original clauses
+    val fileTypeList = Seq("unlabeled", "labeled", "predicted", "mined")
     (for (t <- fileTypeList) yield t -> readTemplateFromFile(clauses, t)).toMap
   }
 
   def getLabeledTemplates(unlabeled: VerificationHints, mined: VerificationHints): VerificationHints = {
+    //filter mined templates by cost
     val filterThreshold = 99
     val filteredMinedTemplates = for ((p, pes) <- mined.predicateHints) yield {
       val filteredElements = for (pe <- pes; if getVerifHintElementContent(pe)._2 < filterThreshold) yield {
@@ -46,49 +51,15 @@ object TemplateUtils {
       p -> filteredElements
     }
 
-
     val labeledTemplates = (for ((unlabeledP, unlabeledEs) <- unlabeled.predicateHints) yield {
       val labeledEs = for (f <- filteredMinedTemplates(unlabeledP); if VerifHintElementContains(unlabeledEs, f)) yield {
         f
       }
       unlabeledP -> labeledEs
     }).filterNot(x => x._2.isEmpty)
-
-    printListMap(unlabeled.predicateHints, "unlabeledTemplates")
-    printListMap(filteredMinedTemplates, "filteredMinedTemplates")
-    printListMap(labeledTemplates, "labeledTemplates")
     VerificationHints(labeledTemplates)
   }
 
-  def VerifHintElementContains(elementList: Seq[VerifHintElement], target: VerifHintElement): Boolean = {
-    var res = false
-    val (targetExpression, _, targetType) = getVerifHintElementContent(target)
-    for (e <- elementList) {
-      val (eExpression, _, eType) = getVerifHintElementContent(e)
-      if (eType == targetType) {
-        e match {
-          case VerifHintTplEqTerm(_, _) => {
-            if (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm])
-              || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
-              res = true
-          }
-          case VerifHintTplInEqTerm(_, _) => {
-            if (equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
-              res = true
-          }
-          case VerifHintTplPred(_, _) => {
-            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
-              res = true
-          }
-          case VerifHintTplPredPosNeg(_, _) => {
-            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
-              res = true
-          }
-        }
-      }
-    }
-    res
-  }
 
   def getVerifHintElementContent(e: VerifHintElement): (IExpression, Int, String) = {
     e match {
@@ -100,100 +71,14 @@ object TemplateUtils {
     }
   }
 
-  def equalTerms(s: ITerm, t: ITerm): Boolean = {
-    noConstantTerm(s) && noConstantTerm(t) &&
-      (symbols(s + t) forall { c => constVarCoeff(s, c) == constVarCoeff(t, c) })
-  }
-
-  def equalMinusTerms(s: ITerm, t: ITerm): Boolean = {
-    noConstantTerm(s) && noConstantTerm(t) &&
-      (symbols(s + t) forall { c => constVarCoeff(s, c) == -constVarCoeff(t, c) })
-  }
-
-  private def symbols(t: ITerm): Set[ITerm] = {
-    val (vars, consts, _) = SymbolCollector varsConstsPreds t
-    (consts.toSet map IConstant) ++ vars.toSet
-  }
-
-  private def constVarCoeff(t: ITerm, c: ITerm): IdealInt = {
-    assert(c.isInstanceOf[IConstant] || c.isInstanceOf[IVariable])
-    import IExpression._
-    val Sum = SymbolSum(c)
-    t match {
-      case Sum(coeff, _) => coeff
-      case _ => 0
-    }
-  }
-
-  private def noConstantTerm(t: ITerm): Boolean = t match {
-    case _: IIntLit => false
-    case IPlus(a, b) => noConstantTerm(a) && noConstantTerm(b)
-    case ITimes(_, s) => noConstantTerm(s)
-    case _: IConstant | _: IVariable => true
-  }
-
-  private def containsPred(pred: IFormula,
-                           otherPreds: Iterable[IFormula]): Boolean = try {
-    SimpleAPI.withProver { p =>
-      implicit val _ = p
-      import p._
-      import IExpression._
-      var qCounter = 0
-      val predSyms =
-        SymbolCollector.variables(pred) ++ SymbolCollector.constants(pred)
-
-      withTimeout(timeoutForPredicateDistinct) {
-        otherPreds exists {
-          q => {
-            //println(Console.GREEN + "q",qCounter,q)
-            qCounter = qCounter + 1
-            val qSyms =
-              SymbolCollector.variables(q) ++ SymbolCollector.constants(q)
-
-            if (!predSyms.isEmpty && !qSyms.isEmpty &&
-              Seqs.disjoint(predSyms, qSyms)) {
-              // if the predicates do not share any symbols, we can
-              // assume they are not equivalent
-              false
-            } else scope {
-              //val c = pred <=> q
-              val c = (pred <=> q) ||| (pred == q)
-              val vars =
-                SymbolCollector.variables(c)
-
-              // replace variables with constants
-              val varSorts =
-                (for (ISortedVariable(n, s) <- vars.iterator)
-                  yield (n -> s)).toMap
-              val maxVar = if (vars.isEmpty) 0 else
-                (for (IVariable(n) <- vars.iterator) yield n).max
-              val varSubst =
-                (for (n <- 0 to maxVar) yield (varSorts get n) match {
-                  case Some(s) => createConstant(s)
-                  case None => v(n)
-                }).toList
-              ??(subst(c, varSubst, 0))
-              //              println("pred",pred)
-              //              println("vars",vars)
-              //              println("c",c)
-              //              if(??? == ProverStatus.Valid)
-              //                println("pred",pred,"q",q)
-              ??? == ProverStatus.Valid
-            }
-          }
-        }
-      }
-    }
-  } catch {
-    case SimpleAPI.TimeoutException => false
-  }
-
 
   def mineTemplates(simplifiedClauses: Clauses, simpHints: VerificationHints, disjunctive: Boolean,
                     predGenerator: Dag[AndOrNode[NormClause, Unit]] =>
                       Either[Seq[(Predicate, Seq[Conjunction])],
                         Dag[(IAtom, NormClause)]]): Unit = {
-    /* notice:
+    /*
+    output mined.tpl
+    notice:
      different abstract option cause different mined Templates
      use the abstract option that takes shortest time to solve the problem
      */
@@ -209,7 +94,6 @@ object TemplateUtils {
     val predMiner = new PredicateMiner(predAbs)
     val minedTemplates = predMiner.unitTwoVariableTemplates
     writeTemplatesToFile(minedTemplates, "mined")
-    System.exit(0)
   }
 
   def readTemplateFromFile(clauses: Clauses, templateType: String): VerificationHints = {
@@ -334,6 +218,124 @@ object TemplateUtils {
       fw.write(message + "\n")
     }
     finally fw.close()
+  }
+
+  private def VerifHintElementContains(elementList: Seq[VerifHintElement], target: VerifHintElement): Boolean = {
+    var res = false
+    val (targetExpression, _, targetType) = getVerifHintElementContent(target)
+    for (e <- elementList) {
+      val (eExpression, _, eType) = getVerifHintElementContent(e)
+      if (eType == targetType) {
+        e match {
+          case VerifHintTplEqTerm(_, _) => {
+            if (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm])
+              || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
+              res = true
+          }
+          case VerifHintTplInEqTerm(_, _) => {
+            if (equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
+              res = true
+          }
+          case VerifHintTplPred(_, _) => {
+            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
+              res = true
+          }
+          case VerifHintTplPredPosNeg(_, _) => {
+            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
+              res = true
+          }
+        }
+      }
+    }
+    res
+  }
+
+  private def equalTerms(s: ITerm, t: ITerm): Boolean = {
+    noConstantTerm(s) && noConstantTerm(t) &&
+      (symbols(s + t) forall { c => constVarCoeff(s, c) == constVarCoeff(t, c) })
+  }
+
+  private def equalMinusTerms(s: ITerm, t: ITerm): Boolean = {
+    noConstantTerm(s) && noConstantTerm(t) &&
+      (symbols(s + t) forall { c => constVarCoeff(s, c) == -constVarCoeff(t, c) })
+  }
+
+  private def symbols(t: ITerm): Set[ITerm] = {
+    val (vars, consts, _) = SymbolCollector varsConstsPreds t
+    (consts.toSet map IConstant) ++ vars.toSet
+  }
+
+  private def constVarCoeff(t: ITerm, c: ITerm): IdealInt = {
+    assert(c.isInstanceOf[IConstant] || c.isInstanceOf[IVariable])
+    import IExpression._
+    val Sum = SymbolSum(c)
+    t match {
+      case Sum(coeff, _) => coeff
+      case _ => 0
+    }
+  }
+
+  private def noConstantTerm(t: ITerm): Boolean = t match {
+    case _: IIntLit => false
+    case IPlus(a, b) => noConstantTerm(a) && noConstantTerm(b)
+    case ITimes(_, s) => noConstantTerm(s)
+    case _: IConstant | _: IVariable => true
+  }
+
+  private def containsPred(pred: IFormula,
+                           otherPreds: Iterable[IFormula]): Boolean = try {
+    SimpleAPI.withProver { p =>
+      implicit val _ = p
+      import p._
+      import IExpression._
+      var qCounter = 0
+      val predSyms =
+        SymbolCollector.variables(pred) ++ SymbolCollector.constants(pred)
+
+      withTimeout(timeoutForPredicateDistinct) {
+        otherPreds exists {
+          q => {
+            //println(Console.GREEN + "q",qCounter,q)
+            qCounter = qCounter + 1
+            val qSyms =
+              SymbolCollector.variables(q) ++ SymbolCollector.constants(q)
+
+            if (!predSyms.isEmpty && !qSyms.isEmpty &&
+              Seqs.disjoint(predSyms, qSyms)) {
+              // if the predicates do not share any symbols, we can
+              // assume they are not equivalent
+              false
+            } else scope {
+              //val c = pred <=> q
+              val c = (pred <=> q) ||| (pred == q)
+              val vars =
+                SymbolCollector.variables(c)
+
+              // replace variables with constants
+              val varSorts =
+                (for (ISortedVariable(n, s) <- vars.iterator)
+                  yield (n -> s)).toMap
+              val maxVar = if (vars.isEmpty) 0 else
+                (for (IVariable(n) <- vars.iterator) yield n).max
+              val varSubst =
+                (for (n <- 0 to maxVar) yield (varSorts get n) match {
+                  case Some(s) => createConstant(s)
+                  case None => v(n)
+                }).toList
+              ??(subst(c, varSubst, 0))
+              //              println("pred",pred)
+              //              println("vars",vars)
+              //              println("c",c)
+              //              if(??? == ProverStatus.Valid)
+              //                println("pred",pred,"q",q)
+              ??? == ProverStatus.Valid
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    case SimpleAPI.TimeoutException => false
   }
 
 }

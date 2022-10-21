@@ -416,7 +416,10 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
 
   def constructTemplates(templateMap: Map[String, VerificationHints]): Unit = {
     astSource = ASTSouce.template
+
     val unlabeledTemplate = templateMap("unlabeled")
+    //todo get binary labels from labeled templates
+    val labeledTemplates = templateMap("labeled")
 
     for ((pred, temps) <- unlabeledTemplate.predicateHints; t <- temps) {
       currentRsNode = nodeMap.values.find(x => x.typeName == "relationSymbol" && x.rsName == pred.name).get
@@ -424,7 +427,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
       currentClauseNodeMap = (for (a<-(currentRsaNodeList ++ globalConstantNodeList)) yield (a.nodeID->a)).toMap
       t match {
         case VerifHintTplEqTerm(term, cost) => {
-          term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differerntiate boolean by Sort
+          term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
             case (e: ITerm) ::: AnyBool(_) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e)
             case (e: ITerm) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e)
           }
