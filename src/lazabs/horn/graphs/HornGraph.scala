@@ -454,8 +454,8 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
 
 
 class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
-
-  val normalizedClauses = normalizeClauses(clauses, templates("unlabeled"))
+  //notice: templates are only correspond to the original clauses
+  val normalizedClauses = normalizeClauses(clauses, VerificationHints(Map()))
 
   //create initial rs node
   val initialNode = createNode("initial", "initial")()
@@ -541,7 +541,8 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
 }
 
 class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
-  val simplifiedClauses = simplifyClauses(clauses, templates("unlabeled"))
+  //notice: templates are only correspond to the original clauses
+  val simplifiedClauses = simplifyClauses(clauses, VerificationHints(Map()))
   var clauseCount = 0
 
   //predicate layer

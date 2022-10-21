@@ -101,6 +101,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var getHornGraph = false
+  var mineTemplates = false
   var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
@@ -193,6 +194,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.getHornGraph = this.getHornGraph
+    that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
@@ -350,6 +352,10 @@ object Main {
       }
       case "-portfolio" :: rest => {
         portfolio = GlobalParameters.Portfolio.General
+        arguments(rest)
+      }
+      case "-mineTemplates" :: rest => {
+        mineTemplates = true
         arguments(rest)
       }
       case "-getHornGraph:CDHG" :: rest => {

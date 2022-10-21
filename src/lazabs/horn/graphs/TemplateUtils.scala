@@ -4,24 +4,45 @@ import ap.parser.IExpression.Eq
 
 import java.io.{File, FileWriter}
 import ap.parser.{IAtom, ITerm, IVariable, Simplifier}
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.types.Sort
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.abstractions.{AbsReader, EmptyVerificationHints, LoopDetector, VerificationHints}
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.HornPredAbs
-import lazabs.horn.preprocessor.HornPreprocessor.{Clauses}
+import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.{CEGAR, HornPredAbs, NormClause, PredicateMiner}
+import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.graphs.GraphUtils._
 
 object TemplateUtils {
   val sp = new Simplifier
 
   def getTemplateMap(clauses: Clauses): Map[String, VerificationHints] = {
+    //notice: templates are only correspond to the original clauses
     val fileTypeList = Seq("unlabeled", "labeled", "predicted", "mined")
     val unlabeledTemplates = logTime(generateTemplates(clauses),"generate template")
     writeTemplatesToFile(unlabeledTemplates,"unlabeled")
     (for (t <- fileTypeList) yield t -> readTemplateFromFile(clauses, t)).toMap
+  }
+
+  def mineTemplates(simplifiedClauses:Clauses,simpHints:VerificationHints,disjunctive:Boolean,
+                    predGenerator: Dag[AndOrNode[NormClause, Unit]] =>
+                      Either[Seq[(Predicate, Seq[Conjunction])],
+                        Dag[(IAtom, NormClause)]]): Unit ={
+    val counterexampleMethod =
+      if (disjunctive)
+        CEGAR.CounterexampleMethod.AllShortest
+      else
+        CEGAR.CounterexampleMethod.FirstBestShortest
+    val predAbs =
+      new HornPredAbs(simplifiedClauses,
+        simpHints.toInitialPredicates, predGenerator,
+        counterexampleMethod)
+    val predMiner = new PredicateMiner(predAbs)
+    val minedTemplates= predMiner
   }
 
   def readTemplateFromFile(clauses: Clauses, templateType: String): VerificationHints = {
