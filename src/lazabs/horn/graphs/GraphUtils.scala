@@ -150,6 +150,9 @@ object GraphUtils {
     }).toMap
   }
 
+  def rgb(a: Int, b: Int, c: Int): String = {
+    "\"" + "#" + a.toHexString.toUpperCase + b.toHexString.toUpperCase + c.toHexString.toUpperCase + "\""
+  }
 
 }
 
