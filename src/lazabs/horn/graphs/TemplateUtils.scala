@@ -25,7 +25,7 @@ object TemplateUtils {
   val sp = new Simplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
-  def writeTemplateMap(clauses: Clauses): Unit= {
+  def writeTemplateMap(clauses: Clauses): Unit = {
     //notice: templates are only correspond to the original clauses
     val fileTypeList = Seq("unlabeled", "labeled", "predicted", "mined")
     val unlabeledTemplates = logTime(generateTemplates(clauses), "generate template")
@@ -222,25 +222,23 @@ object TemplateUtils {
 
   def verifHintElementContains(elementList: Seq[VerifHintElement], target: VerifHintElement): Boolean = {
     val (targetExpression, _, targetType) = getVerifHintElementContent(target)
-    elementList.find(x=> getVerifHintElementContent(x)._3==targetType &&  verifHintElementEq(x,targetExpression)).isDefined
+    elementList.find(x => getVerifHintElementContent(x)._3 == targetType && verifHintElementEq(x, targetExpression)).isDefined
   }
 
   private def verifHintElementEq(e: VerifHintElement, targetExpression: IExpression): Boolean = {
     e match {
       case VerifHintTplEqTerm(eExpression, _) => {
-        (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm])
-          || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
+        (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression)
+          || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression))
       }
       case VerifHintTplInEqTerm(eExpression, _) => {
-        (equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
-
+        equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression)
       }
       case VerifHintTplPred(eExpression, _) => {
-        (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
+        containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression))
       }
       case VerifHintTplPredPosNeg(eExpression, _) => {
-        (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
-
+        containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression))
       }
     }
   }
