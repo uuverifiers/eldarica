@@ -437,10 +437,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   /*
   * Pipeline:
-  * mineTemplates
-  * getHornGraph todo output template label in JSON file
+  * -mineTemplates
+  * -getHornGraph
   * training and prediction
-  * checkSolvability
+  * -checkSolvability
   * */
   if (GlobalParameters.get.getHornGraph){
     createNewLogFile()
