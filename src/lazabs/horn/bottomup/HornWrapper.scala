@@ -435,6 +435,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       !simpHints.isEmpty)
     AbsReader.printHints(simpHints)
 
+  /*
+  * Pipeline:
+  * mineTemplates
+  * getHornGraph todo output template label in JSON file
+  * training and prediction
+  * checkSolvability
+  * */
   if (GlobalParameters.get.getHornGraph){
     createNewLogFile()
     val templateList = readTemplateMap(simplifiedClauses)

@@ -7,7 +7,7 @@ import ap.terfor.ConstantTerm
 import ap.types.Sort.{:::, AnyBool}
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
-import lazabs.horn.abstractions.VerificationHints.{VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
+import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
@@ -194,7 +194,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     writerGraph.close()
   }
 
-  def outputJson(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]]): Unit = {
+  def outputJson(nodeList: Array[Node], edgeMap: Map[String, Array[Edge]],labelList:Array[Int]): Unit = {
     val nodeIndicesList = for (nt <- NodeAndEdgeType.nodeTypes) yield {
       nt + "Indices" -> nodeList.filter(_.typeName == nt)
     }
@@ -204,23 +204,26 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     val writer = new PrintWriter(new File(jsonFileName))
     writer.write("{\n")
 
-    //write statistic info
-    writeOneLineJson("node number", Seq(nodeSymbolList.length).toString, changeLine = false)
+
+    //write labels
+    writeOneLineJson("labelNumber", Seq(labelList.length).toString, changeLine = false)
+    writeOneLineJson("labelList", labelList.toSeq.toString)
     //write nodeID
+    writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString, changeLine = false)
     writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString)
     //write nodeSymbolList
     writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString)
     //write indices
     for ((nt, nl) <- nodeIndicesList) {
       val listString = nl.map(_.nodeID).toSeq.toString()
-      writeOneLineJson(nt + " number", Seq(nl.length).toString, changeLine = false)
+      writeOneLineJson(nt + "Number", Seq(nl.length).toString, changeLine = false)
       writeOneLineJson(nt, listString)
     }
     //write edges
     for ((edgeType, edges) <- edgeMap) {
       val filterDummyEdges = if (edges.length == 1) edges else edges.filterNot(x => x.edge.sum == 0)
       val listString = filterDummyEdges.map(x => seqToString(x.edge.toSeq.toString())).toSeq.toString()
-      writeOneLineJson(edgeType + " number", Seq(edges.length).toString, changeLine = false)
+      writeOneLineJson(edgeType + "Number", Seq(edges.length).toString, changeLine = false)
       writeOneLineJson(edgeType, listString)
     }
 
@@ -414,35 +417,36 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     }
   }
 
-  def constructTemplates(templateMap: Map[String, VerificationHints]): Unit = {
+  def constructTemplates(templateMap: Map[String, VerificationHints]): Array[Int] = {
     astSource = ASTSouce.template
 
     val unlabeledTemplate = templateMap("unlabeled")
-    //todo get binary labels from labeled templates
     val labeledTemplates = templateMap("labeled")
 
-    for ((pred, temps) <- unlabeledTemplate.predicateHints; t <- temps) {
+    val templateRelevanceLabelList = for ((pred, temps) <- unlabeledTemplate.predicateHints; t <- temps) yield{
       currentRsNode = nodeMap.values.find(x => x.typeName == "relationSymbol" && x.rsName == pred.name).get
       val currentRsaNodeList= nodeMap.values.filter(x => x.typeName == "relationSymbolArgument" && x.rsName == pred.name)
       currentClauseNodeMap = (for (a<-(currentRsaNodeList ++ globalConstantNodeList)) yield (a.nodeID->a)).toMap
-      t match {
+      val templateRelevanceLabel = t match {
         case VerifHintTplEqTerm(term, cost) => {
           term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
-            case (e: ITerm) ::: AnyBool(_) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e)
-            case (e: ITerm) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e)
+            case (e: ITerm) ::: AnyBool(_) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e,t,labeledTemplates)
+            case (e: ITerm) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e,t,labeledTemplates)
           }
         }
-        case VerifHintTplInEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateIneq", pred, e)
-        case VerifHintTplPredPosNeg(e, cost) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e)
-
+        case VerifHintTplInEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateIneq", pred, e,t,labeledTemplates)
+        case VerifHintTplPredPosNeg(e, cost) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e,t,labeledTemplates)
       }
       clauseConstraintSubExpressionMap = Map()
       currentClauseNodeMap=Map()
+      templateRelevanceLabel
     }
+    templateRelevanceLabelList.map(x=> if (x==true) 1 else 0).toArray
 
   }
 
-  def createTemplateNodeAndCorrespondingEdges(templateType: String, pred: Predicate, e: IExpression): Unit = {
+  def createTemplateNodeAndCorrespondingEdges(templateType: String, pred: Predicate, e: IExpression,t:VerifHintElement,
+                                              labeledTemplates:VerificationHints): Boolean = {
     val templateNode = createNode(templateType, templateType)()
     //edge from rs to templates
     createEdge("templateEdge", Array(currentRsNode.nodeID, templateNode.nodeID))()
@@ -450,6 +454,10 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     val astRootNode = constructAST(e)
     //edge from ast note to template node
     createEdge("templateASTEdge", Array(astRootNode.nodeID, templateNode.nodeID))()
+
+    //return label
+    verifHintElementContains(labeledTemplates.predicateHints(pred),t)
+
   }
 
 
@@ -536,10 +544,10 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
   }
 
 
-  logTime(constructTemplates(templates), "construct templates")
+  val labelList = logTime(constructTemplates(templates), "construct templates")
 
   logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap,labelList), "write graph to JSON")
 
 }
 
@@ -596,9 +604,9 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
     }
   }
 
-  logTime(constructTemplates(templates),"construct templates")
+  val labelList = logTime(constructTemplates(templates),"construct templates")
 
   logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap),"write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap),"write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap,labelList),"write graph to JSON")
 
 }

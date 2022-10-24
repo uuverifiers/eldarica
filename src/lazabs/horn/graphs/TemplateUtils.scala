@@ -52,7 +52,7 @@ object TemplateUtils {
     }
 
     val labeledTemplates = (for ((unlabeledP, unlabeledEs) <- unlabeled.predicateHints) yield {
-      val labeledEs = for (f <- filteredMinedTemplates(unlabeledP); if VerifHintElementContains(unlabeledEs, f)) yield {
+      val labeledEs = for (f <- filteredMinedTemplates(unlabeledP); if verifHintElementContains(unlabeledEs, f)) yield {
         f
       }
       unlabeledP -> labeledEs
@@ -220,34 +220,29 @@ object TemplateUtils {
     finally fw.close()
   }
 
-  private def VerifHintElementContains(elementList: Seq[VerifHintElement], target: VerifHintElement): Boolean = {
-    var res = false
+  def verifHintElementContains(elementList: Seq[VerifHintElement], target: VerifHintElement): Boolean = {
     val (targetExpression, _, targetType) = getVerifHintElementContent(target)
-    for (e <- elementList) {
-      val (eExpression, _, eType) = getVerifHintElementContent(e)
-      if (eType == targetType) {
-        e match {
-          case VerifHintTplEqTerm(_, _) => {
-            if (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm])
-              || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
-              res = true
-          }
-          case VerifHintTplInEqTerm(_, _) => {
-            if (equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
-              res = true
-          }
-          case VerifHintTplPred(_, _) => {
-            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
-              res = true
-          }
-          case VerifHintTplPredPosNeg(_, _) => {
-            if (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
-              res = true
-          }
-        }
+    elementList.find(x=> getVerifHintElementContent(x)._3==targetType &&  verifHintElementEq(x,targetExpression)).isDefined
+  }
+
+  private def verifHintElementEq(e: VerifHintElement, targetExpression: IExpression): Boolean = {
+    e match {
+      case VerifHintTplEqTerm(eExpression, _) => {
+        (equalTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm])
+          || equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
+      }
+      case VerifHintTplInEqTerm(eExpression, _) => {
+        (equalMinusTerms(targetExpression.asInstanceOf[ITerm], eExpression.asInstanceOf[ITerm]))
+
+      }
+      case VerifHintTplPred(eExpression, _) => {
+        (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
+      }
+      case VerifHintTplPredPosNeg(eExpression, _) => {
+        (containsPred(targetExpression.asInstanceOf[IFormula], Seq(eExpression.asInstanceOf[IFormula])))
+
       }
     }
-    res
   }
 
   private def equalTerms(s: ITerm, t: ITerm): Boolean = {
