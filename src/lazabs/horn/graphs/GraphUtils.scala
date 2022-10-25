@@ -61,7 +61,8 @@ object GraphUtils {
     val uniqueClauses = distinctByString(clauses)
     val (csSimplifiedClauses, _, _) = cs.process(uniqueClauses.distinct, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
-    constraintSimplifiedClauses
+    val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
+    normalizedClauses
   }
 
   def distinctByString[A](formulas: Seq[A]): Seq[A] = {
