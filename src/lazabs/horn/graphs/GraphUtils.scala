@@ -2,16 +2,50 @@ package lazabs.horn.graphs
 
 import ap.SimpleAPI
 import ap.parser.{IAtom, IConstant, IFormula, ITerm, SymbolCollector}
+import ap.terfor.ConstantTerm
+import ap.terfor.preds.Predicate
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.preprocessor.ConstraintSimplifier
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
+import scala.collection.mutable
 import scala.collection.mutable.HashSet
 
 object GraphUtils {
   val cs = new ConstraintSimplifier
+
+
+  def unifyClauseElements(clauses:Clauses): Clauses ={
+    var uniqueIntegerIdentifier=0
+
+    def constructNewName(name: String): String = {
+      val newName = uniqueIntegerIdentifier.toString + ":" + name
+      uniqueIntegerIdentifier += 1
+      newName
+    }
+
+
+    for (c<-clauses) yield {
+      //rename head
+      val newHeadPredName=constructNewName(c.head.pred.name)
+      val newHeadPred =new Predicate(newHeadPredName,c.head.args.length)
+
+      val newHeadArgs =  for  (a<-c.head.args) yield {
+        IConstant(new ConstantTerm(constructNewName(a.toString)) )
+      }
+      //todo should rename constraint
+
+      val newHead = IAtom(newHeadPred,newHeadArgs)
+
+
+      Clause(newHead,c.body,c.constraint)
+    }
+
+  }
+
+
 
   def normalizeClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
     val uniqueClauses = distinctByString(clauses)
