@@ -27,7 +27,6 @@ object TemplateUtils {
 
   def writeTemplateMap(clauses: Clauses): Unit = {
     //notice: templates are only correspond to the original clauses
-    val fileTypeList = Seq("unlabeled", "labeled", "predicted", "mined")
     val unlabeledTemplates = logTime(generateTemplates(clauses), "generate template")
     writeTemplatesToFile(unlabeledTemplates, "unlabeled")
     val minedTemplates = readTemplateFromFile(clauses, "mined")

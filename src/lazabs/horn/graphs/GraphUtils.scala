@@ -196,7 +196,7 @@ object GraphUtils {
       else
         writer.write("\"" + head + "\"" + ":" + seqToString(body) + "," + "\n")
     }else{
-      writer.write("\"" + head + "\"" + ":" + seqToString(body) + "\n")
+      writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "\n")
     }
 
   }

@@ -58,12 +58,12 @@ object EvaluateUtils {
       "unlabeledTemplateRelationSymbolNumber" -> unlabeledTemplatesStatistics._4)
     val meansureFields = Seq("solvingTime", "cegarIterationNumber", "generatedPredicateNumber",
       "averagePredicateSize", "predicateGeneratorTime", "satisfiability")
-    val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs", "Mined")
+    val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
     val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"
-    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions) yield a + g + "0.0"
+    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions ++ Seq("PredictedCG","PredictedCDHG","Empty","Unlabeled","Mined")) yield a + g + "0.0"
     val randomAbstractTypeFields = for (g <- Seq("_CDHG_random_", "_CG_random_"); e <- explorationRate.map(_.toString); a <- combianedOptions) yield a + g + e
-    val AbstractionTypeFields = AbstractionType.values.map(_.toString).toSeq ++ combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
+    val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
     val costOption = Seq("cost_shape", "cost_logit", "cost_same")
     val initialFieldsSeq = (for (m <- meansureFields; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
@@ -173,16 +173,6 @@ object EvaluateUtils {
     writer.write("}")
     writer.close()
 
-    //
-    //    val writer = new PrintWriter(new File(solvingTimeFileName))
-    //    writer.write("{\n")
-    //    var lastFiledFlag = false
-    //    for (f <- fields)
-    //      writeGNNInputFieldToJSONFile(f._1, StringArray(Array[String](f._2)), writer, lastFiledFlag)
-    //    lastFiledFlag = true
-    //    writeGNNInputFieldToJSONFile("dummyFiled", StringArray(Array[String]()), writer, lastFiledFlag)
-    //    writer.write("}")
-    //    writer.close()
 
   }
 

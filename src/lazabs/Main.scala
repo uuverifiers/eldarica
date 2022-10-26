@@ -407,6 +407,11 @@ object Main {
         templateBasedInterpolationType = AbstractionType.Empty
         arguments(rest)
       }
+      case "-abstract:empty" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Empty
+        arguments(rest)
+      }
       case "-abstract:term" :: rest => {
         templateBasedInterpolation = true
         templateBasedInterpolationType = AbstractionType.Term
