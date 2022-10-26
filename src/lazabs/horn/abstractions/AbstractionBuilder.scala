@@ -32,14 +32,15 @@ package lazabs.horn.abstractions
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.concurrency.ReaderMain
-
 import ap.basetypes.IdealInt
 import ap.theories.nia.GroebnerMultiplication
 import ap.parser._
+import lazabs.horn.graphs.HornGraphType
+import lazabs.horn.graphs.TemplateUtils.{randomLabelTemplates, readTemplateFromFile,readTemplateLabelFromJSON}
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs,PredictedCG,PredictedCDHG,Random,Unlabeled,Mined = Value
   }
 }
 
@@ -58,6 +59,28 @@ class StaticAbstractionBuilder(
   val loopDetector = new LoopDetector(clauses)
 
   Console.err.println("Loop heads:")
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def minedAbstractions = readTemplateFromFile(clauses, ".mined")
+
+  def unlabeledAbstractions = readTemplateFromFile(clauses, ".unlabeled")
+
+  def randomAbstractions = {
+    if (new java.io.File(GlobalParameters.get.fileName + ".unlabeledPredicates" + ".tpl").exists == true) {}
+    val unlabeledTempaltes = readTemplateFromFile(clauses, ".unlabeled")
+    randomLabelTemplates(unlabeledTempaltes, 0.2)
+  }
+
+  def predictedCGAbstractions = {
+    GlobalParameters.get.hornGraphType = HornGraphType.CG
+    readTemplateLabelFromJSON(clauses)
+  }
+
+  def predictedCDHGAbstractions = {
+    GlobalParameters.get.hornGraphType = HornGraphType.CDHG
+    readTemplateLabelFromJSON(clauses)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -225,6 +248,11 @@ class StaticAbstractionBuilder(
         relationAbstractions(false)
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
+      case AbstractionType.Mined => minedAbstractions
+      case AbstractionType.Unlabeled => unlabeledAbstractions
+      case AbstractionType.Random => randomAbstractions
+      case AbstractionType.PredictedCG => predictedCGAbstractions
+      case AbstractionType.PredictedCDHG => predictedCDHGAbstractions
     }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)

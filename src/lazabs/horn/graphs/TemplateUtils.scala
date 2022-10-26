@@ -18,8 +18,11 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornPredAbs, NormClause, PredicateMiner}
-import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.graphs.GraphUtils._
+import play.api.libs.json.{JsSuccess, Json}
+
+import scala.util.Random
 
 object TemplateUtils {
   val sp = new Simplifier
@@ -93,6 +96,105 @@ object TemplateUtils {
     val predMiner = new PredicateMiner(predAbs)
     val minedTemplates = predMiner.unitTwoVariableTemplates
     writeTemplatesToFile(minedTemplates, "mined")
+  }
+
+  def readTemplateLabelFromJSON(simplifiedClauses:Clauses,
+                                 readLabel: String = "predictedLabel"): VerificationHints = {
+
+    val input_file = GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON"
+    //same sort in AbsReader printHints
+    val unlabeledTemplates = readTemplateFromFile(simplifiedClauses,"unlabeled").predicateHints.toSeq sortBy (_._1.name)
+    println("read predicted label from " + input_file)
+    try {
+      val json_content = scala.io.Source.fromFile(input_file).mkString
+      val json_data = Json.parse(json_content)
+      val predictedLabel = (json_data \ readLabel).validate[Array[Int]] match {
+        case JsSuccess(templateLabel, _) => templateLabel
+      }
+      val mapLengthList = for ((k, v) <- unlabeledTemplates) yield v.length
+      val splitedPredictedLabel = splitLabel(mapLengthList, predictedLabel)
+
+      val predictedLabelLogit = (json_data \ (readLabel + "Logit")).validate[Array[Double]] match {
+        case JsSuccess(templateLabel, _) => templateLabel
+      }
+      val normalizedPredictedLabelLogit = predictedLabelLogit.map(sigmoid(_))
+
+      val splitedPredictedLabelLogit = splitLabel(mapLengthList, normalizedPredictedLabelLogit)
+      val labeledPredicates =
+        (for ((((k, v), label), labelLogit) <- unlabeledTemplates zip splitedPredictedLabel zip splitedPredictedLabelLogit) yield {
+          k -> (for (((p, l), logit) <- v zip label zip labelLogit if l != 0) yield {
+            p match {
+              case VerifHintTplEqTerm(t, c) => VerifHintTplEqTerm(t, getCost(t, logit, c))
+              case VerifHintTplInEqTerm(t, c) => VerifHintTplInEqTerm(t, getCost(t, logit, c))
+              case VerifHintTplPredPosNeg(t, c) => VerifHintTplPredPosNeg(t, getCost(t, logit, c))
+            }
+          }).distinct //match labels with predicates
+        }).filterNot(_._2.isEmpty).toMap //delete empty head
+
+
+      if (GlobalParameters.get.log == true) {
+        println("input_file", input_file)
+        println("predictedLabel", predictedLabel.toList.length, predictedLabel.toList)
+        for (x <- splitedPredictedLabel)
+          println(x.toSeq, x.size)
+        println("--------Filtered initial predicates---------")
+        for ((k, v) <- labeledPredicates) {
+          println(k)
+          for (p <- v)
+            println(p)
+        }
+      }
+
+
+      VerificationHints(labeledPredicates)
+
+    } catch {
+      case _ => VerificationHints(Map())
+    }
+  }
+
+  private def getCostbyTemplateShape(e: IExpression): Int = {
+    2 - SymbolCollector.variables(e).size
+  }
+
+  private def getCostByLogitValue(logitValue: Double): Int = {
+    100 - (logitValue * 100).toInt
+  }
+
+  private def getCost(e: IExpression, logitValue: Double, originalCost: Int): Int = {
+    if (GlobalParameters.get.readCostType == "shape")
+      getCostbyTemplateShape(e)
+    else if (GlobalParameters.get.readCostType == "logit") {
+      getCostByLogitValue(logitValue)
+    } else
+      originalCost //1
+  }
+
+
+  def sigmoid(x: Double): Double = {
+    math.pow(math.E, x) / (math.pow(math.E, x) + 1)
+  }
+
+  private def splitLabel[T](mapLengthList: Seq[Int], readLabel: Array[T]): Seq[Array[T]] = {
+    var splitTail = readLabel
+    val splitedPredictedLabel = for (l <- mapLengthList) yield {
+      val temp = splitTail.splitAt(l)._1
+      splitTail = splitTail.splitAt(l)._2
+      temp
+    }
+    splitedPredictedLabel
+  }
+
+  def randomLabelTemplates(unlabeledPredicates: VerificationHints, ratio: Double): VerificationHints = {
+    val labeledTemplates = for ((k, v) <- unlabeledPredicates.predicateHints) yield {
+      val numberOfLabeledTemplates = (v.size * ratio).toInt
+      val random = new Random
+      if (GlobalParameters.get.fixRandomSeed)
+        random.setSeed(42)
+      val randomShuffledTemplates = random.shuffle(v)
+      k -> (for (i <- 0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
+    }
+    VerificationHints(labeledTemplates)
   }
 
   def readTemplateFromFile(clauses: Clauses, templateType: String): VerificationHints = {
