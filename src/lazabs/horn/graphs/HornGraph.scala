@@ -48,7 +48,7 @@ object NodeAndEdgeType {
   val edgeTypesAbbrev = Map("controlFlowHyperEdge" -> "CFHE", "dataFlowHyperEdge" -> "DFHE", "ternaryHyperEdge" -> "te",
     "guardEdge" -> "G", "relationSymbolArgumentEdge" -> "RSA", "ASTLeftEdge" -> "ASTL", "ASTRightEdge" -> "ASTR"
     , "ASTEdge" -> "AST", "relationSymbolInstanceEdge" -> "RSI", "argumentInstanceEdge" -> "AI", "clauseHeadEdge" -> "CH",
-    "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data","quantifierEdge"->"quan", "binaryEdge" -> "be"
+    "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data", "quantifierEdge" -> "quan", "binaryEdge" -> "be"
     , "templateEdge" -> "t", "templateASTEdge" -> "tAST")
 
   val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component",
@@ -62,7 +62,7 @@ object NodeAndEdgeType {
     "relationSymbolArgument" -> "white", "constant" -> "white", "variable" -> "white",
     "templateEq" -> rgb(100, 100, 100), "templateIneq" -> rgb(150, 150, 150), "templateBool" -> rgb(200, 200, 200)), elementTypes = nodeTypes, "white")
   val edgeColorMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "black",
-    "quantifierEdge"->"red","templateASTEdge" -> "black"),
+    "quantifierEdge" -> "red", "templateASTEdge" -> "black"),
     elementTypes = edgeTypes, "black")
   val edgeStyleMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "solid"),
     elementTypes = edgeTypes, "solid")
@@ -260,48 +260,36 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
 
 
     //write labels
-    writeOneLineJson("labelNumber", Seq(labelList.length).toString, changeLine = false)
-    writeOneLineJson("labelList", labelList.toSeq.toString)
+    writeOneLineJson("labelNumber", Seq(labelList.length).toString,writer, changeLine = false)
+    writeOneLineJson("labelList", labelList.toSeq.toString,writer)
     //write nodeID
-    writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString, changeLine = false)
-    writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString)
+    writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString,writer, changeLine = false)
+    writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString,writer)
     //write nodeSymbolList
-    writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString)
+    writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString,writer)
     //write indices
     for ((nt, nl) <- nodeIndicesList) {
       val listString = nl.map(_.nodeID).toSeq.toString()
-      writeOneLineJson(nt + "Number", Seq(nl.length).toString, changeLine = false)
-      writeOneLineJson(nt, listString)
+      writeOneLineJson(nt + "Number", Seq(nl.length).toString,writer, changeLine = false)
+      writeOneLineJson(nt, listString,writer)
     }
     //write edges
     for ((edgeType, edges) <- edgeMap) {
       val filterDummyEdges = if (edges.length == 1) edges else edges.filterNot(x => x.edge.sum == 0)
       val listString = filterDummyEdges.map(x => seqToString(x.edge.toSeq.toString())).toSeq.toString()
-      writeOneLineJson(edgeType + "Number", Seq(edges.length).toString, changeLine = false)
-      writeOneLineJson(edgeType, listString)
+      writeOneLineJson(edgeType + "Number", Seq(edges.length).toString,writer, changeLine = false)
+      writeOneLineJson(edgeType, listString,writer)
     }
+    writeOneLineJson("endField", "[0]",writer,changeLine = false,lastEntry=true)
 
     writer.write("}")
     writer.close()
 
-    def writeOneLineJson(head: String, body: String, changeLine: Boolean = true): Unit = {
-      if (changeLine == true)
-        writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "," + "\n")
-      else
-        writer.write("\"" + head + "\"" + ":" + seqToString(body) + "," + "\n")
-    }
-
-    def seqToString(s: String): String = {
-      if (s.contains("("))
-        "[" + s.substring(s.indexOf("(") + 1, s.indexOf(")")) + "]"
-      else
-        s
-    }
   }
 
   def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Seq[Node]) = {
     // todo separate false node
-    //this merge rs and their arguments globally
+    //merge rs and their arguments globally
     try {
       val rsNode = globalPredicateNodeMap(atom.pred)
       val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
@@ -376,7 +364,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
               constructBinaryRelation("*", coeff, subt)
           }
           case IQuantified(quan, subf) => {
-            val opNode = createNode("operator", quan.toString, element = AbstractNode("operator"))(fillColor="red")
+            val opNode = createNode("operator", quan.toString, element = AbstractNode("operator"))(fillColor = "red")
             quantifierStack.push(opNode)
             val subExpressionNode = constructAST(subf)
             quantifierStack.pop()
@@ -384,7 +372,6 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
             opNode
 
           }
-          //todo connect quantifier and its corresponding variables
           case INot(subf) => constructUnaryRelation("!", subf)
           case IBoolLit(c) => constructEndNode(nodeType = "constant", readName = c.toString, element = IBoolLitNode(IBoolLit(c)))
           case IIntLit(c) => constructEndNode(nodeType = "constant", readName = c.toString, element = IIntLitNode(IIntLit(c)))
@@ -435,10 +422,12 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
         }
         case IVariableNode(v) => {
           if (astSource == ASTSouce.clause) {
-            try{currentClauseIVariableNodeMap(v)} catch {
-              case _ =>{
-                val newNode=createNode(nodeType, readName = readName, element)()
-                createEdge("quantifierEdge",Array(newNode.nodeID,quantifierStack.top.nodeID))()
+            try {
+              currentClauseIVariableNodeMap(v)
+            } catch {
+              case _ => {
+                val newNode = createNode(nodeType, readName = readName, element)()
+                createEdge("quantifierEdge", Array(newNode.nodeID, quantifierStack.top.nodeID))()
                 newNode
               }
             }
@@ -610,7 +599,7 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
   }
 
   for (clause <- simplifiedClauses) {
-    //println(Console.BLUE+clause.toPrologString)
+    println(Console.BLUE + clause.toPrologString)
     for (atom <- clause.allAtoms; (arg, i) <- atom.args.zipWithIndex) currentClauseIConstantNodeMap +=
       (arg.asInstanceOf[IConstant] -> globalPredicateArgumentNodeMap((atom.pred, i)))
     //clause layer
@@ -656,7 +645,7 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
     }
   }
 
-  val labelList = logTime(constructTemplates(templates),"construct templates")
+  val labelList = logTime(constructTemplates(templates), "construct templates")
 
   logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
   logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList), "write graph to JSON")

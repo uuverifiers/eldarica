@@ -34,6 +34,7 @@ import java.io.{FileInputStream, FileNotFoundException, InputStream}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
+import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
 import lazabs.horn.graphs.HornGraphType
 import lazabs.prover._
 import lazabs.viewer._
@@ -101,8 +102,12 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var getHornGraph = false
+  var getSolvability = false
   var mineTemplates = false
   var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
+  var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.off
+  var readCostType : String = "same"
+  var explorationRate: Float=0
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
@@ -194,6 +199,10 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.getHornGraph = this.getHornGraph
+    that.getSolvability = this.getSolvability
+    that.combineTemplateStrategy = this.combineTemplateStrategy
+    that.readCostType = this.readCostType
+    that.explorationRate = this.explorationRate
     that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
@@ -329,7 +338,7 @@ object Main {
       case "-p" :: rest => prettyPrint = true; arguments(rest)
       case "-pIntermediate" :: rest => printIntermediateClauseSets = true; arguments(rest)
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
-//      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
+      //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)
       case "-disj" :: rest => disjunctive = true; arguments(rest)
@@ -340,10 +349,10 @@ object Main {
       case "-conc" :: rest => format = InputFormat.ConcurrentC; arguments(rest)
       case "-hin" :: rest => format = InputFormat.Prolog; arguments(rest)
       case "-hsmt" :: rest => format = InputFormat.SMTHorn; arguments(rest)
-//      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
-//      case "-upprg" :: rest => format = InputFormat.UppaalRG; arguments(rest)
-//      case "-upprel" :: rest => format = InputFormat.UppaalRelational; arguments(rest)
-//      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
+      //      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
+      //      case "-upprg" :: rest => format = InputFormat.UppaalRG; arguments(rest)
+      //      case "-upprel" :: rest => format = InputFormat.UppaalRelational; arguments(rest)
+      //      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstractPO" :: rest => {
@@ -356,6 +365,31 @@ object Main {
       }
       case "-mineTemplates" :: rest => {
         mineTemplates = true
+        arguments(rest)
+      }
+      case _explorationRate :: rest if (_explorationRate.startsWith("-explorationRate:")) =>{
+        explorationRate =
+          (java.lang.Float.parseFloat(_explorationRate.drop("-explorationRate:".length)));
+        arguments(rest)
+    }
+      case _readCostType :: rest if (_readCostType.startsWith("-readCostType:")) => {
+        readCostType = _readCostType drop "-readCostType:".length
+        arguments(rest)
+      }
+      case "-combineTemplateStrategy:off"::rest=>{
+        combineTemplateStrategy = CombineTemplateStrategy.off
+        arguments(rest)
+      }
+      case "-combineTemplateStrategy:union" :: rest => {
+        combineTemplateStrategy = CombineTemplateStrategy.union
+        arguments(rest)
+      }
+      case "-combineTemplateStrategy:random" :: rest => {
+        combineTemplateStrategy = CombineTemplateStrategy.random
+        arguments(rest)
+      }
+      case "-getSolvability" :: rest => {
+        getSolvability = true
         arguments(rest)
       }
       case "-getHornGraph:CDHG" :: rest => {

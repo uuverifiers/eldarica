@@ -54,6 +54,7 @@ import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, logTime, mineTemplates, readTemplateMap, writeTemplateMap}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
+import lazabs.horn.graphs.EvaluateUtils.{getSolvability}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -440,7 +441,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -mineTemplates
   * -getHornGraph
   * training and prediction
-  * -checkSolvability
+  * -getSolvability
   * */
   if (GlobalParameters.get.getHornGraph){
     createNewLogFile()
@@ -456,6 +457,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     writeTemplateMap(simplifiedClauses)
     System.exit(0)
   }
+  if (GlobalParameters.get.getSolvability)
+    getSolvability(unsimplifiedClauses,simplifiedClauses,Map(),predGenerator)
 
 
   //////////////////////////////////////////////////////////////////////////////

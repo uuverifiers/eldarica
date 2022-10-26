@@ -12,7 +12,6 @@ target/
 *.xml
 
 AUTHORS
-build.sbt
 eld
 eld-client
 eldEvn

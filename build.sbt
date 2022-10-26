@@ -141,6 +141,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 //
+    libraryDependencies +=
+      "com.typesafe.play" %% "play-json" % "2.4.6",
+
+//
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2022-03-16"
 //
     resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),

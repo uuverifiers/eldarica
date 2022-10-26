@@ -10,6 +10,7 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.preprocessor.ConstraintSimplifier
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 
+import java.io.PrintWriter
 import scala.collection.mutable
 import scala.collection.mutable.HashSet
 
@@ -17,8 +18,8 @@ object GraphUtils {
   val cs = new ConstraintSimplifier
 
 
-  def unifyClauseElements(clauses:Clauses): Clauses ={
-    var uniqueIntegerIdentifier=0
+  def unifyClauseElements(clauses: Clauses): Clauses = {
+    var uniqueIntegerIdentifier = 0
 
     def constructNewName(name: String): String = {
       val newName = uniqueIntegerIdentifier.toString + ":" + name
@@ -27,24 +28,23 @@ object GraphUtils {
     }
 
 
-    for (c<-clauses) yield {
+    for (c <- clauses) yield {
       //rename head
-      val newHeadPredName=constructNewName(c.head.pred.name)
-      val newHeadPred =new Predicate(newHeadPredName,c.head.args.length)
+      val newHeadPredName = constructNewName(c.head.pred.name)
+      val newHeadPred = new Predicate(newHeadPredName, c.head.args.length)
 
-      val newHeadArgs =  for  (a<-c.head.args) yield {
-        IConstant(new ConstantTerm(constructNewName(a.toString)) )
+      val newHeadArgs = for (a <- c.head.args) yield {
+        IConstant(new ConstantTerm(constructNewName(a.toString)))
       }
       //todo should rename constraint
 
-      val newHead = IAtom(newHeadPred,newHeadArgs)
+      val newHead = IAtom(newHeadPred, newHeadArgs)
 
 
-      Clause(newHead,c.body,c.constraint)
+      Clause(newHead, c.body, c.constraint)
     }
 
   }
-
 
 
   def normalizeClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
@@ -187,6 +187,25 @@ object GraphUtils {
 
   def rgb(a: Int, b: Int, c: Int): String = {
     "\"" + "#" + a.toHexString.toUpperCase + b.toHexString.toUpperCase + c.toHexString.toUpperCase + "\""
+  }
+
+  def writeOneLineJson(head: String, body: String, writer:PrintWriter, changeLine: Boolean = true, lastEntry:Boolean=false): Unit = {
+    if (lastEntry==false){
+      if (changeLine == true)
+        writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "," + "\n")
+      else
+        writer.write("\"" + head + "\"" + ":" + seqToString(body) + "," + "\n")
+    }else{
+      writer.write("\"" + head + "\"" + ":" + seqToString(body) + "\n")
+    }
+
+  }
+
+  def seqToString(s: String): String = {
+    if (s.contains("("))
+      "[" + s.substring(s.indexOf("(") + 1, s.indexOf(")")) + "]"
+    else
+      s
   }
 
 }
