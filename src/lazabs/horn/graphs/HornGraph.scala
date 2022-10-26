@@ -248,7 +248,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     writerGraph.close()
   }
 
-  def outputJson(nodeList: Array[Node], edgeMap: mutable.HashMap[String, Array[Edge]], labelList: Array[Int]): Unit = {
+  def outputJson(nodeList: Array[Node], edgeMap: mutable.HashMap[String, Array[Edge]], labelList: Array[Int],labelIndices:Array[Int]): Unit = {
     val nodeIndicesList = for (nt <- nodeTypes) yield {
       nt + "Indices" -> nodeList.filter(_.typeName == nt)
     }
@@ -262,6 +262,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     //write labels
     writeOneLineJson("labelNumber", Seq(labelList.length).toString,writer, changeLine = false)
     writeOneLineJson("labelList", labelList.toSeq.toString,writer)
+    writeOneLineJson("labelIndices", labelIndices.toSeq.toString,writer)
     //write nodeID
     writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString,writer, changeLine = false)
     writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString,writer)
@@ -446,18 +447,18 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
   }
 
 
-  def constructTemplates(templateMap: Map[String, VerificationHints]): Array[Int] = {
+  def constructTemplates(templateMap: Map[String, VerificationHints]): Array[(Int,Int)] = {
     astSource = ASTSouce.template
 
     val unlabeledTemplate = templateMap("unlabeled")
     val labeledTemplates = templateMap("labeled")
 
-    val templateRelevanceLabelList = for ((pred, temps) <- unlabeledTemplate.predicateHints; t <- temps) yield {
+    val templateRelevanceLabelList = for ((pred, temps) <- unlabeledTemplate.predicateHints.toSeq; t <- temps) yield {
       //println(t)
       currentPred = pred
       val currentRsaNodeList = for (i <- Array.range(0, pred.arity)) yield globalPredicateArgumentNodeMap((pred, i))
       //for (a <- (currentRsaNodeList ++ globalConstantNodeMap.values)) currentClauseNodeMap(a.nodeID) = a
-      val templateRelevanceLabel = t match {
+      val (templateRelevanceLabel,labelIndex) = t match {
         case VerifHintTplEqTerm(term, cost) => {
           term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
             case (e: ITerm) ::: AnyBool(_) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e, t, labeledTemplates)
@@ -471,16 +472,20 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
       }
       clauseConstraintSubExpressionMap.clear()
       //currentClauseNodeMap.clear()
-      templateRelevanceLabel
+      (templateRelevanceLabel,labelIndex)
     }
-    templateRelevanceLabelList.map(x => if (x == true) 1 else 0).toArray
+    templateRelevanceLabelList.toArray
 
   }
 
   def createTemplateNodeAndCorrespondingEdges(templateType: String, pred: Predicate, e: IExpression,
                                               t: VerifHintElement,
-                                              labeledTemplates: VerificationHints): Boolean = {
-    val templateNode = createNode(templateType, templateType, element = AbstractNode(templateType))()
+                                              labeledTemplates: VerificationHints): (Int,Int) = {
+    val labeledTemplateInPred = if (labeledTemplates.predicateHints.keys.toSeq.contains(pred)) labeledTemplates.predicateHints(pred) else Seq()
+    val templateLabelBoolean = verifHintElementContains(labeledTemplateInPred, t)
+    val templateLabel = if (templateLabelBoolean==true) 1 else 0
+    val templateNodeColor = if (templateLabelBoolean==true) "green" else "red"
+    val templateNode = createNode(templateType, templateType, element = AbstractNode(templateType))(color = templateNodeColor)
     //edge from rs to templates
     createEdge("templateEdge", Array(globalPredicateNodeMap(pred).nodeID, templateNode.nodeID))()
     //ast root node
@@ -488,10 +493,8 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     //edge from ast note to template node
     createEdge("templateASTEdge", Array(astRootNode.nodeID, templateNode.nodeID))()
 
-    //return label
-    val labeledTemplateInPred = if (labeledTemplates.predicateHints.keys.toSeq.contains(pred)) labeledTemplates.predicateHints(pred) else Seq()
-    verifHintElementContains(labeledTemplateInPred, t)
 
+    (templateLabel,templateNode.nodeID)
   }
 
 
@@ -582,10 +585,12 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
   }
 
 
-  val labelList = logTime(constructTemplates(templates), "construct templates")
+  val labelPair = logTime(constructTemplates(templates), "construct templates")
+  val labelList=labelPair.map(_._1)
+  val labelIndices = labelPair.map(_._2)
 
   logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList), "write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
 
 }
 
@@ -645,9 +650,10 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
     }
   }
 
-  val labelList = logTime(constructTemplates(templates), "construct templates")
-
+  val labelPair = logTime(constructTemplates(templates), "construct templates")
+  val labelList = labelPair.map(_._1)
+  val labelIndices = labelPair.map(_._2)
   logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList), "write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
 
 }
