@@ -403,9 +403,37 @@ object Main {
         hornGraphType = HornGraphType.CDHG
         arguments(rest)
       }
-      case "-getHornGraph:CG" :: rest => {
-        getHornGraph = true
+      case "-hornGraphType:CG" :: rest => {
         hornGraphType = HornGraphType.CG
+        arguments(rest)
+      }
+      case "-hornGraphType:CDHG" :: rest => {
+        hornGraphType = HornGraphType.CDHG
+        arguments(rest)
+      }
+      case "-abstract:predictedCG" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.PredictedCG
+        arguments(rest)
+      }
+      case "-abstract:predictedCDHG" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.PredictedCDHG
+        arguments(rest)
+      }
+      case "-abstract:mined" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Mined
+        arguments(rest)
+      }
+      case "-abstract:unlabeled" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Unlabeled
+        arguments(rest)
+      }
+      case "-abstract:random" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.Random
         arguments(rest)
       }
       case "-abstract:manual" :: rest => {

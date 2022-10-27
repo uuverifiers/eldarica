@@ -12,12 +12,15 @@ import ap.terfor.preds.Predicate
 import ap.types.Sort
 import ap.util.Seqs
 import lazabs.GlobalParameters
+import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
+import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintTplElement, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplInEqTermPosNeg, VerifHintTplPred, VerifHintTplPredPosNeg}
-import lazabs.horn.abstractions.{AbsReader, EmptyVerificationHints, LoopDetector, VerificationHints}
+import lazabs.horn.abstractions.{AbsReader, EmptyVerificationHints, LoopDetector, StaticAbstractionBuilder, VerificationHints}
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CEGAR, HornPredAbs, NormClause, PredicateMiner}
+import lazabs.horn.bottomup.{CEGAR, DisjInterpolator, HornPredAbs, NormClause, PredicateMiner, TemplateInterpolator}
+import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.graphs.GraphUtils._
 import play.api.libs.json.{JsSuccess, Json}
@@ -98,12 +101,12 @@ object TemplateUtils {
     writeTemplatesToFile(minedTemplates, "mined")
   }
 
-  def readTemplateLabelFromJSON(simplifiedClauses:Clauses,
-                                 readLabel: String = "predictedLabel"): VerificationHints = {
+  def readTemplateLabelFromJSON(simplifiedClauses: Clauses,
+                                readLabel: String = "predictedLabel"): VerificationHints = {
 
-    val input_file = GlobalParameters.get.fileName + "." + GlobalParameters.get.hornGraphType.toString + ".JSON"
+    val input_file = GlobalParameters.get.fileName + "." + NodeAndEdgeType.graphNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     //same sort in AbsReader printHints
-    val unlabeledTemplates = readTemplateFromFile(simplifiedClauses,"unlabeled").predicateHints.toSeq sortBy (_._1.name)
+    val unlabeledTemplates = readTemplateFromFile(simplifiedClauses, "unlabeled").predicateHints.toSeq sortBy (_._1.name)
     println("read predicted label from " + input_file)
     try {
       val json_content = scala.io.Source.fromFile(input_file).mkString
@@ -113,7 +116,6 @@ object TemplateUtils {
       }
       val mapLengthList = for ((k, v) <- unlabeledTemplates) yield v.length
       val splitedPredictedLabel = splitLabel(mapLengthList, predictedLabel)
-
       val predictedLabelLogit = (json_data \ (readLabel + "Logit")).validate[Array[Double]] match {
         case JsSuccess(templateLabel, _) => templateLabel
       }
@@ -162,12 +164,11 @@ object TemplateUtils {
   }
 
   private def getCost(e: IExpression, logitValue: Double, originalCost: Int): Int = {
-    if (GlobalParameters.get.readCostType == "shape")
-      getCostbyTemplateShape(e)
-    else if (GlobalParameters.get.readCostType == "logit") {
-      getCostByLogitValue(logitValue)
-    } else
-      originalCost //1
+    GlobalParameters.get.readCostType match {
+      case "shape" => getCostbyTemplateShape(e)
+      case "logit" => getCostByLogitValue(logitValue)
+      case "same" => originalCost
+    }
   }
 
 
@@ -195,6 +196,80 @@ object TemplateUtils {
       k -> (for (i <- 0 to numberOfLabeledTemplates) yield randomShuffledTemplates(i))
     }
     VerificationHints(labeledTemplates)
+  }
+
+  def getPredicateGenerator(simplifiedClauses: Clauses, existedPredGenerator: Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]):
+  Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]] = {
+    val (template, templateGNN) = getPairOfCombTemplates(simplifiedClauses)
+    GlobalParameters.get.combineTemplateStrategy match {
+      case CombineTemplateStrategy.union => {
+        combinedPredicateGenerator(simplifiedClauses, template, templateGNN)
+      }
+      case CombineTemplateStrategy.random => {
+        randomPredicateGenerator(simplifiedClauses, template, templateGNN)
+      }
+      case CombineTemplateStrategy.off => {
+        existedPredGenerator
+      }
+    }
+  }
+
+  def getPairOfCombTemplates(simplifiedClauses: Clauses): (AbstractionMap, AbstractionMap) = {
+    val templateGNN = GlobalParameters.get.hornGraphType match {
+      case HornGraphType.CG => new StaticAbstractionBuilder(simplifiedClauses, AbstractionType.PredictedCG).abstractionRecords
+      case HornGraphType.CDHG => new StaticAbstractionBuilder(simplifiedClauses, AbstractionType.PredictedCDHG).abstractionRecords
+    }
+    val template = new StaticAbstractionBuilder(simplifiedClauses, GlobalParameters.get.templateBasedInterpolationType).abstractionRecords
+    (template, templateGNN)
+  }
+
+  def combinedPredicateGenerator(simplifiedClauses: Clauses, template: AbstractionMap, templateGNN: AbstractionMap)
+                                (clauseDag: Dag[AndOrNode[NormClause, Unit]])
+  : Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]] = {
+    val baseInterpolationTimeOut = GlobalParameters.get.templateBasedInterpolationTimeout
+    val predgen1 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(template, baseInterpolationTimeOut)
+    val predgen2 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(templateGNN, baseInterpolationTimeOut)
+
+    (predgen1(clauseDag), predgen2(clauseDag)) match {
+      case (Left(newPredicate1), Left(newPredicate2)) => {
+
+        val commonHead = (for (p1 <- newPredicate1; p2 <- newPredicate2; if p1._1 == p2._1) yield {
+          (p1._1, (p1._2 ++ p2._2).distinct)
+        }).distinct
+        val p1Unique = for (p1 <- newPredicate1; if !newPredicate2.map(_._1).contains(p1._1)) yield p1
+        val p2Unique = for (p2 <- newPredicate2; if !newPredicate1.map(_._1).contains(p2._1)) yield p2
+        val mergedPredicates = commonHead ++ p1Unique ++ p2Unique
+
+        Left(mergedPredicates)
+      }
+      case (Right(cex1), Right(cex2)) => {
+        Right(cex1)
+      }
+    }
+  }
+
+  def randomPredicateGenerator(simplifiedClauses: Clauses, template: AbstractionMap, templateGNN: AbstractionMap)
+                              (clauseDag: Dag[AndOrNode[NormClause, Unit]])
+  : Either[Seq[(Predicate, Seq[Conjunction])], //new predicate
+    Dag[(IAtom, NormClause)]] = {
+    val baseInterpolationTimeOut = GlobalParameters.get.templateBasedInterpolationTimeout
+    val predgen1 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(template, baseInterpolationTimeOut)
+    val predgen2 = TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(templateGNN, baseInterpolationTimeOut)
+    (predgen1(clauseDag), predgen2(clauseDag)) match {
+      case (Left(newPredicate1), Left(newPredicate2)) => {
+        val random = new Random
+        if (GlobalParameters.get.fixRandomSeed)
+          random.setSeed(42)
+        if (random.nextInt(10) < 10 * GlobalParameters.get.explorationRate) {
+          Left(newPredicate2)
+        } else {
+          Left(newPredicate1)
+        }
+      }
+      case (Right(cex1), Right(cex2)) => {
+        Right(cex1)
+      }
+    }
   }
 
   def readTemplateFromFile(clauses: Clauses, templateType: String): VerificationHints = {

@@ -27,7 +27,6 @@ object EvaluateUtils {
 
   def getSolvability(unsimplifiedClauses: Seq[Clause],
                      simpHints: Seq[Clause],
-                     initialPredicatesForCEGAR: Map[Predicate, Seq[IFormula]],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
     println(Console.BLUE + "--------------check solvability ---------------")
     val unlabeledTemplates = readTemplateFromFile(simpHints, "unlabeled")
@@ -36,7 +35,6 @@ object EvaluateUtils {
     val labeledTemplatesStatistics = getVerificationHintsStatistics(labeledTemplates)
     val minedTemplates = readTemplateFromFile(simpHints, "mined")
     val minedTemplatesStatistics = getVerificationHintsStatistics(minedTemplates)
-
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvability.JSON"
     val fixedFields: Map[String, Int] = Map("clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
       "clauseNumberAfterSimplification" -> simpHints.length,
@@ -61,7 +59,7 @@ object EvaluateUtils {
     val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
     val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"
-    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions ++ Seq("PredictedCG","PredictedCDHG","Empty","Unlabeled","Mined")) yield a + g + "0.0"
+    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions ++ Seq("PredictedCG","PredictedCDHG","Empty","Unlabeled","Mined","Random")) yield a + g + "0.0"
     val randomAbstractTypeFields = for (g <- Seq("_CDHG_random_", "_CG_random_"); e <- explorationRate.map(_.toString); a <- combianedOptions) yield a + g + e
     val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
@@ -72,10 +70,9 @@ object EvaluateUtils {
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
     }
-
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      new HornPredAbs(simpHints, initialPredicatesForCEGAR, predGenerator)
+      new HornPredAbs(iClauses = simpHints, initialPredicates = Map(), predicateGenerator=predGenerator)
     }
 
 

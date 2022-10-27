@@ -40,8 +40,8 @@ object NodeAndEdgeType {
 
   // edge definition
   val ternaryEdgeTypes = Seq("controlFlow", "dataFlow", "ternary").map(_ + "HyperEdge")
-  val binaryEdgeTypes = Seq("guard", "relationSymbolArgument", "ASTLeft", "ASTRight"
-    , "AST", "relationSymbolInstance", "argumentInstance", "clauseHead", "clauseBody",
+  val binaryEdgeTypes = Seq("guard", "relationSymbolArgument", "ASTLeft", "ASTRight",
+    "AST", "relationSymbolInstance", "argumentInstance", "clauseHead", "clauseBody",
     "clauseArgument", "data", "quantifier", "binary").map(_ + "Edge")
   val templateEdgeTypes = Seq("template", "templateAST").map(_ + "Edge")
   val edgeTypes = ternaryEdgeTypes ++ binaryEdgeTypes ++ templateEdgeTypes
