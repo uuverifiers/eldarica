@@ -377,7 +377,7 @@ object TemplateUtils {
   }
 
   def createNewLogFile(): Unit = {
-    new FileWriter(GlobalParameters.get.fileName + ".log", false)
+    new FileWriter(GlobalParameters.get.fileName + ".log", true)
   }
 
   def logTime[A](input: => A, message: String = "") = {

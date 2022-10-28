@@ -403,6 +403,11 @@ object Main {
         hornGraphType = HornGraphType.CDHG
         arguments(rest)
       }
+      case "-getHornGraph:CG" :: rest => {
+        getHornGraph = true
+        hornGraphType = HornGraphType.CG
+        arguments(rest)
+      }
       case "-hornGraphType:CG" :: rest => {
         hornGraphType = HornGraphType.CG
         arguments(rest)

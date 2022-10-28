@@ -443,6 +443,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -getHornGraph
   * training and prediction
   * -getSolvability
+  * collect results
   * */
   if (GlobalParameters.get.mineTemplates) {
     mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator)
