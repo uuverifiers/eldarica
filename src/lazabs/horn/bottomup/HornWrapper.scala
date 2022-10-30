@@ -451,7 +451,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) {
-    createNewLogFile()
+    createNewLogFile(append = true)
     val templateList = readTemplateMap(simplifiedClauses)
     val hornGraph = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses, templateList), "generate CDHG")
