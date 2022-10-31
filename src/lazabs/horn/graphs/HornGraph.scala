@@ -5,7 +5,6 @@ import ap.parser.IExpression.{Conj, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ,
 import lazabs.horn.graphs.GraphUtils._
 import ap.parser.{IAtom, IBinJunctor, IBoolLit, IConstant, IExpression, IFormula, IIntLit, INot, IPlus, IQuantified, ITerm, ITimes, IVariable, LineariseVisitor, SymbolCollector}
 import ap.terfor.ConstantTerm
-import ap.types.Sort.{:::, AnyBool}
 import ap.util.Seqs
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
@@ -454,21 +453,15 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
     val labeledTemplates = templateMap("labeled")
 
     val templateRelevanceLabelList = for ((pred, temps) <- unlabeledTemplate.predicateHints.toSeq; t <- temps) yield {
-      //println(t)
+      val transformedTemplate = transformBooleanTermToVerifHintTplPredPosNeg(t)
+
       currentPred = pred
       val currentRsaNodeList = for (i <- Array.range(0, pred.arity)) yield globalPredicateArgumentNodeMap((pred, i))
       //for (a <- (currentRsaNodeList ++ globalConstantNodeMap.values)) currentClauseNodeMap(a.nodeID) = a
-      val (templateRelevanceLabel,labelIndex) = t match {
-        case VerifHintTplEqTerm(term, cost) => {
-          term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
-            case (e: ITerm) ::: AnyBool(_) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e, t, labeledTemplates)
-            case (e: ITerm) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e, t, labeledTemplates)
-          }
-        }
-        case VerifHintTplInEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateIneq", pred, e, t,
-          labeledTemplates)
-        case VerifHintTplPredPosNeg(e, cost) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e, t,
-          labeledTemplates)
+      val (templateRelevanceLabel,labelIndex) = transformedTemplate match {
+        case VerifHintTplEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e, transformedTemplate, labeledTemplates)
+        case VerifHintTplInEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateIneq", pred, e, transformedTemplate, labeledTemplates)
+        case VerifHintTplPredPosNeg(e, cost) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e, transformedTemplate, labeledTemplates)
       }
       clauseConstraintSubExpressionMap.clear()
       //currentClauseNodeMap.clear()
@@ -550,7 +543,7 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
             if (coefficient.isZero)
               globalConstantNodeMap("0")
             else
-              constructAST(rhs *** coefficient)
+              constructAST(sp(rhs *** coefficient))
           createEdge("dataFlowHyperEdge", Array(rhsASTRoot.nodeID, guardNode.nodeID, headArg.nodeID))()
         }
         case _ => {

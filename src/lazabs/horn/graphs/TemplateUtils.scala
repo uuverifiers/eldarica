@@ -10,6 +10,7 @@ import ap.parser.{IAtom, IConstant, IExpression, IFormula, IIntLit, IPlus, ISort
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.types.Sort
+import ap.types.Sort.{:::, AnyBool}
 import ap.util.Seqs
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
@@ -51,11 +52,10 @@ object TemplateUtils {
     val filterThreshold = 99
     val filteredMinedTemplates = for ((p, pes) <- mined.predicateHints) yield {
       val filteredElements = for (pe <- pes; if getVerifHintElementContent(pe)._2 < filterThreshold) yield {
-        pe
+        transformBooleanTermToVerifHintTplPredPosNeg(pe)
       }
       p -> filteredElements
     }
-
     val labeledTemplates = (for ((unlabeledP, unlabeledEs) <- unlabeled.predicateHints) yield {
       val labeledEs = for (f <- filteredMinedTemplates(unlabeledP); if verifHintElementContains(unlabeledEs, f)) yield {
         f
@@ -65,12 +65,28 @@ object TemplateUtils {
     VerificationHints(labeledTemplates)
   }
 
+  def transformBooleanTermToVerifHintTplPredPosNeg(e:VerifHintElement): VerifHintElement ={
+    e match {
+      case VerifHintTplEqTerm(term, cost) => {
+        term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
+          case (e: ITerm) ::: AnyBool(_) => VerifHintTplPredPosNeg(Eq(e, 0), cost)
+          case (e: ITerm) => VerifHintTplEqTerm(term, cost)
+        }
+      }
+      case _=>e
+    }
+  }
+
 
   def getVerifHintElementContent(e: VerifHintElement): (IExpression, Int, String) = {
     e match {
       case VerifHintTplPred(e, cost) => (e, cost, "VerifHintTplPred")
       case VerifHintTplPredPosNeg(e, cost) => (e, cost, "VerifHintTplPredPosNeg")
-      case VerifHintTplEqTerm(e, cost) => (e, cost, "VerifHintTplEqTerm")
+      case VerifHintTplEqTerm(term, cost) => {
+        term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
+          case (e: ITerm) ::: AnyBool(_) => (Eq(e,0), cost, "VerifHintTplPredPosNeg")
+          case (e: ITerm) => (e, cost, "VerifHintTplEqTerm")
+        }}
       case VerifHintTplInEqTerm(e, cost) => (e, cost, "VerifHintTplInEqTerm")
       case VerifHintTplInEqTermPosNeg(e, cost) => (e, cost, "VerifHintTplInEqTermPosNeg")
     }
@@ -281,9 +297,10 @@ object TemplateUtils {
         yield (p.name -> p)).toMap
 
       val readTemplates = readHints(fileName, name2Pred)
+      val transformedReadTemplates = VerificationHints(for ((k,v)<-readTemplates.predicateHints) yield k->v.map(transformBooleanTermToVerifHintTplPredPosNeg(_)))
       if (GlobalParameters.get.log)
-        printListMap(readTemplates.predicateHints, templateType)
-      readTemplates
+        printListMap(transformedReadTemplates.predicateHints, templateType)
+      transformedReadTemplates
     } else VerificationHints(Map())
   }
 

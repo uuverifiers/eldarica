@@ -446,7 +446,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * collect results
   * */
   if (GlobalParameters.get.mineTemplates) {
-    mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator)
+    //mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator)
     writeTemplateMap(simplifiedClauses)
     System.exit(0)
   }
