@@ -65,7 +65,7 @@ object TemplateUtils {
     VerificationHints(labeledTemplates)
   }
 
-  def transformBooleanTermToVerifHintTplPredPosNeg(e:VerifHintElement): VerifHintElement ={
+  def transformBooleanTermToVerifHintTplPredPosNeg(e: VerifHintElement): VerifHintElement = {
     e match {
       case VerifHintTplEqTerm(term, cost) => {
         term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
@@ -73,7 +73,7 @@ object TemplateUtils {
           case (e: ITerm) => VerifHintTplEqTerm(term, cost)
         }
       }
-      case _=>e
+      case _ => e
     }
   }
 
@@ -84,9 +84,10 @@ object TemplateUtils {
       case VerifHintTplPredPosNeg(e, cost) => (e, cost, "VerifHintTplPredPosNeg")
       case VerifHintTplEqTerm(term, cost) => {
         term match { //predicate-2 (VerifHintTplPredPosNeg) will match TplEqTerm, differentiate boolean by Sort
-          case (e: ITerm) ::: AnyBool(_) => (Eq(e,0), cost, "VerifHintTplPredPosNeg")
+          case (e: ITerm) ::: AnyBool(_) => (Eq(e, 0), cost, "VerifHintTplPredPosNeg")
           case (e: ITerm) => (e, cost, "VerifHintTplEqTerm")
-        }}
+        }
+      }
       case VerifHintTplInEqTerm(e, cost) => (e, cost, "VerifHintTplInEqTerm")
       case VerifHintTplInEqTermPosNeg(e, cost) => (e, cost, "VerifHintTplInEqTermPosNeg")
     }
@@ -148,27 +149,34 @@ object TemplateUtils {
             }
           }).distinct //match labels with predicates
         }).filterNot(_._2.isEmpty).toMap //delete empty head
-
-
+      //add single terms with cost 100
+      val reconstructedTemplates= addSingleTermsWithHighestCost(VerificationHints(labeledPredicates))
       if (GlobalParameters.get.log == true) {
         println("input_file", input_file)
         println("predictedLabel", predictedLabel.toList.length, predictedLabel.toList)
         for (x <- splitedPredictedLabel)
           println(x.toSeq, x.size)
-        println("--------Filtered initial predicates---------")
-        for ((k, v) <- labeledPredicates) {
-          println(k)
-          for (p <- v)
-            println(p)
-        }
+        printListMap(labeledPredicates,"labeledTemplates")
+        printListMap(reconstructedTemplates.predicateHints,"reconstructedTemplates")
       }
-
-
-      VerificationHints(labeledPredicates)
-
+      reconstructedTemplates
     } catch {
       case _ => VerificationHints(Map())
     }
+  }
+
+  private def addSingleTermsWithHighestCost(labeledTemplates: VerificationHints): VerificationHints = {
+    VerificationHints(for ((pred, templates) <- labeledTemplates.predicateHints) yield {
+      val argSorts = HornPredAbs.predArgumentSorts(pred)
+      val singleBooleanTerms = for ((a, i) <- argSorts.zipWithIndex; if a == Sort.MultipleValueBool) yield IVariable(i, a)
+      val singlePositiveTerms = for ((a, i) <- argSorts.zipWithIndex; if a != Sort.MultipleValueBool) yield IVariable(i, a)
+      val singleNegativeTerms = for ((a, i) <- argSorts.zipWithIndex; if a != Sort.MultipleValueBool) yield -IVariable(i, a)
+      val allTermsEq = singlePositiveTerms.map(sp.apply(_)).map(VerifHintTplEqTerm(_, 100))
+      val allTermsInEq = (singlePositiveTerms ++ singleNegativeTerms).map(sp.apply(_)).map(VerifHintTplInEqTerm(_, 100))//singleBooleanTerms
+      val allTermsPredicate = singleBooleanTerms.map(Eq(_, 0)).map(VerifHintTplPredPosNeg(_, 100)) //.map(sp.apply(_))
+      val singleTermsToAdd = for (t <- (allTermsEq ++ allTermsInEq ++ allTermsPredicate); if !verifHintElementContains(templates, t)) yield t
+      pred -> (singleTermsToAdd ++ templates)
+    })
   }
 
   private def getCostbyTemplateShape(e: IExpression): Int = {
@@ -297,7 +305,7 @@ object TemplateUtils {
         yield (p.name -> p)).toMap
 
       val readTemplates = readHints(fileName, name2Pred)
-      val transformedReadTemplates = VerificationHints(for ((k,v)<-readTemplates.predicateHints) yield k->v.map(transformBooleanTermToVerifHintTplPredPosNeg(_)))
+      val transformedReadTemplates = VerificationHints(for ((k, v) <- readTemplates.predicateHints) yield k -> v.map(transformBooleanTermToVerifHintTplPredPosNeg(_)))
       if (GlobalParameters.get.log)
         printListMap(transformedReadTemplates.predicateHints, templateType)
       transformedReadTemplates
@@ -393,10 +401,10 @@ object TemplateUtils {
     }
   }
 
-  def createNewLogFile(append:Boolean=false): Unit = {
+  def createNewLogFile(append: Boolean = false): Unit = {
     new FileWriter(GlobalParameters.get.fileName + ".log", append)
     if (append)
-      writeLog("-"*10)
+      writeLog("-" * 10)
   }
 
   def logTime[A](input: => A, message: String = "") = {
