@@ -344,7 +344,7 @@ object TemplateUtils {
   }
 
 
-  def generateTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = true): VerificationHints = {
+  def generateTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = false): VerificationHints = {
     //1. single boolean terms // predicate-2
     //2. single positive and negative integer terms //term
     //3. Eq: integer_term1 +/- integer_term2 =0 //term

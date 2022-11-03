@@ -597,7 +597,6 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
   }
 
   for (clause <- simplifiedClauses) {
-    println(Console.BLUE + clause.toPrologString)
     for (atom <- clause.allAtoms; (arg, i) <- atom.args.zipWithIndex) currentClauseIConstantNodeMap +=
       (arg.asInstanceOf[IConstant] -> globalPredicateArgumentNodeMap((atom.pred, i)))
     //clause layer
