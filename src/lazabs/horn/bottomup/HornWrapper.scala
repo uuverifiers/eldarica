@@ -52,9 +52,9 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
-import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, logTime, mineTemplates, readTemplateMap, writeTemplateMap,getPredicateGenerator}
+import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
-import lazabs.horn.graphs.EvaluateUtils.{getSolvability}
+import lazabs.horn.graphs.EvaluateUtils.getSolvability
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -446,7 +446,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * collect results
   * */
   if (GlobalParameters.get.mineTemplates) {
-    mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator)
+    createNewLogFile(append = true)
+    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
     writeTemplateMap(simplifiedClauses)
     System.exit(0)
   }
