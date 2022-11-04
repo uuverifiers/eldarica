@@ -123,9 +123,6 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
 
   //create global constants
   val globalConstantNodeMap = new mutable.HashMap[String, Node]()
-  val initialGlobalConstantNameList = Array(0)
-  for (e <- initialGlobalConstantNameList) globalConstantNodeMap(e.toString) = createNode("constant",
-    e.toString, element = IIntLitNode(IIntLit(IdealInt(e))))()
 
   val clauseConstraintSubExpressionMap = new mutable.HashMap[IExpression, Node]
 
