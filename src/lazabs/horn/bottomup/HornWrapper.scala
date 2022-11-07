@@ -448,7 +448,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
     logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
-    writeTemplateMap(simplifiedClauses)
+    logTime(writeTemplateMap(simplifiedClauses),"labeling")
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) {

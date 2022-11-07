@@ -303,7 +303,6 @@ object TemplateUtils {
         (for (Clause(head, body, _) <- clauses.iterator;
               IAtom(p, _) <- (head :: body).iterator)
         yield (p.name -> p)).toMap
-
       val readTemplates = readHints(fileName, name2Pred)
       val transformedReadTemplates = VerificationHints(for ((k, v) <- readTemplates.predicateHints) yield k -> v.map(transformBooleanTermToVerifHintTplPredPosNeg(_)))
       if (GlobalParameters.get.log)
