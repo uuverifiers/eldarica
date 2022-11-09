@@ -32,9 +32,20 @@ object TemplateUtils {
   val sp = new Simplifier
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
+  def generateTemplates(clauses: Clauses): Unit = {
+    if (readTemplateFromFile(clauses, "unlabeled").isEmpty) {
+      val unlabeledTemplates = logTime(generateUnlabeledTemplates(clauses), "generate template")
+      writeTemplatesToFile(unlabeledTemplates, "unlabeled")
+    }
+    val templateteTypeStr = GlobalParameters.get.templateBasedInterpolationType.toString
+    val transformedtemplateTypeStr = templateteTypeStr.substring(0, 1).toLowerCase + templateteTypeStr.substring(1, templateteTypeStr.length)
+    val writeTemplate = new StaticAbstractionBuilder(clauses, GlobalParameters.get.templateBasedInterpolationType)
+    writeTemplatesToFile(writeTemplate.abstractionHints, transformedtemplateTypeStr)
+  }
+
   def writeTemplateMap(clauses: Clauses): Unit = {
     //notice: templates are only correspond to the original clauses
-    val unlabeledTemplates = logTime(generateTemplates(clauses), "generate template")
+    val unlabeledTemplates = logTime(generateUnlabeledTemplates(clauses), "generate template")
     writeTemplatesToFile(unlabeledTemplates, "unlabeled")
     val minedTemplates = readTemplateFromFile(clauses, "mined")
     val labeledTemplates = getLabeledTemplates(unlabeledTemplates, minedTemplates)
@@ -150,14 +161,14 @@ object TemplateUtils {
           }).distinct //match labels with predicates
         }).filterNot(_._2.isEmpty).toMap //delete empty head
       //add single terms with cost 100
-      val reconstructedTemplates= addSingleTermsWithHighestCost(VerificationHints(labeledPredicates))
+      val reconstructedTemplates = addSingleTermsWithHighestCost(VerificationHints(labeledPredicates))
       if (GlobalParameters.get.log == true) {
         println("input_file", input_file)
         println("predictedLabel", predictedLabel.toList.length, predictedLabel.toList)
         for (x <- splitedPredictedLabel)
           println(x.toSeq, x.size)
-        printListMap(labeledPredicates,"labeledTemplates")
-        printListMap(reconstructedTemplates.predicateHints,"reconstructedTemplates")
+        printListMap(labeledPredicates, "labeledTemplates")
+        printListMap(reconstructedTemplates.predicateHints, "reconstructedTemplates")
       }
       reconstructedTemplates
     } catch {
@@ -172,7 +183,7 @@ object TemplateUtils {
       val singlePositiveTerms = for ((a, i) <- argSorts.zipWithIndex; if a != Sort.MultipleValueBool) yield IVariable(i, a)
       val singleNegativeTerms = for ((a, i) <- argSorts.zipWithIndex; if a != Sort.MultipleValueBool) yield -IVariable(i, a)
       val allTermsEq = singlePositiveTerms.map(sp.apply(_)).map(VerifHintTplEqTerm(_, 100))
-      val allTermsInEq = (singlePositiveTerms ++ singleNegativeTerms).map(sp.apply(_)).map(VerifHintTplInEqTerm(_, 100))//singleBooleanTerms
+      val allTermsInEq = (singlePositiveTerms ++ singleNegativeTerms).map(sp.apply(_)).map(VerifHintTplInEqTerm(_, 100)) //singleBooleanTerms
       val allTermsPredicate = singleBooleanTerms.map(Eq(_, 0)).map(VerifHintTplPredPosNeg(_, 100)) //.map(sp.apply(_))
       val singleTermsToAdd = for (t <- (allTermsEq ++ allTermsInEq ++ allTermsPredicate); if !verifHintElementContains(templates, t)) yield t
       pred -> (singleTermsToAdd ++ templates)
@@ -343,7 +354,7 @@ object TemplateUtils {
   }
 
 
-  def generateTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = false): VerificationHints = {
+  def generateUnlabeledTemplates(simplifiedClauses: Clauses, onlyLoopHead: Boolean = false): VerificationHints = {
     //1. single boolean terms // predicate-2
     //2. single positive and negative integer terms //term
     //3. Eq: integer_term1 +/- integer_term2 =0 //term

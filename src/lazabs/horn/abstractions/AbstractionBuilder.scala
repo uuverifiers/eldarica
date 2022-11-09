@@ -62,13 +62,13 @@ class StaticAbstractionBuilder(
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def minedAbstractions = readTemplateFromFile(clauses, ".mined")
+  def minedAbstractions = readTemplateFromFile(clauses, "mined")
 
-  def unlabeledAbstractions = readTemplateFromFile(clauses, ".unlabeled")
+  def unlabeledAbstractions = readTemplateFromFile(clauses, "unlabeled")
 
   def randomAbstractions = {
     if (new java.io.File(GlobalParameters.get.fileName + ".unlabeledPredicates" + ".tpl").exists == true) {}
-    val unlabeledTempaltes = readTemplateFromFile(clauses, ".unlabeled")
+    val unlabeledTempaltes = readTemplateFromFile(clauses, "unlabeled")
     randomLabelTemplates(unlabeledTempaltes, 0.2)
   }
 

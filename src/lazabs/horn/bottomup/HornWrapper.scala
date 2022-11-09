@@ -52,7 +52,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, AbstractionRecord, Empty
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
-import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap}
+import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
 
@@ -439,7 +439,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   //////////////////////////////////////////////////////////////////////////////
   /*
   * Pipeline:
-  * -mineTemplates
+  * -mineTemplates for training set /  generateTemplates unsolvable set
   * -getHornGraph
   * training and prediction
   * -getSolvability
@@ -451,8 +451,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     logTime(writeTemplateMap(simplifiedClauses),"labeling")
     System.exit(0)
   }
+  if (GlobalParameters.get.generateTemplates){
+    generateTemplates(simplifiedClauses)
+    System.exit(0)
+  }
   if (GlobalParameters.get.getHornGraph) {
     createNewLogFile(append = true)
+    logTime(writeTemplateMap(simplifiedClauses),"generate unlabeled templates")
     val templateList = readTemplateMap(simplifiedClauses)
     val hornGraph = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses, templateList), "generate CDHG")
