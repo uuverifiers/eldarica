@@ -451,13 +451,12 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     logTime(writeTemplateMap(simplifiedClauses),"labeling")
     System.exit(0)
   }
-  if (GlobalParameters.get.generateTemplates){
+  if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled
     generateTemplates(simplifiedClauses)
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) {
     createNewLogFile(append = true)
-    logTime(writeTemplateMap(simplifiedClauses),"generate unlabeled templates")
     val templateList = readTemplateMap(simplifiedClauses)
     val hornGraph = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses, templateList), "generate CDHG")

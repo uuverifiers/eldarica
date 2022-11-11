@@ -360,7 +360,7 @@ object TemplateUtils {
     //3. Eq: integer_term1 +/- integer_term2 =0 //term
     //3. InEq: +/- (integer_term1 +/- integer_term2) >=0  //inequality-term
     val loopHeads =
-    if (onlyLoopHead)
+    if (onlyLoopHead==true)
       getLoopHeadsWithSort(simplifiedClauses)
     else
       (for (c <- simplifiedClauses; a <- c.allAtoms; if a.pred.name != "FALSE") yield a.pred -> (a.args zip HornPredAbs.predArgumentSorts(a.pred))).distinct
