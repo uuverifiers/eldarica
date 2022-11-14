@@ -578,8 +578,8 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
   val labelPair = logTime(constructTemplates(templates), "construct templates")
   val labelList=labelPair.map(_._1)
   val labelIndices = labelPair.map(_._2)
-
-  logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
+  if(GlobalParameters.get.visualizeHornGraph)
+    logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
   logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
 
 }
@@ -642,7 +642,8 @@ class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends Ho
   val labelPair = logTime(constructTemplates(templates), "construct templates")
   val labelList = labelPair.map(_._1)
   val labelIndices = labelPair.map(_._2)
-  logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
+  if(GlobalParameters.get.visualizeHornGraph)
+    logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
   logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
 
 }

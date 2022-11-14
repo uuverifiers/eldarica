@@ -102,6 +102,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var getHornGraph = false
+  var visualizeHornGraph=false
   var generateTemplates = false
   var fixRandomSeed = false
   var getSolvability = false
@@ -201,6 +202,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.getHornGraph = this.getHornGraph
+    that.visualizeHornGraph = this.visualizeHornGraph
     that.generateTemplates = this.generateTemplates
     that.fixRandomSeed = this.fixRandomSeed
     that.getSolvability = this.getSolvability
@@ -402,6 +404,10 @@ object Main {
       }
       case "-generateTemplates" :: rest => {
         generateTemplates = true
+        arguments(rest)
+      }
+      case "-visualizeHornGraph" :: rest => {
+        visualizeHornGraph = true
         arguments(rest)
       }
       case "-getHornGraph:CDHG" :: rest => {
