@@ -95,8 +95,8 @@ final case class IIntLitNode(i: IIntLit) extends NodeElement
 final case class AbstractNode(a: String) extends NodeElement
 
 
-class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
-
+class HornGraph(clauses: Clauses) {
+  val templates = readTemplateMap(clauses)
   var globalNodeID = 0
   val canonicalNodeTypeIDMap = new mutable.HashMap[String, Int]
   (for (n <- nodeTypes) canonicalNodeTypeIDMap(n) = 0)
@@ -491,7 +491,7 @@ class HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
 }
 
 
-class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
+class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
   //notice: templates are only correspond to the original clauses
   val normalizedClauses = normalizeClauses(clauses, VerificationHints(Map()))
@@ -584,7 +584,7 @@ class CDHG(clauses: Clauses, templates: Map[String, VerificationHints]) extends 
 
 }
 
-class CG(clauses: Clauses, templates: Map[String, VerificationHints]) extends HornGraph(clauses: Clauses, templates: Map[String, VerificationHints]) {
+class CG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
   //notice: templates are only correspond to the original clauses
   val simplifiedClauses = simplifyClauses(clauses, VerificationHints(Map()))
   var clauseCount = 0
