@@ -14,8 +14,10 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.graphs.GraphUtils.writeOneLineJson
 import lazabs.horn.graphs.NodeAndEdgeType.graphNameMap
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
+import lazabs.horn.graphs.counterExampleUtils.getPrunedClauses
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
+
 import java.io.{File, PrintWriter}
 
 object EvaluateUtils {
@@ -28,51 +30,20 @@ object EvaluateUtils {
   def getSolvability(unsimplifiedClauses: Seq[Clause],
                      simpHints: Seq[Clause],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
-    println(Console.BLUE + "--------------check solvability ---------------")
-    val unlabeledTemplates = readTemplateFromFile(simpHints, "unlabeled")
-    val unlabeledTemplatesStatistics = getVerificationHintsStatistics(unlabeledTemplates)
-    val labeledTemplates = readTemplateFromFile(simpHints, "labeled")
-    val labeledTemplatesStatistics = getVerificationHintsStatistics(labeledTemplates)
-    val minedTemplates = readTemplateFromFile(simpHints, "mined")
-    val minedTemplatesStatistics = getVerificationHintsStatistics(minedTemplates)
-    val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvability.JSON"
-    val fixedFields: Map[String, Int] = Map("clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
-      "clauseNumberAfterSimplification" -> simpHints.length,
-      "smt2FileSizeByte" -> new File(GlobalParameters.get.fileName).length().toInt, //bytes,
-      "relationSymbolNumberBeforeSimplification" -> unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _),
-      "relationSymbolNumberAfterSimplification" ->
-        (if (simpHints.size != 0) simpHints.map(_.allAtoms.length).reduce(_ + _) else 0),
-      "minedSingleVariableTemplatesNumber" -> minedTemplatesStatistics._1,
-      "minedBinaryVariableTemplatesNumber" -> minedTemplatesStatistics._2,
-      "minedTemplateNumber" -> minedTemplatesStatistics._3,
-      "minedTemplateRelationSymbolNumber" -> minedTemplatesStatistics._4,
-      "labeledSingleVariableTemplatesNumber" -> labeledTemplatesStatistics._1,
-      "labeledBinaryVariableTemplatesNumber" -> labeledTemplatesStatistics._2,
-      "labeledTemplateNumber" -> labeledTemplatesStatistics._3,
-      "labeledTemplateRelationSymbolNumber" -> labeledTemplatesStatistics._4,
-      "unlabeledSingleVariableTemplatesNumber" -> unlabeledTemplatesStatistics._1,
-      "unlabeledBinaryVariableTemplatesNumber" -> unlabeledTemplatesStatistics._2,
-      "unlabeledTemplateNumber" -> unlabeledTemplatesStatistics._3,
-      "unlabeledTemplateRelationSymbolNumber" -> unlabeledTemplatesStatistics._4)
-    val meansureFields = Seq("solvingTime", "cegarIterationNumber", "generatedPredicateNumber",
-      "averagePredicateSize", "predicateGeneratorTime", "satisfiability")
-    val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
-    val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-    val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"
-    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions ++ Seq("PredictedCG","PredictedCDHG","Empty","Unlabeled","Mined","Random")) yield a + g + "0.0"
-    val randomAbstractTypeFields = for (g <- Seq("_CDHG_random_", "_CG_random_"); e <- explorationRate.map(_.toString); a <- combianedOptions) yield a + g + e
-    val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
-    val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
-    val costOption = Seq("cost_shape", "cost_logit", "cost_same")
-    val initialFieldsSeq = (for (m <- meansureFields; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
-    val timeout = 60 * 60 * 3 * 1000 //milliseconds
-    val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
-    if (!new java.io.File(solvingTimeFileName).exists) {
-      writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
-    }
+    //get pruned clauses from predicted
+    val prunedClauses = getPrunedClauses(simpHints)
+
+    //get predicate generator from predicted or existed heuristics
+    val predGeneratorForSolvabilityCheck = getPredicateGenerator(simpHints, predGenerator)
+
+    println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
+    val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
+      unsimplifiedClauses, simpHints,prunedClauses)
+
+    //run CEGAR
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      new HornPredAbs(iClauses = simpHints, initialPredicates = Map(), predicateGenerator=predGenerator)
+      new HornPredAbs(iClauses = simpHints, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
     }
 
 
@@ -105,6 +76,54 @@ object EvaluateUtils {
       }
     }
 
+  }
+
+  def writeInitialFixedFieldsToSolvabilityFile(unsimplifiedClauses: Clauses, simpHints: Clauses,prunedClauses:Clauses): (String, Seq[String], Map[String, Int]) = {
+    val unlabeledTemplates = readTemplateFromFile(simpHints, "unlabeled")
+    val unlabeledTemplatesStatistics = getVerificationHintsStatistics(unlabeledTemplates)
+    val labeledTemplates = readTemplateFromFile(simpHints, "labeled")
+    val labeledTemplatesStatistics = getVerificationHintsStatistics(labeledTemplates)
+    val minedTemplates = readTemplateFromFile(simpHints, "mined")
+    val minedTemplatesStatistics = getVerificationHintsStatistics(minedTemplates)
+    val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvability.JSON"
+    val fixedFields: Map[String, Int] = Map("clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
+      "clauseNumberAfterSimplification" -> simpHints.length,
+      "clauseNumberAfterPruning" -> prunedClauses.length,
+      "smt2FileSizeByte" -> new File(GlobalParameters.get.fileName).length().toInt, //bytes,
+      "relationSymbolNumberBeforeSimplification" -> unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _),
+      "relationSymbolNumberAfterSimplification" ->
+        (if (simpHints.size != 0) simpHints.map(_.allAtoms.length).reduce(_ + _) else 0),
+      "relationSymbolNumberAfterPruning" ->
+        (if (simpHints.size != 0) prunedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
+      "minedSingleVariableTemplatesNumber" -> minedTemplatesStatistics._1,
+      "minedBinaryVariableTemplatesNumber" -> minedTemplatesStatistics._2,
+      "minedTemplateNumber" -> minedTemplatesStatistics._3,
+      "minedTemplateRelationSymbolNumber" -> minedTemplatesStatistics._4,
+      "labeledSingleVariableTemplatesNumber" -> labeledTemplatesStatistics._1,
+      "labeledBinaryVariableTemplatesNumber" -> labeledTemplatesStatistics._2,
+      "labeledTemplateNumber" -> labeledTemplatesStatistics._3,
+      "labeledTemplateRelationSymbolNumber" -> labeledTemplatesStatistics._4,
+      "unlabeledSingleVariableTemplatesNumber" -> unlabeledTemplatesStatistics._1,
+      "unlabeledBinaryVariableTemplatesNumber" -> unlabeledTemplatesStatistics._2,
+      "unlabeledTemplateNumber" -> unlabeledTemplatesStatistics._3,
+      "unlabeledTemplateRelationSymbolNumber" -> unlabeledTemplatesStatistics._4)
+    val meansureFields = Seq("solvingTime", "cegarIterationNumber", "generatedPredicateNumber",
+      "averagePredicateSize", "predicateGeneratorTime", "satisfiability")
+    val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
+    val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+    val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"
+    val combinedOffAbstractTypeFields = for (g <- Seq("_CDHG_off_", "_CG_off_"); a <- combianedOptions ++ Seq("PredictedCG", "PredictedCDHG", "Empty", "Unlabeled", "Mined", "Random")) yield a + g + "0.0"
+    val randomAbstractTypeFields = for (g <- Seq("_CDHG_random_", "_CG_random_"); e <- explorationRate.map(_.toString); a <- combianedOptions) yield a + g + e
+    val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
+    val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
+    val costOption = Seq("cost_shape", "cost_logit", "cost_same")
+    val initialFieldsSeq = (for (m <- meansureFields; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
+    val timeout = 60 * 60 * 3 * 1000 //milliseconds
+    val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
+    if (!new java.io.File(solvingTimeFileName).exists) {
+      writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
+    }
+    (solvingTimeFileName, meansureFields, initialFields)
   }
 
   def readJSONFieldToMap(solvingTimeFileName: String, fieldNames: Seq[String] = Seq("RelationalEqs", "Term", "Octagon", "RelationalIneqs", "splitClauses")): Map[String, String] = {

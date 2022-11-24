@@ -465,9 +465,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     System.exit(0)
   }
   if (GlobalParameters.get.getSolvability) {
-    val prunedClausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
-    val predGeneratorForSolvabilityCheck = getPredicateGenerator(simplifiedClauses, predGenerator)
-    getSolvability(unsimplifiedClauses, simplifiedClauses, predGeneratorForSolvabilityCheck)
+    getSolvability(unsimplifiedClauses, simplifiedClauses, predGenerator)
     System.exit(0)
   }
 
