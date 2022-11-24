@@ -126,6 +126,7 @@ object TemplateUtils {
         counterexampleMethod)
     val predMiner = new PredicateMiner(predAbs)
     val minedTemplates = predMiner.unitTwoVariableTemplates
+    //predMiner.variableTemplates
     writeTemplatesToFile(minedTemplates, "mined")
   }
 

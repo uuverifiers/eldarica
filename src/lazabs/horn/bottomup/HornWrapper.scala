@@ -55,6 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
+import lazabs.horn.graphs.counterExampleUtils.getPrunedClauses
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -465,6 +466,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     System.exit(0)
   }
   if (GlobalParameters.get.getSolvability) {
+    val prunedClausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
     val predGeneratorForSolvabilityCheck = getPredicateGenerator(simplifiedClauses, predGenerator)
     getSolvability(unsimplifiedClauses, simplifiedClauses, predGeneratorForSolvabilityCheck)
     System.exit(0)
