@@ -16,10 +16,9 @@ object counterExampleUtils {
     val union, common = Value
   }
 
-  def getClausesInCounterExamples(clauses: Clauses,simpHints: VerificationHints, disjunctive: Boolean, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
+  def getClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, NormClause)]]): Clauses = {
-    //val (_,predGenerator)=getPredAbs(clauses,simpHints,disjunctive,predicateGenerator)
     val CEMiner = new CounterexampleMiner(clauses, predicateGenerator)
     val minedCEs = if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.union)
       CEMiner.unionMinimalCounterexampleIndexs
@@ -29,7 +28,6 @@ object counterExampleUtils {
     printMinedClausesInCounterExamples(clauses,clausesInCE)
 
     clausesInCE
-
   }
 
   def printMinedClausesInCounterExamples(originalClauses: Clauses, minedClauses: Clauses): Unit = {

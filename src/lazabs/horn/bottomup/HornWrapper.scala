@@ -454,7 +454,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
   if (GlobalParameters.get.mineCounterExample){
     createNewLogFile(append = true)
-    logTime(getClausesInCounterExamples(simplifiedClauses, simpHints, disjunctive, predGenerator),"mingCE")
+    logTime(getClausesInCounterExamples(simplifiedClauses, predGenerator),"mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled

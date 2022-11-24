@@ -49,9 +49,7 @@ object Utils {
                  predGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, NormClause)]]):
-  (HornPredAbs[HornClauses.Clause], Dag[AndOrNode[NormClause, Unit]] =>
-    Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, NormClause)]]) ={
+  (HornPredAbs[HornClauses.Clause]) ={
     val counterexampleMethod =
       if (disjunctive)
         CEGAR.CounterexampleMethod.AllShortest
@@ -61,7 +59,7 @@ object Utils {
       new HornPredAbs(simplifiedClauses,
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
-    (predAbs,predGenerator)
+    predAbs
   }
 
 }
