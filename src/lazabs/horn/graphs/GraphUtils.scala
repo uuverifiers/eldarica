@@ -159,14 +159,6 @@ object GraphUtils {
     println("-" * 10)
   }
 
-  def printListMap[A, B](m: Map[A, Seq[B]], title: String = ""): Unit = {
-    println("-" * 10 + title + "-" * 10)
-    for ((k, v) <- m) {
-      println(k)
-      for (vv <- v)
-        println(vv)
-    }
-  }
 
   def getCanonicalName(nodeType: String, canonicalID: Int): String = {
     nodeType + "_" + canonicalID.toString

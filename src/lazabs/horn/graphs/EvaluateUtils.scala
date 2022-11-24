@@ -34,7 +34,7 @@ object EvaluateUtils {
     val prunedClauses = getPrunedClauses(simpHints)
 
     //get predicate generator from predicted or existed heuristics
-    val predGeneratorForSolvabilityCheck = getPredicateGenerator(simpHints, predGenerator)
+    val predGeneratorForSolvabilityCheck = getPredicateGenerator(prunedClauses, predGenerator)
 
     println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
     val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
@@ -43,7 +43,7 @@ object EvaluateUtils {
     //run CEGAR
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      new HornPredAbs(iClauses = simpHints, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
+      new HornPredAbs(iClauses = prunedClauses, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
     }
 
 

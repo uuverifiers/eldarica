@@ -23,7 +23,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, DisjInterpolator, HornPredAbs, NormClause, PredicateMiner, TemplateInterpolator}
 import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
-import lazabs.horn.graphs.GraphUtils._
+import lazabs.horn.graphs.Utils._
 import play.api.libs.json.{JsSuccess, Json}
 
 import scala.util.Random
