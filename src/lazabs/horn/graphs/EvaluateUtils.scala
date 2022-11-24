@@ -60,10 +60,15 @@ object EvaluateUtils {
       val resultList = Seq(solvingTime, cegarIterationNumber, generatedPredicateNumber,
         averagePredicateSize, predicateGeneratorTime, satisfiability).map(_.toInt).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
-        val newField = (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-          "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-          + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-          + "_cost_" + GlobalParameters.get.readCostType, v)
+        val newField=if(m=="satisfiability"){
+          ("satisfiability",v)
+        }
+        else{
+          (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+            "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+            + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+            + "_cost_" + GlobalParameters.get.readCostType, v)
+        }
 
         val oldFields = readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
         val updatedFields =
@@ -117,7 +122,7 @@ object EvaluateUtils {
     val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
     val costOption = Seq("cost_shape", "cost_logit", "cost_same")
-    val initialFieldsSeq = (for (m <- meansureFields; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
+    val initialFieldsSeq = (for (m <- meansureFields if m!="satisfiability"; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
     if (!new java.io.File(solvingTimeFileName).exists) {
