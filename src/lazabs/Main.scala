@@ -36,6 +36,7 @@ import lazabs.art._
 import lazabs.art.SearchMethod._
 import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
 import lazabs.horn.graphs.HornGraphType
+import lazabs.horn.graphs.counterExampleUtils.CounterExampleMiningOption
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -102,6 +103,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs
   var getHornGraph = false
+  var mineCounterExample =  false
   var pruneClauses = false
   var visualizeHornGraph=false
   var generateTemplates = false
@@ -109,6 +111,7 @@ class GlobalParameters extends Cloneable {
   var getSolvability = false
   var mineTemplates = false
   var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
+  var ceMiningOption : CounterExampleMiningOption.Value = CounterExampleMiningOption.union
   var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.off
   var readCostType : String = "same"
   var explorationRate: Float=0
@@ -203,6 +206,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolation = this.templateBasedInterpolation
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.getHornGraph = this.getHornGraph
+    that.mineCounterExample = this.mineCounterExample
     that.pruneClauses = this.pruneClauses
     that.visualizeHornGraph = this.visualizeHornGraph
     that.generateTemplates = this.generateTemplates
@@ -213,6 +217,7 @@ class GlobalParameters extends Cloneable {
     that.explorationRate = this.explorationRate
     that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
+    that.ceMiningOption = this.ceMiningOption
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
@@ -414,6 +419,16 @@ object Main {
       }
       case "-pruneClauses" :: rest => {
         pruneClauses = true
+        arguments(rest)
+      }
+      case "-mineCounterExample:union" :: rest => {
+        mineCounterExample = true
+        ceMiningOption = CounterExampleMiningOption.union
+        arguments(rest)
+      }
+      case "-mineCounterExample:common" :: rest => {
+        mineCounterExample = true
+        ceMiningOption = CounterExampleMiningOption.common
         arguments(rest)
       }
       case "-getHornGraph:CDHG" :: rest => {

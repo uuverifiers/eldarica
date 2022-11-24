@@ -115,15 +115,7 @@ object TemplateUtils {
      different abstract option cause different mined Templates
      use the abstract option that takes shortest time to solve the problem
      */
-    val counterexampleMethod =
-      if (disjunctive)
-        CEGAR.CounterexampleMethod.AllShortest
-      else
-        CEGAR.CounterexampleMethod.FirstBestShortest
-    val predAbs =
-      new HornPredAbs(simplifiedClauses,
-        simpHints.toInitialPredicates, predGenerator,
-        counterexampleMethod)
+    val (predAbs,_) = getPredAbs(simplifiedClauses, simpHints, disjunctive, predGenerator)
     val predMiner = new PredicateMiner(predAbs)
     val minedTemplates = predMiner.unitTwoVariableTemplates
     //predMiner.variableTemplates

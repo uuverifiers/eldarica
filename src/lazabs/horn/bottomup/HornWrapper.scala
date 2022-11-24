@@ -55,7 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
-import lazabs.horn.graphs.counterExampleUtils.getPrunedClauses
+import lazabs.horn.graphs.counterExampleUtils.{getClausesInCounterExamples, getPrunedClauses}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
@@ -450,6 +450,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     createNewLogFile(append = true)
     logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
     logTime(writeTemplateMap(simplifiedClauses),"labeling")
+    System.exit(0)
+  }
+  if (GlobalParameters.get.mineCounterExample){
+    createNewLogFile(append = true)
+    logTime(getClausesInCounterExamples(simplifiedClauses, simpHints, disjunctive, predGenerator),"mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled

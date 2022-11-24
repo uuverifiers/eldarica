@@ -1,11 +1,17 @@
 package lazabs.horn.graphs
 
-import ap.parser.{EquivExpander, PartialEvaluator, SMTLineariser, Transform2Prenex}
+import ap.parser.{EquivExpander, IAtom, PartialEvaluator, SMTLineariser, Transform2Prenex}
+import ap.terfor.conjunctions.Conjunction
 import lazabs.GlobalParameters
-import lazabs.horn.bottomup.HornClauses
+import ap.terfor.preds.Predicate
+import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, NormClause}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
 object Utils {
+
 
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
     val fileName=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.length-4)+suffix+".smt2"
@@ -37,6 +43,25 @@ object Utils {
       for (vv <- v)
         println(vv)
     }
+  }
+
+  def getPredAbs(simplifiedClauses:Clauses, simpHints: VerificationHints, disjunctive: Boolean,
+                 predGenerator: Dag[AndOrNode[NormClause, Unit]] =>
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, NormClause)]]):
+  (HornPredAbs[HornClauses.Clause], Dag[AndOrNode[NormClause, Unit]] =>
+    Either[Seq[(Predicate, Seq[Conjunction])],
+      Dag[(IAtom, NormClause)]]) ={
+    val counterexampleMethod =
+      if (disjunctive)
+        CEGAR.CounterexampleMethod.AllShortest
+      else
+        CEGAR.CounterexampleMethod.FirstBestShortest
+    val predAbs =
+      new HornPredAbs(simplifiedClauses,
+        simpHints.toInitialPredicates, predGenerator,
+        counterexampleMethod)
+    (predAbs,predGenerator)
   }
 
 }
