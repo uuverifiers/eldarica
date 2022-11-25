@@ -181,18 +181,6 @@ object GraphUtils {
     "\"" + "#" + a.toHexString.toUpperCase + b.toHexString.toUpperCase + c.toHexString.toUpperCase + "\""
   }
 
-  def writeOneLineJson(head: String, body: String, writer:PrintWriter, changeLine: Boolean = true, lastEntry:Boolean=false): Unit = {
-    if (lastEntry==false){
-      if (changeLine == true)
-        writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "," + "\n")
-      else
-        writer.write("\"" + head + "\"" + ":" + seqToString(body) + "," + "\n")
-    }else{
-      writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "\n")
-    }
-
-  }
-
   def seqToString(s: String): String = {
     if (s.contains("("))
       "[" + s.substring(s.indexOf("(") + 1, s.indexOf(")")) + "]"

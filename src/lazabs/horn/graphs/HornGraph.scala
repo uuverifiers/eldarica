@@ -11,6 +11,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.graphs.TemplateUtils._
+import lazabs.horn.graphs.Utils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.graphs.NodeAndEdgeType._
 

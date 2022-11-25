@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.GraphUtils.writeOneLineJson
+import lazabs.horn.graphs.Utils.writeOneLineJson
 import lazabs.horn.graphs.NodeAndEdgeType.graphNameMap
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.counterExampleUtils.getPrunedClauses

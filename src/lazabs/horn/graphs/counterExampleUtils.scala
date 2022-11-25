@@ -7,54 +7,87 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CounterexampleMiner, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, writeSMTFormatToFile}
+import lazabs.horn.bottomup.{CounterexampleMiner, HornTranslator, NormClause}
+import lazabs.horn.graphs.Utils.{getPredAbs, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import lazabs.horn.global.HornClause
+import lazabs.horn.graphs.NodeAndEdgeType.graphNameMap
+
+import java.io.{File, PrintWriter}
 
 object counterExampleUtils {
   object CounterExampleMiningOption extends Enumeration {
     val union, common = Value
   }
 
-  def getClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
+  def mineClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, NormClause)]]): Clauses = {
+      Dag[(IAtom, NormClause)]]): Unit = {
     val CEMiner = new CounterexampleMiner(clauses, predicateGenerator)
     val minedCEs = if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.union)
       CEMiner.unionMinimalCounterexampleIndexs
     else
       CEMiner.commonCounterexampleIndexs
     val clausesInCE = for ((c, i) <- clauses.zipWithIndex; if minedCEs.contains(i)) yield c
-    printMinedClausesInCounterExamples(clauses,clausesInCE)
 
-    clausesInCE
+    writeSMTFormatToFile(clauses, "simplified")
+    val ceLabels = for ((c, i) <- clauses.zipWithIndex) yield {
+      if (minedCEs.contains(i)) 1 else 0
+    }
+
+    val jsonFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
+    val writer = new PrintWriter(new File(jsonFileName))
+    writer.write("{\n")
+    writeOneLineJson(head = "clauseNumber", Seq(clauses.length).toString(), writer,changeLine = false)
+    writeOneLineJson(head = "counterExampleNumber", Seq(minedCEs.length).toString(), writer,changeLine = false)
+    writeOneLineJson(head = "clauseIndices", (0 to clauses.length-1).toString(), writer)
+    writeOneLineJson(head = "counterExampleIndices", minedCEs.toString(), writer)
+    writeOneLineJson(head = "counterExampleLabels", ceLabels.toString(), writer)
+    writer.write("}")
+    writer.close()
+
+    printMinedClausesInCounterExamples(clauses, clausesInCE)
+
   }
 
   def printMinedClausesInCounterExamples(originalClauses: Clauses, minedClauses: Clauses): Unit = {
+    println("-" * 10 + " original clauses " + originalClauses.length + "-" * 10)
     if (GlobalParameters.get.log) {
-      writeSMTFormatToFile(originalClauses, "simplified")
-      writeSMTFormatToFile(minedClauses, "clausesInCEs")
-      println("-" * 10 + " original clauses " + originalClauses.length + "-" * 10)
       originalClauses.map(_.toPrologString).foreach(println(_))
-      println("-" * 10 + " clauses in counter-examples" + minedClauses.length + "-" * 10)
-      minedClauses.map(_.toPrologString).foreach(println(_))
     }
 
+    println("-" * 10 + " clauses in counter-examples " + minedClauses.length + "-" * 10)
+    if (GlobalParameters.get.log) {
+      minedClauses.map(_.toPrologString).foreach(println(_))
+    }
+  }
+
+  def readMinedCounterExamples(): Unit = {
+    readClausesFromFile("simplified")
+  }
+
+  def readClausesFromFile(suffix: String = ""): Clauses = {
+    val fileName = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - "smt2".length) + suffix + ".smt2"
+    fromSMT(fileName) map ((new HornTranslator).transform(_))
   }
 
   def getPrunedClauses(clauses: Clauses): Clauses = {
     println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.pruneClauses == true) {
       val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
-      val prunedClauses = clauses.filterNot(x => clausesInCounterExample.contains(x))
+      val prunedClauses = pruneClausesWithSanityCheck(clauses, clausesInCounterExample)
       printPrunedReults(clauses, prunedClauses, clausesInCounterExample)
       prunedClauses
 
     } else {
       clauses
     }
+  }
 
-
+  def pruneClausesWithSanityCheck(clauses: Clauses, clausesInCounterExample: Clauses): Clauses = {
+    //todo: sanity check, keep at least one entrance and exit
+    clauses.filterNot(x => clausesInCounterExample.contains(x))
   }
 
   def getRandomCounterExampleClauses(clauses: Clauses): Clauses = {

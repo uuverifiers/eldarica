@@ -8,7 +8,10 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, NormClause}
+import lazabs.horn.graphs.GraphUtils.seqToString
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+
+import java.io.PrintWriter
 
 object Utils {
 
@@ -60,6 +63,19 @@ object Utils {
         simpHints.toInitialPredicates, predGenerator,
         counterexampleMethod)
     predAbs
+  }
+
+
+  def writeOneLineJson(head: String, body: String, writer: PrintWriter, changeLine: Boolean = true, lastEntry: Boolean = false): Unit = {
+    if (lastEntry == false) {
+      if (changeLine == true)
+        writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "," + "\n")
+      else
+        writer.write("\"" + head + "\"" + ":" + seqToString(body) + "," + "\n")
+    } else {
+      writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "\n")
+    }
+
   }
 
 }
