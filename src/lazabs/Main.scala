@@ -35,7 +35,7 @@ import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
 import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
-import lazabs.horn.graphs.HornGraphType
+import lazabs.horn.graphs.{HornGraphLabelType, HornGraphType}
 import lazabs.horn.graphs.counterExampleUtils.CounterExampleMiningOption
 import lazabs.prover._
 import lazabs.viewer._
@@ -111,6 +111,7 @@ class GlobalParameters extends Cloneable {
   var getSolvability = false
   var mineTemplates = false
   var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
+  var hornGraphLabelType : HornGraphLabelType.Value = HornGraphLabelType.template
   var ceMiningOption : CounterExampleMiningOption.Value = CounterExampleMiningOption.union
   var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.off
   var readCostType : String = "same"
@@ -217,6 +218,7 @@ class GlobalParameters extends Cloneable {
     that.explorationRate = this.explorationRate
     that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
+    that.hornGraphLabelType = this.hornGraphLabelType
     that.ceMiningOption = this.ceMiningOption
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
@@ -439,6 +441,14 @@ object Main {
       case "-getHornGraph:CG" :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.CG
+        arguments(rest)
+      }
+      case "-hornGraphLabelType:template" :: rest => {
+        hornGraphLabelType = HornGraphLabelType.template
+        arguments(rest)
+      }
+      case "-hornGraphLabelType:unsatCore" :: rest => {
+        hornGraphLabelType = HornGraphLabelType.unsatCore
         arguments(rest)
       }
       case "-hornGraphType:CG" :: rest => {

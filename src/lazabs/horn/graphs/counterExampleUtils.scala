@@ -8,7 +8,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CounterexampleMiner, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getPredAbs, getfileNameWithSuffix, readJSONFile, readJsonFieldInt, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.global.HornClause
@@ -44,6 +44,7 @@ object counterExampleUtils {
     writeOneLineJson(head = "clauseIndices", (0 to clauses.length-1).toString(), writer)
     writeOneLineJson(head = "counterExampleIndices", minedCEs.toString(), writer)
     writeOneLineJson(head = "counterExampleLabels", ceLabels.toString(), writer)
+    writeOneLineJson("endField", "[0]",writer,changeLine = false,lastEntry=true)
     writer.write("}")
     writer.close()
 
@@ -63,12 +64,9 @@ object counterExampleUtils {
     }
   }
 
-  def readMinedCounterExamples(): Unit = {
-    readClausesFromFile("simplified")
-  }
 
   def readClausesFromFile(suffix: String = ""): Clauses = {
-    val fileName = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - "smt2".length) + suffix + ".smt2"
+    val fileName = getfileNameWithSuffix(suffix)
     fromSMT(fileName) map ((new HornTranslator).transform(_))
   }
 

@@ -439,10 +439,17 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
   /*
-  * Pipeline:
+  * template selection Pipeline:
   * -mineTemplates for training set /  generateTemplates unsolvable set
-  * -getHornGraph
+  * -getHornGraph:CDHG -hornGraphLabelType:template
   * training and prediction
+  * -getSolvability
+  * collect results
+  *
+  * unsatcore Pipeline:
+  * --mineCounterExample:union
+  * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
+  * train and prediction
   * -getSolvability
   * collect results
   * */

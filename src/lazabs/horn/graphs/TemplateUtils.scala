@@ -132,14 +132,16 @@ object TemplateUtils {
     try {
       val json_content = scala.io.Source.fromFile(input_file).mkString
       val json_data = Json.parse(json_content)
-      val predictedLabel = (json_data \ readLabel).validate[Array[Int]] match {
-        case JsSuccess(templateLabel, _) => templateLabel
-      }
+//      val predictedLabel = (json_data \ readLabel).validate[Array[Int]] match {
+//        case JsSuccess(templateLabel, _) => templateLabel
+//      }
+      val predictedLabel=readJsonFieldInt(input_file,readLabel)
       val mapLengthList = for ((k, v) <- unlabeledTemplates) yield v.length
       val splitedPredictedLabel = splitLabel(mapLengthList, predictedLabel)
-      val predictedLabelLogit = (json_data \ (readLabel + "Logit")).validate[Array[Double]] match {
-        case JsSuccess(templateLabel, _) => templateLabel
-      }
+      val predictedLabelLogit = readJsonFieldDouble(input_file,readLabel+"Logit")
+//      (json_data \ (readLabel + "Logit")).validate[Array[Double]] match {
+//        case JsSuccess(templateLabel, _) => templateLabel
+//      }
       val normalizedPredictedLabelLogit = predictedLabelLogit.map(sigmoid(_))
 
       val splitedPredictedLabelLogit = splitLabel(mapLengthList, normalizedPredictedLabelLogit)

@@ -14,12 +14,17 @@ import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.Utils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.graphs.NodeAndEdgeType._
+import lazabs.horn.graphs.counterExampleUtils.readClausesFromFile
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
 
 object HornGraphType extends Enumeration {
   val CDHG, CG = Value
+}
+
+object HornGraphLabelType extends Enumeration {
+  val template, unsatCore = Value
 }
 
 object ASTSouce extends Enumeration {
@@ -96,8 +101,15 @@ final case class IIntLitNode(i: IIntLit) extends NodeElement
 final case class AbstractNode(a: String) extends NodeElement
 
 
-class HornGraph(clauses: Clauses) {
-  val templates = readTemplateMap(clauses)
+class HornGraph(originalSimplifiedClauses: Clauses) {
+  val clauses = GlobalParameters.get.hornGraphLabelType match {
+    case HornGraphLabelType.unsatCore => {
+      readClausesFromFile("simplified")
+    }
+    case _ => originalSimplifiedClauses
+  }
+  var labelIndices: Array[Int] = Array()
+  var labelList: Array[Int] = Array()
   var globalNodeID = 0
   val canonicalNodeTypeIDMap = new mutable.HashMap[String, Int]
   (for (n <- nodeTypes) canonicalNodeTypeIDMap(n) = 0)
@@ -245,7 +257,7 @@ class HornGraph(clauses: Clauses) {
     writerGraph.close()
   }
 
-  def outputJson(nodeList: Array[Node], edgeMap: mutable.HashMap[String, Array[Edge]], labelList: Array[Int],labelIndices:Array[Int]): Unit = {
+  def outputJson(nodeList: Array[Node], edgeMap: mutable.HashMap[String, Array[Edge]], labelList: Array[Int], labelIndices: Array[Int]): Unit = {
     val nodeIndicesList = for (nt <- nodeTypes) yield {
       nt + "Indices" -> nodeList.filter(_.typeName == nt)
     }
@@ -257,28 +269,28 @@ class HornGraph(clauses: Clauses) {
 
 
     //write labels
-    writeOneLineJson("labelNumber", Seq(labelList.length).toString,writer, changeLine = false)
-    writeOneLineJson("labelList", labelList.toSeq.toString,writer)
-    writeOneLineJson("labelIndices", labelIndices.toSeq.toString,writer)
+    writeOneLineJson("labelNumber", Seq(labelList.length).toString, writer, changeLine = false)
+    writeOneLineJson("labelList", labelList.toSeq.toString, writer)
+    writeOneLineJson("labelIndices", labelIndices.toSeq.toString, writer)
     //write nodeID
-    writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString,writer, changeLine = false)
-    writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString,writer)
+    writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString, writer, changeLine = false)
+    writeOneLineJson("nodeIDList", nodeSymbolList.map(_.nodeID).toSeq.toString, writer)
     //write nodeSymbolList
-    writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString,writer)
+    writeOneLineJson("nodeSymbolList", nodeSymbolList.map("\"" + _.canonicalName + "\"").toSeq.toString, writer)
     //write indices
     for ((nt, nl) <- nodeIndicesList) {
       val listString = nl.map(_.nodeID).toSeq.toString()
-      writeOneLineJson(nt + "Number", Seq(nl.length).toString,writer, changeLine = false)
-      writeOneLineJson(nt, listString,writer)
+      writeOneLineJson(nt + "Number", Seq(nl.length).toString, writer, changeLine = false)
+      writeOneLineJson(nt, listString, writer)
     }
     //write edges
     for ((edgeType, edges) <- edgeMap) {
       val filterDummyEdges = if (edges.length == 1) edges else edges.filterNot(x => x.edge.sum == 0)
       val listString = filterDummyEdges.map(x => seqToString(x.edge.toSeq.toString())).toSeq.toString()
-      writeOneLineJson(edgeType + "Number", Seq(edges.length).toString,writer, changeLine = false)
-      writeOneLineJson(edgeType, listString,writer)
+      writeOneLineJson(edgeType + "Number", Seq(edges.length).toString, writer, changeLine = false)
+      writeOneLineJson(edgeType, listString, writer)
     }
-    writeOneLineJson("endField", "[0]",writer,changeLine = false,lastEntry=true)
+    writeOneLineJson("endField", "[0]", writer, changeLine = false, lastEntry = true)
 
     writer.write("}")
     writer.close()
@@ -444,7 +456,7 @@ class HornGraph(clauses: Clauses) {
   }
 
 
-  def constructTemplates(templateMap: Map[String, VerificationHints]): Array[(Int,Int)] = {
+  def constructTemplates(templateMap: Map[String, VerificationHints]): Array[(Int, Int)] = {
     astSource = ASTSouce.template
 
     val unlabeledTemplate = templateMap("unlabeled")
@@ -456,14 +468,14 @@ class HornGraph(clauses: Clauses) {
       currentPred = pred
       val currentRsaNodeList = for (i <- Array.range(0, pred.arity)) yield globalPredicateArgumentNodeMap((pred, i))
       //for (a <- (currentRsaNodeList ++ globalConstantNodeMap.values)) currentClauseNodeMap(a.nodeID) = a
-      val (templateRelevanceLabel,labelIndex) = transformedTemplate match {
+      val (templateRelevanceLabel, labelIndex) = transformedTemplate match {
         case VerifHintTplEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateEq", pred, e, transformedTemplate, labeledTemplates)
         case VerifHintTplInEqTerm(e, cost) => createTemplateNodeAndCorrespondingEdges("templateIneq", pred, e, transformedTemplate, labeledTemplates)
         case VerifHintTplPredPosNeg(e, cost) => createTemplateNodeAndCorrespondingEdges("templateBool", pred, e, transformedTemplate, labeledTemplates)
       }
       clauseConstraintSubExpressionMap.clear()
       //currentClauseNodeMap.clear()
-      (templateRelevanceLabel,labelIndex)
+      (templateRelevanceLabel, labelIndex)
     }
     templateRelevanceLabelList.toArray
 
@@ -471,11 +483,11 @@ class HornGraph(clauses: Clauses) {
 
   def createTemplateNodeAndCorrespondingEdges(templateType: String, pred: Predicate, e: IExpression,
                                               t: VerifHintElement,
-                                              labeledTemplates: VerificationHints): (Int,Int) = {
+                                              labeledTemplates: VerificationHints): (Int, Int) = {
     val labeledTemplateInPred = if (labeledTemplates.predicateHints.keys.toSeq.contains(pred)) labeledTemplates.predicateHints(pred) else Seq()
     val templateLabelBoolean = verifHintElementContains(labeledTemplateInPred, t)
-    val templateLabel = if (templateLabelBoolean==true) 1 else 0
-    val templateNodeColor = if (templateLabelBoolean==true) "green" else "red"
+    val templateLabel = if (templateLabelBoolean == true) 1 else 0
+    val templateNodeColor = if (templateLabelBoolean == true) "green" else "red"
     val templateNode = createNode(templateType, templateType, element = AbstractNode(templateType))(color = templateNodeColor)
     //edge from rs to templates
     createEdge("templateEdge", Array(globalPredicateNodeMap(pred).nodeID, templateNode.nodeID))()
@@ -485,7 +497,34 @@ class HornGraph(clauses: Clauses) {
     createEdge("templateASTEdge", Array(astRootNode.nodeID, templateNode.nodeID))()
 
 
-    (templateLabel,templateNode.nodeID)
+    (templateLabel, templateNode.nodeID)
+  }
+
+  def getLabel(): Unit = {
+    GlobalParameters.get.hornGraphLabelType match {
+      case HornGraphLabelType.template => {
+        val templates = readTemplateMap(clauses)
+        val labelPair = logTime(constructTemplates(templates), "construct templates")
+        labelList = labelPair.map(_._1)
+        labelIndices = labelPair.map(_._2)
+      }
+
+      case HornGraphLabelType.unsatCore => {
+        val clauseNodeName = GlobalParameters.get.hornGraphType match {
+          case HornGraphType.CDHG => "guard"
+          case HornGraphType.CG => "clause"
+        }
+        val clauseIndicesList = nodeMap.values.toArray.filter(_.typeName == clauseNodeName).map(_.nodeID)
+        labelList = readJsonFieldInt(GlobalParameters.get.fileName + ".counterExampleIndex.JSON", readLabelName = "counterExampleLabels")
+        labelIndices = clauseIndicesList
+      }
+
+    }
+    if (GlobalParameters.get.log) {
+      println("labelIndices", labelIndices.length)
+      println("labelList", labelList.length)
+    }
+
   }
 
 
@@ -575,13 +614,11 @@ class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
   }
 
+  getLabel()
 
-  val labelPair = logTime(constructTemplates(templates), "construct templates")
-  val labelList=labelPair.map(_._1)
-  val labelIndices = labelPair.map(_._2)
-  if(GlobalParameters.get.visualizeHornGraph)
+  if (GlobalParameters.get.visualizeHornGraph)
     logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList, labelIndices), "write graph to JSON")
 
 }
 
@@ -640,11 +677,10 @@ class CG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
     }
   }
 
-  val labelPair = logTime(constructTemplates(templates), "construct templates")
-  val labelList = labelPair.map(_._1)
-  val labelIndices = labelPair.map(_._2)
-  if(GlobalParameters.get.visualizeHornGraph)
+  getLabel()
+
+  if (GlobalParameters.get.visualizeHornGraph)
     logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")
-  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList,labelIndices), "write graph to JSON")
+  logTime(outputJson(nodeList = nodeMap.values.toArray, edgeMap = edgeMap, labelList, labelIndices), "write graph to JSON")
 
 }

@@ -10,6 +10,7 @@ import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, NormClause}
 import lazabs.horn.graphs.GraphUtils.seqToString
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import play.api.libs.json.{JsSuccess, JsValue, Json}
 
 import java.io.PrintWriter
 
@@ -17,7 +18,7 @@ object Utils {
 
 
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
-    val fileName=GlobalParameters.get.fileName.substring(0,GlobalParameters.get.fileName.length-4)+suffix+".smt2"
+    val fileName = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - 4) + suffix + ".smt2"
     println("write " + fileName + " to file")
     val out = new java.io.FileOutputStream(fileName)
     Console.withOut(out) {
@@ -48,11 +49,11 @@ object Utils {
     }
   }
 
-  def getPredAbs(simplifiedClauses:Clauses, simpHints: VerificationHints, disjunctive: Boolean,
+  def getPredAbs(simplifiedClauses: Clauses, simpHints: VerificationHints, disjunctive: Boolean,
                  predGenerator: Dag[AndOrNode[NormClause, Unit]] =>
-    Either[Seq[(Predicate, Seq[Conjunction])],
-      Dag[(IAtom, NormClause)]]):
-  (HornPredAbs[HornClauses.Clause]) ={
+                   Either[Seq[(Predicate, Seq[Conjunction])],
+                     Dag[(IAtom, NormClause)]]):
+  (HornPredAbs[HornClauses.Clause]) = {
     val counterexampleMethod =
       if (disjunctive)
         CEGAR.CounterexampleMethod.AllShortest
@@ -76,6 +77,31 @@ object Utils {
       writer.write("\"" + head + "\"" + ":\n" + seqToString(body) + "\n")
     }
 
+  }
+
+  def readJSONFile(fileName: String): JsValue = {
+    val json_content = scala.io.Source.fromFile(fileName).mkString
+    Json.parse(json_content)
+  }
+
+  def readJsonFieldInt(fileName: String, readLabelName: String): Array[Int] = {
+    val json_data = readJSONFile(fileName)
+    val readLabel = (json_data \ readLabelName).validate[Array[Int]] match {
+      case JsSuccess(templateLabel, _) => templateLabel
+    }
+    readLabel
+  }
+
+  def readJsonFieldDouble(fileName: String, readLabelName: String): Array[Double] = {
+    val json_data = readJSONFile(fileName)
+    val readLabel = (json_data \ readLabelName).validate[Array[Double]] match {
+      case JsSuccess(templateLabel, _) => templateLabel
+    }
+    readLabel
+  }
+
+  def getfileNameWithSuffix(suffix: String = ""): String = {
+    GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - "smt2".length) + suffix + ".smt2"
   }
 
 }
