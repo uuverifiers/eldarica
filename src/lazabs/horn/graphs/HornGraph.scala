@@ -10,11 +10,12 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.HornTranslator
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.Utils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.graphs.NodeAndEdgeType._
-import lazabs.horn.graphs.counterExampleUtils.readClausesFromFile
+import lazabs.horn.parser.HornReader.fromSMT
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
@@ -104,7 +105,10 @@ final case class AbstractNode(a: String) extends NodeElement
 class HornGraph(originalSimplifiedClauses: Clauses) {
   val clauses = GlobalParameters.get.hornGraphLabelType match {
     case HornGraphLabelType.unsatCore => {
-      readClausesFromFile("simplified")
+      val simplifiedClausesFileName = getfileNameWithSuffix("simplified")
+      if (new java.io.File(simplifiedClausesFileName).exists)
+        fromSMT(simplifiedClausesFileName) map ((new HornTranslator).transform(_))
+      else originalSimplifiedClauses
     }
     case _ => originalSimplifiedClauses
   }
@@ -515,8 +519,11 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
           case HornGraphType.CG => "clause"
         }
         val clauseIndicesList = nodeMap.values.toArray.filter(_.typeName == clauseNodeName).map(_.nodeID)
-        labelList = readJsonFieldInt(GlobalParameters.get.fileName + ".counterExampleIndex.JSON", readLabelName = "counterExampleLabels")
-        labelIndices = clauseIndicesList
+        val counterExampleIndexFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
+        if (new java.io.File(counterExampleIndexFileName).exists) {
+          labelList = readJsonFieldInt(counterExampleIndexFileName, readLabelName = "counterExampleLabels")
+          labelIndices = clauseIndicesList
+        }
       }
 
     }

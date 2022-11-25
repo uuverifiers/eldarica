@@ -447,7 +447,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * collect results
   *
   * unsatcore Pipeline:
-  * --mineCounterExample:union
+  * -mineCounterExample:union
   * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
   * train and prediction
   * -getSolvability

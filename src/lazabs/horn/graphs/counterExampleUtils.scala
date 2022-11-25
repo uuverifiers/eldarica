@@ -65,11 +65,6 @@ object counterExampleUtils {
   }
 
 
-  def readClausesFromFile(suffix: String = ""): Clauses = {
-    val fileName = getfileNameWithSuffix(suffix)
-    fromSMT(fileName) map ((new HornTranslator).transform(_))
-  }
-
   def getPrunedClauses(clauses: Clauses): Clauses = {
     println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.pruneClauses == true) {
