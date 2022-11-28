@@ -105,7 +105,7 @@ final case class AbstractNode(a: String) extends NodeElement
 class HornGraph(originalSimplifiedClauses: Clauses) {
   val clauses = GlobalParameters.get.hornGraphLabelType match {
     case HornGraphLabelType.unsatCore => {
-      val simplifiedClausesFileName = getfileNameWithSuffix("simplified")
+      val simplifiedClausesFileName = GlobalParameters.get.fileName+".simplified"
       if (new java.io.File(simplifiedClausesFileName).exists)
         fromSMT(simplifiedClausesFileName) map ((new HornTranslator).transform(_))
       else originalSimplifiedClauses

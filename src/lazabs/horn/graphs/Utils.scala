@@ -18,7 +18,7 @@ object Utils {
 
 
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
-    val fileName = GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - 4) + suffix + ".smt2"
+    val fileName = GlobalParameters.get.fileName+"."+suffix
     println("write " + fileName + " to file")
     val out = new java.io.FileOutputStream(fileName)
     Console.withOut(out) {
@@ -98,10 +98,6 @@ object Utils {
       case JsSuccess(templateLabel, _) => templateLabel
     }
     readLabel
-  }
-
-  def getfileNameWithSuffix(suffix: String = ""): String = {
-    GlobalParameters.get.fileName.substring(0, GlobalParameters.get.fileName.length - "smt2".length) + suffix + ".smt2"
   }
 
 }

@@ -8,7 +8,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CounterexampleMiner, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, getfileNameWithSuffix, readJSONFile, readJsonFieldInt, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldInt, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.global.HornClause
