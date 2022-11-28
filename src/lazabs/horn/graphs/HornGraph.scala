@@ -72,7 +72,6 @@ object NodeAndEdgeType {
     elementTypes = edgeTypes, "black")
   val edgeStyleMap: Map[String, String] = getNodeAttributeMap(Map("dataEdge" -> "solid"),
     elementTypes = edgeTypes, "solid")
-  val graphNameMap = Map(HornGraphType.CDHG -> "hyperEdgeGraph", HornGraphType.CG -> "monoDirectionLayerGraph")
 
 }
 
@@ -107,7 +106,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
     case HornGraphLabelType.unsatCore => {
       val simplifiedClausesFileName = GlobalParameters.get.fileName+".simplified"
       if (new java.io.File(simplifiedClausesFileName).exists)
-        fromSMT(simplifiedClausesFileName) map ((new HornTranslator).transform(_))
+        readSMTFormatFromFile(simplifiedClausesFileName)
       else originalSimplifiedClauses
     }
     case _ => originalSimplifiedClauses
@@ -202,7 +201,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
 
 
   def drawDotGraph(nodeList: Array[Node], edgeMap: mutable.HashMap[String, Array[Edge]]): Unit = {
-    val dotFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".gv"
+    val dotFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".gv"
 
     val writerGraph = new PrintWriter(new File(dotFileName))
     writerGraph.write("digraph dag { " + "\n")
@@ -267,7 +266,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
     }
     val nodeSymbolList = nodeList.sortBy(_.nodeID)
 
-    val jsonFileName = GlobalParameters.get.fileName + "." + graphNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    val jsonFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val writer = new PrintWriter(new File(jsonFileName))
     writer.write("{\n")
 

@@ -8,11 +8,10 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CounterexampleMiner, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldInt, writeOneLineJson, writeSMTFormatToFile}
-import lazabs.horn.parser.HornReader.fromSMT
+import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.global.HornClause
-import lazabs.horn.graphs.NodeAndEdgeType.graphNameMap
+import lazabs.horn.graphs.GraphUtils.graphFileNameMap
 
 import java.io.{File, PrintWriter}
 
@@ -39,12 +38,12 @@ object counterExampleUtils {
     val jsonFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
     val writer = new PrintWriter(new File(jsonFileName))
     writer.write("{\n")
-    writeOneLineJson(head = "clauseNumber", Seq(clauses.length).toString(), writer,changeLine = false)
-    writeOneLineJson(head = "counterExampleNumber", Seq(minedCEs.length).toString(), writer,changeLine = false)
-    writeOneLineJson(head = "clauseIndices", (0 to clauses.length-1).toString(), writer)
+    writeOneLineJson(head = "clauseNumber", Seq(clauses.length).toString(), writer, changeLine = false)
+    writeOneLineJson(head = "counterExampleNumber", Seq(minedCEs.length).toString(), writer, changeLine = false)
+    writeOneLineJson(head = "clauseIndices", (0 to clauses.length - 1).toString(), writer)
     writeOneLineJson(head = "counterExampleIndices", minedCEs.toString(), writer)
     writeOneLineJson(head = "counterExampleLabels", ceLabels.toString(), writer)
-    writeOneLineJson("endField", "[0]",writer,changeLine = false,lastEntry=true)
+    writeOneLineJson("endField", "[0]", writer, changeLine = false, lastEntry = true)
     writer.write("}")
     writer.close()
 
@@ -67,8 +66,9 @@ object counterExampleUtils {
 
   def getPrunedClauses(clauses: Clauses): Clauses = {
     println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
-    if (GlobalParameters.get.pruneClauses == true) {
-      val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
+    if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
+      //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
+      val clausesInCounterExample = getPredictedCounterExampleClauses(clauses)
       val prunedClauses = pruneClausesWithSanityCheck(clauses, clausesInCounterExample)
       printPrunedReults(clauses, prunedClauses, clausesInCounterExample)
       prunedClauses
@@ -81,6 +81,17 @@ object counterExampleUtils {
   def pruneClausesWithSanityCheck(clauses: Clauses, clausesInCounterExample: Clauses): Clauses = {
     //todo: sanity check, keep at least one entrance and exit
     clauses.filterNot(x => clausesInCounterExample.contains(x))
+  }
+
+  def getPredictedCounterExampleClauses(clauses: Clauses): Clauses = {
+    val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
+    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
+    val simplifiedClauses = readSMTFormatFromFile(simplifiedClausesFileName)
+    val clausesInCE = for ((c,l)<-simplifiedClauses.zip(predictedLabels); if l==1) yield c
+    clausesInCE
+
   }
 
   def getRandomCounterExampleClauses(clauses: Clauses): Clauses = {

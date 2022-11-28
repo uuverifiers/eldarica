@@ -188,5 +188,11 @@ object GraphUtils {
       s
   }
 
+  def graphFileNameMap(hgt: HornGraphType.Value): String = hgt match {
+    case HornGraphType.CDHG => "hyperEdgeGraph"
+    case HornGraphType.CG => "monoDirectionLayerGraph"
+  }
+
+
 }
 

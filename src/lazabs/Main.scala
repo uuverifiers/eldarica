@@ -104,7 +104,6 @@ class GlobalParameters extends Cloneable {
     AbstractionType.RelationalEqs
   var getHornGraph = false
   var mineCounterExample =  false
-  var pruneClauses = false
   var visualizeHornGraph=false
   var generateTemplates = false
   var fixRandomSeed = false
@@ -208,7 +207,6 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolationType = this.templateBasedInterpolationType
     that.getHornGraph = this.getHornGraph
     that.mineCounterExample = this.mineCounterExample
-    that.pruneClauses = this.pruneClauses
     that.visualizeHornGraph = this.visualizeHornGraph
     that.generateTemplates = this.generateTemplates
     that.fixRandomSeed = this.fixRandomSeed
@@ -417,10 +415,6 @@ object Main {
       }
       case "-visualizeHornGraph" :: rest => {
         visualizeHornGraph = true
-        arguments(rest)
-      }
-      case "-pruneClauses" :: rest => {
-        pruneClauses = true
         arguments(rest)
       }
       case "-mineCounterExample:union" :: rest => {

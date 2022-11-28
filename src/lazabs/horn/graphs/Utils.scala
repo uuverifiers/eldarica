@@ -7,8 +7,9 @@ import ap.terfor.preds.Predicate
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, NormClause}
+import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, HornTranslator, NormClause}
 import lazabs.horn.graphs.GraphUtils.seqToString
+import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -17,6 +18,9 @@ import java.io.PrintWriter
 object Utils {
 
 
+  def readSMTFormatFromFile(fileName:String): Clauses ={
+    fromSMT(fileName) map ((new HornTranslator).transform(_))
+  }
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
     val fileName = GlobalParameters.get.fileName+"."+suffix
     println("write " + fileName + " to file")
