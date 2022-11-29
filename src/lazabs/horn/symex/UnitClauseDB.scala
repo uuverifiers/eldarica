@@ -80,7 +80,11 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * @param child to return parents for
    * @return optionally, the parents for the child unit clause
    */
-  def parentsOption(child: UnitClause) = cucParents find (_._1 == child)
+  def parentsOption(child: UnitClause): Option[(NormClause, Set[UnitClause])] =
+    cucParents find (_._1 == child) match {
+      case Some((_, parents)) => Some(parents)
+      case None               => None
+    }
 
   def inferred(rel: RelationSymbol): Option[Vector[UnitClause]] =
     inferredCUCsForPred get rel
@@ -106,8 +110,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
 
   /**
    * Restore the database to its last pushed state.
-   *
-   * @return number of dropped CUCs
+   * returns: the latest number of frames
    */
   def pop(): Int = {
     val frameInfo = frameStack.pop()
@@ -122,7 +125,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
     }
     //println("(DB) Popped " + frameStack.length)
     //println("(DB) Last " + cucs.last)
-    dropCount
+    frameStack.length
   }
 
   /**

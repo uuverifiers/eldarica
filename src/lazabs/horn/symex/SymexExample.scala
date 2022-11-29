@@ -41,7 +41,7 @@ object SymexExample1Sat extends App {
   import IExpression._
   import HornClauses._
 
-  println("Running example 1 (expected: Sat")
+  println("Running example 1 (expected: SAT")
 
   /**
    * A simple example that encodes a simple set of clauses and directly attempts
@@ -63,7 +63,7 @@ object SymexExample1Sat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      symex.solve()
+      println(symex.solve())
     }
   }
 }
@@ -76,7 +76,7 @@ object SymexExample1Unsat extends App {
   import IExpression._
   import HornClauses._
 
-  println("Running example 1 (Expected: Unsat)")
+  println("Running example 1 (Expected: UNSAT)")
 
   SimpleAPI.withProver { p =>
     import p._
@@ -85,7 +85,6 @@ object SymexExample1Unsat extends App {
       val p1 = createRelation("p1", List(Sort.Integer))
       val p2 = createRelation("p2", List(Sort.Integer))
       val x  = createConstant("x")
-      val y  = createConstant("y")
 
       val clauses: Seq[Clause] = List(
         p0(x) :- (x > 2),
@@ -95,7 +94,7 @@ object SymexExample1Unsat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      symex.solve()
+      println(symex.solve())
     }
   }
 }
@@ -106,7 +105,7 @@ object SymexExample2Sat extends App {
   import lazabs.horn.bottomup.HornClauses
   import IExpression._
   import HornClauses._
-  println("Running example 2 (Expected: Sat)")
+  println("Running example 2 (Expected: SAT)")
   SimpleAPI.withProver { p =>
     import p._
     {
@@ -125,11 +124,11 @@ object SymexExample2Sat extends App {
           .select(a(0), x(0))), // x1 = a[x0], i.e., 5
         p1(x(0) - 1) :- (p1(x(0)), x(0) > 0),
         p2(x(0)) :- (p1(x(0)), x(0) <= 0),
-        (x(0) >= 0) :- p2(x(0)) // should be sat
+        (x(0) >= 0) :- p2(x(0))
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      symex.solve()
+      println(symex.solve())
     }
   }
 }
@@ -140,7 +139,7 @@ object SymexExample2Unsat extends App {
   import lazabs.horn.bottomup.HornClauses
   import IExpression._
   import HornClauses._
-  println("Running example 2 (Expected: Unsat)")
+  println("Running example 2 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
     {
@@ -159,11 +158,11 @@ object SymexExample2Unsat extends App {
           .select(a(0), x(0))), // x1 = a[x0], i.e., 5
         p1(x(0) - 1) :- (p1(x(0)), x(0) >= 0),
         p2(x(0)) :- (p1(x(0)), x(0) <= 0),
-        (x(0) >= 0) :- p2(x(0)) // should be sat
+        (x(0) >= 0) :- p2(x(0))
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      symex.solve()
+      println(symex.solve())
     }
   }
 }
