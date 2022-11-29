@@ -2,36 +2,30 @@ package lazabs.horn.symex
 
 import ap.terfor.{ComputationLogger, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
-import ap.terfor.conjunctions.{
-  ConjunctEliminator,
-  Conjunction,
-  ReduceWithConjunction
-}
+import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
 
-// todo: should get the unit clause
-// todo: argument variables should be part of the arguments
 trait ConstraintSimplifier {
-  def simplifyConstraint(constraint: Conjunction, localSymbols: Set[Term])(
-      implicit symex_sf:             SymexSymbolFactory): Conjunction
+  def simplifyConstraint(constraint:                 Conjunction,
+                         localSymbols:               Set[Term],
+                         reduceBeforeSimplification: Boolean)(
+      implicit symex_sf:                             SymexSymbolFactory): Conjunction
 }
 
-// todo: keep all variables
-trait NaiveConstraintSimplifier extends ConstraintSimplifier {
+trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
   class LocalSymbolEliminator(constraint:   Conjunction,
                               localSymbols: Set[Term],
                               order:        TermOrder)
       extends ConjunctEliminator(constraint, localSymbols, Set(), order) {
 
-    override protected def nonUniversalElimination(f: Conjunction) = {
-      ???
-    }
+    override protected def nonUniversalElimination(f: Conjunction) = {}
 
-    // can eliminate function applications if unused // e.g., eliminate unused select and stores
+    // todo: check if this eliminates function applications
+    //   e.g., unused select and stores
 
-    protected def universalElimination(m: ModelElement): Unit = {} //???
+    protected def universalElimination(m: ModelElement): Unit = {}
 
-    override protected def addDivisibility(f: Conjunction) = // todo: ?
+    override protected def addDivisibility(f: Conjunction) =
       divJudgements = f :: divJudgements
 
     var divJudgements: List[Conjunction] = List()
@@ -44,17 +38,16 @@ trait NaiveConstraintSimplifier extends ConstraintSimplifier {
 
   }
 
-  override def simplifyConstraint(constraint:   Conjunction,
-                                  localSymbols: Set[Term])(
-      implicit symex_sf:                        SymexSymbolFactory): Conjunction = {
-    //t todo: move reducer outside?
-    //   also add option to disable reducer, would be useful while debugging.
-    val redConj = symex_sf.reducer(Conjunction.TRUE)(constraint)
-    //println("\nBefore: " + Conjunction.conj(constraint, order))
-    val simpConj =
-      new LocalSymbolEliminator(redConj, localSymbols, symex_sf.order)
-        .eliminate(ComputationLogger.NonLogger)
-    //println("After : " + simpConj + "\n")
-    simpConj
+  override def simplifyConstraint(constraint:                 Conjunction,
+                                  localSymbols:               Set[Term],
+                                  reduceBeforeSimplification: Boolean)(
+      implicit symex_sf:                                      SymexSymbolFactory): Conjunction = {
+    val reducedConstraint =
+      if (reduceBeforeSimplification)
+        symex_sf.reducer(Conjunction.TRUE)(constraint)
+      else constraint
+
+    new LocalSymbolEliminator(reducedConstraint, localSymbols, symex_sf.order)
+      .eliminate(ComputationLogger.NonLogger)
   }
 }

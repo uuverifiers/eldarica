@@ -187,7 +187,9 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     // todo: take reducer from the sf - should fix - make this an option?
 
     val simplifiedConstraint =
-      simplifyConstraint(unsimplifiedConstraint, localSymbols)
+      simplifyConstraint(unsimplifiedConstraint,
+                         localSymbols,
+                         reduceBeforeSimplification = true)
 
     // In the simplified constraint:
     //   1. If nucleus head predicate arguments are not at occurrence 0,

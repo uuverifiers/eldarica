@@ -26,7 +26,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
     extends Symex(clauses)
     with SimpleSubsumptionChecker
-    with NaiveConstraintSimplifier {
+    with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
 
