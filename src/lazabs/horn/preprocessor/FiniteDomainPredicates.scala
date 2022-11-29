@@ -49,7 +49,8 @@ class FiniteDomainPredicates(domainSizeBound : Int) extends HornPreprocessor {
 
   val name : String = "adding finite domain init. predicates"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val allPreds =
       HornClauses allPredicates clauses

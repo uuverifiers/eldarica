@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,9 +69,11 @@ class PropagatingPreprocessor(
 
   val name : String = _domain.name + " propagation"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
-    val analyser          = new AbstractAnalyser(clauses, _domain)
+    val analyser          = new AbstractAnalyser(clauses, _domain,
+                                                 frozenPredicates)
     val abstractValues    = analyser.result
     val clauseBackMapping = new MHashMap[Clause, Clause]
     import analyser.domain

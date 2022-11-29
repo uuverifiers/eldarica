@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,10 +56,11 @@ object Slicer extends HornPreprocessor {
 
   val name : String = "slicing"
 
-  def process(clauses : Clauses, hints : VerificationHints)
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
     val usedArgs =
-      determineUsedArguments(clauses)
+      determineUsedArguments(clauses, frozenPredicates)
     val (newClauses, clauseMapping, predMapping) =
       elimArguments(clauses, usedArgs)
     val predBackMapping =
@@ -269,14 +270,20 @@ object Slicer extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def determineUsedArguments(clauses : Clauses)
-                              : Map[Predicate, MBitSet] = {
+  private def determineUsedArguments(clauses : Clauses,
+                                     frozenPredicates : Set[Predicate])
+                                   : Map[Predicate, MBitSet] = {
     val clausesWithHead = clauses groupBy (_.head.pred)
     val usedArgs = new MHashMap[Predicate, MBitSet]
 
     for (clause <- clauses; pred <- clause.predicates)
-      if (!(usedArgs contains pred))
-        usedArgs.put(pred, new MBitSet)
+      if (!(usedArgs contains pred)) {
+        val s = new MBitSet
+        usedArgs.put(pred, s)
+        // frozen predicates might use all of their arguments
+        if (frozenPredicates contains pred)
+          s ++= 0 until pred.arity
+      }
 
     { // initially mark all arguments read in clauses
       val argIndexes = new MHashMap[ConstantTerm, (Predicate, Int)]

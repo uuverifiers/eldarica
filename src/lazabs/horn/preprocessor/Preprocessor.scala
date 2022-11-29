@@ -214,15 +214,12 @@ trait HornPreprocessor {
   val name : String
 
   def process(clauses : Clauses, hints : VerificationHints)
-             : (Clauses, VerificationHints, BackTranslator)
+             : (Clauses, VerificationHints, BackTranslator) =
+    process(clauses, hints, Set())
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
-             : (Clauses, VerificationHints, BackTranslator) =
-    if (frozenPredicates.isEmpty)
-      process(clauses, hints)
-    else
-      (clauses, hints, IDENTITY_TRANSLATOR)
+             : (Clauses, VerificationHints, BackTranslator)
 
   def isApplicable(clauses : Clauses,
                    frozenPredicates : Set[Predicate]) : Boolean = true

@@ -60,11 +60,6 @@ class ClauseInliner extends HornPreprocessor {
 
   val name : String = "clause inlining"
 
-  def process(clauses : Clauses, hints : VerificationHints)
-      : (Clauses, VerificationHints, BackTranslator) =
-    process(clauses, hints, Set())
-
-  override
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
@@ -161,7 +156,7 @@ class ClauseInliner extends HornPreprocessor {
 
       private def buildSubst(cex : CounterExample) : Map[Int, CounterExample] =
         SimpleAPI.withProver { p =>
-          implicit val _ = p
+          implicit val prover = p
           
           (for ((subCEX@DagNode((a, clause), children, _), i) <-
                   cex.subdagIterator.zipWithIndex;
