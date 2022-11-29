@@ -22,6 +22,7 @@ import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, DisjInterpolator, HornPredAbs, NormClause, PredicateMiner, TemplateInterpolator}
 import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
+import lazabs.horn.graphs.GraphUtils.graphFileNameMap
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.graphs.Utils._
 import play.api.libs.json.{JsSuccess, Json}
@@ -125,7 +126,7 @@ object TemplateUtils {
   def readTemplateLabelFromJSON(simplifiedClauses: Clauses,
                                 readLabel: String = "predictedLabel"): VerificationHints = {
 
-    val input_file = GlobalParameters.get.fileName + "." + NodeAndEdgeType.graphNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    val input_file = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     //same sort in AbsReader printHints
     val unlabeledTemplates = readTemplateFromFile(simplifiedClauses, "unlabeled").predicateHints.toSeq sortBy (_._1.name)
     println("read predicted label from " + input_file)

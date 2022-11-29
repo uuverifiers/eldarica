@@ -7,11 +7,12 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CounterexampleMiner, HornTranslator, NormClause}
+import lazabs.horn.bottomup.{CounterexampleMiner, HornClauses, HornTranslator, NormClause}
 import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
-import lazabs.horn.preprocessor.HornPreprocessor.Clauses
+import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
 import lazabs.horn.graphs.GraphUtils.graphFileNameMap
+import lazabs.horn.preprocessor.{HornPreprocessor, ReachabilityChecker}
 
 import java.io.{File, PrintWriter}
 
@@ -69,29 +70,39 @@ object counterExampleUtils {
     if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
       //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
       val clausesInCounterExample = getPredictedCounterExampleClauses(clauses)
-      val prunedClauses = pruneClausesWithSanityCheck(clauses, clausesInCounterExample)
-      printPrunedReults(clauses, prunedClauses, clausesInCounterExample)
-      prunedClauses
-
+      val checkedClauses = sanityCheckForUnsatCore(clausesInCounterExample, clauses)
+      printPrunedReults(clauses, clausesInCounterExample, checkedClauses)
+      checkedClauses
     } else {
       clauses
     }
   }
 
-  def pruneClausesWithSanityCheck(clauses: Clauses, clausesInCounterExample: Clauses): Clauses = {
-    //todo: sanity check, keep at least one entrance and exit
-    clauses.filterNot(x => clausesInCounterExample.contains(x))
+  def sanityCheckForUnsatCore(clausesInCE: Clauses, originalClauses: Clauses): Clauses = {
+    //sanity check, keep at least one entrance and exit in a path
+    //    val falsePredicates = for (c<-originalClauses; if c.head.pred==HornClauses.FALSE) yield c.head.pred
+    //    val falsePredicatesInCEs = for (c<-clausesInCE; if c.head.pred==HornClauses.FALSE) yield c.head.pred
+    val (checkedClauses, _, _) = ReachabilityChecker.process(clausesInCE, VerificationHints(Map()))
+    //if this empty, then no path
+    if (checkedClauses.length == 0)
+      checkedClauses
+    else
+      clausesInCE
   }
+
 
   def getPredictedCounterExampleClauses(clauses: Clauses): Clauses = {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-    val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
-    val simplifiedClauses = readSMTFormatFromFile(simplifiedClausesFileName)
-    val clausesInCE = for ((c,l)<-simplifiedClauses.zip(predictedLabels); if l==1) yield c
-    clausesInCE
+    val predictedLabelsFromThresholdLogits = for (l <- predictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+    val clausesInCE = for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
+    if (GlobalParameters.get.log) {
+      println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
+      println(Console.RED + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
+    }
 
+    clausesInCE
   }
 
   def getRandomCounterExampleClauses(clauses: Clauses): Clauses = {
@@ -101,16 +112,16 @@ object counterExampleUtils {
     for (c <- clauses; if rand.nextInt(10) < 5) yield c
   }
 
-  def printPrunedReults(clauses: Clauses, prunedClauses: Clauses, clausesInCounterExample: Clauses): Unit = {
+  def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
     if (GlobalParameters.get.log) {
-      writeSMTFormatToFile(prunedClauses, "pruned")
+      writeSMTFormatToFile(clausesInCounterExample, "pruned")
 
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))
       println("-" * 10 + " clauses in counter-examples " + clausesInCounterExample.length + "-" * 10)
       clausesInCounterExample.map(_.toPrologString).foreach(println(_))
-      println("-" * 10 + " pruned clauses " + prunedClauses.length + "-" * 10)
-      prunedClauses.map(_.toPrologString).foreach(println(_))
+      println("-" * 10 + " sanity checked clauses " + sanityCheckedClauses.length + "-" * 10)
+      sanityCheckedClauses.map(_.toPrologString).foreach(println(_))
 
     }
   }

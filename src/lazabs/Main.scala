@@ -115,6 +115,7 @@ class GlobalParameters extends Cloneable {
   var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.off
   var readCostType : String = "same"
   var explorationRate: Float=0
+  var unsatCoreThreshold:Double=0.5
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
@@ -214,6 +215,7 @@ class GlobalParameters extends Cloneable {
     that.combineTemplateStrategy = this.combineTemplateStrategy
     that.readCostType = this.readCostType
     that.explorationRate = this.explorationRate
+    that.unsatCoreThreshold = this.unsatCoreThreshold
     that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
     that.hornGraphLabelType = this.hornGraphLabelType
@@ -385,6 +387,11 @@ object Main {
           (java.lang.Float.parseFloat(_explorationRate.drop("-explorationRate:".length)));
         arguments(rest)
     }
+      case _unsatCoreThreshold :: rest if (_unsatCoreThreshold.startsWith("-unsatCoreThreshold:")) => {
+        unsatCoreThreshold =
+          (java.lang.Float.parseFloat(_unsatCoreThreshold.drop("-unsatCoreThreshold:".length)));
+        arguments(rest)
+      }
       case _readCostType :: rest if (_readCostType.startsWith("-readCostType:")) => {
         readCostType = _readCostType drop "-readCostType:".length
         arguments(rest)

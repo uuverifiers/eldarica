@@ -11,10 +11,9 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.Utils.writeOneLineJson
-import lazabs.horn.graphs.NodeAndEdgeType.graphNameMap
+import lazabs.horn.graphs.Utils.{getClausesAccordingToLabels, readSMTFormatFromFile, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.graphs.counterExampleUtils.getPrunedClauses
+import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -28,22 +27,25 @@ object EvaluateUtils {
 
 
   def getSolvability(unsimplifiedClauses: Seq[Clause],
-                     simpHints: Seq[Clause],
+                     originalSimplifiedClauses: Seq[Clause],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
+
+    val simplifiedClauses = getClausesAccordingToLabels(originalSimplifiedClauses)
+
     //get pruned clauses from predicted
-    val prunedClauses = getPrunedClauses(simpHints)
+    val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
 
     //get predicate generator from predicted or existed heuristics
-    val predGeneratorForSolvabilityCheck = getPredicateGenerator(prunedClauses, predGenerator)
+    val predGeneratorForSolvabilityCheck = getPredicateGenerator(clausesForSolvabilityCheck, predGenerator)
 
     println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
     val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
-      unsimplifiedClauses, simpHints,prunedClauses)
+      unsimplifiedClauses, simplifiedClauses, clausesForSolvabilityCheck)
 
     //run CEGAR
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      new HornPredAbs(iClauses = prunedClauses, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
+      new HornPredAbs(iClauses = clausesForSolvabilityCheck, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
     }
 
 
@@ -60,10 +62,10 @@ object EvaluateUtils {
       val resultList = Seq(solvingTime, cegarIterationNumber, generatedPredicateNumber,
         averagePredicateSize, predicateGeneratorTime, satisfiability).map(_.toInt).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
-        val newField=if(m=="satisfiability"){
-          ("satisfiability",v)
+        val newField = if (m == "satisfiability") {
+          ("satisfiability", v)
         }
-        else{
+        else {
           (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
             "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
             + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
@@ -83,23 +85,25 @@ object EvaluateUtils {
 
   }
 
-  def writeInitialFixedFieldsToSolvabilityFile(unsimplifiedClauses: Clauses, simpHints: Clauses,prunedClauses:Clauses): (String, Seq[String], Map[String, Int]) = {
-    val unlabeledTemplates = readTemplateFromFile(simpHints, "unlabeled")
+  def writeInitialFixedFieldsToSolvabilityFile(unsimplifiedClauses: Clauses, simplifiedClauses: Clauses, prunedClauses: Clauses): (String, Seq[String], Map[String, String]) = {
+    val unlabeledTemplates = readTemplateFromFile(simplifiedClauses, "unlabeled")
     val unlabeledTemplatesStatistics = getVerificationHintsStatistics(unlabeledTemplates)
-    val labeledTemplates = readTemplateFromFile(simpHints, "labeled")
+    val labeledTemplates = readTemplateFromFile(simplifiedClauses, "labeled")
     val labeledTemplatesStatistics = getVerificationHintsStatistics(labeledTemplates)
-    val minedTemplates = readTemplateFromFile(simpHints, "mined")
+    val minedTemplates = readTemplateFromFile(simplifiedClauses, "mined")
     val minedTemplatesStatistics = getVerificationHintsStatistics(minedTemplates)
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvability.JSON"
-    val fixedFields: Map[String, Int] = Map("clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
-      "clauseNumberAfterSimplification" -> simpHints.length,
+    val fixedFields: Map[String, Int] = Map(
+      "satisfiability"-> -1,
+      "clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
+      "clauseNumberAfterSimplification" -> simplifiedClauses.length,
       "clauseNumberAfterPruning" -> prunedClauses.length,
       "smt2FileSizeByte" -> new File(GlobalParameters.get.fileName).length().toInt, //bytes,
-      "relationSymbolNumberBeforeSimplification" -> unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _),
+      "relationSymbolNumberBeforeSimplification" -> (if (unsimplifiedClauses.length!=0) unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
       "relationSymbolNumberAfterSimplification" ->
-        (if (simpHints.size != 0) simpHints.map(_.allAtoms.length).reduce(_ + _) else 0),
+        (if (simplifiedClauses.size != 0) simplifiedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
       "relationSymbolNumberAfterPruning" ->
-        (if (simpHints.size != 0) prunedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
+        (if (prunedClauses.size != 0) prunedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
       "minedSingleVariableTemplatesNumber" -> minedTemplatesStatistics._1,
       "minedBinaryVariableTemplatesNumber" -> minedTemplatesStatistics._2,
       "minedTemplateNumber" -> minedTemplatesStatistics._3,
@@ -122,13 +126,15 @@ object EvaluateUtils {
     val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
     val costOption = Seq("cost_shape", "cost_logit", "cost_same")
-    val initialFieldsSeq = (for (m <- meansureFields if m!="satisfiability"; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
+    val initialFieldsSeq = (for (m <- meansureFields if m != "satisfiability"; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
+    val stringlFields:Map[String,String]=Map("unsatCoreThreshold"->GlobalParameters.get.unsatCoreThreshold.toString)
+    val allFields = initialFields.mapValues(_.toString)++stringlFields
     if (!new java.io.File(solvingTimeFileName).exists) {
-      writeSolvingTimeToJSON(solvingTimeFileName, initialFields.mapValues(_.toString))
+      writeSolvingTimeToJSON(solvingTimeFileName, allFields)
     }
-    (solvingTimeFileName, meansureFields, initialFields)
+    (solvingTimeFileName, meansureFields, allFields)
   }
 
   def readJSONFieldToMap(solvingTimeFileName: String, fieldNames: Seq[String] = Seq("RelationalEqs", "Term", "Octagon", "RelationalIneqs", "splitClauses")): Map[String, String] = {

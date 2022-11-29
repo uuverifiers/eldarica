@@ -102,15 +102,7 @@ final case class AbstractNode(a: String) extends NodeElement
 
 
 class HornGraph(originalSimplifiedClauses: Clauses) {
-  val clauses = GlobalParameters.get.hornGraphLabelType match {
-    case HornGraphLabelType.unsatCore => {
-      val simplifiedClausesFileName = GlobalParameters.get.fileName+".simplified"
-      if (new java.io.File(simplifiedClausesFileName).exists)
-        readSMTFormatFromFile(simplifiedClausesFileName)
-      else originalSimplifiedClauses
-    }
-    case _ => originalSimplifiedClauses
-  }
+  val clauses = getClausesAccordingToLabels(originalSimplifiedClauses)
   var labelIndices: Array[Int] = Array()
   var labelList: Array[Int] = Array()
   var globalNodeID = 0

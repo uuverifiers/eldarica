@@ -443,14 +443,14 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -mineTemplates for training set /  generateTemplates unsolvable set
   * -getHornGraph:CDHG -hornGraphLabelType:template
   * training and prediction
-  * -getSolvability
+  * -getSolvability -hornGraphLabelType:template
   * collect results
   *
   * unsatcore Pipeline:
   * -mineCounterExample:union
   * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
   * train and prediction
-  * -getSolvability
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5
   * collect results
   * */
   if (GlobalParameters.get.mineTemplates) {

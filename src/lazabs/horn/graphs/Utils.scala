@@ -18,8 +18,20 @@ import java.io.PrintWriter
 object Utils {
 
 
+  def getClausesAccordingToLabels(originalSimplifiedClauses:Clauses): Clauses ={
+    GlobalParameters.get.hornGraphLabelType match {
+      case HornGraphLabelType.unsatCore => {
+        val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
+        if (new java.io.File(simplifiedClausesFileName).exists)
+          readSMTFormatFromFile(simplifiedClausesFileName)
+        else originalSimplifiedClauses
+      }
+      case _ => originalSimplifiedClauses
+    }
+  }
   def readSMTFormatFromFile(fileName:String): Clauses ={
-    fromSMT(fileName) map ((new HornTranslator).transform(_))
+    val _hornTranslator=new HornTranslator
+    fromSMT(fileName) map ((_hornTranslator).transform(_))
   }
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
     val fileName = GlobalParameters.get.fileName+"."+suffix
