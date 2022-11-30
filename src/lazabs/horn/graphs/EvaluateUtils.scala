@@ -63,12 +63,14 @@ object EvaluateUtils {
         averagePredicateSize, predicateGeneratorTime, satisfiability).map(_.toInt).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
-          if (m == "satisfiability")
-            ("satisfiability", v)
-          else if (m.contains("satisfiability"))
-            ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
-          else {
-            (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+          m match {
+            case "satisfiability"=> {
+              if (GlobalParameters.get.hornGraphLabelType==HornGraphLabelType.unsatCore)
+                ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
+              else
+              ("satisfiability", v)
+            }
+            case _=> (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
               "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
               + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
               + "_cost_" + GlobalParameters.get.readCostType, v)
