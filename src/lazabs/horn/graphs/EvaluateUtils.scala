@@ -62,14 +62,17 @@ object EvaluateUtils {
       val resultList = Seq(solvingTime, cegarIterationNumber, generatedPredicateNumber,
         averagePredicateSize, predicateGeneratorTime, satisfiability).map(_.toInt).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
-        val newField = if (m == "satisfiability") {
-          ("satisfiability", v)
-        }
-        else {
-          (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-            "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-            + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-            + "_cost_" + GlobalParameters.get.readCostType, v)
+        val newField = {
+          if (m == "satisfiability")
+            ("satisfiability", v)
+          else if (m.contains("satisfiability"))
+            ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
+          else {
+            (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+              "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+              + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+              + "_cost_" + GlobalParameters.get.readCostType, v)
+          }
         }
 
         val oldFields = readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
@@ -94,12 +97,14 @@ object EvaluateUtils {
     val minedTemplatesStatistics = getVerificationHintsStatistics(minedTemplates)
     val solvingTimeFileName = GlobalParameters.get.fileName + "." + "solvability.JSON"
     val fixedFields: Map[String, Int] = Map(
-      "satisfiability"-> -1,
+      "satisfiability" -> -1,
+      "satisfiability-CDHG" -> -1,
+      "satisfiability-CG" -> -1,
       "clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
       "clauseNumberAfterSimplification" -> simplifiedClauses.length,
       "clauseNumberAfterPruning" -> prunedClauses.length,
       "smt2FileSizeByte" -> new File(GlobalParameters.get.fileName).length().toInt, //bytes,
-      "relationSymbolNumberBeforeSimplification" -> (if (unsimplifiedClauses.length!=0) unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
+      "relationSymbolNumberBeforeSimplification" -> (if (unsimplifiedClauses.length != 0) unsimplifiedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
       "relationSymbolNumberAfterSimplification" ->
         (if (simplifiedClauses.size != 0) simplifiedClauses.map(_.allAtoms.length).reduce(_ + _) else 0),
       "relationSymbolNumberAfterPruning" ->
@@ -129,8 +134,8 @@ object EvaluateUtils {
     val initialFieldsSeq = (for (m <- meansureFields if m != "satisfiability"; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
-    val stringlFields:Map[String,String]=Map("unsatCoreThreshold"->GlobalParameters.get.unsatCoreThreshold.toString)
-    val allFields = initialFields.mapValues(_.toString)++stringlFields
+    val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> GlobalParameters.get.unsatCoreThreshold.toString)
+    val allFields = initialFields.mapValues(_.toString) ++ stringlFields
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, allFields)
     }
