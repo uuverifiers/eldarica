@@ -54,7 +54,8 @@ object UnitClause {
         .arguments(0)).toMap
 
     val otherConstantsToRewrite =
-      constraint.constants -- (differentOccArgsToRewrite ++ rs.arguments(0))
+      constraint.constants -- (differentOccArgsToRewrite ++
+        rs.arguments(headOccInConstraint))
     val constantSubstMap: Map[ConstantTerm, ConstantTerm] =
       (otherConstantsToRewrite zip symex_sf
         .localSymbolsForPred(pred = rs.pred,

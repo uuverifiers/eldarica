@@ -28,7 +28,11 @@
  */
 package lazabs.horn.symex
 
+import ap.parser.{IAtom, IFormula}
+import ap.terfor.preds.Predicate
 import ap.theories.ExtArray
+import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.bottomup.Util.Dag
 
 /**
  * An example application
@@ -63,7 +67,7 @@ object SymexExample1Sat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -94,7 +98,7 @@ object SymexExample1Unsat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -128,7 +132,7 @@ object SymexExample2Sat extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -162,7 +166,7 @@ object SymexExample2Unsat extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -185,7 +189,7 @@ object SymexExample3 extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -209,7 +213,7 @@ object SymexExample4 extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -232,7 +236,7 @@ object SymexExample5 extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -254,7 +258,7 @@ object SymexExample6 extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
     }
   }
 }
@@ -277,7 +281,48 @@ object SymexExample7 extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
-      println(symex.solve())
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object SymexExample8 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 8 (Expected: Non-termination)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x     = createConstant("x")
+      val old_x = createConstant("old_x")
+      val p1    = createRelation("p", List(Sort.Integer, Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p1(x, old_x) :- (x === old_x),
+        p1(x, old_x) :- p1(x - 1, old_x),
+        false :- (p1(x, old_x), x =/= old_x)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object Util {
+  def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
+    res match {
+      case Left(sln) =>
+        println("\nSAT\n\nSolution")
+        sln.foreach {
+          case (pred, formula) => println(pred + ": " + formula)
+        }
+      case Right(cex) =>
+        println("\nUNSAT\n\nCounterexample")
+        cex.prettyPrint
     }
   }
 }

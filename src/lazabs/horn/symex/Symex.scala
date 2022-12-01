@@ -30,7 +30,7 @@ package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
 import ap.{DialogUtil, SimpleAPI}
-import ap.parser.IAtom
+import ap.parser.{IAtom, IFormula}
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, Term}
 import ap.terfor.conjunctions.Conjunction
@@ -45,27 +45,12 @@ import lazabs.horn.preprocessor.HornPreprocessor.{CounterExample, Solution}
 
 import collection.mutable.{
   HashMap => MHashMap,
+  HashSet => MHashSet,
   ListBuffer => MList,
-  Queue => MQueue,
-  HashSet => MHashSet
+  Queue => MQueue
 }
 
 object Symex {
-  sealed trait Result
-  case object Unknown extends Result {
-    override def toString: String = "UNKNOWN"
-  }
-  case class Sat(solution: Solution) extends Result {
-    override def toString: String =
-      "SAT\n\nSolution\n" + "-" * 80 + "\n" +
-        solution.mkString("\n") + "\n" + "-" * 80
-  }
-  case class Unsat[CC](cex: Dag[(IAtom, CC)]) extends Result {
-    override def toString: String =
-      "UNSAT\n\nCounterexample\n" + "-" * 80 + "\n" + DialogUtil.asString(
-        cex.prettyPrint) + "\n" + "-" * 80
-  }
-
   class SymexException(msg: String) extends Exception(msg)
 
   var printInfo = true
@@ -207,7 +192,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
     val constraintFromElectrons =
       for (((rp, occ), ind) <- nucleus.body.zipWithIndex) yield {
-        assert(rp == electrons(ind).rs) // todo:
+        assert(rp == electrons(ind).rs)
         if ((electrons(ind)
               .constraintAtOcc(occ)
               .constants intersect nucleus.head._1.arguments.head.toSet) nonEmpty)
@@ -229,7 +214,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                          localSymbols,
                          reduceBeforeSimplification = true)
 
-    //new UnitClause(nucleus.head._1, newConstraint, isPositive = true) // todo: currently only positive CUCs are generated
     UnitClause(rs = nucleus.head._1,
                constraint = simplifiedConstraint,
                isPositive = true,
@@ -238,8 +222,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val unitClauseDB = new UnitClauseDB(relationSymbols.values.toSet)
 
-  def solve(): Result = {
-    var result: Result = null
+  def solve(): Either[Map[Predicate, IFormula], Dag[(IAtom, CC)]] = {
+    var result: Either[Map[Predicate, IFormula], Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     facts.foreach(fact => touched += factToNormClause(fact))
@@ -258,7 +242,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           // todo: only do a single feasibility check
           if (hasContradiction(newElectron)) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
-            result = Unsat(buildCounterExample(newElectron))
+            result = Right(buildCounterExample(newElectron))
           } else if (constraintIsFalse(newElectron)) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
@@ -300,14 +284,15 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
               if (hasContradiction(cuc)) {
-                result = Unsat(buildCounterExample(cuc))
+                val cex: Dag[(IAtom, CC)] = buildCounterExample(cuc)
+                result = Right(buildCounterExample(cuc))
               }
             }
             if (result == null) { // none of the assertions failed, so this is SAT
-              result = Sat(buildSolution())
+              result = Left(buildSolution())
             }
           } else {
-            result = Sat(buildSolution())
+            result = Left(buildSolution())
           }
         case other =>
           throw new SymexException(
