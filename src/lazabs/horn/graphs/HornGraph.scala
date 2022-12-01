@@ -178,16 +178,18 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
                 (color: String = edgeColorMap(edgeType), style: String = edgeStyleMap(edgeType)): Unit = {
     val newEdge = Edge(edge = edge, dotGraphName = edgeTypesAbbrev(edgeType), typeName = edgeType, color = color, style = style)
     edgeMap += (edgeType -> edgeMap(edgeType).+:(newEdge))
-    if (edge.length == 2) { //add global binary
+    if (edge.length == 2) { //add global AST and binary edges
       if (edgeType == "ASTLeftEdge" || edgeType == "ASTRightEdge") {
         val etype = "ASTEdge"
         edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
       }
-      val etype = "binaryEdge"
-      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
-    } else { //add global ternary edges
-      val etype = "ternaryHyperEdge"
-      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
+      //add global binary edges, This can be added in GNN HornGraphDataset get
+//      val etype = "binaryEdge"
+//      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
+    } else {
+      //add global ternary edges. This can be added in GNN HornGraphDataset get
+//      val etype = "ternaryHyperEdge"
+//      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
     }
   }
 

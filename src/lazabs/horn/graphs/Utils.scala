@@ -22,11 +22,11 @@ object Utils {
     GlobalParameters.get.hornGraphLabelType match {
       case HornGraphLabelType.unsatCore => {
         val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
-        if (new java.io.File(simplifiedClausesFileName).exists)
+        if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
           readSMTFormatFromFile(simplifiedClausesFileName)
         else originalSimplifiedClauses
       }
-      case _ => originalSimplifiedClauses
+      case HornGraphLabelType.template => originalSimplifiedClauses
     }
   }
   def readSMTFormatFromFile(fileName:String): Clauses ={
