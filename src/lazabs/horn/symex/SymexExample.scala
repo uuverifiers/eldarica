@@ -166,3 +166,118 @@ object SymexExample2Unsat extends App {
     }
   }
 }
+
+object SymexExample3 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 3 (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        p0(x) :- (x === 42)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      println(symex.solve())
+    }
+  }
+}
+
+object SymexExample4 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 4 (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        p0(x) :- (x === 42),
+        (x === 42) :- p0(x)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      println(symex.solve())
+    }
+  }
+}
+
+object SymexExample5 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 5 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        (x === 42) :- p0(x)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      println(symex.solve())
+    }
+  }
+}
+
+object SymexExample6 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 6 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        (x === 42) :- true
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      println(symex.solve())
+    }
+  }
+}
+
+object SymexExample7 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 7 (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x  = createConstant("x")
+      val p0 = createRelation("p0", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        (x === 42) :- (p0(x), x === 42)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      println(symex.solve())
+    }
+  }
+}

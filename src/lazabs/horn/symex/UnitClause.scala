@@ -144,7 +144,7 @@ class UnitClause(val rs:         RelationSymbol,
         PrincessLineariser.printExpression(
           sf.postprocessing.processFormula(constraint))
       }
-    (if (isPositive) rs.toString else "") + " :- " +
+    (if (isPositive) rs.toString else "FALSE") + " :- " +
       (if (isPositive) "" else rs.toString) + constraintString
   }
 }

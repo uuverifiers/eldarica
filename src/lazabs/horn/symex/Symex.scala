@@ -29,44 +29,41 @@
 package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
-import ap.SimpleAPI
+import ap.{DialogUtil, SimpleAPI}
+import ap.parser.IAtom
 import ap.terfor.preds.Predicate
-import ap.terfor.Term
+import ap.terfor.{ConstantTerm, Term}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
+import ap.types.MonoSortedPredicate
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
-import lazabs.horn.bottomup.HornClauses.ConstraintClause
-import lazabs.horn.preprocessor.HornPreprocessor.CounterExample
+import lazabs.horn.bottomup.HornClauses.{Clause, ConstraintClause}
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
+import lazabs.horn.preprocessor.HornPreprocessor.{CounterExample, Solution}
+
+import collection.mutable.{
+  HashMap => MHashMap,
+  ListBuffer => MList,
+  Queue => MQueue,
+  HashSet => MHashSet
+}
 
 object Symex {
   sealed trait Result
-  case object Sat extends Result { // todo: can we construct a solution?
-    override def toString: String = "SAT"
+  case object Unknown extends Result {
+    override def toString: String = "UNKNOWN"
   }
-  //case class Unsat(counterExample: CounterExample) extends Result
-  case class Unsat(
-      cex:        (NormClause, Set[UnitClause]),
-      getParents: UnitClause => Option[(NormClause, Set[UnitClause])])
-      extends Result {
-    private def toStringHelper(
-        maybeParents: Option[(NormClause, Set[UnitClause])],
-        depth:        Int = 0): String = {
-      maybeParents match {
-        case Some(parents) =>
-          val offset = depth.toString.length + 2
-          val prefix = " " * offset
-          "\n" + depth + ". " + parents._1 + "\n" +
-            prefix + parents._2.mkString("\n" + prefix) ++
-            parents._2
-              .map(cuc => toStringHelper(getParents(cuc), depth + 1))
-              .mkString("\n" + depth)
-        case None => ""
-      }
-    }
-    override def toString: String = {
-      "UNSAT\nCounterexample\n" + "-" * 80 +
-        toStringHelper(Some(cex)) + "\n" + "-" * 80
-    }
+  case class Sat(solution: Solution) extends Result {
+    override def toString: String =
+      "SAT\n\nSolution\n" + "-" * 80 + "\n" +
+        solution.mkString("\n") + "\n" + "-" * 80
+  }
+  case class Unsat[CC](cex: Dag[(IAtom, CC)]) extends Result {
+    override def toString: String =
+      "UNSAT\n\nCounterexample\n" + "-" * 80 + "\n" + DialogUtil.asString(
+        cex.prettyPrint) + "\n" + "-" * 80
   }
 
   class SymexException(msg: String) extends Exception(msg)
@@ -122,7 +119,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // We keep a prover initialized with all the symbols running, which we will
   // use to check the satisfiability of constraints.
   // Note that the prover must be manually shut down for clean-up.
-  implicit val prover: SimpleAPI = SimpleAPI.spawn
+  implicit val prover: SimpleAPI = SimpleAPI.spawn // todo: shut down after use
   prover.addTheories(theories)
   prover.addRelations(preds)
 
@@ -142,6 +139,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     }
   ).toSeq
 
+  val normClauseToCC: Map[NormClause, CC] = normClauses.toMap
+
   val clausesWithRelationInBody: Map[RelationSymbol, Seq[NormClause]] =
     (for (rel <- relationSymbols.values) yield {
       (rel,
@@ -155,20 +154,37 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val predicatesAndMaxOccurrences: Map[Predicate, Int] =
     for ((rp, clauses) <- clausesWithRelationInHead)
-      yield (rp.pred, clauses.map(_.head._2).max)
+      yield {
+        val clausesWithPred = clauses.map(_.head._2)
+        val maxOcc = clausesWithPred match {
+          case Nil => 0
+          case seq => seq.max
+        }
+        (rp.pred, maxOcc)
+      }
 
   // this must be done before we can use the symbol factory during resolution
   symex_sf.initialize(predicatesAndMaxOccurrences.toSet)
 
-  val facts: Set[NormClause] =
-    (for ((normClause, _) <- normClauses
-          if normClause.body.isEmpty && normClause.head._1.pred != HornClauses.FALSE)
-      yield { normClause }).toSet
+  val (facts: Seq[UnitClause], factToNormClause: Map[UnitClause, NormClause]) = {
+    val (facts, factToNormClause) =
+      (for ((normClause, _) <- normClauses
+            if normClause.body.isEmpty && normClause.head._1.pred != HornClauses.FALSE)
+        yield {
+          (toUnitClause(normClause), (toUnitClause(normClause), normClause))
+        }).unzip
+    (facts, factToNormClause.toMap)
+  }
 
-  val goals: Set[NormClause] =
-    (for ((normClause, _) <- normClauses
-          if normClause.head._1.pred == HornClauses.FALSE && normClause.body.length == 1)
-      yield { normClause }).toSet
+  val (goals: Seq[UnitClause], goalToNormClause: Map[UnitClause, NormClause]) = {
+    val (goals, goalToNormClause) =
+      (for ((normClause, _) <- normClauses
+            if normClause.head._1.pred == HornClauses.FALSE && normClause.body.length == 1)
+        yield {
+          (toUnitClause(normClause), (toUnitClause(normClause), normClause))
+        }).unzip
+    (goals, goalToNormClause.toMap)
+  }
 
   /**
    * Returns optionally a nucleus and electrons that can be hyper-resolved into
@@ -220,23 +236,14 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                headOccInConstraint = nucleus.head._2)
   }
 
-  //result = Either[Map[Predicate, IFormula], Dag[(IAtom, HornClauses.Clause)
-  // ]] =
-  //{ // todo: disjunction of all the unit clauses
-  // first find out which theories are relevant
-
-  //    val allPreds = iClauses.flatMap(_.predicates).map(pred => {
-  //      val rs = relationSymbols(pred)
-  //      for (f <- preds) {
-  //        val intF = IExpression.subst(f, rs.argumentITerms.head.toList, 0)
-  //        val (rawF, posF, negF) = rsPredsToInternal(intF)
-  //      }
-  //    })
-
   val unitClauseDB = new UnitClauseDB(relationSymbols.values.toSet)
 
   def solve(): Result = {
     var result: Result = null
+
+    val touched = new MHashSet[NormClause]
+    facts.foreach(fact => touched += factToNormClause(fact))
+
     // start traversal
     var ind = 0
     while (result == null) {
@@ -244,15 +251,16 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       printInfo(ind + ".", false)
       getClausesForResolution match {
         case Some((nucleus, electrons)) => {
+          touched += nucleus
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
+          // todo: only do a single feasibility check
           if (hasContradiction(newElectron)) { // false :- true
-            result =
-              Unsat((nucleus, electrons.toSet), unitClauseDB.parentsOption)
+            unitClauseDB.add(newElectron, (nucleus, electrons))
+            result = Unsat(buildCounterExample(newElectron))
           } else if (constraintIsFalse(newElectron)) {
             printInfo("")
-            // todo: assumes we will never generate CUCs that are empty
             handleFalseConstraint(nucleus, electrons)
           } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
             printInfo("subsumed by existing unit clauses.")
@@ -263,10 +271,10 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             if (backSubsumed nonEmpty) {
               printInfo(
                 "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
-                false)
+                newLine = false)
               handleBackwardSubsumption(backSubsumed)
             }
-            if (unitClauseDB.add(newElectron, (nucleus, electrons.toSet))) {
+            if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
               printInfo("\n  (Added to database.)\n")
               handleNewUnitClause(newElectron)
             } else {
@@ -275,11 +283,32 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             }
           }
         }
-        case None => // nothing left to explore, the clauses
-          // are SAT.
+        case None => // nothing left to explore, the clauses are SAT.
           printInfo("\t(Search space exhausted.)\n")
-          result = Sat
-        // update result variable
+
+          val untouchedClauses = normClauses.map(_._1).toSet -- touched
+          if (untouchedClauses nonEmpty) {
+            assert(untouchedClauses.forall(clause =>
+              clause.head._1.pred == HornClauses.FALSE))
+            printInfo("\t(Dangling assertions detected, checking those too.)")
+            for (clause <- untouchedClauses if result == null) {
+              val cuc = // for the purpose of checking feasibility
+                if (clause.body.isEmpty) {
+                  new UnitClause(RelationSymbol(HornClauses.FALSE),
+                                 clause.constraint,
+                                 false)
+                } else toUnitClause(clause)
+              unitClauseDB.add(cuc, (clause, Nil))
+              if (hasContradiction(cuc)) {
+                result = Unsat(buildCounterExample(cuc))
+              }
+            }
+            if (result == null) { // none of the assertions failed, so this is SAT
+              result = Sat(buildSolution())
+            }
+          } else {
+            result = Sat(buildSolution())
+          }
         case other =>
           throw new SymexException(
             "Cannot hyper-resolve clauses: " + other.toString)
@@ -299,13 +328,156 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   def handleFalseConstraint(nucleus:   NormClause,
                             electrons: Seq[UnitClause]): Unit
 
+  private def buildSolution(): Solution = {
+    for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
+      yield {
+        val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
+        val predSolution = symex_sf.reducer(Conjunction.TRUE)(
+          Conjunction.disj(predCucs.map(_.constraint), symex_sf.order))
+        // substitute args such as p_0_0 with _0
+        val argSubst = for ((arg, i) <- rs.arguments(0) zipWithIndex)
+          yield (arg, symex_sf.genConstant("_" + i))
+        // substitute local symbols such as p_c_0_0 with c0
+        val localSymbols = predSolution.constants -- rs.arguments(0)
+        val localSymbolSubst = for ((c, i) <- localSymbols zipWithIndex)
+          yield (c, symex_sf.genConstant("c" + i))
+
+        val backtranslatedPredSolution =
+          ConstantSubst((argSubst ++ localSymbolSubst).toMap, symex_sf.order)(
+            predSolution)
+        (pred, prover.asIFormula(backtranslatedPredSolution))
+      }
+  }
+
+  /**
+   * Returns a counterexample DAG given the last derived unit clause as root,
+   * i.e., FALSE :- TRUE.
+   */
+  private def buildCounterExample(root: UnitClause): Dag[(IAtom, CC)] = {
+
+    /**
+     * Uses Kahn's algorithm to generate a topologically sorted sequence of
+     * nodes.
+     * @param source   Node to start the sequence.
+     * @param getChildren A mapping from a node to its children.
+     * @return a topologically sorted sequence of nodes and a backmapping from
+     *         nodes to their indices.
+     * @note Assumes a single source node in the DAG - this works for the purpose
+     *       of computing counterexamples because it is always rooted at the
+     *       failing assertion clause (i.e., FALSE :- TRUE).
+     */
+    def constructTopo[T](source:      T,
+                         getChildren: T => Seq[T]): (Seq[T], Map[T, Int]) = {
+
+      // compute in-degree of each node
+      val inDegrees = new MHashMap[T, Int]
+      @annotation.tailrec
+      def computeInDegrees(node:              T,
+                           remainingChildren: List[T],
+                           toBeComputed:      List[T]): Unit = {
+        remainingChildren match {
+          case child :: rest =>
+            inDegrees += ((child,
+                           inDegrees
+                             .getOrElse(child, 0) + 1))
+            computeInDegrees(node, rest, child :: toBeComputed)
+          case Nil =>
+            toBeComputed match {
+              case n :: rest =>
+                computeInDegrees(n, getChildren(n).toList, rest)
+              case Nil => // nothing left to do
+            }
+        }
+      }
+      computeInDegrees(source, getChildren(source).toList, Nil)
+
+      val backMapping = new MHashMap[T, Int]
+      val nodeQueue   = new MQueue[T]
+      val nodesSorted = new MList[T]
+      nodeQueue enqueue source
+      while (nodeQueue nonEmpty) {
+        val cur = nodeQueue.dequeue
+        nodesSorted += cur
+        backMapping += ((cur, nodesSorted.length - 1))
+        getChildren(cur) match {
+          case children: Seq[T] =>
+            for (child <- children) {
+              val inDegree = inDegrees(child) - 1
+              if (inDegree == 0)
+                nodeQueue enqueue child
+              inDegrees += ((child, inDegree))
+            }
+          case Nil => // nothing
+        }
+      }
+      (nodesSorted, backMapping.toMap)
+    }
+
+    def getChildren(node: UnitClause): Seq[UnitClause] = {
+      unitClauseDB.parentsOption(node) match {
+        case Some((_, cucs)) => cucs
+        case None            => Nil
+      }
+    }
+    val (cucsSorted, cucIndices) = constructTopo(root, getChildren)
+
+    val cucAtoms = new MHashMap[UnitClause, IAtom]
+    def computeAtoms(headAtom: IAtom, cuc: UnitClause): Unit = {
+      cucAtoms += ((cuc, headAtom))
+      unitClauseDB.parentsOption(cuc) match {
+        case None =>
+        //
+        case Some((nucleus, electrons)) =>
+          import prover._
+          scope {
+            !!(asIFormula(nucleus.constraint))
+            !!(headAtom.args === nucleus.headSyms)
+            for ((electron, occ) <- electrons zip nucleus.body.map(_._2))
+              !!(asIFormula(electron.constraintAtOcc(occ)))
+            val pRes = ???
+            assert(pRes == ProverStatus.Sat)
+            withCompleteModel { comp =>
+              for (((rs, occ), electron) <- nucleus.body zip electrons) {
+                val atom = IAtom(rs.pred,
+                                 rs.arguments(occ)
+                                   .map(arg => comp.evalToTerm(arg)))
+                cucAtoms += ((electron, atom))
+              }
+            }
+          }
+          for (electron <- electrons)
+            computeAtoms(cucAtoms(electron), electron)
+      }
+    }
+    computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
+
+    var dag: Dag[(IAtom, CC)] = DagEmpty
+    for ((cuc, ind) <- (cucsSorted zipWithIndex).reverse) {
+      unitClauseDB.parentsOption(cuc) match {
+        case Some((nucleus, electrons)) =>
+          val nuc  = normClauseToCC(nucleus)
+          val atom = cucAtoms(cuc)
+          val children =
+            electrons.map(electron => cucIndices(electron) - ind)
+          dag = DagNode((atom, nuc), children.toList, dag)
+        case None =>
+          // no parent -> an entry clause / fact
+          dag = DagNode((cucAtoms(cuc), normClauseToCC(factToNormClause(cuc))),
+                        Nil,
+                        dag)
+      }
+    }
+    dag
+  }
+
   // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
   private def hasContradiction(cuc: UnitClause)(
       implicit prover:              SimpleAPI): Boolean = {
-    cuc.rs.pred == HornClauses.FALSE &&
+    ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive)) &&
     prover.scope {
-      prover.addAssertion(cuc.constraint)
-      prover.??? match { // check if cuc constraint is satisfiable
+      import prover._
+      addAssertion(cuc.constraint)
+      ??? match { // check if cuc constraint is satisfiable
         case ProverStatus.Valid | ProverStatus.Sat     => true
         case ProverStatus.Invalid | ProverStatus.Unsat => false
         case s => {
@@ -323,10 +495,9 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   private def constraintIsFalse(cuc: UnitClause)(
       implicit prover:               SimpleAPI): Boolean = {
     prover.scope {
-      // todo: globally keep track of which constants we are using (use
-      //  symbolfactory)
-      prover.addAssertion(cuc.constraint)
-      val result = prover.??? match { // check if cuc constraint is satisfiable
+      import prover._
+      addAssertion(cuc.constraint)
+      val result = ??? match { // check if cuc constraint is satisfiable
         case ProverStatus.Valid | ProverStatus.Sat     => false // ok
         case ProverStatus.Invalid | ProverStatus.Unsat => true
         case s => {

@@ -56,7 +56,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   private var cucs: collection.immutable.Vector[UnitClause] = Vector()
 
   private var cucParents
-    : collection.immutable.Vector[(UnitClause, (NormClause, Set[UnitClause]))] =
+    : collection.immutable.Vector[(UnitClause, (NormClause, Seq[UnitClause]))] =
     Vector()
 
   private case class FrameInfo(numCUCs:                Int,
@@ -80,7 +80,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * @param child to return parents for
    * @return optionally, the parents for the child unit clause
    */
-  def parentsOption(child: UnitClause): Option[(NormClause, Set[UnitClause])] =
+  def parentsOption(child: UnitClause): Option[(NormClause, Seq[UnitClause])] =
     cucParents find (_._1 == child) match {
       case Some((_, parents)) => Some(parents)
       case None               => None
@@ -116,34 +116,33 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
     val frameInfo = frameStack.pop()
     val dropCount = cucs.size - frameInfo.numCUCs
     cucs = cucs.dropRight(dropCount)
-    cucParents = cucParents.dropRight(dropCount)
-    inferredCUCsForPred.foreach {
-      case (pred, inferredCucs) =>
-        val oldSize = frameInfo.numInferredCUCsForPred(pred)
-        val newSize = inferredCUCsForPred(pred).length
-        inferredCUCsForPred(pred) = inferredCucs.dropRight(newSize - oldSize)
-    }
-    //println("(DB) Popped " + frameStack.length)
-    //println("(DB) Last " + cucs.last)
+    //cucParents = cucParents.dropRight(dropCount)
+    //inferredCUCsForPred.foreach {
+    //  case (pred, inferredCucs) =>
+    //    val oldSize = frameInfo.numInferredCUCsForPred(pred)
+    //    val newSize = inferredCUCsForPred(pred).length
+    //    inferredCUCsForPred(pred) = inferredCucs.dropRight(newSize - oldSize)
+    //}
     frameStack.length
   }
 
   /**
    * Add a clause to the database. Returns true if inserted, false if unit
    * clause already exists in the database.
-   * @param clause to be inserted.
-   * @param parents the nucleus and the electrons used in the derivation of this
-   *                unit clause.
+   * @param clause Clause to be inserted.
+   * @param parents The nucleus and the electrons used in the derivation of this
+   *                unit clause. The electrons must be in the same order as the
+   *                body literals of the nucleus.
    * @return true if inserted, false if unit clause exists in the database
    */
   def add(clause:  UnitClause,
-          parents: (NormClause, Set[UnitClause])): Boolean = {
+          parents: (NormClause, Seq[UnitClause])): Boolean = {
     if (cucs contains clause) {
       false
     } else {
       cucs = cucs :+ clause
       cucParents = cucParents :+ ((clause, parents))
-      inferredCUCsForPred(clause.rs) :+ clause
+      inferredCUCsForPred(clause.rs) = inferredCUCsForPred(clause.rs) :+ clause
       true
     }
   }
