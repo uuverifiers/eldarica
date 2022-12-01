@@ -29,24 +29,21 @@
 package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
-import ap.{DialogUtil, SimpleAPI}
-import ap.parser.{IAtom, IFormula}
+import ap.SimpleAPI
+import ap.parser._
 import ap.terfor.preds.Predicate
-import ap.terfor.{ConstantTerm, Term}
+import ap.terfor._
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
-import ap.types.MonoSortedPredicate
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
-import lazabs.horn.bottomup.HornClauses.{Clause, ConstraintClause}
-import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
-import lazabs.horn.preprocessor.HornPreprocessor.{CounterExample, Solution}
+import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
 import collection.mutable.{
   HashMap => MHashMap,
   HashSet => MHashSet,
-  ListBuffer => MList,
+  ListBuffer,
   Queue => MQueue
 }
 
@@ -319,18 +316,18 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
         val predSolution = symex_sf.reducer(Conjunction.TRUE)(
           Conjunction.disj(predCucs.map(_.constraint), symex_sf.order))
-        // substitute args such as p_0_0 with _0
-        val argSubst = for ((arg, i) <- rs.arguments(0) zipWithIndex)
-          yield (arg, symex_sf.genConstant("_" + i))
-        // substitute local symbols such as p_c_0_0 with c0
-        val localSymbols = predSolution.constants -- rs.arguments(0)
-        val localSymbolSubst = for ((c, i) <- localSymbols zipWithIndex)
-          yield (c, symex_sf.genConstant("c" + i))
+
+        val argSubst: Map[ap.parser.IExpression.ConstantTerm, ITerm] =
+          (for ((arg, i) <- rs.arguments(0) zipWithIndex)
+            yield
+              (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
 
         val backtranslatedPredSolution =
-          ConstantSubst((argSubst ++ localSymbolSubst).toMap, symex_sf.order)(
-            predSolution)
-        (pred, prover.asIFormula(backtranslatedPredSolution))
+          ConstantSubstVisitor(prover.asIFormula(predSolution), argSubst)
+
+        // todo: replace consts with the original ones?
+
+        (pred, backtranslatedPredSolution)
       }
   }
 
@@ -378,7 +375,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
       val backMapping = new MHashMap[T, Int]
       val nodeQueue   = new MQueue[T]
-      val nodesSorted = new MList[T]
+      val nodesSorted = new ListBuffer[T]
       nodeQueue enqueue source
       while (nodeQueue nonEmpty) {
         val cur = nodeQueue.dequeue
