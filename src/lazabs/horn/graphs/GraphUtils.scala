@@ -52,8 +52,30 @@ object GraphUtils {
     val (csSimplifiedClauses, _, _) = cs.process(clauses.distinct, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
     val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
-    val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)).flatten // replace multiple same predicate in body
-    val argumentReplacedClauses = for (c <- bodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
+    val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)) // replace multiple same predicate in body
+
+    var originalClausesCounter=0
+    val originalClausesIndex=for (c<-bodyReplacedClauses)yield{
+      val index=originalClausesCounter
+      if (c.length>1) {
+        originalClausesCounter+=c.length
+      } else {
+        originalClausesCounter+=1
+      }
+      index
+    }
+
+    val flattenBodyReplacedClauses=bodyReplacedClauses.flatten
+
+    for ((x,i)<-bodyReplacedClauses.zipWithIndex){
+      println(i,x.length,x)
+    }
+    println(Console.BLUE+"originalClausesIndex",originalClausesIndex.length,originalClausesIndex)
+    println("flattenBodyReplacedClausesIndex",flattenBodyReplacedClauses.length,(0 to flattenBodyReplacedClauses.length))
+
+    //todo extend the label to normalized clauses
+
+    val argumentReplacedClauses = for (c <- flattenBodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
     argumentReplacedClauses
   }
 

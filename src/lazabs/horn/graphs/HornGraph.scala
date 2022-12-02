@@ -512,8 +512,9 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
           case HornGraphType.CG => "clause"
         }
         val clauseIndicesList = nodeMap.values.toArray.filter(_.typeName == clauseNodeName).map(_.nodeID)
-        val counterExampleIndexFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
         labelIndices = clauseIndicesList
+        //todo label indices for CDHG is different
+        val counterExampleIndexFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
         if (new java.io.File(counterExampleIndexFileName).exists) { //if there is label file
           labelList = readJsonFieldInt(counterExampleIndexFileName, readLabelName = "counterExampleLabels")
         }else{ // no label file
