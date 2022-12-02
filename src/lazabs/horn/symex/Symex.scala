@@ -29,11 +29,14 @@
 package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
+import ap.basetypes.UnionFind
 import ap.SimpleAPI
+import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor._
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -41,9 +44,9 @@ import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
 import collection.mutable.{
+  ListBuffer,
   HashMap => MHashMap,
   HashSet => MHashSet,
-  ListBuffer,
   Queue => MQueue
 }
 
@@ -56,22 +59,6 @@ object Symex {
     if (printInfo)
       print(s + (if (newLine) "\n" else ""))
   }
-
-  implicit def toUnitClause(normClause: NormClause)(
-      implicit sf:                      SymexSymbolFactory): UnitClause = {
-    normClause match {
-      case NormClause(constraint, Nil, (rel, 0)) // a fact
-          if rel.pred != HornClauses.FALSE =>
-        UnitClause(rel, constraint, isPositive = true, headOccInConstraint = 0)
-      case NormClause(constraint, Seq((rel, 0)), (headRel, 0))
-          if headRel.pred == HornClauses.FALSE =>
-        UnitClause(rel, constraint, isPositive = false, headOccInConstraint = 0)
-      case _ =>
-        throw new UnsupportedOperationException(
-          "Trying to create a unit clause from a non-unit clause: " + normClause)
-    }
-  }
-
 }
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
@@ -122,6 +109,12 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   ).toSeq
 
   val normClauseToCC: Map[NormClause, CC] = normClauses.toMap
+  //
+  //private val originalLocalSymbols = new MHashSet[ConstantTerm]
+  //private val rewrittenSymbols     = new UnionFind[ConstantTerm]
+  //
+  //for ((normClause, _) <- normClauses)
+  //  originalLocalSymbols ++= normClause.localSymbols
 
   val clausesWithRelationInBody: Map[RelationSymbol, Seq[NormClause]] =
     (for (rel <- relationSymbols.values) yield {
@@ -211,16 +204,16 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                          localSymbols,
                          reduceBeforeSimplification = true)
 
-    UnitClause(rs = nucleus.head._1,
-               constraint = simplifiedConstraint,
-               isPositive = true,
-               headOccInConstraint = nucleus.head._2)
+    newUnitClause(rs = nucleus.head._1,
+                  constraint = simplifiedConstraint,
+                  isPositive = true,
+                  headOccInConstraint = nucleus.head._2)
   }
 
   val unitClauseDB = new UnitClauseDB(relationSymbols.values.toSet)
 
-  def solve(): Either[Map[Predicate, IFormula], Dag[(IAtom, CC)]] = {
-    var result: Either[Map[Predicate, IFormula], Dag[(IAtom, CC)]] = null
+  def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
+    var result: Either[Solution, Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     facts.foreach(fact => touched += factToNormClause(fact))
@@ -236,11 +229,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
-          // todo: only do a single feasibility check
-          if (hasContradiction(newElectron)) { // false :- true
+          val proverStatus = checkFeasibility(newElectron.constraint)
+          if (hasContradiction(newElectron, proverStatus)) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
             result = Right(buildCounterExample(newElectron))
-          } else if (constraintIsFalse(newElectron)) {
+          } else if (constraintIsFalse(newElectron, proverStatus)) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
           } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
@@ -280,8 +273,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                                  false)
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
-              if (hasContradiction(cuc)) {
-                val cex: Dag[(IAtom, CC)] = buildCounterExample(cuc)
+              if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
                 result = Right(buildCounterExample(cuc))
               }
             }
@@ -314,18 +306,40 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
       yield {
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
-        val predSolution = symex_sf.reducer(Conjunction.TRUE)(
-          Conjunction.disj(predCucs.map(_.constraint), symex_sf.order))
+        val predDisj =
+          Conjunction.disj(predCucs.map(_.constraint), symex_sf.order)
 
-        val argSubst: Map[ap.parser.IExpression.ConstantTerm, ITerm] =
+        val constants = (predDisj.constants -- rs.arguments(0)).toSeq
+        val predSolution = symex_sf.reducer(Conjunction.TRUE)(
+          Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
+                               constants,
+                               predDisj,
+                               symex_sf.order)
+        )
+
+        val argSubst: Map[ConstantTerm, ITerm] =
           (for ((arg, i) <- rs.arguments(0) zipWithIndex)
             yield
               (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
 
+        // todo: review
+        //val constSubst: Map[ConstantTerm, ITerm] =
+        //  (for (c <- predSolution.constants -- rs.arguments(0))
+        //    yield {
+        //      //val originalSymbol =
+        //      //  (rewrittenSymbols(c).constants intersect originalLocalSymbols)
+        //      //assert(originalSymbol.size == 1)
+        //      //(c, originalSymbol.head)
+        //      (c, IExpression.quanConsts())
+        //    }).toMap
+
         val backtranslatedPredSolution =
           ConstantSubstVisitor(prover.asIFormula(predSolution), argSubst)
-
-        // todo: replace consts with the original ones?
+        //ConstantSubst(predSolution, argSubst ++ constSubst)
+        //val quanSol = IExpression.quanConsts(
+        //  IExpression.Quantifier.EX,
+        //  predDisj.constants -- rs.arguments(0),
+        //  backtranslatedPredSolution)
 
         (pred, backtranslatedPredSolution)
       }
@@ -452,48 +466,98 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     dag
   }
 
-  // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
-  private def hasContradiction(cuc: UnitClause)(
-      implicit prover:              SimpleAPI): Boolean = {
-    ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive)) &&
+  private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
     prover.scope {
-      import prover._
-      addAssertion(cuc.constraint)
-      ??? match { // check if cuc constraint is satisfiable
-        case ProverStatus.Valid | ProverStatus.Sat     => true
-        case ProverStatus.Invalid | ProverStatus.Unsat => false
-        case s => {
-          Console.err.println(
-            "Warning: Verification of constraint was not possible:"
-          )
-          Console.err.println(cuc)
-          Console.err.println("Checker said: " + s)
-          true
-        }
+      prover.addAssertion(constraint)
+      prover.???
+    }
+  }
+
+  // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
+  private def hasContradiction(cuc:          UnitClause,
+                               proverStatus: ProverStatus.Value): Boolean = {
+    ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive)) &&
+    (proverStatus match { // check if cuc constraint is satisfiable
+      case ProverStatus.Valid | ProverStatus.Sat     => true
+      case ProverStatus.Invalid | ProverStatus.Unsat => false
+      case s => {
+        Console.err.println(
+          "Constraint could not be checked during symbolic execution")
+        Console.err.println(cuc)
+        Console.err.println("Checker said: " + s)
+        true
+      }
+    })
+  }
+
+  private def constraintIsFalse(cuc:          UnitClause,
+                                proverStatus: ProverStatus.Value): Boolean = {
+    proverStatus match { // check if cuc constraint is satisfiable
+      case ProverStatus.Valid | ProverStatus.Sat     => false // ok
+      case ProverStatus.Invalid | ProverStatus.Unsat => true
+      case s => {
+        Console.err.println(
+          "Constraint could not be checked during symbolic execution")
+        Console.err.println(cuc)
+        Console.err.println("Checker said: " + s)
+        false
       }
     }
   }
 
-  private def constraintIsFalse(cuc: UnitClause)(
-      implicit prover:               SimpleAPI): Boolean = {
-    prover.scope {
-      import prover._
-      addAssertion(cuc.constraint)
-      val result = ??? match { // check if cuc constraint is satisfiable
-        case ProverStatus.Valid | ProverStatus.Sat     => false // ok
-        case ProverStatus.Invalid | ProverStatus.Unsat => true
-        case s => {
-          Console.err.println(
-            "Warning: Verification of constraint was not possible:"
-          )
-          Console.err.println(cuc)
-          Console.err.println("Checker said: " + s)
-          false
-        }
-      }
-      result
+  private def newUnitClause(rs:                  RelationSymbol,
+                            constraint:          Conjunction,
+                            isPositive:          Boolean,
+                            headOccInConstraint: Int): UnitClause = {
+    val differentOccArgsToRewrite = headOccInConstraint match {
+      case 0        => Nil
+      case otherOcc => rs.arguments(otherOcc)
+    }
+    val differentOccSubstMap: Map[ConstantTerm, ConstantTerm] =
+      (differentOccArgsToRewrite zip rs
+        .arguments(0)).toMap
+
+    val otherConstantsToRewrite =
+      constraint.constants -- (differentOccArgsToRewrite ++
+        rs.arguments(headOccInConstraint))
+    val constantSubstMap: Map[ConstantTerm, ConstantTerm] =
+      (otherConstantsToRewrite zip symex_sf
+        .localSymbolsForPred(pred = rs.pred,
+                             numSymbols = otherConstantsToRewrite.size,
+                             occ = 0)).toMap
+
+    //for ((c1, c2) <- constantSubstMap) {
+    //  rewrittenSymbols.makeSetIfNew(c1)
+    //  rewrittenSymbols.makeSetIfNew(c2)
+    //  rewrittenSymbols.union(c1, c2)
+    //}
+
+    val predLocalConstraint =
+      ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
+        constraint)
+    new UnitClause(rs, predLocalConstraint, isPositive)
+  }
+
+  private def toUnitClause(normClause: NormClause): UnitClause = {
+    normClause match {
+      case NormClause(constraint, Nil, (rel, 0)) // a fact
+          if rel.pred != HornClauses.FALSE =>
+        newUnitClause(rel,
+                      constraint,
+                      isPositive = true,
+                      headOccInConstraint = 0)
+      case NormClause(constraint, Seq((rel, 0)), (headRel, 0))
+          if headRel.pred == HornClauses.FALSE =>
+        newUnitClause(rel,
+                      constraint,
+                      isPositive = false,
+                      headOccInConstraint = 0)
+      case _ =>
+        throw new UnsupportedOperationException(
+          "Trying to create a unit clause from a non-unit clause: " + normClause)
     }
   }
+
 }
 
 // todo: ctor order is different with traits, syntax for ordering ctors

@@ -62,8 +62,8 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
    * in-between facts.
    */
   for (fact <- facts) {
-    unitClauseDB add (fact, parents = (factToNormClause(fact), Nil)) // add each fact to the stack
     unitClauseDB.push() // we push regardless if there is a choice or not
+    unitClauseDB add (fact, parents = (factToNormClause(fact), Nil)) // add each fact to the stack
     val possibleChoices = clausesWithRelationInBody(fact.rs)
     val choiceQueue     = new MQueue[NormClause]
     choiceQueue.enqueue(possibleChoices: _*)

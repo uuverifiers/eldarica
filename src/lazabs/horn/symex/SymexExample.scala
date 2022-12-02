@@ -312,6 +312,57 @@ object SymexExample8 extends App {
   }
 }
 
+// next two cover a corner case
+object SymexExample9 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 9 (Expected: UNSAT)") // two facts, one goal
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+      val p = createRelation("p", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x < 0), // resolution with this is unsat
+        p(x) :- (x > 0), // resolution with this is sat
+        false :- (p(x), x < 0)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object SymexExample10 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+  println("Running example 10 (Expected: UNSAT)") // two facts, one goal
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+      val p = createRelation("p", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x > 0), // resolution with this is sat
+        p(x) :- (x < 0), // resolution with this is unsat
+        false :- (p(x), x < 0)
+      )
+
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
 object Util {
   def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     res match {

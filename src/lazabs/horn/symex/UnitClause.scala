@@ -38,37 +38,6 @@ import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.bottomup.Util.toStream
 import lazabs.horn.symex.Symex.SymexException
 
-object UnitClause {
-  def apply(rs:                  RelationSymbol,
-            constraint:          Conjunction,
-            isPositive:          Boolean,
-            headOccInConstraint: Int)(
-      implicit symex_sf:         SymexSymbolFactory): UnitClause = {
-
-    val differentOccArgsToRewrite = headOccInConstraint match {
-      case 0        => Nil
-      case otherOcc => rs.arguments(otherOcc)
-    }
-    val differentOccSubstMap: Map[ConstantTerm, ConstantTerm] =
-      (differentOccArgsToRewrite zip rs
-        .arguments(0)).toMap
-
-    val otherConstantsToRewrite =
-      constraint.constants -- (differentOccArgsToRewrite ++
-        rs.arguments(headOccInConstraint))
-    val constantSubstMap: Map[ConstantTerm, ConstantTerm] =
-      (otherConstantsToRewrite zip symex_sf
-        .localSymbolsForPred(pred = rs.pred,
-                             numSymbols = otherConstantsToRewrite.size,
-                             occ = 0)).toMap
-
-    val predLocalConstraint =
-      ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
-        constraint)
-    new UnitClause(rs, predLocalConstraint, isPositive)
-  }
-}
-
 /**
  * A class to represent Constrained Unit Clauses (CUCs)
  * Each unit clause has its own ordered set of local symbols for each
