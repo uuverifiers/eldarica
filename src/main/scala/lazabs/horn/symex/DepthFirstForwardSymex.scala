@@ -45,7 +45,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
 
   import Symex._
 
-  println("Starting depth-first forward symbolic execution (DFS)...\n")
+  printInfo("Starting depth-first forward symbolic execution (DFS)...\n")
 
   // Keeps track of the remaining branches.
   private val choicesStack = new MStack[MQueue[NormClause]]

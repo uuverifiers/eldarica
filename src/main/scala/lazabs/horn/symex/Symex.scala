@@ -53,7 +53,7 @@ import collection.mutable.{
 object Symex {
   class SymexException(msg: String) extends Exception(msg)
 
-  var printInfo = true
+  var printInfo = false
 
   def printInfo(s: String, newLine: Boolean = true): Unit = {
     if (printInfo)
