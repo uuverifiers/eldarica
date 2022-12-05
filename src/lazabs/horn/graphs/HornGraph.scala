@@ -526,20 +526,29 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
             (for (x <- labelIndices) yield 0).toArray
           }
 
-        var originalClausesCounter = 0
-        labelMask= (for ((c,ci) <- bodyReplacedClauses.zipWithIndex) yield{
-          println(ci,c.length,c)
-          val index = originalClausesCounter
-          for(i<-(0 until c.length))yield{
-            originalClausesCounter += 1
-            index
-          }
-        }).flatten.toArray
+        labelList = GlobalParameters.get.hornGraphType match {
+          case HornGraphType.CDHG => {
+            var originalClausesCounter = 0
+            labelMask = (for ((c, ci) <- bodyReplacedClauses.zipWithIndex) yield {
+              println(ci, c.length, c)
+              val index = originalClausesCounter
+              for (i <- (0 until c.length)) yield {
+                originalClausesCounter += 1
+                index
+              }
+            }).flatten.toArray
 
-        val extendedLabelList = for ((l, c) <- readLabelList.zip(bodyReplacedClauses)) yield {
-          for (i <- (0 until c.length)) yield l
+            val extendedLabelList = for ((l, c) <- readLabelList.zip(bodyReplacedClauses)) yield {
+              for (i <- (0 until c.length)) yield l
+            }
+            extendedLabelList.flatten
+          }
+
+          case HornGraphType.CG => {
+            readLabelList
+          }
         }
-        labelList = extendedLabelList.flatten
+
       }
 
     }
