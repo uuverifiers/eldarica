@@ -312,7 +312,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
         val constants = (predDisj.constants -- rs.arguments(0)).toSeq
         val predSolution = symex_sf.reducer(Conjunction.TRUE)(
           Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
-                               constants,
+                               symex_sf.order.sort(constants),
                                predDisj,
                                symex_sf.order)
         )
@@ -322,24 +322,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             yield
               (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
 
-        // todo: review
-        //val constSubst: Map[ConstantTerm, ITerm] =
-        //  (for (c <- predSolution.constants -- rs.arguments(0))
-        //    yield {
-        //      //val originalSymbol =
-        //      //  (rewrittenSymbols(c).constants intersect originalLocalSymbols)
-        //      //assert(originalSymbol.size == 1)
-        //      //(c, originalSymbol.head)
-        //      (c, IExpression.quanConsts())
-        //    }).toMap
+        // todo: try to simplify after quantification
 
         val backtranslatedPredSolution =
           ConstantSubstVisitor(prover.asIFormula(predSolution), argSubst)
         //ConstantSubst(predSolution, argSubst ++ constSubst)
-        //val quanSol = IExpression.quanConsts(
-        //  IExpression.Quantifier.EX,
-        //  predDisj.constants -- rs.arguments(0),
-        //  backtranslatedPredSolution)
 
         (pred, backtranslatedPredSolution)
       }
