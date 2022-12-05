@@ -127,6 +127,16 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   }
 
   /**
+   * Returns the sequence of clauses added to the database since last push.
+   */
+  def clausesSinceLastPush: Seq[UnitClause] = {
+    val numCucsInFrame = cucs.length - frameStack.top.numCUCs
+    if (numCucsInFrame > 0)
+      cucs takeRight numCucsInFrame
+    else Nil
+  }
+
+  /**
    * Add a clause to the database. Returns true if inserted, false if unit
    * clause already exists in the database.
    * @param clause Clause to be inserted.

@@ -57,9 +57,8 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
   private val noChoiceStack = new MStack[NormClause]
 
   /*
-   * Initialize the search by adding the facts. Each fact corresponds to a root
-   * of a search tree, but we arrange this as a single search tree by pushing
-   * in-between facts.
+   * Initialize the search by adding the facts. Each fact corresponds to a source
+   * in the search DAG.
    */
   for (fact <- facts) {
     unitClauseDB.push() // we push regardless if there is a choice or not

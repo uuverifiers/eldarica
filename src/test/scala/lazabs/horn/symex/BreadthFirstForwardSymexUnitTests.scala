@@ -9,7 +9,7 @@ import HornClauses._
 import ap.theories.ExtArray
 import org.scalatest.freespec.AnyFreeSpec
 
-class DepthFirstForwardSymexUnitTests
+class BreadthFirstForwardSymexUnitTests
     extends AnyFreeSpec
     with SymexResultMatchers {
 
@@ -34,12 +34,12 @@ class DepthFirstForwardSymexUnitTests
                 (x >= 0) :- p2(x)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve() should beSat
-            }
+              symex.solve()
+            } should beSat
           }
-          "Unsafe" in {
+          "Unsafe 1" in {
             scope {
               val p0 = createRelation("p0", List(Sort.Integer))
               val p1 = createRelation("p1", List(Sort.Integer))
@@ -55,11 +55,35 @@ class DepthFirstForwardSymexUnitTests
               )
 
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve() should beUnsat
-            }
+              symex.solve()
+            } should beUnsat
           }
+
+          "Unsafe 2" in {
+            scope {
+              val x = createConstant("x")
+              val n = createConstant("n")
+              val p = createRelation("p", List(Sort.Integer, Sort.Integer))
+
+              // This example is easily shown to be unsafe (by only resolving the first
+
+              // clause with the last assertion), but naive depth-first exploration
+              // gets stuck in exploring the middle recursive clause.
+              // Breadth-first search does not have this issue.
+              val clauses: Seq[Clause] = List(
+                p(x, n) :- (x === 0, n > 0),
+                p(x + 1, n) :- (p(x, n), x <= n),
+                false :- (p(x, n), x >= n)
+              )
+
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+              symex.solve()
+            } should beUnsat
+          }
+
         }
         "Bounded loops with arrays" - {
           "Safe" in {
@@ -83,10 +107,10 @@ class DepthFirstForwardSymexUnitTests
               )
 
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve() should beSat
-            }
+              symex.solve()
+            } should beSat
           }
           "Unsafe" in {
             scope {
@@ -109,10 +133,10 @@ class DepthFirstForwardSymexUnitTests
               )
 
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve() should beUnsat
-            }
+              symex.solve()
+            } should beUnsat
           }
         }
       }
@@ -128,7 +152,7 @@ class DepthFirstForwardSymexUnitTests
               )
 
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beSat
           }
@@ -144,7 +168,7 @@ class DepthFirstForwardSymexUnitTests
                 (x === 42) :- p0(x)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beSat
           }
@@ -158,7 +182,7 @@ class DepthFirstForwardSymexUnitTests
                 (x =/= 42) :- p0(x)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beUnsat
           }
@@ -176,7 +200,7 @@ class DepthFirstForwardSymexUnitTests
               )
 
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beSat
           }
@@ -193,7 +217,7 @@ class DepthFirstForwardSymexUnitTests
                 false :- (p(x), x < 0)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beUnsat
           }
@@ -208,7 +232,7 @@ class DepthFirstForwardSymexUnitTests
                 false :- (p(x), x < 0)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beUnsat
           }
@@ -223,7 +247,7 @@ class DepthFirstForwardSymexUnitTests
                 (x === 42) :- (p0(x), x === 42)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beSat
           }
@@ -236,7 +260,7 @@ class DepthFirstForwardSymexUnitTests
                 (x === 42) :- p0(x)
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beUnsat
           }
@@ -250,7 +274,7 @@ class DepthFirstForwardSymexUnitTests
                 (x === 42) :- true
               )
               val symex =
-                new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
             } should beUnsat
           }

@@ -205,6 +205,38 @@ object SymexExample3NonTermination extends App {
   }
 }
 
+object BreadthFirstExample1 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running breadth-first example 1 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+      val n = createConstant("n")
+      val p = createRelation("p", List(Sort.Integer, Sort.Integer))
+
+      // This example is easily shown to be unsafe (by only resolving the first
+      // clause with the last assertion), but naive depth-first exploration
+      // gets stuck in exploring the middle recursive clause.
+      // Breadth-first search does not have this issue.
+      val clauses: Seq[Clause] = List(
+        p(x, n) :- (x === 0, n > 0),
+        p(x + 1, n) :- (p(x, n), x <= n),
+        false :- (p(x, n), x >= n)
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
 object Util {
   def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     res match {
