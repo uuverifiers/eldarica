@@ -105,6 +105,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   val clauses = getClausesAccordingToLabels(originalSimplifiedClauses)
   var labelIndices: Array[Int] = Array()
   var labelList: Array[Int] = Array()
+  var labelMask: Array[Int] = Array()
   var globalNodeID = 0
   val canonicalNodeTypeIDMap = new mutable.HashMap[String, Int]
   (for (n <- nodeTypes) canonicalNodeTypeIDMap(n) = 0)
@@ -184,12 +185,12 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
         edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
       }
       //add global binary edges, This can be added in GNN HornGraphDataset get
-//      val etype = "binaryEdge"
-//      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
+      //      val etype = "binaryEdge"
+      //      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
     } else {
       //add global ternary edges. This can be added in GNN HornGraphDataset get
-//      val etype = "ternaryHyperEdge"
-//      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
+      //      val etype = "ternaryHyperEdge"
+      //      edgeMap(etype) = edgeMap(etype).+:(Edge(edge, edgeTypesAbbrev(etype), etype))
     }
   }
 
@@ -268,6 +269,9 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
     //write labels
     writeOneLineJson("labelNumber", Seq(labelList.length).toString, writer, changeLine = false)
     writeOneLineJson("labelList", labelList.toSeq.toString, writer)
+    writeOneLineJson("labelMaskNumber", Seq(labelMask.length).toString, writer, changeLine = false)
+    writeOneLineJson("labelMask", labelMask.toSeq.toString, writer)
+    writeOneLineJson("labelIndicesNumber", Seq(labelIndices.length).toString, writer, changeLine = false)
     writeOneLineJson("labelIndices", labelIndices.toSeq.toString, writer)
     //write nodeID
     writeOneLineJson("nodeNumber", Seq(nodeSymbolList.length).toString, writer, changeLine = false)
@@ -497,7 +501,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
     (templateLabel, templateNode.nodeID)
   }
 
-  def getLabel(): Unit = {
+  def getLabel(bodyReplacedClauses: Seq[Clauses] = Seq()): Unit = {
     GlobalParameters.get.hornGraphLabelType match {
       case HornGraphLabelType.template => {
         val templates = readTemplateMap(clauses)
@@ -513,19 +517,46 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
         }
         val clauseIndicesList = nodeMap.values.toArray.filter(_.typeName == clauseNodeName).map(_.nodeID)
         labelIndices = clauseIndicesList
+
+
         //todo label indices for CDHG is different
+
         val counterExampleIndexFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
-        if (new java.io.File(counterExampleIndexFileName).exists) { //if there is label file
-          labelList = readJsonFieldInt(counterExampleIndexFileName, readLabelName = "counterExampleLabels")
-        }else{ // no label file
-          labelList = (for (x<-labelIndices) yield 0).toArray
+        val readLabelList =
+          if (new java.io.File(counterExampleIndexFileName).exists) { //if there is label file
+            readJsonFieldInt(counterExampleIndexFileName, readLabelName = "counterExampleLabels")
+          } else { // no label file
+            (for (x <- labelIndices) yield 0).toArray
+          }
+
+        var originalClausesCounter = 0
+
+        val localLabelMask= (for ((c,ci) <- bodyReplacedClauses.zipWithIndex) yield{
+          println(ci,c.length,c)
+          val index = originalClausesCounter
+          for(i<-(0 until c.length))yield{
+            originalClausesCounter += 1
+            index
+          }
+        }).flatten.toArray
+        labelMask=localLabelMask
+        println("labelMask",labelMask.length,labelMask.mkString)
+        val originalClausesIndex=labelMask.distinct
+
+        //todo extend labels
+        println("readLabelList", readLabelList.length, readLabelList.mkString)
+        val extendedLabelList = for ((l, c) <- readLabelList.zip(bodyReplacedClauses)) yield {
+          for (i <- (0 until c.length)) yield l
         }
+        println("extendedLabelList", extendedLabelList.length, extendedLabelList.mkString)
+        labelList = extendedLabelList.flatten
+
       }
 
     }
     if (GlobalParameters.get.log) {
-      println("labelIndices", labelIndices.length)
-      println("labelList", labelList.length)
+      println("labelIndices", labelIndices.length, labelIndices.mkString)
+      println("labelList", labelList.length, labelList.mkString)
     }
 
   }
@@ -617,7 +648,7 @@ class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
   }
 
-  getLabel()
+  getLabel(bodyReplacedClauses)
 
   if (GlobalParameters.get.visualizeHornGraph)
     logTime(drawDotGraph(nodeList = nodeMap.values.toArray, edgeMap = edgeMap), "write dot graph")

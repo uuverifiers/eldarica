@@ -95,11 +95,29 @@ object counterExampleUtils {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
     val predictedLabelsFromThresholdLogits = for (l <- predictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
-    val clausesInCE = for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
+    val originalClausesIndex = labelMask.distinct
+    val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
+      for (ii <- (0 until labelMask.count(_ == i))) yield predictedLabelsFromThresholdLogits(i + ii)
+    }
+    val labelForOriginalClauses = for (sl <- separatedPredictedLabels) yield {
+      sl.max
+    }
+
+    val clausesInCE = for ((c, l) <- clauses.zip(labelForOriginalClauses); if l == 1) yield c
+
     if (GlobalParameters.get.log) {
       println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
       println(Console.RED + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
+      println(Console.RED + "labelMask", labelMask.length, labelMask.mkString)
+      val separatedLabelMask = for (i <- originalClausesIndex) yield {
+        for (ii <- (0 until labelMask.count(_ == i))) yield labelMask(i + ii)
+      }
+      println(Console.RED + "separatedLabelMask", separatedLabelMask.length, separatedLabelMask.mkString)
+      println(Console.RED + "clauses", clauses.length)
+      println(Console.RED + "separatedPredictedLabels", separatedPredictedLabels.length, separatedPredictedLabels.mkString)
+      println(Console.RED + "labelForOriginalClauses", labelForOriginalClauses.length, labelForOriginalClauses.mkString)
     }
 
     clausesInCE
