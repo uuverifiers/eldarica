@@ -24,6 +24,9 @@ object counterExampleUtils {
   def mineClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, NormClause)]]): Unit = {
+    //write simplified clauses to file
+    writeSMTFormatToFile(clauses, "simplified")
+
     val CEMiner = new CounterexampleMiner(clauses, predicateGenerator)
     val minedCEs = if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.union)
       CEMiner.unionMinimalCounterexampleIndexs
@@ -31,7 +34,7 @@ object counterExampleUtils {
       CEMiner.commonCounterexampleIndexs
     val clausesInCE = for ((c, i) <- clauses.zipWithIndex; if minedCEs.contains(i)) yield c
 
-    writeSMTFormatToFile(clauses, "simplified")
+
     val ceLabels = for ((c, i) <- clauses.zipWithIndex) yield {
       if (minedCEs.contains(i)) 1 else 0
     }

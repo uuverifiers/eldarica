@@ -57,7 +57,7 @@ object GraphUtils {
 
   def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
     //val uniqueClauses = distinctByString(clauses)
-    val (csSimplifiedClauses, _, _) = cs.process(clauses.distinct, templates)
+    val (csSimplifiedClauses, _, _) = cs.process(clauses, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
     val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
     normalizedClauses
