@@ -518,9 +518,6 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
         val clauseIndicesList = nodeMap.values.toArray.filter(_.typeName == clauseNodeName).map(_.nodeID)
         labelIndices = clauseIndicesList
 
-
-        //todo label indices for CDHG is different
-
         val counterExampleIndexFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
         val readLabelList =
           if (new java.io.File(counterExampleIndexFileName).exists) { //if there is label file
@@ -530,8 +527,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
           }
 
         var originalClausesCounter = 0
-
-        val localLabelMask= (for ((c,ci) <- bodyReplacedClauses.zipWithIndex) yield{
+        labelMask= (for ((c,ci) <- bodyReplacedClauses.zipWithIndex) yield{
           println(ci,c.length,c)
           val index = originalClausesCounter
           for(i<-(0 until c.length))yield{
@@ -539,18 +535,11 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
             index
           }
         }).flatten.toArray
-        labelMask=localLabelMask
-        println("labelMask",labelMask.length,labelMask.mkString)
-        val originalClausesIndex=labelMask.distinct
 
-        //todo extend labels
-        println("readLabelList", readLabelList.length, readLabelList.mkString)
         val extendedLabelList = for ((l, c) <- readLabelList.zip(bodyReplacedClauses)) yield {
           for (i <- (0 until c.length)) yield l
         }
-        println("extendedLabelList", extendedLabelList.length, extendedLabelList.mkString)
         labelList = extendedLabelList.flatten
-
       }
 
     }
