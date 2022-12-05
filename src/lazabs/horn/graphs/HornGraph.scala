@@ -537,7 +537,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
 class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
   //notice: templates are only correspond to the original clauses
-  val normalizedClauses = normalizeClauses(clauses, VerificationHints(Map()))
+  val (normalizedClauses, bodyReplacedClauses) = normalizeClauses(clauses, VerificationHints(Map()))
 
   //create initial rs node
   val initialNode = createNode("initial", "initial", element = AbstractNode("initial"))()

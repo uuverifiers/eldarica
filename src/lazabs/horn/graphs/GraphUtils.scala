@@ -47,11 +47,8 @@ object GraphUtils {
   }
 
 
-  def normalizeClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
-    //val uniqueClauses = distinctByString(clauses)
-    val (csSimplifiedClauses, _, _) = cs.process(clauses.distinct, templates)
-    val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
-    val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
+  def normalizeClauses(clauses: Clauses, templates: VerificationHints): (Clauses,Seq[Clauses]) = {
+    val normalizedClauses = simplifyClauses(clauses,templates)
     val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)) // replace multiple same predicate in body
 
     var originalClausesCounter=0
@@ -76,7 +73,7 @@ object GraphUtils {
     //todo extend the label to normalized clauses
 
     val argumentReplacedClauses = for (c <- flattenBodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
-    argumentReplacedClauses
+    (argumentReplacedClauses,bodyReplacedClauses)
   }
 
   def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
