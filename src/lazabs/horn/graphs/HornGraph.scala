@@ -10,7 +10,7 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.abstractions.VerificationHints.{VerifHintElement, VerifHintTplEqTerm, VerifHintTplInEqTerm, VerifHintTplPredPosNeg}
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.HornTranslator
+import lazabs.horn.bottomup.{HornClauses, HornTranslator}
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.Utils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
@@ -87,6 +87,7 @@ case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style:
 sealed trait NodeElement
 
 final case class PredicateNode(pred: Predicate) extends NodeElement
+final case class FalseNode(pred: Predicate) extends NodeElement
 
 final case class PredicateArgumentNode(pred: Predicate, i: Int, c: IConstant) extends NodeElement
 
@@ -167,6 +168,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
       case IBoolLitNode(b) => globalConstantNodeMap(newNode.readName) = newNode
       case IIntLitNode(i) => globalConstantNodeMap(newNode.readName) = newNode
       case AbstractNode(a) => {}
+      case FalseNode(f)=>{}
     }
 
     nodeMap += (newNode.nodeID -> newNode)
@@ -299,16 +301,21 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   }
 
   def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Seq[Node]) = {
-    // todo separate false node
-    //merge rs and their arguments globally
-    try {
-      val rsNode = globalPredicateNodeMap(atom.pred)
-      val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
-      (rsNode, argumentList)
-    } catch {
-      case _ => createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
-        argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
+    if (atom.pred==HornClauses.FALSE){ //if the head is false
+      val rsNode=createNode("false", "false", rsName = "false", element = FalseNode(atom.pred))()
+      (rsNode,Seq())
+    }else{
+      //merge rs and their arguments globally
+      try {
+        val rsNode = globalPredicateNodeMap(atom.pred)
+        val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
+        (rsNode, argumentList)
+      } catch {
+        case _ => createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
+          argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
+      }
     }
+
   }
 
   def createNewRelationSymbolNodesAndArguments(atom: IAtom, atomType: String, argumenNodeType: String,
