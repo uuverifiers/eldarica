@@ -57,7 +57,7 @@ object NodeAndEdgeType {
     "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data", "quantifierEdge" -> "quan", "binaryEdge" -> "be"
     , "templateEdge" -> "t", "templateASTEdge" -> "tAST")
 
-  val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component",
+  val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component","false"->"component",
     "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "clause" -> "octagon", "operator" -> "box",
     "relationSymbolArgument" -> "hexagon", "clauseArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box",
     "templateEq" -> "box", "templateIneq" -> "box", "templateBool" -> "box", "variable" -> "doublecircle"),
@@ -87,6 +87,7 @@ case class Edge(edge: Array[Int], dotGraphName: String, typeName: String, style:
 sealed trait NodeElement
 
 final case class PredicateNode(pred: Predicate) extends NodeElement
+
 final case class FalseNode(pred: Predicate) extends NodeElement
 
 final case class PredicateArgumentNode(pred: Predicate, i: Int, c: IConstant) extends NodeElement
@@ -168,7 +169,9 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
       case IBoolLitNode(b) => globalConstantNodeMap(newNode.readName) = newNode
       case IIntLitNode(i) => globalConstantNodeMap(newNode.readName) = newNode
       case AbstractNode(a) => {}
-      case FalseNode(f)=>{}
+      case FalseNode(f) => {
+        globalPredicateNodeMap(f) = newNode
+      }
     }
 
     nodeMap += (newNode.nodeID -> newNode)
@@ -301,21 +304,23 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   }
 
   def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Seq[Node]) = {
-    if (atom.pred==HornClauses.FALSE){ //if the head is false
-      val rsNode=createNode("false", "false", rsName = "false", element = FalseNode(atom.pred))()
-      (rsNode,Seq())
-    }else{
-      //merge rs and their arguments globally
-      try {
-        val rsNode = globalPredicateNodeMap(atom.pred)
-        val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
-        (rsNode, argumentList)
-      } catch {
-        case _ => createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
-          argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
+
+    //merge rs and their arguments globally
+    try {
+      val rsNode = globalPredicateNodeMap(atom.pred)
+      val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
+      (rsNode, argumentList)
+    } catch {
+      case _ => {
+        if (atom.pred == HornClauses.FALSE) { //if the head is false
+          val rsNode = createNode("false", "false", rsName = "false", element = FalseNode(atom.pred))()
+          (rsNode, Seq())
+        } else {
+          createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
+            argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
+        }
       }
     }
-
   }
 
   def createNewRelationSymbolNodesAndArguments(atom: IAtom, atomType: String, argumenNodeType: String,
