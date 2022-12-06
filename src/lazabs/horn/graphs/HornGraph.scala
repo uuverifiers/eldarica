@@ -3,7 +3,7 @@ package lazabs.horn.graphs
 import ap.basetypes.IdealInt
 import ap.parser.IExpression.{Conj, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ, IdealInt2ITerm, Predicate, ex}
 import lazabs.horn.graphs.GraphUtils._
-import ap.parser.{IAtom, IBinJunctor, IBoolLit, IConstant, IExpression, IFormula, IIntLit, INot, IPlus, IQuantified, ITerm, ITimes, IVariable, LineariseVisitor, SymbolCollector}
+import ap.parser.{IAtom, IBinJunctor, IBoolLit, IConstant, IExpression, IFormula, IFunApp, IIntLit, INot, IPlus, IQuantified, ITerm, ITimes, IVariable, LineariseVisitor, SymbolCollector}
 import ap.terfor.ConstantTerm
 import ap.util.Seqs
 import lazabs.GlobalParameters
@@ -405,7 +405,12 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
             //println(Console.RED + v)
             constructEndNode(nodeType = "variable", readName = v.toString, element = IVariableNode(IVariable(v)))
           }
-          case _ => createNode("unknown", "unkown", element = AbstractNode("unkown"))()
+          case IFunApp(fun,args)=>{//todo deal it according to fun, not just turn it to a true node
+            constructEndNode("constant", "true", element = IBoolLitNode(IBoolLit(true)))
+          }
+          case _ => {
+            println(Console.RED+"unknown node",e,e.getClass)
+            createNode("unknown", "unkown", element = AbstractNode("unkown"))()}
         }
         clauseConstraintSubExpressionMap += (e -> astRootNode)
         astRootNode
