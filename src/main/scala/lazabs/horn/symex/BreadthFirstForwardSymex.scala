@@ -30,10 +30,15 @@ package lazabs.horn.symex
 
 import lazabs.horn.acceleration.PrincessFlataWrappers.MHashMap
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
-import lazabs.horn.bottomup.NormClause
+import lazabs.horn.bottomup.{NormClause, RelationSymbol}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.{Queue => MQueue, Stack => MStack}
+import scala.collection.mutable.{
+  ArrayBuffer,
+  ListBuffer,
+  Queue => MQueue,
+  Stack => MStack
+}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -59,30 +64,28 @@ class BreadthFirstForwardSymex[CC](clauses: Iterable[CC])(
 
   private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause])]
 
-  // Depth of the search DAG
-  private var depth = 0
+  // Level of the search DAG
+  private var level = 0
 
-  private def increaseDepth(): Unit = {
-    depth += 1
+  private def increaseLevel(): Unit = {
+    level += 1
     unitClauseDB.push()
-    printInfo(" Depth: " + depth)
+    //printInfo(" Level: " + level)
   }
 
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
-   * We use pushes to mark newly derived states (unit clauses) at each depth,
-   * beginning at depth 0
+   * We use pushes to mark newly derived states (unit clauses) at each level,
+   * beginning at level 0
    */
-  increaseDepth()
+  increaseLevel()
   for (fact <- facts)
     unitClauseDB add (fact, parents = (factToNormClause(fact), Nil))
 
   @tailrec
   final override def getClausesForResolution
     : Option[(NormClause, Seq[UnitClause])] = {
-    choicesQueue.foreach(println)
-    println
     if (unitClauseDB isEmpty) { // no facts, nothing to resolve with
       None
     } else {
@@ -92,51 +95,31 @@ class BreadthFirstForwardSymex[CC](clauses: Iterable[CC])(
         newElectrons match {
           case Nil => None // search space exhausted
           case _ =>
-            increaseDepth()
+            increaseLevel()
 
-            var usedElectrons = new MHashMap[UnitClause, List[NormClause]]
+            var usedElectrons = new MHashMap[UnitClause, Set[NormClause]]
             for (electron <- newElectrons)
-              usedElectrons += ((electron, Nil))
+              usedElectrons += ((electron, Set()))
 
             for (electron <- newElectrons) {
+              // collect other choices at this level
               val possibleChoices = clausesWithRelationInBody(electron.rs)
-              for (nucleus <- possibleChoices
-                   if !usedElectrons(electron).contains(nucleus)) {
 
-                val electronsForAtoms: Seq[Option[UnitClause]] =
-                  for ((rs, occ) <- nucleus.body) yield {
-                    // see if we have an electron available for every body literal
-                    // first look among the new electrons
-                    if (electron.rs == rs) // if this is the literal matching this electron
-                      // todo: if we have multiple occurrences of a literal,
-                      //   which cuc to use, last derived one?
-                      Some(electron) // review
-                    else {
-                      newElectrons.find(_.rs == rs) match {
-                        case Some(cuc) => Some(cuc)
-                        case None      =>
-                          // otherwise try to get one from previously inferred cucs
-                          unitClauseDB.inferred(rs) match {
-                            case Some(cucs) if cucs.nonEmpty =>
-                              Some(cucs.last) // the most recent one
-                            case _ =>
-                              None
-                            // There is no derived state/cuc yet for one of the
-                            // body literals. This nucleus will be resolved later
-                            // when that state is derived, do nothing.
-                          }
-                      }
+              for (nucleus <- possibleChoices) {
+                if (!usedElectrons(electron).contains(nucleus)) {
+                  val inferredCucsForLits: Seq[Vector[UnitClause]] =
+                    for ((rs, occ) <- nucleus.body
+                         if unitClauseDB.inferred(rs).nonEmpty) yield {
+                      unitClauseDB.inferred(rs).get
                     }
-                  } // todo: optimization opportunity: exit this loop early when no electron is found for the first time
-
-                if (electronsForAtoms.forall(_.nonEmpty)) {
-                  val electrons = electronsForAtoms.map(_.get)
-                  // found a cuc/electron for all body literals
-                  choicesQueue enqueue ((nucleus, electrons))
-                  // mark all new electrons as "used" for this nucleus
-                  for (electron <- electrons)
-                    usedElectrons += ((electron,
-                                       nucleus :: usedElectrons(electron)))
+                  for (cucs <- prod(inferredCucsForLits)) {
+                    choicesQueue enqueue ((nucleus, cucs))
+                    cucs.foreach(
+                      cuc =>
+                        usedElectrons += ((cuc,
+                                           usedElectrons
+                                             .getOrElse(cuc, Set()) + nucleus)))
+                  }
                 }
               }
             }
@@ -151,16 +134,22 @@ class BreadthFirstForwardSymex[CC](clauses: Iterable[CC])(
   }
 
   override def handleForwardSubsumption(nucleus:   NormClause,
-                                        electrons: Seq[UnitClause]): Unit = {
-    // nothing needed
-  }
+                                        electrons: Seq[UnitClause]): Unit = {}
 
   override def handleBackwardSubsumption(subsumed: Set[UnitClause]): Unit = {
     // todo: future work
   }
 
   override def handleFalseConstraint(nucleus:   NormClause,
-                                     electrons: Seq[UnitClause]): Unit = {
-    // unlike DFS, nothing needed in this case either
-  }
+                                     electrons: Seq[UnitClause]): Unit = {}
+
+  private def prod[T](inferred: Seq[Seq[T]]): Seq[Seq[T]] = // cross/Cartesian-product
+    inferred match {
+      case cucs :: Nil => cucs map (Seq(_))
+      case cucs1 :: cucs2 =>
+        for {
+          cuc1 <- cucs1; cuc2 <- prod(cucs2)
+        } yield Seq(cuc1) ++ cuc2
+    }
+
 }

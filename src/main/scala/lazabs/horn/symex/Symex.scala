@@ -333,6 +333,13 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
   /**
+   * Shut-down the engine.
+   */
+  def shutdown: Unit = {
+    prover.shutDown
+  }
+
+  /**
    * Returns a counterexample DAG given the last derived unit clause as root,
    * i.e., FALSE :- TRUE.
    */
@@ -353,16 +360,16 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                          getChildren: T => Seq[T]): (Seq[T], Map[T, Int]) = {
 
       // compute in-degree of each node
-      val inDegrees = new MHashMap[T, Int]
+      val inNodes = new MHashMap[T, Set[T]]
       @annotation.tailrec
       def computeInDegrees(node:              T,
                            remainingChildren: List[T],
                            toBeComputed:      List[T]): Unit = {
         remainingChildren match {
           case child :: rest =>
-            inDegrees += ((child,
-                           inDegrees
-                             .getOrElse(child, 0) + 1))
+            inNodes += ((child,
+                         inNodes
+                           .getOrElse(child, Set()) + node))
             computeInDegrees(node, rest, child :: toBeComputed)
           case Nil =>
             toBeComputed match {
@@ -373,6 +380,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
         }
       }
       computeInDegrees(source, getChildren(source).toList, Nil)
+      val inDegrees = inNodes.map(pair => ((pair._1, pair._2.size)))
 
       val backMapping = new MHashMap[T, Int]
       val nodeQueue   = new MQueue[T]

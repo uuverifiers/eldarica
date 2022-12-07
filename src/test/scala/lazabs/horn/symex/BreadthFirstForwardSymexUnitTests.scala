@@ -9,6 +9,7 @@ import HornClauses._
 import ap.theories.ExtArray
 import org.scalatest.freespec.AnyFreeSpec
 
+// todo: add non-linear test cases
 class BreadthFirstForwardSymexUnitTests
     extends AnyFreeSpec
     with SymexResultMatchers {

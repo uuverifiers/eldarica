@@ -237,6 +237,161 @@ object BreadthFirstExample1 extends App {
   }
 }
 
+object NonlinearExample1 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running nonlinear-example 1 (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+      val y = createConstant("y")
+      val p = createRelation("p", List(Sort.Integer))
+      val q = createRelation("q", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x === 20),
+        q(y) :- (y === 22),
+        false :- (p(x), q(y), (x + y =/= 42))
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object NonlinearExample2 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running nonlinear-example 1 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x = createConstant("x")
+      val y = createConstant("y")
+      val p = createRelation("p", List(Sort.Integer))
+      val q = createRelation("q", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x === 20),
+        q(y) :- (y === 22),
+        false :- (p(x), q(y), (x + y === 42))
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object NonlinearExample3 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running nonlinear-example 3 (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x  = createConstant("x")
+      val y  = createConstant("y")
+      val p  = createRelation("p", List(Sort.Integer))
+      val p1 = createRelation("p1", List(Sort.Integer))
+      val q  = createRelation("q", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x === 20),
+        p1(x) :- p(x),
+        q(x + 2) :- p1(x),
+        false :- (p(x), q(y), (x + y =/= 42))
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object NonlinearExample4 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running nonlinear-example 4 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x  = createConstant("x")
+      val y  = createConstant("y")
+      val p  = createRelation("p", List(Sort.Integer))
+      val p1 = createRelation("p1", List(Sort.Integer))
+      val q  = createRelation("q", List(Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        p(x) :- (x === 20),
+        p1(x) :- p(x),
+        q(x + 1) :- p1(x),
+        false :- (p(x), q(y), (x + y =/= 42))
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object NonlinearExample5 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  // tricera/regression-tests/horn-contracts/contract1.hcc
+
+  Symex.printInfo = true
+  println("Running nonlinear-example 5 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x  = createConstant("x")
+      val y  = createConstant("y")
+      val f1 = createRelation("f1", List(Sort.Integer))
+      val f2 = createRelation("f2", List(Sort.Integer, Sort.Integer))
+
+      val clauses: Seq[Clause] = List(
+        f1(10) :- true,
+        f2(x, y) :- (f1(x), f2(x - 1, y - 1), x > 0),
+        f2(x, y) :- (f1(x), x <= 0, 0 === y),
+        f1(x) :- (f1(x + 1), x >= 0),
+        false :- (f2(10, y), y <= 0)
+      )
+
+      // this should produce a solution for f2: _1 = _0 = n where n = -10..0
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
 object Util {
   def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     res match {
