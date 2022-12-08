@@ -94,7 +94,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * returns: the latest number of frames
    */
   def push(): Int = {
-    assert(cucs.length == cucParents.length) // todo: convert to Eldarica
+    assert(cucs.length == cucParents.length)
     // assertion or remove
     frameStack push
       FrameInfo(
@@ -104,7 +104,6 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
         }).toMap
       )
     //println("(DB) Pushed " + frameStack.length)
-    //println("(DB) Last " + cucs.last)
     frameStack.length
   }
 

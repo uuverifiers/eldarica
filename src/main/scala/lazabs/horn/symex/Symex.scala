@@ -88,7 +88,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // We keep a prover initialized with all the symbols running, which we will
   // use to check the satisfiability of constraints.
   // Note that the prover must be manually shut down for clean-up.
-  implicit val prover: SimpleAPI = SimpleAPI.spawn // todo: shut down after use
+  implicit val prover: SimpleAPI = SimpleAPI.spawn
   prover.addTheories(theories)
   prover.addRelations(preds)
 
@@ -411,6 +411,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       }
     }
     val (cucsSorted, cucIndices) = constructTopo(root, getChildren)
+
+    //todo: get rid of topological stuff, do it the right way
 
     val cucAtoms = new MHashMap[UnitClause, IAtom]
     def computeAtoms(headAtom: IAtom, cuc: UnitClause): Unit = {

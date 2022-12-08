@@ -73,7 +73,7 @@ object SymexExample1Sat extends App {
   }
 }
 
-object SymexExample1Unsat extends App {
+object DFSExample1_1Unsat extends App {
 
   import ap.api.SimpleAPI
   import ap.parser._
@@ -82,7 +82,7 @@ object SymexExample1Unsat extends App {
   import HornClauses._
 
   Symex.printInfo = true
-  println("Running example 1 (Expected: UNSAT)")
+  println("Running example 1_1 (Expected: UNSAT)")
 
   SimpleAPI.withProver { p =>
     import p._
@@ -105,7 +105,40 @@ object SymexExample1Unsat extends App {
   }
 }
 
-object SymexExample2Sat extends App {
+object DFSExample1_2Unsat extends App {
+
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running example 1_2 (Expected: UNSAT)")
+
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val p1 = createRelation("p1", List(Sort.Integer))
+      val p2 = createRelation("p2", List(Sort.Integer))
+      val x  = createConstant("x")
+      val x2 = createConstant("x'")
+
+      val clauses: Seq[Clause] = List(
+        p0(x) :- true,
+        p1(x) :- (p0(x), x >= 1),
+        p0(x - 1) :- p1(x),
+        p2(x) :- (p0(x), x <= 0),
+        (x >= 0) :- p2(x)
+      )
+      val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object DFSExample2Sat extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -141,7 +174,7 @@ object SymexExample2Sat extends App {
   }
 }
 
-object SymexExample2Unsat extends App {
+object DFSExample2Unsat extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -177,7 +210,7 @@ object SymexExample2Unsat extends App {
   }
 }
 
-object SymexExample3NonTermination extends App {
+object DFSExample3NonTermination extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -205,7 +238,7 @@ object SymexExample3NonTermination extends App {
   }
 }
 
-object BreadthFirstExample1 extends App {
+object BFSExample1 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -237,7 +270,7 @@ object BreadthFirstExample1 extends App {
   }
 }
 
-object NonlinearExample1 extends App {
+object BFSNonlinearExample1 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -266,7 +299,7 @@ object NonlinearExample1 extends App {
   }
 }
 
-object NonlinearExample2 extends App {
+object BFSNonlinearExample2 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -295,7 +328,7 @@ object NonlinearExample2 extends App {
   }
 }
 
-object NonlinearExample3 extends App {
+object BFSNonlinearExample3 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -326,7 +359,7 @@ object NonlinearExample3 extends App {
   }
 }
 
-object NonlinearExample4 extends App {
+object BFSNonlinearExample4 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses
@@ -357,7 +390,7 @@ object NonlinearExample4 extends App {
   }
 }
 
-object NonlinearExample5 extends App {
+object BFSNonlinearExample5 extends App {
   import ap.api.SimpleAPI
   import ap.parser._
   import lazabs.horn.bottomup.HornClauses

@@ -49,13 +49,6 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
 
   // Keeps track of the remaining branches.
   private val choicesStack = new MStack[MQueue[NormClause]]
-
-  /*
-   * Saves the clauses to resolve against in case there is only a single branch
-   * possible - in order to not look up the choices twice.
-   */
-  private val noChoiceStack = new MStack[NormClause]
-
   /*
    * Initialize the search by adding the facts. Each fact corresponds to a source
    * in the search DAG.
@@ -75,22 +68,20 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
       None
     } else {
       val electron = unitClauseDB.last // use last cuc to enforce depth-first exploration
-
-      if (noChoiceStack nonEmpty) { // not a decision point
-        Some((noChoiceStack.pop(), Seq(electron)))
-      } else if (choicesStack isEmpty) {
+      if (choicesStack isEmpty) {
         None
       } else {
         val possibleChoices = choicesStack.top
         possibleChoices.length match {
           case 0 => // no more resolution options for this cuc, backtrack
-            choicesStack.pop()
+            backtrack()
+            //choicesStack.pop()
+            //unitClauseDB.pop()
             getClausesForResolution
           case n =>
-            if (n > 1) unitClauseDB.push
+            if (n > 1)
+              unitClauseDB.push()
             val choice = possibleChoices.dequeue
-            //println(
-            //  "(CS) Dequeue " + choicesStack.length + " (" + choicesStack.top.length + ")")
             Some((choice, Seq(electron)))
         }
       }
@@ -108,24 +99,17 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
       case 0 =>
         println(
           "Warning: new unit clause has no clauses to resolve against " + clause)
-      case 1 =>
-        // this possible enqueues a unit clause with a different predicate than those
-        // already in the queue, but is done for performance reasons
-        // )to avoid a push to the choice stack)
-        noChoiceStack push possibleChoices.head
-      //println("(NCS) Pushed " + noChoiceStack.length)
       case _ => // a decision point
         val choiceQueue = new MQueue[NormClause]
         choiceQueue.enqueue(possibleChoices: _*)
         choicesStack push choiceQueue
-      //println(
-      //  "(CS) Pushed " + choicesStack.length + " (" + choicesStack.top.length + ")")
     }
   }
 
   override def handleForwardSubsumption(nucleus:   NormClause,
                                         electrons: Seq[UnitClause]): Unit = {
     printInfo("  (DFS: handling forward subsumption.)\n")
+    backtrack()
   }
 
   override def handleBackwardSubsumption(subsumed: Set[UnitClause]): Unit = {
@@ -134,12 +118,14 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
 
   override def handleFalseConstraint(nucleus:   NormClause,
                                      electrons: Seq[UnitClause]): Unit = {
-    printInfo("  (DFS: backtracking.)\n")
-    val depth = unitClauseDB.pop()
-    if (depth < choicesStack.size) {
-      choicesStack.pop()
-    } else if (depth == choicesStack.size) {
-      // nothing
-    }
+
+    backtrack()
   }
+
+  private def backtrack(): Unit = {
+    printInfo("  (DFS: backtracking.)\n")
+    unitClauseDB.pop()
+    while (choicesStack.nonEmpty && choicesStack.top.isEmpty) choicesStack.pop()
+  }
+
 }

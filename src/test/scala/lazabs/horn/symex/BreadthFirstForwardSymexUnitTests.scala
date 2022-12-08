@@ -140,6 +140,27 @@ class BreadthFirstForwardSymexUnitTests
             } should beUnsat
           }
         }
+        "Unbounded loops" - {
+          "Unsafe" in {
+            scope {
+              val p0 = createRelation("p0", List(Sort.Integer))
+              val p1 = createRelation("p1", List(Sort.Integer))
+              val p2 = createRelation("p2", List(Sort.Integer))
+              val x  = createConstant("x")
+
+              val clauses: Seq[Clause] = List(
+                p0(x) :- true,
+                p1(x) :- (p0(x), x >= 1),
+                p0(x - 1) :- p1(x),
+                p2(x) :- (p0(x), x <= 0),
+                (x >= 0) :- p2(x)
+              )
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+              symex.solve()
+            } should beUnsat
+          }
+        }
       }
       "Corner cases" - {
         "Single fact (no assertion)" - {
