@@ -29,7 +29,6 @@
 package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
-import ap.basetypes.UnionFind
 import ap.SimpleAPI
 import ap.parser.IExpression.ConstantTerm
 import ap.parser._
@@ -43,12 +42,7 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import collection.mutable.{
-  ListBuffer,
-  HashMap => MHashMap,
-  HashSet => MHashSet,
-  Queue => MQueue
-}
+import collection.mutable.{HashSet => MHashSet}
 
 object Symex {
   class SymexException(msg: String) extends Exception(msg)
@@ -183,12 +177,13 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     val constraintFromElectrons =
       for (((rp, occ), ind) <- nucleus.body.zipWithIndex) yield {
         assert(rp == electrons(ind).rs)
-        if ((electrons(ind)
-              .constraintAtOcc(occ)
-              .constants intersect nucleus.head._1.arguments.head.toSet) nonEmpty)
-          electrons(ind).constraintAtOcc(occ + 1)
-        else
-          electrons(ind).constraintAtOcc(occ)
+        // todo: review if we need something like below
+        //if ((electrons(ind)
+        //      .constraintAtOcc(occ)
+        //      .constants intersect nucleus.head._1.arguments.head.toSet) nonEmpty)
+        //  electrons(ind).constraintAtOcc(occ + 1)
+        //else
+        electrons(ind).constraintAtOcc(occ)
       }
 
     val unsimplifiedConstraint =
@@ -344,85 +339,14 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
    * i.e., FALSE :- TRUE.
    */
   private def buildCounterExample(root: UnitClause): Dag[(IAtom, CC)] = {
-
-    /**
-     * Uses Kahn's algorithm to generate a topologically sorted sequence of
-     * nodes.
-     * @param source   Node to start the sequence.
-     * @param getChildren A mapping from a node to its children.
-     * @return a topologically sorted sequence of nodes and a backmapping from
-     *         nodes to their indices.
-     * @note Assumes a single source node in the DAG - this works for the purpose
-     *       of computing counterexamples because it is always rooted at the
-     *       failing assertion clause (i.e., FALSE :- TRUE).
-     */
-    def constructTopo[T](source:      T,
-                         getChildren: T => Seq[T]): (Seq[T], Map[T, Int]) = {
-
-      // compute in-degree of each node
-      val inNodes = new MHashMap[T, Set[T]]
-      @annotation.tailrec
-      def computeInDegrees(node:              T,
-                           remainingChildren: List[T],
-                           toBeComputed:      List[T]): Unit = {
-        remainingChildren match {
-          case child :: rest =>
-            inNodes += ((child,
-                         inNodes
-                           .getOrElse(child, Set()) + node))
-            computeInDegrees(node, rest, child :: toBeComputed)
-          case Nil =>
-            toBeComputed match {
-              case n :: rest =>
-                computeInDegrees(n, getChildren(n).toList, rest)
-              case Nil => // nothing left to do
-            }
-        }
-      }
-      computeInDegrees(source, getChildren(source).toList, Nil)
-      val inDegrees = inNodes.map(pair => ((pair._1, pair._2.size)))
-
-      val backMapping = new MHashMap[T, Int]
-      val nodeQueue   = new MQueue[T]
-      val nodesSorted = new ListBuffer[T]
-      nodeQueue enqueue source
-      while (nodeQueue nonEmpty) {
-        val cur = nodeQueue.dequeue
-        nodesSorted += cur
-        backMapping += ((cur, nodesSorted.length - 1))
-        getChildren(cur) match {
-          case children: Seq[T] =>
-            for (child <- children) {
-              val inDegree = inDegrees(child) - 1
-              if (inDegree == 0)
-                nodeQueue enqueue child
-              inDegrees += ((child, inDegree))
-            }
-          case Nil => // nothing
-        }
-      }
-      (nodesSorted, backMapping.toMap)
-    }
-
-    def getChildren(node: UnitClause): Seq[UnitClause] = {
-      unitClauseDB.parentsOption(node) match {
-        case Some((_, cucs)) => cucs
-        case None            => Nil
-      }
-    }
-    val (cucsSorted, cucIndices) = constructTopo(root, getChildren)
-
-    //todo: get rid of topological stuff, do it the right way
-
-    val cucAtoms = new MHashMap[UnitClause, IAtom]
-    def computeAtoms(headAtom: IAtom, cuc: UnitClause): Unit = {
-      cucAtoms += ((cuc, headAtom))
+    def computeAtoms(headAtom: IAtom, cuc: UnitClause): Dag[(IAtom, CC)] = {
       unitClauseDB.parentsOption(cuc) match {
         case None =>
-        //
+          DagEmpty
         case Some((nucleus, electrons)) =>
+          // try to get ground literals for parent electrons
           import prover._
-          scope {
+          val childrenAtoms = scope {
             !!(asIFormula(nucleus.constraint))
             !!(headAtom.args === nucleus.headSyms)
             for ((electron, occ) <- electrons zip nucleus.body.map(_._2))
@@ -430,37 +354,24 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             val pRes = ???
             assert(pRes == ProverStatus.Sat)
             withCompleteModel { comp =>
-              for (((rs, occ), electron) <- nucleus.body zip electrons) {
-                val atom = IAtom(rs.pred,
-                                 rs.arguments(occ)
-                                   .map(arg => comp.evalToTerm(arg)))
-                cucAtoms += ((electron, atom))
-              }
+              for ((rs, occ) <- nucleus.body)
+                yield
+                  IAtom(rs.pred,
+                        rs.arguments(occ).map(arg => comp.evalToTerm(arg)))
             }
           }
-          for (electron <- electrons)
-            computeAtoms(cucAtoms(electron), electron)
+          val subDags: Map[Int, Dag[(IAtom, CC)]] =
+            (for (((electron, ind), atom) <- (electrons zipWithIndex) zip childrenAtoms)
+              yield (ind + 1, computeAtoms(atom, electron))).toMap
+          val dag: Dag[(IAtom, CC)] =
+            DagNode((headAtom, normClauseToCC(nucleus)),
+                    electrons.indices.map(_ + 1).toList,
+                    if (subDags.nonEmpty) subDags.head._2 else DagEmpty)
+          dag.substitute(subDags).elimUnconnectedNodes
+        // todo: review, this seems to be inefficient?
       }
     }
     computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
-
-    var dag: Dag[(IAtom, CC)] = DagEmpty
-    for ((cuc, ind) <- (cucsSorted zipWithIndex).reverse) {
-      unitClauseDB.parentsOption(cuc) match {
-        case Some((nucleus, electrons)) =>
-          val nuc  = normClauseToCC(nucleus)
-          val atom = cucAtoms(cuc)
-          val children =
-            electrons.map(electron => cucIndices(electron) - ind)
-          dag = DagNode((atom, nuc), children.toList, dag)
-        case None =>
-          // no parent -> an entry clause / fact
-          dag = DagNode((cucAtoms(cuc), normClauseToCC(factToNormClause(cuc))),
-                        Nil,
-                        dag)
-      }
-    }
-    dag
   }
 
   private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
@@ -523,12 +434,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                              numSymbols = otherConstantsToRewrite.size,
                              occ = 0)).toMap
 
-    //for ((c1, c2) <- constantSubstMap) {
-    //  rewrittenSymbols.makeSetIfNew(c1)
-    //  rewrittenSymbols.makeSetIfNew(c2)
-    //  rewrittenSymbols.union(c1, c2)
-    //}
-
     val predLocalConstraint =
       ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
         constraint)
@@ -556,5 +461,3 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
 }
-
-// todo: ctor order is different with traits, syntax for ordering ctors

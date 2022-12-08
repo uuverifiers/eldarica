@@ -323,7 +323,7 @@ class DepthFirstForwardSymexUnitTests
           }
         }
         "Single assertion with no literals" - {
-          "Unsafe" - {
+          "Unsafe" in {
             scope {
               val x = createConstant("x")
 

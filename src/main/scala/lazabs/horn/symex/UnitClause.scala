@@ -33,7 +33,6 @@ import ap.parser.IExpression.{ConstantTerm, Sort}
 import ap.parser.PrincessLineariser
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.substitutions.ConstantSubst
-import ap.types.SortedConstantTerm
 import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.bottomup.Util.toStream
 import lazabs.horn.symex.Symex.SymexException
@@ -87,22 +86,15 @@ class UnitClause(val rs:         RelationSymbol,
     occ match {
       case 0 => constraint
       case i if i > 0 =>
-        val orderedLocalConstants: Seq[ConstantTerm] = sf.order.sort(
+        val localConstants: Seq[ConstantTerm] = sf.order.sort(
           constraint.constants) diff rs.arguments(0)
-        val localConstantSorts: Seq[Sort] =
-          orderedLocalConstants map {
-            case sc: SortedConstantTerm => sc.sort
-            case _ => Sort.Integer
-          }
-        // share the local constants - outside somewhere in the symbol factory -
-        // second class to introduce local symbols maybe
-        // we know for each pred how many copies we will need, sorts do not matter
-        // at this level allocate upfront
         val newConstants: Seq[ConstantTerm] =
-          sf.genConstants(rs.name, localConstantSorts, "c_" + occ.toString)
-        val replacements: Map[ConstantTerm, ConstantTerm] =
-          (orderedLocalConstants zip newConstants).toMap
-        ConstantSubst(replacements, sf.order)(constraint)
+          sf.localSymbolsForPred(rs.pred, localConstants.size, occ)
+        val constantReplacements: Map[ConstantTerm, ConstantTerm] =
+          (localConstants zip newConstants).toMap
+        val argReplacements = rs.arguments(0) zip rs.arguments(occ)
+        ConstantSubst(constantReplacements ++ argReplacements, sf.order)(
+          constraint)
       case negOcc =>
         throw new SymexException("Occurrence cannot be less than 0.")
     }

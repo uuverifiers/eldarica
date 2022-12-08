@@ -425,6 +425,83 @@ object BFSNonlinearExample5 extends App {
   }
 }
 
+object BFSFibonacci extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  // tricera/regression-tests/horn-contracts/fib.hcc
+
+  Symex.printInfo = true
+  println("Running BFS fibonacci example (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x     = createConstant("x")
+      val c     = createConstant("c")
+      val c1    = createConstant("c1")
+      val c2    = createConstant("c2")
+      val n     = createConstant("n")
+      val n_old = createConstant("n_old")
+      val p0    = createRelation("p0", List())
+      val p1    = createRelation("p1", List(Sort.Integer))
+      val f0    = createRelation("f0", List(Sort.Integer, Sort.Integer))
+      val f1 =
+        createRelation("f1", List(Sort.Integer, Sort.Integer, Sort.Integer))
+      val f3     = createRelation("f3", List(Sort.Integer, Sort.Integer))
+      val f4     = createRelation("f4", List(Sort.Integer, Sort.Integer))
+      val f5     = createRelation("f5", List(Sort.Integer, Sort.Integer))
+      val f6     = createRelation("f6", List(Sort.Integer, Sort.Integer))
+      val f_pre  = createRelation("f_pre", List(Sort.Integer))
+      val f_post = createRelation("f_post", List(Sort.Integer, Sort.Integer))
+
+      /*
+      int fib(int n) {
+        if(n == 0)
+          return 0;
+        else if (n == 1)
+          return 1;
+        else return fib(n - 1) + fib(n - 2);
+      }
+
+      void main()
+      {
+        int x = fib(6);
+        // 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, ...
+        assert(x == 0); // unsafe, cex should show that x is 8
+      }
+       */
+
+      val clauses: Seq[Clause] = List(
+        p0() :- true,
+        p1(c) :- (p0(), f_post(4, c)),
+        f0(n, n) :- (f_pre(n)),
+        f3(n, n_old) :- (f0(n, n_old), n === 0),
+        f4(n, n_old) :- (f0(n, n_old), n =/= 0),
+        f1(n, n_old, 0) :- (f3(n, n_old)),
+        f5(n, n_old) :- (f4(n, n_old), n === 1),
+        f6(n, n_old) :- (f4(n, n_old), n =/= 1),
+        f1(n, n_old, 1) :- (f5(n, n_old)),
+        f1(n, n_old, c1 + c2) :- (f6(n, n_old), f_post(n - 1, c1), f_post(n - 2,
+                                                                          c2)),
+        f_post(n_old, c) :- (f1(n, n_old, c)),
+        f_pre(n - 1) :- (f6(n, n_old)),
+        f_pre(n - 2) :- (f6(n, n_old), f_post(n - 1, c)),
+        f_pre(6) :- (p0()),
+        false :- (p1(x), x =/= 0)
+      )
+
+      // Tests the case with two body literals with
+      // the same predicate (f_post) at different occurrences.
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
 object Util {
   def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     res match {

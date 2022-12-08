@@ -33,7 +33,6 @@ import ap.terfor.preds.Predicate
 import ap.terfor.ConstantTerm
 import ap.theories.Theory
 import lazabs.horn.bottomup.SymbolFactory
-import lazabs.horn.bottomup.Util.toStream
 import collection.mutable.{HashMap => MHashMap}
 
 class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
@@ -48,9 +47,11 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
    * substitution performance.
    */
   private var localSymbolsForPredicate
-    : Map[Predicate, Stream[Seq[ConstantTerm]]] = _
+    : Map[Predicate, Int => Seq[ConstantTerm]] = _
 
   private val lastLocalSymbolIdForPredicate = new MHashMap[Predicate, Int]
+
+  private val existingTerms = new MHashMap[Int, Seq[ConstantTerm]]
 
   /**
    * This method must be called to initialize the symbol factory after the
@@ -59,18 +60,27 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
    *                                   tuples, where max occurrence is inclusive.
    */
   def initialize(predicatesAndMaxOccurrences: Set[(Predicate, Int)]) = {
+    // todo: this is a workaround for the previous stream implementation
+    //  for some reason the stream version caused non-termination in
+    //  one test case (BFS Fibonacci) - Scala bug?
+    def f(pred: Predicate, maxOcc: Int)(symbolId: Int): Seq[ConstantTerm] = {
+      if (existingTerms contains symbolId)
+        existingTerms(symbolId)
+      else {
+        // create a version of this variable for each occurrence
+        val terms = for (occ <- 0 to maxOcc) yield {
+          val newSymbol =
+            new ConstantTerm(s"${pred.name}_c_${occ}_$symbolId")
+          addSymbol(newSymbol)
+          newSymbol
+        }
+        existingTerms += ((symbolId, terms))
+        terms
+      }
+    }
     localSymbolsForPredicate =
       (for ((pred, maxOcc) <- predicatesAndMaxOccurrences)
-        yield
-          (pred, toStream { symbolId =>
-            // create a version of this variable for each occurrence
-            for (occ <- 0 to maxOcc) yield {
-              val newSymbol =
-                new ConstantTerm(s"${pred.name}_c_${occ}_$symbolId")
-              addSymbol(newSymbol)
-              newSymbol
-            }
-          })).toMap
+        yield (pred, f(pred, maxOcc) _)).toMap
 
     for ((pred, _) <- predicatesAndMaxOccurrences) {
       lastLocalSymbolIdForPredicate += ((pred, 0))
@@ -99,14 +109,14 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
           "Did you forget to call initialize?")
     } else {
       localSymbolsForPredicate get pred match {
-        case Some(constantStream) =>
-          //if (symbolId > lastLocalSymbolIdForPred(pred)) {
-          //  lastLocalSymbolIdForPredicate(pred) = symbolId
+        case Some(f) =>
           // todo: review this implementation during revision, might be suboptimal
           //  maybe we do not need so many checks
-          //constantStream(symbolId)
-          (constantStream take numSymbols).map(seq => seq(occ))
-        // todo: a different data-structure to avoid map?
+          for (i <- 0 until numSymbols)
+            yield {
+              val syms = f(i)
+              syms(occ)
+            }
         case None =>
           throw new UnsupportedOperationException(
             "Trying to get a local symbol for an unknown predicate. Did you " +
