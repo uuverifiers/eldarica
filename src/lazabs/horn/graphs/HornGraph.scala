@@ -5,6 +5,7 @@ import ap.parser.IExpression.{Conj, Difference, Disj, Eq, EqLit, EqZ, Geq, GeqZ,
 import lazabs.horn.graphs.GraphUtils._
 import ap.parser.{IAtom, IBinJunctor, IBoolLit, IConstant, IExpression, IFormula, IFunApp, IIntLit, INot, IPlus, IQuantified, ITerm, ITimes, IVariable, LineariseVisitor, SymbolCollector}
 import ap.terfor.ConstantTerm
+import ap.theories.ADT.BoolADT
 import ap.util.Seqs
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
@@ -364,8 +365,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   }
 
   def constructAST(e: IExpression): Node = {
-    //merge sub tree
-    try {
+    try {//merge sub tree
       clauseConstraintSubExpressionMap(e)
     } //find e in clauseConstraintSubExpressionMap
     catch {
@@ -405,8 +405,11 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
             //println(Console.RED + v)
             constructEndNode(nodeType = "variable", readName = v.toString, element = IVariableNode(IVariable(v)))
           }
-          case IFunApp(fun,args)=>{//todo deal it according to fun, not just turn it to a true node
+          case BoolADT.True=>{//from IFunApp(fun,args)
             constructEndNode("constant", "true", element = IBoolLitNode(IBoolLit(true)))
+          }
+          case BoolADT.False => {//from IFunApp(fun,args)
+            constructEndNode("constant", "false", element = IBoolLitNode(IBoolLit(false)))
           }
           case _ => {
             println(Console.RED+"unknown node",e,e.getClass)
