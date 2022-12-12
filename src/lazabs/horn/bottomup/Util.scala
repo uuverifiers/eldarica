@@ -31,6 +31,8 @@ package lazabs.horn.bottomup
 
 import lazabs.prover.Tree
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object Util {
 
   def toStream[A](f : Int => A) : Stream[A] =
@@ -110,11 +112,50 @@ object Util {
       res
     }
 
+    /**
+     * Eliminate orphan nodes other than the root.
+     */
     def elimUnconnectedNodes : Dag[D] = elimUnconnectedNodesHelp(0, Set(0))._1
 
     protected[Util]
       def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
                                   : (Dag[D], List[Boolean])
+
+    /**
+     * Minimize the DAG by merging nodes with the same data and the
+     * same children.
+     */
+    def collapseNodes : Dag[D] = {
+      val seenNodes = new MHashMap[(D, List[Int]), Int]
+      val indexMap  = new MHashMap[Int, Int]
+
+      def collapseNodesHelp(dag : Dag[D]) : Dag[D] = dag match {
+        case DagEmpty =>
+          DagEmpty
+        case DagNode(d, children, nextNode) => {
+          val newNext         = collapseNodesHelp(nextNode)
+          val childrenIndexes = for (c <- children) yield indexMap(dag.size - c)
+          val key             = (d, childrenIndexes)
+          (seenNodes get key) match {
+            case Some(oldNode) => {
+              indexMap.put(dag.size, oldNode)
+              DagNode(d, children, newNext)
+            }
+            case None => {
+              seenNodes.put(key, dag.size)
+              indexMap.put(dag.size, dag.size)
+              val newChildren = childrenIndexes map (dag.size - _)
+              DagNode(d, newChildren, newNext)
+            }
+          }
+        }
+      }
+
+      val remappedDag  = collapseNodesHelp(this)
+      val remappedDag2 = remappedDag drop (size - indexMap(size))
+
+      remappedDag2.elimUnconnectedNodes
+    }
 
     def prettyPrint : Unit =
       for ((DagNode(d, children, _), i) <- subdagIterator.zipWithIndex)
@@ -164,7 +205,7 @@ object Util {
               next zip that.asInstanceOf[DagNode[B]].next)
 
     protected[Util]
-       def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
+      def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
                                    : (Dag[D], List[Boolean]) =
       if (refs contains depth) {
         // this node has to be kept
@@ -251,6 +292,7 @@ object Util {
     protected[Util]
       def elimUnconnectedNodesHelp(depth : Int, refs : Set[Int])
                                   : (Dag[Nothing], List[Boolean]) = (this, List())
+
     def apply(n : Int) : Nothing =
       throw new UnsupportedOperationException
     def toTree[B >: Nothing] : Tree[B] =
