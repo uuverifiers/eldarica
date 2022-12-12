@@ -134,17 +134,18 @@ object Util {
           DagEmpty
         case DagNode(d, children, nextNode) => {
           val newNext         = collapseNodesHelp(nextNode)
-          val childrenIndexes = for (c <- children) yield indexMap(dag.size - c)
+          val dSize           = dag.size
+          val childrenIndexes = for (c <- children) yield indexMap(dSize - c)
           val key             = (d, childrenIndexes)
           (seenNodes get key) match {
             case Some(oldNode) => {
-              indexMap.put(dag.size, oldNode)
+              indexMap.put(dSize, oldNode)
               DagNode(d, children, newNext)
             }
             case None => {
-              seenNodes.put(key, dag.size)
-              indexMap.put(dag.size, dag.size)
-              val newChildren = childrenIndexes map (dag.size - _)
+              seenNodes.put(key, dSize)
+              indexMap.put(dSize, dSize)
+              val newChildren = childrenIndexes map (dSize - _)
               DagNode(d, newChildren, newNext)
             }
           }
