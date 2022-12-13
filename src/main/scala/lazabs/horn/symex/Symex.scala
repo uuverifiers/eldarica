@@ -229,6 +229,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     // start traversal
     var ind = 0
     while (result == null) {
+      lazabs.GlobalParameters.get.timeoutChecker()
       ind += 1
       printInfo(ind + ".", false)
       getClausesForResolution match {
