@@ -42,7 +42,7 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import collection.mutable.{HashSet => MHashSet}
+import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
 object Symex {
   class SymexException(msg: String) extends Exception(msg)
@@ -61,6 +61,9 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     with ConstraintSimplifier {
 
   import Symex._
+
+  private val normClausesConvertedToUnitClauses =
+    new MHashMap[NormClause, UnitClause]
 
   val theories: Seq[Theory] = {
     val coll = new TheoryCollector
@@ -121,16 +124,25 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (rel, normClauses.filter(_._1.head._1 == rel).map(_._1))
     }).toMap
 
-  val predicatesAndMaxOccurrences: Map[Predicate, Int] =
-    for ((rp, clauses) <- clausesWithRelationInHead)
-      yield {
-        val clausesWithPred = clauses.map(_.head._2)
-        val maxOcc = clausesWithPred match {
-          case Nil => 0
-          case seq => seq.max
-        }
-        (rp.pred, maxOcc)
-      }
+  for (pred <- preds) {
+
+    normClauses.filter(
+      clause =>
+        clause._1.head._1.pred == pred ||
+          clause._1.body.exists(_._1.pred == pred))
+  }
+
+  val predicatesAndMaxOccurrences: Map[Predicate, Int] = {
+    val maxOccs = new MHashMap[Predicate, Int]
+    for (pred <- preds)
+      maxOccs += ((pred, 0))
+    for ((clause, _) <- normClauses) {
+      for ((rs, occ) <- clause.body ++ Seq(clause.head))
+        if (occ > maxOccs(rs.pred))
+          maxOccs(rs.pred) = occ
+    }
+    maxOccs.toMap
+  }
 
   // this must be done before we can use the symbol factory during resolution
   symex_sf.initialize(predicatesAndMaxOccurrences.toSet)
@@ -140,7 +152,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (for ((normClause, _) <- normClauses
             if normClause.body.isEmpty && normClause.head._1.pred != HornClauses.FALSE)
         yield {
-          (toUnitClause(normClause), (toUnitClause(normClause), normClause))
+          val cuc = toUnitClause(normClause)
+          (cuc, (cuc, normClause))
         }).unzip
     (facts, factToNormClause.toMap)
   }
@@ -150,7 +163,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (for ((normClause, _) <- normClauses
             if normClause.head._1.pred == HornClauses.FALSE && normClause.body.length == 1)
         yield {
-          (toUnitClause(normClause), (toUnitClause(normClause), normClause))
+          val cuc = toUnitClause(normClause)
+          (cuc, (cuc, normClause))
         }).unzip
     (goals, goalToNormClause.toMap)
   }
@@ -255,10 +269,18 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
         case None => // nothing left to explore, the clauses are SAT.
           printInfo("\t(Search space exhausted.)\n")
 
-          val untouchedClauses = normClauses.map(_._1).toSet -- touched
+          // Untouched clauses can be either those which were unreachable,
+          // or corner cases such as a single assertion which did not need
+          // symbolic execution.
+          // The only case we need to handle is assertions without body literals,
+          // because assertions with uninterpreted body literals are always
+          // solveable by interpreting the body literals as false.
+
+          val untouchedClauses =
+            (normClauses.map(_._1).toSet -- touched).filter(_.body.isEmpty)
+          assert(untouchedClauses.forall(clause =>
+            clause.head._1.pred == HornClauses.FALSE))
           if (untouchedClauses nonEmpty) {
-            assert(untouchedClauses.forall(clause =>
-              clause.head._1.pred == HornClauses.FALSE))
             printInfo("\t(Dangling assertions detected, checking those too.)")
             for (clause <- untouchedClauses if result == null) {
               val cuc = // for the purpose of checking feasibility
@@ -360,14 +382,47 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                         rs.arguments(occ).map(arg => comp.evalToTerm(arg)))
             }
           }
-          val subDags: Map[Int, Dag[(IAtom, CC)]] =
-            (for (((electron, ind), atom) <- (electrons zipWithIndex) zip childrenAtoms)
-              yield (ind + 1, computeAtoms(atom, electron))).toMap
+          val subDags: Seq[Dag[(IAtom, CC)]] = {
+            //if (electrons.length == childrenAtoms.length) {
+            for ((electron, atom) <- electrons zip childrenAtoms)
+              yield computeAtoms(atom, electron)
+            //} else if (electrons.isEmpty) {
+            //  // this might happen in clauses with literals in body that were
+            //  // not derived, e.g., a single assertion clause
+            //  //for ((childAtom, lit) <- childrenAtoms zip nucleus.body) yield {
+            //  //  // create a dag with artificial clauses to present the atoms in the cex
+            //  //  DagNode(
+            //  //    (childAtom,
+            //  //     normClauseToCC(NormClause(Conjunction.TRUE, Nil, lit))),
+            //  //    Nil,
+            //  //    DagEmpty)
+            //  //}
+            //} else {
+            //  throw new UnsupportedOperationException(
+            //    "Cannot compute the" +
+            //      "counterexample using: " + headAtom + " and\n" + cuc)
+            //}
+          }
+
+          val nextDag: Dag[(IAtom, CC)] =
+            if (subDags isEmpty) DagEmpty
+            else {
+              var next: Dag[(IAtom, CC)] = DagEmpty
+              for (subDag <- subDags.reverse if !subDag.isEmpty) {
+                next = DagNode(subDag.head, Nil, next)
+              }
+              next
+            }
+
+          val dummyChildren = electrons.indices.map(_ + 1).toList
           val dag: Dag[(IAtom, CC)] =
-            DagNode((headAtom, normClauseToCC(nucleus)),
-                    electrons.indices.map(_ + 1).toList,
-                    if (subDags.nonEmpty) subDags.head._2 else DagEmpty)
-          dag.substitute(subDags).elimUnconnectedNodes
+            DagNode((headAtom, normClauseToCC(nucleus)), dummyChildren, nextDag)
+          val resDag = dag
+            .substitute((dummyChildren zip subDags).toMap)
+            .elimUnconnectedNodes
+            .collapseNodes
+          resDag
+        // substitute the subdags into the dag
         // todo: review, this seems to be inefficient?
       }
     }
@@ -441,22 +496,28 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
   private def toUnitClause(normClause: NormClause): UnitClause = {
-    normClause match {
-      case NormClause(constraint, Nil, (rel, 0)) // a fact
-          if rel.pred != HornClauses.FALSE =>
-        newUnitClause(rel,
-                      constraint,
-                      isPositive = true,
-                      headOccInConstraint = 0)
-      case NormClause(constraint, Seq((rel, 0)), (headRel, 0))
-          if headRel.pred == HornClauses.FALSE =>
-        newUnitClause(rel,
-                      constraint,
-                      isPositive = false,
-                      headOccInConstraint = 0)
-      case _ =>
-        throw new UnsupportedOperationException(
-          "Trying to create a unit clause from a non-unit clause: " + normClause)
+    normClausesConvertedToUnitClauses get normClause match {
+      case Some(unitClause) => unitClause
+      case None =>
+        val unitClause = normClause match {
+          case NormClause(constraint, Nil, (rel, 0)) // a fact
+              if rel.pred != HornClauses.FALSE =>
+            newUnitClause(rel,
+                          constraint,
+                          isPositive = true,
+                          headOccInConstraint = 0)
+          case NormClause(constraint, Seq((rel, 0)), (headRel, 0))
+              if headRel.pred == HornClauses.FALSE =>
+            newUnitClause(rel,
+                          constraint,
+                          isPositive = false,
+                          headOccInConstraint = 0)
+          case _ =>
+            throw new UnsupportedOperationException(
+              "Trying to create a unit clause from a non-unit clause: " + normClause)
+        }
+        normClausesConvertedToUnitClauses += ((normClause, unitClause))
+        unitClause
     }
   }
 

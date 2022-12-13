@@ -260,7 +260,7 @@ class BreadthFirstForwardSymexUnitTests
           }
         }
         "Single goal" - {
-          "Safe" in {
+          "Safe 1" in {
             scope {
               val x  = createConstant("x")
               val p0 = createRelation("p0", List(Sort.Integer))
@@ -273,7 +273,7 @@ class BreadthFirstForwardSymexUnitTests
               symex.solve()
             } should beSat
           }
-          "Unsafe" in {
+          "Safe 2" in {
             scope {
               val p0 = createRelation("p0", List(Sort.Integer))
               val x  = createConstant("x")
@@ -284,7 +284,7 @@ class BreadthFirstForwardSymexUnitTests
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
               symex.solve()
-            } should beUnsat
+            } should beSat
           }
         }
         "Single assertion with no literals" - {

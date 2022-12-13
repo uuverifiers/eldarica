@@ -51,7 +51,7 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
 
   private val lastLocalSymbolIdForPredicate = new MHashMap[Predicate, Int]
 
-  private val existingTerms = new MHashMap[Int, Seq[ConstantTerm]]
+  private val existingTerms = new MHashMap[(Predicate, Int), Seq[ConstantTerm]]
 
   /**
    * This method must be called to initialize the symbol factory after the
@@ -64,8 +64,8 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
     //  for some reason the stream version caused non-termination in
     //  one test case (BFS Fibonacci) - Scala bug?
     def f(pred: Predicate, maxOcc: Int)(symbolId: Int): Seq[ConstantTerm] = {
-      if (existingTerms contains symbolId)
-        existingTerms(symbolId)
+      if (existingTerms contains (pred, symbolId))
+        existingTerms((pred, symbolId))
       else {
         // create a version of this variable for each occurrence
         val terms = for (occ <- 0 to maxOcc) yield {
@@ -74,7 +74,7 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
           addSymbol(newSymbol)
           newSymbol
         }
-        existingTerms += ((symbolId, terms))
+        existingTerms += (((pred, symbolId), terms))
         terms
       }
     }

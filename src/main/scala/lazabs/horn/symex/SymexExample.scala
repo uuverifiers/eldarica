@@ -259,9 +259,34 @@ object BFSExample1 extends App {
       // gets stuck in exploring the middle recursive clause.
       // Breadth-first search does not have this issue.
       val clauses: Seq[Clause] = List(
-        p(x, n) :- (x === 0, n > 0),
+        p(x, n) :- (x === 0, n >= 0),
         p(x + 1, n) :- (p(x, n), x <= n),
         false :- (p(x, n), x >= n)
+      )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object BFSExample11 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  Symex.printInfo = true
+  println("Running breadth-first example 1 (Expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        (x === 42) :- p0(x)
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
@@ -495,6 +520,89 @@ object BFSFibonacci extends App {
 
       // Tests the case with two body literals with
       // the same predicate (f_post) at different occurrences.
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      Util.printRes(symex.solve())
+    }
+  }
+}
+object BFSTakeuchi extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  // tricera/regression-tests/horn-contracts/tak.hcc
+
+  Symex.printInfo = true
+  println("Running BFS fibonacci example (Expected: SAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val x        = createConstant("x")
+      val y        = createConstant("y")
+      val z        = createConstant("z")
+      val x_old    = createConstant("x_old")
+      val y_old    = createConstant("y_old")
+      val z_old    = createConstant("z_old")
+      val res      = createConstant("res")
+      val _res6    = createConstant("res6")
+      val _res1    = createConstant("res1")
+      val _res2    = createConstant("res2")
+      val _res3    = createConstant("res3")
+      val _res4    = createConstant("res4")
+      val _res5    = createConstant("res5")
+      val __eval8  = createConstant("eval8")
+      val __eval14 = createConstant("eval14")
+      val __eval20 = createConstant("eval20")
+
+      val main0    = createRelation("main0", 3)
+      val main1    = createRelation("main1", 3)
+      val main2    = createRelation("main2", 4)
+      val tak_pre  = createRelation("tak_pre", 3)
+      val tak_post = createRelation("tak_post", 4)
+      val tak0     = createRelation("tak0", 6)
+      val tak1     = createRelation("tak1", 7)
+      val tak3     = createRelation("tak3", 6)
+      val tak4     = createRelation("tak4", 6)
+      val tak5     = createRelation("tak5", 9)
+
+      val clauses: Seq[Clause] = List(
+        main2(x, y, z, _res6) :- (main1(x, y, z), tak_post(x, y, z, _res6)),
+        main1(x, y, z) :- (main0(x, y, z), x - y >= 1 & z >= y),
+        main0(x, y, z) :- true,
+        tak0(x, y, z, x, y, z) :- (tak_pre(x, y, z)),
+        tak3(x, y, z, x_old, y_old, z_old) :-
+          (tak0(x, y, z, x_old, y_old, z_old), x - y >= 1),
+        tak4(x, y, z, x_old, y_old, z_old) :-
+          (tak0(x, y, z, x_old, y_old, z_old), x - y < 1),
+        tak5(x, y, z, x_old, y_old, z_old, _res2, _res3, _res4) :-
+          (tak3(x, y, z, x_old, y_old, z_old),
+          tak_post(x - 1, y, z, _res2), tak_post(y - 1, z, x, _res3),
+          tak_post(z - 1, x, y, _res4)),
+        tak1(x, y, z, x_old, y_old, z_old, _res5) :-
+          (tak5(x, y, z, x_old, y_old, z_old, __eval8, __eval14, __eval20),
+          tak_post(__eval8, __eval14, __eval20, _res5)),
+        tak1(x, y, z, x_old, y_old, z_old, y) :-
+          (tak4(x, y, z, x_old, y_old, z_old)),
+        tak_post(x_old, y_old, z_old, _res1) :-
+          (tak1(x, y, z, x_old, y_old, z_old, _res1)),
+
+        tak_pre(x - 1, y, z) :- (tak3(x, y, z, x_old, y_old, z_old)),
+
+        tak_pre(y - 1, z, x) :- (tak3(x, y, z, x_old, y_old, z_old),
+        tak_post(x - 1, y, z, _res2)),
+
+        tak_pre(z - 1, x, y) :- (tak3(x, y, z, x_old, y_old, z_old),
+        tak_post(x - 1, y, z, _res2), tak_post(y - 1, z, x, _res3)),
+
+        tak_pre(__eval8, __eval14, __eval20) :-
+          (tak5(x, y, z, x_old, y_old, z_old, __eval8, __eval14, __eval20)),
+
+        tak_pre(x, y, z) :- (main1(x, y, z)),
+        false :- (main2(x, y, z, res), res != z)
+      )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
       Util.printRes(symex.solve())
