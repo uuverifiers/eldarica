@@ -46,13 +46,6 @@ import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
 object Symex {
   class SymexException(msg: String) extends Exception(msg)
-
-  var printInfo = false
-
-  def printInfo(s: String, newLine: Boolean = true): Unit = {
-    if (printInfo)
-      print(s + (if (newLine) "\n" else ""))
-  }
 }
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
@@ -61,6 +54,12 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     with ConstraintSimplifier {
 
   import Symex._
+
+  var printInfo = false
+  def printInfo(s : String, newLine : Boolean = true) : Unit = {
+    if (printInfo)
+      print(s + (if (newLine) "\n" else ""))
+  }
 
   private val normClausesConvertedToUnitClauses =
     new MHashMap[NormClause, UnitClause]

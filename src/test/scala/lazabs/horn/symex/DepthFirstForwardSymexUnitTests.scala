@@ -13,7 +13,6 @@ class DepthFirstForwardSymexUnitTests
     extends AnyFreeSpec
     with SymexResultMatchers {
 
-  Symex.printInfo = false
   SimpleAPI.withProver { p =>
     import p._
     {

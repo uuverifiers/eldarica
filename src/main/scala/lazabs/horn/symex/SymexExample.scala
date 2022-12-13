@@ -45,7 +45,6 @@ object SymexExample1Sat extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 1 (expected: SAT")
 
   /**
@@ -68,6 +67,7 @@ object SymexExample1Sat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -81,7 +81,6 @@ object DFSExample1_1Unsat extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 1_1 (Expected: UNSAT)")
 
   SimpleAPI.withProver { p =>
@@ -100,6 +99,7 @@ object DFSExample1_1Unsat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -113,7 +113,6 @@ object DFSExample1_2Unsat extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 1_2 (Expected: UNSAT)")
 
   SimpleAPI.withProver { p =>
@@ -133,6 +132,7 @@ object DFSExample1_2Unsat extends App {
         (x >= 0) :- p2(x)
       )
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -145,7 +145,6 @@ object DFSExample2Sat extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 2 (Expected: SAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -169,6 +168,7 @@ object DFSExample2Sat extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -181,7 +181,6 @@ object DFSExample2Unsat extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 2 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -205,6 +204,7 @@ object DFSExample2Unsat extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -217,7 +217,6 @@ object DFSExample3NonTermination extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running example 3 (Expected: Non-termination)")
   SimpleAPI.withProver { p =>
     import p._
@@ -233,6 +232,7 @@ object DFSExample3NonTermination extends App {
       )
 
       val symex = new DepthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -245,7 +245,6 @@ object BFSExample1 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running breadth-first example 1 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -265,6 +264,7 @@ object BFSExample1 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -277,7 +277,6 @@ object BFSExample11 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running breadth-first example 1 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -290,6 +289,7 @@ object BFSExample11 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -302,7 +302,6 @@ object BFSNonlinearExample1 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running nonlinear-example 1 (Expected: SAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -319,6 +318,7 @@ object BFSNonlinearExample1 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -331,7 +331,6 @@ object BFSNonlinearExample2 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running nonlinear-example 1 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -348,6 +347,7 @@ object BFSNonlinearExample2 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -360,7 +360,6 @@ object BFSNonlinearExample3 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running nonlinear-example 3 (Expected: SAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -379,6 +378,7 @@ object BFSNonlinearExample3 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -391,7 +391,6 @@ object BFSNonlinearExample4 extends App {
   import IExpression._
   import HornClauses._
 
-  Symex.printInfo = true
   println("Running nonlinear-example 4 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -410,6 +409,7 @@ object BFSNonlinearExample4 extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -424,7 +424,6 @@ object BFSNonlinearExample5 extends App {
 
   // tricera/regression-tests/horn-contracts/contract1.hcc
 
-  Symex.printInfo = true
   println("Running nonlinear-example 5 (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -445,6 +444,7 @@ object BFSNonlinearExample5 extends App {
       // this should produce a solution for f2: _1 = _0 = n where n = -10..0
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -459,7 +459,6 @@ object BFSFibonacci extends App {
 
   // tricera/regression-tests/horn-contracts/fib.hcc
 
-  Symex.printInfo = true
   println("Running BFS fibonacci example (Expected: UNSAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -522,6 +521,7 @@ object BFSFibonacci extends App {
       // the same predicate (f_post) at different occurrences.
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }
@@ -535,7 +535,6 @@ object BFSTakeuchi extends App {
 
   // tricera/regression-tests/horn-contracts/tak.hcc
 
-  Symex.printInfo = true
   println("Running BFS fibonacci example (Expected: SAT)")
   SimpleAPI.withProver { p =>
     import p._
@@ -605,6 +604,7 @@ object BFSTakeuchi extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
       Util.printRes(symex.solve())
     }
   }

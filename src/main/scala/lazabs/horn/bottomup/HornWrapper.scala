@@ -55,6 +55,7 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.ReaderMain
+import lazabs.horn.symex.{BreadthFirstForwardSymex, DepthFirstForwardSymex, Symex}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
@@ -355,12 +356,23 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def getSymex(clauses : Seq[Clause]) : Option[Symex[Clause]] = {
+    GlobalParameters.get.symexEngine match {
+      case GlobalParameters.SymexEngine.DepthFirstForward   =>
+        Some(new DepthFirstForwardSymex[Clause](clauses))
+      case GlobalParameters.SymexEngine.BreadthFirstForward =>
+        Some(new BreadthFirstForwardSymex[Clause](clauses))
+      case GlobalParameters.SymexEngine.None                => None
+    }
+  }
+
   def standardCheck() : ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
       preprocessClauses(unsimplifiedClauses, hints)
+    val symexEngine = getSymex(simplifiedClauses)
     (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
                           allHints, preprocBackTranslator,
-                          disjunctive, outStream)).result
+                          disjunctive, outStream, symexEngine)).result
   }
 
   def templatePOCheck(delay : Int) : ResultType = {
@@ -371,7 +383,7 @@ class HornWrapper(constraints  : Seq[HornClause],
                         startDelay = delay) {
       (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
                             allHints, preprocBackTranslator,
-                            disjunctive, outStream)).result
+                            disjunctive, outStream, None)).result
     }
   }
 
@@ -382,6 +394,7 @@ class HornWrapper(constraints  : Seq[HornClause],
       case GlobalParameters.Portfolio.Template =>
         templatePOCheck(1000)
       case GlobalParameters.Portfolio.General =>
+        // todo: run different symbolic execution engines with -portfolio?
         (new ParallelComputation(List(standardCheck _, () => templatePOCheck(3000)),
                                  GlobalParameters.get.generalPortfolioParams,
                                  startDelay = 5000)).result
@@ -396,7 +409,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
                        simpHints : VerificationHints,
                        preprocBackTranslator : BackTranslator,
                        disjunctive : Boolean,
-                       outStream : java.io.OutputStream) {
+                       outStream : java.io.OutputStream,
+                       symexEngine : Option[Symex[Clause]]) {
 
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
@@ -446,47 +460,59 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
       else
         CEGAR.CounterexampleMethod.FirstBestShortest
 
-    val predAbs = Console.withOut(outStream) {
-      println
-      println(
-         "----------------------------------- CEGAR --------------------------------------")
-
-      val predAbs =
-        new HornPredAbs(simplifiedClauses,
-                        simpHints.toInitialPredicates, predGenerator,
-                        counterexampleMethod)
-
-      GlobalParameters.get.predicateOutputFile match {
-        case "" =>
-          // nothing
-        case filename => {
-          val predicates =
-            VerificationHints(
-              for ((p, preds) <- predAbs.relevantPredicates) yield {
-                 val hints =
-                   for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
-                 p -> hints
-              })
-
-          println(
-            "Saving CEGAR predicates to " + filename)
-
-          val output = new java.io.FileOutputStream(filename)
-          Console.withOut(output) {
-            AbsReader.printHints(predicates)
-          }
-        }
-      }
-
-      predAbs
-    }
-
     // save the current configuration, to make sure that the lazily
     // computed solutions or counterexamples are computed with the
     // same settings
     val currentParams = GlobalParameters.get.clone
 
-    predAbs.result match {
+    val (result, maybePredAbs) = symexEngine match {
+      case Some(symex) =>
+        val res = Console.withOut(outStream){
+          symex.printInfo = true
+          symex.solve()
+        }
+
+        (res, None)
+      case None =>
+        val predAbs = Console.withOut(outStream){
+          println
+          println(
+            "----------------------------------- CEGAR " +
+            "--------------------------------------")
+
+          val predAbs =
+            new HornPredAbs(simplifiedClauses,
+                            simpHints.toInitialPredicates, predGenerator,
+                            counterexampleMethod)
+
+          GlobalParameters.get.predicateOutputFile match {
+            case "" =>
+            // nothing
+            case filename => {
+              val predicates =
+                VerificationHints(
+                  for ((p, preds) <- predAbs.relevantPredicates) yield {
+                    val hints =
+                      for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
+                    p -> hints
+                  })
+
+              println(
+                "Saving CEGAR predicates to " + filename)
+
+              val output = new java.io.FileOutputStream(filename)
+              Console.withOut(output){
+                AbsReader.printHints(predicates)
+              }
+            }
+          }
+
+          predAbs
+        }
+        (predAbs.result, Some(predAbs))
+    }
+
+    result match {
       case Left(res) => {
         def solFun() =
           GlobalParameters.withValue(currentParams) {
@@ -502,8 +528,8 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
         val r = Left(solFun _)
 
-        if (GlobalParameters.get.minePredicates)
-          new PredicateMiner(predAbs)
+        if (GlobalParameters.get.minePredicates && maybePredAbs.nonEmpty)
+          new PredicateMiner(maybePredAbs.get)
 
         r
       }

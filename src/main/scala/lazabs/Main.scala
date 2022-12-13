@@ -59,6 +59,10 @@ object GlobalParameters {
     val None, Template, General = Value
   }
 
+  object SymexEngine extends Enumeration {
+    val BreadthFirstForward, DepthFirstForward, None = Value
+  }
+
   val parameters =
     new scala.util.DynamicVariable[GlobalParameters] (new GlobalParameters)
 
@@ -89,6 +93,7 @@ class GlobalParameters extends Cloneable {
   var printIntermediateClauseSets = false
   var horn = false
   var concurrentC = false
+  var symexEngine = GlobalParameters.SymexEngine.None
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -181,6 +186,7 @@ class GlobalParameters extends Cloneable {
     that.horn = this.horn
     that.concurrentC = this.concurrentC
     that.global = this.global
+    that.symexEngine = this.symexEngine
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
     that.displaySolutionProlog = this.displaySolutionProlog
@@ -324,6 +330,13 @@ object Main {
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
+      case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
+          symexEngine = symexOpt.drop(5).toInt match {
+            case 0 => GlobalParameters.SymexEngine.DepthFirstForward
+            case 1 => GlobalParameters.SymexEngine.BreadthFirstForward
+            case _ => GlobalParameters.SymexEngine.BreadthFirstForward
+          }
+        arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
@@ -493,6 +506,7 @@ object Main {
           " -postHints:f\tRead hints for processed clauses from a file\n" +
           " -pHints\tPrint initial predicates and abstraction templates\n" +
           " -pPredicates:f\tOutput predicates computed by CEGAR to a file\n" +
+          " -sym:n\tUse symbolic execution (0: DFS forward, 1: BFS forward)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
