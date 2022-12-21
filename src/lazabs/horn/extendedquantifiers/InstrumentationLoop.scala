@@ -156,7 +156,10 @@ class InstrumentationLoop (clauses : Clauses,
     }
 
     def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-    Map[Predicate, Conjunction] = Random.shuffle(space).head
+      Map[Predicate, Conjunction] = {
+      Random.setSeed(42)
+      Random.shuffle(space).head
+    }
 
     val incSolver =
       new IncrementalHornPredAbs(simpClauses2,
