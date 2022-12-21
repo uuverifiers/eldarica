@@ -59,19 +59,16 @@ object Util {
   case class ConstInfo(newA: ITerm, o: ITerm, theory: ExtArray)
 
   def extractSelectInfo(conjunct: IFormula): SelectInfo = {
-    // todo: error checking?
     val Eq(IFunApp(f@ExtArray.Select(theory), Seq(a, i)), o) = conjunct
     SelectInfo(a, i, o, theory)
   }
 
   def extractStoreInfo(conjunct: IFormula): StoreInfo = {
-    // todo: error checking?
     val Eq(IFunApp(f@ExtArray.Store(theory), Seq(a1, i, o)), a2) = conjunct
     StoreInfo(a1, a2, i, o, theory)
   }
 
   def extractConstInfo(conjunct: IFormula): ConstInfo = {
-    // todo: error checking?
     val Eq(IFunApp(f@ExtArray.Const(theory), Seq(o)), a) = conjunct
     ConstInfo(a, o, theory)
   }

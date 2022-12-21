@@ -79,7 +79,7 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
     var offset = argNum
     val ghostVars: Seq[(ITerm, Sort, String)] =
       (for ((info, infoId) <- extendedQuantifierInfos zipWithIndex) yield {
-        val baseName = info.exTheory.fun.name // todo: support sets of ghost vars
+        val baseName = info.exTheory.fun.name
         val loName = baseName + "_lo"
         val hiName = baseName + "_hi"
         val resName = baseName + "_res"
@@ -125,7 +125,7 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
     ghostVarsInPred get p match {
       case Some(ghostVars) =>
         val quanF = quanConsts(IExpression.Quantifier.EX, ghostVars, f)
-        (new Simplifier) (quanF) // todo: review
+        (new Simplifier) (quanF)
       case None => f
     }
   }

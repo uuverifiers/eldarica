@@ -53,7 +53,7 @@ import ap.types.MonoSortedIFunction
  */
 class ExtendedQuantifier(name            : String,
                          val arrayTheory : ExtArray,
-                         val identity    : ITerm,
+                         val identity    : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
                          val reduceOp    : (ITerm, ITerm) => ITerm,
                          val invReduceOp : Option[(ITerm, ITerm) => ITerm])
   extends Theory {
@@ -92,9 +92,8 @@ class ExtendedQuantifier(name            : String,
   override val totalityAxioms: Formula = Conjunction.TRUE
   override def plugin: Option[Plugin] = None
 
-  override def isSoundForSat( // todo
-                              theories : Seq[Theory],
-                              config : Theory.SatSoundnessConfig.Value) : Boolean =
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
     config match {
       case Theory.SatSoundnessConfig.Elementary  => true
       case Theory.SatSoundnessConfig.Existential => true

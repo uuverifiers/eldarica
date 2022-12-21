@@ -86,7 +86,7 @@ class InstrumentationLoop (clauses : Clauses,
 
   var rawResult : Result = Inconclusive
 
-  var lastSolver : IncrementalHornPredAbs[Clause] = _ // todo :-)
+  var lastSolver : IncrementalHornPredAbs[Clause] = _
   var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
@@ -177,7 +177,6 @@ class InstrumentationLoop (clauses : Clauses,
 
     var numSteps = 0
 
-    // todo: assume empty instrumentation is in searchSpace?
     while((searchSpace nonEmpty) && rawResult == Inconclusive) {
       numSteps += 1
       val instrumentation = pickInstrumentation(searchSpace.toSet)
@@ -185,7 +184,7 @@ class InstrumentationLoop (clauses : Clauses,
       println("Selected branches: " + instrumentation.map(instr =>
         instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
 
-      // todo: assuming empty instrumentation is not in searchSpace below
+      // assuming empty instrumentation is not in searchSpace below
       // left sol, right cex
       incSolver.checkWithSubstitution(instrumentation) match {
         case Right(cex) => {

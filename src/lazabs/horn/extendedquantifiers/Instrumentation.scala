@@ -52,7 +52,6 @@ case class Instrumentation (constraint         : IFormula,
   // Two instrumentations are composed by conjoining the constraints,
   // and taking the union of the head terms. (head term map should be disjoint.)
   def + (that : Instrumentation): Instrumentation = {
-    // todo: use eldarica assertions
     // we should not have any overlapping (in terms of used ghost terms) instrumentations
     assert((headTerms.keys.toSet intersect that.headTerms.keys.toSet).isEmpty)
     // we should be rewriting at most one conjunct due to normalization

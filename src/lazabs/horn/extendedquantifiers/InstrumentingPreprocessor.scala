@@ -81,7 +81,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
   import InstrumentingPreprocessor._
   val extendedQuantifierInfos : Seq[ExtendedQuantifierInfo] =
     gatherExtQuans(clauses)
-  val extendedQuantifiers: Set[ExtendedQuantifier] = // todo: review
+  val extendedQuantifiers: Set[ExtendedQuantifier] =
     extendedQuantifierInfos.map(_.exTheory).toSet
 
   private val translators = new ArrayBuffer[BackTranslator]
@@ -205,7 +205,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
                 Clause(IAtom(HornClauses.FALSE, Nil),
                              newBody, constraintForAssertions &&& ~assertion)
               newClauses += assertionClause
-              clauseBackMapping += ((assertionClause, clause)) // todo: review: simply keep track of drop these assertion clauses in backtranslation?
+              clauseBackMapping += ((assertionClause, clause))
             }
           }
         } else {

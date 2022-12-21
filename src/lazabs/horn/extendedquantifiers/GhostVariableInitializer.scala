@@ -52,7 +52,6 @@ class GhostVariableInitializer(
       if (entryClauses contains clause) {
         val newConjuncts = for ((exq, predToGhostVars) <- ghostVarInds) yield {
           val ghostVars = predToGhostVars(clause.head.pred)
-          // todo: support for multiple ranges
           (for (ghostVarSet <- ghostVars) yield {
             val GhostVariableInds(lo, hi, res, arr) = ghostVarSet
             clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&

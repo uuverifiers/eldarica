@@ -59,7 +59,11 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
                               ghostVarTerms : Seq[GhostVariableTerms]) : Seq[InstrumentationResult]
 
   protected val arrayTheory = extendedQuantifier.arrayTheory
-  protected val indexSort = arrayTheory.indexSorts.head  // todo: assuming 1-d array
+
+  if (arrayTheory.indexSorts.length > 1)
+    throw new UnsupportedOperationException("Only 1-d arrays are supported currently.")
+
+  protected val indexSort = arrayTheory.indexSorts.head
 
   // returns all instrumentations of a clause
   def instrument (clause                 : Clause,
@@ -77,7 +81,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
             " are the clauses normalized?\n" + clause.toPrologString)
 
         val ghostVarTerms: Seq[GhostVariableTerms] =
-          (for (ghostVarInds <- allGhostVarInds(clause.body.head.pred)) yield { // todo: review
+          (for (ghostVarInds <- allGhostVarInds(clause.body.head.pred)) yield {
             val GhostVariableInds(iblo, ibhi, ibres, ibarr) = ghostVarInds
 
             val blo = clause.body.head.args(iblo)
@@ -89,7 +93,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 
         val instrumentationResults: Seq[InstrumentationResult] =
           relevantConjuncts.headOption match {
-            case Some(c) if extendedQuantifierInfo == // todo: review
+            case Some(c) if extendedQuantifierInfo ==
               ExtQuantifierFunctionApplicationCollector(c).head =>
               rewriteAggregateFun(extendedQuantifierInfo, ghostVarTerms)
             case _ => Nil
@@ -207,7 +211,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 
     // if we have a rewrite in this clause, there should not be any other
     // instrumentations due to normalization.
-    assert(rewrites.isEmpty || instrsForBodyAtoms.forall(_._2.isEmpty)) // todo: eldarica assertions
+    assert(rewrites.isEmpty || instrsForBodyAtoms.forall(_._2.isEmpty))
 
     val numGhostVarSets = allGhostVarInds.head._2.length
     val combsForBodyAtoms: Seq[Seq[Instrumentation]] =
@@ -250,7 +254,8 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       import bodyTerms._
       import arrayTheory2._
       val instrConstraint1 =
-        (headTerms.arr === a2) &&& ite(bodyTerms.lo === bodyTerms.hi,
+        (headTerms.arr === a2) &&&
+        ite(bodyTerms.lo === bodyTerms.hi,
           (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
             (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
@@ -281,7 +286,8 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       import extendedQuantifier._
       import bodyTerms._
       val instrConstraint1 =
-        (headTerms.arr === a) &&& ite(lo === hi,
+        (headTerms.arr === a) &&&
+        ite(lo === hi,
           (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
             (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
