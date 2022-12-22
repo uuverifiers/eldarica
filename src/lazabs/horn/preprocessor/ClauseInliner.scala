@@ -255,7 +255,7 @@ class ClauseInliner extends HornPreprocessor {
   private val blockedPreds = new MHashSet[Predicate]
 
   private def defaultBackMapping(c : Clause) = {
-    val N = c.body.filterNot(b => blockedPreds contains b.pred).size
+    val N = c.body.size
     DagNode(Some(c), (1 to N).toList,
             (DagEmpty.asInstanceOf[Dag[Option[Clause]]] /: (0 until N)) {
               case (d, _) => DagNode(None, List(), d) })
@@ -370,36 +370,25 @@ class ClauseInliner extends HornPreprocessor {
 
     var changed = false
 
-    val newBodyAtoms   = new ArrayBuffer[IAtom]
-    val inlinedClauses = new ArrayBuffer[Dag[Option[Clause]]]
-    val newConstraints = new ArrayBuffer[IFormula]
-
-    for (bodyLit@IAtom(p, args) <- body) {
-      if (blockedPreds contains p) {
-        newBodyAtoms += bodyLit
-      } else {
+    val (newBody, newConstraints, inlinedClauses) =
+      (for (bodyLit@IAtom(p, args) <- body) yield {
         (defs get p) match {
           case None =>
-            newBodyAtoms += bodyLit
-            inlinedClauses += DagNode(None, List(), DagEmpty)
+            (List(bodyLit), i(true), DagNode(None, List(), DagEmpty))
           case Some(defClause) => {
             changed = true
-            val (lits, constr) = defClause inline args
-            clauseBackMapping get defClause match {
-              case Some(dag) =>
-                inlinedClauses += dag
-              case None =>
-                inlinedClauses += defaultBackMapping(defClause)
+            val (lit, constr) = defClause inline args
+            val inlinedClauses = (clauseBackMapping get defClause) match {
+              case Some(dag) => dag
+              case None => defaultBackMapping(defClause)
             }
-            lits.foreach(newBodyAtoms += _)
-            newConstraints += constr
+            (lit, constr, inlinedClauses)
           }
-        }
-      }
-    }
+       }
+      }).unzip3
 
     if (changed) {
-      val res = Clause(head, newBodyAtoms.toList, constraint &&& and(newConstraints))
+      val res = Clause(head, newBody.flatten, constraint &&& and(newConstraints))
 
       val oldMapping = (clauseBackMapping get clause) match {
         case Some(dag) => dag
