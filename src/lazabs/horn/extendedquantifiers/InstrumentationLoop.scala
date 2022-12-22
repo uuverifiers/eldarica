@@ -74,11 +74,11 @@ class InstrumentationLoop (clauses : Clauses,
   curHints = newHints1
   backTranslators += backTranslator1
 
-  println("="*80)
-  println("Clauses before instrumentation")
-  println("-"*80 )
-  clauses.foreach(clause => println(clause.toPrologString))
-  println("="*80 + "\n")
+//  println("="*80)
+//  println("Clauses before instrumentation")
+//  println("-"*80 )
+//  clauses.foreach(clause => println(clause.toPrologString))
+//  println("="*80 + "\n")
 
   val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
 
@@ -102,18 +102,23 @@ class InstrumentationLoop (clauses : Clauses,
     instrumenterBackTranslators += instrumenter.backTranslator
     curHints = instrumenter.newHints
 
-    println("="*80)
-    println("Clauses after instrumentation")
-    println("-"*80 )
-    instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
-    println("="*80 + "\n")
+//    println("="*80)
+//    println("Clauses after instrumentation")
+//    println("-"*80 )
+//    instrumenter.instrumentedClauses.foreach(clause => println(clause.toPrologString))
+//    println("="*80 + "\n")
 
     //val simpClauses2 = instrumenter.instrumentedClauses
 
-    println("="*80)
-    println("Clauses after instrumentation (simplified)")
+//    println("="*80)
+//    println("Clauses after instrumentation (simplified)")
+
+    val outStream =
+      if (lazabs.GlobalParameters.get.logStat) Console.err
+      else lazabs.horn.bottomup.HornWrapper.NullStream
+
     val (simpClauses2, newHints2, backTranslator2) =
-      Console.withErr(Console.out) {
+      Console.withErr(outStream) {
         preprocessor.process(instrumenter.instrumentedClauses, curHints, instrumenter.branchPredicates)
       }
     curHints = newHints2
@@ -123,7 +128,7 @@ class InstrumentationLoop (clauses : Clauses,
 
 
     val interpolator = if (templateBasedInterpolation)
-      Console.withErr(Console.out) {
+      Console.withErr(outStream) {
         val builder =
           new StaticAbstractionBuilder(
             simpClauses2,

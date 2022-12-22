@@ -59,7 +59,7 @@ class ExtendedQuantifier(name            : String,
   extends Theory {
 
   val arrayIndexSort : Sort = arrayTheory.indexSorts.head
-  if (arrayIndexSort != Sort.Integer || arrayTheory.indexSorts.length > 1)
+  if (arrayTheory.indexSorts.length > 1)
     throw new Exception("Currently only 1-d integer indexed arrays are supported!")
 
   // this theory depends on the theory of extensional arrays with specified sorts
