@@ -108,6 +108,7 @@ class GlobalParameters extends Cloneable {
   var generateTemplates = false
   var fixRandomSeed = false
   var getSolvability = false
+  var useUnsimplifiedClauses = false
   var mineTemplates = false
   var hornGraphType : HornGraphType.Value = HornGraphType.CDHG
   var hornGraphLabelType : HornGraphLabelType.Value = HornGraphLabelType.template
@@ -212,6 +213,7 @@ class GlobalParameters extends Cloneable {
     that.generateTemplates = this.generateTemplates
     that.fixRandomSeed = this.fixRandomSeed
     that.getSolvability = this.getSolvability
+    that.useUnsimplifiedClauses = this.useUnsimplifiedClauses
     that.combineTemplateStrategy = this.combineTemplateStrategy
     that.readCostType = this.readCostType
     that.explorationRate = this.explorationRate
@@ -410,6 +412,10 @@ object Main {
       }
       case "-getSolvability" :: rest => {
         getSolvability = true
+        arguments(rest)
+      }
+      case "-useUnsimplifiedClauses" :: rest => {
+        useUnsimplifiedClauses = true
         arguments(rest)
       }
       case "-fixRandomSeed" :: rest => {

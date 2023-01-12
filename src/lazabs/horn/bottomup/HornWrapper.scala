@@ -453,26 +453,27 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG
   * collect results
   * */
+  val hornGraphClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
-    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(simplifiedClauses),"labeling")
+    logTime(mineTemplates(hornGraphClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
+    logTime(writeTemplateMap(hornGraphClauses),"labeling")
     System.exit(0)
   }
   if (GlobalParameters.get.mineCounterExample){
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(simplifiedClauses, predGenerator),"mingCE")
+    logTime(mineClausesInCounterExamples(hornGraphClauses, predGenerator),"mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled
-    generateTemplates(simplifiedClauses)
+    generateTemplates(hornGraphClauses)
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) {
     createNewLogFile(append = true)
     val hornGraph = GlobalParameters.get.hornGraphType match {
-      case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses), "generate CDHG")
-      case HornGraphType.CG => logTime(new CG(simplifiedClauses), "generate CG")
+      case HornGraphType.CDHG => logTime(new CDHG(hornGraphClauses), "generate CDHG")
+      case HornGraphType.CG => logTime(new CG(hornGraphClauses), "generate CG")
     }
     System.exit(0)
   }
