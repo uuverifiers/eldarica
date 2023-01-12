@@ -453,27 +453,27 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG
   * collect results
   * */
-  val hornGraphClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
+  val hornGraphTrainingClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
-    logTime(mineTemplates(hornGraphClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(hornGraphClauses),"labeling")
+    logTime(mineTemplates(hornGraphTrainingClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
+    logTime(writeTemplateMap(hornGraphTrainingClauses),"labeling")
     System.exit(0)
   }
   if (GlobalParameters.get.mineCounterExample){
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(hornGraphClauses, predGenerator),"mingCE")
+    logTime(mineClausesInCounterExamples(hornGraphTrainingClauses, predGenerator),"mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled
-    generateTemplates(hornGraphClauses)
+    generateTemplates(hornGraphTrainingClauses)
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) {
     createNewLogFile(append = true)
     val hornGraph = GlobalParameters.get.hornGraphType match {
-      case HornGraphType.CDHG => logTime(new CDHG(hornGraphClauses), "generate CDHG")
-      case HornGraphType.CG => logTime(new CG(hornGraphClauses), "generate CG")
+      case HornGraphType.CDHG => logTime(new CDHG(hornGraphTrainingClauses), "generate CDHG")
+      case HornGraphType.CG => logTime(new CG(hornGraphTrainingClauses), "generate CG")
     }
     System.exit(0)
   }
