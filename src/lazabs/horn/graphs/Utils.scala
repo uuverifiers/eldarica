@@ -13,12 +13,12 @@ import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
-import java.io.PrintWriter
+import java.io.{File, PrintWriter}
 
 object Utils {
 
 
-  def getClausesAccordingToLabels(originalSimplifiedClauses:Clauses): Clauses ={
+  def getClausesAccordingToLabels(originalSimplifiedClauses: Clauses): Clauses = {
     GlobalParameters.get.hornGraphLabelType match {
       case HornGraphLabelType.unsatCore => {
         val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
@@ -29,12 +29,14 @@ object Utils {
       case HornGraphLabelType.template => originalSimplifiedClauses
     }
   }
-  def readSMTFormatFromFile(fileName:String): Clauses ={
-    val _hornTranslator=new HornTranslator
+
+  def readSMTFormatFromFile(fileName: String): Clauses = {
+    val _hornTranslator = new HornTranslator
     fromSMT(fileName) map ((_hornTranslator).transform(_))
   }
+
   def writeSMTFormatToFile(simpClauses: Clauses, suffix: String): Unit = {
-    val fileName = GlobalParameters.get.fileName+"."+suffix
+    val fileName = GlobalParameters.get.fileName + "." + suffix
     println("write " + fileName + " to file")
     val out = new java.io.FileOutputStream(fileName)
     Console.withOut(out) {
@@ -54,6 +56,17 @@ object Utils {
     }
     out.close
 
+  }
+
+  def writePrologFormatToFile(clause: Clauses, suffix: String): Unit = {
+    val _suffix = if (suffix.isEmpty) "" else "."+suffix
+    val fileName = GlobalParameters.get.fileName + _suffix + "." + "prolog"
+    println("write " + fileName + " to file")
+    val writerGraph = new PrintWriter(new File(fileName))
+    for (c <- clause) {
+      writerGraph.write(c.toPrologString + "\n")
+    }
+    writerGraph.close()
   }
 
   def printListMap[A, B](m: Map[A, Seq[B]], title: String = ""): Unit = {
@@ -116,8 +129,11 @@ object Utils {
     readLabel
   }
 
-  def outputClauses(simplifiedClauses:Clauses,unsimplifiedClauses:Clauses): Unit = {
-    writeSMTFormatToFile(simplifiedClauses,suffix = "simplified")
+  def outputClauses(simplifiedClauses: Clauses, unsimplifiedClauses: Clauses): Unit = {
+    writeSMTFormatToFile(simplifiedClauses, suffix = "simplified")
+    writePrologFormatToFile(simplifiedClauses, suffix = "simplified")
+    writePrologFormatToFile(unsimplifiedClauses, suffix = "")
+
   }
 
 }

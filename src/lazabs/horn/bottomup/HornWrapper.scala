@@ -55,6 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
+import lazabs.horn.graphs.Utils.{outputClauses}
 import lazabs.horn.graphs.counterExampleUtils.{mineClausesInCounterExamples, getPrunedClauses}
 
 import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
@@ -454,10 +455,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * collect results
   *
   * analysis clauses:
-  * output simplified clauses and prolog format for both simplified and unsimplified clauses
+  * -analysisClauses. output simplified clauses and prolog format for both simplified and unsimplified clauses
   * */
   if (GlobalParameters.get.analysisClauses){
-
+    outputClauses(simplifiedClauses,unsimplifiedClauses)
+    System.exit(0)
   }
 
   val hornGraphTrainingClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
