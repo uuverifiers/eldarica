@@ -439,20 +439,27 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
   /*
-  * template selection Pipeline:
+  * template selection pipeline:
   * -mineTemplates for training set /  generateTemplates unsolvable set
   * -getHornGraph:CDHG -hornGraphLabelType:template
   * training and prediction
   * -getSolvability -hornGraphLabelType:template
   * collect results
   *
-  * unsatcore Pipeline:
+  * unsatcore pipeline:
   * -mineCounterExample:union
   * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
   * train and prediction
   * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG
   * collect results
+  *
+  * analysis clauses:
+  * output simplified clauses and prolog format for both simplified and unsimplified clauses
   * */
+  if (GlobalParameters.get.analysisClauses){
+
+  }
+
   val hornGraphTrainingClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)

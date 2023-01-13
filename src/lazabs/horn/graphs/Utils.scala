@@ -116,4 +116,8 @@ object Utils {
     readLabel
   }
 
+  def outputClauses(simplifiedClauses:Clauses,unsimplifiedClauses:Clauses): Unit = {
+    writeSMTFormatToFile(simplifiedClauses,suffix = "simplified")
+  }
+
 }
