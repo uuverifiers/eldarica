@@ -171,7 +171,8 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
       case IIntLitNode(i) => globalConstantNodeMap(newNode.readName) = newNode
       case AbstractNode(a) => {}
       case FalseNode(f) => {
-        globalPredicateNodeMap(f) = newNode
+        //merge false node
+        //globalPredicateNodeMap(f) = newNode
       }
     }
 

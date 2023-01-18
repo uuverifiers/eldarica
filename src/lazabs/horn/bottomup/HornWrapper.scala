@@ -456,6 +456,10 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   *
   * analysis clauses:
   * -analysisClauses. output simplified clauses and prolog format for both simplified and unsimplified clauses
+  *
+  * other options:
+  * -visualizeHornGraph. output .gv file
+  * -useUnsimplifiedClauses. not simplify the input smt2 file
   * */
   if (GlobalParameters.get.analysisClauses){
     outputClauses(simplifiedClauses,unsimplifiedClauses)
