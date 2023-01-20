@@ -60,7 +60,7 @@ object EvaluateUtils {
       val averagePredicateSize = 0 //predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime = predAbs.cegar.predicateGeneratorTime
       val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
-        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability,GlobalParameters.get.unsatCoreThreshold).map(_.toString)
+        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, GlobalParameters.get.unsatCoreThreshold).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
           m match { //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold
@@ -70,14 +70,14 @@ object EvaluateUtils {
               else
                 ("satisfiability", v)
             }
-            case "unsatCoreThreshold"=>{
-              ("unsatCoreThreshold",v)
+            case "unsatCoreThreshold" => {
+              ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
             }
             case _ =>
-                (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-                  "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-                  + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-                  + "_cost_" + GlobalParameters.get.readCostType, v)
+              (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+                "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+                + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+                + "_cost_" + GlobalParameters.get.readCostType, v)
           }
         }
 
@@ -106,6 +106,8 @@ object EvaluateUtils {
       "satisfiability" -> -1,
       "satisfiability-CDHG" -> -1,
       "satisfiability-CG" -> -1,
+      "unsatCoreThreshold-CDHG" -> -1,
+      "unsatCoreThreshold-CG" -> -1,
       "clauseNumberBeforeSimplification" -> unsimplifiedClauses.length,
       "clauseNumberAfterSimplification" -> simplifiedClauses.length,
       "clauseNumberAfterPruning" -> prunedClauses.length,
@@ -128,7 +130,7 @@ object EvaluateUtils {
       "unlabeledTemplateNumber" -> unlabeledTemplatesStatistics._3,
       "unlabeledTemplateRelationSymbolNumber" -> unlabeledTemplatesStatistics._4)
     val meansureFields = Seq("solvingTime", "cegarIterationNumber", "generatedPredicateNumber",
-      "averagePredicateSize", "predicateGeneratorTime", "satisfiability","unsatCoreThreshold")
+      "averagePredicateSize", "predicateGeneratorTime", "satisfiability", "unsatCoreThreshold")
     val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
     val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"
@@ -137,7 +139,7 @@ object EvaluateUtils {
     val AbstractionTypeFields = combinedAbstractTypeFields ++ combinedOffAbstractTypeFields ++ randomAbstractTypeFields
     val splitClausesOption = Seq("splitClauses_0", "splitClauses_1")
     val costOption = Seq("cost_shape", "cost_logit", "cost_same")
-    val initialFieldsSeq = (for (m <- meansureFields if m != "satisfiability"; a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
+    val initialFieldsSeq = (for (m <- meansureFields if (m != "satisfiability" && m != "unsatCoreThreshold"); a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
     val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> GlobalParameters.get.unsatCoreThreshold.toString)
