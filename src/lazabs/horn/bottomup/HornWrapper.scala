@@ -451,7 +451,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -mineCounterExample:union
   * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
   * train and prediction
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log
   * collect results
   *
   * analysis clauses:

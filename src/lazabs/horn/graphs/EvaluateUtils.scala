@@ -59,21 +59,25 @@ object EvaluateUtils {
       val generatedPredicateNumber = 0 //predAbs.cegar.generatedPredicateNumber
       val averagePredicateSize = 0 //predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime = predAbs.cegar.predicateGeneratorTime
-      val resultList = Seq(solvingTime, cegarIterationNumber, generatedPredicateNumber,
-        averagePredicateSize, predicateGeneratorTime, satisfiability).map(_.toInt).map(_.toString)
+      val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
+        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability,GlobalParameters.get.unsatCoreThreshold).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
-          m match {
-            case "satisfiability"=> {
-              if (GlobalParameters.get.hornGraphLabelType==HornGraphLabelType.unsatCore)
+          m match { //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold
+            case "satisfiability" => {
+              if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore)
                 ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
               else
-              ("satisfiability", v)
+                ("satisfiability", v)
             }
-            case _=> (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-              "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-              + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-              + "_cost_" + GlobalParameters.get.readCostType, v)
+            case "unsatCoreThreshold"=>{
+              ("unsatCoreThreshold",v)
+            }
+            case _ =>
+                (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+                  "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+                  + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+                  + "_cost_" + GlobalParameters.get.readCostType, v)
           }
         }
 
@@ -124,7 +128,7 @@ object EvaluateUtils {
       "unlabeledTemplateNumber" -> unlabeledTemplatesStatistics._3,
       "unlabeledTemplateRelationSymbolNumber" -> unlabeledTemplatesStatistics._4)
     val meansureFields = Seq("solvingTime", "cegarIterationNumber", "generatedPredicateNumber",
-      "averagePredicateSize", "predicateGeneratorTime", "satisfiability")
+      "averagePredicateSize", "predicateGeneratorTime", "satisfiability","unsatCoreThreshold")
     val combianedOptions = Seq("Term", "Octagon", "RelationalEqs", "RelationalIneqs")
     val explorationRate = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     val combinedAbstractTypeFields = for (g <- Seq("_CDHG_union_", "_CG_union_"); a <- combianedOptions) yield a + g + "0.0"

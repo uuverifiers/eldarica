@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.{CounterexampleMiner, HornClauses, HornTranslator, N
 import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
-import lazabs.horn.graphs.GraphUtils.graphFileNameMap
+import lazabs.horn.graphs.GraphUtils.{graphFileNameMap, printCurrentNodeMap}
 import lazabs.horn.preprocessor.{HornPreprocessor, ReachabilityChecker}
 
 import java.io.{File, PrintWriter}
@@ -142,9 +142,8 @@ object counterExampleUtils {
   }
 
   def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
+    writeSMTFormatToFile(clausesInCounterExample, "pruned-"+GlobalParameters.get.unsatCoreThreshold.toString)
     if (GlobalParameters.get.log) {
-      writeSMTFormatToFile(clausesInCounterExample, "pruned")
-
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))
       println("-" * 10 + " clauses in counter-examples " + clausesInCounterExample.length + "-" * 10)
