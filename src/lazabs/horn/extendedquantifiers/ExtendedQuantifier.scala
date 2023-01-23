@@ -32,7 +32,7 @@ package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
 import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.parser.{IFunction, ITerm}
+import ap.parser.{IFunction, ITerm, IExpression}
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.Formula
 import ap.terfor.conjunctions.Conjunction
@@ -53,9 +53,9 @@ import ap.types.MonoSortedIFunction
  */
 class ExtendedQuantifier(name            : String,
                          val arrayTheory : ExtArray,
-                         val identity    : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
-                         val reduceOp    : (ITerm, ITerm) => ITerm,
-                         val invReduceOp : Option[(ITerm, ITerm) => ITerm])
+                         val identity    : IExpression, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
+                         val reduceOp    : (IExpression, IExpression) => IExpression,
+                         val invReduceOp : Option[(IExpression, IExpression) => IExpression])
   extends Theory {
 
   val arrayIndexSort : Sort = arrayTheory.indexSorts.head

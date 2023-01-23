@@ -125,7 +125,8 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
     ghostVarsInPred get p match {
       case Some(ghostVars) =>
         val quanF = quanConsts(IExpression.Quantifier.EX, ghostVars, f)
-        (new Simplifier) (quanF)
+        quanF
+        //(new Simplifier) (quanF)
       case None => f
     }
   }
