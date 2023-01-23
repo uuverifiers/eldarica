@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.Utils.{getClausesAccordingToLabels, readSMTFormatFromFile, writeOneLineJson}
+import lazabs.horn.graphs.Utils.{getClausesAccordingToLabels, readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
@@ -60,20 +60,22 @@ object EvaluateUtils {
       val averagePredicateSize = 0 //predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime = predAbs.cegar.predicateGeneratorTime
       val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
-        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, GlobalParameters.get.unsatCoreThreshold).map(_.toString)
+        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, roundByDigit(GlobalParameters.get.unsatCoreThreshold,2)).map(_.toString)
+      val unsatcoreThresholdSuffix = GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)
+      var updatedFields:Map[String,String]=initialFields
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
           m match {
             case "satisfiability" => {
               if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore)
-                ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
+                ("satisfiability" + "-" + unsatcoreThresholdSuffix, v)
               else
                 ("satisfiability", v)
             }
             case "unsatCoreThreshold" => {
               //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold,
               // since it will also record safe to rewrite the unsafe results
-              ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
+              ("unsatCoreThreshold" + "-" + unsatcoreThresholdSuffix, v)
             }
             case _ =>
               (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
@@ -82,18 +84,26 @@ object EvaluateUtils {
                 + "_cost_" + GlobalParameters.get.readCostType, v)
           }
         }
-
-        val oldFields = readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
-        val updatedFields =
-          if (oldFields.map(_._1).toSeq.contains(newField._1))
-            oldFields.updated(newField._1, newField._2)
-          else
-            (oldFields.toSeq ++ Seq((newField._1, newField._2))).toMap
-        writeSolvingTimeToJSON(solvingTimeFileName, updatedFields)
+        updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, newField)
 
       }
+
+      //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning
+      updatedFields=updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
+      updatedFields=updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
     }
 
+  }
+
+  def updateNewFieldsInSolvabilityFile(solvingTimeFileName: String, initialFields: Map[String, String], newField: (String, String)): Map[String, String] = {
+    val oldFields = readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
+    val updatedFields =
+      if (oldFields.map(_._1).toSeq.contains(newField._1))
+        oldFields.updated(newField._1, newField._2)
+      else
+        (oldFields.toSeq ++ Seq((newField._1, newField._2))).toMap
+    writeSolvingTimeToJSON(solvingTimeFileName, updatedFields)
+    updatedFields
   }
 
   def writeInitialFixedFieldsToSolvabilityFile(unsimplifiedClauses: Clauses, simplifiedClauses: Clauses, prunedClauses: Clauses): (String, Seq[String], Map[String, String]) = {

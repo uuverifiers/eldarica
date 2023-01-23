@@ -143,4 +143,12 @@ object Utils {
     inverseRankSeq
   }
 
+  def roundByDigit(number:Double,digit:Int) = {
+    BigDecimal(number).setScale(digit, BigDecimal.RoundingMode.HALF_UP).toDouble
+  }
+
+  def roundByDigit(number: Float, digit: Int) = {
+    BigDecimal(number).setScale(digit, BigDecimal.RoundingMode.HALF_UP).toDouble
+  }
+
 }

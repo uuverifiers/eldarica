@@ -8,7 +8,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CounterexampleMiner, HornClauses, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile,getFloatSeqRank, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, getFloatSeqRank,roundByDigit, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
 import lazabs.horn.graphs.GraphUtils.{graphFileNameMap, printCurrentNodeMap}
@@ -98,14 +98,15 @@ object counterExampleUtils {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-    // keep the percentage when the logit value > GlobalParameters.get.unsatCoreThreshold
-    val predictedLogitsRank=getFloatSeqRank(predictedLogits.toSeq)
-    val rankThreshold=GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
+
+    // pruned by rank
+    val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+    val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
     val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r > rankThreshold) 1 else 0
 
     //pruned by normalization
-//    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
-//    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+    //    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
+    //    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
 
     if (GlobalParameters.get.log) {
       println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
@@ -151,7 +152,7 @@ object counterExampleUtils {
   }
 
   def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
-    writeSMTFormatToFile(clausesInCounterExample, "pruned-" + f"%.2f".format(GlobalParameters.get.unsatCoreThreshold))
+    writeSMTFormatToFile(clausesInCounterExample, "pruned-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold,2))
     if (GlobalParameters.get.log) {
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))
