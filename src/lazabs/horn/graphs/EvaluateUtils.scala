@@ -63,7 +63,7 @@ object EvaluateUtils {
         averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, GlobalParameters.get.unsatCoreThreshold).map(_.toString)
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
-          m match { //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold
+          m match {
             case "satisfiability" => {
               if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore)
                 ("satisfiability" + "-" + GlobalParameters.get.hornGraphType.toString, v)
@@ -71,6 +71,8 @@ object EvaluateUtils {
                 ("satisfiability", v)
             }
             case "unsatCoreThreshold" => {
+              //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold,
+              // since it will also record safe to rewrite the unsafe results
               ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
             }
             case _ =>

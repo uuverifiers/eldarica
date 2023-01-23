@@ -98,7 +98,10 @@ object counterExampleUtils {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-    val predictedLabelsFromThresholdLogits = for (l <- predictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+    // keep the percentage when the logit value > GlobalParameters.get.unsatCoreThreshold
+    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
+    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+
     if (GlobalParameters.get.log) {
       println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
       println(Console.RED + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
@@ -106,6 +109,7 @@ object counterExampleUtils {
 
     val clausesInCE = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => {
+        //CDHG increased the clauses when normalization, so we need transform it back by label Mask
         val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
         val originalClausesIndex = labelMask.distinct
         val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
@@ -142,7 +146,7 @@ object counterExampleUtils {
   }
 
   def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
-    writeSMTFormatToFile(clausesInCounterExample, "pruned-"+GlobalParameters.get.unsatCoreThreshold.toString)
+    writeSMTFormatToFile(clausesInCounterExample, "pruned-" + f"%.2f".format(GlobalParameters.get.unsatCoreThreshold))
     if (GlobalParameters.get.log) {
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))
