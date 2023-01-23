@@ -153,6 +153,7 @@ object counterExampleUtils {
 
   def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
     writeSMTFormatToFile(clausesInCounterExample, "pruned-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold,2))
+    writeSMTFormatToFile(sanityCheckedClauses, "pruned-after-reachability-check-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold,2))
     if (GlobalParameters.get.log) {
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))

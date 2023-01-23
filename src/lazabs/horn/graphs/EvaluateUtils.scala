@@ -42,6 +42,16 @@ object EvaluateUtils {
     val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
       unsimplifiedClauses, simplifiedClauses, clausesForSolvabilityCheck)
 
+
+    var updatedFields: Map[String, String] = initialFields
+    val unsatcoreThresholdSuffix = GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)
+
+
+    //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning
+    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
+    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
+    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("unsatCoreThreshold" + "-" +  GlobalParameters.get.hornGraphType.toString, "-1"))
+
     //run CEGAR
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
@@ -60,9 +70,8 @@ object EvaluateUtils {
       val averagePredicateSize = 0 //predAbs.cegar.averagePredicateSize
       val predicateGeneratorTime = predAbs.cegar.predicateGeneratorTime
       val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
-        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, roundByDigit(GlobalParameters.get.unsatCoreThreshold,2)).map(_.toString)
-      val unsatcoreThresholdSuffix = GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)
-      var updatedFields:Map[String,String]=initialFields
+        averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)).map(_.toString)
+
       for ((m, v) <- meansureFields.zip(resultList)) {
         val newField = {
           m match {
@@ -75,7 +84,7 @@ object EvaluateUtils {
             case "unsatCoreThreshold" => {
               //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold,
               // since it will also record safe to rewrite the unsafe results
-              ("unsatCoreThreshold" + "-" + unsatcoreThresholdSuffix, v)
+              ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
             }
             case _ =>
               (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
@@ -88,9 +97,6 @@ object EvaluateUtils {
 
       }
 
-      //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning
-      updatedFields=updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
-      updatedFields=updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
     }
 
   }
@@ -154,7 +160,7 @@ object EvaluateUtils {
     val initialFieldsSeq = (for (m <- meansureFields if (m != "satisfiability" && m != "unsatCoreThreshold"); a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
-    val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> GlobalParameters.get.unsatCoreThreshold.toString)
+    val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> roundByDigit(GlobalParameters.get.unsatCoreThreshold,2).toString)
     val allFields = initialFields.mapValues(_.toString) ++ stringlFields
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, allFields)
