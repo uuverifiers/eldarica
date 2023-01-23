@@ -47,10 +47,10 @@ object EvaluateUtils {
     val unsatcoreThresholdSuffix = GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)
 
 
-    //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning
+    //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning,unsatCoreThreshold
     updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
     updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
-    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("unsatCoreThreshold" + "-" +  GlobalParameters.get.hornGraphType.toString, "-1"))
+
 
     //run CEGAR
     val outStream = Console.err
@@ -160,8 +160,16 @@ object EvaluateUtils {
     val initialFieldsSeq = (for (m <- meansureFields if (m != "satisfiability" && m != "unsatCoreThreshold"); a <- AbstractionTypeFields; s <- splitClausesOption; c <- costOption) yield (m + "_" + a + "_" + s + "_" + c) -> (m, a, s, c)).toMap
     val timeout = 60 * 60 * 3 * 1000 //milliseconds
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
-    val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> roundByDigit(GlobalParameters.get.unsatCoreThreshold,2).toString)
-    val allFields = initialFields.mapValues(_.toString) ++ stringlFields
+    val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2).toString)
+
+
+    val satisfiabilityThresholdList = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+    val unsatcoreThresholdSuffixs = for (t <- satisfiabilityThresholdList;g<-Seq("CDHG","CG")) yield g + "-" + roundByDigit(t, 2)
+    val satisfiabilityThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("satisfiability" + "-" + ts , "-1")).toMap
+    val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts , "-1")).toMap
+    val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts , "-1")).toMap
+
+    val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, allFields)
     }
