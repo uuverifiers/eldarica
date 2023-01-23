@@ -8,7 +8,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CounterexampleMiner, HornClauses, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile,getFloatSeqRank, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
 import lazabs.horn.graphs.GraphUtils.{graphFileNameMap, printCurrentNodeMap}
@@ -99,8 +99,13 @@ object counterExampleUtils {
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
     // keep the percentage when the logit value > GlobalParameters.get.unsatCoreThreshold
-    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
-    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+    val predictedLogitsRank=getFloatSeqRank(predictedLogits.toSeq)
+    val rankThreshold=GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
+    val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r > rankThreshold) 1 else 0
+
+    //pruned by normalization
+//    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
+//    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
 
     if (GlobalParameters.get.log) {
       println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
