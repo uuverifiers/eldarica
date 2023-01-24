@@ -82,8 +82,6 @@ object EvaluateUtils {
                 ("satisfiability", v)
             }
             case "unsatCoreThreshold" => {
-              //todo ,now we only record one unsatCoreThreshold that can pass CEGAR, next to record all unsatCoreThreshold,
-              // since it will also record safe to rewrite the unsafe results
               ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
             }
             case _ =>

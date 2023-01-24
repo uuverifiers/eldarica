@@ -152,9 +152,9 @@ object counterExampleUtils {
   }
 
   def printPrunedReults(clauses: Clauses, clausesInCounterExample: Clauses, sanityCheckedClauses: Clauses): Unit = {
-    writeSMTFormatToFile(clausesInCounterExample, "pruned-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold,2))
-    writeSMTFormatToFile(sanityCheckedClauses, "pruned-after-reachability-check-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold,2))
     if (GlobalParameters.get.log) {
+      writeSMTFormatToFile(clausesInCounterExample, "pruned-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2))
+      writeSMTFormatToFile(sanityCheckedClauses, "pruned-after-reachability-check-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2))
       println("-" * 10 + " original clauses " + clauses.length + "-" * 10)
       clauses.map(_.toPrologString).foreach(println(_))
       println("-" * 10 + " clauses in counter-examples " + clausesInCounterExample.length + "-" * 10)
