@@ -48,9 +48,9 @@ object MainExtQuans extends App {
 
   val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
 
-  def sum (a : ITerm, b : ITerm) : ITerm = a + b
-  def invSum (a : ITerm, b : ITerm) : ITerm = a - b
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum))
+  def sum(a : ITerm, b : ITerm) : ITerm = a + b
+  def invSum(a : ITerm, b : ITerm) : ITerm = a - b
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None)
   TheoryRegistry.register(extQuan)
 
   {
@@ -83,8 +83,10 @@ object MainExtQuans extends App {
 //        extQuan.fun(a, 0, 10) =/= 30) // right-open interval
 //    )
 
-    def max (a : ITerm, b : ITerm) : ITerm = IExpression.ite(a >= b, a, b)
-    val extQuanMax = new ExtendedQuantifier("max", ar, Int.MinValue, max, None)
+    def max (a : ITerm, b : ITerm) : ITerm = {
+      IExpression.ite(a >= b, a, b)
+    }
+    val extQuanMax = new ExtendedQuantifier("max", ar, Int.MinValue, max, None, None)
     TheoryRegistry.register(extQuanMax)
 
 //    SELECT (read) - unsafe
@@ -130,11 +132,10 @@ object NormalizerTest extends App {
 
   val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
 
-  def sum(a: ITerm, b: ITerm): ITerm = a + b
+  def sum(a : ITerm, b : ITerm) : ITerm = a + b
+  def invSum(a : ITerm, b : ITerm) : ITerm = a - b
 
-  def invSum(a: ITerm, b: ITerm): ITerm = a - b
-
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum))
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None)
   TheoryRegistry.register(extQuan)
 
   {

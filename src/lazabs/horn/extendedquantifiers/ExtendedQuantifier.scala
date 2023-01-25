@@ -32,12 +32,13 @@ package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
 import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.parser.{IFunction, ITerm, IExpression}
+import ap.parser.{IExpression, IFormula, IFunction, ITerm, PrincessLineariser}
 import ap.proof.theoryPlugins.Plugin
-import ap.terfor.Formula
+import ap.terfor.{ConstantTerm, Formula}
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
 import ap.types.MonoSortedIFunction
+import lazabs.prover.PrincessWrapper
 
 
 /**
@@ -53,9 +54,10 @@ import ap.types.MonoSortedIFunction
  */
 class ExtendedQuantifier(name            : String,
                          val arrayTheory : ExtArray,
-                         val identity    : IExpression, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
-                         val reduceOp    : (IExpression, IExpression) => IExpression,
-                         val invReduceOp : Option[(IExpression, IExpression) => IExpression])
+                         val identity    : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
+                         val reduceOp    : (ITerm, ITerm) => ITerm,
+                         val invReduceOp : Option[(ITerm, ITerm) => ITerm],
+                         val predicate   : Option[ITerm => ITerm]) // a predicate in case of general quantifiers, argument is the array access
   extends Theory {
 
   val arrayIndexSort : Sort = arrayTheory.indexSorts.head
@@ -67,7 +69,13 @@ class ExtendedQuantifier(name            : String,
 
   // fun : (a : array, lo : Int, hi : Int) => Obj
   val fun = MonoSortedIFunction(
-    name,
+    name + (predicate match {
+      case Some(pred) => "_(" +
+                         PrincessLineariser.asString(
+                           PrincessWrapper.expr2Formula(
+                             pred(IExpression.v(0)))) + ")"
+      case None => ""
+    }),
     List(arrayTheory.sort, arrayIndexSort, arrayIndexSort), arrayTheory.objSort,
     partial = false, relational = false)
 

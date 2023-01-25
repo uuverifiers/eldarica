@@ -52,7 +52,7 @@ object ExtQuansWithSearchTest extends App {
 
   def sum (a : ITerm, b : ITerm) : ITerm = a + b
   def invSum (a : ITerm, b : ITerm) : ITerm = a - b
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum))
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None)
   TheoryRegistry.register(extQuan)
 
   {

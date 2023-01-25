@@ -242,6 +242,15 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 // general and thus imprecise.
 class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   extends ClauseInstrumenter(extendedQuantifier) {
+
+  private def applyReducer(a : ITerm, b : ITerm, reduceOp: (ITerm, ITerm) => ITerm) = {
+    extendedQuantifier.predicate match {
+      case Some(predicate) =>
+        reduceOp(a, predicate(b))
+      case None =>
+        reduceOp(a, b)
+    }
+  }
   override protected
   def instrumentStore(storeInfo: StoreInfo,
                       headTerms : GhostVariableTerms,
@@ -258,12 +267,12 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
         ite(bodyTerms.lo === bodyTerms.hi,
           (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
-            (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
+            (headTerms.res === applyReducer(res, o, reduceOp)) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (headTerms.res === reduceOp(res, o)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
+              (headTerms.res === applyReducer(res, o, reduceOp)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
                 invReduceOp match {
-                  case Some(f) => headTerms.res === reduceOp(f(res, select(a1, i)), o) & headTerms.lo === lo & headTerms.hi === hi
+                  case Some(f) => headTerms.res === applyReducer(f(res, select(a1, i)), o, reduceOp) & headTerms.lo === lo & headTerms.hi === hi
                   case _ => (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o) //??? //TODO: Implement non-cancellative case
                 },
                 //hres === ifInsideBounds_help(o, arrayTheory.select(a1, i), bres) & hlo === blo & hhi === bhi, //relate to prev val
@@ -290,9 +299,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
         ite(lo === hi,
           (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o),
           ite((lo - 1 === i),
-            (headTerms.res === reduceOp(res, o)) & (headTerms.lo === i) & headTerms.hi === hi,
+            (headTerms.res === applyReducer(res, o, reduceOp)) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (headTerms.res === reduceOp(res, o)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
+              (headTerms.res === applyReducer(res, o, reduceOp)) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
                 headTerms.res === res & headTerms.lo === lo & headTerms.hi === hi, // no change within bounds
                 (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === o))))) // outside bounds, reset
@@ -336,10 +345,10 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
             case 2 =>
               ((comb(0).lo === lo & comb(0).hi === comb(1).lo &
                 comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
-                (extendedQuantifier.reduceOp(comb(0).res, comb(1).res) === o)) &&&
+                (applyReducer(comb(0).res, comb(1).res, extendedQuantifier.reduceOp) === o)) &&&
                 ((comb(1).lo === lo & comb(1).hi === comb(0).lo &
                   comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
-                  (extendedQuantifier.reduceOp(comb(1).res, comb(0).res) === o)) &&&
+                  (applyReducer(comb(1).res, comb(0).res, extendedQuantifier.reduceOp) === o)) &&&
                 buildRangeFormula(combs.tail)
             case _ => ??? // todo: generalize this!
           }
