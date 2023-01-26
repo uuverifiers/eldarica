@@ -43,13 +43,11 @@ object EvaluateUtils {
       unsimplifiedClauses, simplifiedClauses, clausesForSolvabilityCheck)
 
 
-    var updatedFields: Map[String, String] = initialFields
     val unsatcoreThresholdSuffix = GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)
 
-
-    //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning,unsatCoreThreshold
-    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
-    updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
+    //update other fileds clauseNumberAfterPruning,relationSymbolNumberAfterPruning
+    updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, ("clauseNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, clausesForSolvabilityCheck.length.toString))
+    updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, ("relationSymbolNumberAfterPruning" + "-" + unsatcoreThresholdSuffix, (if (clausesForSolvabilityCheck.size != 0) clausesForSolvabilityCheck.map(_.allAtoms.length).reduce(_ + _) else 0).toString))
 
 
     //run CEGAR
@@ -91,7 +89,7 @@ object EvaluateUtils {
                 + "_cost_" + GlobalParameters.get.readCostType, v)
           }
         }
-        updatedFields = updateNewFieldsInSolvabilityFile(solvingTimeFileName, updatedFields, newField)
+        updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
 
       }
 
@@ -99,7 +97,7 @@ object EvaluateUtils {
 
   }
 
-  def updateNewFieldsInSolvabilityFile(solvingTimeFileName: String, initialFields: Map[String, String], newField: (String, String)): Map[String, String] = {
+  def updateNewFieldsInSolvabilityFile(solvingTimeFileName: String, initialFields: Map[String, String], newField: (String, String)) {
     val oldFields = readJSONFieldToMap(solvingTimeFileName, fieldNames = initialFields.keys.toSeq)
     val updatedFields =
       if (oldFields.map(_._1).toSeq.contains(newField._1))
@@ -107,7 +105,6 @@ object EvaluateUtils {
       else
         (oldFields.toSeq ++ Seq((newField._1, newField._2))).toMap
     writeSolvingTimeToJSON(solvingTimeFileName, updatedFields)
-    updatedFields
   }
 
   def writeInitialFixedFieldsToSolvabilityFile(unsimplifiedClauses: Clauses, simplifiedClauses: Clauses, prunedClauses: Clauses): (String, Seq[String], Map[String, String]) = {
@@ -161,11 +158,11 @@ object EvaluateUtils {
     val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2).toString)
 
 
-    val satisfiabilityThresholdList = Seq(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
-    val unsatcoreThresholdSuffixs = for (t <- satisfiabilityThresholdList;g<-Seq("CDHG","CG")) yield g + "-" + roundByDigit(t, 2)
-    val satisfiabilityThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("satisfiability" + "-" + ts , "-1")).toMap
-    val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts , "-1")).toMap
-    val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts , "-1")).toMap
+    val satisfiabilityThresholdList = 0.0 to 1 by 0.01 //Seq(0.01, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5)
+    val unsatcoreThresholdSuffixs = for (t <- satisfiabilityThresholdList; g <- Seq("CDHG", "CG")) yield g + "-" + roundByDigit(t, 2)
+    val satisfiabilityThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("satisfiability" + "-" + ts, "-1")).toMap
+    val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts, "-1")).toMap
+    val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts, "-1")).toMap
 
     val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields
     if (!new java.io.File(solvingTimeFileName).exists) {
