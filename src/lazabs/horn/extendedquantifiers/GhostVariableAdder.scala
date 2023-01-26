@@ -98,10 +98,15 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
           Map(pred -> ghostVariableInds) ++ prevMap
         extQuantifierToGhostVars.put(info, newMap)
 
+        val resultSort = info.exTheory.predicate match {
+          case Some(_) => arrayTheory.objSort
+          case None    => ap.types.Sort.Bool
+        }
+
         (for (ghostVarInds <- ghostVariableInds) yield Seq(
           (IConstant(new SortedConstantTerm(loName + ghostVarInds.lo, indexSort)), indexSort, loName),
           (IConstant(new SortedConstantTerm(hiName + ghostVarInds.hi, indexSort)), indexSort, hiName),
-          (IConstant(new SortedConstantTerm(resName + ghostVarInds.res, arrayTheory.objSort)), arrayTheory.objSort, resName),
+          (IConstant(new SortedConstantTerm(resName + ghostVarInds.res, resultSort)), resultSort, resName),
           (IConstant(new SortedConstantTerm(shadowArrName + ghostVarInds.arr, arrayTheory.sort)), arrayTheory.sort, shadowArrName))).flatten
       }).flatten
 

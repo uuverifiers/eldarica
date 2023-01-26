@@ -69,13 +69,7 @@ class ExtendedQuantifier(name            : String,
 
   // fun : (a : array, lo : Int, hi : Int) => Obj
   val fun = MonoSortedIFunction(
-    name + (predicate match {
-      case Some(pred) => "_(" +
-                         PrincessLineariser.asString(
-                           PrincessWrapper.expr2Formula(
-                             pred(IExpression.v(0)))) + ")"
-      case None => ""
-    }),
+    name,
     List(arrayTheory.sort, arrayIndexSort, arrayIndexSort), arrayTheory.objSort,
     partial = false, relational = false)
 

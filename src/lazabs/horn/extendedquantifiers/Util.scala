@@ -42,13 +42,13 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object Util {
 
-  case class ExtendedQuantifierInfo(exTheory: ExtendedQuantifier,
-                                    funApp: IFunApp,
-                                    arrayTerm: ITerm,
-                                    loTerm: ITerm,
-                                    hiTerm: ITerm,
-                                    objTerm: ITerm,
-                                    conjunct: IFormula)
+  case class ExtendedQuantifierInfo(exTheory      : ExtendedQuantifier,
+                                    funApp        : IFunApp,
+                                    arrayTerm     : ITerm,
+                                    loTerm        : ITerm,
+                                    hiTerm        : ITerm,
+                                    aggregateTerm : ITerm,
+                                    conjunct      : IFormula)
 
   case class SelectInfo(a: ITerm, i: ITerm, o: ITerm,
                         theory: ExtArray)
