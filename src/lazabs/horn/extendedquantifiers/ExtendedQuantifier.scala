@@ -57,7 +57,8 @@ class ExtendedQuantifier(name            : String,
                          val identity    : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
                          val reduceOp    : (ITerm, ITerm) => ITerm,
                          val invReduceOp : Option[(ITerm, ITerm) => ITerm],
-                         val predicate   : Option[ITerm => ITerm]) // a predicate in case of general quantifiers, argument is the array access
+                         val predicate   : Option[(ITerm, ITerm) => ITerm])
+// a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
   extends Theory {
 
   val arrayIndexSort : Sort = arrayTheory.indexSorts.head

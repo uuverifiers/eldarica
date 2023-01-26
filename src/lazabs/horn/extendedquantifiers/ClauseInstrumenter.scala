@@ -250,7 +250,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
 class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   extends ClauseInstrumenter(extendedQuantifier) {
 
-  private def pred = extendedQuantifier.predicate.getOrElse((t : ITerm) => t)
+  private def pred = extendedQuantifier.predicate.getOrElse((t : ITerm, ind : ITerm) => t)
 
   override protected
   def instrumentStore(storeInfo: StoreInfo,
@@ -266,22 +266,22 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       val instrConstraint1 =
         (headTerms.arr === a2) &&&
         ite(bodyTerms.lo === bodyTerms.hi,
-          (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === pred(o)),
+          (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === pred(o, i)),
           ite((lo - 1 === i),
-            (headTerms.res === reduceOp(res, pred(o))) & (headTerms.lo === i) & headTerms.hi === hi,
+            (headTerms.res === reduceOp(res, pred(o, i))) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (headTerms.res === reduceOp(res, pred(o))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
+              (headTerms.res === reduceOp(res, pred(o, i))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
                 invReduceOp match {
                   case Some(f) =>
-                    headTerms.res === reduceOp(f(res, select(a1, i)), pred(o)) &
+                    headTerms.res === reduceOp(f(res, select(a1, i)), pred(o, i)) &
                     headTerms.lo === lo & headTerms.hi === hi
                   case _ =>
                     (headTerms.lo === i) & (headTerms.hi === i + 1) &
-                    (headTerms.res === pred(o))
+                    (headTerms.res === pred(o, i))
                 },
                 (headTerms.lo === i) & (headTerms.hi === i + 1) &
-                (headTerms.res === pred(o)))))) // outside bounds, reset
+                (headTerms.res === pred(o, i)))))) // outside bounds, reset
       val assertion = lo === hi ||| a1 === arr
       Seq(InstrumentationResult(newConjunct = instrConstraint1,
                                               rewriteConjuncts = Map(),
@@ -303,15 +303,15 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
         (headTerms.arr === a) &&&
         ite(lo === hi,
           (headTerms.lo === i) & (headTerms.hi === i + 1) &
-          (headTerms.res === pred(o)),
+          (headTerms.res === pred(o, i)),
           ite((lo - 1 === i),
-            (headTerms.res === reduceOp(res, pred(o))) & (headTerms.lo === i) & headTerms.hi === hi,
+            (headTerms.res === reduceOp(res, pred(o, i))) & (headTerms.lo === i) & headTerms.hi === hi,
             ite(hi === i,
-              (headTerms.res === reduceOp(res, pred(o))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
+              (headTerms.res === reduceOp(res, pred(o, i))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
               ite(lo <= i & hi > i,
                 headTerms.res === res & headTerms.lo === lo & headTerms.hi === hi, // no change within bounds
                 (headTerms.lo === i) & (headTerms.hi === i + 1) &
-                (headTerms.res === pred(o)))))) // outside bounds, reset
+                (headTerms.res === pred(o, i)))))) // outside bounds, reset
       val assertion = lo === hi ||| a === arr
       Seq(InstrumentationResult(newConjunct = instrConstraint1,
                                 rewriteConjuncts = Map(),
