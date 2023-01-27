@@ -82,11 +82,20 @@ object EvaluateUtils {
             case "unsatCoreThreshold" => {
               ("unsatCoreThreshold" + "-" + GlobalParameters.get.hornGraphType.toString, v)
             }
-            case _ =>
-              (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-                "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-                + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-                + "_cost_" + GlobalParameters.get.readCostType, v)
+            case "solvingTime" => {
+              if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore)
+                ("solvingTime" + "-" + unsatcoreThresholdSuffix, v)
+              else
+                ("solvingTime" + "_" + GlobalParameters.get.templateBasedInterpolationType +
+                  "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+                  + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+                  + "_cost_" + GlobalParameters.get.readCostType, v)
+            }
+            case _=> (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+              "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+              + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+              + "_cost_" + GlobalParameters.get.readCostType, v)
+
           }
         }
         updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
@@ -157,14 +166,15 @@ object EvaluateUtils {
     val initialFields: Map[String, Int] = (for ((k, v) <- initialFieldsSeq) yield k -> timeout) ++ fixedFields
     val stringlFields: Map[String, String] = Map("unsatCoreThreshold" -> roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2).toString)
 
-
+    // record unsatcore results with threshold
     val satisfiabilityThresholdList = 0.0 to 1 by 0.01 //Seq(0.01, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5)
     val unsatcoreThresholdSuffixs = for (t <- satisfiabilityThresholdList; g <- Seq("CDHG", "CG")) yield g + "-" + roundByDigit(t, 2)
     val satisfiabilityThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("satisfiability" + "-" + ts, "-1")).toMap
     val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts, "-1")).toMap
     val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts, "-1")).toMap
+    val solvingTimeThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("solvingTime" + "-" + ts, "-1")).toMap
 
-    val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields
+    val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields ++ solvingTimeThresholdFields
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, allFields)
     }
