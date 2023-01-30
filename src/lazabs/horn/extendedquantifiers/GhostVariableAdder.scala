@@ -99,8 +99,8 @@ class GhostVariableAdder(extendedQuantifierInfos : Seq[ExtendedQuantifierInfo],
         extQuantifierToGhostVars.put(info, newMap)
 
         val resultSort = info.exTheory.predicate match {
-          case Some(_) => arrayTheory.objSort
-          case None    => ap.types.Sort.Bool
+          case Some(_) => ap.types.Sort.Bool
+          case None    => arrayTheory.objSort
         }
 
         (for (ghostVarInds <- ghostVariableInds) yield Seq(
