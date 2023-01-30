@@ -17,7 +17,7 @@ import lazabs.horn.graphs.Utils._
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import lazabs.horn.graphs.NodeAndEdgeType._
 import lazabs.horn.parser.HornReader.fromSMT
-
+import scala.collection.mutable.Queue
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
 
@@ -58,7 +58,7 @@ object NodeAndEdgeType {
     "clauseBodyEdge" -> "CB", "clauseArgumentEdge" -> "CA", "dataEdge" -> "data", "quantifierEdge" -> "quan", "binaryEdge" -> "be"
     , "templateEdge" -> "t", "templateASTEdge" -> "tAST")
 
-  val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component","false"->"component",
+  val nodeShapeMap: Map[String, String] = getNodeAttributeMap(Map("relationSymbol" -> "component", "false" -> "component",
     "initial" -> "tab", "dummy" -> "box", "guard" -> "octagon", "clause" -> "octagon", "operator" -> "box",
     "relationSymbolArgument" -> "hexagon", "clauseArgument" -> "hexagon", "clauseHead" -> "box", "clauseBody" -> "box",
     "templateEq" -> "box", "templateIneq" -> "box", "templateBool" -> "box", "variable" -> "doublecircle"),
@@ -121,6 +121,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   val quantifierStack = new mutable.Stack[Node]
   val globalPredicateNodeMap = new mutable.HashMap[Predicate, Node]
   val globalPredicateArgumentNodeMap = new mutable.HashMap[(Predicate, Int), Node]
+  val falseNodeGlobalQueue = Queue[Node]()
   //val currentClauseNodeMap = new mutable.HashMap[Int, Node]
   val dummyNode = createNode("dummy", "dummy", element = AbstractNode("dummy"))()
   var currentPred: Predicate = new Predicate("", 0)
@@ -173,6 +174,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
       case FalseNode(f) => {
         //merge false node
         //globalPredicateNodeMap(f) = newNode
+        falseNodeGlobalQueue.enqueue(newNode)
       }
     }
 
@@ -306,23 +308,23 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   }
 
   def createRelationSymbolNodesAndArguments(atom: IAtom): (Node, Seq[Node]) = {
-
-    //merge rs and their arguments globally
-    try {
-      val rsNode = globalPredicateNodeMap(atom.pred)
-      val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
-      (rsNode, argumentList)
-    } catch {
-      case _ => {
-        if (atom.pred == HornClauses.FALSE) { //if the head is false
-          val rsNode = createNode("false", "false", rsName = "false", element = FalseNode(atom.pred))()
-          (rsNode, Seq())
-        } else {
+    if (atom.pred == HornClauses.FALSE) { //if the head is false
+      val rsNode = createNode("false", "false", rsName = "false", element = FalseNode(atom.pred))()
+      (rsNode, Seq())
+    } else {
+      //merge rs and their arguments globally
+      try {
+        val rsNode = globalPredicateNodeMap(atom.pred)
+        val argumentList = for ((a, i) <- atom.args.zipWithIndex) yield globalPredicateArgumentNodeMap((atom.pred, i))
+        (rsNode, argumentList)
+      } catch {
+        case _ => {
           createNewRelationSymbolNodesAndArguments(atom, "relationSymbol",
             argumenNodeType = "relationSymbolArgument", argumentEdgeType = "relationSymbolArgumentEdge")
         }
       }
     }
+
   }
 
   def createNewRelationSymbolNodesAndArguments(atom: IAtom, atomType: String, argumenNodeType: String,
@@ -366,7 +368,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   }
 
   def constructAST(e: IExpression): Node = {
-    try {//merge sub tree
+    try { //merge sub tree
       clauseConstraintSubExpressionMap(e)
     } //find e in clauseConstraintSubExpressionMap
     catch {
@@ -406,15 +408,16 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
             //println(Console.RED + v)
             constructEndNode(nodeType = "variable", readName = v.toString, element = IVariableNode(IVariable(v)))
           }
-          case BoolADT.True=>{//from IFunApp(fun,args)
+          case BoolADT.True => { //from IFunApp(fun,args)
             constructEndNode("constant", "true", element = IBoolLitNode(IBoolLit(true)))
           }
-          case BoolADT.False => {//from IFunApp(fun,args)
+          case BoolADT.False => { //from IFunApp(fun,args)
             constructEndNode("constant", "false", element = IBoolLitNode(IBoolLit(false)))
           }
           case _ => {
-            println(Console.RED+"unknown node",e,e.getClass)
-            createNode("unknown", "unkown", element = AbstractNode("unkown"))()}
+            println(Console.RED + "unknown node", e, e.getClass)
+            createNode("unknown", "unkown", element = AbstractNode("unkown"))()
+          }
         }
         clauseConstraintSubExpressionMap += (e -> astRootNode)
         astRootNode
@@ -551,7 +554,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
           case HornGraphType.CDHG => {
             var originalClausesCounter = 0
             labelMask = (for ((c, ci) <- bodyReplacedClauses.zipWithIndex) yield {
-              println(ci, c.length, c)
+              //println(ci, c.length, c) //print clause index
               val index = originalClausesCounter
               for (i <- (0 until c.length)) yield {
                 originalClausesCounter += 1
@@ -594,7 +597,6 @@ class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
   //create true constant node
   globalConstantNodeMap("true") = createNode("constant", "true", element = IBoolLitNode(IBoolLit(true)))()
   var clauseCount = 0
-
   for (clause <- normalizedClauses) {
 
     //create head relation symbol node
@@ -703,12 +705,19 @@ class CG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
     //connect from clause layer to predicate layer
     for ((atom, rsNode) <- clause.allAtoms zip Seq(clauseHeadNode) ++ clauseBodyNodeList) {
-      val correspondingRs = globalPredicateNodeMap(atom.pred)
-      createEdge("relationSymbolInstanceEdge", Array(rsNode._1.nodeID, correspondingRs.nodeID))()
-      for (((a, i), argNode) <- atom.args.zipWithIndex zip rsNode._2) {
-        val correspondingArg = globalPredicateArgumentNodeMap((atom.pred, i))
-        createEdge("argumentInstanceEdge", Array(argNode.nodeID, correspondingArg.nodeID))()
+      if (atom.pred == HornClauses.FALSE){
+        val correspondingRs = falseNodeGlobalQueue.dequeue()
+        createEdge("relationSymbolInstanceEdge", Array(rsNode._1.nodeID, correspondingRs.nodeID))()
       }
+      else{
+        val correspondingRs = globalPredicateNodeMap(atom.pred)
+        createEdge("relationSymbolInstanceEdge", Array(rsNode._1.nodeID, correspondingRs.nodeID))()
+        for (((a, i), argNode) <- atom.args.zipWithIndex zip rsNode._2) {
+          val correspondingArg = globalPredicateArgumentNodeMap((atom.pred, i))
+          createEdge("argumentInstanceEdge", Array(argNode.nodeID, correspondingArg.nodeID))()
+        }
+      }
+
     }
 
     //constraint layer and connections
