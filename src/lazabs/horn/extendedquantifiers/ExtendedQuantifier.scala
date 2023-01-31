@@ -51,13 +51,28 @@ import lazabs.prover.PrincessWrapper
  * @param identity        : term to return for empty ranges
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
  * @param invReduceOp     : only for cancellative reduce operations
+
+ * The following three parameters are typically used with general quantifiers.
+ * @param predicate       : a predicate to apply during aggregation, this also
+ *                          implies that the ghost variable used in aggregation
+ *                          will be a predicate
+ * @param rangeFormulaLo  : an optional range expression to be used when
+ *                          rewriting the extended quantifier assertion. This
+ *                          relaxes the requirement that ranges must exactly
+ *                          match. Given (lo, i), default is lo === i, but for
+ *                          instance one can specify lo <= i. The first term
+ *                          must be ghost variable tracking lo, and the
+ *                          econd argument must be lo from the assertion.
+ * @param rangeFormulaHi  : similar to above, but for hi.
  */
-class ExtendedQuantifier(name            : String,
-                         val arrayTheory : ExtArray,
-                         val identity    : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
-                         val reduceOp    : (ITerm, ITerm) => ITerm,
-                         val invReduceOp : Option[(ITerm, ITerm) => ITerm],
-                         val predicate   : Option[(ITerm, ITerm) => ITerm])
+class ExtendedQuantifier(name               : String,
+                         val arrayTheory    : ExtArray,
+                         val identity       : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
+                         val reduceOp       : (ITerm, ITerm) => ITerm,
+                         val invReduceOp    : Option[(ITerm, ITerm) => ITerm],
+                         val predicate      : Option[(ITerm, ITerm) => ITerm],
+                         val rangeFormulaLo : Option[(ITerm, ITerm) => IFormula],
+                         val rangeFormulaHi : Option[(ITerm, ITerm) => IFormula])
 // a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
   extends Theory {
 

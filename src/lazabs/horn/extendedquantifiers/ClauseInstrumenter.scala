@@ -340,21 +340,25 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       }).flatten
 
     val ExtendedQuantifierInfo(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+    def loExpr = extendedQuantifier.rangeFormulaLo.getOrElse(
+      (t1 : ITerm, t2 : ITerm) => t1 === t2)
+    def hiExpr = extendedQuantifier.rangeFormulaHi.getOrElse(
+      (t1 : ITerm, t2 : ITerm) => t1 === t2)
 
     def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : IFormula = {
       combs.headOption match {
         case Some(comb) =>
           comb length match {
             case 1 =>
-              ((comb.head.lo === lo & comb.head.hi === hi & comb.head.arr === a) ==>
+              ((loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a) ==>
                 (comb.head.res === o)) &&&
                 buildRangeFormula(combs.tail)
             case 2 =>
-              ((comb(0).lo === lo & comb(0).hi === comb(1).lo &
-                comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
+              ((loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
+                hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a) ==>
                 (extendedQuantifier.reduceOp(comb(0).res, comb(1).res) === o) &&&
-                ((comb(1).lo === lo & comb(1).hi === comb(0).lo &
-                  comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a) ==>
+                ((loExpr(comb(1).lo, lo) & hiExpr(comb(1).hi, comb(0).lo) &
+                  hiExpr(comb(0).hi, hi) & comb(0).arr === a & comb(1).arr === a) ==>
                   (extendedQuantifier.reduceOp(comb(1).res, comb(0).res) === o))) &&&
                 buildRangeFormula(combs.tail)
             case _ => ??? // todo: generalize this!
@@ -372,15 +376,15 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
           comb length match {
             case 1 =>
               val guard =
-                comb.head.lo === lo & comb.head.hi === hi & comb.head.arr === a
+                loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a
               guard ||| buildAssertionFormula(combs.tail)
             case 2 =>
               val c1 =
-                comb(0).lo === lo & comb(0).hi === comb(1).lo &
-                  comb(1).hi === hi & comb(0).arr === a & comb(1).arr === a
+                loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
+                  hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a
               val c2 =
-                comb(1).lo === lo & comb(1).hi === comb(0).lo &
-                  comb(0).hi === hi & comb(0).arr === a & comb(1).arr === a
+                loExpr(comb(1).lo, lo) & hiExpr(comb(1).hi, comb(0).lo) &
+                 hiExpr(comb(0).hi, hi) & comb(0).arr === a & comb(1).arr === a
               (c1 ||| c2) ||| buildAssertionFormula(combs.tail)
             case _ => ??? // todo: generalize this!
           }

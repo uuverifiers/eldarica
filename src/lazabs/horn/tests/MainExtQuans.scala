@@ -50,7 +50,7 @@ object MainExtQuans extends App {
 
   def sum(a : ITerm, b : ITerm) : ITerm = a + b
   def invSum(a : ITerm, b : ITerm) : ITerm = a - b
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None)
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None, None, None)
   TheoryRegistry.register(extQuan)
 
   {
@@ -86,7 +86,7 @@ object MainExtQuans extends App {
     def max (a : ITerm, b : ITerm) : ITerm = {
       IExpression.ite(a >= b, a, b)
     }
-    val extQuanMax = new ExtendedQuantifier("max", ar, Int.MinValue, max, None, None)
+    val extQuanMax = new ExtendedQuantifier("max", ar, Int.MinValue, max, None, None, None, None)
     TheoryRegistry.register(extQuanMax)
 
 //    SELECT (read) - unsafe
@@ -135,7 +135,7 @@ object NormalizerTest extends App {
   def sum(a : ITerm, b : ITerm) : ITerm = a + b
   def invSum(a : ITerm, b : ITerm) : ITerm = a - b
 
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None)
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None, None, None)
   TheoryRegistry.register(extQuan)
 
   {
