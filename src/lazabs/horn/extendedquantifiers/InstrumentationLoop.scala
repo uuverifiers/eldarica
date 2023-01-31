@@ -126,6 +126,12 @@ class InstrumentationLoop (clauses : Clauses,
     simpClauses2.foreach(clause => println(clause.toPrologString))
     println("="*80)
 
+    // some branch predicates might have been eliminated due to thrown away clauses
+    val remainingBranchPredicates =
+      simpClauses2.flatMap(_.predicates).toSet intersect instrumenter.branchPredicates
+
+    val eliminatedBranchPredicates =
+      instrumenter.branchPredicates -- remainingBranchPredicates
 
     val interpolator = if (templateBasedInterpolation)
       Console.withErr(outStream) {
@@ -133,7 +139,7 @@ class InstrumentationLoop (clauses : Clauses,
           new StaticAbstractionBuilder(
             simpClauses2,
             templateBasedInterpolationType,
-            instrumenter.branchPredicates)
+            remainingBranchPredicates)
         val autoAbstractionMap =
           builder.abstractionRecords
 
@@ -168,15 +174,14 @@ class InstrumentationLoop (clauses : Clauses,
 
     val incSolver =
       new IncrementalHornPredAbs(simpClauses2,
-        curHints.toInitialPredicates,
-        instrumenter.branchPredicates,
-        interpolator)
+        curHints.toInitialPredicates, remainingBranchPredicates, interpolator)
 
     lastSolver = incSolver
 
     val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-    instrumenter.searchSpace.foreach(search =>
-      searchSpace += search.toMap)
+    instrumenter.searchSpace.foreach{search =>
+      searchSpace += search.toMap -- eliminatedBranchPredicates
+    }
 
     println("Clauses instrumented, starting search for correct instrumentation.")
 

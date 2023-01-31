@@ -352,8 +352,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
             case 1 =>
               ((loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a) ==>
                 (comb.head.res === o)) &&&
+              ((lo >= hi) ==> (extendedQuantifier.identity === o)) &&&
                 buildRangeFormula(combs.tail)
-            case 2 =>
+            case 2 => //todo: empty range for more than one ghost var range?
               ((loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
                 hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a) ==>
                 (extendedQuantifier.reduceOp(comb(0).res, comb(1).res) === o) &&&
@@ -376,9 +377,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
           comb length match {
             case 1 =>
               val guard =
-                loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a
+                (loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a) ||| (lo >= hi)
               guard ||| buildAssertionFormula(combs.tail)
-            case 2 =>
+            case 2 => //todo: empty range for more than one ghost var range?
               val c1 =
                 loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
                   hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a
