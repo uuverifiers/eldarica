@@ -7,13 +7,13 @@ import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.bottomup.{CounterexampleMiner, HornClauses, HornTranslator, NormClause}
-import lazabs.horn.graphs.Utils.{getPredAbs, readJSONFile, getFloatSeqRank,roundByDigit, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.bottomup.{AbstractState, CounterexampleMiner, HornClauses, HornTranslator, NormClause, RelationSymbol, StateQueue}
+import lazabs.horn.graphs.Utils.{getFloatSeqRank, getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, roundByDigit, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
 import lazabs.horn.graphs.GraphUtils.{graphFileNameMap, printCurrentNodeMap}
 import lazabs.horn.preprocessor.{HornPreprocessor, ReachabilityChecker}
-
+import scala.collection.mutable.PriorityQueue
 import java.io.{File, PrintWriter}
 
 object counterExampleUtils {
@@ -68,14 +68,30 @@ object counterExampleUtils {
   }
 
 
+  def getRankedClausesByMUS(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
+    try {
+      val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+      val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+      //rank
+      val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+      clauses.zip(predictedLogitsRank)
+    } catch {
+      case _ => clauses.zip(0 to clauses.length)
+    }
+  }
+
   def getPrunedClauses(clauses: Clauses): Clauses = {
     println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
-      //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
-      val clausesInCounterExample = getPredictedCounterExampleClauses(clauses)
-      val checkedClauses = sanityCheckForUnsatCore(clausesInCounterExample, clauses)
-      printPrunedReults(clauses, clausesInCounterExample, checkedClauses)
-      checkedClauses
+      try{
+        //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
+        val clausesInCounterExample = getPredictedCounterExampleClauses(clauses)
+        val checkedClauses = sanityCheckForUnsatCore(clausesInCounterExample, clauses)
+        printPrunedReults(clauses, clausesInCounterExample, checkedClauses)
+        checkedClauses
+      } catch {
+        case _=>{clauses}
+      }
     } else {
       clauses
     }
@@ -141,6 +157,7 @@ object counterExampleUtils {
       }
     }
 
+
     clausesInCE
   }
 
@@ -166,4 +183,59 @@ object counterExampleUtils {
   }
 
 
+}
+
+class MUSPriorityStateQueue extends StateQueue {
+  type TimeType = Int
+
+  private var time = 0
+
+  private def priority(s: Expansion) = {
+    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+    birthTime) = s
+
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum +
+      birthTime
+  }
+
+  private implicit val ord = new Ordering[Expansion] {
+    def compare(s: Expansion, t: Expansion) =
+      priority(t) - priority(s)
+  }
+
+  private val states = new PriorityQueue[Expansion]
+
+  def isEmpty: Boolean =
+    states.isEmpty
+
+  def size: Int =
+    states.size
+
+  def enqueue(s: Seq[AbstractState],
+              clause: NormClause, assumptions: Conjunction): Unit = {
+    states += ((s, clause, assumptions, time))
+  }
+
+  def enqueue(exp: Expansion): Unit = {
+    states += exp
+  }
+
+  def dequeue: Expansion =
+    states.dequeue
+
+  def removeGarbage(reachableStates: scala.collection.Set[AbstractState]) = {
+    val remainingStates = (states.iterator filter {
+      case (s, _, _, _) => s forall (reachableStates contains _)
+    }).toArray
+    states.dequeueAll
+    states ++= remainingStates
+  }
+
+  override def incTime: Unit =
+    time = time + 1
 }

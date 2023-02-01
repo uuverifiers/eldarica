@@ -13,7 +13,7 @@ import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.graphs.Utils.{getClausesAccordingToLabels, readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses}
+import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses, getRankedClausesByMUS}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -34,6 +34,12 @@ object EvaluateUtils {
 
     //get pruned clauses from predicted
     val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
+
+    //get ranked clause
+    val rankedClauses = getRankedClausesByMUS(clausesForSolvabilityCheck)
+    if (GlobalParameters.get.log){
+      for ((c,r)<-rankedClauses) println(Console.RED+r,c)
+    }
 
     //get predicate generator from predicted or existed heuristics
     val predGeneratorForSolvabilityCheck = getPredicateGenerator(clausesForSolvabilityCheck, predGenerator)
@@ -91,7 +97,7 @@ object EvaluateUtils {
                   + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
                   + "_cost_" + GlobalParameters.get.readCostType, v)
             }
-            case _=> (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+            case _ => (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
               "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
               + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
               + "_cost_" + GlobalParameters.get.readCostType, v)
