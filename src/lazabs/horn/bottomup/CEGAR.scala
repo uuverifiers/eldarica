@@ -39,6 +39,7 @@ import ap.proof.ModelSearchProver
 import ap.util.Seqs
 import Util._
 import DisjInterpolator.{AndNode, AndOrNode, OrNode}
+import lazabs.GlobalParameters
 import lazabs.horn.graphs.MUSPriorityStateQueue
 
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
@@ -105,6 +106,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
+
   def normClauseToRank(nc: NormClause): Int = {
     val normClausesToClauseMap = normClauses.toMap
     if (clauseRankMap.isEmpty)
@@ -113,8 +115,17 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       clauseRankMap(normClausesToClauseMap(nc))
   }
 
+//  for ((nc, c) <- normClauses.toMap) {
+//    println("-" * 10)
+//    println(clauseRankMap(c), c)
+//    println(normClauseToRank(nc), nc)
+//    if (clauseRankMap(c)!=normClauseToRank(nc))
+//      println(Console.RED+"-" * 10+"bug"+"-" * 10)
+//  }
+
+  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRank) else new CEGARStateQueue
   //val nextToProcess = new CEGARStateQueue
-  val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
+  //val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
 
   // Expansions that have been postponed due to backwards subsumption
   val postponedExpansions =

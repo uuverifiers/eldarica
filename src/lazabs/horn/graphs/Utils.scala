@@ -137,6 +137,9 @@ object Utils {
   }
 
   def getFloatSeqRank(inputSeq:Seq[Double]): Seq[Int] = {
+    /*
+    * The higher value the higher rank
+    * */
     val sortedSeq = inputSeq.sorted
     val rankSeq = inputSeq.map(value => sortedSeq.indexOf(value) + 1)
     val inverseRankSeq = rankSeq.map(rank => inputSeq.length - rank + 1)

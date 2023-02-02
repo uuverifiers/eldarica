@@ -448,11 +448,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * collect results
   *
   * unsatcore pipeline:
-  * -mineCounterExample:union
-  * -getHornGraph:CDHG -hornGraphLabelType:unsatCore
-  * train and prediction
+  * 1. mine labels [training]: -mineCounterExample:union
+  * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore
+  * 3. train and prediction in Python
+  * 4. evaluation (write solvability.JSON):
   * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log
-  * collect results
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank
+  * 5. collect results in Python (read solvability.JSON)
   *
   * analysis clauses:
   * -analysisClauses. output simplified clauses and prolog format for both simplified and unsimplified clauses
