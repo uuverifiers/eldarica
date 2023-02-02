@@ -59,7 +59,7 @@ object Utils {
   }
 
   def writePrologFormatToFile(clause: Clauses, suffix: String): Unit = {
-    val _suffix = if (suffix.isEmpty) "" else "."+suffix
+    val _suffix = if (suffix.isEmpty) "" else "." + suffix
     val fileName = GlobalParameters.get.fileName + _suffix + "." + "prolog"
     println("write " + fileName + " to file")
     val writerGraph = new PrintWriter(new File(fileName))
@@ -136,17 +136,17 @@ object Utils {
 
   }
 
-  def getFloatSeqRank(inputSeq:Seq[Double]): Seq[Int] = {
-    /*
-    * The higher value the higher rank
-    * */
+  def getFloatSeqRank(inputSeq: Seq[Double], inverse: Boolean = true): Seq[Int] = {
     val sortedSeq = inputSeq.sorted
-    val rankSeq = inputSeq.map(value => sortedSeq.indexOf(value) + 1)
-    val inverseRankSeq = rankSeq.map(rank => inputSeq.length - rank + 1)
-    inverseRankSeq
+    val rankSeq = inputSeq.map(value => sortedSeq.indexOf(value) + 1) //The lower value the higher rank
+    val inverseRankSeq = rankSeq.map(rank => inputSeq.length - rank + 1) //The higher value the higher rank
+    if (inverse == true)
+      inverseRankSeq
+    else
+      rankSeq
   }
 
-  def roundByDigit(number:Double,digit:Int) = {
+  def roundByDigit(number: Double, digit: Int) = {
     BigDecimal(number).setScale(digit, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
 

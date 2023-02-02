@@ -33,9 +33,10 @@ object EvaluateUtils {
     val simplifiedClauses = getClausesAccordingToLabels(originalSimplifiedClauses)
 
     //get pruned clauses from predicted
+    //get ranked clause, the higher logit the value higher rank
     val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
 
-    //get ranked clause, the higher logit the value higher rank
+    //get ranked clause, the lower logit the value higher rank
     val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
 //    if (GlobalParameters.get.log){
 //      for ((c,r)<-clauseRankMap) println(Console.RED+r,c)

@@ -73,7 +73,7 @@ object counterExampleUtils {
       val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
       val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
       //rank
-      val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+      val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq, false)
       clauses.zip(predictedLogitsRank)
     } catch {
       case _ => clauses.zip(0 to clauses.length)
@@ -83,14 +83,16 @@ object counterExampleUtils {
   def getPrunedClauses(clauses: Clauses): Clauses = {
     println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
-      try{
+      try {
         //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
         val clausesInCounterExample = getPredictedCounterExampleClauses(clauses)
         val checkedClauses = sanityCheckForUnsatCore(clausesInCounterExample, clauses)
         printPrunedReults(clauses, clausesInCounterExample, checkedClauses)
         checkedClauses
       } catch {
-        case _=>{clauses}
+        case _ => {
+          clauses
+        }
       }
     } else {
       clauses
@@ -186,25 +188,30 @@ object counterExampleUtils {
 }
 
 
-
-class MUSPriorityStateQueue(normClauseToRank : NormClause => Int) extends StateQueue {
+class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQueue {
   type TimeType = Int
 
   private var time = 0
 
   private def priority(s: Expansion) = {
+    // the lower logit the higher rank value
+    // the lower the priority value is, the higher priority that the clause will be processed first
     val (_, nc, _, _) = s
-    normClauseToRank(nc)
-//    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
-//    birthTime) = s
+    val rankScore = normClauseToRank(nc)
+    rankScore
+    
+    //todo combine rank score with other heuristics
 
-//    (headSym match {
-//      case HornClauses.FALSE => -10000
-//      case _ => 0
-//    }) + (
-//      for (AbstractState(_, preds) <- states.iterator)
-//        yield preds.size).sum +
-//      birthTime
+    //    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+    //    birthTime) = s
+
+    //    (headSym match {
+    //      case HornClauses.FALSE => -10000
+    //      case _ => 0
+    //    }) + (
+    //      for (AbstractState(_, preds) <- states.iterator)
+    //        yield preds.size).sum +
+    //      birthTime
   }
 
   private implicit val ord = new Ordering[Expansion] {
