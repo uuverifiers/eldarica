@@ -193,16 +193,18 @@ class MUSPriorityStateQueue(normClauseToRank : NormClause => Int) extends StateQ
   private var time = 0
 
   private def priority(s: Expansion) = {
-    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
-    birthTime) = s
+    val (_, nc, _, _) = s
+    normClauseToRank(nc)
+//    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+//    birthTime) = s
 
-    (headSym match {
-      case HornClauses.FALSE => -10000
-      case _ => 0
-    }) + (
-      for (AbstractState(_, preds) <- states.iterator)
-        yield preds.size).sum +
-      birthTime
+//    (headSym match {
+//      case HornClauses.FALSE => -10000
+//      case _ => 0
+//    }) + (
+//      for (AbstractState(_, preds) <- states.iterator)
+//        yield preds.size).sum +
+//      birthTime
   }
 
   private implicit val ord = new Ordering[Expansion] {
