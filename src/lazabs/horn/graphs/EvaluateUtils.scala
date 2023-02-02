@@ -77,7 +77,7 @@ object EvaluateUtils {
       val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
         averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)).map(_.toString)
 
-      if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
+      if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore && GlobalParameters.get.prioritizeClausesByUnsatCoreRank == false) {
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = (m + "-" + unsatcoreThresholdSuffix, v)
           println(Console.RED + "newField", newField)
@@ -94,22 +94,24 @@ object EvaluateUtils {
         }
       }
 
-      for ((m, v) <- meansureFields.zip(resultList)) {
-        val newField = {
-          m match {
-            case "satisfiability" => {
+      if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.template) {
+        for ((m, v) <- meansureFields.zip(resultList)) {
+          val newField = {
+            m match {
+              case "satisfiability" => {
                 ("satisfiability", v)
+              }
+              case _ => (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
+                "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
+                + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
+                + "_cost_" + GlobalParameters.get.readCostType, v)
             }
-            case _ => (m + "_" + GlobalParameters.get.templateBasedInterpolationType +
-              "_" + GlobalParameters.get.hornGraphType + "_" + GlobalParameters.get.combineTemplateStrategy
-              + "_" + GlobalParameters.get.explorationRate + "_splitClauses_" + GlobalParameters.get.splitClauses.toString
-              + "_cost_" + GlobalParameters.get.readCostType, v)
-
           }
+          println(Console.RED + "newField", newField)
+          updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
         }
-        println(Console.RED + "newField", newField)
-        updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
       }
+
 
     }
 
@@ -182,7 +184,7 @@ object EvaluateUtils {
     val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts, "-1")).toMap
     val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts, "-1")).toMap
     val solvingTimeThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("solvingTime" + "-" + ts, "-1")).toMap
-    val prioritizeClausesByUnsatCoreRankFields: Map[String, String] = (for(m<-meansureFields;g <- Seq("CDHG", "CG")) yield (m+"-"+"prioritizeClausesByUnsatCoreRank"+"-"+g,"-1")).toMap
+    val prioritizeClausesByUnsatCoreRankFields: Map[String, String] = (for (m <- meansureFields; g <- Seq("CDHG", "CG")) yield (m + "-" + "prioritizeClausesByUnsatCoreRank" + "-" + g, "-1")).toMap
 
 
     val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields ++ solvingTimeThresholdFields ++ prioritizeClausesByUnsatCoreRankFields
