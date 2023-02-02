@@ -36,9 +36,9 @@ object EvaluateUtils {
     val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
 
     //get ranked clause
-    val rankedClauses = getRankedClausesByMUS(clausesForSolvabilityCheck)
+    val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
     if (GlobalParameters.get.log){
-      for ((c,r)<-rankedClauses) println(Console.RED+r,c)
+      for ((c,r)<-clauseRankMap) println(Console.RED+r,c)
     }
 
     //get predicate generator from predicted or existed heuristics
@@ -59,7 +59,7 @@ object EvaluateUtils {
     //run CEGAR
     val outStream = Console.err
     val predAbs = Console.withOut(outStream) {
-      new HornPredAbs(iClauses = clausesForSolvabilityCheck, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck)
+      new HornPredAbs(iClauses = clausesForSolvabilityCheck, initialPredicates = Map(), predicateGenerator = predGeneratorForSolvabilityCheck,clauseRankMap=clauseRankMap)
     }
 
 

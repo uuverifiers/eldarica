@@ -1,20 +1,20 @@
 /**
  * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer.
- * 
+ * list of conditions and the following disclaimer.
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- * 
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
  * * Neither the name of the authors nor the names of their
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- * 
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -31,34 +31,32 @@ package lazabs.horn.bottomup
 
 import ap.PresburgerTools
 import ap.parser._
-import ap.terfor.{TermOrder, TerForConvenience}
+import ap.terfor.{TerForConvenience, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.terfor.substitutions.ConstantSubst
 import ap.proof.ModelSearchProver
 import ap.util.Seqs
-
 import Util._
-import DisjInterpolator.{AndOrNode, AndNode, OrNode}
+import DisjInterpolator.{AndNode, AndOrNode, OrNode}
+import lazabs.horn.graphs.MUSPriorityStateQueue
 
-import scala.collection.mutable.{LinkedHashSet, LinkedHashMap, ArrayBuffer,
-                                 HashSet => MHashSet, HashMap => MHashMap,
-                                 ArrayStack}
+import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Sorting
 
 object CEGAR {
 
-  case class AbstractEdge(from : Seq[AbstractState], to : AbstractState,
-                          clause : NormClause, assumptions : Conjunction) {
+  case class AbstractEdge(from: Seq[AbstractState], to: AbstractState,
+                          clause: NormClause, assumptions: Conjunction) {
     override def toString = "<" + (from mkString ", ") + "> -> " + to + ", " + clause
   }
 
-  case class Counterexample(from : Seq[AbstractState], clause : NormClause)
-             extends Exception("Predicate abstraction counterexample")
+  case class Counterexample(from: Seq[AbstractState], clause: NormClause)
+    extends Exception("Predicate abstraction counterexample")
 
   object CounterexampleMethod extends Enumeration {
     val FirstBestShortest, RandomShortest, AllShortest,
-        MaxNOrShortest = Value
+    MaxNOrShortest = Value
   }
 
   val MaxNOr = 5
@@ -70,32 +68,33 @@ object CEGAR {
 }
 
 class CEGAR[CC <% HornClauses.ConstraintClause]
-           (context : HornPredAbsContext[CC],
-            predStore : PredicateStore[CC],
-            predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                                    Either[Seq[(Predicate, Seq[Conjunction])],
-                                           Dag[(IAtom, NormClause)]],
-            counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-              CEGAR.CounterexampleMethod.FirstBestShortest) {
+(context: HornPredAbsContext[CC],
+ predStore: PredicateStore[CC],
+ predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
+   Either[Seq[(Predicate, Seq[Conjunction])],
+     Dag[(IAtom, NormClause)]],
+ counterexampleMethod: CEGAR.CounterexampleMethod.Value =
+ CEGAR.CounterexampleMethod.FirstBestShortest,
+ clauseRankMap: Map[CC, Int] = Map[CC, Int]()) {
 
   import CEGAR._
   import context._
   import predStore._
 
-  var predicateGeneratorTime : Long = 0
+  var predicateGeneratorTime: Long = 0
   var iterationNum = 0
 
   // Abstract states that are used for matching and instantiating clauses
-  val activeAbstractStates = 
+  val activeAbstractStates =
     (for (rs <- relationSymbols.values)
-       yield (rs -> new LinkedHashSet[AbstractState])).toMap
+      yield (rs -> new LinkedHashSet[AbstractState])).toMap
 
   // Abstract states that are maximum (have a minimum number of
   // constraints in form of assumed predicates), and therefore not
   // subsumed by any other states
-  val maxAbstractStates = 
-    (for (rs <- relationSymbols.values)
-       yield (rs -> new LinkedHashSet[AbstractState])).toMap
+  val maxAbstractStates =
+  (for (rs <- relationSymbols.values)
+    yield (rs -> new LinkedHashSet[AbstractState])).toMap
 
   // Subsumed abstract states, mapped to the subsuming (more general) state
   val forwardSubsumedStates, backwardSubsumedStates =
@@ -106,7 +105,16 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val nextToProcess = new CEGARStateQueue
+  def normClauseToRank(nc: NormClause): Int = {
+    val normClausesToClauseMap = normClauses.toMap
+    if (clauseRankMap.isEmpty)
+      1
+    else
+      clauseRankMap(normClausesToClauseMap(nc))
+  }
+
+  //val nextToProcess = new CEGARStateQueue
+  val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
 
   // Expansions that have been postponed due to backwards subsumption
   val postponedExpansions =
@@ -121,9 +129,9 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   val cegarStartTime = System.currentTimeMillis
 
-  val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
-    /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
-        inferenceAPIProver = p */ {
+  val rawResult: Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
+  /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
+      inferenceAPIProver = p */ {
 
     if (lazabs.GlobalParameters.get.log) {
       println
@@ -131,37 +139,37 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     }
 
     import TerForConvenience._
-    var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
+    var res: Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
 
     var postponedExpansionCount = 0
 
     while (!nextToProcess.isEmpty && res == null) {
       lazabs.GlobalParameters.get.timeoutChecker()
 
-/*
-      // The invariants supposed to be preserved by the subsumption mechanism
-      assert(
-        (maxAbstractStates forall {
-          case (rs, preds) => (preds subsetOf activeAbstractStates(rs)) &&
-                              (preds forall { s => activeAbstractStates(rs) forall {
-                                                   t => s == t || !subsumes(t, s) } }) }) &&
-        (backwardSubsumedStates forall {
-          case (s, t) => s != t && subsumes(t, s) &&
-                         (activeAbstractStates(s.rs) contains s) &&
-                         !(maxAbstractStates(s.rs) contains s) &&
-                         (activeAbstractStates(t.rs) contains t) }) &&
-        (forwardSubsumedStates forall {
-          case (s, t) => s != t && subsumes(t, s) &&
-                         !(activeAbstractStates(s.rs) contains s) &&
-                         (activeAbstractStates(t.rs) contains t) }) &&
-        (activeAbstractStates forall {
-          case (rs, preds) =>
-                         preds forall { s => (maxAbstractStates(rs) contains s) ||
-                         (backwardSubsumedStates contains s) } }) &&
-        (postponedExpansions forall {
-          case (from, _, _, _) => from exists (backwardSubsumedStates contains _) })
-      )
-*/
+      /*
+            // The invariants supposed to be preserved by the subsumption mechanism
+            assert(
+              (maxAbstractStates forall {
+                case (rs, preds) => (preds subsetOf activeAbstractStates(rs)) &&
+                                    (preds forall { s => activeAbstractStates(rs) forall {
+                                                         t => s == t || !subsumes(t, s) } }) }) &&
+              (backwardSubsumedStates forall {
+                case (s, t) => s != t && subsumes(t, s) &&
+                               (activeAbstractStates(s.rs) contains s) &&
+                               !(maxAbstractStates(s.rs) contains s) &&
+                               (activeAbstractStates(t.rs) contains t) }) &&
+              (forwardSubsumedStates forall {
+                case (s, t) => s != t && subsumes(t, s) &&
+                               !(activeAbstractStates(s.rs) contains s) &&
+                               (activeAbstractStates(t.rs) contains t) }) &&
+              (activeAbstractStates forall {
+                case (rs, preds) =>
+                               preds forall { s => (maxAbstractStates(rs) contains s) ||
+                               (backwardSubsumedStates contains s) } }) &&
+              (postponedExpansions forall {
+                case (from, _, _, _) => from exists (backwardSubsumedStates contains _) })
+            )
+      */
 
       val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
 
@@ -180,7 +188,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             iterationNum = iterationNum + 1
 
             if (lazabs.GlobalParameters.get.log) {
-    	      println
+              println
               print("Found counterexample #" + iterationNum + ", refining ... ")
 
               if (lazabs.GlobalParameters.get.logCEX) {
@@ -188,7 +196,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
                 clauseDag.prettyPrint
               }
             }
-        
+
             {
               val predStartTime = System.currentTimeMillis
               val preds = predicateGenerator(clauseDag)
@@ -215,58 +223,58 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
         }
       }
     }
-  
+
     if (res == null) {
       assert(nextToProcess.isEmpty)
 
       implicit val order = sf.order
-    
+
       res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
                        if (rs.pred != HornClauses.FALSE)) yield {
         val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
           conj((for (f <- fors.iterator) yield f.rawPred) ++
-               (Iterator single relationSymbolBounds(rs)))
+            (Iterator single relationSymbolBounds(rs)))
         })
         val simplified = //!QuantifierElimProver(!rawFor, true, order)
-                         PresburgerTools elimQuantifiersWithPreds rawFor
+          PresburgerTools elimQuantifiersWithPreds rawFor
 
         val symMap =
           (rs.arguments.head.iterator zip (
-             for (i <- 0 until rs.arity) yield v(i)).iterator).toMap
+            for (i <- 0 until rs.arity) yield v(i)).iterator).toMap
         val subst = ConstantSubst(symMap, order)
-             
+
         rs.pred -> subst(simplified)
       }).toMap)
     }
 
-//    inferenceAPIProver = null
+    //    inferenceAPIProver = null
 
     res
   }
 
-//  private var inferenceAPIProver : SimpleAPI = null
+  //  private var inferenceAPIProver : SimpleAPI = null
 
   val cegarEndTime = System.currentTimeMillis
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printStatistics(hornPredAbsStartTime : Long) = {
+  def printStatistics(hornPredAbsStartTime: Long) = {
     println(
-         "--------------------------------- Statistics -----------------------------------")
+      "--------------------------------- Statistics -----------------------------------")
     println("CEGAR iterations:                                      " + iterationNum)
     println("Total CEGAR time (ms):                                 " + (cegarEndTime - hornPredAbsStartTime))
     println("Setup time (ms):                                       " + (cegarStartTime - hornPredAbsStartTime))
     println("Final number of abstract states:                       " +
-            (for ((_, s) <- maxAbstractStates.iterator) yield s.size).sum)
+      (for ((_, s) <- maxAbstractStates.iterator) yield s.size).sum)
     println("Final number of matched abstract states:               " +
-            (for ((_, s) <- activeAbstractStates.iterator) yield s.size).sum)
+      (for ((_, s) <- activeAbstractStates.iterator) yield s.size).sum)
     println("Final number of abstract edges:                        " + abstractEdges.size)
 
     val predNum =
       (for ((_, s) <- predicates.iterator) yield s.size).sum
     val totalPredSize =
       (for ((_, s) <- predicates.iterator; p <- s.iterator)
-       yield TreeInterpolator.nodeCount(p.rawPred)).sum
+        yield TreeInterpolator.nodeCount(p.rawPred)).sum
     val averagePredSize =
       if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
     println("Number of generated predicates:                        " + predNum)
@@ -283,9 +291,9 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     println("Time for implication checks (negative, ms):            " + implicationChecksNegTime)
 
     if (hasher.isActive) {
-//      println
-//      println("Number of state/clause matchings:                      " + matchCount)
-//      println("Time for state/clause matchings (ms):                  " + matchTime)
+      //      println
+      //      println("Number of state/clause matchings:                      " + matchCount)
+      //      println("Time for state/clause matchings (ms):                  " + matchTime)
       println
       hasher.printStatistics
 
@@ -296,67 +304,67 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
         else
           hasherChecksHit * 100 / hasherChecksNum
       println("Hasher hits/misses:                                    " +
-              hasherChecksHit + "/" + hasherChecksMiss + " (" +
-              hasherChecksRate + "%)")
+        hasherChecksHit + "/" + hasherChecksMiss + " (" +
+        hasherChecksRate + "%)")
     }
 
-/*    println
-    println("Number of subsumed abstract states:            " +
-            (for ((_, s) <- activeAbstractStates.iterator;
-                  t <- s.iterator;
-                  if (s exists { r => r != t && subsumes(r, t) })) yield t).size) */
+    /*    println
+        println("Number of subsumed abstract states:            " +
+                (for ((_, s) <- activeAbstractStates.iterator;
+                      t <- s.iterator;
+                      if (s exists { r => r != t && subsumes(r, t) })) yield t).size) */
     println(
-         "--------------------------------------------------------------------------------")
+      "--------------------------------------------------------------------------------")
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def subsumes(a : AbstractState, b : AbstractState) : Boolean =
+  def subsumes(a: AbstractState, b: AbstractState): Boolean =
     a.rs == b.rs &&
-    (a.preds.size <= b.preds.size) &&
-    (a.predHashCodeSet subsetOf b.predHashCodeSet) &&
-    (a.predSet subsetOf b.predSet)
+      (a.preds.size <= b.preds.size) &&
+      (a.predHashCodeSet subsetOf b.predHashCodeSet) &&
+      (a.predSet subsetOf b.predSet)
 
-  def strictlySubsumes(a : AbstractState, b : AbstractState) : Boolean =
+  def strictlySubsumes(a: AbstractState, b: AbstractState): Boolean =
     (a.predSet.size < b.predSet.size) && subsumes(a, b)
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def addEdge(newEdge : AbstractEdge) = {
+  def addEdge(newEdge: AbstractEdge) = {
     addState(newEdge.to)
     abstractEdges += newEdge
-//    println("Adding edge: " + newEdge)
+    //    println("Adding edge: " + newEdge)
     if (lazabs.GlobalParameters.get.log)
       print(".")
   }
-  
-  def addState(state : AbstractState) = if (!(forwardSubsumedStates contains state)) {
+
+  def addState(state: AbstractState) = if (!(forwardSubsumedStates contains state)) {
     val rs = state.rs
     if (!(activeAbstractStates(rs) contains state)) {
       // check whether the new state is subsumed by an old state
       (maxAbstractStates(rs) find (subsumes(_, state))) match {
         case Some(subsumingState) =>
-//          println("Subsumed: " + state + " by " + subsumingState)
+          //          println("Subsumed: " + state + " by " + subsumingState)
           forwardSubsumedStates.put(state, subsumingState)
 
         case None => {
 
-//          println("Adding state: " + state)
+          //          println("Adding state: " + state)
 
           // This state has to be added as a new state. Does it
           // (backward) subsume older states?
           val subsumedStates =
-            maxAbstractStates(rs).iterator.filter(subsumes(state, _)).toArray
+          maxAbstractStates(rs).iterator.filter(subsumes(state, _)).toArray
 
           if (!subsumedStates.isEmpty) {
-//            println("Backward subsumed by " + state + ": " + (subsumedStates mkString ", "))
+            //            println("Backward subsumed by " + state + ": " + (subsumedStates mkString ", "))
             maxAbstractStates(rs) --= subsumedStates
             for (s <- subsumedStates)
               backwardSubsumedStates.put(s, state)
           }
 
           nextToProcess.incTime
-    
+
           findNewMatches(state)
 
           activeAbstractStates(rs) += state
@@ -368,8 +376,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def addPredicates(preds : Seq[(Predicate, Seq[Conjunction])],
-                    expansion : nextToProcess.Expansion) : Boolean = {
+  def addPredicates(preds: Seq[(Predicate, Seq[Conjunction])],
+                    expansion: nextToProcess.Expansion): Boolean = {
     val predsToAdd = preparePredicates(preds)
 
     if (predsToAdd.isEmpty) {
@@ -391,14 +399,14 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       (for (n <- 0 until abstractEdges.size;
             AbstractEdge(from, _, _, _) = abstractEdges(n);
             s <- from)
-       yield (s, n)) groupBy (_._1)
+      yield (s, n)) groupBy (_._1)
 
     val newStates = new ArrayBuffer[AbstractState]
     val reachable = new MHashSet[AbstractState]
 
     val edgesDone = new MHashSet[Int]
     val edgesTodo = new ArrayStack[Int]
-    
+
     for (n <- 0 until abstractEdges.size)
       if (abstractEdges(n).from.isEmpty)
         edgesTodo += n
@@ -415,23 +423,23 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             addHasherAssertions(clause, from)
             lazy val prover = emptyProver.assert(assumptions, clause.order)
             val reducer = sf reducer assumptions
-            
+
             val additionalPreds =
               for (pred <- rsPreds;
                    if predIsConsequenceWithHasher(pred, clause.head._2,
-                                                  reducer, prover,
-                                                  clause.order))
+                     reducer, prover,
+                     clause.order))
               yield pred
-                
+
             if (!additionalPreds.isEmpty) {
               val newS = AbstractState(to.rs, to.preds ++ additionalPreds)
               newStates += newS
               abstractEdges(n) = AbstractEdge(from, newS, clause, assumptions)
-//              print("/")
-//              println("Updating edge: " + abstractEdges(n))
+              //              print("/")
+              //              println("Updating edge: " + abstractEdges(n))
             }
           }
-        
+
           val newTo = abstractEdges(n).to
           reachable += newTo
 
@@ -446,7 +454,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     // states have become unsubsumed
 
     val (forwardUnsubsumedStates,
-         backwardUnsubsumedStates) = removeGarbage(reachable)
+    backwardUnsubsumedStates) = removeGarbage(reachable)
 
     for (s <- backwardUnsubsumedStates)
       (activeAbstractStates(s.rs) find { t => strictlySubsumes(t, s) }) match {
@@ -477,7 +485,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def findNewMatches(state : AbstractState) : Unit = {
+  def findNewMatches(state: AbstractState): Unit = {
     val startTime = System.currentTimeMillis
 
     val rs = state.rs
@@ -486,16 +494,16 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
     for ((clause, occ, index) <- relationSymbolOccurrences(rs)) {
 
-      val byStates : Array[Seq[AbstractState]] =
+      val byStates: Array[Seq[AbstractState]] =
         (for (((bodyRs, _), ind) <- clause.body.iterator.zipWithIndex)
-         yield ind match {
-           case `index` =>
-             List(state)
-           case ind if (ind < index && bodyRs == rs) =>
-             activeAbstractStates(bodyRs).toSeq ++ List(state)
-           case _ =>
-             activeAbstractStates(bodyRs).toSeq
-         }).toArray
+          yield ind match {
+            case `index` =>
+              List(state)
+            case ind if (ind < index && bodyRs == rs) =>
+              activeAbstractStates(bodyRs).toSeq ++ List(state)
+            case _ =>
+              activeAbstractStates(bodyRs).toSeq
+          }).toArray
 
       if (byStates exists (_.isEmpty)) {
 
@@ -507,15 +515,15 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
         val initialAssumptions =
           sf.reduce(conj(List(clause.constraint) ++ (state instances occ)))
-  
+
         if (!initialAssumptions.isFalse) {
 
           if ((byStates count (_.size > 1)) >= 2)
             matchClausePrereduce(state, initialAssumptions, clause,
-                                 index, occ, byStates)
+              index, occ, byStates)
           else
             matchClauseSimple(state, initialAssumptions, clause,
-                              index, occ, byStates)
+              index, occ, byStates)
         }
       }
     }
@@ -526,19 +534,19 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def matchClauseSimple(fixedState : AbstractState,
-                        initialAssumptions : Conjunction,
-                        clause : NormClause,
-                        fixedIndex : Int, occ : Int,
-                        byStates : Array[Seq[AbstractState]]) : Unit = {
+  def matchClauseSimple(fixedState: AbstractState,
+                        initialAssumptions: Conjunction,
+                        clause: NormClause,
+                        fixedIndex: Int, occ: Int,
+                        byStates: Array[Seq[AbstractState]]): Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
 
     val NormClause(constraint, body, head) = clause
 
-    def findPreStates(i : Int,
-                      chosenStates : List[AbstractState],
-                      assumptions : Conjunction) : Unit =
+    def findPreStates(i: Int,
+                      chosenStates: List[AbstractState],
+                      assumptions: Conjunction): Unit =
       if (i < 0) {
         nextToProcess.enqueue(chosenStates, clause, assumptions)
       } else if (i == fixedIndex) {
@@ -558,11 +566,11 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def matchClausePrereduce(state : AbstractState,
-                           initialAssumptions : Conjunction,
-                           clause : NormClause,
-                           fixedIndex : Int, occ : Int,
-                           byStates : Array[Seq[AbstractState]]) : Unit = {
+  def matchClausePrereduce(state: AbstractState,
+                           initialAssumptions: Conjunction,
+                           clause: NormClause,
+                           fixedIndex: Int, occ: Int,
+                           byStates: Array[Seq[AbstractState]]): Unit = {
     import TerForConvenience._
     implicit val _ = clause.order
 
@@ -580,80 +588,80 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     var foundInconsistency = false
     val availableStates =
       (for (((rs, occ), i) <- relevantRS.iterator; if (!foundInconsistency)) yield {
-         val states =
-           (for (s <- byStates(i).iterator;
-                 simp = preReducer(s predConjunction occ);
-                 if (!simp.isFalse)) yield (s, simp)).toArray
-         if (states.isEmpty) {
-           foundInconsistency = true
-         } else if (states.size == 1) {
-           currentAssumptions = sf reduce conj(List(currentAssumptions, states(0)._2))
-           if (currentAssumptions.isFalse)
-             foundInconsistency = true
-           else
-             preReducer = sf reducer currentAssumptions
-         }
-         (states, i)
-       }).toArray
+        val states =
+          (for (s <- byStates(i).iterator;
+                simp = preReducer(s predConjunction occ);
+                if (!simp.isFalse)) yield (s, simp)).toArray
+        if (states.isEmpty) {
+          foundInconsistency = true
+        } else if (states.size == 1) {
+          currentAssumptions = sf reduce conj(List(currentAssumptions, states(0)._2))
+          if (currentAssumptions.isFalse)
+            foundInconsistency = true
+          else
+            preReducer = sf reducer currentAssumptions
+        }
+        (states, i)
+      }).toArray
 
     if (foundInconsistency)
       return
 
-/*
-    {
-      val tableSize = body.size
-      val statesTable =
-        Array.ofDim[Array[(List[AbstractState], Conjunction)]](tableSize)
-      statesTable(fixedIndex) = Array((List(state), Conjunction.TRUE))
+    /*
+        {
+          val tableSize = body.size
+          val statesTable =
+            Array.ofDim[Array[(List[AbstractState], Conjunction)]](tableSize)
+          statesTable(fixedIndex) = Array((List(state), Conjunction.TRUE))
 
-      for ((x, i) <- availableStates)
-        statesTable(i) = for ((s, simp) <- x) yield (List(s), simp)
+          for ((x, i) <- availableStates)
+            statesTable(i) = for ((s, simp) <- x) yield (List(s), simp)
 
-      var stride = 1
-      while (2 * stride < tableSize) {
-        var index = 0
-        while (index + stride < tableSize) {
-          val states1 = statesTable(index)
-          val states2 = statesTable(index + stride)
-          statesTable(index) =
-            (for ((s1, simp1) <- states1.iterator;
-                  (s2, simp2) <- states2.iterator;
-                  simp =
-                    if (simp1.isTrue)
-                      simp2
-                    else if (simp2.isTrue)
-                      simp1
-                    else
-                      preReducer(conj(List(simp1, simp2)));
-                  if (!simp.isFalse))
-             yield (s1 ++ s2, simp)).toArray
-          index = index + 2 * stride
+          var stride = 1
+          while (2 * stride < tableSize) {
+            var index = 0
+            while (index + stride < tableSize) {
+              val states1 = statesTable(index)
+              val states2 = statesTable(index + stride)
+              statesTable(index) =
+                (for ((s1, simp1) <- states1.iterator;
+                      (s2, simp2) <- states2.iterator;
+                      simp =
+                        if (simp1.isTrue)
+                          simp2
+                        else if (simp2.isTrue)
+                          simp1
+                        else
+                          preReducer(conj(List(simp1, simp2)));
+                      if (!simp.isFalse))
+                 yield (s1 ++ s2, simp)).toArray
+              index = index + 2 * stride
+            }
+            stride = stride * 2
+          }
+
+          for ((chosenStates1, simp1) <- statesTable(0);
+               (chosenStates2, simp2) <- statesTable(stride)) {
+            val allAssumptions =
+              sf.reduce(conj(List(currentAssumptions, simp1, simp2)))
+            if (!allAssumptions.isFalse) {
+              val allChosenStates = chosenStates1 ++ chosenStates2
+              nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
+            }
+          }
         }
-        stride = stride * 2
-      }
-
-      for ((chosenStates1, simp1) <- statesTable(0);
-           (chosenStates2, simp2) <- statesTable(stride)) {
-        val allAssumptions =
-          sf.reduce(conj(List(currentAssumptions, simp1, simp2)))
-        if (!allAssumptions.isFalse) {
-          val allChosenStates = chosenStates1 ++ chosenStates2
-          nextToProcess.enqueue(allChosenStates, clause, allAssumptions)
-        }
-      }
-    }
-*/
+    */
 
     Sorting.stableSort(availableStates,
-                       (x : (Array[(AbstractState, Conjunction)], Int)) => x._1.size)
+      (x: (Array[(AbstractState, Conjunction)], Int)) => x._1.size)
 
     val chosenStates = Array.ofDim[AbstractState](clause.body.size)
     chosenStates(fixedIndex) = state
 
     val N = availableStates.size
 
-    def findPreStates(i : Int,
-                      assumptions : Conjunction) : Unit =
+    def findPreStates(i: Int,
+                      assumptions: Conjunction): Unit =
       if (i == N) {
         val cs = chosenStates.toList
         nextToProcess.enqueue(cs, clause, assumptions)
@@ -674,88 +682,88 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
           }
         }
       }
-    
+
     findPreStates(0, currentAssumptions)
 
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-/*
-  def matchClauseGlobal(state : AbstractState,
-                        initialAssumptions : Conjunction,
-                        clause : NormClause,
-                        fixedIndex : Int, fixedOcc : Int,
-                        combinationsDone : MHashSet[(Seq[AbstractState], NormClause)])
-                       : Unit = inferenceAPIProver.scope {
-    val p = inferenceAPIProver
-    import p._
-    import TerForConvenience._
+  /*
+    def matchClauseGlobal(state : AbstractState,
+                          initialAssumptions : Conjunction,
+                          clause : NormClause,
+                          fixedIndex : Int, fixedOcc : Int,
+                          combinationsDone : MHashSet[(Seq[AbstractState], NormClause)])
+                         : Unit = inferenceAPIProver.scope {
+      val p = inferenceAPIProver
+      import p._
+      import TerForConvenience._
 
-    val rs = state.rs
+      val rs = state.rs
 
-    val NormClause(constraint, body, head) = clause
+      val NormClause(constraint, body, head) = clause
 
-    addConstants(clause.order sort clause.order.orderedConstants)
-    addAssertion(initialAssumptions)
+      addConstants(clause.order sort clause.order.orderedConstants)
+      addAssertion(initialAssumptions)
 
-    // add assertions for the possible matches
-    val selectors =
-      (for (((brs, occ), i) <- body.iterator.zipWithIndex)
-       yield if (i == fixedIndex) {
-         List()
-       } else {
-         val flags = createBooleanVariables(activeAbstractStates(brs).size)
+      // add assertions for the possible matches
+      val selectors =
+        (for (((brs, occ), i) <- body.iterator.zipWithIndex)
+         yield if (i == fixedIndex) {
+           List()
+         } else {
+           val flags = createBooleanVariables(activeAbstractStates(brs).size)
 
-         implicit val _ = order
-         addAssertion(
-           disj(for ((s, IAtom(p, _)) <-
-                       activeAbstractStates(brs).iterator zip flags.iterator)
-                  yield conj((s instances occ) ++ List(p(List())))))
-         flags
-       }).toIndexedSeq
+           implicit val _ = order
+           addAssertion(
+             disj(for ((s, IAtom(p, _)) <-
+                         activeAbstractStates(brs).iterator zip flags.iterator)
+                    yield conj((s instances occ) ++ List(p(List())))))
+           flags
+         }).toIndexedSeq
 
-     implicit val _ = order
+       implicit val _ = order
 
-     while (??? == ProverStatus.Sat) {
-       val (chosenStates, assumptionSeq, sels) =
-         (for (((brs, occ), i) <- body.iterator.zipWithIndex) yield
-            if (i == fixedIndex) {
-              (state, state instances occ, IExpression.i(true))
-            } else {
-              val selNum = selectors(i) indexWhere (evalPartial(_) == Some(true))
-              val selState = activeAbstractStates(brs).iterator.drop(selNum).next
-              (selState, selState instances occ, selectors(i)(selNum))
-            }).toList.unzip3
+       while (??? == ProverStatus.Sat) {
+         val (chosenStates, assumptionSeq, sels) =
+           (for (((brs, occ), i) <- body.iterator.zipWithIndex) yield
+              if (i == fixedIndex) {
+                (state, state instances occ, IExpression.i(true))
+              } else {
+                val selNum = selectors(i) indexWhere (evalPartial(_) == Some(true))
+                val selState = activeAbstractStates(brs).iterator.drop(selNum).next
+                (selState, selState instances occ, selectors(i)(selNum))
+              }).toList.unzip3
 
-       if (combinationsDone add (chosenStates, clause))
-         nextToProcess.enqueue(chosenStates, clause,
-           conj((for (l <- assumptionSeq.iterator; f <- l.iterator) yield f) ++ (
-                  Iterator single constraint))
-         )
+         if (combinationsDone add (chosenStates, clause))
+           nextToProcess.enqueue(chosenStates, clause,
+             conj((for (l <- assumptionSeq.iterator; f <- l.iterator) yield f) ++ (
+                    Iterator single constraint))
+           )
 
-       val blockingClause = !conj(for (IAtom(p, _) <- sels.iterator) yield p(List()))
+         val blockingClause = !conj(for (IAtom(p, _) <- sels.iterator) yield p(List()))
 
-       addAssertion(blockingClause)
-     }
-  }
-*/
+         addAssertion(blockingClause)
+       }
+    }
+  */
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def removeGarbage(reachable : MHashSet[AbstractState])
-                 : (Iterable[AbstractState], Iterable[AbstractState]) = {
+  def removeGarbage(reachable: MHashSet[AbstractState])
+  : (Iterable[AbstractState], Iterable[AbstractState]) = {
     val remainingEdges = for (e@AbstractEdge(from, to, _, _) <- abstractEdges;
                               if (from forall reachable))
-                         yield e
+    yield e
     abstractEdges reduceToSize 0
     abstractEdges ++= remainingEdges
-    
+
     for ((_, preds) <- activeAbstractStates)
       preds retain reachable
     for ((_, preds) <- maxAbstractStates)
       preds retain reachable
-    
+
     nextToProcess removeGarbage reachable
 
     // Remove garbage from postponed expansion steps
@@ -801,8 +809,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     (forwardUnsubsumedStates, backwardUnsubsumedStates)
   }
 
-  def genEdge(clause : NormClause,
-              from : Seq[AbstractState], assumptions : Conjunction) = {
+  def genEdge(clause: NormClause,
+              from: Seq[AbstractState], assumptions: Conjunction) = {
     val startTime = System.currentTimeMillis
     lazy val prover = emptyProver.assert(assumptions, clause.order)
 
@@ -820,7 +828,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             hasherChecksMiss = hasherChecksMiss + 1
           res
         }
-    
+
       implicationChecks = implicationChecks + 1
       implicationChecksSetup = implicationChecksSetup + 1
       implicationChecksSetupTime =
@@ -836,8 +844,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             throw new Counterexample(from, clause)
           case _ => {
             val state = genAbstractState(assumptions,
-                                         clause.head._1, clause.head._2,
-                                         prover, clause.order)
+              clause.head._1, clause.head._2,
+              prover, clause.order)
             Some(AbstractEdge(from, state, clause, assumptions))
           }
         }
@@ -845,40 +853,40 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     }
   }
 
-  def genAbstractState(assumptions : Conjunction,
-                       rs : RelationSymbol, rsOcc : Int,
-                       prover : => ModelSearchProver.IncProver,
-                       order : TermOrder) : AbstractState = {
+  def genAbstractState(assumptions: Conjunction,
+                       rs: RelationSymbol, rsOcc: Int,
+                       prover: => ModelSearchProver.IncProver,
+                       order: TermOrder): AbstractState = {
     val startTime = System.currentTimeMillis
     val reducer = sf reducer assumptions
     implicationChecksSetupTime =
       implicationChecksSetupTime + (System.currentTimeMillis - startTime)
-    
+
     val predConsequences =
       (for (pred <- predicates(rs).iterator;
             if predIsConsequenceWithHasher(pred, rsOcc,
-                                           reducer, prover, order))
-       yield pred).toVector
+              reducer, prover, order))
+      yield pred).toVector
     AbstractState(rs, predConsequences)
   }
-  
+
   //////////////////////////////////////////////////////////////////////////////
-  
-  def extractCounterexample(from : Seq[AbstractState], clause : NormClause)
-                           : Dag[AndOrNode[NormClause, Unit]] = {
+
+  def extractCounterexample(from: Seq[AbstractState], clause: NormClause)
+  : Dag[AndOrNode[NormClause, Unit]] = {
     // find minimal paths to reach the abstract states
     val distances = new MHashMap[AbstractState, Int]
-    
-    def maxDistance(states : Iterable[AbstractState]) =
+
+    def maxDistance(states: Iterable[AbstractState]) =
       Seqs.max(states.iterator map (distances.getOrElse(_, Integer.MAX_VALUE / 2)))
 
-    def maxDistancePlus1(states : Iterable[AbstractState]) =
+    def maxDistancePlus1(states: Iterable[AbstractState]) =
       if (states.isEmpty) 0 else (maxDistance(states) + 1)
-    
+
     var changed = true
     while (changed) {
       changed = false
-      
+
       for (AbstractEdge(from, to, _, _) <- abstractEdges)
         if (from.isEmpty) {
           distances.put(to, 0)
@@ -897,26 +905,26 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       //////////////////////////////////////////////////////////////////////////
 
       case CounterexampleMethod.FirstBestShortest => {
-        var cex : Dag[AndOrNode[NormClause, Unit]] = DagEmpty
+        var cex: Dag[AndOrNode[NormClause, Unit]] = DagEmpty
         val cexNodes = new MHashMap[AbstractState, Int]
 
-        def addStateToDag(s : AbstractState) : Unit =
+        def addStateToDag(s: AbstractState): Unit =
           if (!(cexNodes contains s)) {
             val AbstractEdge(from, _, clause, _) =
               Seqs.min(for (e@AbstractEdge(_, `s`, _, _) <- abstractEdges.iterator) yield e,
-                       (e:AbstractEdge) => maxDistancePlus1(e.from))
+                (e: AbstractEdge) => maxDistancePlus1(e.from))
             for (t <- from) addStateToDag(t)
             assert(!(cexNodes contains s))
             cexNodes.put(s, cex.size)
             cex = DagNode(AndNode(clause),
-                          (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
-                          cex)
-        }
+              (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
+              cex)
+          }
 
         for (t <- from) addStateToDag(t)
         cex = DagNode(AndNode(clause),
-                      (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
-                      cex)
+          (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
+          cex)
         cex
       }
 
@@ -925,15 +933,15 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       case CounterexampleMethod.AllShortest |
            CounterexampleMethod.RandomShortest |
            CounterexampleMethod.MaxNOrShortest => {
-        var cex : Dag[AndOrNode[NormClause, Unit]] = DagEmpty
+        var cex: Dag[AndOrNode[NormClause, Unit]] = DagEmpty
         var orNum = 0
         val cexNodes = new MHashMap[AbstractState, Int]
 
-        def addStateToDag(s : AbstractState) : Unit =
+        def addStateToDag(s: AbstractState): Unit =
           if (!(cexNodes contains s)) {
             val minDistance =
               (for (AbstractEdge(from, `s`, _, _) <- abstractEdges.iterator)
-               yield maxDistancePlus1(from)).min
+                yield maxDistancePlus1(from)).min
             val minEdges =
               for (e@AbstractEdge(from, `s`, _, _) <- abstractEdges;
                    if (maxDistancePlus1(from) == minDistance)) yield e
@@ -947,16 +955,16 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             }
 
             // recursively add all the children
-            val definedEdges = 
+            val definedEdges =
               (for ((e@AbstractEdge(from, _, _, _), i) <-
-                       selectedEdges.iterator.zipWithIndex;
+                      selectedEdges.iterator.zipWithIndex;
                     if (i == 0 ||
-                        counterexampleMethod != CounterexampleMethod.MaxNOrShortest ||
-                        orNum < MaxNOr)) yield {
-                 for (t <- from)
-                   addStateToDag(t)
-                 e
-               }).toList
+                      counterexampleMethod != CounterexampleMethod.MaxNOrShortest ||
+                      orNum < MaxNOr)) yield {
+                for (t <- from)
+                  addStateToDag(t)
+                e
+              }).toList
 
             val definedEdges2 = counterexampleMethod match {
               case CounterexampleMethod.MaxNOrShortest if (orNum >= MaxNOr) =>
@@ -967,8 +975,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
             for (AbstractEdge(from, _, clause, _) <- definedEdges2)
               cex = DagNode(AndNode(clause),
-                            (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
-                            cex)
+                (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
+                cex)
 
             assert(!(cexNodes contains s))
             if (definedEdges2.size == 1) {
@@ -978,12 +986,12 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
               cex = DagNode(OrNode(()), (1 to definedEdges2.size).toList, cex)
               orNum = orNum + 1
             }
-        }
+          }
 
         for (t <- from) addStateToDag(t)
         cex = DagNode(AndNode(clause),
-                      (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
-                      cex)
+          (for (t <- from.iterator) yield (cex.size - cexNodes(t))).toList,
+          cex)
 
         counterexampleMethod match {
           case CounterexampleMethod.MaxNOrShortest =>
@@ -995,11 +1003,11 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       }
 
       //////////////////////////////////////////////////////////////////////////
-      
+
     }
 
-//    println
-//    cex.prettyPrint
+    //    println
+    //    cex.prettyPrint
 
     cex
   }

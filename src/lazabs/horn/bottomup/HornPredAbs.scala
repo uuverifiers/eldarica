@@ -108,7 +108,8 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
                                        Either[Seq[(Predicate, Seq[Conjunction])],
                                               Dag[(IAtom, NormClause)]],
                   counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-                                           CEGAR.CounterexampleMethod.FirstBestShortest) {
+                                           CEGAR.CounterexampleMethod.FirstBestShortest,
+                  clauseRankMap: Map[CC, Int]= Map[CC, Int]()) {
   
   import HornPredAbs._
 
@@ -130,7 +131,7 @@ class HornPredAbs[CC <% HornClauses.ConstraintClause]
   //////////////////////////////////////////////////////////////////////////////
   
   val cegar = new CEGAR(context, predStore,
-                        predicateGenerator, counterexampleMethod)
+                        predicateGenerator, counterexampleMethod,clauseRankMap)
   import cegar._
   import CEGAR._
 
