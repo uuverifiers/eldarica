@@ -199,7 +199,7 @@ class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQu
     val (_, nc, _, _) = s
     val rankScore = normClauseToRank(nc)
     rankScore
-    
+
     //todo combine rank score with other heuristics
 
     //    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
