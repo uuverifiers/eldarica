@@ -117,7 +117,7 @@ class GlobalParameters extends Cloneable {
   var combineTemplateStrategy:CombineTemplateStrategy.Value=CombineTemplateStrategy.off
   var readCostType : String = "same"
   var explorationRate: Float=0
-  var unsatCoreThreshold:Double=0.5
+  var unsatCoreThreshold:Double=0.0
   var prioritizeClausesByUnsatCoreRank=false
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None

@@ -80,7 +80,7 @@ object EvaluateUtils {
       if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore && GlobalParameters.get.prioritizeClausesByUnsatCoreRank == false) {
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = (m + "-" + unsatcoreThresholdSuffix, v)
-          println(Console.RED + "newField", newField)
+          //println(Console.RED + "newField", newField)
           updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
         }
       }
@@ -89,7 +89,7 @@ object EvaluateUtils {
         val unsatcoreClausePrioritizeSuffix = "prioritizeClausesByUnsatCoreRank" + "-" + GlobalParameters.get.hornGraphType.toString
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = (m + "-" + unsatcoreClausePrioritizeSuffix, v)
-          println(Console.RED + "newField", newField)
+          //println(Console.RED + "newField", newField)
           updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
         }
       }
@@ -107,7 +107,7 @@ object EvaluateUtils {
                 + "_cost_" + GlobalParameters.get.readCostType, v)
             }
           }
-          println(Console.RED + "newField", newField)
+          //println(Console.RED + "newField", newField)
           updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
         }
       }
