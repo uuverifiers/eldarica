@@ -318,8 +318,16 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           (for (i <- 1 to numGhostVarSets) yield {
             instrs.combinations(i)
           }).flatten
+
+        val differentCombinations = combinations.filter{combs =>
+          val headTermsSeq = combs.map(_.headTerms)
+          val firstElementsSeq = headTermsSeq.map(_.toSeq.headOption)
+          // no duplicates, i.e., no instrumentations are updating the same
+          // head terms, they can be combined
+          (firstElementsSeq.distinct.size == firstElementsSeq.size)
+        }
         val completeCombinatons: Seq[Instrumentation] =
-          for (combination <- combinations) yield {
+          for (combination <- differentCombinations) yield {
             getCompleteInstrumentation(bAtom,
               combination.reduceOption(_ + _).getOrElse(
                 Instrumentation.emptyInstrumentation))
@@ -392,33 +400,54 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       val (alienTermInitFormula, alienTermAssertionFormula) =
         getAlienTermsFormulaAndAssertion(headTerms, bodyTerms, alienTermMap)
 
-      val alienSubstMap : Map[ConstantTerm, ITerm] =  // todo: incorrect - fix
-        (for ((alienC, alienI) <- extendedQuantifier.alienConstantsInPredicate.zipWithIndex) yield {
-          alienC -> headTerms.alienTerms(alienI).v//headArgs(termToHeadAlienVarInd(alienC))
-        }).toMap
-      val instrConstraint1                           =
-        (headTerms.arr === a2) &&& alienTermInitFormula &&&
-        ite(bodyTerms.lo === bodyTerms.hi,
-          (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === pred(o, i, alienSubstMap)),
-          ite((lo - 1 === i),
-            (headTerms.res === reduceOp(res, pred(o, i, alienSubstMap))) & (headTerms.lo === i) & headTerms.hi === hi,
-            ite(hi === i,
-              (headTerms.res === reduceOp(res, pred(o, i, alienSubstMap))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
-              ite(lo <= i & hi > i,
-                invReduceOp match {
-                  case Some(f) =>
-                    headTerms.res === reduceOp(f(res, select(a1, i)), pred(o, i, alienSubstMap)) &
-                    headTerms.lo === lo & headTerms.hi === hi
-                  case _ =>
-                    (headTerms.lo === i) & (headTerms.hi === i + 1) &
-                    (headTerms.res === pred(o, i, alienSubstMap))
-                },
-                (headTerms.lo === i) & (headTerms.hi === i + 1) &
-                (headTerms.res === pred(o, i, alienSubstMap)))))) // outside bounds, reset
-      val assertion = lo === hi ||| (a1 === arr &&& alienTermAssertionFormula)
-      Seq(InstrumentationResult(newConjunct = instrConstraint1,
-                                              rewriteConjuncts = Map(),
-                                              assertions = Seq(assertion)))
+      val standardInstrumentation = {
+        val alienSubstMap : Map[ConstantTerm, ITerm] =  // todo: incorrect - fix
+          (for ((alienC, alienI) <- extendedQuantifier.alienConstantsInPredicate.zipWithIndex) yield {
+            alienC -> headTerms.alienTerms(alienI).v//headArgs(termToHeadAlienVarInd(alienC))
+          }).toMap
+        val instrConstraint1 =
+          (headTerms.arr === a2) &&& alienTermInitFormula &&&
+          ite(bodyTerms.lo === bodyTerms.hi,
+            (headTerms.lo === i) & (headTerms.hi === i + 1) & (headTerms.res === pred(o, i, alienSubstMap)),
+            ite((lo - 1 === i),
+              (headTerms.res === reduceOp(res, pred(o, i, alienSubstMap))) & (headTerms.lo === i) & headTerms.hi === hi,
+              ite(hi === i,
+                (headTerms.res === reduceOp(res, pred(o, i, alienSubstMap))) & (headTerms.hi === i + 1 & headTerms.lo === lo),
+                ite(lo <= i & hi > i,
+                  invReduceOp match {
+                    case Some(f) =>
+                      headTerms.res === reduceOp(f(res, select(a1, i)), pred(o, i, alienSubstMap)) &
+                      headTerms.lo === lo & headTerms.hi === hi
+                    case _ =>
+                      (headTerms.lo === i) & (headTerms.hi === i + 1) &
+                      (headTerms.res === pred(o, i, alienSubstMap))
+                  },
+                  (headTerms.lo === i) & (headTerms.hi === i + 1) &
+                  (headTerms.res === pred(o, i, alienSubstMap)))))) // outside bounds, reset
+        val assertion = lo === hi ||| (a1 === arr &&& alienTermAssertionFormula)
+
+          InstrumentationResult(newConjunct = instrConstraint1,
+                                rewriteConjuncts = Map(),
+                                assertions = Seq(assertion))
+      }
+      //////////////////////////////////////////////////////////////////////////
+      // also add an array pass-through instrumentation for stores
+      val arrayPassThroughInstrumentation : InstrumentationResult = {
+        val instrConstraint = {
+//          ((i < bodyTerms.lo ||| bodyTerms.hi <= i) &&& bodyTerms.arr === a1) ==>
+//            (headTerms.arr === a2)
+          headTerms.lo === bodyTerms.lo &&& headTerms.hi === bodyTerms.hi &&&
+          headTerms.res === bodyTerms.res &&&
+          ite(((i < bodyTerms.lo) ||| (bodyTerms.hi <= i)) &&& (bodyTerms.arr === a1),
+              headTerms.arr === a2,
+              headTerms.arr === bodyTerms.arr)
+        }
+        InstrumentationResult(newConjunct = instrConstraint,
+                              rewriteConjuncts = Map(),
+                              assertions = Nil)
+      }
+
+      Seq(standardInstrumentation, arrayPassThroughInstrumentation)
     }
   }
 
