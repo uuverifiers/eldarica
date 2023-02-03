@@ -43,7 +43,8 @@ import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.{immutable, mutable}
-import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
+  HashMap => MHashMap}
 import scala.util.Random
 
 object InstrumentationLoop {
@@ -63,11 +64,11 @@ class InstrumentationLoop (clauses : Clauses,
                            globalPredicateTemplates: Map[Predicate, Seq[VerifHintElement]] = Map()) {
   import InstrumentationLoop._
 
-  val backTranslators = new ArrayBuffer[BackTranslator]
+  private val backTranslators = new ArrayBuffer[BackTranslator]
 
-  val preprocessor = new PreStagePreprocessor
-  var curHints : VerificationHints = hints
-  val (simpClauses, newHints1, backTranslator1) =
+  private val preprocessor = new PreStagePreprocessor
+  private var curHints : VerificationHints = hints
+  private val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
       preprocessor.process(clauses, curHints)
     }
@@ -80,14 +81,17 @@ class InstrumentationLoop (clauses : Clauses,
 //  clauses.foreach(clause => println(clause.toPrologString))
 //  println("="*80 + "\n")
 
-  val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
+  private val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
 
-  val instrumenterBackTranslators = new ArrayBuffer[BackTranslator]
+  private val instrumenterBackTranslators = new ArrayBuffer[BackTranslator]
 
-  var rawResult : Result = Inconclusive
+  private var rawResult : Result = Inconclusive
 
-  var lastSolver : IncrementalHornPredAbs[Clause] = _
-  var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
+  private val searchSpaceSizePerNumGhostRanges = new MHashMap[Int, Int]
+  private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
+
+  private var lastSolver : IncrementalHornPredAbs[Clause] = _
+  private var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
     val numRanges = ghostVarRanges.head
@@ -185,12 +189,15 @@ class InstrumentationLoop (clauses : Clauses,
       searchSpace += search.toMap -- eliminatedBranchPredicates
     }
 
+    searchSpaceSizePerNumGhostRanges += (numRanges -> searchSpace.size)
     println("Clauses instrumented, starting search for correct instrumentation.")
 
     var numSteps = 0
+    searchStepsPerNumGhostRanges += (numRanges -> numSteps)
 
     while((searchSpace nonEmpty) && rawResult == Inconclusive) {
       numSteps += 1
+      searchStepsPerNumGhostRanges += (numRanges -> numSteps)
       val instrumentation = pickInstrumentation(searchSpace.toSet)
       println("\n(" + numSteps + ") Remaining search space size: " + searchSpace.size)
       println("Selected branches: " + instrumentation.map(instr =>
@@ -253,4 +260,17 @@ class InstrumentationLoop (clauses : Clauses,
     case Inconclusive =>
       Right(DagEmpty)
   }
+  /**
+   * Search space size per number of ghost ranges used, will only contain
+   * the sizes for used number of ghost ranges. Must be called after result.
+   */
+  lazy val totalSearchSpaceSizesPerNumGhostRanges : Map[Int, Int] =
+    searchSpaceSizePerNumGhostRanges.toMap
+  /**
+   * Total number of steps taken until reaching the result at every
+   * "numGhostRange". Must be called after result.
+   */
+  lazy val totalSearchStepsPerNumGhostRanges      : Map[Int, Int] =
+    searchSpaceSizePerNumGhostRanges.toMap
+
 }
