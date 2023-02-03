@@ -33,6 +33,7 @@ package lazabs.horn.extendedquantifiers
 import ap.parser.{IAtom, IExpression, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
+import ap.util.Timeout
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
@@ -43,8 +44,7 @@ import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.{immutable, mutable}
-import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
-  HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Random
 
 object InstrumentationLoop {
@@ -65,6 +65,9 @@ class InstrumentationLoop (clauses : Clauses,
   import InstrumentationLoop._
 
   private val backTranslators = new ArrayBuffer[BackTranslator]
+
+  private val startingTimeout : Long = 1000 // milliseconds
+  private val timeoutMultiplier : Int = 2
 
   private val preprocessor = new PreStagePreprocessor
   private var curHints : VerificationHints = hints
@@ -189,50 +192,73 @@ class InstrumentationLoop (clauses : Clauses,
       searchSpace += search.toMap -- eliminatedBranchPredicates
     }
 
+    val postponedSearches = new MHashSet[Map[Predicate, Conjunction]]
+
     searchSpaceSizePerNumGhostRanges += (numRanges -> searchSpace.size)
     println("Clauses instrumented, starting search for correct instrumentation.")
 
     var numSteps = 0
     searchStepsPerNumGhostRanges += (numRanges -> numSteps)
 
+    var currentTimeout = startingTimeout
+
     while((searchSpace nonEmpty) && rawResult == Inconclusive) {
       numSteps += 1
+
       searchStepsPerNumGhostRanges += (numRanges -> numSteps)
       val instrumentation = pickInstrumentation(searchSpace.toSet)
       println("\n(" + numSteps + ") Remaining search space size: " + searchSpace.size)
+      println("                     Postponed instrumentations : " + postponedSearches.size)
       println("Selected branches: " + instrumentation.map(instr =>
         instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
 
-      // assuming empty instrumentation is not in searchSpace below
-      // left sol, right cex
-      incSolver.checkWithSubstitution(instrumentation) match {
-        case Right(cex) => {
-          // check if cex is genuine
-          val cexIsGenuine =
-            cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(pred =>
-              !(instrumenter.branchPredicates contains pred)
-            )
-
-          if (cexIsGenuine) {
-            println("\nunsafe")
-            rawResult = Unsafe(cex)
-          } else {
-            println("\ninconclusive, iterating...")
-            val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
-              instrumenter.branchPredicates contains _.pred)).toSet
-            val ineligibleSearchSpace = searchSpace.filter {
-              search =>
-                val atoms: immutable.Iterable[IAtom] =
-                  search.map(t => IAtom(t._1, Seq(IExpression.i(
-                    t._2.arithConj.positiveEqs.head.constant.intValue * (-1)))))
-                prefix.subsetOf(atoms.toSet)
+      Timeout.withTimeoutMillis(currentTimeout){
+        // assuming empty instrumentation is not in searchSpace below
+        // left sol, right cex
+        incSolver.checkWithSubstitution(instrumentation) match {
+          case Right(cex)     => {
+            // check if cex is genuine
+            val cexIsGenuine =
+              cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(
+                pred => !(instrumenter.branchPredicates contains pred))
+            if (cexIsGenuine) {
+              println("\nunsafe")
+              rawResult = Unsafe(cex)
+            } else {
+              println("\ninconclusive, iterating...")
+              val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
+                instrumenter.branchPredicates contains _.pred)).toSet
+              val ineligibleSearchSpace = (searchSpace ++ postponedSearches)
+                .filter{
+                search =>
+                  val atoms : immutable.Iterable[IAtom] =
+                    search.map(t => IAtom(t._1, Seq(IExpression.i(
+                      t._2.arithConj.positiveEqs.head.constant.intValue *
+                      (-1)))))
+                  prefix.subsetOf(atoms.toSet)
+              }
+              ineligibleSearchSpace.foreach{s =>
+                if (searchSpace contains s) // todo: optimize - no need to
+                // search again
+                  searchSpace -= s
+                if (postponedSearches contains s)
+                  postponedSearches -= s
+              }
             }
-            ineligibleSearchSpace.foreach(s =>
-              searchSpace -= s)
           }
+          case Left(solution) =>
+            rawResult = Safe(solution)
         }
-        case Left(solution) =>
-          rawResult = Safe(solution)
+      } {
+        println("Instrumentation timed out and postponed.")
+        searchSpace -= instrumentation
+        postponedSearches += instrumentation
+      }
+      if(searchSpace.isEmpty && postponedSearches.nonEmpty) {
+        postponedSearches.foreach(searchSpace += _)
+        currentTimeout *= timeoutMultiplier
+        println("Retrying postponed instrumentations with new timeout: " +
+                currentTimeout/1e3)
       }
     }
   }
@@ -271,6 +297,6 @@ class InstrumentationLoop (clauses : Clauses,
    * "numGhostRange". Must be called after result.
    */
   lazy val totalSearchStepsPerNumGhostRanges      : Map[Int, Int] =
-    searchSpaceSizePerNumGhostRanges.toMap
+    searchStepsPerNumGhostRanges.toMap
 
 }
