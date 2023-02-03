@@ -490,25 +490,26 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
 
     val ExtendedQuantifierInfo(_, funApp, a, lo, hi, o, conjunct) = exqInfo
     def loExpr = extendedQuantifier.rangeFormulaLo.getOrElse(
-      (t1 : ITerm, t2 : ITerm) => t1 === t2)
+      (t1 : ITerm, t2 : ITerm, t3 : ITerm) => t1 === t2)
     def hiExpr = extendedQuantifier.rangeFormulaHi.getOrElse(
-      (t1 : ITerm, t2 : ITerm) => t1 === t2)
+      (t1 : ITerm, t2 : ITerm, t3 : ITerm) => t1 === t2)
 
     def buildRangeFormula(combs : Seq[Seq[GhostVariableTerms]]) : IFormula = {
       combs.headOption match {
         case Some(comb) =>
           comb length match {
             case 1 =>
-              ((loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a) ==>
-                (comb.head.res === o)) &&&
+              ((loExpr(comb.head.lo, lo, comb.head.res) &
+                hiExpr(comb.head.hi, hi, comb.head.res) &
+                comb.head.arr === a) ==> (comb.head.res === o)) &&&
               ((lo >= hi) ==> (extendedQuantifier.identity === o)) &&&
                 buildRangeFormula(combs.tail)
             case 2 => //todo: empty range for more than one ghost var range?
-              ((loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
-                hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a) ==>
+              ((loExpr(comb(0).lo, lo, comb(0).res) & hiExpr(comb(0).hi, comb(1).lo, comb(0).res) &
+                hiExpr(comb(1).hi, hi, comb(1).res) & comb(0).arr === a & comb(1).arr === a) ==>
                 (extendedQuantifier.reduceOp(comb(0).res, comb(1).res) === o) &&&
-                ((loExpr(comb(1).lo, lo) & hiExpr(comb(1).hi, comb(0).lo) &
-                  hiExpr(comb(0).hi, hi) & comb(0).arr === a & comb(1).arr === a) ==>
+                ((loExpr(comb(1).lo, lo, comb(1).res) & hiExpr(comb(1).hi, comb(0).lo, comb(1).res) &
+                  hiExpr(comb(0).hi, hi, comb(0).res) & comb(0).arr === a & comb(1).arr === a) ==>
                   (extendedQuantifier.reduceOp(comb(1).res, comb(0).res) === o))) &&&
                 buildRangeFormula(combs.tail)
             case _ => ??? // todo: generalize this!
@@ -536,7 +537,9 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
               }.fold(i(true))((c1, c2) => c1 &&& c2)
 
               val guard =
-                (loExpr(comb.head.lo, lo) & hiExpr(comb.head.hi, hi) & comb.head.arr === a &&& alienGuard) ||| (lo >= hi)
+                (loExpr(comb.head.lo, lo, comb.head.res) &
+                 hiExpr(comb.head.hi, hi, comb.head.res) &
+                 comb.head.arr === a &&& alienGuard) ||| (lo >= hi)
               guard ||| buildAssertionFormula(combs.tail)
             case 2 => //todo: empty range for more than one ghost var range?
               val alienGuard1 = {
@@ -552,11 +555,15 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
                   }
               }.fold(i(true))((c1, c2) => c1 &&& c2)
               val c1 =
-                loExpr(comb(0).lo, lo) & hiExpr(comb(0).hi, comb(1).lo) &
-                  hiExpr(comb(1).hi, hi) & comb(0).arr === a & comb(1).arr === a &&& alienGuard1
+                loExpr(comb(0).lo, lo, comb(0).res) &
+                hiExpr(comb(0).hi, comb(1).lo, comb(0).res) &
+                hiExpr(comb(1).hi, hi, comb(1).res) & comb(0).arr === a &
+                comb(1).arr === a &&& alienGuard1
               val c2 =
-                loExpr(comb(1).lo, lo) & hiExpr(comb(1).hi, comb(0).lo) &
-                 hiExpr(comb(0).hi, hi) & comb(0).arr === a & comb(1).arr === a &&& alienGuard2
+                loExpr(comb(1).lo, lo, comb(1).res) &
+                hiExpr(comb(1).hi, comb(0).lo, comb(1).res) &
+                hiExpr(comb(0).hi, hi, comb(0).res) &
+                comb(0).arr === a & comb(1).arr === a &&& alienGuard2
               (c1 ||| c2) ||| buildAssertionFormula(combs.tail)
             case _ => ??? // todo: generalize this!
           }

@@ -58,10 +58,11 @@ import ap.types.MonoSortedIFunction
  * @param rangeFormulaLo  : an optional range expression to be used when
  *                          rewriting the extended quantifier assertion. This
  *                          relaxes the requirement that ranges must exactly
- *                          match. Given (lo, i), default is lo === i, but for
+ *                          match. Given (lo, i, p_agg),
+ *                          default is lo === i, but for
  *                          instance one can specify lo <= i. The first term
  *                          must be ghost variable tracking lo, and the
- *                          econd argument must be lo from the assertion.
+ *                          second argument must be lo from the assertion.
  * @param rangeFormulaHi  : similar to above, but for hi.
  */
 class ExtendedQuantifier(name               : String,
@@ -70,8 +71,8 @@ class ExtendedQuantifier(name               : String,
                          val reduceOp       : (ITerm, ITerm) => ITerm,
                          val invReduceOp    : Option[(ITerm, ITerm) => ITerm],
                          val predicate      : Option[(ITerm, ITerm) => ITerm],
-                         val rangeFormulaLo : Option[(ITerm, ITerm) => IFormula],
-                         val rangeFormulaHi : Option[(ITerm, ITerm) => IFormula])
+                         val rangeFormulaLo : Option[(ITerm, ITerm, ITerm) => IFormula],
+                         val rangeFormulaHi : Option[(ITerm, ITerm, ITerm) => IFormula])
 // a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
   extends Theory {
 
