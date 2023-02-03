@@ -32,13 +32,12 @@ package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
 import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.parser.{IExpression, IFormula, IFunction, ITerm, PrincessLineariser}
+import ap.parser.{IFormula, IFunction, ITerm, SymbolCollector}
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.{ConstantTerm, Formula}
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
 import ap.types.MonoSortedIFunction
-import lazabs.prover.PrincessWrapper
 
 
 /**
@@ -82,6 +81,17 @@ class ExtendedQuantifier(name               : String,
 
   // this theory depends on the theory of extensional arrays with specified sorts
   override val dependencies: Iterable[Theory] = List(arrayTheory)
+
+  // alien constants (if any) in the predicate (if any)
+  val alienConstantsInPredicate : Seq[ConstantTerm] = {
+    predicate match {
+      case Some(pred) =>
+        val t1 = new ConstantTerm("t1")
+        val t2 = new ConstantTerm("t2")
+        SymbolCollector.constantsSorted(pred(t1, t2)) diff Seq(t1, t2)
+      case None => Nil
+    }
+  }
 
   // fun : (a : array, lo : Int, hi : Int) => Obj
   val fun = MonoSortedIFunction(

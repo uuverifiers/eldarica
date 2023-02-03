@@ -39,7 +39,7 @@ import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, NormClause, PredicateStore, TemplateInterpolator}
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.{immutable, mutable}
@@ -65,7 +65,7 @@ class InstrumentationLoop (clauses : Clauses,
 
   val backTranslators = new ArrayBuffer[BackTranslator]
 
-  val preprocessor = new DefaultPreprocessor
+  val preprocessor = new PreStagePreprocessor
   var curHints : VerificationHints = hints
   val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
@@ -117,9 +117,11 @@ class InstrumentationLoop (clauses : Clauses,
       if (lazabs.GlobalParameters.get.logStat) Console.err
       else lazabs.horn.bottomup.HornWrapper.NullStream
 
+    val fullPreprocessor = new DefaultPreprocessor
+
     val (simpClauses2, newHints2, backTranslator2) =
       Console.withErr(outStream) {
-        preprocessor.process(instrumenter.instrumentedClauses, curHints, instrumenter.branchPredicates)
+        fullPreprocessor.process(instrumenter.instrumentedClauses, curHints, instrumenter.branchPredicates)
       }
     curHints = newHints2
     instrumenterBackTranslators += backTranslator2

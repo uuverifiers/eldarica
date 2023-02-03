@@ -31,11 +31,13 @@
 package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression.{Predicate, _}
+import ap.parser.IFormula
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
 import lazabs.horn.extendedquantifiers.GhostVariableAdder._
 import lazabs.horn.preprocessor.HornPreprocessor._
 import lazabs.horn.preprocessor._
+import lazabs.prover.PrincessWrapper.expr2Formula
 
 class GhostVariableInitializer(
   ghostVarInds : Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]])
@@ -50,13 +52,18 @@ class GhostVariableInitializer(
 
     val newClauses = for (clause <- clauses) yield {
       if (entryClauses contains clause) {
-        val newConjuncts = for ((exq, predToGhostVars) <- ghostVarInds) yield {
+        val newConjuncts = new collection.mutable.ArrayBuffer[IFormula]
+        for ((exq, predToGhostVars) <- ghostVarInds) {
           val ghostVars = predToGhostVars(clause.head.pred)
-          (for (ghostVarSet <- ghostVars) yield {
-            val GhostVariableInds(lo, hi, res, arr) = ghostVarSet
-            clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&
+          for (GhostVariableInds(lo, hi, res, arr, alienInds) <- ghostVars) {
+            newConjuncts +=
+              clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&
               exq.exTheory.identity === clause.head.args(res)
-          }).fold(i(true))((c1, c2) => c1 &&& c2)
+            for (AlienGhostVariableInds(_, vSet) <- alienInds) {
+              // ghost alien vars are initially not set
+              newConjuncts += !expr2Formula(clause.head.args(vSet))
+            }
+          }
         }
         val newConstraint = clause.constraint &&&
           newConjuncts.fold(i(true))((c1, c2) => c1 &&& c2)

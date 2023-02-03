@@ -87,7 +87,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
   private val translators = new ArrayBuffer[BackTranslator]
   private val branchPreds = new MHashSet[Predicate]
 
-  extendedQuantifiers map TheoryRegistry.register
+  extendedQuantifiers foreach TheoryRegistry.register
 
   // normalize the clauses
   private val normalizer = new Normalizer
@@ -98,7 +98,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
   // add ghost variables for each extended quantifier application
   private val ghostVariableAdder =
     new GhostVariableAdder(extendedQuantifierInfos, numGhostRanges)
-  val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap) =
+  val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap, alienVarToPredVar) =
     ghostVariableAdder.processAndGetGhostVarMap(clausesNormalized, hintsNormalized, frozenPredicates)
   translators += backTranslatorGhost
 
@@ -146,7 +146,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
             clauseInstrumenter.instrument(clause,
               //getGhostVarInds(extendedQuantifierInfo, ghostVarMap),
               ghostVarMap(extendedQuantifierInfo),
-              extendedQuantifierInfo)
+              extendedQuantifierInfo,
+              alienVarToPredVar)
           }
         // in each clause, the search space is the product of instrumentations for each extended quantifier
         val combinedInstrumentations =
