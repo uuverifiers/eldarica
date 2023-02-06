@@ -198,20 +198,20 @@ class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQu
     // the lower the priority value is, the higher priority that the clause will be processed first
     val (_, nc, _, _) = s
     val rankScore = normClauseToRank(nc)
-    rankScore
+    //rankScore
 
     //todo combine rank score with other heuristics
 
-    //    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
-    //    birthTime) = s
+        val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+        birthTime) = s
 
-    //    (headSym match {
-    //      case HornClauses.FALSE => -10000
-    //      case _ => 0
-    //    }) + (
-    //      for (AbstractState(_, preds) <- states.iterator)
-    //        yield preds.size).sum +
-    //      birthTime
+        (headSym match {
+          case HornClauses.FALSE => -10000
+          case _ => 0
+        }) + (
+          for (AbstractState(_, preds) <- states.iterator)
+            yield preds.size).sum +
+          birthTime + rankScore
   }
 
   private implicit val ord = new Ordering[Expansion] {
