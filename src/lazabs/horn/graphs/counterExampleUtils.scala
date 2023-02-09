@@ -8,11 +8,12 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{AbstractState, CounterexampleMiner, HornClauses, HornTranslator, NormClause, RelationSymbol, StateQueue}
-import lazabs.horn.graphs.Utils.{getFloatSeqRank, getPredAbs, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, roundByDigit, writeOneLineJson, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getFloatSeqRank, getPredAbs, printListMap, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, roundByDigit, writeOneLineJson, writeSMTFormatToFile}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import lazabs.horn.global.HornClause
 import lazabs.horn.graphs.GraphUtils.{graphFileNameMap, printCurrentNodeMap}
 import lazabs.horn.preprocessor.{HornPreprocessor, ReachabilityChecker}
+
 import scala.collection.mutable.PriorityQueue
 import java.io.{File, PrintWriter}
 
@@ -72,9 +73,18 @@ object counterExampleUtils {
     try {
       val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
       val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-      //rank
-      val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq, false)
-      clauses.zip(predictedLogitsRank)
+      //The higher value the lower rank
+      val sortedClauses=clauses.zip(predictedLogits).sortBy(_._2).reverse
+      val rankedClauses= for ((t,i)<-sortedClauses.zipWithIndex) yield (t._1,i)
+      //normalize rank to 0 to 100, rank may repeated
+      val normalizedRankedClause= rankedClauses.map(x => (x._1,(x._2.toDouble / rankedClauses.length* 100).toInt))
+
+      if (GlobalParameters.get.log)
+        for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
+
+      return normalizedRankedClause
+
+
     } catch {
       case _ => clauses.zip(0 to clauses.length)
     }
@@ -118,6 +128,7 @@ object counterExampleUtils {
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
 
     // pruned by rank
+    //todo replace getFloatSeqRank
     val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
     val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
     val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r > rankThreshold) 1 else 0
@@ -194,7 +205,7 @@ class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQu
   private var time = 0
 
   private def priority(s: Expansion) = {
-    // the lower logit the higher rank value
+    // the lower logit value the higher rank value
     // the lower the priority value is, the higher priority that the clause will be processed first
     val (_, nc, _, _) = s
     val rankScore = normClauseToRank(nc)
@@ -202,16 +213,16 @@ class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQu
 
     //todo combine rank score with other heuristics
 
-        val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
-        birthTime) = s
+    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+    birthTime) = s
 
-        (headSym match {
-          case HornClauses.FALSE => -10000
-          case _ => 0
-        }) + (
-          for (AbstractState(_, preds) <- states.iterator)
-            yield preds.size).sum +
-          birthTime + rankScore
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum +
+      birthTime + rankScore
   }
 
   private implicit val ord = new Ordering[Expansion] {

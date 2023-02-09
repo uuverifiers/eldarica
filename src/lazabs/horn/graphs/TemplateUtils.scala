@@ -232,12 +232,14 @@ object TemplateUtils {
   def getPredicateGenerator(simplifiedClauses: Clauses, existedPredGenerator: Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]):
   Dag[DisjInterpolator.AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]] = {
     println(Console.BLUE + "-"*10+" getPredicateGenerator"+"-"*10)
-    val (template, templateGNN) = getPairOfCombTemplates(simplifiedClauses)
+    //val (template, templateGNN) = getPairOfCombTemplates(simplifiedClauses)
     GlobalParameters.get.combineTemplateStrategy match {
       case CombineTemplateStrategy.union => {
+        val (template, templateGNN) = getPairOfCombTemplates(simplifiedClauses)
         combinedPredicateGenerator(simplifiedClauses, template, templateGNN)
       }
       case CombineTemplateStrategy.random => {
+        val (template, templateGNN) = getPairOfCombTemplates(simplifiedClauses)
         randomPredicateGenerator(simplifiedClauses, template, templateGNN)
       }
       case CombineTemplateStrategy.off => {

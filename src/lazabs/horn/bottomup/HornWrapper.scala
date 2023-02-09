@@ -494,6 +494,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
   if (GlobalParameters.get.getSolvability) {
     getSolvability(unsimplifiedClauses, simplifiedClauses, predGenerator)
+    //use return insted of exit
     System.exit(0)
   }
 
