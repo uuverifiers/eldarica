@@ -38,9 +38,7 @@ object EvaluateUtils {
 
     //get ranked clause, the higher logit the value lower rank value
     val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
-//    if (GlobalParameters.get.log) {
-//      for ((c, r) <- clauseRankMap) println(Console.RED + r, c)
-//    }
+
 
     //get predicate generator from predicted or existed heuristics
     val predGeneratorForSolvabilityCheck = getPredicateGenerator(clausesForSolvabilityCheck, predGenerator)

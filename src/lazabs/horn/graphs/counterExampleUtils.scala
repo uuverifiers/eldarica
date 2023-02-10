@@ -74,15 +74,15 @@ object counterExampleUtils {
       val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
       val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
       //The higher value the lower rank
-      val sortedClauses=clauses.zip(predictedLogits).sortBy(_._2).reverse
-      val rankedClauses= for ((t,i)<-sortedClauses.zipWithIndex) yield (t._1,i)
+      val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse
+      val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
       //normalize rank to 0 to 100, rank may repeated
-      val normalizedRankedClause= rankedClauses.map(x => (x._1,(x._2.toDouble / rankedClauses.length* 100).toInt))
+      val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
 
       if (GlobalParameters.get.log)
         for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
 
-      return normalizedRankedClause
+      normalizedRankedClause
 
 
     } catch {
@@ -128,8 +128,11 @@ object counterExampleUtils {
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
 
     // pruned by rank
-    //todo replace getFloatSeqRank
-    val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+    //higher logit value higher rank
+    val sortedClausesByLogitValue = clauses.zip(predictedLogits).sortBy(_._2)
+    val rankedClausesMap = (for ((t, i) <- sortedClausesByLogitValue.zipWithIndex) yield (t._1, i)).toMap
+    val predictedLogitsRank = for (c <- clauses) yield rankedClausesMap(c)
+    //val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
     val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
     val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r > rankThreshold) 1 else 0
 
