@@ -74,13 +74,15 @@ object counterExampleUtils {
       val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
       val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
       //The higher value the lower rank
-      val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse
+      val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse //todo check this
       val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
       //normalize rank to 0 to 100, rank may repeated
       val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
 
-      if (GlobalParameters.get.log)
+      if (GlobalParameters.get.log) {
+        println(Console.BLUE+"rank, logit value, clause")
         for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
+      }
 
       normalizedRankedClause
 
@@ -134,7 +136,7 @@ object counterExampleUtils {
     val predictedLogitsRank = for (c <- clauses) yield rankedClausesMap(c)
     //val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
     val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
-    val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r > rankThreshold) 1 else 0
+    val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r >= rankThreshold) 1 else 0
 
     //pruned by normalization
     //    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
@@ -212,20 +214,32 @@ class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQu
     // the lower the priority value is, the higher priority that the clause will be processed first
     val (_, nc, _, _) = s
     val rankScore = normClauseToRank(nc)
-    //rankScore
 
-    //todo combine rank score with other heuristics
 
     val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
     birthTime) = s
 
+
+    //rankScore
+
+    //combine rank score with other heuristics
+
+//    (headSym match {
+//      case HornClauses.FALSE => -10000
+//      case _ => 0
+//    }) + (
+//      for (AbstractState(_, preds) <- states.iterator)
+//        yield preds.size).sum +
+//      birthTime + rankScore
+
+    //original version
     (headSym match {
       case HornClauses.FALSE => -10000
       case _ => 0
     }) + (
       for (AbstractState(_, preds) <- states.iterator)
         yield preds.size).sum +
-      birthTime + rankScore
+      birthTime
   }
 
   private implicit val ord = new Ordering[Expansion] {

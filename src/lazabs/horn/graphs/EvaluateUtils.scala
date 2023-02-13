@@ -67,6 +67,7 @@ object EvaluateUtils {
         case Left(res) => 1 //SAT
         case Right(cex) => 0 //UNSAT
       }
+      println(Console.BLUE+"satisfiability:",satisfiability)
       val solvingTime = (predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds
       val cegarIterationNumber = predAbs.cegar.iterationNum
       val generatedPredicateNumber = 0 //predAbs.cegar.generatedPredicateNumber
