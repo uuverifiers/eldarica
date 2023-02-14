@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.Utils.{getClausesAccordingToLabels, readSMTFormatFromFile, roundByDigit, writeOneLineJson}
+import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses, getRankedClausesByMUS}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
@@ -30,7 +30,7 @@ object EvaluateUtils {
                      originalSimplifiedClauses: Seq[Clause],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
 
-    val simplifiedClauses = getClausesAccordingToLabels(originalSimplifiedClauses)
+    val simplifiedClauses = getSimplifiedClausesFromFile(originalSimplifiedClauses)
 
     //get pruned clauses from predicted
     //get ranked clause, the higher logit the value higher rank value

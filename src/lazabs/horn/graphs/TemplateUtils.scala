@@ -34,6 +34,8 @@ object TemplateUtils {
   val timeoutForPredicateDistinct = 2000 // timeout in milli-seconds used in containsPred
 
   def generateTemplates(clauses: Clauses): Unit = {
+    //write simplified clauses to file
+    writeSMTFormatToFile(clauses, "simplified")
     if (readTemplateFromFile(clauses, "unlabeled").isEmpty) {
       val unlabeledTemplates = logTime(generateUnlabeledTemplates(clauses), "generate template")
       writeTemplatesToFile(unlabeledTemplates, "unlabeled")
@@ -45,6 +47,8 @@ object TemplateUtils {
   }
 
   def writeTemplateMap(clauses: Clauses): Unit = {
+    //write simplified clauses to file
+    writeSMTFormatToFile(clauses, "simplified")
     //notice: templates are only correspond to the original clauses
     val unlabeledTemplates = logTime(generateUnlabeledTemplates(clauses), "generate template")
     writeTemplatesToFile(unlabeledTemplates, "unlabeled")

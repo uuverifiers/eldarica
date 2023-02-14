@@ -103,6 +103,7 @@ object counterExampleUtils {
         checkedClauses
       } catch {
         case _ => {
+          println(Console.RED+"pruning except")
           clauses
         }
       }
@@ -143,8 +144,8 @@ object counterExampleUtils {
     //    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
 
     if (GlobalParameters.get.log) {
-      println(Console.RED + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
-      println(Console.RED + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
+      println(Console.BLUE + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
+      println(Console.BLUE + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
     }
 
     val clausesInCE = GlobalParameters.get.hornGraphType match {

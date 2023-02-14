@@ -444,16 +444,16 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -mineTemplates for training set /  generateTemplates unsolvable set
   * -getHornGraph:CDHG -hornGraphLabelType:template
   * training and prediction
-  * -getSolvability -hornGraphLabelType:template
+  * -getSolvability -hornGraphLabelType:template -lbe
   * collect results
   *
   * unsatcore pipeline:
-  * 1. mine labels [training]: -mineCounterExample:union
-  * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore
+  * 1. mine labels [training]: -mineCounterExample:union -abstract:off
+  * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore -abstract:off
   * 3. train and prediction in Python
   * 4. evaluation (write solvability.JSON):
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log -abstract:off -lbe
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank -abstract:off -lbe
   * 5. collect results in Python (read solvability.JSON)
   *
   * analysis clauses:
@@ -468,27 +468,26 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     System.exit(0)
   }
 
-  val hornGraphTrainingClauses = if (GlobalParameters.get.useUnsimplifiedClauses) unsimplifiedClauses else simplifiedClauses
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
-    logTime(mineTemplates(hornGraphTrainingClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(hornGraphTrainingClauses),"labeling")
+    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
+    logTime(writeTemplateMap(simplifiedClauses),"labeling")//also write simplified clauses to file
+    System.exit(0)
+  }
+  if (GlobalParameters.get.generateTemplates) { // -generateTemplates -abstract:unlabeled
+    generateTemplates(simplifiedClauses) //also write simplified clauses to file
     System.exit(0)
   }
   if (GlobalParameters.get.mineCounterExample){
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(hornGraphTrainingClauses, predGenerator),"mingCE")
+    logTime(mineClausesInCounterExamples(simplifiedClauses, predGenerator),"mingCE") //also write simplified clauses to file
     System.exit(0)
   }
-  if (GlobalParameters.get.generateTemplates){ // -generateTemplates -abstract:unlabeled
-    generateTemplates(hornGraphTrainingClauses)
-    System.exit(0)
-  }
-  if (GlobalParameters.get.getHornGraph) {
+  if (GlobalParameters.get.getHornGraph) { //read simplified clauses from file, if no simplified clauses in file, write simplified clauses to file
     createNewLogFile(append = true)
     val hornGraph = GlobalParameters.get.hornGraphType match {
-      case HornGraphType.CDHG => logTime(new CDHG(hornGraphTrainingClauses), "generate CDHG")
-      case HornGraphType.CG => logTime(new CG(hornGraphTrainingClauses), "generate CG")
+      case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses), "generate CDHG")
+      case HornGraphType.CG => logTime(new CG(simplifiedClauses), "generate CG")
     }
     System.exit(0)
   }

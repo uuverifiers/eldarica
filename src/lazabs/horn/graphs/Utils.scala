@@ -18,15 +18,15 @@ import java.io.{File, PrintWriter}
 object Utils {
 
 
-  def getClausesAccordingToLabels(originalSimplifiedClauses: Clauses): Clauses = {
-    GlobalParameters.get.hornGraphLabelType match {
-      case HornGraphLabelType.unsatCore => {
-        val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
-        if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
-          readSMTFormatFromFile(simplifiedClausesFileName)
-        else originalSimplifiedClauses
-      }
-      case HornGraphLabelType.template => originalSimplifiedClauses
+
+  def getSimplifiedClausesFromFile(originalSimplifiedClauses: Clauses): Clauses = {
+    val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
+    if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
+      readSMTFormatFromFile(simplifiedClausesFileName)
+    else {
+      //write simplified clauses to file
+      writeSMTFormatToFile(originalSimplifiedClauses, "simplified")
+      originalSimplifiedClauses
     }
   }
 
