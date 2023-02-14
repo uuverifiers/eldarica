@@ -6,15 +6,15 @@
  * modification, are permitted provided that the following conditions are met:
  *
  * * Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer.
+ * list of conditions and the following disclaimer.
  *
  * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
  *
  * * Neither the name of the authors nor the names of their
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -64,79 +64,82 @@ import scala.collection.mutable.{LinkedHashMap, HashMap => MHashMap, HashSet => 
 object HornWrapper {
 
   object NullStream extends java.io.OutputStream {
-    def write(b : Int) = {}
+    def write(b: Int) = {}
   }
 
-  def verifySolution(fullSol : HornPreprocessor.Solution,
-                     unsimplifiedClauses : Seq[Clause]) : Unit = {
-          // verify correctness of the solution
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-            import p._
-            unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
+  def verifySolution(fullSol: HornPreprocessor.Solution,
+                     unsimplifiedClauses: Seq[Clause]): Unit = {
+    // verify correctness of the solution
+    if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+      import p._
+      unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
+        addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+
+        for (c <- clause.constants) (Sort sortOf c) match {
+          case Sort.MultipleValueBool =>
+            // since we are making use of the equivalence
+            // x == False <=> x != True, we need to add bounds on Boolean
+            // variables (corresponding to the law of the excluded middle)
+            !!(c >= 0 & c <= 1)
+          case _ =>
+          // nothing
+        }
+
+        !!(constraint)
+        for (IAtom(pred, args) <- body)
+          !!(subst(fullSol(pred), args.toList, 0))
+        ??(if (head.pred == HornClauses.FALSE)
+          i(false)
+        else
+          subst(fullSol(head.pred), head.args.toList, 0))
+        ??? match {
+          case ProverStatus.Valid => true // ok
+          case ProverStatus.Invalid => {
+            Console.err.println("Verification of clause failed, clause is not satisfied:")
+            Console.err.println(clause.toPrologString)
+            Console.err.println("Countermodel: " + partialModel)
+            false
+          }
+          case s => {
+            Console.err.println("Warning: Verification of clause was not possible:")
+            Console.err.println(clause.toPrologString)
+            Console.err.println("Checker said: " + s)
+            true
+          }
+        }
+      }
+      }
+    })
+  }
+
+  def verifyCEX(fullCEX: HornPreprocessor.CounterExample,
+                unsimplifiedClauses: Seq[Clause]): Unit = {
+    // verify correctness of the counterexample
+    if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+      import p._
+      fullCEX.head._1.pred == HornClauses.FALSE &&
+        (fullCEX.subdagIterator forall {
+          case dag@DagNode((state, clause@Clause(head, body, constraint)),
+          children, _) =>
+            // syntactic check: do clauses fit together?
+            state.pred == head.pred &&
+              children.size == body.size &&
+              (unsimplifiedClauses contains clause) &&
+              ((children.iterator zip body.iterator) forall {
+                case (c, IAtom(pred, _)) =>
+                  c > 0 && dag(c)._1.pred == pred
+              }) &&
+              // semantic check: are clause constraints satisfied?
+              scope {
                 addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-
-                for (c <- clause.constants) (Sort sortOf c) match {
-                  case Sort.MultipleValueBool =>
-                    // since we are making use of the equivalence
-                    // x == False <=> x != True, we need to add bounds on Boolean
-                    // variables (corresponding to the law of the excluded middle)
-                    !! (c >= 0 & c <= 1)
-                  case _ =>
-                    // nothing
-                }
-
-                !! (constraint)
-                for (IAtom(pred, args) <- body)
-                  !! (subst(fullSol(pred), args.toList, 0))
-                ?? (if (head.pred == HornClauses.FALSE)
-                      i(false)
-                    else
-                      subst(fullSol(head.pred), head.args.toList, 0))
-                ??? match {
-                  case ProverStatus.Valid => true // ok
-                  case ProverStatus.Invalid => {
-                    Console.err.println("Verification of clause failed, clause is not satisfied:")
-                    Console.err.println(clause.toPrologString)
-                    Console.err.println("Countermodel: " + partialModel)
-                    false
-                  }
-                  case s => {
-                    Console.err.println("Warning: Verification of clause was not possible:")
-                    Console.err.println(clause.toPrologString)
-                    Console.err.println("Checker said: " + s)
-                    true
-                  }
-                }
-              }}})
-  }
-
-  def verifyCEX(fullCEX : HornPreprocessor.CounterExample,
-                unsimplifiedClauses : Seq[Clause]) : Unit = {
-          // verify correctness of the counterexample
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
-            import p._
-            fullCEX.head._1.pred == HornClauses.FALSE &&
-            (fullCEX.subdagIterator forall {
-               case dag@DagNode((state, clause@Clause(head, body, constraint)),
-                                children, _) =>
-                 // syntactic check: do clauses fit together?
-                 state.pred == head.pred &&
-                 children.size == body.size &&
-                 (unsimplifiedClauses contains clause) &&
-                 ((children.iterator zip body.iterator) forall {
-                    case (c, IAtom(pred, _)) =>
-                      c > 0 && dag(c)._1.pred == pred }) &&
-                 // semantic check: are clause constraints satisfied?
-                 scope {
-                   addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-                   !! (state.args === head.args)
-                   for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
-                     !! (dag(c)._1.args === args)
-                   !! (constraint)
-                   ??? == ProverStatus.Sat
-                 }
-             })
-          })
+                !!(state.args === head.args)
+                for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
+                  !!(dag(c)._1.args === args)
+                !!(constraint)
+                ??? == ProverStatus.Sat
+              }
+        })
+    })
   }
 
   type ResultType = Either[() => Map[Predicate, IFormula], () => Dag[IAtom]]
@@ -145,20 +148,21 @@ object HornWrapper {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class HornWrapper(constraints  : Seq[HornClause],
-                  uppaalAbsMap : Option[Map[String, AbsLattice]],
-                  lbe          : Boolean,
-                  disjunctive  : Boolean) {
+class HornWrapper(constraints: Seq[HornClause],
+                  uppaalAbsMap: Option[Map[String, AbsLattice]],
+                  lbe: Boolean,
+                  disjunctive: Boolean) {
 
   import HornWrapper.ResultType
 
-  def printClauses(cs : Seq[Clause]) = {
+  def printClauses(cs: Seq[Clause]) = {
     for (c <- cs) {
       println(c);
     }
   }
 
   private val translator = new HornTranslator
+
   import translator._
 
   //////////////////////////////////////////////////////////////////////////////
@@ -166,28 +170,28 @@ class HornWrapper(constraints  : Seq[HornClause],
   GlobalParameters.get.setupApUtilDebug
 
   private val outStream =
-     if (GlobalParameters.get.logStat)
-       Console.err
-     else
-       HornWrapper.NullStream
+    if (GlobalParameters.get.logStat)
+      Console.err
+    else
+      HornWrapper.NullStream
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))
 
-//    if (GlobalParameters.get.printHornSimplified)
-//      printMonolithic(unsimplifiedClauses)
+  //    if (GlobalParameters.get.printHornSimplified)
+  //      printMonolithic(unsimplifiedClauses)
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def readHints(filename : String,
-                        name2Pred : Map[String, Predicate])
-                      : VerificationHints = filename match {
+  private def readHints(filename: String,
+                        name2Pred: Map[String, Predicate])
+  : VerificationHints = filename match {
     case "" =>
       EmptyVerificationHints
     case hintsFile => {
-      val reader = new AbsReader (
-                     new java.io.BufferedReader (
-                       new java.io.FileReader(hintsFile)))
+      val reader = new AbsReader(
+        new java.io.BufferedReader(
+          new java.io.FileReader(hintsFile)))
       val hints =
         (for ((predName, hints) <- reader.allHints.iterator;
               pred = name2Pred get predName;
@@ -196,35 +200,35 @@ class HornWrapper(constraints  : Seq[HornClause],
                   if (pred.get.arity != reader.predArities(predName))
                     throw new Exception(
                       "Hints contain predicate with wrong arity: " +
-                      predName + " (should be " + pred.get.arity + " but is " +
-                      reader.predArities(predName) + ")")
+                        predName + " (should be " + pred.get.arity + " but is " +
+                        reader.predArities(predName) + ")")
                 } else {
                   Console.err.println(
                     "   Ignoring hints for " + predName + "\n")
                 }
                 pred.isDefined
               }) yield {
-           (pred.get, hints)
-         }).toMap
+          (pred.get, hints)
+        }).toMap
       VerificationHints(hints)
     }
   }
 
-  private val hints : VerificationHints = {
+  private val hints: VerificationHints = {
     val name2Pred =
       (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
-       yield (p.name -> p)).toMap
+      yield (p.name -> p)).toMap
     readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def preprocessClauses(clauses : Seq[Clause],
-                        hints   : VerificationHints)
-                                :(Seq[Clause],
-                                  VerificationHints,
-                                  BackTranslator) = {
+  def preprocessClauses(clauses: Seq[Clause],
+                        hints: VerificationHints)
+  : (Seq[Clause],
+    VerificationHints,
+    BackTranslator) = {
     val (simplifiedClauses, simpPreHints, backTranslator) =
       Console.withErr(outStream) {
         if (lbe) {
@@ -236,9 +240,9 @@ class HornWrapper(constraints  : Seq[HornClause],
       }
 
     if (GlobalParameters.get.printHornSimplified) {
-//      println("-------------------------------")
-//      printClauses(simplifiedClauses)
-//      println("-------------------------------")
+      //      println("-------------------------------")
+      //      printClauses(simplifiedClauses)
+      //      println("-------------------------------")
 
       println("Clauses after preprocessing:")
       for (c <- simplifiedClauses)
@@ -246,32 +250,32 @@ class HornWrapper(constraints  : Seq[HornClause],
       throw PrintingFinishedException
 
       //val aux = simplifiedClauses map (horn2Eldarica(_))
-//      val aux = horn2Eldarica(simplifiedClauses)
-//      println(lazabs.viewer.HornPrinter(aux))
-//      simplifiedClauses = aux map (transform(_))
-//      println("-------------------------------")
-//      printClauses(simplifiedClauses)
-//      println("-------------------------------")
+      //      val aux = horn2Eldarica(simplifiedClauses)
+      //      println(lazabs.viewer.HornPrinter(aux))
+      //      simplifiedClauses = aux map (transform(_))
+      //      println("-------------------------------")
+      //      printClauses(simplifiedClauses)
+      //      println("-------------------------------")
     }
 
     if (GlobalParameters.get.printHornSimplifiedSMT) {
       val predsToDeclare =
         (for (c <- simplifiedClauses
               if c.head.pred != FALSE) yield {
-           c.predicates
-         }).flatten.toSet.toList
+          c.predicates
+        }).flatten.toSet.toList
 
       SMTLineariser("", "HORN", "", Nil, predsToDeclare,
-                    simplifiedClauses.map(_ toFormula))
+        simplifiedClauses.map(_ toFormula))
 
       throw PrintingFinishedException
     }
 
-    val postHints : VerificationHints = {
+    val postHints: VerificationHints = {
       val name2Pred =
-      (for (Clause(head, body, _) <- simplifiedClauses.iterator;
-            IAtom(p, _) <- (head :: body).iterator)
-       yield (p.name -> p)).toMap
+        (for (Clause(head, body, _) <- simplifiedClauses.iterator;
+              IAtom(p, _) <- (head :: body).iterator)
+        yield (p.name -> p)).toMap
       readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
     }
 
@@ -282,100 +286,101 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printMonolithic(converted : Seq[Clause]) : Unit =
-      if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
-        Console.err.println("Clauses are linear; printing monolithic form")
+  def printMonolithic(converted: Seq[Clause]): Unit =
+    if (converted forall { case Clause(_, body, _) => body.size <= 1 }) {
+      Console.err.println("Clauses are linear; printing monolithic form")
 
-        val preds =
-          (for (Clause(head, body, _) <- converted.iterator;
-                IAtom(p, _) <- (Iterator single head) ++ body.iterator)
-           yield p).toList.distinct
+      val preds =
+        (for (Clause(head, body, _) <- converted.iterator;
+              IAtom(p, _) <- (Iterator single head) ++ body.iterator)
+        yield p).toList.distinct
 
-        val predNum = preds.iterator.zipWithIndex.toMap
-        val maxArity = (preds map (_.arity)).max
+      val predNum = preds.iterator.zipWithIndex.toMap
+      val maxArity = (preds map (_.arity)).max
 
-        val p = new Predicate("p", maxArity + 1)
-        val preArgs =  for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("pre" + i)
-        val postArgs = for (i <- 0 until (maxArity + 1))
-                       yield new ConstantTerm("post" + i)
+      val p = new Predicate("p", maxArity + 1)
+      val preArgs = for (i <- 0 until (maxArity + 1))
+        yield new ConstantTerm("pre" + i)
+      val postArgs = for (i <- 0 until (maxArity + 1))
+        yield new ConstantTerm("post" + i)
 
-        val initClause = {
-          val constraint =
-            or(for (Clause(IAtom(pred, args), List(), constraint) <-
-                      converted.iterator;
-                    if (pred != FALSE))
-               yield ((postArgs.head === predNum(pred)) &
-                      (args === postArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(), constraint)
-        }
-
-        if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
-                               case _ => false })
-          Console.err.println("WARNING: ignoring clauses without relation symbols")
-
-        val transitionClause = {
-          val constraint =
-            or(for (Clause(IAtom(predH, argsH),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator;
-                    if (predH != FALSE))
-               yield ((postArgs.head === predNum(predH)) &
-                      (preArgs.head === predNum(predB)) &
-                      (argsH === postArgs.tail) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val assertionClause = {
-          val constraint =
-            or(for (Clause(IAtom(FALSE, _),
-                           List(IAtom(predB, argsB)), constraint) <-
-                      converted.iterator)
-               yield ((preArgs.head === predNum(predB)) &
-                      (argsB === preArgs.tail) &
-                      constraint))
-          Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
-        }
-
-        val clauses =
-          List(initClause, transitionClause, assertionClause)
-
-        println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
-
-        System.exit(0)
-
-      } else {
-
-        Console.err.println("Clauses are not linear")
-        System.exit(0)
-
+      val initClause = {
+        val constraint =
+          or(for (Clause(IAtom(pred, args), List(), constraint) <-
+                    converted.iterator;
+                  if (pred != FALSE))
+          yield ((postArgs.head === predNum(pred)) &
+            (args === postArgs.tail) &
+            constraint))
+        Clause(IAtom(p, postArgs), List(), constraint)
       }
+
+      if (converted exists { case Clause(IAtom(FALSE, _), List(), _) => true
+      case _ => false
+      })
+        Console.err.println("WARNING: ignoring clauses without relation symbols")
+
+      val transitionClause = {
+        val constraint =
+          or(for (Clause(IAtom(predH, argsH),
+          List(IAtom(predB, argsB)), constraint) <-
+                    converted.iterator;
+                  if (predH != FALSE))
+          yield ((postArgs.head === predNum(predH)) &
+            (preArgs.head === predNum(predB)) &
+            (argsH === postArgs.tail) &
+            (argsB === preArgs.tail) &
+            constraint))
+        Clause(IAtom(p, postArgs), List(IAtom(p, preArgs)), constraint)
+      }
+
+      val assertionClause = {
+        val constraint =
+          or(for (Clause(IAtom(FALSE, _),
+          List(IAtom(predB, argsB)), constraint) <-
+                    converted.iterator)
+          yield ((preArgs.head === predNum(predB)) &
+            (argsB === preArgs.tail) &
+            constraint))
+        Clause(FALSE(), List(IAtom(p, preArgs)), constraint)
+      }
+
+      val clauses =
+        List(initClause, transitionClause, assertionClause)
+
+      println(lazabs.viewer.HornSMTPrinter(horn2Eldarica(clauses)))
+
+      System.exit(0)
+
+    } else {
+
+      Console.err.println("Clauses are not linear")
+      System.exit(0)
+
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def standardCheck() : ResultType = {
-    if (new java.io.File(GlobalParameters.get.fileName + ".simplified").exists) //if there is a simplifed.smt2 file, skip preprocessing
-      GlobalParameters.get.lbe=true
-
+  def standardCheck(): ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      preprocessClauses(unsimplifiedClauses, hints)
+      if (new java.io.File(GlobalParameters.get.fileName + ".simplified").exists) //if there is a simplifed.smt2 file, skip preprocessing
+        (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
+      else
+        preprocessClauses(unsimplifiedClauses, hints)
     (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
-                          allHints, preprocBackTranslator,
-                          disjunctive, outStream)).result
+      allHints, preprocBackTranslator,
+      disjunctive, outStream)).result
   }
 
-  def templatePOCheck(delay : Int) : ResultType = {
+  def templatePOCheck(delay: Int): ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
       preprocessClauses(unsimplifiedClauses, hints)
 
     ParallelComputation(GlobalParameters.get.withAndWOTemplates,
-                        startDelay = delay) {
+      startDelay = delay) {
       (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
-                            allHints, preprocBackTranslator,
-                            disjunctive, outStream)).result
+        allHints, preprocBackTranslator,
+        disjunctive, outStream)).result
     }
   }
 
@@ -387,20 +392,20 @@ class HornWrapper(constraints  : Seq[HornClause],
         templatePOCheck(1000)
       case GlobalParameters.Portfolio.General =>
         (new ParallelComputation(List(standardCheck _, () => templatePOCheck(3000)),
-                                 GlobalParameters.get.generalPortfolioParams,
-                                 startDelay = 5000)).result
-  }
+          GlobalParameters.get.generalPortfolioParams,
+          startDelay = 5000)).result
+    }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
-                       simplifiedClauses : Seq[Clause],
-                       simpHints : VerificationHints,
-                       preprocBackTranslator : BackTranslator,
-                       disjunctive : Boolean,
-                       outStream : java.io.OutputStream) {
+class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
+                       simplifiedClauses: Seq[Clause],
+                       simpHints: VerificationHints,
+                       preprocBackTranslator: BackTranslator,
+                       disjunctive: Boolean,
+                       outStream: java.io.OutputStream) {
 
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
@@ -409,11 +414,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   private lazy val absBuilder =
     new StaticAbstractionBuilder(simplifiedClauses, abstractionType)
 
-  private lazy val autoAbstraction : AbstractionMap =
+  private lazy val autoAbstraction: AbstractionMap =
     absBuilder.abstractionRecords
 
   /** Manually provided interpolation abstraction hints */
-  private lazy val hintsAbstraction : AbstractionMap =
+  private lazy val hintsAbstraction: AbstractionMap =
     if (simpHints.isEmpty)
       Map()
     else
@@ -438,7 +443,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint &&
-      !simpHints.isEmpty)
+    !simpHints.isEmpty)
     AbsReader.printHints(simpHints)
 
   //////////////////////////////////////////////////////////////////////////////
@@ -466,24 +471,24 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   * -visualizeHornGraph. output .gv file
   * -useUnsimplifiedClauses. not simplify the input smt2 file
   * */
-  if (GlobalParameters.get.analysisClauses){
-    outputClauses(simplifiedClauses,unsimplifiedClauses)
+  if (GlobalParameters.get.analysisClauses) {
+    outputClauses(simplifiedClauses, unsimplifiedClauses)
     System.exit(0)
   }
 
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
-    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator),"mine templates -abstract:"+ GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(simplifiedClauses),"labeling")//also write simplified clauses to file
+    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator), "mine templates -abstract:" + GlobalParameters.get.templateBasedInterpolationType.toString)
+    logTime(writeTemplateMap(simplifiedClauses), "labeling") //also write simplified clauses to file
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates) { // -generateTemplates -abstract:unlabeled
     generateTemplates(simplifiedClauses) //also write simplified clauses to file
     System.exit(0)
   }
-  if (GlobalParameters.get.mineCounterExample){
+  if (GlobalParameters.get.mineCounterExample) {
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(simplifiedClauses, predGenerator),"mingCE") //also write simplified clauses to file
+    logTime(mineClausesInCounterExamples(simplifiedClauses, predGenerator), "mingCE") //also write simplified clauses to file
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) { //read simplified clauses from file, if no simplified clauses in file, write simplified clauses to file
@@ -503,7 +508,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] = {
+  val result: Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
         CEGAR.CounterexampleMethod.AllShortest
@@ -513,23 +518,23 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val predAbs = Console.withOut(outStream) {
       println
       println(
-         "----------------------------------- CEGAR --------------------------------------")
+        "----------------------------------- CEGAR --------------------------------------")
 
       val predAbs =
         new HornPredAbs(simplifiedClauses,
-                        simpHints.toInitialPredicates, predGenerator,
-                        counterexampleMethod)
+          simpHints.toInitialPredicates, predGenerator,
+          counterexampleMethod)
 
       GlobalParameters.get.predicateOutputFile match {
         case "" =>
-          // nothing
+        // nothing
         case filename => {
           val predicates =
             VerificationHints(
               for ((p, preds) <- predAbs.relevantPredicates) yield {
-                 val hints =
-                   for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
-                 p -> hints
+                val hints =
+                  for (f <- preds) yield VerificationHints.VerifHintInitPred(f)
+                p -> hints
               })
 
           println(
@@ -599,10 +604,11 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
 
 class HornTranslator {
 
-  val predicates = MHashMap[String,Literal]().empty
+  val predicates = MHashMap[String, Literal]().empty
+
   def getPrincessPredLiteral(r: HornLiteral): Literal = r match {
     case RelVar(varName, params) =>
-      predicates.get(varName) match{
+      predicates.get(varName) match {
         case Some(p) => p
         case None =>
           predicates += (varName -> new Literal {
@@ -612,11 +618,12 @@ class HornTranslator {
           })
           predicates(varName)
       }
-      case _ =>
-        throw new Exception("Invalid relation symbol")
+    case _ =>
+      throw new Exception("Invalid relation symbol")
   }
 
-  def global2bup (h: HornClause): ConstraintClause = new IConstraintClause {
+  def global2bup(h: HornClause): ConstraintClause = new IConstraintClause {
+
     import lazabs.ast.ASTree._
 
     val head = h.head match {
@@ -629,80 +636,83 @@ class HornTranslator {
         getPrincessPredLiteral(rv)
     }
     val headParams: List[Parameter] = h.head match {
-      case RelVar(_,params) => params
+      case RelVar(_, params) => params
       case _ => List()
     }
-    val bodyRelVars = (for(rv@RelVar(_,_) <- h.body) yield rv)
+    val bodyRelVars = (for (rv@RelVar(_, _) <- h.body) yield rv)
 
     val body = bodyRelVars.map(getPrincessPredLiteral(_))
 
     val freeVariables = {
-      val free = Set[String]() ++ (for(Interp(f@_) <- h.body) yield f).map(freeVars(_)).flatten.map(_.name)
+      val free = Set[String]() ++ (for (Interp(f@_) <- h.body) yield f).map(freeVars(_)).flatten.map(_.name)
       val bound = Set[String]() ++ headParams.map(_.name) ++ bodyRelVars.map(_.params.map(_.name)).flatten
       free.filterNot(bound.contains(_))
     }
 
     val localVariableNum = freeVariables.size
 
-    def iInstantiateConstraint(headArguments : Seq[ConstantTerm],
-                                 bodyArguments: Seq[Seq[ConstantTerm]],
-                                 localVariables : Seq[ConstantTerm]) : IFormula = {
+    def iInstantiateConstraint(headArguments: Seq[ConstantTerm],
+                               bodyArguments: Seq[Seq[ConstantTerm]],
+                               localVariables: Seq[ConstantTerm]): IFormula = {
 
       //println("This is the clause: " + lazabs.viewer.HornPrinter.printDebug(h))
       //println("This is the head arguments: " + headArguments + " and the body arguments: " + bodyArguments + " and the local arguments: " + localVariables)
 
-      val symbolMap: LinkedHashMap[String,ConstantTerm] = LinkedHashMap[String,ConstantTerm]() ++
+      val symbolMap: LinkedHashMap[String, ConstantTerm] = LinkedHashMap[String, ConstantTerm]() ++
         (
           headParams.map(_.name).zip(headArguments) ++
-          (bodyRelVars.zip(bodyArguments).map(x => x._1.params.map(_.name).zip(x._2)).flatten.toMap) ++
-          freeVariables.zip(localVariables)
-        )
-      val constraint = lazabs.nts.NtsHorn.assignmentsToConjunction(for(Interp(f@_) <- h.body) yield f)
-      val (princessFormula,_) = formula2Princess(List(constraint),symbolMap,true)
+            (bodyRelVars.zip(bodyArguments).map(x => x._1.params.map(_.name).zip(x._2)).flatten.toMap) ++
+            freeVariables.zip(localVariables)
+          )
+      val constraint = lazabs.nts.NtsHorn.assignmentsToConjunction(for (Interp(f@_) <- h.body) yield f)
+      val (princessFormula, _) = formula2Princess(List(constraint), symbolMap, true)
       princessFormula.head.asInstanceOf[IFormula]
       //println("instantiated constraint: " + res)      
     }
+
     override def toString = lazabs.viewer.HornPrinter.printDebug(h)
   }
 
   def horn2Eldarica(constraints: Seq[Clause]): Seq[HornClause] = {
-    var varMap = Map[ConstantTerm,String]().empty
+    var varMap = Map[ConstantTerm, String]().empty
     var xcl = 0
     var x = 0
 
-    def getVar(ct : ConstantTerm) = {
+    def getVar(ct: ConstantTerm) = {
       varMap get ct match {
         case Some(n) => n
         case None =>
           //lazabs.ast.ASTree.Parameter(,lazabs.types.IntegerType())
-          val n = "sc_"+xcl+"_"+x
-          x = x+1;
-          varMap += ct->n
+          val n = "sc_" + xcl + "_" + x
+          x = x + 1;
+          varMap += ct -> n
           n
       }
     }
-    def atom(a : IAtom) : HornLiteral = {
+
+    def atom(a: IAtom): HornLiteral = {
       a match {
-        case IAtom(HornClauses.FALSE,_) =>
+        case IAtom(HornClauses.FALSE, _) =>
           lazabs.horn.global.Interp(lazabs.ast.ASTree.BoolConst(false))
         case _ =>
           RelVar(
             a.pred.name,
             (for (p <- a.args) yield
-                lazabs.ast.ASTree.Parameter(
-                    getVar(p.asInstanceOf[IConstant].c),
-                    lazabs.types.IntegerType()
-                )
-            ).toList
+              lazabs.ast.ASTree.Parameter(
+                getVar(p.asInstanceOf[IConstant].c),
+                lazabs.types.IntegerType()
+              )
+              ).toList
           )
       }
     }
-    def horn2Eldarica(cl : Clause) : HornClause = {
+
+    def horn2Eldarica(cl: Clause): HornClause = {
       xcl = xcl + 1
       val clNorm = cl.normalize()
       val var_all = SymbolCollector constants (clNorm.constraint)
       val symbolMap_p2e = (for (v <- var_all) yield (v, getVar(v))).toMap
-      val body_atoms = Interp(formula2Eldarica(clNorm.constraint,symbolMap_p2e,false))
+      val body_atoms = Interp(formula2Eldarica(clNorm.constraint, symbolMap_p2e, false))
       val body_constr = (for (a <- clNorm.body) yield atom(a))
       HornClause(atom(clNorm.head), body_atoms :: body_constr)
     }
@@ -710,59 +720,59 @@ class HornTranslator {
     constraints map (horn2Eldarica(_))
   }
 
-    val predPool = new MHashMap[(String,Int), Predicate]
+  val predPool = new MHashMap[(String, Int), Predicate]
 
-    def relVar2Atom(rv : RelVar,
-                    symbolMap: LinkedHashMap[String, ConstantTerm]) : IAtom = {
-      val RelVar(varName, params) =
-        rv
-      val argExprs =
-        params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(p.typ)))
+  def relVar2Atom(rv: RelVar,
+                  symbolMap: LinkedHashMap[String, ConstantTerm]): IAtom = {
+    val RelVar(varName, params) =
+      rv
+    val argExprs =
+      params.map(p => (lazabs.ast.ASTree.Variable(p.name).stype(p.typ)))
 
-      val (ps, _) = formula2Princess(argExprs, symbolMap, true)
-      val pred = predPool.getOrElseUpdate((varName, params.size), {
-        val sorts = for (p <- params) yield type2Sort(p.typ)
-        MonoSortedPredicate(varName, sorts)
-      })
-      IAtom(pred, ps.asInstanceOf[List[ITerm]])
+    val (ps, _) = formula2Princess(argExprs, symbolMap, true)
+    val pred = predPool.getOrElseUpdate((varName, params.size), {
+      val sorts = for (p <- params) yield type2Sort(p.typ)
+      MonoSortedPredicate(varName, sorts)
+    })
+    IAtom(pred, ps.asInstanceOf[List[ITerm]])
+  }
+
+  def transform(cl: HornClause): Clause = {
+
+    val symbolMap = LinkedHashMap[String, ConstantTerm]().empty
+
+    val headAtom = cl.head match {
+      case Interp(lazabs.ast.ASTree.BoolConst(false)) =>
+        IAtom(HornClauses.FALSE, List())
+      case rv: RelVar =>
+        relVar2Atom(rv, symbolMap)
+      case _ =>
+        throw new UnsupportedOperationException
     }
 
-    def transform(cl: HornClause): Clause = {
+    var interpFormulas = List[IExpression]()
+    var relVarAtoms = List[IAtom]()
 
-      val symbolMap = LinkedHashMap[String, ConstantTerm]().empty
-
-      val headAtom = cl.head match {
-        case Interp(lazabs.ast.ASTree.BoolConst(false)) =>
-          IAtom(HornClauses.FALSE, List())
-        case rv : RelVar =>
-          relVar2Atom(rv, symbolMap)
-        case _ =>
-          throw new UnsupportedOperationException
-      }
-
-      var interpFormulas = List[IExpression]()
-      var relVarAtoms = List[IAtom]()
-
-      // first translate relation symbols in the body
-      for (rv <- cl.body) rv match {
-        case rv : RelVar =>
-          relVarAtoms ::= relVar2Atom(rv, symbolMap)
-        case _ =>
-          // nothing
-      }
-
-      // and then interpreted constraints
-      for (rv <- cl.body) rv match {
-        case Interp(e) => {
-          val (interp,sym) = formula2Princess(List(e), symbolMap, true)
-          interpFormulas ::= interp.head
-        }
-        case _ =>
-          // nothing
-      }
-
-      Clause(headAtom,relVarAtoms,
-             and(interpFormulas map (PrincessWrapper expr2Formula _)))
+    // first translate relation symbols in the body
+    for (rv <- cl.body) rv match {
+      case rv: RelVar =>
+        relVarAtoms ::= relVar2Atom(rv, symbolMap)
+      case _ =>
+      // nothing
     }
+
+    // and then interpreted constraints
+    for (rv <- cl.body) rv match {
+      case Interp(e) => {
+        val (interp, sym) = formula2Princess(List(e), symbolMap, true)
+        interpFormulas ::= interp.head
+      }
+      case _ =>
+      // nothing
+    }
+
+    Clause(headAtom, relVarAtoms,
+      and(interpFormulas map (PrincessWrapper expr2Formula _)))
+  }
 
 }
