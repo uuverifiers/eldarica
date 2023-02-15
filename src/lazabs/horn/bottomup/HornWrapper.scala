@@ -452,7 +452,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * -mineTemplates for training set /  generateTemplates unsolvable set
   * -getHornGraph:CDHG -hornGraphLabelType:template
   * training and prediction
-  * -getSolvability -hornGraphLabelType:template -lbe
+  * -getSolvability -hornGraphLabelType:template
   * collect results
   *
   * unsatcore pipeline:
@@ -460,8 +460,8 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore -abstract:off
   * 3. train and prediction in Python
   * 4. evaluation (write solvability.JSON):
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log -abstract:off -lbe
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank -abstract:off -lbe
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log -abstract:off
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank -abstract:off
   * 5. collect results in Python (read solvability.JSON)
   *
   * analysis clauses:

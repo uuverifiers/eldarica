@@ -23,7 +23,7 @@ object Utils {
     val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
     if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
       readSMTFormatFromFile(simplifiedClausesFileName)
-    else {
+    else {// if .simplified.smt2 not existed
       //write simplified clauses to file
       writeSMTFormatToFile(originalSimplifiedClauses, "simplified")
       originalSimplifiedClauses

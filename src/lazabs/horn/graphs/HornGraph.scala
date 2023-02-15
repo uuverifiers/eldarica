@@ -105,7 +105,7 @@ final case class AbstractNode(a: String) extends NodeElement
 
 
 class HornGraph(originalSimplifiedClauses: Clauses) {
-  val clauses = getSimplifiedClausesFromFile(originalSimplifiedClauses)
+  val clausesForGraphConstruction = getSimplifiedClausesFromFile(originalSimplifiedClauses)
   var labelIndices: Array[Int] = Array()
   var labelList: Array[Int] = Array()
   var labelMask: Array[Int] = Array()
@@ -528,7 +528,7 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
   def getLabel(bodyReplacedClauses: Seq[Clauses] = Seq()): Unit = {
     GlobalParameters.get.hornGraphLabelType match {
       case HornGraphLabelType.template => {
-        val templates = readTemplateMap(clauses)
+        val templates = readTemplateMap(clausesForGraphConstruction)
         val labelPair = logTime(constructTemplates(templates), "construct templates")
         labelList = labelPair.map(_._1)
         labelIndices = labelPair.map(_._2)
@@ -588,9 +588,8 @@ class HornGraph(originalSimplifiedClauses: Clauses) {
 
 
 class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
-
   //notice: templates are only correspond to the original clauses
-  val (normalizedClauses, bodyReplacedClauses) = normalizeClauses(clauses, VerificationHints(Map()))
+  val (normalizedClauses, bodyReplacedClauses) = normalizeClauses(clausesForGraphConstruction, VerificationHints(Map()))
 
   //create initial rs node
   val initialNode = createNode("initial", "initial", element = AbstractNode("initial"))()
@@ -679,7 +678,7 @@ class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 
 class CG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
   //notice: templates are only correspond to the original clauses
-  val simplifiedClauses = simplifyClauses(clauses, VerificationHints(Map()))
+  val simplifiedClauses = simplifyClauses(clausesForGraphConstruction, VerificationHints(Map()))
   var clauseCount = 0
   //predicate layer
   val rsNodes = for (clause <- simplifiedClauses; atom <- clause.allAtoms) yield {
