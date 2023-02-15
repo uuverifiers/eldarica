@@ -679,6 +679,7 @@ class CDHG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
 class CG(clauses: Clauses) extends HornGraph(clauses: Clauses) {
   //notice: templates are only correspond to the original clauses
   val simplifiedClauses = simplifyClauses(clausesForGraphConstruction, VerificationHints(Map()))
+
   var clauseCount = 0
   //predicate layer
   val rsNodes = for (clause <- simplifiedClauses; atom <- clause.allAtoms) yield {
