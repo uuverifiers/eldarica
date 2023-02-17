@@ -18,12 +18,14 @@ import java.io.{File, PrintWriter}
 object Utils {
 
 
-
   def getSimplifiedClausesFromFile(originalSimplifiedClauses: Clauses): Clauses = {
     val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
     if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
+    {
+      println(Console.BLUE + "-" * 10 + "read CHCs from simplified file" + "-" * 10)
       readSMTFormatFromFile(simplifiedClausesFileName)
-    else {// if .simplified.smt2 not existed
+    }
+    else { // if .simplified.smt2 not existed
       //write simplified clauses to file
       writeSMTFormatToFile(originalSimplifiedClauses, "simplified")
       originalSimplifiedClauses
@@ -140,7 +142,7 @@ object Utils {
     val sortedSeq = inputSeq.sorted
     val rankSeq = inputSeq.map(value => sortedSeq.indexOf(value) + 1) //The lower value the higher rank
     //The higher value the lower rank
-    var currentRank= 1
+    var currentRank = 1
     //todo get pair and sort them
 
     val inverseRankSeq = rankSeq.map(rank => inputSeq.length - rank + 1) //The higher value the higher rank

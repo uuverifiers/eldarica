@@ -88,7 +88,10 @@ object counterExampleUtils {
 
 
     } catch {
-      case _ => clauses.zip(0 to clauses.length)
+      case _ => {
+        val zeros = Seq.fill(clauses.length)(0)
+        clauses.zip(zeros)
+      }
     }
   }
 

@@ -106,9 +106,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-
+  val normClausesToClauseMap = normClauses.toMap //todo could further improve this by passing a map to MUSPriorityStateQueue
   def normClauseToRank(nc: NormClause): Int = {
-    val normClausesToClauseMap = normClauses.toMap
     if (clauseRankMap.isEmpty)
       1
     else
