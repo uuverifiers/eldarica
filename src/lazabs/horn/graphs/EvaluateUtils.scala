@@ -67,7 +67,7 @@ object EvaluateUtils {
         case Left(res) => 1 //SAT
         case Right(cex) => 0 //UNSAT
       }
-      println(Console.BLUE+"satisfiability:",satisfiability)
+      println(Console.BLUE + "satisfiability:", satisfiability)
       val solvingTime = (predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds
       val cegarIterationNumber = predAbs.cegar.iterationNum
       val generatedPredicateNumber = 0 //predAbs.cegar.generatedPredicateNumber
@@ -93,7 +93,6 @@ object EvaluateUtils {
         }
       }
 
-      println(Console.RED+GlobalParameters.get.templateBasedInterpolationType)
       if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.template) {
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = {
@@ -182,12 +181,13 @@ object EvaluateUtils {
     val unsatcoreThresholdSuffixs = for (t <- satisfiabilityThresholdList; g <- Seq("CDHG", "CG")) yield g + "-" + roundByDigit(t, 2)
     val satisfiabilityThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("satisfiability" + "-" + ts, "-1")).toMap
     val clauseNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("clauseNumberAfterPruning" + "-" + ts, "-1")).toMap
+    val cegarIterationThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("cegarIterationNumber" + "-" + ts, "-1")).toMap
     val relationSymbolNumberAfterPruningThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("relationSymbolNumberAfterPruning" + "-" + ts, "-1")).toMap
     val solvingTimeThresholdFields: Map[String, String] = (for (ts <- unsatcoreThresholdSuffixs) yield ("solvingTime" + "-" + ts, "-1")).toMap
     val prioritizeClausesByUnsatCoreRankFields: Map[String, String] = (for (m <- meansureFields; g <- Seq("CDHG", "CG")) yield (m + "-" + "prioritizeClausesByUnsatCoreRank" + "-" + g, "-1")).toMap
 
 
-    val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields ++ solvingTimeThresholdFields ++ prioritizeClausesByUnsatCoreRankFields
+    val allFields = initialFields.mapValues(_.toString) ++ stringlFields ++ satisfiabilityThresholdFields ++ clauseNumberAfterPruningThresholdFields ++ cegarIterationThresholdFields ++ relationSymbolNumberAfterPruningThresholdFields ++ solvingTimeThresholdFields ++ prioritizeClausesByUnsatCoreRankFields
     if (!new java.io.File(solvingTimeFileName).exists) {
       writeSolvingTimeToJSON(solvingTimeFileName, allFields)
     }
