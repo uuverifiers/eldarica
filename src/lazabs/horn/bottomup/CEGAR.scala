@@ -106,13 +106,19 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val normClausesToClauseMap = normClauses.toMap //todo could further improve this by passing a map to MUSPriorityStateQueue
-  def normClauseToRank(nc: NormClause): Int = {
+  val normClausesToClauseMap = normClauses.toMap
+  val normClauseToRankMap = (for ((n,_)<-normClauses) yield {
     if (clauseRankMap.isEmpty)
-      1
-    else
-      clauseRankMap(normClausesToClauseMap(nc))
-  }
+      (n,1)
+      else
+      (n,clauseRankMap(normClausesToClauseMap(n)))
+  }).toMap
+//  def normClauseToRank(nc: NormClause): Int = {
+//    if (clauseRankMap.isEmpty)
+//      1
+//    else
+//      clauseRankMap(normClausesToClauseMap(nc))
+//  }
 
 //  for ((nc, c) <- normClauses.toMap) {
 //    println("-" * 10)
@@ -122,7 +128,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 //      println(Console.RED+"-" * 10+"bug"+"-" * 10)
 //  }
 
-  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRank) else new CEGARStateQueue
+  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new CEGARStateQueue
   //val nextToProcess = new CEGARStateQueue
   //val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
 

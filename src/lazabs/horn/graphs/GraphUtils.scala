@@ -48,8 +48,8 @@ object GraphUtils {
 
 
   def normalizeClauses(clauses: Clauses, templates: VerificationHints): (Clauses, Seq[Clauses]) = {
-    val normalizedClauses = simplifyClauses(clauses, templates)
-    val bodyReplacedClauses = (for ((c, i) <- normalizedClauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)) // replace multiple same predicate in body
+    //val simplifiedClauses = simplifyClauses(clauses, templates)
+    val bodyReplacedClauses = (for ((c, i) <- clauses.zipWithIndex) yield replaceMultiSamePredicateInBody(c, i)) // replace multiple same predicate in body
     val flattenBodyReplacedClauses = bodyReplacedClauses.flatten
     val argumentReplacedClauses = for (c <- flattenBodyReplacedClauses) yield replaceIntersectArgumentInBody(c)
     (argumentReplacedClauses, bodyReplacedClauses)
@@ -57,14 +57,11 @@ object GraphUtils {
 
   def simplifyClauses(clauses: Clauses, templates: VerificationHints): Clauses = {
     //val uniqueClauses = distinctByString(clauses)
-    val (csSimplifiedClauses, _, _) = cs.process(clauses, templates) //todo this decrease clauses, need label mark
+    println(Console.BLUE+"-"*10+"further simplify clauses"+"-"*10)
+    val (csSimplifiedClauses, _, _) = cs.process(clauses, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
-    val normalizedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
-    println(Console.RED + "clauses:" + clauses.length)
-    println(Console.RED + "csSimplifiedClauses:" + csSimplifiedClauses.length)
-    println(Console.RED + "constraintSimplifiedClauses:" + constraintSimplifiedClauses.length)
-    println(Console.RED + "normalizedClauses:" + normalizedClauses.length)
-    normalizedClauses
+    val simplifiedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
+    simplifiedClauses
   }
 
   def distinctByString[A](formulas: Seq[A]): Seq[A] = {

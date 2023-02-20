@@ -535,6 +535,7 @@ object Main {
       }
       case "-abstract:off" :: rest => {
         templateBasedInterpolation = false
+        templateBasedInterpolationType = AbstractionType.Empty
         arguments(rest)
       }
       case tTimeout :: rest if (tTimeout.startsWith("-abstractTO:")) =>

@@ -93,6 +93,7 @@ object EvaluateUtils {
         }
       }
 
+      println(Console.RED+GlobalParameters.get.templateBasedInterpolationType)
       if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.template) {
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = {

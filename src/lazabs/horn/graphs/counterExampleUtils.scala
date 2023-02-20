@@ -208,7 +208,7 @@ object counterExampleUtils {
 }
 
 
-class MUSPriorityStateQueue(normClauseToRank: NormClause => Int) extends StateQueue {
+class MUSPriorityStateQueue(normClauseToRank: Map[NormClause,Int]) extends StateQueue {
   type TimeType = Int
 
   private var time = 0
