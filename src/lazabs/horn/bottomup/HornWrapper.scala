@@ -55,7 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
-import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, outputClauses}
+import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, outputClauses, writeSMTFormatToFile}
 import lazabs.horn.graphs.counterExampleUtils.{getPrunedClauses, mineClausesInCounterExamples}
 import lazabs.horn.graphs.GraphUtils.simplifyClauses
 
@@ -476,25 +476,21 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
     outputClauses(simplifiedClauses, unsimplifiedClauses)
     System.exit(0)
   }
-  val furtherSimplifiedClauses =
-    if (new java.io.File(GlobalParameters.get.fileName + ".simplified").exists)
-      getSimplifiedClausesFromFile(simplifiedClauses)
-    else
-      simplifyClauses(simplifiedClauses,VerificationHints(Map()))
+  val furtherSimplifiedClauses =getSimplifiedClausesFromFile(simplifiedClauses)
 
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
     logTime(mineTemplates(furtherSimplifiedClauses, simpHints, disjunctive, predGenerator), "mine templates -abstract:" + GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(furtherSimplifiedClauses), "labeling") //also write simplified clauses to file
+    logTime(writeTemplateMap(furtherSimplifiedClauses), "labeling")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates) { // -generateTemplates -abstract:unlabeled
-    generateTemplates(furtherSimplifiedClauses) //also write simplified clauses to file
+    generateTemplates(furtherSimplifiedClauses)
     System.exit(0)
   }
   if (GlobalParameters.get.mineCounterExample) {
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(furtherSimplifiedClauses, predGenerator), "mingCE") //also write simplified clauses to file
+    logTime(mineClausesInCounterExamples(furtherSimplifiedClauses, predGenerator), "mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) { //read simplified clauses from file, if no simplified clauses in file, write simplified clauses to file

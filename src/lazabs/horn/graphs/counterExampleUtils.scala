@@ -25,8 +25,6 @@ object counterExampleUtils {
   def mineClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, NormClause)]]): Unit = {
-    //write simplified clauses to file
-    writeSMTFormatToFile(clauses, "simplified")
 
     val CEMiner = new CounterexampleMiner(clauses, predicateGenerator)
     val minedCEs = if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.union)
@@ -80,7 +78,7 @@ object counterExampleUtils {
       val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
 
       if (GlobalParameters.get.log) {
-        println(Console.BLUE+"rank, logit value, clause")
+        println(Console.BLUE + "rank, logit value, clause")
         for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
       }
 
@@ -106,7 +104,7 @@ object counterExampleUtils {
         checkedClauses
       } catch {
         case _ => {
-          println(Console.RED+"pruning except")
+          println(Console.RED + "pruning except")
           clauses
         }
       }
@@ -208,7 +206,7 @@ object counterExampleUtils {
 }
 
 
-class MUSPriorityStateQueue(normClauseToRank: Map[NormClause,Int]) extends StateQueue {
+class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends StateQueue {
   type TimeType = Int
 
   private var time = 0
@@ -228,13 +226,13 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause,Int]) extends State
 
     //combine rank score with other heuristics
 
-//    (headSym match {
-//      case HornClauses.FALSE => -10000
-//      case _ => 0
-//    }) + (
-//      for (AbstractState(_, preds) <- states.iterator)
-//        yield preds.size).sum +
-//      birthTime + rankScore
+    //    (headSym match {
+    //      case HornClauses.FALSE => -10000
+    //      case _ => 0
+    //    }) + (
+    //      for (AbstractState(_, preds) <- states.iterator)
+    //        yield preds.size).sum +
+    //      birthTime + rankScore
 
     //original version
     (headSym match {

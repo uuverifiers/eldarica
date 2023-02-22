@@ -8,7 +8,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{CEGAR, HornClauses, HornPredAbs, HornTranslator, NormClause}
-import lazabs.horn.graphs.GraphUtils.seqToString
+import lazabs.horn.graphs.GraphUtils.{seqToString, simplifyClauses}
 import lazabs.horn.parser.HornReader.fromSMT
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 import play.api.libs.json.{JsSuccess, JsValue, Json}
@@ -26,9 +26,10 @@ object Utils {
       readSMTFormatFromFile(simplifiedClausesFileName)
     }
     else { // if .simplified.smt2 not existed
+      val furtherSimplified=simplifyClauses(originalSimplifiedClauses,VerificationHints(Map()))
       //write simplified clauses to file
       writeSMTFormatToFile(originalSimplifiedClauses, "simplified")
-      originalSimplifiedClauses
+      furtherSimplified
     }
   }
 

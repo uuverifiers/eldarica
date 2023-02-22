@@ -105,7 +105,7 @@ final case class AbstractNode(a: String) extends NodeElement
 
 
 class HornGraph(originalSimplifiedClauses: Clauses) {
-  val clausesForGraphConstruction = getSimplifiedClausesFromFile(originalSimplifiedClauses)
+  val clausesForGraphConstruction = originalSimplifiedClauses //getSimplifiedClausesFromFile(originalSimplifiedClauses)
   var labelIndices: Array[Int] = Array()
   var labelList: Array[Int] = Array()
   var labelMask: Array[Int] = Array()

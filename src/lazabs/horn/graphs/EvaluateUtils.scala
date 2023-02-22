@@ -30,7 +30,7 @@ object EvaluateUtils {
                      originalSimplifiedClauses: Seq[Clause],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
 
-    val simplifiedClauses = getSimplifiedClausesFromFile(originalSimplifiedClauses)
+    val simplifiedClauses = originalSimplifiedClauses // getSimplifiedClausesFromFile(originalSimplifiedClauses)
 
     //get pruned clauses from predicted
     //get ranked clause, the higher logit the value higher rank value

@@ -61,6 +61,7 @@ object GraphUtils {
     val (csSimplifiedClauses, _, _) = cs.process(clauses, templates)
     val constraintSimplifiedClauses = for (c <- csSimplifiedClauses) yield simplifyConstraint(c)
     val simplifiedClauses = for (c <- constraintSimplifiedClauses) yield c.normalize()
+    println("further simplified clause number:" + simplifiedClauses.length)
     simplifiedClauses
   }
 
