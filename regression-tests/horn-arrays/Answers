@@ -99,8 +99,8 @@ CEGAR iterations:                                      4
 Final number of abstract states:                       3
 Final number of matched abstract states:               3
 Final number of abstract edges:                        5
-Number of generated predicates:                        5
-Average predicate size (# of sub-formulas):            2.00
+Number of generated predicates:                        6
+Average predicate size (# of sub-formulas):            1.67
 
 --------------------------------------------------------------------------------
 
