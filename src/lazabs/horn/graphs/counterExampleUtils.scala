@@ -130,13 +130,13 @@ object counterExampleUtils {
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
 
-    //todo: check clause and predicted label mismatch problem when rank the label
     def getLabelByRank(clauseLabel: Array[Double]): Seq[Int] = {
-      // pruned by rank，higher logit value higher rank
+      // get rank for clauses，higher logit value higher rank
       val sortedClausesByLogitValue = clauses.zip(clauseLabel).sortBy(_._2)
       val rankedClausesMap = (for ((t, i) <- sortedClausesByLogitValue.zipWithIndex) yield (t._1, i)).toMap
       val predictedLogitsRank = for (c <- clauses) yield rankedClausesMap(c)
       //val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+      //pruned by threshold
       val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
       val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r >= rankThreshold) 1 else 0
       //pruned by normalization
