@@ -118,6 +118,7 @@ class GlobalParameters extends Cloneable {
   var readCostType : String = "same"
   var explorationRate: Float=0
   var unsatCoreThreshold:Double=0.0
+  var outputPrunedClauses = false
   var prioritizeClausesByUnsatCoreRank=false
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
@@ -221,6 +222,7 @@ class GlobalParameters extends Cloneable {
     that.readCostType = this.readCostType
     that.explorationRate = this.explorationRate
     that.unsatCoreThreshold = this.unsatCoreThreshold
+    that.outputPrunedClauses = this.outputPrunedClauses
     that.mineTemplates = this.mineTemplates
     that.hornGraphType = this.hornGraphType
     that.hornGraphLabelType = this.hornGraphLabelType
@@ -416,6 +418,10 @@ object Main {
       }
       case "-getSolvability" :: rest => {
         getSolvability = true
+        arguments(rest)
+      }
+      case "-outputPrunedClauses" :: rest => {
+        outputPrunedClauses = true
         arguments(rest)
       }
       case "-useUnsimplifiedClauses" :: rest => {

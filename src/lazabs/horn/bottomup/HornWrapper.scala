@@ -55,7 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
-import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, outputClauses, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, outputClauses, roundByDigit, writeSMTFormatToFile}
 import lazabs.horn.graphs.counterExampleUtils.{getPrunedClauses, mineClausesInCounterExamples}
 import lazabs.horn.graphs.GraphUtils.simplifyClauses
 
@@ -471,12 +471,19 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * other options:
   * -visualizeHornGraph. output .gv file
   * -useUnsimplifiedClauses. not simplify the input smt2 file
+  * -outputPrunedClauses -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -hornGraphLabelType:unsatCore -abstract:off. output pruned clauses according to threshold for other solvers
   * */
   if (GlobalParameters.get.analysisClauses) {
     outputClauses(simplifiedClauses, unsimplifiedClauses)
     System.exit(0)
   }
-  val furtherSimplifiedClauses =getSimplifiedClausesFromFile(simplifiedClauses)
+  val furtherSimplifiedClauses = getSimplifiedClausesFromFile(simplifiedClauses)
+
+  if (GlobalParameters.get.outputPrunedClauses) {
+    val prunedClauses = getPrunedClauses(furtherSimplifiedClauses)
+    writeSMTFormatToFile(prunedClauses, "pruned-" + GlobalParameters.get.hornGraphType.toString + "-" +  roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2))
+    System.exit(0)
+  }
 
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
