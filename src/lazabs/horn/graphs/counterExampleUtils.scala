@@ -125,41 +125,40 @@ object counterExampleUtils {
       clausesInCE
   }
 
-
   def getPredictedCounterExampleClauses(clauses: Clauses): Clauses = {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-    // pruned by rank
-    //higher logit value higher rank
-    val sortedClausesByLogitValue = clauses.zip(predictedLogits).sortBy(_._2)
-    val rankedClausesMap = (for ((t, i) <- sortedClausesByLogitValue.zipWithIndex) yield (t._1, i)).toMap
-    println("clauses",clauses.length)
-    println("predictedLogits",predictedLogits.length)
-    val predictedLogitsRank = for (c <- clauses) yield rankedClausesMap(c)
-    //val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
-    val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
-    val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r >= rankThreshold) 1 else 0
-    //pruned by normalization
-    //    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
-    //    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
 
-    if (GlobalParameters.get.log) {
-      println(Console.BLUE + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
-      println(Console.BLUE + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
+    //todo: check clause and predicted label mismatch problem when rank the label
+    def getLabelByRank(clauseLabel: Array[Double]): Seq[Int] = {
+      // pruned by rank，higher logit value higher rank
+      val sortedClausesByLogitValue = clauses.zip(clauseLabel).sortBy(_._2)
+      val rankedClausesMap = (for ((t, i) <- sortedClausesByLogitValue.zipWithIndex) yield (t._1, i)).toMap
+      val predictedLogitsRank = for (c <- clauses) yield rankedClausesMap(c)
+      //val predictedLogitsRank = getFloatSeqRank(predictedLogits.toSeq)
+      val rankThreshold = GlobalParameters.get.unsatCoreThreshold * predictedLogitsRank.length
+      val predictedLabelsFromThresholdLogits = for (r <- predictedLogitsRank) yield if (r >= rankThreshold) 1 else 0
+      //pruned by normalization
+      //    val normalizedPredictedLogits= predictedLogits.map(x => (x - predictedLogits.min) / (predictedLogits.max - predictedLogits.min))
+      //    val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
+
+      if (GlobalParameters.get.log) {
+        println(Console.BLUE + "predictedLabels", predictedLabels.length, predictedLabels.mkString)
+        println(Console.BLUE + "predictedLabelsFromThresholdLogits", predictedLabelsFromThresholdLogits.length, "threshold", GlobalParameters.get.unsatCoreThreshold, predictedLabelsFromThresholdLogits.mkString)
+      }
+      predictedLabelsFromThresholdLogits
     }
+
 
     val clausesInCE = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => {
         //CDHG increased the clauses when normalization, so we need transform it back by label Mask
         val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
         val originalClausesIndex = labelMask.distinct
-        println("debug 0")
         val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
-          for (ii <- (0 until labelMask.count(_ == i))) yield predictedLabelsFromThresholdLogits(i + ii)
+          for (ii <- (0 until labelMask.count(_ == i))) yield predictedLogits(i+ii)
         }
-        println("separatedPredictedLabels",separatedPredictedLabels.mkString)
-        println("debug 1")
         val labelForOriginalClauses = for (sl <- separatedPredictedLabels) yield {
           sl.max
         }
@@ -173,9 +172,12 @@ object counterExampleUtils {
           println(Console.RED + "separatedPredictedLabels", separatedPredictedLabels.length, separatedPredictedLabels.mkString)
           println(Console.RED + "labelForOriginalClauses", labelForOriginalClauses.length, labelForOriginalClauses.mkString)
         }
-        for ((c, l) <- clauses.zip(labelForOriginalClauses); if l == 1) yield c
+
+        val predictedLabelsFromThresholdLogits = getLabelByRank(labelForOriginalClauses)
+        for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
       }
       case HornGraphType.CG => {
+        val predictedLabelsFromThresholdLogits = getLabelByRank(predictedLogits)
         for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
       }
     }
