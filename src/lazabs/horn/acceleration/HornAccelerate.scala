@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2011-2014 Filip Konecny
- *               2022      Philipp Ruemmer
+ *               2022-2023 Philipp Ruemmer
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -134,14 +134,12 @@ object HornAccelerate {
 class HornAccelerate(orig : Seq[HornClauses.Clause]) {
 
   import HornAccelerate.CYCLES_TO_ACCELERATE
+  import HornClauses.FALSE
 
   // split the clauses into lower-bound, upper-bound, and dependent clauses
   val (lb,ub,dep) = {
-    val (a1,aux) = orig.partition( c => c.body.size == 0 )
-    val (a2,a3) = aux.partition( c => c.head match {
-      case IAtom(HornClauses.FALSE, Nil) => true
-      case _ => false
-    } )
+    val (a1,aux) = orig.partition( c => c.body.size == 0 && c.head.pred !=FALSE)
+    val (a2,a3) = aux.partition( c => c.head == FALSE)
     (a1,a2,a3)
   }
   

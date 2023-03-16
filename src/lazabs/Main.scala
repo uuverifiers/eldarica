@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2023 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -241,6 +241,12 @@ class GlobalParameters extends Cloneable {
     List({
            val p = this.clone
            p.splitClauses = 0
+           p.templateBasedInterpolation = false
+           p
+         },
+         {
+           val p = this.clone
+           p.staticAccelerate = true
            p.templateBasedInterpolation = false
            p
          },

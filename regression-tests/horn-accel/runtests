@@ -2,7 +2,7 @@
 
 LAZABS=../../eld
 
-TESTS="flat-loops.smt2 booleans.smt2"
+TESTS="flat-loops.smt2 booleans.smt2 chc-LIA-Lin_421.smt2"
 
 for name in $TESTS; do
     echo
