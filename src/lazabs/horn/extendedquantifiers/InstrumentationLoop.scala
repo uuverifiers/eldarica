@@ -30,7 +30,7 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.{IAtom, IExpression, IFormula}
+import ap.parser.{IAtom, IExpression, IFormula, IIntLit}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
@@ -43,6 +43,7 @@ import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
+import scala.collection.immutable.Map
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Random
@@ -66,8 +67,15 @@ class InstrumentationLoop (clauses : Clauses,
 
   private val backTranslators = new ArrayBuffer[BackTranslator]
 
-  private val startingTimeout : Long = 1000 // milliseconds
+  private val startingTimeout : Long = 250 // milliseconds
   private val timeoutMultiplier : Int = 2
+  private val timeoutDecreasemultiplier : Int = 2
+  private val minNoTimeouts = 5
+  private val maxConsecutiveTimeouts = 10
+  private val minTimeout = 25
+
+  private val prefixCompressionPeriod = 50
+  private var prefixCompressionCounter = 0
 
   private val preprocessor = new PreStagePreprocessor
   private var curHints : VerificationHints = hints
@@ -175,10 +183,25 @@ class InstrumentationLoop (clauses : Clauses,
       DagInterpolator.interpolatingPredicateGenCEXAndOr _
     }
 
-    def pickInstrumentation(space : Set[Map[Predicate, Conjunction]]) :
-      Map[Predicate, Conjunction] = {
-      Random.setSeed(42)
-      Random.shuffle(space).head
+    def computeAtoms(inst : Map[Predicate, Conjunction]) : Set[IAtom] = {
+      inst.map{t =>
+        IAtom(t._1, Seq(IExpression.i(
+          t._2.arithConj.positiveEqs.head.constant.intValue *
+          (-1))))
+      }.toSet
+    }
+
+    def pickInstrumentation(space : Set[Map[Predicate, Conjunction]],
+                            ineligiblePrefixes : Set[Set[IAtom]]) :
+    Option[Map[Predicate, Conjunction]] = {
+      var candidate : Option[Map[Predicate, Conjunction]] = None
+      for (inst <- space if candidate isEmpty) {
+        val instAtoms = computeAtoms(inst)
+        if (ineligiblePrefixes.exists(prefix => prefix subsetOf instAtoms)) {
+          // nothing
+        } else candidate = Some(inst)
+      }
+      candidate
     }
 
     val incSolver =
@@ -187,12 +210,15 @@ class InstrumentationLoop (clauses : Clauses,
 
     lastSolver = incSolver
 
+    Random.setSeed(42)
     val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-    instrumenter.searchSpace.foreach{search =>
+    Random.shuffle(instrumenter.searchSpace).foreach{search =>
       searchSpace += search.toMap -- eliminatedBranchPredicates
     }
 
     val postponedSearches = new MHashSet[Map[Predicate, Conjunction]]
+
+    val ineligiblePrefixes = new MHashSet[Set[IAtom]]
 
     searchSpaceSizePerNumGhostRanges += (numRanges -> searchSpace.size)
     println("Clauses instrumented, starting search for correct instrumentation.")
@@ -202,64 +228,116 @@ class InstrumentationLoop (clauses : Clauses,
 
     var currentTimeout = startingTimeout
 
-    while((searchSpace nonEmpty) && rawResult == Inconclusive) {
-      numSteps += 1
+    var noTimeoutCount = 0
+    var consecutiveTimeoutCount = 0
 
-      searchStepsPerNumGhostRanges += (numRanges -> numSteps)
-      val instrumentation = pickInstrumentation(searchSpace.toSet)
-      println("\n(" + numSteps + ") Remaining search space size: " + searchSpace.size)
-      println("                     Postponed instrumentations : " + postponedSearches.size)
-      println("Selected branches: " + instrumentation.map(instr =>
-        instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.intValue * (-1)) + ")").mkString(", "))
+    var totalExplored = 0
 
-      Timeout.withTimeoutMillis(currentTimeout){
-        // assuming empty instrumentation is not in searchSpace below
-        // left sol, right cex
-        incSolver.checkWithSubstitution(instrumentation) match {
-          case Right(cex)     => {
-            // check if cex is genuine
-            val cexIsGenuine =
-              cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(
-                pred => !(instrumenter.branchPredicates contains pred))
-            if (cexIsGenuine) {
-              println("\nunsafe")
-              rawResult = Unsafe(cex)
-            } else {
-              println("\ninconclusive, iterating...")
-              val prefix = cex.subdagIterator.toList.flatMap(_.d._2.body.filter(
-                instrumenter.branchPredicates contains _.pred)).toSet
-              val ineligibleSearchSpace = (searchSpace ++ postponedSearches)
-                .filter{
-                search =>
-                  val atoms : immutable.Iterable[IAtom] =
-                    search.map(t => IAtom(t._1, Seq(IExpression.i(
-                      t._2.arithConj.positiveEqs.head.constant.intValue *
-                      (-1)))))
-                  prefix.subsetOf(atoms.toSet)
-              }
-              ineligibleSearchSpace.foreach{s =>
-                if (searchSpace contains s) // todo: optimize - no need to
-                // search again
-                  searchSpace -= s
-                if (postponedSearches contains s)
-                  postponedSearches -= s
-              }
-            }
-          }
-          case Left(solution) =>
-            rawResult = Safe(solution)
-        }
-      } {
-        println("Instrumentation timed out and postponed.")
-        searchSpace -= instrumentation
-        postponedSearches += instrumentation
-      }
-      if(searchSpace.isEmpty && postponedSearches.nonEmpty) {
+    while(rawResult == Inconclusive && (searchSpace.nonEmpty ||
+                                        postponedSearches.nonEmpty)) {
+
+      if (searchSpace.isEmpty && postponedSearches.nonEmpty) {
         postponedSearches.foreach(searchSpace += _)
+        postponedSearches.clear()
         currentTimeout *= timeoutMultiplier
         println("Retrying postponed instrumentations with new timeout: " +
-                currentTimeout/1e3)
+                currentTimeout / 1e3)
       }
+
+      var prevI = 0
+      for ((instrumentation, i) <- searchSpace.toSeq.zipWithIndex
+           if rawResult == Inconclusive && ineligiblePrefixes.forall(prefix =>
+             !(prefix subsetOf computeAtoms (instrumentation)))) {
+        numSteps += 1
+        searchStepsPerNumGhostRanges += (numRanges -> numSteps)
+//      val instrumentation = pickInstrumentation(searchSpace.toSet,
+//                                                ineligiblePrefixes.toSet)
+
+      println("\n(" + numSteps + ") Remaining search space size: " +
+              (instrumenter.searchSpace.size - totalExplored - postponedSearches.size))
+        println("Postponed instrumentations : " + postponedSearches.size)
+        println("Selected branches: " + instrumentation.map{instr =>
+          instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.
+                                      intValue * (-1)) + ")"}.mkString(", "))
+
+        // assuming empty instrumentation is not in searchSpace below
+        val maybeRes =
+          Timeout.withTimeoutMillis[Option[Either[Map[Predicate, Conjunction],
+            Dag[(IAtom, Clause)]]]](currentTimeout){
+            // computation
+            Some(incSolver.checkWithSubstitution(instrumentation))
+          }{
+            // timeout computation
+            None
+          }
+
+        maybeRes match {
+          case Some(res) =>
+            totalExplored += i - prevI; prevI = i;
+            res match { // no timeout
+            case Right(cex)     => {
+              // check if cex is genuine
+              val cexIsGenuine =
+                cex.subdagIterator.toList.head.d._2.bodyPredicates.forall(
+                  pred => !(instrumenter.branchPredicates contains pred))
+              if (cexIsGenuine) {
+                println("\nunsafe")
+                rawResult = Unsafe(cex)
+              } else {
+                noTimeoutCount += 1
+                consecutiveTimeoutCount = 0
+                println("\ninconclusive, iterating...")
+                val prefix : Set[IAtom] = cex.subdagIterator.toList.flatMap(_.d
+                                                                             ._2.body.filter(
+                  instrumenter.branchPredicates contains _.pred)).toSet
+
+                prefixCompressionCounter += 1
+                ineligiblePrefixes += prefix
+
+                if (prefixCompressionCounter >= prefixCompressionPeriod) {
+                  prefixCompressionCounter = 0
+
+                  val redundantPrefixes =
+                    for (prefix <- ineligiblePrefixes if
+                      ineligiblePrefixes.filter(_.size < prefix.size).
+                                        exists(other => other subsetOf prefix))
+                    yield prefix
+                  val beforeSize        = ineligiblePrefixes.size
+                  redundantPrefixes.foreach(ineligiblePrefixes -=)
+                  println("Compressed ineligible prefixes: " + beforeSize +
+                          " to " + ineligiblePrefixes.size)
+                }
+              }
+            }
+            case Left(solution) =>
+              rawResult = Safe(solution)
+          }
+          case None => // timeout
+            println("Instrumentation timed out and postponed.")
+            searchSpace -= instrumentation
+            postponedSearches += instrumentation
+            noTimeoutCount = 0
+            consecutiveTimeoutCount += 1
+        }
+
+        if (noTimeoutCount > minNoTimeouts) {
+          // decrease timeout, nothing is timing out
+          noTimeoutCount = 0
+          currentTimeout /= timeoutDecreasemultiplier
+          if (currentTimeout < minTimeout)
+            currentTimeout = minTimeout
+          println("Too many steps without timeouts, decreasing to " +
+                  currentTimeout / 1e3)
+        }
+        if (consecutiveTimeoutCount > maxConsecutiveTimeouts) {
+          // too many timeouts, bump it up
+          consecutiveTimeoutCount = 0
+          currentTimeout *= timeoutMultiplier
+          println("Too many consecutive timeouts, increasing to " +
+                  currentTimeout / 1e3)
+        }
+      }
+      searchSpace.clear()
     }
   }
 

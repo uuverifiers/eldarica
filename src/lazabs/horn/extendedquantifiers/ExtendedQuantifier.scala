@@ -27,7 +27,6 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
@@ -38,7 +37,6 @@ import ap.terfor.{ConstantTerm, Formula}
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
 import ap.types.MonoSortedIFunction
-
 
 /**
  * This theory introduces a theory for the sole purpose of making available
@@ -65,26 +63,28 @@ import ap.types.MonoSortedIFunction
  *                          second argument must be lo from the assertion.
  * @param rangeFormulaHi  : similar to above, but for hi.
  */
-class ExtendedQuantifier(name               : String,
-                         val arrayTheory    : ExtArray,
-                         val identity       : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
-                         val reduceOp       : (ITerm, ITerm) => ITerm,
-                         val invReduceOp    : Option[(ITerm, ITerm) => ITerm],
-                         val predicate      : Option[(ITerm, ITerm) => ITerm],
-                         val rangeFormulaLo : Option[(ITerm, ITerm, ITerm) => IFormula],
-                         val rangeFormulaHi : Option[(ITerm, ITerm, ITerm) => IFormula])
+class ExtendedQuantifier(
+    name:               String,
+    val arrayTheory:    ExtArray,
+    val identity:       ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
+    val reduceOp:       (ITerm, ITerm) => ITerm,
+    val invReduceOp:    Option[(ITerm, ITerm) => ITerm],
+    val predicate:      Option[(ITerm, ITerm) => ITerm],
+    val rangeFormulaLo: Option[(ITerm, ITerm, ITerm) => IFormula],
+    val rangeFormulaHi: Option[(ITerm, ITerm, ITerm) => IFormula])
 // a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
-  extends Theory {
+    extends Theory {
 
-  val arrayIndexSort : Sort = arrayTheory.indexSorts.head
+  val arrayIndexSort: Sort = arrayTheory.indexSorts.head
   if (arrayTheory.indexSorts.length > 1)
-    throw new Exception("Currently only 1-d integer indexed arrays are supported!")
+    throw new Exception(
+      "Currently only 1-d integer indexed arrays are supported!")
 
   // this theory depends on the theory of extensional arrays with specified sorts
   override val dependencies: Iterable[Theory] = List(arrayTheory)
 
   // alien constants (if any) in the predicate (if any)
-  val alienConstantsInPredicate : Seq[ConstantTerm] = {
+  val alienConstantsInPredicate: Seq[ConstantTerm] = {
     predicate match {
       case Some(pred) =>
         val t1 = new ConstantTerm("t1")
@@ -97,32 +97,65 @@ class ExtendedQuantifier(name               : String,
   // fun : (a : array, lo : Int, hi : Int) => Obj
   val fun = MonoSortedIFunction(
     name,
-    List(arrayTheory.sort, arrayIndexSort, arrayIndexSort), arrayTheory.objSort,
-    partial = false, relational = false)
+    List(arrayTheory.sort, arrayIndexSort, arrayIndexSort),
+    arrayTheory.objSort,
+    partial = false,
+    relational = false)
 
   /**
    * The theory introduces the single extended quantifier function.
    */
   override val functions: Seq[IFunction] = Seq(fun)
 
+  val theoryAxioms: IFormula = {
+    import ap.parser.IExpression._
+    import arrayTheory._
+    arrayTheory.sort.all(
+      a =>
+        arrayIndexSort.all(
+          lo =>
+            arrayIndexSort.all(hi =>
+              trig((lo < hi) ==> (fun(a, lo, hi) ===
+                     reduceOp(fun(a, lo + 1, hi), select(a, lo))),
+                   fun(a, lo, hi))))) & // triggers
+//    arrayTheory.sort.all(
+//      a =>
+//        arrayIndexSort.all(
+//          lo =>
+//            arrayIndexSort.all(
+//              hi =>
+//                trig((lo < hi) ==> (fun(a, lo, hi) ===
+//                                    reduceOp(fun(a, lo, hi-1), select(a,
+//                                                                      hi-1))),
+//                     fun(a, lo, hi))))) &
+      arrayTheory.sort.all(
+        a =>
+          arrayIndexSort.all(
+            lo =>
+              arrayIndexSort.all(hi =>
+                trig((lo >= hi) ==> (fun(a, lo, hi) ===
+                       identity),
+                     fun(a, lo, hi)))))
+  }
+
   val (funPredicates, axioms1, order, functionTranslation) = Theory.genAxioms(
     theoryFunctions = functions,
-    //theoryAxioms = theoryAxioms,
-    theoryAxioms = i(true),
+    theoryAxioms = theoryAxioms,
     otherTheories = dependencies.toList)
 
-  override val predicates: Seq[Predicate] = funPredicates
-  override val functionPredicateMapping: Seq[(IFunction, Predicate)] =
-    functions zip funPredicates
   override val functionalPredicates: Set[Predicate] = funPredicates.toSet
-  override val predicateMatchConfig: PredicateMatchConfig = Map()
-  override val triggerRelevantFunctions: Set[IFunction] = Set()
-  override val axioms: Formula = Conjunction.TRUE
-  override val totalityAxioms: Formula = Conjunction.TRUE
-  override def plugin: Option[Plugin] = None
+  override val predicates:           Seq[Predicate] = funPredicates
+  override val functionPredicateMapping: Seq[(IFunction, Predicate)] =
+    functions zip functionalPredicates
 
-  override def isSoundForSat(theories : Seq[Theory],
-                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+  override val predicateMatchConfig:     PredicateMatchConfig = Map()
+  override val triggerRelevantFunctions: Set[IFunction]       = functions.toSet
+  override val axioms:                   Formula              = axioms1
+  override val totalityAxioms:           Formula              = Conjunction.TRUE
+  override def plugin:                   Option[Plugin]       = None
+
+  override def isSoundForSat(theories: Seq[Theory],
+                             config:   Theory.SatSoundnessConfig.Value): Boolean =
     config match {
       case Theory.SatSoundnessConfig.Elementary  => true
       case Theory.SatSoundnessConfig.Existential => true
@@ -131,14 +164,15 @@ class ExtendedQuantifier(name               : String,
 }
 
 object ExtendedQuantifier {
+
   /**
    * Extractor recognising the <code>fun</code> function of
    * any ExtendedQuantifier theory.
    */
   object ExtendedQuantifierFun {
-    def unapply(f : IFunction) : Option[ExtendedQuantifier] =
+    def unapply(f: IFunction): Option[ExtendedQuantifier] =
       (TheoryRegistry lookupSymbol f) match {
-        case Some(t : ExtendedQuantifier) if f == t.fun => Some(t)
+        case Some(t: ExtendedQuantifier) if f == t.fun => Some(t)
         case _ => None
       }
   }
