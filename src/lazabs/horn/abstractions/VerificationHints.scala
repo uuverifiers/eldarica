@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -170,6 +170,15 @@ object VerificationHints {
         VerificationHints((for ((p, hints) <- predicateHints.iterator;
                                 newP <- newPreds(p).iterator)
                            yield (newP, hints)).toMap)
+
+    def renamePredicates(mapping : Map[Predicate, Predicate]) = {
+      if (isEmpty || mapping.isEmpty)
+        this
+      else
+        VerificationHints((for ((p, hints) <- predicateHints.iterator;
+                                newP = mapping.getOrElse(p, p))
+                           yield (newP, hints)).toMap)
+    }
 
     def addPredicateHints(
           hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
