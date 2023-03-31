@@ -110,6 +110,7 @@ class GlobalParameters extends Cloneable {
     CCReader.ArithmeticMode.Mathematical
   var arrayRemoval = false
   var arrayQuantification : Option[Int] = None
+  var arrayCloning : Boolean = false
   var expandADTArguments = true
   var princess = false
   var staticAccelerate = false
@@ -199,6 +200,7 @@ class GlobalParameters extends Cloneable {
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
     that.expandADTArguments = this.expandADTArguments
+    that.arrayCloning = this.arrayCloning
     that.princess = this.princess
     that.staticAccelerate = this.staticAccelerate
     that.dynamicAccelerate = this.dynamicAccelerate
@@ -307,7 +309,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.0.8.\n(C) Copyright 2012-2022 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.0.8.\n(C) Copyright 2012-2023 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -433,6 +435,7 @@ object Main {
           arrayQuantification = Some(arrayQuans.drop(12).toInt)
         arguments(rest)
 
+      case "-cloneArrays" :: rest => arrayCloning = true; arguments(rest)
       case "-noSlicing" :: rest => slicing = false; arguments(rest)
       case "-noIntervals" :: rest => intervals = false; arguments(rest)
       //case "-array" :: rest => arrayRemoval = true; arguments(rest)
@@ -493,6 +496,7 @@ object Main {
           " -stac\t\tStatic acceleration of loops\n" +
           " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: off)\n" +
+          " -cloneArrays\tUse separate array theories for independent arrays\n" +
           " -noSlicing\tDisable slicing of clauses\n" +
           " -noIntervals\tDisable interval analysis\n" +
           " -hints:f\tRead hints (initial predicates and abstraction templates) from a file\n" +

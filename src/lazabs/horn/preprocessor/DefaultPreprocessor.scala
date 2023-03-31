@@ -172,6 +172,11 @@ class DefaultPreprocessor extends HornPreprocessor {
         condenseClauses
     }
 
+    // Clone arrays
+    if (GlobalParameters.get.arrayCloning) {
+      applyStage(new ArraySplitter)
+    }
+
     // Static acceleration
     if (GlobalParameters.get.staticAccelerate) {
       if (applyStage(Accelerator)) {
