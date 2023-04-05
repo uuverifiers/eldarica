@@ -100,13 +100,17 @@ object HornReader {
         assert(false)
         KeepArg
       }
+      case f : IQuantified =>
+        // quantified formulas are handled later, we just keep them at
+        // this point
+        ShortCutResult(List((false, f)))
       case f : IFormula => {
-        assert(
-          !ContainsSymbol(f, (e : IExpression) => e match {
+        if(ContainsSymbol(f, (e : IExpression) => e match {
               case IAtom(p, _) => TheoryRegistry.lookupSymbol(p).isEmpty
               case _ : IExpression => false
-           }),
-          "Not able to isolate uninterpreted predicates, input is not Horn")
+                          }))
+          throw new Exception(
+            "Not able to isolate uninterpreted predicates, input is not Horn")
         ShortCutResult(List((false, f)))
       }
     }
