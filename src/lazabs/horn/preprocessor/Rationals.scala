@@ -50,9 +50,7 @@ object RationalDenomUnifier extends HornPreprocessor {
   override def isApplicable(clauses : Clauses,
                             frozenPredicates : Set[Predicate]) : Boolean =
     frozenPredicates.isEmpty &&
-    ((HornClauses allPredicates clauses) exists {
-      p => (predArgumentSorts(p) contains Rationals.dom)
-    })
+    (clauses exists { clause => clause.theories contains Rationals })
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
