@@ -2,6 +2,7 @@
 
 set -e
 
+./rundir horn-rationals ""
 ./rundir horn-smt-lib "" -assert -cex -t:60
 ./rundir horn-prolog "" -assert -t:60
 ./rundir horn-abstract "" -assert -t:60 -abstractTO:4

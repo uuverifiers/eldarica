@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2011-2014 Filip Konecny
- *               2022      Philipp Ruemmer
+ *               2022-2023 Philipp Ruemmer
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,8 @@ import IExpression._
 
 import lazabs.horn.bottomup.HornClauses
 
+import scala.collection.mutable.{LinkedHashSet, LinkedHashMap}
+
 object DepGraph {
   def apply(orig : Seq[HornClauses.Clause]) = new DepGraph(orig)
 } 
@@ -45,9 +47,9 @@ class DepGraph(orig : Seq[HornClauses.Clause]) extends AbsGraph {
   
   val (preds,clauses,n,e) = {
     
-    val s = new scala.collection.mutable.HashSet[Predicate]
-    val p2n = new scala.collection.mutable.HashMap[Predicate,DepNode]
-    val triple2e = new scala.collection.mutable.HashMap[Tuple3[Predicate,Predicate,HornClauses.Clause],DepEdge]
+    val s = new LinkedHashSet[Predicate]
+    val p2n = new LinkedHashMap[Predicate,DepNode]
+    val triple2e = new LinkedHashMap[Tuple3[Predicate,Predicate,HornClauses.Clause],DepEdge]
     
     def newNode(p : Predicate) = {
       val aux = new DepNode(p)
@@ -127,21 +129,19 @@ object HornAccelerate {
        : Seq[(HornClauses.Clause, Seq[HornClauses.Clause])] =
     (new HornAccelerate(orig)).accelerate
 
-  val CYCLES_TO_ACCELERATE = 10
+  val CYCLES_TO_ACCELERATE = 3
 
 }
 
 class HornAccelerate(orig : Seq[HornClauses.Clause]) {
 
   import HornAccelerate.CYCLES_TO_ACCELERATE
+  import HornClauses.FALSE
 
   // split the clauses into lower-bound, upper-bound, and dependent clauses
   val (lb,ub,dep) = {
-    val (a1,aux) = orig.partition( c => c.body.size == 0 )
-    val (a2,a3) = aux.partition( c => c.head match {
-      case IAtom(HornClauses.FALSE, Nil) => true
-      case _ => false
-    } )
+    val (a1,aux) = orig.partition( c => c.body.size == 0 && c.head.pred !=FALSE)
+    val (a2,a3) = aux.partition( c => c.head == FALSE)
     (a1,a2,a3)
   }
   
@@ -285,7 +285,8 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
 //      val cycle : Seq[this.dg.DepEdge] = dg.anyPath(n, n, scc).get
 
       val cycles = (for (n <- scc.iterator;
-                         c <- dg.anyPath(n, n, scc).iterator) yield c).toSeq
+                         p <- dg.simplePaths(n, n, scc.toSet).iterator;
+                         if !p.isEmpty) yield p).toSeq
 
 /*
     TODO: compare different ways of picking paths to be accelerated
@@ -296,7 +297,8 @@ class HornAccelerate(orig : Seq[HornClauses.Clause]) {
              if !c.isEmpty) yield c
 */
 
-      for (cycle <- cycles.sortBy(_.size).take(CYCLES_TO_ACCELERATE)) {
+      for (cycle <- cycles.sortBy(c => (c.size, c.toString))
+                          .take(CYCLES_TO_ACCELERATE)) {
         val hcycle = for (e <- cycle) yield e.c
         // inline it and obtain a horn clause of the form P /\ ... => P
         val hSelfLoop = HornManipulate.inlineSequence(hcycle)
@@ -330,7 +332,7 @@ object PrincessFlataWrappers {
     }
     // arbitrary bijective mapping from the set of n "bound" variables to de Bruijn indices {0..n-1}
     var x = 0
-    for (c <- elim) { 
+    for (c <- elim.toIndexedSeq.sortBy(_.name)) { 
       replacement.put(c, v(x))
       x += 1
     }
@@ -347,7 +349,7 @@ object PrincessFlataWrappers {
   }
   
   def isSat(f : IFormula) : Boolean = {
-    api.isSat(f, (SymbolCollector constants f).toSeq)
+    api.isSat(f, SymbolCollector.constantsSorted(f))
   }
   
   import lazabs.ast.ASTree._

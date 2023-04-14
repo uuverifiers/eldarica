@@ -1,0 +1,61 @@
+
+lazabs.horn.tests.MainRationals
+Solving List(Clause(inv1(Rat_int(0), y),List(),(((y + -1) >= 0) & (((Rat_int(3) + -1 * y) + -1) >= 0))), Clause(inv1((x + y), y),List(inv1(x, y)),true), Clause(inv2(x, y),List(inv1(x, y)),((x + -1 * Rat_int(10)) >= 0)), Clause(inv2(x, (x + y)),List(inv2(x, y)),true), Clause(FALSE,List(inv2(x, y)),!(((Rat_int(20) + -1 * y) + -1) >= 0))) ...
+
+------------------------------- Preprocessing ----------------------------------
+                                                       #clauses  #relation syms
+Initially:                                             5         2
+
+
+Theories: Types, GroebnerMultiplication, Rat
+Unique satisfiable clauses: 5
+   1 clauses with 0 body literals
+   4 clauses with 1 body literals
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                                      8
+Final number of abstract states:                       2
+Final number of matched abstract states:               9
+Final number of abstract edges:                        10
+Number of generated predicates:                        25
+Average predicate size (# of sub-formulas):            1.00
+
+--------------------------------------------------------------------------------
+
+
+NOT SOLVABLE
+0: (FALSE,Clause(FALSE,List(inv2(x, y)),!(((Rat_int(20) + -1 * y) + -1) >= 0))) -> 1
+1: (inv2(Rat_frac(120, 7), Rat_frac(20, 1)),Clause(inv2(x, (x + y)),List(inv2(x, y)),true)) -> 2
+2: (inv2(Rat_frac(120, 7), Rat_frac(20, 7)),Clause(inv2(x, y),List(inv1(x, y)),((x + -1 * Rat_int(10)) >= 0))) -> 3
+3: (inv1(Rat_frac(120, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 4
+4: (inv1(Rat_frac(100, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 5
+5: (inv1(Rat_frac(80, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 6
+6: (inv1(Rat_frac(60, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 7
+7: (inv1(Rat_frac(40, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 8
+8: (inv1(Rat_frac(20, 7), Rat_frac(20, 7)),Clause(inv1((x + y), y),List(inv1(x, y)),true)) -> 9
+9: (inv1(Rat_frac(0, 1), Rat_frac(20, 7)),Clause(inv1(Rat_int(0), y),List(),(((y + -1) >= 0) & (((Rat_int(3) + -1 * y) + -1) >= 0))))
+
+Solving List(Clause(inv1(Rat_int(0), y),List(),(((y + -1) >= 0) & (((Rat_int(1) + -1 * y) + -1) >= 0))), Clause(inv1((x + Rat_int(1)), (y + y)),List(inv1(x, y)),((Rat_int(5) + -1 * x) >= 0)), Clause(FALSE,List(inv1(x, y)),!(((Rat_int(100) + -1 * y) + -1) >= 0))) ...
+
+------------------------------- Preprocessing ----------------------------------
+                                                       #clauses  #relation syms
+Initially:                                             3         1
+
+
+Theories: Types, GroebnerMultiplication, Rat
+Unique satisfiable clauses: 3
+   1 clauses with 0 body literals
+   2 clauses with 1 body literals
+
+--------------------------------- Statistics -----------------------------------
+CEGAR iterations:                                      9
+Final number of abstract states:                       8
+Final number of matched abstract states:               8
+Final number of abstract edges:                        8
+Number of generated predicates:                        43
+Average predicate size (# of sub-formulas):            1.00
+
+--------------------------------------------------------------------------------
+
+
+SOLVABLE: 

@@ -28,7 +28,8 @@ done
 
 # Tests with the native array theory
 
-TESTS="array-elim.smt2 leos-example.smt2 leos-example-2.smt2 constant.smt2"
+TESTS="array-elim.smt2 leos-example.smt2 leos-example-2.smt2 constant.smt2 \
+       splitting.smt2 splitting2.smt2 splitting3.smt2 splitting4.smt2"
 
 for name in $TESTS; do
     echo

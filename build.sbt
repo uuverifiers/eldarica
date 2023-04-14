@@ -2,11 +2,11 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0.8",
+    version := "2.0.9",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.10"),
+    crossScalaVersions := Seq("2.11.12", "2.12.17"),
     fork in run := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
@@ -126,7 +126,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.10" => "-opt:_"
+      case "2.12.17" => "-opt:_"
     }}).value,	
 //
     libraryDependencies +=
@@ -151,10 +151,10 @@ lazy val root = (project in file(".")).
     },
       
 //
-//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2022-03-16"
+    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //
-    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //
