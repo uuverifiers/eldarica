@@ -111,8 +111,6 @@ lazy val root = (project in file(".")).
     settings(commonSettings: _*).
 //
     settings(
-      Compile / scalaSource := baseDirectory.value / "src",
-//
       Compile / mainClass := Some("lazabs.Main"),
 //
       Compile / unmanagedJars ++= (baseDirectory map { base =>
@@ -130,6 +128,8 @@ lazy val root = (project in file(".")).
       case "2.12.17" => "-opt:_"
     }}).value,
 //
+    assembly / test := None,
+//
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
@@ -141,6 +141,9 @@ lazy val root = (project in file(".")).
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
+//
+    libraryDependencies +=
+      "org.scalactic" %% "scalactic" % "3.2.14",
 //
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.14" % "test",
