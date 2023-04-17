@@ -36,7 +36,7 @@ object EvaluateUtils {
     //get ranked clause, the higher logit the value higher rank value
     val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
 
-    //get ranked clause, the higher logit the value lower rank value
+    //get ranked clause, the higher logit the value lower rank value, used for prioritizing clauses
     val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
 
 
