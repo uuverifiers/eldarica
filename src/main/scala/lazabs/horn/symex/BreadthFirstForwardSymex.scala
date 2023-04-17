@@ -75,23 +75,25 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     : Option[(NormClause, Seq[UnitClause])] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
       None
-    else if (maxDepth nonEmpty){
-      var res : Option[(NormClause, Seq[UnitClause])] = None
-      var continue = true
-      do {
-        val candidate = choicesQueue.dequeue()
-        val rs = candidate._1.head._1
-        unitClauseDB.inferred(rs) match {
-          case Some(cucs) if cucs.length >= maxDepth.get =>
-            // this is not a good candidate, continue
-          case _ => // this is a good candidate, return
-            continue = false
-            res = Some(candidate)
-        }
-      } while (choicesQueue.nonEmpty && continue)
-      res
-    } else {
-      Some(choicesQueue.dequeue)
+    else {
+      maxDepth match {
+        case None => Some(choicesQueue.dequeue)
+        case Some(depth) =>
+          var res : Option[(NormClause, Seq[UnitClause])] = None
+          var continue = true
+          do {
+            val candidate = choicesQueue.dequeue()
+            val rs        = candidate._1.head._1
+            unitClauseDB.inferred(rs) match {
+              case Some(cucs) if cucs.length >= depth =>
+              // this is not a good candidate, continue
+              case _ => // this is a good candidate, return
+                continue = false
+                res = Some(candidate)
+            }
+          } while (choicesQueue.nonEmpty && continue)
+          res
+      }
     }
   }
 
