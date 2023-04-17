@@ -142,7 +142,7 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 //
     libraryDependencies +=
-      "com.typesafe.play" %% "play-json" % "2.4.6",
+      "com.typesafe.play" %% "play-json" % "2.4.6", //read JSON
 
 //
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2022-03-16"
