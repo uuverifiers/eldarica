@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2023 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -75,83 +75,63 @@ object HornReader {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def cnf_if_needed(aF : IFormula) : List[IFormula] = {
-    val conjuncts = LineariseVisitor(aF, IBinJunctor.And)
-    if (conjuncts.forall(
-          LineariseVisitor(_, IBinJunctor.Or).forall(isLiteral(_))
-        )) {
-      conjuncts.toList
-    } else {
-      ccnf(aF)
-    }
-  }
+  protected[parser] def cnf_if_needed(aF : IFormula) : Seq[IFormula] =
+    PartialCNFConverter(aF).toList
 
-  // conjunctive normal form (quantified subformulas are considered as atoms)
-  private def ccnf(aF : ap.parser.IFormula) : List[ap.parser.IFormula] = {
-    var cnf : List[IFormula] = Nil
-    aF match {
-      case IBinFormula(j,f1,f2) =>
-        val cnf1 = ccnf(f1)
-        val cnf2 = ccnf(f2)
-        j match {
+  /**
+   * Convert a formula in NNF to CNF, as far as necessary to isolate
+   * all uninterpreted predicates.
+   */
+  object PartialCNFConverter
+         extends CollectingVisitor[Unit, Seq[(IFormula, IFormula)]] {
+
+    def apply(f : IFormula) : Seq[IFormula] =
+      for ((f1, f2) <- visit(f, ())) yield (f1 ||| f2)
+
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = t match {
+      case t@IAtom(p, _) if TheoryRegistry.lookupSymbol(p).isEmpty =>
+        ShortCutResult(List((t, false)))
+      case t@INot(IAtom(p, _)) if TheoryRegistry.lookupSymbol(p).isEmpty =>
+        ShortCutResult(List((t, false)))
+      case IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) =>
+        KeepArg
+      case IBinFormula(IBinJunctor.Eqv, f1, f2) => {
+        assert(false)
+        KeepArg
+      }
+      case f : IQuantified =>
+        // quantified formulas are handled later, we just keep them at
+        // this point
+        ShortCutResult(List((false, f)))
+      case f : IFormula => {
+        if(ContainsSymbol(f, (e : IExpression) => e match {
+              case IAtom(p, _) => TheoryRegistry.lookupSymbol(p).isEmpty
+              case _ : IExpression => false
+                          }))
+          throw new Exception(
+            "Not able to isolate uninterpreted predicates, input is not Horn")
+        ShortCutResult(List((false, f)))
+      }
+    }
+
+    def postVisit(t      : IExpression,
+                  arg    : Unit,
+                  subres : Seq[Seq[(IFormula, IFormula)]])
+        : Seq[(IFormula, IFormula)] = t match {
+      case t@IBinFormula(j, _, _) => subres match {
+        case Seq(Seq((IBoolLit(false), _)), Seq((IBoolLit(false), _))) =>
+          List((false, t))
+        case _ => j match {
           case IBinJunctor.And =>
-            cnf = cnf1 ::: cnf2
+            subres(0) ++ subres(1)
           case IBinJunctor.Or =>
-            cnf = cnf_base(cnf1,cnf2)
-          case IBinJunctor.Eqv =>
-            assert(false)
+            for ((f1, f2) <- subres(0); (g1, g2) <- subres(1))
+            yield (f1 ||| g1, f2 ||| g2)
         }
-      case f@INot(_ : IAtom) => cnf = f :: Nil
-      case f@INot(_ : IBoolLit) => cnf = f :: Nil
-      case f@INot(_ : IIntFormula) => cnf = f :: Nil
-      case f@INot(_ : IEquation) => cnf = f :: Nil
-      case f : IAtom => cnf = f :: Nil
-      case f : IBoolLit => cnf = f :: Nil
-      case f : IIntFormula => cnf = f :: Nil
-      case f : IEquation => cnf = f :: Nil
-      case f : IQuantified => cnf = f :: Nil
-      case f => 
-        throw new Exception ("cannot handle " + f)
-    }
-    cnf
-  }
-
-  private def dnf_base(dnf1 : List[ap.parser.IFormula], dnf2 : List[ap.parser.IFormula]) = {
-    var dnf : List[ap.parser.IFormula] = List()
-    for (f1 <- dnf1) {
-      for (f2 <- dnf2) {
-        dnf = (f1 &&& f2) :: dnf
       }
     }
-    dnf
-  }
 
-  private def cnf_base(cnf1 : List[ap.parser.IFormula], cnf2 : List[ap.parser.IFormula]) = {
-    var cnf : List[ap.parser.IFormula] = List()
-    for (f1 <- cnf1) {
-      for (f2 <- cnf2) {
-        cnf = (f1 ||| f2) :: cnf
-      }
-    }
-    cnf
-  }
-
-  private def containsPredicate(aF : IFormula) : Boolean = {
-    aF match {
-        case IQuantified(q,f) => containsPredicate(f)
-        case IBinFormula(j,f1,f2) => containsPredicate(f1) || containsPredicate(f2)
-        case INot(f) => containsPredicate(f)
-        case a : IAtom => true
-        case _ =>false
-    }
-  }
-
-  private def isLiteral(aF : IFormula) = {
-    !containsPredicate(aF) || (aF match {
-      case IAtom(_,_) => true
-      case INot(IAtom(_,_)) => true
-      case _ => false
-    })
   }
 
   //////////////////////////////////////////////////////////////////////////////

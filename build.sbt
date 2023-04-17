@@ -2,12 +2,12 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.0.8",
+    version := "2.0.9",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.10"),
-    run / fork := true,
+    crossScalaVersions := Seq("2.11.12", "2.12.17"),
+    fork in run := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
 )
@@ -15,44 +15,44 @@ lazy val commonSettings = Seq(
 // Jar files for the parsers
 
 lazy val parserSettings = Seq(
-    packageDoc / publishArtifact := false,
-    packageSrc / publishArtifact := false,
+    publishArtifact in packageDoc := false,
+    publishArtifact in packageSrc := false,
     exportJars := true,
-    crossPaths := true
+    crossPaths := true 
 )
 
 // Parser generation
 
 lazy val parserGen = Seq(
-  Compile / sourceGenerators += Def.task {
-          val outputDir = (Compile / sourceManaged).value / "parser"
+  sourceGenerators in Compile += Def.task {
+          val outputDir = (sourceManaged in Compile).value / "parser"
           val base = baseDirectory.value
-
+          
           val cacheDir = outputDir / ".cache"
 
           val parserDir = base / "src" / "lazabs" / "parser"
           val parserOutputDir = outputDir / "normal"
-
+		
           val hornParserDir = base / "src" / "lazabs" / "horn" / "parser"
           val hornParserOutputDir = outputDir / "horn"
-
+		
           // generated Java files
           val lexerFile =  parserOutputDir / "Lexer.java"
           val hornLexerFile =  hornParserOutputDir / "HornLexer.java"
-
+		
           val parserFile = parserOutputDir / "Parser.java"
           val hornParserFile = hornParserOutputDir / "Parser.java"
-
+		
           val symFile = parserOutputDir / "Symbols.java"
           val hornSymFile = hornParserOutputDir / "Symbols.java"
-
+		
           // grammar file
           val flex = parserDir / "Lexer.jflex"
           val hornFlex = hornParserDir / "HornLexer.jflex"
-
+		
           val cup =  parserDir / "Parser.cup"
           val hornCup =  hornParserDir / "HornParser.cup"
-
+		
           val jflexLib = "./tools/JFlex.jar"
           val cupLib = "./tools/java-cup-11a.jar"
 
@@ -89,7 +89,7 @@ lazy val ccParser = (project in file("cc-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-CC-parser",
-    Compile / packageBin := baseDirectory.value / "cc-parser.jar"
+    packageBin in Compile := baseDirectory.value / "cc-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -98,7 +98,7 @@ lazy val tplspecParser = (project in file("template-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-tplspec-parser",
-    Compile / packageBin := baseDirectory.value / "tplspec-parser.jar"
+    packageBin in Compile := baseDirectory.value / "tplspec-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -111,25 +111,23 @@ lazy val root = (project in file(".")).
     settings(commonSettings: _*).
 //
     settings(
-//      scalaSource in Compile := baseDirectory.value / "src",
+      scalaSource in Compile := baseDirectory.value / "src",
 //
-      Compile / mainClass := Some("lazabs.Main"),
+      mainClass in Compile := Some("lazabs.Main"),
 //
-      Compile / unmanagedJars ++= (baseDirectory map { base =>
+      unmanagedJars in Compile ++= (baseDirectory map { base =>
         val baseDirectories = (base / "flata")
         val customJars = (baseDirectories ** "*.jar")
         customJars.classpath
       }).value,
 //
-    Compile / scalacOptions ++=
+    scalacOptions in Compile ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.10" => "-opt:_"
-    }}).value,
-//
-    assembly / test := None,
+      case "2.12.17" => "-opt:_"
+    }}).value,	
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
@@ -143,16 +141,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 //
-    libraryDependencies +=
-      "org.scalactic" %% "scalactic" % "3.2.14",
+    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //
-    libraryDependencies +=
-      "org.scalatest" %% "scalatest" % "3.2.14" % "test",
-//
-//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2022-03-16"
-//
-    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2023 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -376,6 +376,28 @@ class HornWrapper(constraints  : Seq[HornClause],
                           disjunctive, outStream, symexEngine)).result
   }
 
+  def isNotLinearLIA(clause : Clause) : Boolean = {
+    clause.body.size > 1 ||
+    (clause.theories exists {
+       case ap.types.TypeTheory => false
+       case _ => true
+     })
+  }
+
+  def accelCheck() : ResultType = {
+    // We apply static acceleration only if all clauses are linear,
+    // and if the clauses only use LIA
+
+    if (unsimplifiedClauses exists isNotLinearLIA)
+      throw new Exception("static acceleration cannot be applied")
+
+    val (simplifiedClauses, allHints, preprocBackTranslator) =
+      preprocessClauses(unsimplifiedClauses, hints)
+    (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+                          allHints, preprocBackTranslator,
+                          disjunctive, outStream)).result
+  }
+
   def templatePOCheck(delay : Int) : ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
       preprocessClauses(unsimplifiedClauses, hints)
@@ -395,10 +417,11 @@ class HornWrapper(constraints  : Seq[HornClause],
       case GlobalParameters.Portfolio.Template =>
         templatePOCheck(1000)
       case GlobalParameters.Portfolio.General =>
-        // todo: run different symbolic execution engines with -portfolio?
-        (new ParallelComputation(List(standardCheck _, () => templatePOCheck(3000)),
+        (new ParallelComputation(List(standardCheck _,
+                                      accelCheck _,
+                                      () => templatePOCheck(1000)),
                                  GlobalParameters.get.generalPortfolioParams,
-                                 startDelay = 5000)).result
+                                 startDelay = 1000)).result
   }
 
 }
