@@ -395,7 +395,7 @@ class HornWrapper(constraints  : Seq[HornClause],
       preprocessClauses(unsimplifiedClauses, hints)
     (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
                           allHints, preprocBackTranslator,
-                          disjunctive, outStream)).result
+                          disjunctive, outStream, None)).result
   }
 
   def templatePOCheck(delay : Int) : ResultType = {
