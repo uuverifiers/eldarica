@@ -357,11 +357,12 @@ class HornWrapper(constraints  : Seq[HornClause],
   //////////////////////////////////////////////////////////////////////////////
 
   private def getSymex(clauses : Seq[Clause]) : Option[Symex[Clause]] = {
+    val symexDepth = GlobalParameters.get.symexMaxDepth
     GlobalParameters.get.symexEngine match {
       case GlobalParameters.SymexEngine.DepthFirstForward   =>
-        Some(new DepthFirstForwardSymex[Clause](clauses))
+        Some(new DepthFirstForwardSymex[Clause](clauses)) // todo: add depth
       case GlobalParameters.SymexEngine.BreadthFirstForward =>
-        Some(new BreadthFirstForwardSymex[Clause](clauses))
+        Some(new BreadthFirstForwardSymex[Clause](clauses, symexDepth))
       case GlobalParameters.SymexEngine.None                => None
     }
   }
@@ -432,7 +433,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
   //////////////////////////////////////////////////////////////////////////////
 
   private val predGenerator = Console.withErr(outStream) {
-    if (GlobalParameters.get.templateBasedInterpolation) {
+    if (GlobalParameters.get.templateBasedInterpolation && symexEngine.isEmpty) {
       val fullAbstractionMap =
         AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
 

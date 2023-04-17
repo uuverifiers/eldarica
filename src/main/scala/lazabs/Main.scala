@@ -94,6 +94,7 @@ class GlobalParameters extends Cloneable {
   var horn = false
   var concurrentC = false
   var symexEngine = GlobalParameters.SymexEngine.None
+  var symexMaxDepth : Option[Int] = None
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -337,6 +338,9 @@ object Main {
             case _ => GlobalParameters.SymexEngine.BreadthFirstForward
           }
         arguments(rest)
+      case symexDepthOpt :: rest if (symexDepthOpt.startsWith("-symDepth:")) =>
+        symexMaxDepth = Some(symexDepthOpt.drop("-symDepth:".length).toInt)
+        arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
@@ -506,7 +510,8 @@ object Main {
           " -postHints:f\tRead hints for processed clauses from a file\n" +
           " -pHints\tPrint initial predicates and abstraction templates\n" +
           " -pPredicates:f\tOutput predicates computed by CEGAR to a file\n" +
-          " -sym:n\tUse symbolic execution (0: DFS forward, 1: BFS forward)\n" +
+          " -sym:n\t\tUse symbolic execution (0: DFS forward, 1: BFS forward)\n" +
+          " -symDepth:n\tSet a max depth for symbolic execution (underapproximate)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +

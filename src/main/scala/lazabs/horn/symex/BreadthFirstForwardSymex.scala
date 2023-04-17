@@ -36,8 +36,13 @@ import scala.collection.mutable.{Queue => MQueue}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
+ * @param maxDepth : Search will stop after deriving this many unit clauses
+ *                   for a given predicate. Note that setting this value to
+ *                   something other than None will yield an under-approximate
+ *                   solution but will always terminate (like BMC).
  */
-class BreadthFirstForwardSymex[CC](clauses: Iterable[CC])(
+class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
+                                   maxDepth : Option[Int] = None)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
     extends Symex(clauses)
     with SimpleSubsumptionChecker
@@ -70,8 +75,24 @@ class BreadthFirstForwardSymex[CC](clauses: Iterable[CC])(
     : Option[(NormClause, Seq[UnitClause])] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
       None
-    else
-      Some(choicesQueue.dequeue())
+    else if (maxDepth nonEmpty){
+      var res : Option[(NormClause, Seq[UnitClause])] = None
+      var continue = true
+      do {
+        val candidate = choicesQueue.dequeue()
+        val rs = candidate._1.head._1
+        unitClauseDB.inferred(rs) match {
+          case Some(cucs) if cucs.length >= maxDepth.get =>
+            // this is not a good candidate, continue
+          case _ => // this is a good candidate, return
+            continue = false
+            res = Some(candidate)
+        }
+      } while (choicesQueue.nonEmpty && continue)
+      res
+    } else {
+      Some(choicesQueue.dequeue)
+    }
   }
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {

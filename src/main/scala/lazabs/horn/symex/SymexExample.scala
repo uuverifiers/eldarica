@@ -174,6 +174,38 @@ object DFSExample2Sat extends App {
   }
 }
 
+object DFSArrayExample extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  println("An array example")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val arr = ExtArray(Seq(Sort.Integer), Sort.Integer)
+      val p0  = createRelation("p0", List(arr.sort, Sort.Integer))
+      val p1  = createRelation("p1", List(arr.sort, Sort.Integer))
+      val x   = createConstant("x")
+      val a1   = createConstant("a1", arr.sort)
+      val a2   = createConstant("a2", arr.sort)
+
+
+      val clauses: Seq[Clause] = List(
+        p0(arr.const(x), x) :- (x > 10),
+        p0(a2, x-1) :- (p0(a1, x), x > 0, a2 === arr.store(a1, x, arr.select(a1,x+1)-1)), // x1 = a[x0], i.e., 5
+        p1(a1, x) :- (p0(a1, x), x <= 0),
+        (arr.select(a1, x) === x) :- p1(a1, x))
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
 object DFSExample2Unsat extends App {
   import ap.api.SimpleAPI
   import ap.parser._
@@ -604,6 +636,60 @@ object BFSTakeuchi extends App {
       )
 
       val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+      symex.printInfo = true
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object BFSWithNoDepth1 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  println("Running breadth-first example with no max depth (expected: UNSAT)")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+          p0(x)   :- (x === 0),
+          p0(x+1) :- p0(x),
+          false   :- (p0(x), x > 20)
+        )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses, None)
+      symex.printInfo = true
+      Util.printRes(symex.solve())
+    }
+  }
+}
+
+object BFSWithDepth1 extends App {
+  import ap.api.SimpleAPI
+  import ap.parser._
+  import lazabs.horn.bottomup.HornClauses
+  import IExpression._
+  import HornClauses._
+
+  println("Running breadth-first example with max depth 10 (expected: SAT (unsound))")
+  SimpleAPI.withProver { p =>
+    import p._
+    {
+      val p0 = createRelation("p0", List(Sort.Integer))
+      val x  = createConstant("x")
+
+      val clauses: Seq[Clause] = List(
+        p0(x)   :- (x === 0),
+        p0(x+1) :- p0(x),
+        false   :- (p0(x), x > 20)
+        )
+
+      val symex = new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(10))
       symex.printInfo = true
       Util.printRes(symex.solve())
     }
