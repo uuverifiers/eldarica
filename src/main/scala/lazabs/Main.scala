@@ -339,11 +339,16 @@ object Main {
       case "-sp" :: rest => smtPrettyPrint = true; arguments(rest)
 //      case "-pnts" :: rest => ntsPrint = true; arguments(rest)
       case "-horn" :: rest => horn = true; arguments(rest)
+      case "-sym" :: rest =>
+        symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
+        arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
-          symexEngine = symexOpt.drop(5).toInt match {
-            case 0 => GlobalParameters.SymexEngine.DepthFirstForward
-            case 1 => GlobalParameters.SymexEngine.BreadthFirstForward
-            case _ => GlobalParameters.SymexEngine.BreadthFirstForward
+          symexEngine = symexOpt.drop("-sym:".length) match {
+            case "dfs" => GlobalParameters.SymexEngine.DepthFirstForward
+            case "bfs" => GlobalParameters.SymexEngine.BreadthFirstForward
+            case _ =>
+              println("Unknown argument for -sym:, defaulting to bfs.")
+              GlobalParameters.SymexEngine.BreadthFirstForward
           }
         arguments(rest)
       case symexDepthOpt :: rest if (symexDepthOpt.startsWith("-symDepth:")) =>
@@ -489,38 +494,40 @@ object Main {
       case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
-          " -h\t\tShow this information\n" +
-          " -assert\tEnable assertions in Eldarica\n" +
-          " -log\t\tDisplay progress and found invariants\n" + 
-          " -log:n\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" + 
+          " -h\t\t\t\tShow this information\n" +
+          " -assert\t\tEnable assertions in Eldarica\n" +
+          " -log\t\t\tDisplay progress and found invariants\n" +
+          " -log:n\t\t\tDisplay progress with verbosity n (currently 0 <= n <= 3)\n" +
           " -statistics\tDisplay statistics (implied by -log)\n" + 
-          " -t:time\tSet timeout (in seconds)\n" +
-          " -cex\t\tShow textual counterexamples\n" + 
-          " -scex\t\tShow textual counterexamples in SMT-LIB format\n" + 
-          " -dotCEX\tOutput counterexample in dot format\n" + 
-          " -eogCEX\tDisplay counterexample using eog\n" + 
-          " -m:func\tUse function func as entry point (default: main)\n" +
+          " -t:time\t\tSet timeout (in seconds)\n" +
+          " -cex\t\t\tShow textual counterexamples\n" +
+          " -scex\t\t\tShow textual counterexamples in SMT-LIB format\n" +
+          " -dotCEX\t\tOutput counterexample in dot format\n" +
+          " -eogCEX\t\tDisplay counterexample using eog\n" +
+          " -m:func\t\tUse function func as entry point (default: main)\n" +
           "\n" +
           "Horn engine:\n" +
-          " -horn\t\tEnable this engine\n" + 
-          " -p\t\tPretty Print Horn clauses\n" +
-          " -sp\t\tPretty print the Horn clauses in SMT-LIB format\n" + 
-          " -sol\t\tShow solution in Prolog format\n" + 
-          " -ssol\t\tShow solution in SMT-LIB format\n" + 
+          " -horn\t\t\tEnable this engine\n" +
+          " -p\t\t\t\tPretty Print Horn clauses\n" +
+          " -sp\t\t\tPretty print the Horn clauses in SMT-LIB format\n" +
+          " -sol\t\t\tShow solution in Prolog format\n" +
+          " -ssol\t\t\tShow solution in SMT-LIB format\n" +
           " -logSimplified\tShow clauses after preprocessing in Prolog format\n" +
           " -logSimplifiedSMT\tShow clauses after preprocessing in SMT-LIB format\n" +
-          " -disj\t\tUse disjunctive interpolation\n" +
-          " -stac\t\tStatic acceleration of loops\n" +
-          " -lbe\t\tDisable preprocessor (e.g., clause inlining)\n" +
+          " -disj\t\t\tUse disjunctive interpolation\n" +
+          " -stac\t\t\tStatic acceleration of loops\n" +
+          " -lbe\t\t\tDisable preprocessor (e.g., clause inlining)\n" +
           " -arrayQuans:n\tIntroduce n quantifiers for each array argument (default: off)\n" +
           " -cloneArrays\tUse separate array theories for independent arrays\n" +
-          " -noSlicing\tDisable slicing of clauses\n" +
+          " -noSlicing\t\tDisable slicing of clauses\n" +
           " -noIntervals\tDisable interval analysis\n" +
-          " -hints:f\tRead hints (initial predicates and abstraction templates) from a file\n" +
+          " -hints:f\t\tRead hints (initial predicates and abstraction templates) from a file\n" +
           " -postHints:f\tRead hints for processed clauses from a file\n" +
-          " -pHints\tPrint initial predicates and abstraction templates\n" +
+          " -pHints\t\tPrint initial predicates and abstraction templates\n" +
           " -pPredicates:f\tOutput predicates computed by CEGAR to a file\n" +
-          " -sym:n\t\tUse symbolic execution (0: DFS forward, 1: BFS forward)\n" +
+          " -sym\t\t\tUse symbolic execution with the default engine (bfs)\n" +
+          " -sym:x\t\t\tUse symbolic execution where x : {dfs, bfs}\n" +
+          "       \t\t\t{dfs: depth-first forward, bfs: breadth-first forward})\n" +
           " -symDepth:n\tSet a max depth for symbolic execution (underapproximate)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 	  "\n" +
@@ -529,15 +536,15 @@ object Main {
           "            \t                     relEqs (default), relIneqs\n" +
           " -abstractTO:t\tTimeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO\tRun with and w/o interpolation abstraction in parallel\n" +
-          " -portfolio\tRun different standard configurations in parallel\n" +
+          " -portfolio\t\tRun different standard configurations in parallel\n" +
           " -splitClauses:n\tAggressiveness when splitting disjunctions in clauses\n" +
           "                \t                     (0 <= n <= 2, default: 1)\n" +
           
           "\n" +
-          " -hin\t\tExpect input in Prolog Horn format\n" +  
-          " -hsmt\t\tExpect input in Horn SMT-LIB format\n" +
-          " -ints\t\tExpect input in integer NTS format\n" +
-          " -conc\t\tExpect input in C/C++/TA format\n" +
+          " -hin\t\t\tExpect input in Prolog Horn format\n" +
+          " -hsmt\t\t\tExpect input in Horn SMT-LIB format\n" +
+          " -ints\t\t\tExpect input in integer NTS format\n" +
+          " -conc\t\t\tExpect input in C/C++/TA format\n" +
 //          " -bip\t\tExpect input in BIP format\n" +
 //          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
 //          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +

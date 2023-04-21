@@ -1,0 +1,19 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+TESTS="substring.error.nts.smt2 \
+       test0.correct.pierre.nts.smt2 \
+       uninterpreted_fun.smt2 \
+       inconclusive.smt2 \
+       quantifier.smt2 \
+       clause-shortener-bug.smt2 \
+       extract.smt2 \
+       solution-verifier-bug.smt2 \
+       groebner-bug.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol -sym:bfs "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done

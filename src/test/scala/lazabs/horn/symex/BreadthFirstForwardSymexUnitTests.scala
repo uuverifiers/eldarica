@@ -160,6 +160,38 @@ class BreadthFirstForwardSymexUnitTests
             } should beUnsat
           }
         }
+        "Unbounded loops with depth" - {
+          "Safe (underapproximate / unsound)" in {
+            scope{
+              val p0 = createRelation("p0", List(Sort.Integer))
+              val x  = createConstant("x")
+
+              val clauses : Seq[Clause] = List(
+                p0(x) :- (x === 0),
+                p0(x + 1) :- p0(x),
+                false :- (p0(x), x > 20)
+                )
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(10))
+              symex.solve()
+            } should beSat
+          }
+          "Unsafe" in {
+            scope{
+              val p0 = createRelation("p0", List(Sort.Integer))
+              val x  = createConstant("x")
+
+              val clauses : Seq[Clause] = List(
+                p0(x) :- (x === 0),
+                p0(x + 1) :- p0(x),
+                false :- (p0(x), x > 20)
+                )
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(25))
+              symex.solve()
+            } should beUnsat
+          }
+        }
       }
       "Corner cases" - {
         "Single fact (no assertion)" - {

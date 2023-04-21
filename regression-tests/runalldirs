@@ -15,7 +15,8 @@ set -e
 ./rundir nts "" -assert -t:60
 ./rundir horn-quantifiers "" -assert -t:60
 ./rundir horn-heap "" -assert -t:60
-./rundir special "" 
-./rundir api "" 
+./rundir special ""
+./rundir api ""
 
+./rundir horn-smt-lib-symex "" -assert -cex -t:60
 # ./rundir horn-concurrency ""
