@@ -20,6 +20,8 @@ jobs:
         distribution: 'adopt'
     - name: Build
       run: sbt assembly
+    - name: UnitTests
+      run: sbt test
     - name: Test
       run: cd regression-tests; export TERM=xterm; wget http://logicrunch.it.uu.se:4096/~philipp/yices; chmod +x yices; export PATH=`pwd`:$PATH; ./runalldirs
       
