@@ -148,10 +148,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.14" % "test",
 //
-    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
+//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //
-//    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //
