@@ -206,7 +206,8 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
             if (lazabs.GlobalParameters.get.log) {
               println
               print("Found counterexample #" + iterationNum + ", refining ... ")
-
+              println
+              println("from clause: " + clause)
               if (lazabs.GlobalParameters.get.logCEX) {
                 println
                 clauseDag.prettyPrint

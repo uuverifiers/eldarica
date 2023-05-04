@@ -19,7 +19,11 @@ object Utils {
 
 
   def getSimplifiedClausesFromFile(originalSimplifiedClauses: Clauses): Clauses = {
-    val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified"
+    val simplifiedClausesFileName =
+      if(GlobalParameters.get.fileName.contains("simplified"))
+        GlobalParameters.get.fileName
+      else
+        GlobalParameters.get.fileName + ".simplified"
     if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
     {
       println(Console.BLUE + "-" * 10 + "read CHCs from simplified file" + "-" * 10)
