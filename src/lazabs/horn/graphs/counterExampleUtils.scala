@@ -131,7 +131,6 @@ object counterExampleUtils {
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
     def getLabelByNormalizedScore(clauseLabel: Array[Double]): Seq[Int] = {
-      //pruned by normalization
       val normalizedPredictedLogits = clauseLabel.map(x => (x - clauseLabel.min) / (clauseLabel.max - predictedLogits.min))
       val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
       printPredictedLabels(predictedLabels, predictedLabelsFromThresholdLogits)
@@ -184,20 +183,20 @@ object counterExampleUtils {
         }
 
         //get label by normalized and ranked scores
-        //val predictedLabelsFromThresholdLogits = getLabelByRank(labelForOriginalClauses)
+        val predictedLabelsFromThresholdLogits = getLabelByRank(labelForOriginalClauses)
         //get label by original scores
         //val predictedLabelsFromThresholdLogits = labelForOriginalClauses
         //get label by normalized scores
-        val predictedLabelsFromThresholdLogits = getLabelByNormalizedScore(labelForOriginalClauses)
+        //val predictedLabelsFromThresholdLogits = getLabelByNormalizedScore(labelForOriginalClauses)
         for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
       }
       case HornGraphType.CG => {
         //get label by normalized and ranked scores
-        //val predictedLabelsFromThresholdLogits = getLabelByRank(predictedLogits)
+        val predictedLabelsFromThresholdLogits = getLabelByRank(predictedLogits)
         //get label by original scores
         //val predictedLabelsFromThresholdLogits = predictedLogits
         //get label by normalized scores
-        val predictedLabelsFromThresholdLogits = getLabelByNormalizedScore(predictedLogits)
+        //val predictedLabelsFromThresholdLogits = getLabelByNormalizedScore(predictedLogits)
         for ((c, l) <- clauses.zip(predictedLabelsFromThresholdLogits); if l == 1) yield c
       }
     }
@@ -248,7 +247,7 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //used only rank
-    //    rankScore
+        rankScore
 
     //todo: experiment with coefficients
     //combine rank score with other heuristics with coefficients
@@ -264,13 +263,13 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //combine rank score with other heuristics (SEH)
-    (headSym match {
-      case HornClauses.FALSE => -10000
-      case _ => 0
-    }) + (
-      for (AbstractState(_, preds) <- states.iterator)
-        yield preds.size).sum + //less predicates means less restricts, means more states
-      birthTime + rankScore //longer birthtime means higher priority
+//    (headSym match {
+//      case HornClauses.FALSE => -10000
+//      case _ => 0
+//    }) + (
+//      for (AbstractState(_, preds) <- states.iterator)
+//        yield preds.size).sum + //less predicates means less restricts, means more states
+//      birthTime + rankScore //longer birthtime means higher priority
 
 
     //original version
