@@ -130,8 +130,9 @@ object counterExampleUtils {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
     val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+
     def getLabelByNormalizedScore(clauseLabel: Array[Double]): Seq[Int] = {
-      val normalizedPredictedLogits = clauseLabel.map(x => (x - clauseLabel.min) / (clauseLabel.max - predictedLogits.min))
+      val normalizedPredictedLogits = clauseLabel.map(x => (x - clauseLabel.min) / (clauseLabel.max - clauseLabel.min))
       val predictedLabelsFromThresholdLogits = for (l <- normalizedPredictedLogits) yield if (l > GlobalParameters.get.unsatCoreThreshold) 1 else 0
       printPredictedLabels(predictedLabels, predictedLabelsFromThresholdLogits)
       predictedLabelsFromThresholdLogits
