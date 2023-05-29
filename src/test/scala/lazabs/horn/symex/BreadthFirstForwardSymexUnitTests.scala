@@ -2,6 +2,7 @@ package lazabs.horn.symex
 
 import ap.parser.IExpression.Sort
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.CHCResultMatchers
 import ap.api.SimpleAPI
 import ap.parser._
 import IExpression._
@@ -12,7 +13,7 @@ import org.scalatest.freespec.AnyFreeSpec
 // todo: add non-linear test cases
 class BreadthFirstForwardSymexUnitTests
     extends AnyFreeSpec
-    with SymexResultMatchers {
+    with CHCResultMatchers {
 
   SimpleAPI.withProver { p =>
     import p._

@@ -1,12 +1,13 @@
-package lazabs.horn.symex
+package lazabs.horn
 
+import lazabs.horn.bottomup.HornWrapper
 import ap.api.SimpleAPI.ProverStatus
 import lazabs.horn.preprocessor.HornPreprocessor.{CounterExample, Solution}
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.matchers.should.Matchers
 
 // Blend in to have assertions like "result should beSat"
-trait SymexResultMatchers extends Matchers {
+trait CHCResultMatchers extends Matchers {
   type Result = Either[Solution, CounterExample]
   def be(status: ProverStatus.Value) = StatusChecker(status)
   def beSat   = StatusChecker(ProverStatus.Sat)
@@ -21,4 +22,11 @@ trait SymexResultMatchers extends Matchers {
                   "")
     }
   }
+
+  def hideOutput[A](comp : => A) : A =
+    Console.withOut(HornWrapper.NullStream) {
+      Console.withErr(HornWrapper.NullStream) {
+        comp
+      }
+    }
 }
