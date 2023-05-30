@@ -193,10 +193,10 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
         postponedExpansions += expansion
       } else {
         try {
-          for (e <- genEdge(clause, states, assumptions))
-            addEdge(e)
+          for (e <- genEdge(clause, states, assumptions)) //determine if H=false inside
+            addEdge(e) //H != false
         } catch {
-          case Counterexample(from, clause) => {
+          case Counterexample(from, clause) => { //H=false
             if (postponedExpansionCount > nextToProcess.size)
               throw new Exception("Predicate generation failed")
 
@@ -857,9 +857,9 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       } else {
         // assumptions are consistent
         clause.head._1.pred match {
-          case HornClauses.FALSE =>
+          case HornClauses.FALSE => //H == false
             throw new Counterexample(from, clause)
-          case _ => {
+          case _ => { //generate states and edges
             val state = genAbstractState(assumptions,
               clause.head._1, clause.head._2,
               prover, clause.order)

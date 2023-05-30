@@ -19,7 +19,7 @@ import java.io.{File, PrintWriter}
 
 object counterExampleUtils {
   object CounterExampleMiningOption extends Enumeration {
-    val union, common = Value
+    val union, common, minimal, one = Value
   }
 
   def mineClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
@@ -29,8 +29,12 @@ object counterExampleUtils {
     val CEMiner = new CounterexampleMiner(clauses, predicateGenerator)
     val minedCEs = if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.union)
       CEMiner.unionMinimalCounterexampleIndexs
-    else
+    else if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.common)
       CEMiner.commonCounterexampleIndexs
+    else if (GlobalParameters.get.ceMiningOption == CounterExampleMiningOption.minimal)
+      CEMiner.minimalCounterExampleIndexs
+    else
+      CEMiner.minimalCounterExampleIndexs
     val clausesInCE = for ((c, i) <- clauses.zipWithIndex; if minedCEs.contains(i)) yield c
 
 

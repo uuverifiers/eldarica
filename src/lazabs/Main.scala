@@ -458,6 +458,11 @@ object Main {
         ceMiningOption = CounterExampleMiningOption.common
         arguments(rest)
       }
+      case "-mineCounterExample:minimal" :: rest => {
+        mineCounterExample = true
+        ceMiningOption = CounterExampleMiningOption.minimal
+        arguments(rest)
+      }
       case "-getHornGraph:CDHG" :: rest => {
         getHornGraph = true
         hornGraphType = HornGraphType.CDHG

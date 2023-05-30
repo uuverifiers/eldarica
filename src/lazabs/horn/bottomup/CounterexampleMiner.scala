@@ -35,12 +35,11 @@ import ap.theories.TheoryCollector
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
-
 import Util._
-import DisjInterpolator.{AndOrNode, AndNode, OrNode}
+import DisjInterpolator.{AndNode, AndOrNode, OrNode}
 import HornClauses.{ConstraintClause, Literal}
-
 import lattopt._
+import lazabs.GlobalParameters
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -146,6 +145,33 @@ class CounterexampleMiner[CC <% HornClauses.ConstraintClause]
   for (obj <- Algorithms.maximalFeasibleObjects(cexLattice)(cexLattice.bottom))
     println(flagsToIndexes(cexLattice.getLabel(obj)))
 
+
   Console.out.println("Checks: " + checks)
+
+  val indexToClause =  (for ((c,i)<-iClauses.zipWithIndex) yield i->c).toMap
+  val minimalCounterExampleIndexsSets= (for (obj <- Algorithms.maximalFeasibleObjects(cexLattice)(cexLattice.bottom)) yield {
+    //val label=cexLattice.getLabel(obj) // Set[Predicate]
+    val clauseIndexes=flagsToIndexes(cexLattice.getLabel(obj))
+    var totalCount=0
+    val minimalClauses= for (i<-clauseIndexes) yield {
+      val c = indexToClause(i)
+      //totalCount+=c.predicates.map(_.arity).sum
+      totalCount+=c.toString.count(x=>x=='&')
+      //totalCount+=c.body.flatMap(_.relevantArguments).sum //todo differentiate minimal CEs by some numbers
+      (indexToClause(i),i)
+    }
+    (minimalClauses,totalCount)
+    //clauseIndexes
+  }).toSeq
+
+  if (GlobalParameters.get.log){
+    for (x <- minimalCounterExampleIndexsSets) {
+      println(Console.RED_B+x._1.map(_._2),x._2)
+      x._1.map(_._1).foreach(println)
+    }
+  }
+
+
+  val minimalCounterExampleIndexs=minimalCounterExampleIndexsSets.maxBy(_._2)._1.map(_._2)
 
 }
