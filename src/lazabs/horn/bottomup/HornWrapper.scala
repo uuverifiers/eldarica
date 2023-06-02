@@ -55,7 +55,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.graphs.TemplateUtils.{createNewLogFile, generateTemplates, getPredicateGenerator, logTime, mineTemplates, readTemplateMap, writeTemplateMap, writeTemplatesToFile}
 import lazabs.horn.graphs.{CDHG, CG, HornGraphType}
 import lazabs.horn.graphs.EvaluateUtils.getSolvability
-import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, outputClauses, roundByDigit, writeSMTFormatToFile}
+import lazabs.horn.graphs.Utils.{outputClauses, outputSimplifiedClauses, readSMTFormatFromFile, roundByDigit, writeSMTFormatToFile}
 import lazabs.horn.graphs.counterExampleUtils.{getPrunedClauses, mineClausesInCounterExamples}
 import lazabs.horn.graphs.GraphUtils.simplifyClauses
 
@@ -363,9 +363,12 @@ class HornWrapper(constraints: Seq[HornClause],
   //////////////////////////////////////////////////////////////////////////////
 
   def standardCheck(): ResultType = {
+    val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified.smt2"
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      if (new java.io.File(GlobalParameters.get.fileName + ".simplified").exists) //if there is a simplified.smt2 file, skip preprocessing
-        (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
+      if (new java.io.File(simplifiedClausesFileName).exists) {//if there is a simplified.smt2 file, skip preprocessing
+        println(Console.BLUE + "-" * 10 + "read CHCs from simplified file" + "-" * 10)
+        (readSMTFormatFromFile(simplifiedClausesFileName), hints, HornPreprocessor.IDENTITY_TRANSLATOR)
+      }
       else
         preprocessClauses(unsimplifiedClauses, hints)
     (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
@@ -457,6 +460,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * collect results
   *
   * unsatcore pipeline:
+  * 0. generate further simplified files. -outputSimplifiedClauses
   * 1. mine labels [training]: -mineCounterExample:union -abstract:off
   * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore -abstract:off
   * 3. train and prediction in Python
@@ -473,43 +477,46 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * -useUnsimplifiedClauses. not simplify the input smt2 file
   * -outputPrunedClauses -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -hornGraphLabelType:unsatCore -abstract:off. output pruned clauses according to threshold for other solvers
   * */
+  if (GlobalParameters.get.outputSimplifiedClauses) {
+    outputSimplifiedClauses(simplifiedClauses)
+    System.exit(0)
+  }
   if (GlobalParameters.get.analysisClauses) {
     outputClauses(simplifiedClauses, unsimplifiedClauses)
     System.exit(0)
   }
-  val furtherSimplifiedClauses = getSimplifiedClausesFromFile(simplifiedClauses)
 
   if (GlobalParameters.get.outputPrunedClauses) {
-    val prunedClauses = getPrunedClauses(furtherSimplifiedClauses)
-    writeSMTFormatToFile(prunedClauses, "pruned-" + GlobalParameters.get.hornGraphType.toString + "-" +  roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2))
+    val prunedClauses = getPrunedClauses(simplifiedClauses)
+    writeSMTFormatToFile(prunedClauses, "pruned-" + GlobalParameters.get.hornGraphType.toString + "-" + roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2))
     System.exit(0)
   }
 
   if (GlobalParameters.get.mineTemplates) {
     createNewLogFile(append = true)
-    logTime(mineTemplates(furtherSimplifiedClauses, simpHints, disjunctive, predGenerator), "mine templates -abstract:" + GlobalParameters.get.templateBasedInterpolationType.toString)
-    logTime(writeTemplateMap(furtherSimplifiedClauses), "labeling")
+    logTime(mineTemplates(simplifiedClauses, simpHints, disjunctive, predGenerator), "mine templates -abstract:" + GlobalParameters.get.templateBasedInterpolationType.toString)
+    logTime(writeTemplateMap(simplifiedClauses), "labeling")
     System.exit(0)
   }
   if (GlobalParameters.get.generateTemplates) { // -generateTemplates -abstract:unlabeled
-    generateTemplates(furtherSimplifiedClauses)
+    generateTemplates(simplifiedClauses)
     System.exit(0)
   }
   if (GlobalParameters.get.mineCounterExample) {
     createNewLogFile(append = true)
-    logTime(mineClausesInCounterExamples(furtherSimplifiedClauses, predGenerator), "mingCE")
+    logTime(mineClausesInCounterExamples(simplifiedClauses, predGenerator), "mingCE")
     System.exit(0)
   }
   if (GlobalParameters.get.getHornGraph) { //read simplified clauses from file, if no simplified clauses in file, write simplified clauses to file
     createNewLogFile(append = true)
     val hornGraph = GlobalParameters.get.hornGraphType match {
-      case HornGraphType.CDHG => logTime(new CDHG(furtherSimplifiedClauses), "generate CDHG")
-      case HornGraphType.CG => logTime(new CG(furtherSimplifiedClauses), "generate CG")
+      case HornGraphType.CDHG => logTime(new CDHG(simplifiedClauses), "generate CDHG")
+      case HornGraphType.CG => logTime(new CG(simplifiedClauses), "generate CG")
     }
     System.exit(0)
   }
   if (GlobalParameters.get.getSolvability) {
-    getSolvability(unsimplifiedClauses, furtherSimplifiedClauses, predGenerator)
+    getSolvability(unsimplifiedClauses, simplifiedClauses, predGenerator)
     //use return insted of exit
     System.exit(0)
   }

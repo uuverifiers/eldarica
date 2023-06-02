@@ -119,6 +119,7 @@ class GlobalParameters extends Cloneable {
   var explorationRate: Float=0
   var unsatCoreThreshold:Double=0.0
   var outputPrunedClauses = false
+  var outputSimplifiedClauses = false
   var prioritizeClausesByUnsatCoreRank=false
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
@@ -231,6 +232,7 @@ class GlobalParameters extends Cloneable {
     that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
     that.prioritizeClausesByUnsatCoreRank =  this.prioritizeClausesByUnsatCoreRank
+    that.outputSimplifiedClauses = this.outputSimplifiedClauses
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
     that.predicateOutputFile = this.predicateOutputFile
@@ -446,6 +448,10 @@ object Main {
       }
       case "-prioritizeClausesByUnsatCoreRank" :: rest => {
         prioritizeClausesByUnsatCoreRank = true
+        arguments(rest)
+      }
+      case "-outputSimplifiedClauses" :: rest => {
+        outputSimplifiedClauses = true
         arguments(rest)
       }
       case "-mineCounterExample:union" :: rest => {

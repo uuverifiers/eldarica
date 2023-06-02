@@ -18,25 +18,6 @@ import java.io.{File, PrintWriter}
 object Utils {
 
 
-  def getSimplifiedClausesFromFile(originalSimplifiedClauses: Clauses): Clauses = {
-    val simplifiedClausesFileName =
-      if(GlobalParameters.get.fileName.contains("simplified"))
-        GlobalParameters.get.fileName
-      else
-        GlobalParameters.get.fileName + ".simplified"
-    if (new java.io.File(simplifiedClausesFileName).exists) // for solvable training data .simplified.smt2 existed
-    {
-      println(Console.BLUE + "-" * 10 + "read CHCs from simplified file" + "-" * 10)
-      readSMTFormatFromFile(simplifiedClausesFileName)
-    }
-    else { // if .simplified.smt2 not existed
-      val furtherSimplified=simplifyClauses(originalSimplifiedClauses,VerificationHints(Map()))
-      //write simplified clauses to file
-      writeSMTFormatToFile(originalSimplifiedClauses, "simplified")
-      furtherSimplified
-    }
-  }
-
   def readSMTFormatFromFile(fileName: String): Clauses = {
     val _hornTranslator = new HornTranslator
     fromSMT(fileName) map ((_hornTranslator).transform(_))
@@ -140,7 +121,11 @@ object Utils {
     writeSMTFormatToFile(simplifiedClauses, suffix = "simplified")
     writePrologFormatToFile(simplifiedClauses, suffix = "simplified")
     writePrologFormatToFile(unsimplifiedClauses, suffix = "")
-
+  }
+  def outputSimplifiedClauses(perprocessedClauses: Clauses): Unit = {
+    val furtherSimplifiedClauses=simplifyClauses(perprocessedClauses,VerificationHints(Map()))
+    println(Console.BLUE + "-" * 10 + "write further simplified CHCs to file" + "-" * 10)
+    writeSMTFormatToFile(furtherSimplifiedClauses, "simplified")
   }
 
   def getFloatSeqRank(inputSeq: Seq[Double], inverse: Boolean = true): Seq[Int] = {

@@ -27,10 +27,9 @@ object EvaluateUtils {
 
 
   def getSolvability(unsimplifiedClauses: Seq[Clause],
-                     originalSimplifiedClauses: Seq[Clause],
+                     simplifiedClauses: Seq[Clause],
                      predGenerator: Dag[AndOrNode[NormClause, Unit]] => Either[Seq[(Predicate, Seq[Conjunction])], Dag[(IAtom, NormClause)]]): Unit = {
 
-    val simplifiedClauses = originalSimplifiedClauses // getSimplifiedClausesFromFile(originalSimplifiedClauses)
 
     //get pruned clauses from predicted
     //get ranked clause, the higher logit the value higher rank value
