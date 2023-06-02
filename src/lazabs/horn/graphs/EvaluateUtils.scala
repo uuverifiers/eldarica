@@ -11,7 +11,7 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.Utils.{getSimplifiedClausesFromFile, readSMTFormatFromFile, roundByDigit, writeOneLineJson}
+import lazabs.horn.graphs.Utils.{ readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
 import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses, getRankedClausesByMUS}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
@@ -42,7 +42,8 @@ object EvaluateUtils {
     //get predicate generator from predicted or existed heuristics
     val predGeneratorForSolvabilityCheck = getPredicateGenerator(clausesForSolvabilityCheck, predGenerator)
 
-    println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
+    if(GlobalParameters.get.log)
+      println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
     val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
       unsimplifiedClauses, simplifiedClauses, clausesForSolvabilityCheck)
 
@@ -63,10 +64,14 @@ object EvaluateUtils {
 
     if (new java.io.File(solvingTimeFileName).exists) { //update the solving time for current abstract option in JSON file
       val satisfiability = predAbs.result match {
-        case Left(res) => 1 //SAT
-        case Right(cex) => 0 //UNSAT
+        case Left(res) => {
+          println("sat")
+          1} //SAT
+        case Right(cex) => {
+          println("unsat")
+          0} //UNSAT
       }
-      println(Console.BLUE + "satisfiability:", satisfiability)
+      //println(Console.BLUE + "satisfiability:", satisfiability)
       val solvingTime = (predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds
       val cegarIterationNumber = predAbs.cegar.iterationNum
       val generatedPredicateNumber = 0 //predAbs.cegar.generatedPredicateNumber

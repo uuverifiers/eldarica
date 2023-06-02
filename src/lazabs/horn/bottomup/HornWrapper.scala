@@ -366,7 +366,6 @@ class HornWrapper(constraints: Seq[HornClause],
     val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified.smt2"
     val (simplifiedClauses, allHints, preprocBackTranslator) =
       if (new java.io.File(simplifiedClausesFileName).exists) {//if there is a simplified.smt2 file, skip preprocessing
-        println(Console.BLUE + "-" * 10 + "read CHCs from simplified file" + "-" * 10)
         (readSMTFormatFromFile(simplifiedClausesFileName), hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       }
       else
@@ -460,7 +459,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * collect results
   *
   * unsatcore pipeline:
-  * 0. generate further simplified files. -outputSimplifiedClauses
+  * 0. generate further simplified files. -outputSimplifiedClauses -abstract:off
   * 1. mine labels [training]: -mineCounterExample:union -abstract:off
   * 2. draw graphs with labels [training, testing]: -getHornGraph:CDHG -hornGraphLabelType:unsatCore -abstract:off
   * 3. train and prediction in Python

@@ -99,7 +99,8 @@ object counterExampleUtils {
   }
 
   def getPrunedClauses(clauses: Clauses): Clauses = {
-    println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
+    if(GlobalParameters.get.log)
+      println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
       try {
         //val clausesInCounterExample = getRandomCounterExampleClauses(clauses)
