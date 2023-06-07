@@ -253,7 +253,7 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //used only rank
-        rankScore
+        //rankScore
 
     //todo: experiment with coefficients
     //combine rank score with other heuristics with coefficients
@@ -269,13 +269,13 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //combine rank score with other heuristics (SEH)
-//    (headSym match {
-//      case HornClauses.FALSE => -10000
-//      case _ => 0
-//    }) + (
-//      for (AbstractState(_, preds) <- states.iterator)
-//        yield preds.size).sum + //less predicates means less restricts, means more states
-//      birthTime + rankScore //longer birthtime means higher priority
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum + //less predicates means less restricts, means more states
+      birthTime + rankScore //longer birthtime means higher priority
 
 
     //original version

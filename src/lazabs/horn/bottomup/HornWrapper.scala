@@ -365,7 +365,7 @@ class HornWrapper(constraints: Seq[HornClause],
   def standardCheck(): ResultType = {
     val simplifiedClausesFileName = GlobalParameters.get.fileName + ".simplified.smt2"
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      if (new java.io.File(simplifiedClausesFileName).exists) {//if there is a simplified.smt2 file, skip preprocessing
+      if (new java.io.File(simplifiedClausesFileName).exists) {//if there is a simplified.smt2 file, read that file as simplified clauses
         (readSMTFormatFromFile(simplifiedClausesFileName), hints, HornPreprocessor.IDENTITY_TRANSLATOR)
       }
       else
