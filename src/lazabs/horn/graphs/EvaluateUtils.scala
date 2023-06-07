@@ -13,7 +13,8 @@ import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.graphs.Utils.{ readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses, getPrunedClauses, getRankedClausesByMUS}
+import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses,
+  getPrunedClauses, getRankedClausesByMUS,readClauseScoresForPrioritizing,readClauseLabelForPrioritizing}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -33,10 +34,13 @@ object EvaluateUtils {
 
     //get pruned clauses from predicted
     //get ranked clause, the higher logit the value higher rank value
-    val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
+    //val clausesForSolvabilityCheck = getPrunedClauses(simplifiedClauses)
+    val clausesForSolvabilityCheck = simplifiedClauses
 
     //get ranked clause, the higher logit the value lower rank value, used for prioritizing clauses
-    val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
+    //val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
+    val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap
+    //val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap
 
 
     //get predicate generator from predicted or existed heuristics

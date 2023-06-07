@@ -6,6 +6,7 @@ import ap.terfor.conjunctions.Conjunction
 import lazabs.GlobalParameters
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
+import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.{AbstractState, CounterexampleMiner, HornClauses, HornTranslator, NormClause, RelationSymbol, StateQueue}
 import lazabs.horn.graphs.Utils.{getFloatSeqRank, getPredAbs, printListMap, readJSONFile, readJsonFieldDouble, readJsonFieldInt, readSMTFormatFromFile, roundByDigit, writeOneLineJson, writeSMTFormatToFile}
@@ -70,6 +71,43 @@ object counterExampleUtils {
     }
   }
 
+  def readClauseLabelForPrioritizing[CC](clauses: Iterable[CC]): Map[CC, Double] = {
+    val labelFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
+    val labels = readJsonFieldInt(labelFileName, readLabelName = "counterExampleLabels")
+    (for ((c, s) <- clauses.zip(labels)) yield (c, s.toDouble)).toMap
+  }
+
+  def readClauseScoresForPrioritizing(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
+    //get graph file name
+    val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    //read logit values from graph file
+    val predictedLogitsFromGraph = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+
+    //for CDHG map predicted (read) Logits to correct clause number, for CG just return normalized Logits
+    val predictedLogits = GlobalParameters.get.hornGraphType match {
+      case HornGraphType.CDHG => {
+        val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
+        val originalClausesIndex = labelMask.distinct
+        val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
+          for (ii <- (0 until labelMask.count(_ == i))) yield predictedLogitsFromGraph(i + ii)
+        }
+        val logitsForOriginalClauses = for (sl <- separatedPredictedLabels) yield {
+          sl.max
+        }
+        logitsForOriginalClauses
+      }
+      case HornGraphType.CG => {
+        predictedLogitsFromGraph
+      }
+    }
+
+    //The higher value the lower rank
+    val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse //todo check this
+    val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
+    //normalize rank to 0 to 100, rank may repeated
+    val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
+    normalizedRankedClause
+  }
 
   def getRankedClausesByMUS(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
     try {
@@ -99,7 +137,7 @@ object counterExampleUtils {
   }
 
   def getPrunedClauses(clauses: Clauses): Clauses = {
-    if(GlobalParameters.get.log)
+    if (GlobalParameters.get.log)
       println(Console.BLUE + "-" * 10 + " getPrunedClauses " + "-" * 10)
     if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {
       try {
@@ -253,7 +291,7 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //used only rank
-        //rankScore
+    //rankScore
 
     //todo: experiment with coefficients
     //combine rank score with other heuristics with coefficients
