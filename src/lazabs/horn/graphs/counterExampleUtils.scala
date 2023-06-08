@@ -71,10 +71,10 @@ object counterExampleUtils {
     }
   }
 
-  def readClauseLabelForPrioritizing[CC](clauses: Iterable[CC]): Map[CC, Double] = {
+  def readClauseLabelForPrioritizing(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
     val labelFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
     val labels = readJsonFieldInt(labelFileName, readLabelName = "counterExampleLabels")
-    (for ((c, s) <- clauses.zip(labels)) yield (c, s.toDouble)).toMap
+    (for ((c, s) <- clauses.zip(labels)) yield (c, s))
   }
 
   def readClauseScoresForPrioritizing(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
