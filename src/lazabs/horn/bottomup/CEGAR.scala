@@ -40,7 +40,7 @@ import ap.util.Seqs
 import Util._
 import DisjInterpolator.{AndNode, AndOrNode, OrNode}
 import lazabs.GlobalParameters
-import lazabs.horn.graphs.MUSPriorityStateQueue
+import lazabs.horn.graphs.{MUSPriorityStateQueue, RandomPriorityStateQueue}
 
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Sorting
@@ -128,7 +128,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 //      println(Console.RED+"-" * 10+"bug"+"-" * 10)
 //  }
 
-  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new CEGARStateQueue
+  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new RandomPriorityStateQueue(normClauseToRankMap)//CEGARStateQueue
   //val nextToProcess = new CEGARStateQueue
   //val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
 

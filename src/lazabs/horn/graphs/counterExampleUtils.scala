@@ -17,6 +17,7 @@ import lazabs.horn.preprocessor.{HornPreprocessor, ReachabilityChecker}
 
 import scala.collection.mutable.PriorityQueue
 import java.io.{File, PrintWriter}
+import scala.util.Random
 
 object counterExampleUtils {
   object CounterExampleMiningOption extends Enumeration {
@@ -291,7 +292,7 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //used only rank
-    //rankScore
+    rankScore
 
     //todo: experiment with coefficients
     //combine rank score with other heuristics with coefficients
@@ -307,13 +308,13 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //combine rank score with other heuristics (SEH)
-    (headSym match {
-      case HornClauses.FALSE => -10000
-      case _ => 0
-    }) + (
-      for (AbstractState(_, preds) <- states.iterator)
-        yield preds.size).sum + //less predicates means less restricts, means more states
-      birthTime + rankScore //longer birthtime means higher priority
+//    (headSym match {
+//      case HornClauses.FALSE => -10000
+//      case _ => 0
+//    }) + (
+//      for (AbstractState(_, preds) <- states.iterator)
+//        yield preds.size).sum + //less predicates means less restricts, means more states
+//      birthTime + rankScore //longer birthtime means higher priority
 
 
     //original version
@@ -324,6 +325,59 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
     //          for (AbstractState(_, preds) <- states.iterator)
     //            yield preds.size).sum +
     //          birthTime
+  }
+
+  private implicit val ord = new Ordering[Expansion] {
+    def compare(s: Expansion, t: Expansion) =
+      priority(t) - priority(s)
+  }
+
+  private val states = new PriorityQueue[Expansion]
+
+  def isEmpty: Boolean =
+    states.isEmpty
+
+  def size: Int =
+    states.size
+
+  def enqueue(s: Seq[AbstractState],
+              clause: NormClause, assumptions: Conjunction): Unit = {
+    states += ((s, clause, assumptions, time))
+  }
+
+  def enqueue(exp: Expansion): Unit = {
+    states += exp
+  }
+
+  def dequeue: Expansion =
+    states.dequeue
+
+  def removeGarbage(reachableStates: scala.collection.Set[AbstractState]) = {
+    val remainingStates = (states.iterator filter {
+      case (s, _, _, _) => s forall (reachableStates contains _)
+    }).toArray
+    states.dequeueAll
+    states ++= remainingStates
+  }
+
+  override def incTime: Unit =
+    time = time + 1
+}
+
+class RandomPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends StateQueue {
+  type TimeType = Int
+
+  private var time = 0
+
+  private def priority(s: Expansion) = {
+    val (_, nc, _, _) = s
+    val rankScore = normClauseToRank(nc)
+
+    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
+    birthTime) = s
+    val queueElementScore = Random.nextInt(100)
+    queueElementScore
+
   }
 
   private implicit val ord = new Ordering[Expansion] {
