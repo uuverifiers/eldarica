@@ -49,6 +49,7 @@ class RationalTests
   import Rationals.{plus, mul, frac, int2ring, lt, leq}
   
   ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.assertions = true
 
   def solve(clauses : Seq[Clause]) = hideOutput {
     val preprocessor = new DefaultPreprocessor
@@ -61,8 +62,16 @@ class RationalTests
                       DagInterpolator.interpolatingPredicateGenCEXAndOr _)
 
     predAbs.result match {
-      case Right(cex) => Right(backTranslator.translate(cex))
-      case Left(sol)  => Left(backTranslator.translate(sol))
+      case Right(cex) => {
+        val fullCEX = backTranslator.translate(cex)
+        HornWrapper.verifyCEX(fullCEX, clauses)
+        Right(fullCEX)
+      }
+      case Left(sol) => {
+        val fullSol = backTranslator.translate(sol)
+        HornWrapper.verifySolution(fullSol, clauses)
+        Left(fullSol)
+      }
     }
   }
 
@@ -115,6 +124,7 @@ class RationalTests
     val x = U newConstant "x"
     val y = U newConstant "y"
 
+    val init = MonoSortedPredicate("init", List())
     val inv1 = MonoSortedPredicate("inv1", List(U, U))
 
     "Nondeterministic inputs" - {
@@ -126,6 +136,16 @@ class RationalTests
       )
 
       solve(clauses) should beUnsat
+    }
+
+    "Nullary predicate" - {
+      val clauses = List(
+        init()                                           :- true,
+        inv1(x, aFloat(plus(getFloat(x), int2ring(1))))  :- init(),
+        leq(getFloat(x), getFloat(y))                    :- inv1(x, y)
+      )
+
+      solve(clauses) should beSat
     }
   }
 
