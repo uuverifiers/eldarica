@@ -84,6 +84,7 @@ object counterExampleUtils {
     //read logit values from graph file
     val predictedLogitsFromGraph = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
 
+
     //for CDHG map predicted (read) Logits to correct clause number, for CG just return normalized Logits
     val predictedLogits = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => {
@@ -111,30 +112,19 @@ object counterExampleUtils {
   }
 
   def getRankedClausesByMUS(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
-    try {
-      val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
-      val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
-      //The higher value the lower rank
-      val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse //todo check this
-      val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
-      //normalize rank to 0 to 100, rank may repeated
-      val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
+    val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
+    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    //The higher value the lower rank
+    val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse //todo check this
+    val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
+    //normalize rank to 0 to 100, rank may repeated
+    val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
 
-      if (GlobalParameters.get.log) {
-        println(Console.BLUE + "rank, logit value, clause")
-        for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
-      }
-
-      normalizedRankedClause
-
-
-    } catch {
-      case _ => {
-        println(Console.RED + "getRankedClausesByMUS except")
-        val zeros = Seq.fill(clauses.length)(0)
-        clauses.zip(zeros)
-      }
+    if (GlobalParameters.get.log) {
+      println(Console.BLUE + "rank, logit value, clause")
+      for ((t, i) <- sortedClauses.zipWithIndex) println(Console.BLUE + i, t._2, t._1)
     }
+    normalizedRankedClause
   }
 
   def getPrunedClauses(clauses: Clauses): Clauses = {
@@ -308,13 +298,13 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
 
 
     //combine rank score with other heuristics (SEH)
-//    (headSym match {
-//      case HornClauses.FALSE => -10000
-//      case _ => 0
-//    }) + (
-//      for (AbstractState(_, preds) <- states.iterator)
-//        yield preds.size).sum + //less predicates means less restricts, means more states
-//      birthTime + rankScore //longer birthtime means higher priority
+    //    (headSym match {
+    //      case HornClauses.FALSE => -10000
+    //      case _ => 0
+    //    }) + (
+    //      for (AbstractState(_, preds) <- states.iterator)
+    //        yield preds.size).sum + //less predicates means less restricts, means more states
+    //      birthTime + rankScore //longer birthtime means higher priority
 
 
     //original version

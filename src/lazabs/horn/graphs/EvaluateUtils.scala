@@ -11,10 +11,12 @@ import lazabs.horn.bottomup.DisjInterpolator.AndOrNode
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
-import lazabs.horn.graphs.Utils.{ readSMTFormatFromFile, roundByDigit, writeOneLineJson}
+import lazabs.horn.graphs.Utils.{readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.graphs.counterExampleUtils.{getPredictedCounterExampleClauses,
-  getPrunedClauses, getRankedClausesByMUS,readClauseScoresForPrioritizing,readClauseLabelForPrioritizing}
+import lazabs.horn.graphs.counterExampleUtils.{
+  getPredictedCounterExampleClauses,
+  getPrunedClauses, getRankedClausesByMUS, readClauseScoresForPrioritizing, readClauseLabelForPrioritizing
+}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -38,15 +40,16 @@ object EvaluateUtils {
     val clausesForSolvabilityCheck = simplifiedClauses
 
     //get ranked clause, the higher logit the value lower rank value, used for prioritizing clauses
-    //val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
+
+    val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
     //val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap // need scored graph file
-    val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap //need counter example file
+    //val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap //need counter example file
 
 
     //get predicate generator from predicted or existed heuristics
     val predGeneratorForSolvabilityCheck = getPredicateGenerator(clausesForSolvabilityCheck, predGenerator)
 
-    if(GlobalParameters.get.log)
+    if (GlobalParameters.get.log)
       println(Console.BLUE + "-" * 10 + " check solvability " + "-" * 10)
     val (solvingTimeFileName, meansureFields, initialFields) = writeInitialFixedFieldsToSolvabilityFile(
       unsimplifiedClauses, simplifiedClauses, clausesForSolvabilityCheck)
@@ -70,10 +73,12 @@ object EvaluateUtils {
       val satisfiability = predAbs.result match {
         case Left(res) => {
           println("sat")
-          1} //SAT
+          1
+        } //SAT
         case Right(cex) => {
           println("unsat")
-          0} //UNSAT
+          0
+        } //UNSAT
       }
       //println(Console.BLUE + "satisfiability:", satisfiability)
       val solvingTime = (predAbs.cegar.cegarEndTime - predAbs.cegar.cegarStartTime) //milliseconds

@@ -103,20 +103,35 @@ object Utils {
     Json.parse(json_content)
   }
 
-  def readJsonFieldInt(fileName: String, readLabelName: String): Array[Int] = {
-    val json_data = readJSONFile(fileName)
-    val readLabel = (json_data \ readLabelName).validate[Array[Int]] match {
-      case JsSuccess(templateLabel, _) => templateLabel
+  def readJsonFieldInt(fileName: String, readLabelName: String,dataLength:Int=0): Array[Int] = {
+    try {
+      val json_data = readJSONFile(fileName)
+      val readLabel = (json_data \ readLabelName).validate[Array[Int]] match {
+        case JsSuccess(templateLabel, _) => templateLabel
+      }
+      readLabel
+    } catch {
+      case _ => {
+        println(Console.RED + "read " + fileName + " failed")
+        Seq.fill(dataLength)(0).toArray
+      }
     }
-    readLabel
   }
 
-  def readJsonFieldDouble(fileName: String, readLabelName: String): Array[Double] = {
-    val json_data = readJSONFile(fileName)
-    val readLabel = (json_data \ readLabelName).validate[Array[Double]] match {
-      case JsSuccess(templateLabel, _) => templateLabel
+  def readJsonFieldDouble(fileName: String, readLabelName: String,dataLength:Int=0): Array[Double] = {
+    try{
+      val json_data = readJSONFile(fileName)
+      val readLabel = (json_data \ readLabelName).validate[Array[Double]] match {
+        case JsSuccess(templateLabel, _) => templateLabel
+      }
+      readLabel
+    }catch {
+      case _ => {
+        println(Console.RED+"read "+fileName+" failed")
+        Seq.fill(dataLength)(0.0).toArray
+      }
     }
-    readLabel
+
   }
 
   def outputClauses(simplifiedClauses: Clauses, unsimplifiedClauses: Clauses): Unit = {
