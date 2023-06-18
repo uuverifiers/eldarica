@@ -74,7 +74,7 @@ object counterExampleUtils {
 
   def readClauseLabelForPrioritizing(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
     val labelFileName = GlobalParameters.get.fileName + ".counterExampleIndex.JSON"
-    val labels = readJsonFieldInt(labelFileName, readLabelName = "counterExampleLabels")
+    val labels = readJsonFieldInt(labelFileName, readLabelName = "counterExampleLabels", dataLength = clauses.length)
     (for ((c, s) <- clauses.zip(labels)) yield (c, s))
   }
 
@@ -82,13 +82,13 @@ object counterExampleUtils {
     //get graph file name
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
     //read logit values from graph file
-    val predictedLogitsFromGraph = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    val predictedLogitsFromGraph = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit",dataLength = clauses.length)
 
 
     //for CDHG map predicted (read) Logits to correct clause number, for CG just return normalized Logits
     val predictedLogits = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => {
-        val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
+        val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask", dataLength = clauses.length)
         val originalClausesIndex = labelMask.distinct
         val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
           for (ii <- (0 until labelMask.count(_ == i))) yield predictedLogitsFromGraph(i + ii)
@@ -113,7 +113,7 @@ object counterExampleUtils {
 
   def getRankedClausesByMUS(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
-    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit",dataLength = clauses.length)
     //The higher value the lower rank
     val sortedClauses = clauses.zip(predictedLogits).sortBy(_._2).reverse //todo check this
     val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
@@ -162,8 +162,8 @@ object counterExampleUtils {
 
   def getPredictedCounterExampleClauses(clauses: Clauses): Clauses = {
     val graphFileName = GlobalParameters.get.fileName + "." + graphFileNameMap(GlobalParameters.get.hornGraphType) + ".JSON"
-    val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel")
-    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit")
+    val predictedLabels = readJsonFieldInt(graphFileName, readLabelName = "predictedLabel",dataLength = clauses.length)
+    val predictedLogits = readJsonFieldDouble(graphFileName, readLabelName = "predictedLabelLogit",dataLength = clauses.length)
 
     def getLabelByNormalizedScore(clauseLabel: Array[Double]): Seq[Int] = {
       val normalizedPredictedLogits = clauseLabel.map(x => (x - clauseLabel.min) / (clauseLabel.max - clauseLabel.min))
@@ -198,7 +198,7 @@ object counterExampleUtils {
     val clausesInCE = GlobalParameters.get.hornGraphType match {
       case HornGraphType.CDHG => {
         //CDHG increased the clauses when normalization, so we need transform it back by label Mask
-        val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask")
+        val labelMask = readJsonFieldInt(graphFileName, readLabelName = "labelMask",dataLength = clauses.length)
         val originalClausesIndex = labelMask.distinct
         val separatedPredictedLabels = for (i <- originalClausesIndex) yield {
           for (ii <- (0 until labelMask.count(_ == i))) yield predictedLogits(i + ii)
