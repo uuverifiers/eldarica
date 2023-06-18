@@ -128,7 +128,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 //      println(Console.RED+"-" * 10+"bug"+"-" * 10)
 //  }
 
-  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new RandomPriorityStateQueue(normClauseToRankMap)//CEGARStateQueue
+  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new CEGARStateQueue //RandomPriorityStateQueue(normClauseToRankMap)
   //val nextToProcess = new CEGARStateQueue
   //val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
 
