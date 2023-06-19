@@ -42,8 +42,8 @@ object EvaluateUtils {
     //get ranked clause, the higher logit the value lower rank value, used for prioritizing clauses
 
     //val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
-    //val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap // need scored graph file
-    val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap //need counter example file
+    val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap // need scored graph file
+    //val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap //need counter example file
 
 
     //get predicate generator from predicted or existed heuristics
