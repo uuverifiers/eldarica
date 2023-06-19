@@ -13,10 +13,7 @@ import lazabs.horn.bottomup.{HornPredAbs, NormClause}
 import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.graphs.Utils.{readSMTFormatFromFile, roundByDigit, writeOneLineJson}
 import lazabs.horn.graphs.TemplateUtils._
-import lazabs.horn.graphs.counterExampleUtils.{
-  getPredictedCounterExampleClauses,
-  getPrunedClauses, getRankedClausesByMUS, readClauseScoresForPrioritizing, readClauseLabelForPrioritizing
-}
+import lazabs.horn.graphs.counterExampleUtils.{PrioritizeOption, getPredictedCounterExampleClauses, getPrunedClauses, getRankedClausesByMUS, readClauseLabelForPrioritizing, readClauseScoresForPrioritizing}
 import lazabs.horn.preprocessor.HornPreprocessor.{Clauses, VerificationHints}
 import play.api.libs.json.{JsSuccess, JsValue, Json}
 
@@ -42,8 +39,14 @@ object EvaluateUtils {
     //get ranked clause, the higher logit the value lower rank value, used for prioritizing clauses
 
     //val clauseRankMap = getRankedClausesByMUS(clausesForSolvabilityCheck).toMap
-    val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap // need scored graph file
+    //val clauseRankMap = readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap // need scored graph file
     //val clauseRankMap = readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap //need counter example file
+    val clauseRankMap =
+      if(GlobalParameters.get.prioritizeClauseOption == PrioritizeOption.label)
+        readClauseLabelForPrioritizing(clausesForSolvabilityCheck).toMap
+      else
+        readClauseScoresForPrioritizing(clausesForSolvabilityCheck).toMap
+
 
 
     //get predicate generator from predicted or existed heuristics
@@ -89,7 +92,7 @@ object EvaluateUtils {
       val resultList = Seq(solvingTime.toInt, cegarIterationNumber, generatedPredicateNumber,
         averagePredicateSize.toInt, predicateGeneratorTime.toInt, satisfiability, roundByDigit(GlobalParameters.get.unsatCoreThreshold, 2)).map(_.toString)
 
-      if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore && GlobalParameters.get.prioritizeClausesByUnsatCoreRank == false) {
+      if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.unsatCore) {// && GlobalParameters.get.prioritizeClausesByUnsatCoreRank == false
         for ((m, v) <- meansureFields.zip(resultList)) {
           val newField = (m + "-" + unsatcoreThresholdSuffix, v)
           //println(Console.RED + "newField", newField)
@@ -97,14 +100,14 @@ object EvaluateUtils {
         }
       }
 
-      if (GlobalParameters.get.prioritizeClausesByUnsatCoreRank == true) {
-        val unsatcoreClausePrioritizeSuffix = "prioritizeClausesByUnsatCoreRank" + "-" + GlobalParameters.get.hornGraphType.toString
-        for ((m, v) <- meansureFields.zip(resultList)) {
-          val newField = (m + "-" + unsatcoreClausePrioritizeSuffix, v)
-          //println(Console.RED + "newField", newField)
-          updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
-        }
-      }
+//      if (GlobalParameters.get.prioritizeClausesByUnsatCoreRank == true) {
+//        val unsatcoreClausePrioritizeSuffix = "prioritizeClausesByUnsatCoreRank" + "-" + GlobalParameters.get.hornGraphType.toString
+//        for ((m, v) <- meansureFields.zip(resultList)) {
+//          val newField = (m + "-" + unsatcoreClausePrioritizeSuffix, v)
+//          //println(Console.RED + "newField", newField)
+//          updateNewFieldsInSolvabilityFile(solvingTimeFileName, initialFields, newField)
+//        }
+//      }
 
       if (GlobalParameters.get.hornGraphLabelType == HornGraphLabelType.template) {
         for ((m, v) <- meansureFields.zip(resultList)) {

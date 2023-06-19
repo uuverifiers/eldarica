@@ -39,8 +39,10 @@ import ap.proof.ModelSearchProver
 import ap.util.Seqs
 import Util._
 import DisjInterpolator.{AndNode, AndOrNode, OrNode}
+import ap.parser.IExpression.Predicate
 import lazabs.GlobalParameters
-import lazabs.horn.graphs.{MUSPriorityStateQueue, RandomPriorityStateQueue}
+import lazabs.horn.graphs.counterExampleUtils.PrioritizeOption
+import lazabs.horn.graphs.{MUSPriorityStateQueue, MUSPriorityStateQueueFunction}
 
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Sorting
@@ -128,9 +130,29 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 //      println(Console.RED+"-" * 10+"bug"+"-" * 10)
 //  }
 
-  val nextToProcess = if(GlobalParameters.get.prioritizeClausesByUnsatCoreRank) new MUSPriorityStateQueue(normClauseToRankMap) else new CEGARStateQueue //RandomPriorityStateQueue(normClauseToRankMap)
-  //val nextToProcess = new CEGARStateQueue
-  //val nextToProcess = new MUSPriorityStateQueue(normClauseToRank)
+  val priFunc: (Predicate, Seq[AbstractState], Int, Int) => Int =
+    GlobalParameters.get.prioritizeClauseOption match {
+      case PrioritizeOption.label => MUSPriorityStateQueueFunction.label
+      case PrioritizeOption.constant =>MUSPriorityStateQueueFunction.constant
+      case PrioritizeOption.random => MUSPriorityStateQueueFunction.random
+      case PrioritizeOption.score => MUSPriorityStateQueueFunction.score
+      case PrioritizeOption.rank => MUSPriorityStateQueueFunction.rank
+      case PrioritizeOption.SEHPlus => MUSPriorityStateQueueFunction.SEHPlus
+      case PrioritizeOption.SEHMinus => MUSPriorityStateQueueFunction.SEHMinus
+      case PrioritizeOption.REHPlus => MUSPriorityStateQueueFunction.REHPlus
+      case PrioritizeOption.REHMinus => MUSPriorityStateQueueFunction.REHMinus
+    }
+
+  val nextToProcess = new MUSPriorityStateQueue(normClauseToRankMap,priFunc)
+
+//  val nextToProcess =
+//  if(GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.constant)
+//    new CEGARStateQueue
+//  else if(GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.random)
+//    new RandomPriorityStateQueue(normClauseToRankMap)
+//  else
+//    new MUSPriorityStateQueue(normClauseToRankMap,priFunc)
+
 
   // Expansions that have been postponed due to backwards subsumption
   val postponedExpansions =

@@ -24,6 +24,10 @@ object counterExampleUtils {
     val union, common, minimal, one = Value
   }
 
+  object PrioritizeOption extends Enumeration {
+    val label, constant, random, score, rank, SEHPlus,SEHMinus, REHPlus, REHMinus = Value
+  }
+
   def mineClausesInCounterExamples(clauses: Clauses, predicateGenerator: Dag[AndOrNode[NormClause, Unit]] =>
     Either[Seq[(Predicate, Seq[Conjunction])],
       Dag[(IAtom, NormClause)]]): Unit = {
@@ -108,7 +112,13 @@ object counterExampleUtils {
     val rankedClauses = for ((t, i) <- sortedClauses.zipWithIndex) yield (t._1, i)
     //normalize rank to 0 to 100, rank may repeated
     val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
-    normalizedRankedClause
+
+    if(GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.score || GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.SEHPlus || GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.SEHMinus) {
+      clauses.zip(predictedLogits.map(_*1000).map(_.toInt)).reverse
+    }else{
+      normalizedRankedClause
+    }
+
   }
 
   def getRankedClausesByMUS(clauses: Clauses): Seq[(HornClauses.Clause, Int)] = {
@@ -264,8 +274,55 @@ object counterExampleUtils {
 
 }
 
+object MUSPriorityStateQueueFunction{
+  def label(headSym: Predicate, states: Seq[AbstractState], birthTime: Int, rankScore: Int): Int = {
+    rankScore
+  }
 
-class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends StateQueue {
+  def constant(headSym: Predicate, states: Seq[AbstractState], birthTime: Int, rankScore: Int): Int = {
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum +
+      birthTime
+  }
+
+  def random(headSym: Predicate, states: Seq[AbstractState], birthTime: Int, rankScore: Int): Int = {
+    Random.nextInt(1000)
+  }
+
+  def score = label _
+
+  def rank = label _
+
+  def SEHPlus(headSym: Predicate, states: Seq[AbstractState], birthTime: Int, rankScore: Int): Int = {
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum + //less predicates means less restricts, means more states
+      birthTime + rankScore //longer birthtime means higher priority
+  }
+
+  def SEHMinus(headSym: Predicate, states: Seq[AbstractState], birthTime: Int, rankScore: Int): Int = {
+    (headSym match {
+      case HornClauses.FALSE => -10000
+      case _ => 0
+    }) + (
+      for (AbstractState(_, preds) <- states.iterator)
+        yield preds.size).sum - birthTime - rankScore
+  }
+
+  def REHPlus =  SEHPlus _
+
+  def REHMinus =SEHMinus _
+
+}
+
+class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int], prioritizeFunc: (Predicate, Seq[AbstractState], Int, Int) => Int) extends StateQueue {
   type TimeType = Int
 
   private var time = 0
@@ -280,21 +337,9 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
     val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
     birthTime) = s
 
-
+    prioritizeFunc(headSym, states, birthTime, rankScore)
     //used only rank
-    rankScore
-
-    //todo: experiment with coefficients
-    //combine rank score with other heuristics with coefficients
-    //    val coefficient = 10 //0.5, 10, 100
-    //    (headSym match {
-    //      case HornClauses.FALSE => -10000
-    //      case _ => 0
-    //    }) + (
-    //      for (AbstractState(_, preds) <- states.iterator)
-    //        yield preds.size).sum + //less predicates means less restricts, means more states
-    //      birthTime + //longer birthtime means higher priority
-    //      (coefficient * rankScore).toInt
+    //rankScore
 
 
     //combine rank score with other heuristics (SEH)
@@ -305,68 +350,6 @@ class MUSPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends Stat
     //      for (AbstractState(_, preds) <- states.iterator)
     //        yield preds.size).sum + //less predicates means less restricts, means more states
     //      birthTime + rankScore //longer birthtime means higher priority
-
-
-    //original version
-    //        (headSym match {
-    //          case HornClauses.FALSE => -10000
-    //          case _ => 0
-    //        }) + (
-    //          for (AbstractState(_, preds) <- states.iterator)
-    //            yield preds.size).sum +
-    //          birthTime
-  }
-
-  private implicit val ord = new Ordering[Expansion] {
-    def compare(s: Expansion, t: Expansion) =
-      priority(t) - priority(s)
-  }
-
-  private val states = new PriorityQueue[Expansion]
-
-  def isEmpty: Boolean =
-    states.isEmpty
-
-  def size: Int =
-    states.size
-
-  def enqueue(s: Seq[AbstractState],
-              clause: NormClause, assumptions: Conjunction): Unit = {
-    states += ((s, clause, assumptions, time))
-  }
-
-  def enqueue(exp: Expansion): Unit = {
-    states += exp
-  }
-
-  def dequeue: Expansion =
-    states.dequeue
-
-  def removeGarbage(reachableStates: scala.collection.Set[AbstractState]) = {
-    val remainingStates = (states.iterator filter {
-      case (s, _, _, _) => s forall (reachableStates contains _)
-    }).toArray
-    states.dequeueAll
-    states ++= remainingStates
-  }
-
-  override def incTime: Unit =
-    time = time + 1
-}
-
-class RandomPriorityStateQueue(normClauseToRank: Map[NormClause, Int]) extends StateQueue {
-  type TimeType = Int
-
-  private var time = 0
-
-  private def priority(s: Expansion) = {
-    val (_, nc, _, _) = s
-    val rankScore = normClauseToRank(nc)
-
-    val (states, NormClause(_, _, (RelationSymbol(headSym), _)), _,
-    birthTime) = s
-    val queueElementScore = Random.nextInt(100)
-    queueElementScore
 
   }
 

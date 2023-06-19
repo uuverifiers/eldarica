@@ -36,7 +36,7 @@ import lazabs.art._
 import lazabs.art.SearchMethod._
 import lazabs.horn.graphs.EvaluateUtils.CombineTemplateStrategy
 import lazabs.horn.graphs.{HornGraphLabelType, HornGraphType}
-import lazabs.horn.graphs.counterExampleUtils.CounterExampleMiningOption
+import lazabs.horn.graphs.counterExampleUtils.{CounterExampleMiningOption, PrioritizeOption}
 import lazabs.prover._
 import lazabs.viewer._
 import lazabs.utils.Inline._
@@ -120,7 +120,7 @@ class GlobalParameters extends Cloneable {
   var unsatCoreThreshold:Double=0.0
   var outputPrunedClauses = false
   var outputSimplifiedClauses = false
-  var prioritizeClausesByUnsatCoreRank=false
+  var prioritizeClauseOption=PrioritizeOption.constant
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
@@ -231,7 +231,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
-    that.prioritizeClausesByUnsatCoreRank =  this.prioritizeClausesByUnsatCoreRank
+    that.prioritizeClauseOption = this.prioritizeClauseOption
     that.outputSimplifiedClauses = this.outputSimplifiedClauses
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
@@ -446,8 +446,32 @@ object Main {
         visualizeHornGraph = true
         arguments(rest)
       }
-      case "-prioritizeClausesByUnsatCoreRank" :: rest => {
-        prioritizeClausesByUnsatCoreRank = true
+      case "-prioritizeClauses:label" :: rest => {
+        prioritizeClauseOption=PrioritizeOption.label
+        arguments(rest)
+      }
+      case "-prioritizeClauses:constant" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.constant
+        arguments(rest)
+      }
+      case "-prioritizeClauses:random" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.random
+        arguments(rest)
+      }
+      case "-prioritizeClauses:SEHPlus" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.SEHPlus
+        arguments(rest)
+      }
+      case "-prioritizeClauses:SEHMinus" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.SEHMinus
+        arguments(rest)
+      }
+      case "-prioritizeClauses:REHPlus" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.REHPlus
+        arguments(rest)
+      }
+      case "-prioritizeClauses:REHMinus" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.REHMinus
         arguments(rest)
       }
       case "-outputSimplifiedClauses" :: rest => {

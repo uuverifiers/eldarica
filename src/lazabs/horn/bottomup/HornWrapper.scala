@@ -465,7 +465,7 @@ class InnerHornWrapper(unsimplifiedClauses: Seq[Clause],
   * 3. train and prediction in Python
   * 4. evaluation (write solvability.JSON):
   * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.5 -hornGraphType:CDHG/CG -log -abstract:off
-  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -prioritizeClausesByUnsatCoreRank -abstract:off
+  * -getSolvability -hornGraphLabelType:unsatCore -unsatCoreThreshold:0.0 -hornGraphType:CDHG/CG -abstract:off -prioritizeClauses:label/constant/random/score/rank/SEHPlus/SEHMinus/REHPlus/REHMinus
   * 5. collect results in Python (read solvability.JSON)
   *
   * analysis clauses:
