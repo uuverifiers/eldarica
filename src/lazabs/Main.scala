@@ -458,6 +458,14 @@ object Main {
         prioritizeClauseOption = PrioritizeOption.random
         arguments(rest)
       }
+      case "-prioritizeClauses:score" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.score
+        arguments(rest)
+      }
+      case "-prioritizeClauses:rank" :: rest => {
+        prioritizeClauseOption = PrioritizeOption.rank
+        arguments(rest)
+      }
       case "-prioritizeClauses:SEHPlus" :: rest => {
         prioritizeClauseOption = PrioritizeOption.SEHPlus
         arguments(rest)
