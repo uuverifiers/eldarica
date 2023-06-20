@@ -113,8 +113,9 @@ object counterExampleUtils {
     //normalize rank to 0 to 100, rank may repeated
     val normalizedRankedClause = rankedClauses.map(x => (x._1, (x._2.toDouble / rankedClauses.length * 100).toInt))
 
+    val scoreCoefficient=1000
     if(GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.score || GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.SEHPlus || GlobalParameters.get.prioritizeClauseOption==PrioritizeOption.SEHMinus) {
-      clauses.zip(predictedLogits.map(_*1000).map(_.toInt)).reverse
+      clauses.zip(predictedLogits.map(_*scoreCoefficient).map(_.toInt)).reverse
     }else{
       normalizedRankedClause
     }
