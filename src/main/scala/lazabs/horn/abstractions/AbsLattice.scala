@@ -194,7 +194,7 @@ trait AbsLattice
     def apply =
       if (System.currentTimeMillis > startTime + timeout) {
         if (!printedTimeout) {
-          if (lazabs.GlobalParameters.get.log)
+          if (shouldPrintInterpolationAbstraction)
             print(" TIMEOUT")
           printedTimeout = true
         }
@@ -376,7 +376,7 @@ trait AbsLattice
                        topBound : LatticeObject,
                        currentCost : Int
                       ) : Seq[LatticeObject] = {
-      if (lazabs.GlobalParameters.get.log)
+      if (shouldPrintInterpolationAbstraction)
         print(".")
 /*      println("Cheapest MF objects:" + (minFeasEls map (pp _)).mkString(", "))
       println("Costly objects:" + (costlyElements map (pp _)).mkString(", "))
@@ -397,7 +397,7 @@ trait AbsLattice
               val oCost = cost(o)
               // found a cheap mfe
               if (oCost < currentCost) {
-                if (lazabs.GlobalParameters.get.log) {
+                if (shouldPrintInterpolationAbstraction) {
                   println
                   println("New cost bound: " + oCost)
                   print("Interpolation abstraction: " + pp(o) + " ")
@@ -405,7 +405,7 @@ trait AbsLattice
                 (Seq(o), List(), removeExpensivePreds(topBound, oCost), oCost)
               } else {
                 assert(oCost == currentCost)
-                if (lazabs.GlobalParameters.get.log) {
+                if (shouldPrintInterpolationAbstraction) {
                   println
                   print("Interpolation abstraction: " + pp(o) + " ")
                 }
@@ -431,11 +431,11 @@ trait AbsLattice
     //val time = System.nanoTime;
     val allFeasibleAbs = 
       if (cheapIsFeasible(bottom)) {
-        if (lazabs.GlobalParameters.get.log)
+        if (shouldPrintInterpolationAbstraction)
           print("Interpolation abstraction: " + pp(bottom))
         Seq(bottom)
       } else if (!cheapIsFeasible(top)) {
-        if (lazabs.GlobalParameters.get.log)
+        if (shouldPrintInterpolationAbstraction)
           print("Top interpolation abstraction is not feasible")
         Seq()
       } else {
@@ -449,7 +449,7 @@ trait AbsLattice
         val minCost = cost(mfe)
         val topBound = removeExpensivePreds(top, minCost)
 
-        if (lazabs.GlobalParameters.get.log) {
+        if (shouldPrintInterpolationAbstraction) {
           println("Cost bound: " + minCost)
           print("Interpolation abstraction: " + pp(mfe) + " ")
         }
@@ -460,12 +460,18 @@ trait AbsLattice
       }
 
 //    assert(allFeasibleAbs.filter( x => pred(x).exists( p => isFeasible(p))).isEmpty)
-    if (lazabs.GlobalParameters.get.log)
+    if (shouldPrintInterpolationAbstraction)
       println
     allFeasibleAbs
   }
 
-
+  private val shouldPrintInterpolationAbstraction : Boolean = {
+    lazabs.GlobalParameters.get.log &&
+      this.isInstanceOf[BitSetLattice] &&
+      (lazabs.GlobalParameters.get.logPredicates.isEmpty ||
+        lazabs.GlobalParameters.get.logPredicates.exists(name =>
+          this.asInstanceOf[BitSetLattice].name.contains(name)))
+  }
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -676,7 +682,7 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
 
 ////////////////////////////////////////////////////////////////////////////////
 
-abstract class BitSetLattice(width : Int, name : String) extends AbsLattice {
+abstract class BitSetLattice(width : Int, val name : String) extends AbsLattice {
 
   val arity : Int
 
