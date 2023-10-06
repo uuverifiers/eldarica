@@ -243,7 +243,10 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
          }).toVector
 
       if (!rsPreds.isEmpty) {
-        if (lazabs.GlobalParameters.get.log) {
+        if (lazabs.GlobalParameters.get.log &&
+          (lazabs.GlobalParameters.get.logPredicates.isEmpty ||
+            lazabs.GlobalParameters.get.logPredicates.exists(name =>
+              p.name.contains(name)))) {
           print(p.name + ": ")
           println(rsPreds mkString ", ")
         }

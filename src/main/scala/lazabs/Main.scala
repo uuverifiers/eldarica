@@ -128,6 +128,7 @@ class GlobalParameters extends Cloneable {
   var log = false
   var logCEX = false
   var logStat = false
+  var logPredicates : Set[String] = Set()
   var printHornSimplified = false
   var printHornSimplifiedSMT = false
   var dotSpec = false
@@ -483,6 +484,9 @@ object Main {
         setLogLevel((logOption drop 5).toInt); arguments(rest)
       case "-logSimplified" :: rest => printHornSimplified = true; arguments(rest)
       case "-logSimplifiedSMT" :: rest => printHornSimplifiedSMT = true; arguments(rest)
+      case logPredsOption :: rest if (logPredsOption startsWith "-logPreds:") =>
+        logPredicates = logPredsOption.drop("-logPreds:".length)
+          .split(",").toSet; arguments(rest)
       case "-dot" :: str :: rest => dotSpec = true; dotFile = str; arguments(rest)
       case "-pngNo" :: rest => pngNo = true; arguments(rest)
       case "-dotCEX" :: rest => pngNo = false; arguments(rest)
@@ -496,9 +500,14 @@ object Main {
           "General options:\n" +
           " -h                Show this information\n" +
           " -assert           Enable assertions in Eldarica\n" +
-          " -log              Display progress and found invariants\n" +
-          " -log:n            Display progress with verbosity n (currently 0 <= n <= 3)\n" +
-          " -statistics       Display statistics (implied by -log)\n" + 
+          " -log:n            Display progress based on verbosity level n (0 <= n <= 3)\n" +
+          "                     1: Statistics only\n" +
+          "                     2: Invariants included\n" +
+          "                     3: Includes counterexamples\n" +
+          " -statistics       Equivalent to -log:1; displays statistics only\n" +
+          " -log              Equivalent to -log:2; displays progress and invariants\n" +
+          " -logPreds:<preds> Log only predicates containing the specified substrings, separated by commas\n" +
+          "                     e.g., -logPreds=p1,p2 logs any predicate with 'p1' or 'p2' in its name\n" +
           " -t:time           Set timeout (in seconds)\n" +
           " -cex              Show textual counterexamples\n" +
           " -scex             Show textual counterexamples in SMT-LIB format\n" +
@@ -557,6 +566,9 @@ object Main {
           " -pIntermediate    Dump Horn clauses encoding concurrent programs\n"
           )
           false
+      case arg :: _ if arg.startsWith("-") =>
+        arguments(List("-h"))
+        throw new MainException(s"unrecognized option '$arg'")
       case fn :: rest => fileName = fn;  openInputFile; arguments(rest)
     }
 
@@ -567,7 +579,6 @@ object Main {
     if (in == null) {
       arguments(List("-h"))
       throw new MainException("no input file given")
-      return
     }
 
     val startTime = System.currentTimeMillis
