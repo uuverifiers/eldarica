@@ -506,8 +506,9 @@ object Main {
           "                     3: Includes counterexamples\n" +
           " -statistics       Equivalent to -log:1; displays statistics only\n" +
           " -log              Equivalent to -log:2; displays progress and invariants\n" +
-          " -logPreds:<preds> Log only predicates containing the specified substrings, separated by commas\n" +
-          "                     e.g., -logPreds=p1,p2 logs any predicate with 'p1' or 'p2' in its name\n" +
+          " -logPreds:<preds> Log only predicates containing the specified substrings,\n" +
+          "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
+          "                     predicate with 'p1' or 'p2' in its name\n" +
           " -t:time           Set timeout (in seconds)\n" +
           " -cex              Show textual counterexamples\n" +
           " -scex             Show textual counterexamples in SMT-LIB format\n" +
