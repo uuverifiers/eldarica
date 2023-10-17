@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,19 +29,16 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
-
-import ap.theories.{ModuloArithmetic, ADT}
+import ap.theories.{ADT, Heap}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
-import ap.util.Seqs
 
 import scala.collection.{Map => GMap}
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, LinkedHashMap, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap,
+  HashMap => MHashMap, HashSet => MHashSet}
 
 object ConstraintSimplifier {
 
@@ -668,6 +665,28 @@ class ConstraintSimplifier extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Simplify heap expressions.
+   */
+  private def heapSimplification(conjuncts : Seq[IFormula])
+                               : Option[Seq[IFormula]] = {
+    var changed = false
+    val newConjuncts = for (conjunct <- conjuncts) yield {
+      conjunct match {
+        // alloc(h, o) = ar --> allocRes(allocHeap(h, o), allocAddr(h, o)) = ar
+        case Eq(IFunApp(f@Heap.HeapFunExtractor(hh),
+                        Seq(IConstant(h), IConstant(o))), IConstant(ar))
+          if f == hh.alloc =>
+          changed = true
+          hh.allocResCtor(hh.allocHeap(h, o), hh.allocAddr(h, o)) === ar
+        case _ => conjunct // other conjuncts are untouched
+      }
+    }
+    if (changed) Some(newConjuncts) else None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Eliminate function applications that are no longer needed
    */
   private def gcFunctionApplications(
@@ -765,6 +784,19 @@ class ConstraintSimplifier extends HornPreprocessor {
           changed   = true
           cont      = true
         }
+      }
+
+      if (!cont && containsFunctions &&
+          clause.theories.exists(_.isInstanceOf[Heap])) {
+        // check whether heap simplifications are possible
+
+        println(s"Pre: ${conjuncts.mkString(" & ")}")
+        for (newConjuncts <- heapSimplification(conjuncts)) {
+          conjuncts = newConjuncts
+          changed = true
+          cont = true
+        }
+        println(s"Post: ${conjuncts.mkString(" & ")}")
       }
 
       if (!cont && containsFunctions) {
