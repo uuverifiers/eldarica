@@ -51,10 +51,10 @@ You can use the script <code>eld-client</code> instead of
 <code>eld</code> in order to run Eldarica in a server-client mode,
 which significantly speeds up processing of multiple problems.
 
-A full list of options can be obtained by calling <code>./eld
--h</code>.<br> In particular, the options <code>-disj</code>,
-<code>-abstract</code>, <code>-stac</code> can be used to control
-predicate generation.
+A full list of options can be obtained by calling <code>./eld -h</code>.
+
+The options <code>-disj</code>, <code>-abstract</code>, <code>-stac</code> can be used to control
+predicate generation. For the option <code>-stac</code> to work, it is currently necessary to have Yices (version 1) installed, as this is a dependency of the Flata library.
 
 Papers
 ------
