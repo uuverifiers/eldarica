@@ -1,5 +1,3 @@
-package lazabs.horn.extendedquantifiers
-
 /**
  * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
  *
@@ -28,6 +26,8 @@ package lazabs.horn.extendedquantifiers
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+package lazabs.horn.extendedquantifiers
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts

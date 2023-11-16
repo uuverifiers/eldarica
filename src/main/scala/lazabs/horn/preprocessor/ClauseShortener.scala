@@ -46,9 +46,10 @@ object ClauseShortener {
   import HornPreprocessor._
 
   object BTranslator {
-  
+
     def apply(tempPreds : Set[Predicate],
-              backMapping : Map[Clause, Clause]) : BTranslator = {
+              backMapping : Map[Clause, Clause],
+              frozenPredicates : Set[Predicate]) : BTranslator = {
       val extendedMapping =
         for ((newClause, oldClause) <- backMapping) yield {
           assert(newClause.body.size == oldClause.body.size)
@@ -57,7 +58,7 @@ object ClauseShortener {
                  (for (n <- 0 until newClause.body.size) yield Leaf(n)).toList)
           (newClause, (oldClause, indexTree))
         }
-      new BTranslator(tempPreds, extendedMapping, Set())
+      new BTranslator(tempPreds, extendedMapping, frozenPredicates)
     }
 
     def withIndexes(tempPreds : Set[Predicate],

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,9 +114,8 @@ class InstrumentingPreprocessor(clauses : Clauses,
     val (instrumentationResult, instBackTranslator) =
       instrumentClauses(clausesGhostInit)
 
-    translators += instBackTranslator
-
-    (instrumentationResult, hintsGhostInit, new ComposedBackTranslator(translators.reverse))
+    (instrumentationResult, hintsGhostInit,
+      new ComposedBackTranslator(instBackTranslator :: translators.reverse.toList))
   }
 
   private def instrumentClauses(clausesForInst : Clauses) :

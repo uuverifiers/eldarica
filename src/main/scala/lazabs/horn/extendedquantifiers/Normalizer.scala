@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,6 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package lazabs.horn.extendedquantifiers
 
 import ap.parser.IExpression._
@@ -37,8 +36,9 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses._
+import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.extendedquantifiers.Util._
-import lazabs.horn.preprocessor.HornPreprocessor
+import lazabs.horn.preprocessor.{ClauseShortener, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -171,7 +171,8 @@ class Normalizer extends HornPreprocessor {
             val newClause = Clause(newHead, newBody, newConstraint)
             newClauses += newClause
             clauseCount += 1
-            clauseBackMapping.put(newClause, clause)
+            if (newHead.pred == head.pred)
+              clauseBackMapping.put(newClause, clause)
           }
         }
       }
@@ -196,27 +197,30 @@ class Normalizer extends HornPreprocessor {
 
       def translate(solution : Solution) = {
         solution -- predBackMapping.keys
-//        val newSol = new MHashMap[Predicate, IFormula]
-//        for ((newPred, sol) <- solution.iterator)
-//          (predBackMapping get newPred) match {
-//            case Some(pred) if pred != HornClauses.FALSE => {
-//              //val newSol = VariableSubstVisitor(sol, (subst, 1))
-//              // todo: subst for sol
-//              newSol += ((pred, sol))
-//            }
-//            case None =>
-//              newSol += ((newPred, sol))
-//          }
-//        newSol.toMap
       }
 
-      def translate(cex : CounterExample) =
-        for (p <- cex) yield { // todo: review
-          val (a, clause) = p
-          (a, backMapping(clause))
+      def translate(cex: CounterExample) = {
+        // todo: this is only correct when we carry along all variables
+        //   in intermediate clauses (which we do unless we change the
+        //   normalizer)
+        def getNext(curr : Dag[(IAtom, Clause)]) : Dag[(IAtom, Clause)] = {
+          curr match {
+            case DagEmpty                                             =>
+              DagEmpty
+            case DagNode((atom, clause), children, next) =>
+              if (children.size > 1)
+                throw new Exception("Cannot translate counterexample with " +
+                                    "non-linear clauses")
+              if (backMapping contains clause)
+                DagNode((atom, backMapping(clause)), children, getNext(next))
+              else // drop this node
+                getNext(next)
+          }
         }
+        getNext(cex)
+      }
     }
-    
+
     clauseBackMapping.clear
 
     (newClauses, newHints, translator)

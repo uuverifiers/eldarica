@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@ class InstrumentationLoop (clauses : Clauses,
   private val prefixCompressionPeriod = 50
   private var prefixCompressionCounter = 0
 
-  private val preprocessor = new PreStagePreprocessor
+  private val preprocessor = new DefaultPreprocessor
   private var curHints : VerificationHints = hints
   private val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
@@ -93,28 +93,21 @@ class InstrumentationLoop (clauses : Clauses,
 //  println("="*80 + "\n")
 
   private val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
-
-  private val instrumenterBackTranslators = new ArrayBuffer[BackTranslator]
-
   private var rawResult : Result = Inconclusive
-
   private val searchSpaceSizePerNumGhostRanges = new MHashMap[Int, Int]
   private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
-
   private var lastSolver : IncrementalHornPredAbs[Clause] = _
   private var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
     val numRanges = ghostVarRanges.head
     ghostVarRanges -= numRanges
-    instrumenterBackTranslators.clear()
 
     println("# ghost variable ranges: " + numRanges)
     val instrumenter = new SimpleExtendedQuantifierInstrumenter(
       simpClauses, curHints, Set.empty, numRanges)
     lastInstrumenter = instrumenter
 
-    instrumenterBackTranslators += instrumenter.backTranslator
     curHints = instrumenter.newHints
 
 //    println("="*80)
@@ -132,56 +125,41 @@ class InstrumentationLoop (clauses : Clauses,
       if (lazabs.GlobalParameters.get.logStat) Console.err
       else lazabs.horn.bottomup.HornWrapper.NullStream
 
-    val fullPreprocessor = new DefaultPreprocessor
+    val interpolator =
+      if (templateBasedInterpolation)
+        Console.withErr(outStream) {
+          val builder =
+            new StaticAbstractionBuilder(
+              instrumenter.instrumentedClauses, //simpClauses2,
+              templateBasedInterpolationType,
+              instrumenter.branchPredicates) //remainingBranchPredicates)
+          val autoAbstractionMap =
+            builder.abstractionRecords
 
-    val (simpClauses2, newHints2, backTranslator2) =
-      Console.withErr(outStream) {
-        fullPreprocessor.process(instrumenter.instrumentedClauses, curHints, instrumenter.branchPredicates)
+          val abstractionMap: AbstractionMap =
+            if (globalPredicateTemplates.isEmpty) {
+              autoAbstractionMap
+            } else {
+              val loopDetector = builder.loopDetector
+
+              print("Using interpolation templates provided in program: ")
+
+              val hintsAbstractionMap =
+                loopDetector hints2AbstractionRecord curHints
+
+              println(
+                hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
+
+              AbstractionRecord.mergeMaps(autoAbstractionMap,
+                                          hintsAbstractionMap)
+            }
+
+          TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+            abstractionMap,
+            templateBasedInterpolationTimeout)
+        } else {
+        DagInterpolator.interpolatingPredicateGenCEXAndOr _
       }
-    curHints = newHints2
-    instrumenterBackTranslators += backTranslator2
-    simpClauses2.foreach(clause => println(clause.toPrologString))
-    println("="*80)
-
-    // some branch predicates might have been eliminated due to thrown away clauses
-    val remainingBranchPredicates =
-      simpClauses2.flatMap(_.predicates).toSet intersect instrumenter.branchPredicates
-
-    val eliminatedBranchPredicates =
-      instrumenter.branchPredicates -- remainingBranchPredicates
-
-    val interpolator = if (templateBasedInterpolation)
-      Console.withErr(outStream) {
-        val builder =
-          new StaticAbstractionBuilder(
-            simpClauses2,
-            templateBasedInterpolationType,
-            remainingBranchPredicates)
-        val autoAbstractionMap =
-          builder.abstractionRecords
-
-        val abstractionMap: AbstractionMap =
-          if (globalPredicateTemplates.isEmpty) {
-            autoAbstractionMap
-          } else {
-            val loopDetector = builder.loopDetector
-
-            print("Using interpolation templates provided in program: ")
-
-            val hintsAbstractionMap =
-              loopDetector hints2AbstractionRecord curHints
-
-            println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
-
-            AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
-          }
-
-        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-          abstractionMap,
-          templateBasedInterpolationTimeout)
-      } else {
-      DagInterpolator.interpolatingPredicateGenCEXAndOr _
-    }
 
     def computeAtoms(inst : Map[Predicate, Conjunction]) : Set[IAtom] = {
       inst.map{t =>
@@ -205,15 +183,18 @@ class InstrumentationLoop (clauses : Clauses,
     }
 
     val incSolver =
-      new IncrementalHornPredAbs(simpClauses2,
-        curHints.toInitialPredicates, remainingBranchPredicates, interpolator)
+      new IncrementalHornPredAbs(
+        instrumenter.instrumentedClauses,
+        curHints.toInitialPredicates,
+        instrumenter.branchPredicates,
+        interpolator)
 
     lastSolver = incSolver
 
     Random.setSeed(42)
     val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-    Random.shuffle(instrumenter.searchSpace).foreach{search =>
-      searchSpace += search.toMap -- eliminatedBranchPredicates
+    Random.shuffle(instrumenter.searchSpace).foreach { search =>
+      searchSpace += search.toMap
     }
 
     val postponedSearches = new MHashSet[Map[Predicate, Conjunction]]
@@ -343,8 +324,7 @@ class InstrumentationLoop (clauses : Clauses,
 
   private val backTranslator =
     new ComposedBackTranslator(
-      instrumenterBackTranslators.reverse ++
-      backTranslators.reverse)
+      Seq(lastInstrumenter.backTranslator) ++ backTranslators.reverse)
 
   /**
    * The result of CEGAR: either a solution of the Horn clauses, or

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +112,9 @@ class ExtendedQuantifier(
     import arrayTheory._
     arrayTheory.sort.all(
       a =>
+        // TODO
+        //  1. systematic splitting - eliminate overlaps
+        //  2. propagate summation across stores
         arrayIndexSort.all(
           lo =>
             arrayIndexSort.all(hi =>
