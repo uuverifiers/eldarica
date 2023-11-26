@@ -790,13 +790,13 @@ class ConstraintSimplifier extends HornPreprocessor {
           clause.theories.exists(_.isInstanceOf[Heap])) {
         // check whether heap simplifications are possible
 
-        println(s"Pre: ${conjuncts.mkString(" & ")}")
+//        println(s"Pre: ${conjuncts.mkString(" & ")}")
         for (newConjuncts <- heapSimplification(conjuncts)) {
           conjuncts = newConjuncts
           changed = true
           cont = true
         }
-        println(s"Post: ${conjuncts.mkString(" & ")}")
+//        println(s"Post: ${conjuncts.mkString(" & ")}")
       }
 
       if (!cont && containsFunctions) {

@@ -31,14 +31,13 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression._
-
+import ap.theories.Heap
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
 import lazabs.horn.bottomup.Util.Dag
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 LinkedHashSet, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Default preprocessing pipeline used in Eldarica.
@@ -152,6 +151,38 @@ class DefaultPreprocessor extends HornPreprocessor {
     applyStages(preStages)
 
     condenseClauses
+
+    val heapTheories = clauses.flatMap(_.theories
+                                        .filter(_.isInstanceOf[Heap])
+                                        .map(_.asInstanceOf[Heap]))
+    // TODO: split only functions from the same theory?
+    val heapFunctionSplitters = for (heap <- heapTheories) yield {
+      val funs = Set(heap.allocHeap, heap.allocAddr, heap.read,
+                     heap.write, heap.emptyHeap)
+      val funOrdering = new Ordering[IFunction] {
+        def compare(a: IFunction, b: IFunction): Int = {
+          // Assign each function a priority
+          def priority(fun: IFunction): Int = fun match {
+            case heap.emptyHeap => 1
+            case heap.read => 2
+            case heap.allocHeap => 3
+            case heap.allocAddr => 3
+            case heap.write => 4
+            case _ => 0 // Any other function gets highest priority
+          }
+
+          // Use the priorities to compare two functions
+          priority(a) compare priority(b)
+        }
+      }
+      new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
+                                             Some(funOrdering))
+    }
+
+    val heapTransformStages = heapFunctionSplitters ++
+                              List(new HeapInvariantEncodingSimple)
+    if (applyStages(heapTransformStages))
+      condenseClauses
 
     // check whether any ADT or Heap arguments can be extended
     if (applyStages(extendingStages))

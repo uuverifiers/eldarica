@@ -325,7 +325,7 @@ object Util {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def show[D](d : Dag[D], name : String) : Unit = {
+  def show[D](d : Dag[D], name : String, reverse : Boolean = true) : Unit = {
       val runTime = Runtime.getRuntime   
       val filename = if (lazabs.GlobalParameters.get.dotSpec)
                        lazabs.GlobalParameters.get.dotFile
@@ -333,7 +333,7 @@ object Util {
                        "dag-graph-" + name + ".dot"
       val dotOutput = new java.io.FileOutputStream(filename)
       Console.withOut(dotOutput) {
-        d.dotPrint(true)
+        d.dotPrint(reverse)
       }
       dotOutput.close
 

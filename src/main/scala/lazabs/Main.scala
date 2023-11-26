@@ -795,6 +795,7 @@ object Main {
       printError("stack overflow", GlobalParameters.get.format)
     case t : Exception =>
       printError(t.getMessage, GlobalParameters.get.format)
+      t.printStackTrace
   }
 
   private def printError(message : String,
