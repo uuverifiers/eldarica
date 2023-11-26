@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,66 +37,53 @@ import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, Stack => MStack}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+  HashSet => MHashSet, Stack => MStack}
 
 object ClauseTermGraph {
+  case class Edge(from : Node, to : Node)
+
   abstract class Node
 
-  // A constant term node.
   case class ConstNode(c : IConstant) extends Node {
     override def toString : String = c.c.name
   }
 
-  // AtomNode can only appear as sources or sinks, corresponding to clause
-  // body and head literals respectively.
   case class AtomNode(a : IAtom) extends Node {
     val constants : Set[IConstant] =
       a.args.flatMap(
         term => SymbolCollector.constants(term).map(c => IConstant(c))).toSet
-
     override def toString : String = ap.SimpleAPI.pp(a)
   }
 
-  // A node that does not really have a direction, e.g., a = b or a > b.
-  // SyncNode can have incoming edges from ConstNodes only. They will be
-  // connected with an edge to each sink.
   case class SyncNode(f : IFormula) extends Node {
     val constants : Set[IConstant] =
       SymbolCollector.constants(f).map(c => IConstant(c)).toSet
-
     override def toString : String = ap.SimpleAPI.pp(f)
   }
 
-  // A function application node.
-  // Requires function applications of the form f(args) = right where args is
-  // Seq[IConstant] and right is IConstant.
-  case class FunAppNode(funApp : IFunApp, eq : IEquation)
-    extends Node {
+  // Requires function applications of the form f(\bar{x}) = y.
+  // (Constraint simplifier preprocessor ensures this form.)
+  case class FunAppNode(funApp : IFunApp, eq : IEquation) extends Node {
     val toArg    : IConstant      = eq.right.asInstanceOf[IConstant]
     val fromArgs : Set[IConstant] = funApp.args.flatMap(
       arg => SymbolCollector.constants(arg).map(IConstant)).toSet
-
     override def toString : String = ap.SimpleAPI.pp(eq)
   }
-
-  case class Edge(from : Node, to : Node)
 
   val emptyOrdering : Ordering[Dag[Node]] = new Ordering[Dag[Node]] {
     override def compare(x : Dag[Node], y : Dag[Node]) : Int = 0
   }
 }
 
-class ClauseTermGraph (clause : Clause) {
+class ClauseTermGraph(clause : Clause) {
   import ClauseTermGraph._
 
   def outgoing(n : Node) = edges.filter(e => e.from == n)
   def incoming(n : Node) = edges.filter(e => e.to == n)
 
-  private val constantNames = new MHashMap[IConstant, String]
-
   val conjuncts =
     LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
-
   private val curNodes = new ArrayBuffer[Node]
   private val curEdges = new ArrayBuffer[Edge]
 
@@ -104,9 +91,9 @@ class ClauseTermGraph (clause : Clause) {
   clause.constants.foreach(c => curNodes += ConstNode(IConstant(c)))
 
   private val sources = clause.body.map(AtomNode)
-  private val sink = AtomNode(clause.head)
+  private val sink    = AtomNode(clause.head)
 
-  (sources ++ Seq(sink)) foreach (curNodes += _)
+  (sources ++ Seq(sink)) foreach(curNodes += _)
 
   // Handle clause body
   for (source <- sources) {
@@ -156,29 +143,32 @@ class ClauseTermGraph (clause : Clause) {
   // In (n1,n2), c is substituted with (t1,t2) respectively.
   val constEqNodes = curNodes.filter(
     node => node.isInstanceOf[ConstNode] &&
-            incoming(node).size > 1).map(_.asInstanceOf[ConstNode])
+      incoming(node).size > 1).map(_.asInstanceOf[ConstNode])
 
-  for(node <- constEqNodes) {
+  for (node <- constEqNodes) {
     val in : Seq[Edge] = incoming(node).toSeq
     assert(in.forall(e => !e.from.isInstanceOf[ConstNode]))
     // introduce |in| new ConstNodes.
-    val newTerms = (0 until in.size - 1).map(
+    val newTerms     = (0 until in.size - 1).map(
       i => new SortedConstantTerm(node.c.c.name + "_" + i, Sort.sortOf(node.c)))
     val newTermNodes = newTerms.map(t => ConstNode(IConstant(t)))
     // Remove old incoming edges to node except the last one
     in.init.foreach(curEdges -= _)
-    // Route old incoming edges to new term nodes and substitute node.c with new terms.
+    // Route old incoming edges to new term nodes and substitute node.c with
+    // new terms.
     for ((newTermN, oldE) <- newTermNodes.zip(in.init)) {
       val oldIncomingN = oldE.from
       val newIncomingN = oldIncomingN match {
-        case SyncNode(f)         => SyncNode(ConstantSubstVisitor(f, Map(node.c.c -> newTermN.c.c)))
+        case SyncNode(f) => SyncNode(
+          ConstantSubstVisitor(f, Map(node.c.c -> newTermN.c.c)))
         case FunAppNode(app, eq) =>
           val newApp = ConstantSubstVisitor(app, Map(node.c.c -> newTermN.c))
-          val newEq = ConstantSubstVisitor(eq, Map(node.c.c -> newTermN.c))
-          FunAppNode(newApp.asInstanceOf[IFunApp], newEq.asInstanceOf[IEquation])
+          val newEq  = ConstantSubstVisitor(eq, Map(node.c.c -> newTermN.c))
+          FunAppNode(newApp.asInstanceOf[IFunApp],
+                     newEq.asInstanceOf[IEquation])
         case _ =>
-          throw new Exception("Invalid clause term graph, " +
-                              "a term cannot have incoming terms.")
+          throw new Exception(
+            "Invalid clause term graph, a term cannot have incoming terms.")
       }
       // Add new nodes
       curNodes += newIncomingN
@@ -186,7 +176,7 @@ class ClauseTermGraph (clause : Clause) {
       // Add an edge from the new incoming to the new term
       curEdges += Edge(newIncomingN, newTermN)
       // Re-route incoming edges of oldIncomingN to newIncomingN
-      for(e <- incoming(oldIncomingN)) {
+      for (e <- incoming(oldIncomingN)) {
         curEdges += Edge(e.from, newIncomingN)
         curEdges -= e
       }
@@ -210,13 +200,13 @@ class ClauseTermGraph (clause : Clause) {
   }
 
   /**
-   * Returns source nodes, but does not include the pseudo-root and the false atom.
-   * This is useful for getting unbound terms.
+   * Returns source nodes, but does not include the pseudo-root and the false
+   * atom. This is useful for getting unbound terms.
    */
   val getSources : Iterable[Node] = nodes.filter(
     node => incoming(node).isEmpty && (node match {
       case SyncNode(IAtom(p, _)) => p != HornClauses.FALSE
-      case _                     => true
+      case _ => true
     }))
 
   // If there is more than one source, add a pseudo-root.
@@ -226,12 +216,13 @@ class ClauseTermGraph (clause : Clause) {
     curNodes += pseudoRoot
     curEdges ++= getSources.map(node => Edge(pseudoRoot, node))
     (pseudoRoot, true)
-  } else (getSources.head, false)
-
+  } else {
+    (getSources.head, false)
+  }
   // A clause always has a head, but it can be FALSE. Since FALSE doesn't have
   // any incoming edges, we add these manually.
   if (clause.head == IAtom(HornClauses.FALSE, Nil)) {
-    val falseNode = AtomNode(IAtom(HornClauses.FALSE, Nil))
+    val falseNode        = AtomNode(IAtom(HornClauses.FALSE, Nil))
     val sinksExceptFalse =
       nodes.filter(node => outgoing(node).isEmpty && node != falseNode)
     curEdges ++= sinksExceptFalse.map(node => Edge(node, falseNode))
@@ -253,31 +244,33 @@ class ClauseTermGraph (clause : Clause) {
    *                 stores, which can lead to a DAG with shorter edges.
    * @return `Option[Dag[Node]]`, `None` if graph has cycles.
    */
-  def topologicalSort (dagOrdering : Ordering[Dag[Node]] =
-                         ClauseTermGraph.emptyOrdering): Option[Dag[Node]] = {
+  def topologicalSort(dagOrdering : Ordering[Dag[Node]] =
+                      ClauseTermGraph.emptyOrdering) : Option[Dag[Node]] = {
     // Keep track of visited nodes to detect cycles.
     val createdSubDags = new MHashMap[Node, Dag[Node]]
-    val visiting = new MHashSet[Node]()
+    val visiting       = new MHashSet[Node]()
 
-    def buildDagFromNode(node: Node): Option[Dag[Node]] = {
+    def buildDagFromNode(node : Node) : Option[Dag[Node]] = {
       if (visiting.contains(node)) return None // Cycle detected
       if (createdSubDags.contains(node)) return Some(createdSubDags(node))
 
       visiting += node
 
-      val childNodes = outgoing(node).map(edge => edge.to)
+      val childNodes     = outgoing(node).map(edge => edge.to)
       val maybeChildDags = (for (childNode <- childNodes) yield {
         buildDagFromNode(childNode)
       }).toSeq
 
-      if (maybeChildDags.exists(_.isEmpty))
-        None // Cycle detected in one of the child nodes
+      if (maybeChildDags.exists(_.isEmpty)) {
+        None
+      } // Cycle detected in one of the child nodes
       else {
         // TODO: order children so that the cuts are minimized
-        val childDags = maybeChildDags.map(_.get).sorted(dagOrdering)
+        val childDags           = maybeChildDags.map(_.get).sorted(dagOrdering)
         val nextDag : Dag[Node] =
-          if (childDags isEmpty) DagEmpty
-          else {
+          if (childDags isEmpty) {
+            DagEmpty
+          } else {
             var next : Dag[Node] = DagEmpty
             for (subDag <- childDags if !subDag.isEmpty) {
               next = DagNode(subDag.head, Nil, next)
@@ -289,7 +282,8 @@ class ClauseTermGraph (clause : Clause) {
 
         val dagNode =
           DagNode(node, childDags.indices.map(_ + 1).toList, nextDag)
-            .substitute(childDags.indices.map(_ + 1).toList.zip(childDags).toMap)
+            .substitute(
+              childDags.indices.map(_ + 1).toList.zip(childDags).toMap)
         createdSubDags += ((node, dagNode))
 
         Some(dagNode)
@@ -326,7 +320,7 @@ class ClauseTermGraph (clause : Clause) {
                            hasPseudoRoot        : Boolean = false)
   : (Dag[T], Dag[T]) = {
     val indexedDag = dag.zipWithIndex
-    val splitInd = indexedDag.iterator.indexWhere(_._1 == node)
+    val splitInd   = indexedDag.iterator.indexWhere(_._1 == node)
 
     if (splitInd == -1 || splitInd == dag.size) {
       throw new IllegalArgumentException(
@@ -344,25 +338,25 @@ class ClauseTermGraph (clause : Clause) {
           if children.size == 1 && i + children.head == dag.size - 1 => n
       }.toList
 
-    val orphanNodeInds = new ArrayBuffer[(T, List[Int])]
-    val orphanedNodeInds = new ArrayBuffer[(DagNode[(T, Int)], Int)]
+    val orphanNodeInds             = new ArrayBuffer[(T, List[Int])]
+    val orphanedNodeInds           = new ArrayBuffer[(DagNode[(T, Int)], Int)]
     val orphanedNodeAboveUpdateMap = new MHashMap[Int, (T, List[Int])]
     // Orphaned nodes have at least one child below split
     for (n : DagNode[(T, Int)] <- indexedDag.subdagIterator
          // only iterate over nodes above the split and ignore pseudo-root
          if n.d._2 < glueInd && (!hasPseudoRoot || n.d._2 > 0)) {
-      val nInd = n.d._2
+      val nInd    = n.d._2
       val orphans =
         n.children.filter(childInd => childInd + nInd > splitInd &&
-                                      !orphansFromSyncs.contains(n.d._1))
-         .map(childInd => childInd + nInd - glueInd)
+          !orphansFromSyncs.contains(n.d._1))
+          .map(childInd => childInd + nInd - glueInd)
       if (orphans nonEmpty) {
         orphanNodeInds += n.d._1 -> orphans
         orphanedNodeInds += n -> nInd
         val newChildren = n.children.map(
           childInd =>
             if (childInd + nInd > glueInd) glueInd - nInd else childInd)
-                           .distinct.sorted
+          .distinct.sorted
         orphanedNodeAboveUpdateMap += nInd -> (n.d._1, newChildren)
       }
     }
@@ -373,13 +367,14 @@ class ClauseTermGraph (clause : Clause) {
     val orphansFromPseudoRoot =
       if (hasPseudoRoot) {
         dag.asInstanceOf[DagNode[T]]
-           .children.filter(childInd => childInd > splitInd)
-      } else Nil
-
+          .children.filter(childInd => childInd > splitInd)
+      } else {
+        Nil
+      }
     // Create the glue node using the information of orphaned nodes
     val glueNode : T = glueNodeInstantiator(orphanedNodeInds.map(_._2).toList)
 
-    val root = dag.asInstanceOf[DagNode[T]]
+    val root          = dag.asInstanceOf[DagNode[T]]
     val dagAboveSplit =
       DagNode(root.d, root.children.diff(orphansFromPseudoRoot), root.next)
         .substitute(Map(glueInd -> DagNode(glueNode, List(), DagEmpty)))
@@ -387,18 +382,18 @@ class ClauseTermGraph (clause : Clause) {
 
     val dagBelowSplit = {
       val belowOldDag = dag.drop(glueInd)
-      var next = belowOldDag
+      var next        = belowOldDag
       // orphaned nodes are replicated below
       for (((orphanedNode, orphanInds), i) <- orphanNodeInds.zipWithIndex) {
         // offset children by the number of orphans that were added
         val newChildren = orphanInds.map(ind => ind + i + 1)
-        val newNode = DagNode(orphanedNode, newChildren, next)
+        val newNode     = DagNode(orphanedNode, newChildren, next)
         next = newNode
       }
       val pseudoChildren = orphansFromPseudoRoot.map(
         childInd => childInd - glueInd + orphanNodeInds.size + 1)
       DagNode(glueNode, (1 to orphanNodeInds.size).toList ++
-                        pseudoChildren, next)
+        pseudoChildren, next)
     }
 
 //    lazabs.horn.bottomup.Util.show(dag, "dag", false)
@@ -459,7 +454,7 @@ object ClauseSplitterFuncsAndUnboundTerms {
 
   object BTranslator {
 
-    def apply(tempPreds : Set[Predicate],
+    def apply(tempPreds   : Set[Predicate],
               backMapping : Map[Clause, Clause]) : BTranslator = {
       val extendedMapping =
         for ((newClause, oldClause) <- backMapping) yield {
@@ -472,24 +467,24 @@ object ClauseSplitterFuncsAndUnboundTerms {
       new BTranslator(tempPreds, extendedMapping)
     }
 
-    def withIndexes(tempPreds : Set[Predicate],
+    def withIndexes(tempPreds   : Set[Predicate],
                     backMapping : Map[Clause, (Clause, Tree[Int])])
-                  : BTranslator =
+    : BTranslator =
       new BTranslator(tempPreds, backMapping)
 
   }
 
-  class BTranslator private (tempPreds : Set[Predicate],
-                             backMapping : Map[Clause, (Clause, Tree[Int])])
-        extends BackTranslator {
+  class BTranslator private(tempPreds   : Set[Predicate],
+                            backMapping : Map[Clause, (Clause, Tree[Int])])
+    extends BackTranslator {
 
     def translate(solution : Solution) =
       solution -- tempPreds
 
     def translate(cex : CounterExample) =
-      if (tempPreds.isEmpty && backMapping.isEmpty)
+      if (tempPreds.isEmpty && backMapping.isEmpty) {
         cex
-      else {
+      } else {
         val res = simplify(translateCEX(cex).elimUnconnectedNodes)
 
         assert(res.subdagIterator forall {
@@ -497,11 +492,12 @@ object ClauseSplitterFuncsAndUnboundTerms {
                            children, _) =>
             // syntactic check: do clauses fit together?
             state.pred == head.pred &&
-            children.size == body.size &&
-            ((children.iterator zip body.iterator) forall {
-               case (c, IAtom(pred, _)) =>
-                 c > 0 && dag(c)._1.pred == pred })
-          })
+              children.size == body.size &&
+              ((children.iterator zip body.iterator) forall {
+                case (c, IAtom(pred, _)) =>
+                  c > 0 && dag(c)._1.pred == pred
+              })
+        })
 
         res
       }
@@ -518,24 +514,23 @@ object ClauseSplitterFuncsAndUnboundTerms {
                 allProperChildren(dag drop c, t, newChildrenAr, c)
               DagNode((a, oldClause), newChildrenAr.toList, newNext)
             }
-            case None =>
-              DagNode(p, children, newNext)
+            case None => DagNode(p, children, newNext)
           }
         }
-        case DagEmpty =>
-          DagEmpty
+        case DagEmpty => DagEmpty
       }
 
-    private def allProperChildren(dag : CounterExample,
-                                  indexTree : Tree[Int],
+    private def allProperChildren(dag           : CounterExample,
+                                  indexTree     : Tree[Int],
                                   newChildrenAr : Array[Int],
-                                  offset : Int) : Unit = {
+                                  offset        : Int) : Unit = {
       val DagNode((IAtom(p, _), _), children, _) = dag
-      if (tempPreds contains p)
+      if (tempPreds contains p) {
         for ((c, t) <- children.iterator zip indexTree.children.iterator)
           allProperChildren(dag drop c, t, newChildrenAr, offset + c)
-      else
+      } else {
         newChildrenAr(indexTree.d) = offset
+      }
     }
   }
 }
@@ -563,7 +558,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
   private val clauseBackMapping = new MHashMap[Clause, (Clause, Tree[Int])]
 
   val name : String = "splitting clauses with functions : {" +
-                      functionsToSplitOn.mkString(",") + "}"
+    functionsToSplitOn.mkString(",") + "}"
 
   override def isApplicable(clauses          : Clauses,
                             frozenPredicates : Set[Predicate]) : Boolean = {
@@ -571,8 +566,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
     clauses.exists(
       c => FunctionCollector(c.constraint)
         .intersect(functionsToSplitOn).nonEmpty ||
-           c.constants.exists(sortsForUnboundTermsToSplitOn
-                              contains Sort.sortOf(_)))
+        c.constants.exists(sortsForUnboundTermsToSplitOn
+                             contains Sort.sortOf(_)))
   }
 
   override def process(clauses          : Clauses,
@@ -594,19 +589,20 @@ class ClauseSplitterFuncsAndUnboundTerms(
       def lastFunAppNode(dag : Dag[Node]) : Option[FunAppNode] = {
         dag.subdagIterator.toList.reverse.find(
           n => n.d.isInstanceOf[FunAppNode] &&
-               functionsToSplitOn.contains(n.d.asInstanceOf[FunAppNode].funApp.fun)) match {
+            functionsToSplitOn
+              .contains(n.d.asInstanceOf[FunAppNode].funApp.fun)) match {
           case Some(DagNode(node@FunAppNode(IFunApp(fun, _), _), _, _))
             if functionsToSplitOn contains fun =>
-              Some(node)
+            Some(node)
           case _ => None
         }
       }
-      // If a subdag contains no fun apps, it comes first, otherwise the one with
-      // the "least" function as its last node comes first.
+      // If a subdag contains no fun apps, it comes first, otherwise the one
+      // with the "least" function as its last node comes first.
       override def compare(x : Dag[Node], y : Dag[Node]) : Int = {
         (lastFunAppNode(x), lastFunAppNode(y)) match {
           case (None, Some(_)) if functionOrdering.nonEmpty => -1 // x first
-          case (Some(_), None) if functionOrdering.nonEmpty => 1  // y first
+          case (Some(_), None) if functionOrdering.nonEmpty => 1 // y first
           case (Some(fx), Some(fy)) if functionOrdering.nonEmpty =>
             functionOrdering.get.compare(fx.funApp.fun, fy.funApp.fun)
           case _ =>
@@ -617,21 +613,21 @@ class ClauseSplitterFuncsAndUnboundTerms(
       }
     }
 
-    val clauseDags : Map[Clause, Dag[Node]] = clauseGraphs.map {
+    val clauseDags : Map[Clause, Dag[Node]] = clauseGraphs.map{
       case (clause, graph) =>
         graph.topologicalSort(dagOrdering) match {
           case Some(dag) => (clause, dag)
           case None =>
-            println(s"Warning: cannot apply ($name) because a " +
-                    s"clause cannot " +
-                    "be converted to a DAG (from body to head)\n" +
-                    clause.toPrologString + "\n" +
-                    "Applying identity transformation instead.")
+            println(
+              s"Warning: cannot apply ($name) because a clause cannot be" +
+                "converted to a DAG (from body to head)\n" + clause
+                .toPrologString + "\n" +
+                "Applying identity transformation instead.")
             return (clauses, hints, IDENTITY_TRANSLATOR)
         }
     }
 
-    val clauseNewDags = new MHashMap[Clause, Seq[Dag[Node]]]
+    val clauseNewDags  = new MHashMap[Clause, Seq[Dag[Node]]]
     val clauseNewPreds = new MHashMap[Clause, Set[Predicate]]
 
     var gluePredCounter = -1
@@ -647,12 +643,12 @@ class ClauseSplitterFuncsAndUnboundTerms(
       val unboundTermNodesToSplitOn = clauseGraph.getSources.filter{
         case node : ConstNode =>
           sortsForUnboundTermsToSplitOn contains Sort.sortOf(node.c)
-        case _                => false
+        case _ => false
       }.map(_.asInstanceOf[ConstNode])
 
       val funAppNodesToSplitOn = clauseGraph.nodes.filter{
         case node : FunAppNode => functionsToSplitOn contains node.funApp.fun
-        case _                 => false
+        case _ => false
       }.map(_.asInstanceOf[FunAppNode])
 
       if (unboundTermNodesToSplitOn.size + funAppNodesToSplitOn.size < 2) {
@@ -661,37 +657,38 @@ class ClauseSplitterFuncsAndUnboundTerms(
         println(s"Splitting clause ${clause.toPrologString}")
         if (unboundTermNodesToSplitOn.nonEmpty) {
           println(s"It has ${unboundTermNodesToSplitOn.size} " +
-                  s"unbound terms to split on: $unboundTermNodesToSplitOn")
+                    s"unbound terms to split on: $unboundTermNodesToSplitOn")
         }
         if (funAppNodesToSplitOn.nonEmpty) {
           println(s"It has ${funAppNodesToSplitOn.size} " +
-                  s"fun apps to split on: $funAppNodesToSplitOn")
+                    s"fun apps to split on: $funAppNodesToSplitOn")
         }
 
         // Split after unbounded heap terms, and after the return term of funs.
         val termsToSplitOn : Set[Node] =
           (unboundTermNodesToSplitOn ++
-           funAppNodesToSplitOn.map(f => ConstNode(f.toArg))).toSet
+            funAppNodesToSplitOn.map(f => ConstNode(f.toArg))).toSet
 
         val toSplitNodesSorted =
           clauseDag.iterator.filter(termsToSplitOn contains).toSeq
 
-        val clauseDags = new MStack[Dag[Node]]
+        val clauseDags  = new MStack[Dag[Node]]
         val clausePreds = new MHashSet[Predicate]
         clauseDags push clauseDag
         for (term <- toSplitNodesSorted.init) {
           val curDag = clauseDags pop
 
           def connectorNodeInstantiator(orphanedNodes : List[Int]) : Node = {
-            val newPredArgs = (for (ind <- orphanedNodes
-                                    if curDag(ind).isInstanceOf[ConstNode])
-            yield curDag(ind).asInstanceOf[ConstNode].c.c)
-            val newPred = newGluePred(newPredArgs.map(Sort.sortOf(_)))
+            val newPredArgs = for (ind <- orphanedNodes
+                                   if curDag(ind).isInstanceOf[ConstNode])
+            yield curDag(ind).asInstanceOf[ConstNode].c.c
+            val newPred     = newGluePred(newPredArgs.map(Sort.sortOf(_)))
             clausePreds += newPred
             val newAtom = IAtom(newPred, newPredArgs)
             AtomNode(newAtom)
           }
-          // The splitting should fail if it is attempted for non-constant nodes.
+          // The splitting should fail if it is attempted for non-constant
+          // nodes.
           def isSplittable(node : Node) : Boolean = node.isInstanceOf[ConstNode]
 
           val (headDag, tailDag) = clauseGraph.splitDagAfterNode(
@@ -700,15 +697,15 @@ class ClauseSplitterFuncsAndUnboundTerms(
           clauseDags push headDag
           clauseDags push tailDag
         }
-//        println("\nStarting DAG: ")
-//        clauseDag.prettyPrint
+        //        println("\nStarting DAG: ")
+        //        clauseDag.prettyPrint
 
-//        println("\nSplit DAG(s):")
-//        for ((dag, i) <- clauseDags.reverse.zipWithIndex) {
-//          println(s"DAG $i:")
-//          dag.prettyPrint
-//          println
-//        }
+        //        println("\nSplit DAG(s):")
+        //        for ((dag, i) <- clauseDags.reverse.zipWithIndex) {
+        //          println(s"DAG $i:")
+        //          dag.prettyPrint
+        //          println
+        //        }
         clauseNewDags += clause -> clauseDags.reverse
         clauseNewPreds += clause -> clausePreds.toSet
       }
@@ -723,14 +720,14 @@ class ClauseSplitterFuncsAndUnboundTerms(
       assert(nodes.last.d.isInstanceOf[AtomNode])
       val head : IAtom = nodes.last.d.asInstanceOf[AtomNode].a
 
-      val body = new ArrayBuffer[IAtom]
+      val body      = new ArrayBuffer[IAtom]
       val conjuncts = new ArrayBuffer[IFormula]
       for (node : DagNode[Node] <- nodes.init) {
         node.d match {
           case FunAppNode(_, f) => conjuncts += f
-          case SyncNode(f)      => if (!f.isTrue) conjuncts += f
-          case AtomNode(a)      => body += a
-          case ConstNode(_)     => // nothing needed
+          case SyncNode(f) => if (!f.isTrue) conjuncts += f
+          case AtomNode(a) => body += a
+          case ConstNode(_) => // nothing needed
         }
       }
       Clause(head, body.toList, and(conjuncts))
@@ -744,34 +741,34 @@ class ClauseSplitterFuncsAndUnboundTerms(
     }
     println
 
-//    while (remainingClauses nonEmpty) {
-      /*
-       *  clauseDag is topologically sorted, so we can simply split the terms in
-       *  the order that they appear in the DAG.
-       *  We create new clauses by iteratively splitting clauseDag into its
-       *   sub-DAGs, and each one we split from the head will be a new clause.
-       *   1) For function applications
-       *  Let n be the node that we split on. In the sub-DAG we split (the new
-       *  clause):
-       *    - create a new RelNode (for the new head predicate)
-       *      - create a new predicate, and create an IAtom using that predicate
-       *        with all ConstNode nodes in the path from root to node n+1
-       *        (the result of the function application).
-       *      - create a new RelNode n' using the predicate from the previous
-       *      step.
-       *
-       *      - create two copies of clauseDag: dag1, dag2.
-       *      - update n' as the single child of n.
-       *      - update the children of all nodes in dag1 that has index >= n+1
-       *        to be n+1 (the new node n')
-       *      - In dag2, add n' as the root node.
-       *      - todo: easy way to take subdag2?
-       *  Repeat this until there are no more functions applications to split
-       *  on.
-       */
+    //    while (remainingClauses nonEmpty) {
+    /*
+     *  clauseDag is topologically sorted, so we can simply split the terms in
+     *  the order that they appear in the DAG.
+     *  We create new clauses by iteratively splitting clauseDag into its
+     *   sub-DAGs, and each one we split from the head will be a new clause.
+     *   1) For function applications
+     *  Let n be the node that we split on. In the sub-DAG we split (the new
+     *  clause):
+     *    - create a new RelNode (for the new head predicate)
+     *      - create a new predicate, and create an IAtom using that predicate
+     *        with all ConstNode nodes in the path from root to node n+1
+     *        (the result of the function application).
+     *      - create a new RelNode n' using the predicate from the previous
+     *      step.
+     *
+     *      - create two copies of clauseDag: dag1, dag2.
+     *      - update n' as the single child of n.
+     *      - update the children of all nodes in dag1 that has index >= n+1
+     *        to be n+1 (the new node n')
+     *      - In dag2, add n' as the root node.
+     *      - todo: easy way to take subdag2?
+     *  Repeat this until there are no more functions applications to split
+     *  on.
+     */
 
 
-//    }
+    //    }
     ???
   }
 }
@@ -788,11 +785,13 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //    (newClauses, newHints, translator)
 //  }
 //
-//  //////////////////////////////////////////////////////////////////////////////
+//
+// ////////////////////////////////////////////////////////////////////////////
 //
 //  private def splitClauseBody(clause : Clause,
 //                              initialPreds : Map[Predicate, Seq[IFormula]])
-//                             : (List[Clause], Map[Predicate, Seq[IFormula]]) = {
+//                             : (List[Clause], Map[Predicate,
+//                             Seq[IFormula]]) = {
 //    val Clause(head, body, constraint) = clause
 //
 //    if (body.size > 2) {
@@ -805,7 +804,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //      val body1SymsSet = body1Syms.toSet
 //
 //      val (constraintList1, constraintList2) =
-//        LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And) partition {
+//        LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And)
+//        partition {
 //          f => (SymbolCollector constants f) subsetOf body1SymsSet
 //        }
 //
@@ -822,7 +822,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //          List(body1Syms.head)
 //        case syms => syms
 //      }
-//      val tempPred = new Predicate ("temp" + tempPredicates.size, commonSyms.size)
+//      val tempPred = new Predicate ("temp" + tempPredicates.size,
+//      commonSyms.size)
 //      tempPredicates += tempPred
 //
 //      val head1 = IAtom(tempPred, commonSyms)
@@ -850,7 +851,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //          val backSubst = (for ((t, n) <- commonSyms.iterator.zipWithIndex)
 //                           yield (t -> v(n))).toMap
 //
-//          //////////////////////////////////////////////////////////////////////
+//
+// ////////////////////////////////////////////////////////////////////
 //
 //          def getInitialPred : IFormula = ??? match {
 //            case ProverStatus.Valid => getConstraint match {
@@ -861,10 +863,13 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //              IBoolLit(false)
 //          }
 //
-//          //////////////////////////////////////////////////////////////////////
 //
-//          def testByPreds(remainingPreds : List[(IFormula, Set[ConstantTerm])],
-//                          uneligiblePreds : List[(IFormula, Set[ConstantTerm])],
+// ////////////////////////////////////////////////////////////////////
+//
+//          def testByPreds(remainingPreds : List[(IFormula,
+//          Set[ConstantTerm])],
+//                          uneligiblePreds : List[(IFormula,
+//                          Set[ConstantTerm])],
 //                          relevantSyms : Set[ConstantTerm],
 //                          lastRelevantSymsSize : Int) : Unit =
 //            remainingPreds match {
@@ -902,19 +907,24 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //            }
 //
 //          val allByPreds =
-//            for (f <- newInitialPreds.getOrElse(nextBodyLit.pred, List()).toList)
+//            for (f <- newInitialPreds.getOrElse(nextBodyLit.pred, List())
+//            .toList)
 //            yield {
-//              val instF = VariableSubstVisitor(f, (nextBodyLit.args.toList, 0))
+//              val instF = VariableSubstVisitor(f, (nextBodyLit.args.toList,
+//              0))
 //              (instF, (SymbolCollector constants instF).toSet)
 //            }
 //
-//          //////////////////////////////////////////////////////////////////////
+//
+// ////////////////////////////////////////////////////////////////////
 //
 //          for (pred <- preds) scope {
-//            val instPred = VariableSubstVisitor(pred, (nextHead.args.toList, 0))
+//            val instPred = VariableSubstVisitor(pred, (nextHead.args
+//            .toList, 0))
 //            ?? (instPred)
 //
-//            val syms = (SymbolCollector constants (nextConstraint & instPred)).toSet
+//            val syms = (SymbolCollector constants (nextConstraint &
+//            instPred)).toSet
 //            testByPreds(allByPreds, List(), syms, syms.size)
 //          }
 //
@@ -931,8 +941,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //    }
 //  }
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Alternative implementation, creating wider but less deep trees
+//////////////////////////////////////////////////////////////////////////////
+// Alternative implementation, creating wider but less deep trees
 
 //  private def splitClauseBody2(clause : Clause,
 //                               initialPredicates : Map[IExpression.Predicate,
@@ -1020,7 +1030,8 @@ class ClauseSplitterFuncsAndUnboundTerms(
 //    val allPredicates = new LinkedHashSet[Predicate]
 //
 //    // List of newly introduced predicates. Each new predicates represents
-//    // a vector of old predicates, possible containing some predicates multiple
+//    // a vector of old predicates, possible containing some predicates
+//    multiple
 //    // times. An entry <List((p, 2), (q, 1)), p_q> expresses that the new
 //    // predicate p_q stands for the predicate vector <p, p, q>.
 //    val combiningPreds = new ArrayBuffer[(List[(Predicate, Int)], Predicate)]
