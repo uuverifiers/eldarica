@@ -154,7 +154,7 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     val heapTheories = clauses.flatMap(_.theories
                                         .filter(_.isInstanceOf[Heap])
-                                        .map(_.asInstanceOf[Heap]))
+                                        .map(_.asInstanceOf[Heap])).toSet
     // TODO: split only functions from the same theory?
     val heapFunctionSplitters = for (heap <- heapTheories) yield {
       val funs = Set(heap.allocHeap, heap.allocAddr, heap.read,
@@ -179,8 +179,10 @@ class DefaultPreprocessor extends HornPreprocessor {
                                              Some(funOrdering))
     }
 
-    val heapTransformStages = heapFunctionSplitters ++
-                              List(new HeapInvariantEncodingSimple)
+    val heapTransformStages =
+      List(new EquationUninliner) ++
+      heapFunctionSplitters ++
+      List(new HeapInvariantEncodingSimple)
     if (applyStages(heapTransformStages))
       condenseClauses
 
