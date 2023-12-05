@@ -403,6 +403,9 @@ object Util {
 
     abstract class Node
 
+    // Used when a graph has more than one sink.
+    case object PseudoNode extends Node
+
     case class ConstNode(c : IConstant) extends Node {
       override def toString : String = c.c.name
     }
@@ -432,11 +435,34 @@ object Util {
     val emptyOrdering : Ordering[Dag[Node]] = new Ordering[Dag[Node]] {
       override def compare(x : Dag[Node], y : Dag[Node]) : Int = 0
     }
+
+    def clauseDagToClause(clauseDag : Dag[Node]) : Clause = {
+      val nodes = clauseDag.subdagIterator.toList
+      // There must at least be two nodes: one for head and one for the body.
+      assert(nodes.size >= 2)
+
+      // head is always the last node
+      assert(nodes.last.d.isInstanceOf[AtomNode])
+      val head : IAtom = nodes.last.d.asInstanceOf[AtomNode].a
+
+      val body      = new ArrayBuffer[IAtom]
+      val conjuncts = new ArrayBuffer[IFormula]
+      for (node : DagNode[Node] <- nodes.init) {
+        node.d match {
+          case FunAppNode(_, f) => conjuncts += f
+          case SyncNode(f) => if (!f.isTrue) conjuncts += f
+          case AtomNode(a) => body += a
+          case _ : ConstNode | PseudoNode => // nothing needed
+        }
+      }
+      Clause(head, body.toList, IExpression.and(conjuncts))
+    }
   }
 
   class ClauseTermGraph(clause : Clause) {
     import ClauseTermGraph._
 
+    // TODO: optimize
     def outgoing(n : Node) = edges.filter(e => e.from == n)
     def incoming(n : Node) = edges.filter(e => e.to == n)
 
@@ -462,12 +488,11 @@ object Util {
       }
     }
 
-    { // Handle clause head / sink
-      // Add each constant as incoming
-      for (constant <- sink.constants) {
-        val constantNode = ConstNode(constant)
-        curEdges += Edge(constantNode, sink)
-      }
+    // Handle clause head / sink
+    // Add each constant as incoming
+    for (constant <- sink.constants) {
+      val constantNode = ConstNode(constant)
+      curEdges += Edge(constantNode, sink)
     }
 
     for (conjunct <- conjuncts) {
@@ -493,27 +518,27 @@ object Util {
     }
 
     /**
-     * Returns source nodes, but does not include the pseudo-root and the false
-     * atom. This is useful for getting unbound terms.
+     * Returns source nodes, but does not include the pseudo-root (if there is
+     * one) and the false atom.
      */
-    val getSources : Iterable[Node] = nodes.filter(
+    val getNonPseudoSources : Iterable[Node] = nodes.filter(
       node => incoming(node).isEmpty && (node match {
-        case SyncNode(IAtom(p, _)) => p != HornClauses.FALSE
+        case AtomNode(IAtom(p, _)) => p != HornClauses.FALSE
         case _ => true
       }))
 
     // If there is more than one source, add a pseudo-root.
-    // TODO: refactor
-    val (getPseudoRoot, hasPseudoRoot) = if (getSources.size != 1) {
-      val pseudoRoot = SyncNode(i(true))
-      curNodes += pseudoRoot
-      curEdges ++= getSources.map(node => Edge(pseudoRoot, node))
-      (pseudoRoot, true)
+    val (getPseudoRoot, hasPseudoRoot) = if (getNonPseudoSources.size != 1) {
+      curNodes += PseudoNode
+      curEdges ++= getNonPseudoSources.map(node => Edge(PseudoNode, node))
+      (PseudoNode, true)
     } else {
-      (getSources.head, false)
+      (getNonPseudoSources.head, false)
     }
-    // A clause always has a head, but it can be FALSE. Since FALSE doesn't have
-    // any incoming edges, we add these manually.
+
+    // A clause always has a head, thus no pseudo-sink is needed; but the head
+    // can be FALSE. Since FALSE doesn't have any incoming edges,
+    // we add those manually.
     if (clause.head == IAtom(HornClauses.FALSE, Nil)) {
       val falseNode        = AtomNode(IAtom(HornClauses.FALSE, Nil))
       val sinksExceptFalse =
@@ -694,14 +719,14 @@ object Util {
           pseudoChildren, next)
       }
 
-      //    lazabs.horn.bottomup.Util.show(dag, "dag", false)
-      //    println("\nabove\n")
-      //    lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
-      //    dagAboveSplit.prettyPrint
-      //    println("\nbelow\n")
-      //    lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
-      //    dagBelowSplit.prettyPrint
-      println
+//      lazabs.horn.bottomup.Util.show(dag, "dag", false)
+//      println("\nabove\n")
+//      lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
+//      dagAboveSplit.prettyPrint
+//      println("\nbelow\n")
+//      lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
+//      dagBelowSplit.prettyPrint
+//      println
 
       (dagAboveSplit, dagBelowSplit)
     }

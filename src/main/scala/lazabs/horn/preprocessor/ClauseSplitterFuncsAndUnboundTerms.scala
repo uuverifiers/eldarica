@@ -235,7 +235,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
       val clauseGraph = clauseGraphs(clause)
       val clauseDag   = clauseDags(clause)
 
-      val unboundTermNodesToSplitOn = clauseGraph.getSources.filter{
+      val unboundTermNodesToSplitOn = clauseGraph.getNonPseudoSources.filter{
         case node : ConstNode =>
           sortsForUnboundTermsToSplitOn contains Sort.sortOf(node.c)
         case _ => false
@@ -305,28 +305,6 @@ class ClauseSplitterFuncsAndUnboundTerms(
         clauseNewDags += clause -> clauseDags.reverse
         clauseNewPreds += clause -> clausePreds.toSet
       }
-    }
-
-    def clauseDagToClause(clauseDag : Dag[Node]) : Clause = {
-      val nodes = clauseDag.subdagIterator.toList
-      // There must at least be two nodes: one for head and one for the body.
-      assert(nodes.size >= 2)
-
-      // head is always the last node
-      assert(nodes.last.d.isInstanceOf[AtomNode])
-      val head : IAtom = nodes.last.d.asInstanceOf[AtomNode].a
-
-      val body      = new ArrayBuffer[IAtom]
-      val conjuncts = new ArrayBuffer[IFormula]
-      for (node : DagNode[Node] <- nodes.init) {
-        node.d match {
-          case FunAppNode(_, f) => conjuncts += f
-          case SyncNode(f) => if (!f.isTrue) conjuncts += f
-          case AtomNode(a) => body += a
-          case ConstNode(_) => // nothing needed
-        }
-      }
-      Clause(head, body.toList, and(conjuncts))
     }
 
     val clauseToNewClauses : Map[Clause, Seq[Clause]] = (clauseNewDags.map(

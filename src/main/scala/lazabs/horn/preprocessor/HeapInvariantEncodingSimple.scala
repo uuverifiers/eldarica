@@ -31,14 +31,78 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression._
-import ap.theories.{Heap, Theory}
-import ap.theories.Heap.HeapSort
-import ap.types.MonoSortedPredicate
+import ap.SimpleAPI
+import ap.theories.{ADT, Heap, TheoryRegistry}
+import ap.theories.ADT.ADTProxySort
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.bottomup.HornClauses.{Clause, allPredicates}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
+object ADTExploder {
+  def apply(expr : IExpression) : IExpression =
+    Rewriter.rewrite(expr, explodeADTs)
+
+  case class ADTTerm(t : ITerm, adtSort : ADTProxySort)
+  object adtTermExploder extends CollectingVisitor[Object, IExpression] {
+    def getADTTerm(t : IExpression) : Option[ADTTerm] = {
+      t match {
+        case f @ IFunApp(fun, _) if ADT.Constructor.unapply(fun).nonEmpty =>
+          val sortedFun = fun.asInstanceOf[MonoSortedIFunction]
+          val adtSort = sortedFun.resSort.asInstanceOf[ADT.ADTProxySort]
+          Some(ADTTerm(f, adtSort))
+        case c@IConstant(SortedConstantTerm(_, sort))
+          if sort.isInstanceOf[ADTProxySort] =>
+          Some(ADTTerm(c, sort.asInstanceOf[ADTProxySort]))
+        case _ => None
+      }
+    }
+
+    override def postVisit(t: IExpression, none : Object,
+                           subres: Seq[IExpression]) : IExpression = {
+
+      import IExpression._
+      def explodeADTSelectors (originalEq : IEquation, ctorFun : IFunction,
+                               lhsIsCtor : Boolean) : IFormula = {
+        val newEq = originalEq update subres
+        val (newFunApp, selectorTerms, newRootTerm) =
+          if (lhsIsCtor) {
+            val Eq(newFunApp@IFunApp(_, selectorTerms), newRootTerm) = newEq
+            (newFunApp, selectorTerms, newRootTerm)
+          } else {
+            val Eq(newRootTerm, newFunApp@IFunApp(_, selectorTerms)) = newEq
+            (newFunApp, selectorTerms, newRootTerm)
+          }
+        val adtTerm = getADTTerm(newFunApp).get
+        val adt = adtTerm.adtSort.adtTheory
+        val ctorIndex = adt.constructors.indexOf(ctorFun)
+        val selectors = adt.selectors(ctorIndex)
+        adt.hasCtor(newRootTerm, ctorIndex) &&&
+          (for ((fieldTerm, selectorInd) <- selectorTerms zipWithIndex) yield
+          selectors(selectorInd)(newRootTerm) === fieldTerm).reduce(_ &&& _)
+      }
+
+      t match {
+        case e@Eq(funApp@IFunApp(fun, _), _) if getADTTerm(funApp).nonEmpty =>
+          explodeADTSelectors(e.asInstanceOf[IEquation], fun, lhsIsCtor = true)
+        case e@Eq(_, funApp@IFunApp(fun, _)) if getADTTerm(funApp).nonEmpty =>
+          explodeADTSelectors(e.asInstanceOf[IEquation], fun, lhsIsCtor = false)
+        case t@IFunApp(f,_) =>
+          val newApp = t update subres
+          (for (theory <- TheoryRegistry lookupSymbol f;
+                res <- theory evalFun newApp) yield res) getOrElse newApp
+        case _ =>
+          t update subres
+      }
+    }
+  }
+
+  // converts "s = S(a, b)" to "f1(s) = a & f2(s) = b"
+  private def explodeADTs(expr : IExpression) : IExpression =
+    adtTermExploder.visit(expr, null)
+
+}
 
 class HeapInvariantEncodingSimple extends HornPreprocessor {
   import HornPreprocessor._
@@ -63,8 +127,38 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
                               .map(theory => theory.asInstanceOf[Heap])
                               .toSet
 
-    clauses.foreach(println)
+//    println("Applying heap invariant encoding to the following clauses")
+//    println("="*80)
+//    clauses.foreach(clause => println(clause.toPrologString))
+//    println("="*80)
+//    println
     var currentClauses = clauses
+
+    // Define an invariant per heap theory
+    val heapInvariantPerHeap : Map[Heap, Predicate] = heapTheories.map(
+      heap => heap -> new MonoSortedPredicate(
+        s"Inv_${heap.HeapSort.name}", Seq(heap.AddressSort, heap.ObjectSort)))
+      .toMap
+
+    // Collect maps from sorts to argument indices containing those sorts
+    // in every predicate.
+    val predSortToArgInds = new MHashMap[Predicate, Map[Sort, List[Int]]]
+    for (pred <- allPredicates(clauses)) {
+      pred match {
+        case sortedPred : MonoSortedPredicate =>
+          val sortInds = new MHashMap[Sort, List[Int]]
+          for ((sort, ind) <- sortedPred.argSorts.zipWithIndex) {
+            sortInds get sort match {
+              case None      => sortInds += sort -> List(ind)
+              case Some(seq) => sortInds += sort -> (ind :: seq)
+            }
+          }
+          predSortToArgInds += pred -> sortInds.toMap
+        case _ =>
+          predSortToArgInds +=
+            pred -> Map(Sort.Integer -> (0 until  pred.arity).toList)
+      }
+    }
 
 /**
  * Why normalization is needed: consider the following clause with two heap ops.
@@ -93,49 +187,101 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
  * split the original clause into num_reads, and then transform each clause
  * with a read into two clauses, leading to num_reads*2 clauses.
 */
-
     // Each heap theory
     for (heap <- heapTheories) {
       val newClauses = new ArrayBuffer[HornClauses.Clause]
-
-      // Define an invariant for this heap
-      val inv = new MonoSortedPredicate(s"Inv_${heap.HeapSort.name}",
-                                        Seq(heap.AddressSort, heap.ObjectSort))
+      val inv = heapInvariantPerHeap(heap)
       for (clause <- currentClauses) {
         val conjuncts =
           LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
-        def appearsInHead(c : ConstantTerm) : Boolean =
-          clause.head.args.contains(IConstant(c))
-        def appearsInBody(c : ConstantTerm) : Boolean =
-          clause.body.exists(a => a.args.contains(IConstant(c)))
 
+        var addedThisClause = false
         for (conjunct <- conjuncts) {
           conjunct match {
             // allocHeap(h0, o) == h1: push inv(newAddr(h0, o), o)
             case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
-                    IConstant(h1)) if appearsInBody(h0) && appearsInHead(h1) =>
+                    IConstant(h1)) =>
               val a = heap.allocAddr(h0, o)
               newClauses += Clause(inv(a, o), clause.body, clause.constraint)
+              newClauses += clause
+              assert(!addedThisClause)
+              addedThisClause = true
 
             // write(h0, a, o) == h1: push inv(a, o) if valid(h0, a)
             case Eq(IFunApp(heap.write,
                             Seq(IConstant(h0), IConstant(a), IConstant(o))),
-                    IConstant(h1)) if appearsInBody(h0) && appearsInHead(h1) =>
-
+                    IConstant(h1)) =>
               newClauses += Clause(inv(a, o), clause.body,
                                    clause.constraint &&& heap.isAlloc(h0, a))
+              newClauses += clause
+              assert(!addedThisClause)
+              addedThisClause = true
+
+            // read(h, a) == o: replace original clause with two clauses:
+            //   1) head :- body & valid(h, a) & I(a, o)
+            //   2) head :- body & !valid(h,a)
             case Eq(IFunApp(heap.read,
                             Seq(IConstant(h), IConstant(a))),
-                    IConstant(o)) if appearsInBody(h) =>
-              newClauses += Clause(inv(a, o), clause.body,
+                    IConstant(o)) =>
+              newClauses += Clause(clause.head, inv(a, o) :: clause.body,
                                    clause.constraint &&& heap.isAlloc(h, a))
+              newClauses += Clause(clause.head, clause.body,
+                                   clause.constraint &&& !heap.isAlloc(h, a))
+              assert(!addedThisClause)
+              addedThisClause = true
             case _ =>
+//              println(s"Ignoring conjunct $conjunct in clause ${clause.toPrologString}")
+
+            // todo: handle unbound heap terms
           }
         }
+        if (!addedThisClause)
+          newClauses += clause
       }
       currentClauses = newClauses
     }
 
-    (currentClauses, hints, ???)
+    val backTranslator = new BackTranslator {
+      override def translate(solution : Solution) : Solution = {
+        val newSolution = new MHashMap[Predicate, IFormula]
+        val solutionWithoutHeapInvariants =
+          solution -- heapInvariantPerHeap.values
+        solutionWithoutHeapInvariants.foreach(newSolution +=)
+        for (heap <- heapTheories; (pred, _) <- solutionWithoutHeapInvariants) {
+          predSortToArgInds(pred) get heap.HeapSort match {
+            case Some(heapInds) if heapInds.nonEmpty =>
+              val inv = heapInvariantPerHeap(heap)
+              val invF = solution(inv)
+              for (heapInd <- heapInds) {
+                val adtExploded = ADTExploder(invF).asInstanceOf[IFormula]
+                val simplified = SimpleAPI.withProver(_.simplify(adtExploded))
+
+                // Augment the solution of this predicate with:
+                // forall a. valid(h, a) ==> inv(a, read(h, a))
+                // Where a is quantified only over the address arguments of
+                // the current predicate.
+                val newConj = {
+                  val h = v(heapInd, heap.HeapSort)
+                  heap.AddressSort.all(
+                    a => heap.isAlloc(h, a) ===> VariableSubstVisitor(
+                      simplified, (List(a, heap.read(h, a)), 0)))
+                }
+                newSolution(pred) = newSolution(pred) &&& newConj
+              }
+            case _ =>
+          }
+        }
+        newSolution.toMap
+      }
+      override def translate(cex : CounterExample) : CounterExample = ???
+    }
+
+//    println("\nNew clauses")
+//    println("=" * 80)
+//    currentClauses.foreach(clause => println(clause.toPrologString))
+//    println("=" * 80)
+//    println
+
+    (currentClauses, hints, backTranslator)
   }
 }

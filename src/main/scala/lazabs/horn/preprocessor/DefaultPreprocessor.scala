@@ -157,7 +157,7 @@ class DefaultPreprocessor extends HornPreprocessor {
                                         .map(_.asInstanceOf[Heap])).toSet
     // TODO: split only functions from the same theory?
     val heapFunctionSplitters = for (heap <- heapTheories) yield {
-      val funs = Set(heap.allocHeap, heap.allocAddr, heap.read,
+      val funs = Set(heap.allocHeap, heap.read,
                      heap.write, heap.emptyHeap)
       val funOrdering = new Ordering[IFunction] {
         def compare(a: IFunction, b: IFunction): Int = {
@@ -166,7 +166,6 @@ class DefaultPreprocessor extends HornPreprocessor {
             case heap.emptyHeap => 1
             case heap.read => 2
             case heap.allocHeap => 3
-            case heap.allocAddr => 3
             case heap.write => 4
             case _ => 0 // Any other function gets highest priority
           }
