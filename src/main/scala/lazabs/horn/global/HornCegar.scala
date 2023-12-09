@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2015 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,8 @@ import ap.parser._
 import IExpression._
 import lazabs.prover._
 import lazabs.prover.PrincessWrapper._
-import lazabs.horn.bottomup.DisjInterpolator._
+import lazabs.horn.bottomup.DisjInterpolator.iPredicateGenerator
+import lazabs.horn.bottomup.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.bottomup.Util._
 import lazabs.horn.bottomup.HornTranslator

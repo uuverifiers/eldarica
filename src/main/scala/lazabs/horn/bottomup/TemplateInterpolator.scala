@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2023 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,8 @@ import ap.util.Timeout
 
 import lazabs.prover.{Tree, Leaf}
 import Util._
-import DisjInterpolator._
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, LinkedHashSet, ArrayBuffer}

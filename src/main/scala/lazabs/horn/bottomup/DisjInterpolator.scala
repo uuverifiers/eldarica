@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,11 +54,7 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
 
 object DisjInterpolator {
 
-  abstract sealed class AndOrNode[AndD, OrD]
-  case class AndNode[AndD, OrD](d : AndD) extends AndOrNode[AndD, OrD]
-  case class OrNode [AndD, OrD](d : OrD)  extends AndOrNode[AndD, OrD]
-
-  //////////////////////////////////////////////////////////////////////////////
+  import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
   /**
    * The predicate generator receives an and/or-clause-dag, and either

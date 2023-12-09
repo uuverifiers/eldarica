@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
 import Util._
-import DisjInterpolator._
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 /**
  * An incremental version of <code>HornPredAbs</code>. This class is
