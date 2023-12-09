@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
 import ap.theories.{Theory, TheoryCollector}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
@@ -42,9 +42,9 @@ import ap.util.Timeout
 import IExpression.{ConstantTerm, Predicate}
 
 import lazabs.prover.{Tree, Leaf}
-import Util._
+import lazabs.horn.Util._
 
-import HornClauses._
+import lazabs.horn.bottomup.HornClauses._
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus

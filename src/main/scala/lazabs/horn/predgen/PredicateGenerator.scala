@@ -27,9 +27,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
-import Util._
+import lazabs.horn.Util._
+
+import lazabs.horn.bottomup.NormClause
 
 import ap.parser.IAtom
 import ap.terfor.conjunctions.Conjunction

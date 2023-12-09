@@ -40,10 +40,10 @@ import ap.parser._
 import IExpression._
 import lazabs.prover._
 import lazabs.prover.PrincessWrapper._
-import lazabs.horn.bottomup.DisjInterpolator.iPredicateGenerator
-import lazabs.horn.bottomup.PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.DisjInterpolator.iPredicateGenerator
+import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 import lazabs.horn.bottomup.HornClauses._
-import lazabs.horn.bottomup.Util._
+import lazabs.horn.Util._
 import lazabs.horn.bottomup.HornTranslator
  
 

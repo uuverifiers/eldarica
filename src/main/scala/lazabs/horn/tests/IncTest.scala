@@ -3,6 +3,7 @@ package lazabs.horn.tests
 
 import ap.SimpleAPI
 import lazabs.horn.bottomup._
+import lazabs.horn.predgen.DagInterpolator
 import HornClauses._
 import ap.parser._
 import IExpression.Sort

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,9 +27,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn
 
 import lazabs.prover.Tree
+
+import ap.terfor.conjunctions.Conjunction
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -392,5 +394,15 @@ object Util {
 
     override def toString : String = "[" + (parent mkString ", ") + "]"
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def treeSize(t : Tree[Conjunction]) =
+    (for (c <- t.iterator) yield nodeCount(c)).sum
+
+  def nodeCount(c : Conjunction) : Int =
+    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
+      case (n,d) => n + nodeCount(d)
+    }
 
 }

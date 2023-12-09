@@ -40,8 +40,8 @@ import ap.proof.QuantifierElimProver
 import ap.theories.TheoryCollector
 import ap.types.{Sort, MonoSortedPredicate}
 
-import Util._
-import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.Util._
+import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 object HornPredAbs {
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,8 @@ import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord,
 
 import ap.parser._
 import ap.terfor.preds.Predicate
-import Util._
+import lazabs.horn.Util._
+import lazabs.horn.predgen.{TemplateInterpolator, DagInterpolator}
 
 /**
  * Simple wrapper around the classes that can be used to
@@ -132,7 +133,7 @@ object SimpleWrapper {
       case Right(x) => {
         val cex = x()
         if (showDot)
-          Util.show(cex map (_._1), "SimpleWrapper")
+          show(cex map (_._1), "SimpleWrapper")
         Right(cex)
       }
     }

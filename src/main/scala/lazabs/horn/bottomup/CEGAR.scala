@@ -38,8 +38,9 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.proof.ModelSearchProver
 import ap.util.Seqs
 
+import lazabs.horn._
 import Util._
-import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.{LinkedHashSet, LinkedHashMap, ArrayBuffer,
                                  HashSet => MHashSet, HashMap => MHashMap,
@@ -266,7 +267,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       (for ((_, s) <- predicates.iterator) yield s.size).sum
     val totalPredSize =
       (for ((_, s) <- predicates.iterator; p <- s.iterator)
-       yield TreeInterpolator.nodeCount(p.rawPred)).sum
+       yield nodeCount(p.rawPred)).sum
     val averagePredSize =
       if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
     println("Number of generated predicates:                        " + predNum)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@ import ap.parser.PrincessLineariser
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.substitutions.ConstantSubst
 import lazabs.horn.bottomup.RelationSymbol
-import lazabs.horn.bottomup.Util.toStream
+import lazabs.horn.Util.toStream
 import lazabs.horn.symex.Symex.SymexException
 
 /**

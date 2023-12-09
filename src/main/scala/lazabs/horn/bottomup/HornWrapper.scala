@@ -48,7 +48,8 @@ import lazabs.prover.PrincessWrapper
 import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
-import Util._
+import lazabs.horn.Util._
+import lazabs.horn.predgen.{DagInterpolator, TemplateInterpolator}
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  StaticAbstractionBuilder, AbstractionRecord,
                                  VerificationHints, EmptyVerificationHints}

@@ -33,8 +33,8 @@ import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
-import Util._
-import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.Util._
+import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 /**
  * An incremental version of <code>HornPredAbs</code>. This class is

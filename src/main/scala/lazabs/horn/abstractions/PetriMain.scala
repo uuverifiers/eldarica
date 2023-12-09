@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2017 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,8 +35,9 @@ import scala.io.StdIn
 
 import ap.parser._
 import ap.util.CmdlParser
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs,
-                             TemplateInterpolator, DagInterpolator, Util}
+import lazabs.horn.Util
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
+import lazabs.horn.predgen.{TemplateInterpolator, DagInterpolator}
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus

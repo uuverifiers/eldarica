@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
 import ap.basetypes.{IdealInt, UnionFind}
 import ap.parser._
@@ -41,9 +41,11 @@ import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.util.Seqs
 
 import lazabs.prover.{Tree, Leaf}
-import Util._
+import lazabs.horn.Util._
 import DisjInterpolator.predicateGenerator
 import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.bottomup.{NormClause, RelationSymbol, HornClauses,
+                             HornWrapper, HornPredAbs, CEGAR, SymbolFactory}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, ArrayBuffer}
@@ -52,7 +54,7 @@ import SimpleAPI.ProverStatus
 
 object DagInterpolator {
 
-  import HornPredAbs._
+  import lazabs.horn.bottomup.HornPredAbs._
   import TerForConvenience._
 
   //////////////////////////////////////////////////////////////////////////////
