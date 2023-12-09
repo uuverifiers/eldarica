@@ -3,7 +3,6 @@ package lazabs.horn.tests
 
 import ap.SimpleAPI
 import lazabs.horn.bottomup._
-import lazabs.horn.predgen.DagInterpolator
 import HornClauses._
 import ap.parser._
 import IExpression.Sort
@@ -55,8 +54,7 @@ object IncTestPreprocessor extends App {
     val incSolver =
       new IncrementalHornPredAbs(simplifiedClauses,
                                  Map(),
-                                 Set(f0, f1, f2, Init),
-                                 DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+                                 Set(f0, f1, f2, Init))
 
     implicit val o = TermOrder.EMPTY
     import TerForConvenience._

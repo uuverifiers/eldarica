@@ -32,7 +32,6 @@ package lazabs.horn.concurrency
 import ap.parser._
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.Util
-import lazabs.horn.predgen.DagInterpolator
 
 object Main extends App {
 
@@ -45,9 +44,8 @@ object Main extends App {
   def solve(enc : ParametricEncoder) = {
   println("Solving ...")
   
-  val predAbs =
-    new HornPredAbs(enc.allClauses, Map(),
-                    DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+    val predAbs =
+      new HornPredAbs(enc.allClauses)
 
   println
   predAbs.result match {

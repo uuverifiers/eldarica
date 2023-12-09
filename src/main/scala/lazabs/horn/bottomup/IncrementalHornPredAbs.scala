@@ -34,7 +34,8 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
 import lazabs.horn.Util._
-import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.{PredicateGenerator, Interpolators}
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 /**
  * An incremental version of <code>HornPredAbs</code>. This class is
@@ -44,12 +45,11 @@ import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
  */
 class IncrementalHornPredAbs
                  [CC <% HornClauses.ConstraintClause]
-                 (iClauses : Iterable[CC],
-                  initialPredicates : Map[Predicate, Seq[IFormula]],
-                  substitutableSyms : Set[Predicate],
-                  predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                                       Either[Seq[(Predicate, Seq[Conjunction])],
-                                              Dag[(IAtom, NormClause)]],
+                 (iClauses             : Iterable[CC],
+                  initialPredicates    : Map[Predicate, Seq[IFormula]],
+                  substitutableSyms    : Set[Predicate],
+                  predicateGenerator   : PredicateGenerator =
+                                           Interpolators.DagInterpolator,
                   counterexampleMethod : CEGAR.CounterexampleMethod.Value =
                                            CEGAR.CounterexampleMethod.FirstBestShortest) {
 

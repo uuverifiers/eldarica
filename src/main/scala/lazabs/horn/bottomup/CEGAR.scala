@@ -40,7 +40,8 @@ import ap.util.Seqs
 
 import lazabs.horn._
 import Util._
-import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.PredicateGenerator
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.{LinkedHashSet, LinkedHashMap, ArrayBuffer,
                                  HashSet => MHashSet, HashMap => MHashMap,
@@ -71,11 +72,9 @@ object CEGAR {
 }
 
 class CEGAR[CC <% HornClauses.ConstraintClause]
-           (context : HornPredAbsContext[CC],
-            predStore : PredicateStore[CC],
-            predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                                    Either[Seq[(Predicate, Seq[Conjunction])],
-                                           Dag[(IAtom, NormClause)]],
+           (context              : HornPredAbsContext[CC],
+            predStore            : PredicateStore[CC],
+            predicateGenerator   : PredicateGenerator,
             counterexampleMethod : CEGAR.CounterexampleMethod.Value =
               CEGAR.CounterexampleMethod.FirstBestShortest) {
 

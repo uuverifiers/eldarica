@@ -37,7 +37,8 @@ import ap.parser._
 import ap.util.CmdlParser
 import lazabs.horn.Util
 import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
-import lazabs.horn.predgen.{TemplateInterpolator, DagInterpolator}
+import lazabs.horn.predgen.{TemplateInterpolator, PredicateGenerator,
+                            Interpolators}
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
@@ -539,13 +540,14 @@ class PetriMain {
                     if (PetriMain.accelerateSingleActions ||
                         PetriMain.accelerateIncreasingCycles ||
                         PetriMain.globalOrthogonalSpace)
+                      PredicateGenerator.fromFunction(
                       TemplateInterpolator.interpolatingPredicateGenCEXAbsPetri(
                         actionVectors,
                         PetriMain.accelerateSingleActions,
                         PetriMain.accelerateIncreasingCycles,
-                        PetriMain.globalOrthogonalSpace)
+                        PetriMain.globalOrthogonalSpace))
                     else
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _
+                      Interpolators.DagInterpolator
                     )
   
   println

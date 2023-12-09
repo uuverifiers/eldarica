@@ -49,7 +49,7 @@ import PrincessWrapper._
 import lazabs.prover.Tree
 import lazabs.types.Type
 import lazabs.horn.Util._
-import lazabs.horn.predgen.{DagInterpolator, TemplateInterpolator}
+import lazabs.horn.predgen.Interpolators
 import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  StaticAbstractionBuilder, AbstractionRecord,
                                  VerificationHints, EmptyVerificationHints}
@@ -462,13 +462,13 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
         AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstraction)
 
       if (fullAbstractionMap.isEmpty)
-        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        Interpolators.DagInterpolator
       else
-        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+        new Interpolators.TemplateInterpolator(
           fullAbstractionMap,
           GlobalParameters.get.templateBasedInterpolationTimeout)
     } else {
-      DagInterpolator.interpolatingPredicateGenCEXAndOr _
+      Interpolators.DagInterpolator
     }
   }
 

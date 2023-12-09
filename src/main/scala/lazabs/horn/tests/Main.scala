@@ -31,7 +31,6 @@ package lazabs.horn.tests
 
 import ap.parser._
 import lazabs.horn.bottomup._
-import lazabs.horn.predgen.DagInterpolator
 
 object HornPredAbsMain extends App {
   
@@ -71,8 +70,7 @@ object HornPredAbsMain extends App {
 
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses, Map(), DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {
@@ -108,8 +106,7 @@ object HornPredAbsMain extends App {
   
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses, Map(), DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {
@@ -198,10 +195,7 @@ object HornPredAbsMain extends App {
 
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses,
-                    Map(),
-                    DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {

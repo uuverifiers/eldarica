@@ -34,7 +34,8 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
 import lazabs.horn.Util._
-import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.PredicateGenerator
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -115,21 +116,14 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     newPredStore addRelationSymbolPreds preds
     try {
       Console.withOut(HornWrapper.NullStream) {
-        new CEGAR (context, newPredStore, exceptionalPredGen)
+        new CEGAR (context, newPredStore, PredicateGenerator.FailingPredGen)
       }
       true
     } catch {
-      case PredGenException => {
+      case _ : PredicateGenerator.PredGenFailed => {
         false
       }
     }
   }
-
-  private object PredGenException extends Exception
-
-  private def exceptionalPredGen(d : Dag[AndOrNode[NormClause, Unit]]) 
-                               : Either[Seq[(Predicate, Seq[Conjunction])],
-                                        Dag[(IAtom, NormClause)]] =
-   throw PredGenException
 
 }

@@ -47,6 +47,19 @@ object PredicateGenerator {
   type PredicateMap   = Seq[(Predicate, Seq[Conjunction])]
   type Counterexample = Dag[(IAtom, NormClause)]
 
+  class PredGenFailed(msg : String) extends Exception(msg)
+
+  def fromFunction(f : ClauseDag => Either[PredicateMap, Counterexample])
+                     : PredicateGenerator =
+    new PredicateGenerator {
+      def apply(dag : ClauseDag) = f(dag)
+    }
+
+  object FailingPredGen extends PredicateGenerator {
+    def apply(dag : ClauseDag) =
+      throw new PredGenFailed("predicate generator not implemented")
+  }
+
 }
 
 /**
@@ -60,6 +73,9 @@ trait PredicateGenerator {
    * Given a recursion-free set of Horn clauses, either infer new
    * predicates to be fed to the CEGAR engine, or prove that the Horn
    * clauses are unsatisfiable by returning a counterexample DAG.
+   * 
+   * A predicate generator can signal failure by throwing an exception
+   * <code>PredicateGenerator.PredGenFailed</code>.
    */
   def apply(dag : ClauseDag) : Either[PredicateMap, Counterexample]
 

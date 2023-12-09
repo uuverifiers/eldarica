@@ -297,7 +297,7 @@ object DagInterpolator {
     // Version 2 (of predicate extraction)
     Console.withOut(HornWrapper.NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
-                                    DagInterpolator.interpolatingPredicateGenCEXAndOr _,
+                                    Interpolators.DagInterpolator,
                                     CEGAR.CounterexampleMethod.FirstBestShortest)
       predAbs.rawResult match {
       case Left(_) =>
