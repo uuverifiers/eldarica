@@ -30,12 +30,13 @@
 package lazabs.horn.predgen
 
 import lazabs.horn.Util._
-
 import lazabs.horn.bottomup.NormClause
 
 import ap.parser.IAtom
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
+
+import scala.collection.mutable.LinkedHashMap
 
 object PredicateGenerator {
 
@@ -78,5 +79,45 @@ trait PredicateGenerator {
    * <code>PredicateGenerator.PredGenFailed</code>.
    */
   def apply(dag : ClauseDag) : Either[PredicateMap, Counterexample]
+
+  /**
+   * Form the union of the sets of predicates produced by two
+   * generators.
+   */
+  def ++(that : PredicateGenerator) = {
+    val fst = this
+    val snd = that
+
+    new PredicateGenerator {
+      def apply(dag : ClauseDag) : Either[PredicateMap, Counterexample] = {
+        try {
+          fst.apply(dag) match {
+            case Left(preds1) => {
+              try {
+                snd.apply(dag) match {
+                  case Left(preds2) => {
+                    val res = new LinkedHashMap[Predicate, Seq[Conjunction]]
+                    res ++= preds1
+                    for ((p, l) <- preds2)
+                      res.put(p, (res.getOrElse(p, List()) ++ l).distinct)
+                    Left(res.toSeq)
+                  }
+                  case Right(cex) =>
+                    Right(cex)
+                }
+              } catch {
+                case _ : PredGenFailed => Left(preds1)
+              }
+            }
+            case Right(cex) => {
+              Right(cex)
+            }
+          }
+        } catch {
+          case _ : PredGenFailed => snd.apply(dag)
+        }
+      }
+    }
+  }
 
 }
