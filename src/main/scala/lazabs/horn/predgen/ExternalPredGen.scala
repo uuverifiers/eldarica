@@ -29,62 +29,171 @@
 
 package lazabs.horn.predgen
 
+import ap.SimpleAPI
 import ap.terfor.TerForConvenience
 import ap.parser._
 import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.types.{SortedConstantTerm, Sort}
 
 import lazabs.horn.Util
 import lazabs.horn.bottomup.{HornClauses, NormClause}
 
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
 class ExternalPredGen extends PredicateGenerator {
 
   import PredicateGenerator._
-  import Util.Dag
+  import Util.{Dag, DagNode, DagEmpty}
 
   def apply(dag : ClauseDag) : Either[PredicateMap, Counterexample] = {
     println("Counterexample:")
 
-    val clauseDag : Dag[String] =
-      for (n <- dag) yield n match {
-        case AndNode(clause) => {
-          toPrettyClause(clause)
-          clause.toString
-        }
-        case OrNode(_) =>
-          "(disjunction)"
-      }
+    def clauseString(prettyClause : HornClauses.Clause)
+                    (implicit prover : SimpleAPI) : String = {
+      import PrincessLineariser.{asString => pp}
 
-    clauseDag.prettyPrint
+      pp(prettyClause.head) + " :- " +
+      (for (b <- prettyClause.body ++ List(prettyClause.constraint))
+       yield pp(b)).mkString(", ") + "."
+    }
+
+    SimpleAPI.withProver { p =>
+      implicit val prover = p
+      var nodeCnt = 1
+
+      def printClauses(dag : ClauseDag, depth : Int) : Map[Int, Int] =
+        dag match {
+          case DagNode(aoNode, children, subDag) =>
+            val childNodes = printClauses(subDag, depth + 1)
+            aoNode match {
+              case AndNode(clause) => {
+                val prettyClause = toPrettyClause(clause)
+
+                println
+                print(s"($nodeCnt) ${prettyClause.head} follows from ")
+
+                if (children.isEmpty) {
+                  println("clause")
+                } else {
+                  print((for (c <- children)
+                         yield s"(${childNodes(c + depth)})").mkString(", "))
+                  println(" and clause")
+                }
+                println
+                println("  " + clauseString(prettyClause))
+
+                val res = childNodes + (depth -> nodeCnt)
+                nodeCnt = nodeCnt + 1
+
+                res
+              }
+              case OrNode(_) => {
+                println("(disjunction)")
+                childNodes
+              }
+            }
+          case DagEmpty =>
+            Map()
+        }
+
+      printClauses(dag, 0)
+    }
+
     throw new PredGenFailed("msg")
   }
 
-  private def toPrettyClause(clause : NormClause) : HornClauses.Clause = {
+  private def toPrettyClause
+      (clause : NormClause)(implicit prover : SimpleAPI) : HornClauses.Clause =
+  prover.scope {
     val clauseOrder = clause.order
     import TerForConvenience._
 
+    prover.addConstantsRaw(clauseOrder sort clauseOrder.orderedConstants)
+
     val tempPreds =
       for ((rs, _) <- clause.body) yield {
-        new Predicate(rs.pred.name, rs.pred.arity)
+        prover.createRelation(rs.pred.name, rs.pred.arity)
       }
+    val tempPredIndex =
+      tempPreds.zipWithIndex.toMap
 
-    implicit val order = clauseOrder extendPred tempPreds
+    val (headRS, headOcc) = clause.head
+
+    val headArgs =
+      for ((c, n) <- headRS.arguments(headOcc).zipWithIndex)
+      yield prover.createConstantRaw(niceVarName(n), Sort.sortOf(c))
+
+    implicit val order = prover.order
 
     val tempAtoms =
       for (((rs, occ), p) <- clause.body zip tempPreds) yield {
         p(rs.arguments(occ) map (l(_)))
       }
-    val body =
-      conj(tempAtoms ++ List(clause.constraint))
-    val quanBody =
-      exists(clause.allSymbols filterNot clause.headSyms.toSet, body)
 
-    val simpBody =
-      ReduceWithConjunction(Conjunction.TRUE, order)(quanBody)
+    val simpBody = {
+      val body = conj(tempAtoms ++
+                        List(clause.constraint,
+                             headArgs === headRS.arguments(headOcc)))
+      val quanBody =
+        exists(clause.allSymbols, body)
+      prover.asIFormula(
+        ReduceWithConjunction(Conjunction.TRUE, order)(quanBody))
+    }
 
-    println(simpBody)
+    val dequantifiedBody = {
+      import IExpression._
 
-    null
+      var sorts = List[Sort]()
+      var body = simpBody
+
+      while (body.isInstanceOf[IQuantified]) {
+        val ISortedQuantified(Quantifier.EX, sort, d) = body
+        body = d
+        sorts = sort :: sorts
+      }
+
+      val parameterConsts =
+        for ((s, n) <- sorts.zipWithIndex)
+        yield prover.createConstant(niceVarName(headArgs.size + n), s)
+      subst(body, parameterConsts, 0)
+    }
+
+    val newHead =
+      IAtom(headRS.pred, headArgs)
+
+    val bodyConjuncts =
+      LineariseVisitor(Transform2NNF(dequantifiedBody), IBinJunctor.And)
+
+    val (newBody, newConstraint) = {
+      import IExpression._
+
+      val bodyArray = new Array[IAtom](tempPreds.size)
+      val otherConjuncts = new ArrayBuffer[IFormula]
+
+      for (f <- bodyConjuncts)
+        f match {
+          case IAtom(p, args) =>
+            (tempPredIndex get p) match {
+              case Some(idx) =>
+                bodyArray(idx) = IAtom(clause.body(idx)._1.pred, args)
+              case None =>
+                otherConjuncts += f
+            }
+          case f =>
+            otherConjuncts += f
+        }
+
+      assert(!bodyArray.contains(null))
+      (bodyArray.toList, and(otherConjuncts))
+    }
+
+    HornClauses.Clause(newHead, newBody, newConstraint)
+  }
+
+  private def niceVarName(index : Int) : String = {
+    assert(index >= 0 && index <= 25)
+    ('A'.toInt + index).toChar.toString
   }
 
 }
