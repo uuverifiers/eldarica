@@ -302,6 +302,10 @@ class ConstraintSimplifier extends HornPreprocessor {
         KeepArg
       case Conj(_, _) =>
         KeepArg
+      case INot(Eq(IFunApp(ADT.CtorId(_), _), SimpleTerm(_)))
+        if lazabs.GlobalParameters.get.printHornSimplified ||
+           lazabs.GlobalParameters.get.printHornSimplifiedSMT =>
+        KeepArg
       case _ =>
         UniSubArgs(true)
     }
