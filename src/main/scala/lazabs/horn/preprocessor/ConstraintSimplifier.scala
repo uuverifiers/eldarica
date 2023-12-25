@@ -35,10 +35,10 @@ import ap.theories.{ADT, Heap}
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
+import lazabs.GlobalParameters
 
 import scala.collection.{Map => GMap}
-import scala.collection.mutable.{ArrayBuffer, LinkedHashMap,
-  HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
 object ConstraintSimplifier {
 
@@ -790,7 +790,9 @@ class ConstraintSimplifier extends HornPreprocessor {
         }
       }
 
-      if (!cont && containsFunctions &&
+      if (!GlobalParameters.get.printHornSimplified &&
+          !GlobalParameters.get.printHornSimplifiedSMT &&
+          cont && containsFunctions &&
           clause.theories.exists(_.isInstanceOf[Heap])) {
         // check whether heap simplifications are possible
 

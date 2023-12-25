@@ -34,10 +34,8 @@ import IExpression._
 import ap.theories.Heap
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.global._
-import lazabs.horn.bottomup.Util.Dag
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer}
 
 /**
  * Default preprocessing pipeline used in Eldarica.
@@ -49,6 +47,9 @@ class DefaultPreprocessor extends HornPreprocessor {
   val printWidth = 55
   val clauseNumWidth = 10
 
+  val printingEnabled = GlobalParameters.get.printHornSimplified ||
+    GlobalParameters.get.printHornSimplifiedSMT
+
   def preStages : List[HornPreprocessor] =
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
     List(new PartialConstraintEvaluator,
@@ -56,13 +57,15 @@ class DefaultPreprocessor extends HornPreprocessor {
          RationalDenomUnifier,
          new ClauseInliner)
 
-  def extendingStages : List[HornPreprocessor] =
-    if (GlobalParameters.get.expandADTArguments)
-      List(new HeapSizeArgumentExtender,
-           new SizeArgumentExtender,
-           new CtorTypeExtender)
-    else
-      List()
+  def extendingStages : List[HornPreprocessor] = {
+    (if (GlobalParameters.get.expandHeapArguments) {
+      (if (printingEnabled) List() else List(new HeapSizeArgumentExtender))
+    } else List()) ++
+      (if (GlobalParameters.get.expandADTArguments) {
+        List(new SizeArgumentExtender) ++
+          (if (printingEnabled) List() else List(new CtorTypeExtender))
+      } else List())
+  }
 
   def postStages : List[HornPreprocessor] =
     List(new ClauseShortener) ++
@@ -157,7 +160,7 @@ class DefaultPreprocessor extends HornPreprocessor {
                                         .map(_.asInstanceOf[Heap])).toSet
     // TODO: split only functions from the same theory?
     val heapFunctionSplitters = for (heap <- heapTheories) yield {
-      val funs = Set(heap.allocHeap, heap.read,
+      val funs = Set(heap.alloc, heap.allocHeap, heap.read,
                      heap.write, heap.emptyHeap)
       val funOrdering = new Ordering[IFunction] {
         def compare(a: IFunction, b: IFunction): Int = {
@@ -165,6 +168,7 @@ class DefaultPreprocessor extends HornPreprocessor {
           def priority(fun: IFunction): Int = fun match {
             case heap.emptyHeap => 1
             case heap.read => 2
+            case heap.alloc => 3
             case heap.allocHeap => 3
             case heap.write => 4
             case _ => 0 // Any other function gets highest priority
@@ -178,12 +182,14 @@ class DefaultPreprocessor extends HornPreprocessor {
                                              Some(funOrdering))
     }
 
-    val heapTransformStages =
-      List(new EquationUninliner) ++
-      heapFunctionSplitters ++
-      List(new HeapInvariantEncodingSimple)
-    if (applyStages(heapTransformStages))
-      condenseClauses
+    if (GlobalParameters.get.heapInvariantEncoding) {
+      val heapTransformStages =
+        List(new EquationUninliner) ++
+          heapFunctionSplitters ++
+          List(new HeapInvariantEncodingSimple)
+      if (applyStages(heapTransformStages))
+        condenseClauses
+    }
 
     // check whether any ADT or Heap arguments can be extended
     if (applyStages(extendingStages))

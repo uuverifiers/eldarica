@@ -30,13 +30,11 @@
 package lazabs.horn.bottomup
 
 import ap.parser._
-import ap.parser.IExpression.{Eq, i}
-
+import ap.parser.IExpression.{ConstantTerm, Eq, i}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.prover.Tree
 
-import scala.collection.mutable.{
-  ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
 
 object Util {
 
@@ -404,17 +402,23 @@ object Util {
     abstract class Node
 
     // Used when a graph has more than one sink.
-    case object PseudoNode extends Node
+//    case object PseudoNode extends Node
 
     case class ConstNode(c : IConstant) extends Node {
-      override def toString : String = c.c.name
+      override def toString : String = s"$c (${c.hashCode})"
     }
 
-    case class AtomNode(a : IAtom) extends Node {
+    class AtomNode(a : IAtom) extends Node {
       val constants : Set[IConstant] =
         a.args.flatMap(
           term => SymbolCollector.constants(term).map(c => IConstant(c))).toSet
       override def toString : String = ap.SimpleAPI.pp(a)
+    }
+    case class HeadNode(a : IAtom) extends AtomNode(a) {
+      override def toString : String = ap.SimpleAPI.pp(a) + "_h"
+    }
+    case class BodyNode(a : IAtom) extends AtomNode(a) {
+      override def toString : String = ap.SimpleAPI.pp(a) + "_b"
     }
 
     case class SyncNode(f : IFormula) extends Node {
@@ -442,8 +446,8 @@ object Util {
       assert(nodes.size >= 2)
 
       // head is always the last node
-      assert(nodes.last.d.isInstanceOf[AtomNode])
-      val head : IAtom = nodes.last.d.asInstanceOf[AtomNode].a
+      assert(nodes.last.d.isInstanceOf[HeadNode])
+      val head : IAtom = nodes.last.d.asInstanceOf[HeadNode].a
 
       val body      = new ArrayBuffer[IAtom]
       val conjuncts = new ArrayBuffer[IFormula]
@@ -451,8 +455,9 @@ object Util {
         node.d match {
           case FunAppNode(_, f) => conjuncts += f
           case SyncNode(f) => if (!f.isTrue) conjuncts += f
-          case AtomNode(a) => body += a
-          case _ : ConstNode | PseudoNode => // nothing needed
+          case BodyNode(a) => body += a
+          case _ : ConstNode => // nothing needed
+          case _ : HeadNode => assert(false) // not possible, we drop the last node
         }
       }
       Clause(head, body.toList, IExpression.and(conjuncts))
@@ -474,8 +479,8 @@ object Util {
     // Add one node for each constant
     clause.constants.foreach(c => curNodes += ConstNode(IConstant(c)))
 
-    private val sources = clause.body.map(AtomNode)
-    private val sink    = AtomNode(clause.head)
+    private val sources = clause.body.map(BodyNode)
+    private val sink    = HeadNode(clause.head)
 
     (sources ++ Seq(sink)) foreach(curNodes += _)
 
@@ -498,7 +503,15 @@ object Util {
     for (conjunct <- conjuncts) {
       conjunct match {
         case IBoolLit(true) => // ignore - used as pseudo-root
-        case Eq(funApp@IFunApp(f, _), _) =>
+        case Eq(funApp@IFunApp(f, args), IConstant(_)) if args isEmpty =>
+          // 0-ary function applications (constants)
+          val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
+          for (fromArg <- node.fromArgs) {
+            curEdges += Edge(ConstNode(fromArg), node)
+          }
+          curEdges += Edge(node, ConstNode(node.toArg))
+          curNodes += node
+        case Eq(funApp@IFunApp(f, args), IConstant(_)) if args nonEmpty =>
           val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
           for (fromArg <- node.fromArgs) {
             curEdges += Edge(ConstNode(fromArg), node)
@@ -517,37 +530,41 @@ object Util {
       }
     }
 
+    // A clause always has a head, thus no pseudo-sink is needed; but the head
+    // can be FALSE or might throw away some arguments. Since these would not
+    // have incoming edges from all leaves, we add those manually.
+    val leavesExceptHead : Seq[Node] = curNodes.filter(
+      node => node != sink && outgoing(node).isEmpty)
+
+    // Add edges from leaves to the sink
+    leavesExceptHead.foreach(leaf => curEdges += Edge(leaf, sink))
+
+//    if (clause.head == IAtom(HornClauses.FALSE, Nil)) {
+//      val falseNode        = AtomNode(IAtom(HornClauses.FALSE, Nil))
+//      val sinksExceptFalse =
+//        nodes.filter(node => outgoing(node).isEmpty && node != falseNode)
+//      curEdges ++= sinksExceptFalse.map(node => Edge(node, falseNode))
+//    }
+
     /**
      * Returns source nodes, but does not include the pseudo-root (if there is
-     * one) and the false atom.
+     * one)
      */
-    val getNonPseudoSources : Iterable[Node] = nodes.filter(
-      node => incoming(node).isEmpty && (node match {
-        case AtomNode(IAtom(p, _)) => p != HornClauses.FALSE
-        case _ => true
-      }))
+    val getNonPseudoSources : Seq[Node] =
+      curNodes.filter(node => incoming(node).isEmpty)
 
     // If there is more than one source, add a pseudo-root.
     val (getPseudoRoot, hasPseudoRoot) = if (getNonPseudoSources.size != 1) {
-      curNodes += PseudoNode
-      curEdges ++= getNonPseudoSources.map(node => Edge(PseudoNode, node))
-      (PseudoNode, true)
+      val pseudoRoot = SyncNode(i(true))
+      curNodes += pseudoRoot
+      curEdges ++= getNonPseudoSources.map(node => Edge(pseudoRoot, node))
+      (pseudoRoot, true)
     } else {
       (getNonPseudoSources.head, false)
     }
 
-    // A clause always has a head, thus no pseudo-sink is needed; but the head
-    // can be FALSE. Since FALSE doesn't have any incoming edges,
-    // we add those manually.
-    if (clause.head == IAtom(HornClauses.FALSE, Nil)) {
-      val falseNode        = AtomNode(IAtom(HornClauses.FALSE, Nil))
-      val sinksExceptFalse =
-        nodes.filter(node => outgoing(node).isEmpty && node != falseNode)
-      curEdges ++= sinksExceptFalse.map(node => Edge(node, falseNode))
-    }
-
-    def nodes : Iterable[Node] = curNodes
-    def edges : Iterable[Edge] = curEdges
+    def nodes : Seq[Node] = curNodes
+    def edges : Seq[Edge] = curEdges
 
     if (lazabs.GlobalParameters.get.assertions) {
       // TODO: assert invariants about the graph that should be preserved.
@@ -574,23 +591,81 @@ object Util {
 
         visiting += node
 
-        val childNodes     = outgoing(node).map(edge => edge.to)
-        val maybeChildDags = (for (childNode <- childNodes) yield {
-          buildDagFromNode(childNode)
-        }).toSeq
+        val childNodes = outgoing(node).map(edge => edge.to)
+        val maybeChildDags =
+          for (childNode <- childNodes) yield buildDagFromNode(childNode)
 
         if (maybeChildDags.exists(_.isEmpty)) {
-          None
-        } // Cycle detected in one of the child nodes
-        else {
+          None // Cycle detected in one of the child nodes
+        } else {
           // TODO: order children so that the cuts are minimized
-          val childDags           = maybeChildDags.map(_.get).sorted(dagOrdering)
+          val childDags = maybeChildDags.map(_.get).sorted(dagOrdering)
+
+          node match {
+            case BodyNode(_) =>
+            // Ensure all (ConstantNode) children of a BodyNode are right after
+            // that node. This eliminates the need to duplicate those children
+            // when splitting the DAG if they are left under the split. This is
+            // possible because there cannot be back-edges to the direct
+            // children of a BodyNode if the graph is a DAG.
+
+            val numChildren = childNodes.size
+            val childrenChildren =
+              for ((childDag, i) <- childDags.zipWithIndex) yield {
+                // childDag.children will get adjusted as
+                // i = 0 by numChildren - 1,
+                // i = 1 by numChildren - 2   + |childDags(0)|,
+                // i = 2 by numChildren - 3   + |childDags(0)| + |childDags(1)|, ...
+                // i.e.,    numChildren-(i+1) + sum(0, i, |childDags(i)|))
+                childDag match {
+                  case DagEmpty => DagEmpty
+                  case d : DagNode[Node] =>
+                    def sumUpTo(lo: Int, hi: Int) : Int =
+                      if (lo >= hi) 0
+                      else childDags(lo).size + sumUpTo(lo+1, hi)
+                    val newChildren = d.children.map(
+                      j => j + numChildren-(i+1) + sumUpTo(0, i))
+                    DagNode(d.d, newChildren, )
+                }
+              }
+            for ((childDag, childChildren) <- childDags zip childrenChildren) {
+
+            }
+
+
+            // Tails of child dags of node, these will be placed after children.
+            val childTails = childDags.map(_.tail)
+
+
+            // Connect the tails to get a single tail
+            var tail = childTails.lastOption.getOrElse(DagEmpty)
+//            for (childTail <- childTails.reverse.tail) {
+//              tail = childTail.substitute()
+//            }
+
+            val initDag = DagNode(node, childDags.indices.map(_ + 1).toList, )
+
+            val children = childDags.indices.map(_ + 1).toList
+
+            val grandChildren =
+              for ((childDag, i) <- childDags.zipWithIndex) yield {
+
+              childDag
+            }
+
+            // This will give us a dag missing its tail (the grandchildren).
+            // Then come the grandchildren. these are childDags.map(_.tail)
+            // We can simply use substitute?
+
+            case _ => ???
+          }
+
           val nextDag : Dag[Node] =
             if (childDags isEmpty) {
               DagEmpty
             } else {
               var next : Dag[Node] = DagEmpty
-              for (subDag <- childDags if !subDag.isEmpty) {
+              for (subDag <- childDags.reverse if !subDag.isEmpty) {
                 next = DagNode(subDag.head, Nil, next)
               }
               next
@@ -604,12 +679,20 @@ object Util {
                 childDags.indices.map(_ + 1).toList.zip(childDags).toMap)
           createdSubDags += ((node, dagNode))
 
-          Some(dagNode)
+          Some(dagNode.collapseNodes)
         }
       }
 
       buildDagFromNode(getPseudoRoot) match {
-        case Some(dag) => Some(dag.collapseNodes)
+        case Some(dag) =>
+
+          // E.g., let B be a body Node, with C and D its children ,and C' and
+          // D' as the descendants of C and D.
+          // B -> C -> C' -> D  -> D' is reordered as
+          // B -> C -> D  -> C' -> D'
+//          val reorderedDag = dag.collapseNodes.
+        Some(dag.collapseNodes)
+//          Some(reorderedDag.collapseNodes)
         case None => None
       }
     }
@@ -621,8 +704,10 @@ object Util {
      * @param node The node in the DAG after which the split is to occur.
      * @param glueNodeInstantiator A function to instantiate a new node
      *                             to serve as a connector between the two parts.
-     *                             Its argument is a list of indices of incoming
-     *                             nodes, and it should return the glue node.
+     *                             Its argument is a list of incoming nodes,
+     *                             and it should return the glue nodes
+     *                             (n1, n2) where n1 is the sink of split above,
+     *                             and n2 is the source of the split below.
      * @param isSplittable A predicate to check if the passed node is splittable,
      *                     i.e., if it can be connected via the connector node.
      * @param hasPseudoRoot if true, edges coming from the root will not be
@@ -633,7 +718,7 @@ object Util {
      */
     def splitDagAfterNode[T](dag                  : Dag[T],
                              node                 : T,
-                             glueNodeInstantiator : List[Int] => T,
+                             glueNodeInstantiator : List[T] => (T, T),
                              isSplittable         : T => Boolean,
                              hasPseudoRoot        : Boolean = false)
     : (Dag[T], Dag[T]) = {
@@ -645,11 +730,7 @@ object Util {
           "Node T cannot be the last node or is not found in the DAG")
       }
 
-      // Index for the glue node
-      val glueInd = splitInd + 1
-
-      /* Sync nodes
-       */
+      /* Sync nodes */
       val syncsAboveSplit : Seq[DagNode[(T, Int)]] = {
         indexedDag.subdagIterator.collect{
           case d@DagNode((SyncNode(_), i), children, _)
@@ -657,24 +738,62 @@ object Util {
         }.toSeq
       }
 
-      val orphanNodeInds             = new ArrayBuffer[(T, List[Int])]
-      val orphanedNodeInds           = new ArrayBuffer[(DagNode[(T, Int)], Int)]
+      val parentToOrphanChildren     = new ArrayBuffer[(T, List[Int])]
+      val orphanedParentInds         = new ArrayBuffer[(DagNode[(T, Int)], Int)]
+
+      // (Index of node to be updated -> (new node, list of new children))
       val orphanedNodeAboveUpdateMap = new MHashMap[Int, (T, List[Int])]
+
+      // It could be that the child of a body atom node is left below the split,
+      // in this case we should duplicate the child above as a child of that
+      // body atom, and pass it along through the glue node. For every such
+      // duplication, glue node index should be incremented by one, as each one
+      // introduces an additional node just above the glue node. We do a pass
+      // first to collect such nodes.
+
+      // (Index of parent body node, list of orphan constant nodes and their indices)
+      val constantNodesToBeDuplicatedAbove = new MHashMap[Int, List[(T, Int)]]
+      for (n : DagNode[(T, Int)] <- indexedDag.subdagIterator
+           // only iterate over nodes above the split and ignore pseudo-root
+           if n.d._2 <= splitInd && (!hasPseudoRoot || n.d._2 > 0)) {
+        n.d._1 match {
+          case BodyNode(_) =>
+            val nInd = n.d._2
+            val constantNodesBelowSplit =
+              n.children.filter(childInd => childInd + nInd > splitInd)
+            if (constantNodesBelowSplit.nonEmpty) {
+              constantNodesToBeDuplicatedAbove +=
+                n.d._2 -> constantNodesBelowSplit
+                  .map(ind => dag(nInd + ind) -> ind)
+            }
+          case _ => // nothing
+        }
+      }
+      assert(constantNodesToBeDuplicatedAbove isEmpty)
+
+      // We shift the glue node ind by the number of the duplicated nodes above split.
+      val glueInd = splitInd +
+        constantNodesToBeDuplicatedAbove.flatMap(_._2).size + 1
+
+      val nodeIndexToOriginalChildren = indexedDag.subdagIterator.map(
+        d => d.d._2 -> d.children).toMap
+
       // Orphaned nodes have at least one child below split
       for (n : DagNode[(T, Int)] <- indexedDag.subdagIterator
            // only iterate over nodes above the split and ignore pseudo-root
-           if n.d._2 < glueInd && (!hasPseudoRoot || n.d._2 > 0)) {
+           if n.d._2 <= splitInd && (!hasPseudoRoot || n.d._2 > 0)) {
         val nInd    = n.d._2
         val orphans =
           n.children.filter(childInd => childInd + nInd > splitInd &&
-            !syncsAboveSplit.contains(n))
-            .map(childInd => childInd + nInd - glueInd)
+            !syncsAboveSplit.contains(n) &&
+            !n.d._1.isInstanceOf[BodyNode])
+            .map(childInd => childInd + nInd - (splitInd + 1)) // cannot use glueInd here, because we might append additional nodes
         if (orphans nonEmpty) {
-          orphanNodeInds += n.d._1 -> orphans
-          orphanedNodeInds += n -> nInd
+          parentToOrphanChildren += n.d._1 -> orphans
+          orphanedParentInds += n -> nInd
           val newChildren = n.children.map(
             childInd =>
-              if (childInd + nInd > glueInd) glueInd - nInd else childInd)
+              if (childInd + nInd >= splitInd+1) glueInd - nInd else childInd)
             .distinct.sorted
           orphanedNodeAboveUpdateMap += nInd -> (n.d._1, newChildren)
         }
@@ -683,6 +802,9 @@ object Util {
           orphanedNodeAboveUpdateMap += nInd -> (n.d._1, List(glueInd - nInd))
         }
       }
+
+      assert(orphanedParentInds.forall(_._1.d._1.isInstanceOf[ConstNode]),
+             "Internal error: only constant nodes can be orphaned")
 
       /* If there was a pseudo-root with orphaned edges, carry those over to
          the glue node as outgoing edges.
@@ -694,39 +816,70 @@ object Util {
         } else {
           Nil
         }
-      // Create the glue node using the information of orphaned nodes
-      val glueNode : T = glueNodeInstantiator(orphanedNodeInds.map(_._2).toList)
+      // Create the glue node using the information of orphaned nodes and
+      // duplicated nodes.
+      val (glueNodeSink, glueNodeSource) =
+        glueNodeInstantiator(
+          orphanedParentInds.map(pair => pair._1.d._1).toList ++
+          constantNodesToBeDuplicatedAbove.flatMap(_._2).keys)
 
-      val root          = dag.asInstanceOf[DagNode[T]]
+      val root = dag.asInstanceOf[DagNode[T]]
+
+      // Create the new tail of the dag
+      var aboveTail = DagNode(glueNodeSink, List(), DagEmpty)
+      var distFromSink = 0
+      for ((parentInd, duplicatedNodes) <- constantNodesToBeDuplicatedAbove) {
+        val oldChildren = nodeIndexToOriginalChildren(parentInd)
+        val newChildren = oldChildren.diff(duplicatedNodes.map(_._2)) ++
+          (for ((node, nodeInd) <- duplicatedNodes) yield {
+            distFromSink += 1
+            aboveTail = DagNode(node, List(distFromSink), aboveTail)
+            // glueInd-distFromSink gives us the exact index, subtracting
+            // parentInd gives the new offset from parent
+            (glueInd - distFromSink) - parentInd
+          })
+        orphanedNodeAboveUpdateMap += parentInd -> (dag(parentInd), newChildren)
+      }
+
       val dagAboveSplit =
         DagNode(root.d, root.children.diff(orphansFromPseudoRoot), root.next)
-          .substitute(Map(glueInd -> DagNode(glueNode, List(), DagEmpty)))
+          .substitute(Map(splitInd + 1 -> aboveTail))
           .updated(orphanedNodeAboveUpdateMap.toMap).elimUnconnectedNodes
 
       val dagBelowSplit = {
-        val belowOldDag = dag.drop(glueInd)
+        val belowOldDag = dag.drop(splitInd + 1)
         var next        = belowOldDag
         // orphaned nodes are replicated below
-        for (((orphanedNode, orphanInds), i) <- orphanNodeInds.zipWithIndex) {
+        for (((orphanedNode, orphanInds), i) <- parentToOrphanChildren.zipWithIndex) {
           // offset children by the number of orphans that were added
           val newChildren = orphanInds.map(ind => ind + i + 1)
           val newNode     = DagNode(orphanedNode, newChildren, next)
           next = newNode
         }
-        val pseudoChildren = orphansFromPseudoRoot.map(
-          childInd => childInd - glueInd + orphanNodeInds.size + 1)
-        DagNode(glueNode, (1 to orphanNodeInds.size).toList ++
-          pseudoChildren, next)
+        // We add orphanChildrenOffset many children below the dag, right below
+        // the glue node.
+        val orphanChildrenOffset = parentToOrphanChildren.size - splitInd
+        val pseudoChildren = orphansFromPseudoRoot.map(_ + orphanChildrenOffset)
+        val childrenThatWereDuplicatedAbove = {
+          for ((parentInd, children) <- constantNodesToBeDuplicatedAbove) yield {
+            children.map(child => child._2 + parentInd - splitInd +
+              parentToOrphanChildren.size)
+          }
+        }.flatten
+        DagNode(glueNodeSource, (1 to parentToOrphanChildren.size).toList ++
+          pseudoChildren ++ childrenThatWereDuplicatedAbove, next)
       }
 
-//      lazabs.horn.bottomup.Util.show(dag, "dag", false)
-//      println("\nabove\n")
-//      lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
-//      dagAboveSplit.prettyPrint
-//      println("\nbelow\n")
-//      lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
-//      dagBelowSplit.prettyPrint
-//      println
+//      if (constantNodesToBeDuplicatedAbove.nonEmpty) {
+        lazabs.horn.bottomup.Util.show(dag, "dag", false)
+        println("\nabove\n")
+        lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
+        dagAboveSplit.prettyPrint
+        println("\nbelow\n")
+        lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
+        dagBelowSplit.prettyPrint
+        println
+//      }
 
       (dagAboveSplit, dagBelowSplit)
     }

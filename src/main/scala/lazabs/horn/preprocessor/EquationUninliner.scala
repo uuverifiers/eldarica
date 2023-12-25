@@ -29,7 +29,8 @@
 
 package lazabs.horn.preprocessor
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+  HashSet => MHashSet}
 import ap.parser._
 import ap.parser.IExpression.{Predicate, and}
 import ap.types.{Sort, SortedConstantTerm}
@@ -37,15 +38,39 @@ import lazabs.horn.preprocessor.HornPreprocessor._
 import lazabs.horn.bottomup.HornClauses._
 
 /**
- * A very simple preprocessor that ensures that the constant term on the RHS of
- * every function application is distinct. E.g.,
+ * A very simple preprocessor that ensures that does the following.
+ *
+ * 1) Constant terms on the RHS of every function application are distinct, e.g.,
  *   f(a) = c, g(b) = c
- * gets tranlated into
+ * is rewritten as
  *   f(a) = c, g(b) = c1, c = c1.
- * This introduces n-1 new constants for n such applications.
+ *
+ * 2) If there are 0-ary function applications, the first is duplicated, e.g.,
+ *   f() = c, g(b) = c
+ * is rewritten as
+ *   f() = c, f() = c1, g(b) = c2, c1 = c2
+ *
+ * This is done by duplicating the first appearing 0-ary function application,
+ * and not adding an explicit equality formula.
+ *   f() = c, g(a) = c
+ * is rewritten as
+ *   f() = c, f() = c1, g(a) = c1
+ * after which (1) is applied to get
+ *   f() = c, f() = c1, g(a) = c2, c1 = c2
+ *
+ * For the motivation of (2), consider the following:
+ *   f() = c, g(b) = c, h(c) = b
+ * This is seemingly a loop in terms of dependencies; however, since 'c' is
+ * really a constant, it is not a dependency produced by g(b). By (2), this
+ * would get rewritten as:.
+ *   f() = c, f() = c1, g(b) = c2, c1 = c2, h(c) = b
+ * which breaks the loop. So (2) is only applied when c appears as argument in
+ * some other function application.
+ *
  * This translator can be useful for obtaining a normal form. For instance when
  * creating a clause graph, it ensures each such constant can have one
  * incoming edge at most.
+ *
  * Requires: function applications in the form f(x_bar) = b with b : IConstant.
  * Ensures: distinct IConstant RHS for all function applications in a clause..
  */
@@ -63,19 +88,64 @@ class EquationUninliner extends HornPreprocessor {
         LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
 
       val newConjuncts = new ArrayBuffer[IFormula]
-
       val constantCountAsRhs = new MHashMap[IConstant, Int]
       clause.constants.foreach(
         constant => constantCountAsRhs += IConstant(constant) -> 0)
 
-      for (conjunct <- conjuncts) conjunct match {
-        case eq@IEquation(IFunApp(_, _), c@IConstant(_)) =>
-          if (constantCountAsRhs(c) > 0) {
-            // Need a new constant.
+      // Use the latest constant in equalities, needed for duplication of 0-ary
+      // function applications.
+      val constToLatestConst = new MHashMap[IConstant, IConstant]
+      clause.constants.foreach(
+        c => constToLatestConst += IConstant(c) -> IConstant(c))
+
+      val duplicatedFuns = new MHashSet[IFunction]
+      val constantsAppearingAsFunArgs = new MHashSet[IConstant]
+
+      // Duplicate each 0-ary function application first.
+      // Collect function applications some constant appears as equal to,
+      // if there are more than one such occurrence.
+      val constantsToFunApps : Map[IConstant, Seq[IFunApp]] =
+        conjuncts.collect{
+          case IEquation(app@IFunApp(_, args), c@IConstant(_)) =>
+            // Collect constants appearing as fun args while we are at it.
+            args.foreach{
+              case constant : IConstant => constantsAppearingAsFunArgs +=
+                constant
+              case _ =>
+            }
+            app -> c
+        }.groupBy(_._2).map(pair => pair._1 -> pair._2.map(_._1))
+          .filter(_._2.length > 1)
+      // For each such constant, duplicate the conjunct
+      for ((c, apps) <- constantsToFunApps) {
+        apps.find(app => app.args.isEmpty) match {
+          case Some(app) if constantsAppearingAsFunArgs contains c =>
+            newConjuncts += app === c
+            // also make sure that the rest continues from some new constant
             val newConstant = IConstant(new SortedConstantTerm(
-              s"${c.c.name}_${constantCountAsRhs(c)}", Sort.sortOf(c)))
-            newConjuncts += eq.left === newConstant &&& c === newConstant
-            constantCountAsRhs(c) += 1
+              s"${c.c.name}_0", Sort.sortOf(c)))
+            constantCountAsRhs(c) = 1
+            constToLatestConst += c -> newConstant
+            duplicatedFuns += app.fun
+          case _ => // nothing needed
+        }
+      }
+
+      for (conjunct <- conjuncts) conjunct match {
+        case eq@IEquation(IFunApp(fun, _), c@IConstant(_)) =>
+          if (constantCountAsRhs(c) > 0) {
+            if(duplicatedFuns contains fun) {
+              // Use the constant created during the pre-pass above.
+              newConjuncts += eq.left === constToLatestConst(c)
+            } else {
+              // Need a new constant.
+              val newConstant = IConstant(new SortedConstantTerm(
+                s"${c.c.name}_${constantCountAsRhs(c)}", Sort.sortOf(c)))
+              newConjuncts += eq.left === newConstant &&&
+                constToLatestConst(c) === newConstant
+              constToLatestConst += c -> newConstant
+              constantCountAsRhs(c) += 1
+            }
           } else {
             constantCountAsRhs(c) += 1
             // Mo need to introduce a new constant, keep old conjunct.

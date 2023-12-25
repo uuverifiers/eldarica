@@ -95,6 +95,8 @@ class GlobalParameters extends Cloneable {
   var concurrentC = false
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
+  var heapInvariantEncoding = false
+  var expandHeapArguments = true
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -207,7 +209,11 @@ class GlobalParameters extends Cloneable {
     that.finiteDomainPredBound = this.finiteDomainPredBound
     that.arithmeticMode = this.arithmeticMode
     that.arrayRemoval = this.arrayRemoval
+    that.expandHeapArguments = this.expandADTArguments
     that.expandADTArguments = this.expandADTArguments
+    that.symexMaxDepth = this.symexMaxDepth
+    that.symexEngine = this.symexEngine
+    that.heapInvariantEncoding = this.heapInvariantEncoding
     that.arrayCloning = this.arrayCloning
     that.princess = this.princess
     that.staticAccelerate = this.staticAccelerate
@@ -343,6 +349,8 @@ object Main {
       case "-sym" :: rest =>
         symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
         arguments(rest)
+      case "-heapInv" :: rest => heapInvariantEncoding = true; arguments(rest)
+      case "-heapNoExpand" :: rest => expandHeapArguments = false; arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
           symexEngine = symexOpt.drop("-sym:".length) match {
             case "dfs" => GlobalParameters.SymexEngine.DepthFirstForward
@@ -540,6 +548,7 @@ object Main {
           " -sym              Use symbolic execution with the default engine (bfs)\n" +
           " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
           "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
+          " -heapInv          Use heap invariants encoding\n" +
           " -symDepth:n       Set a max depth for symbolic execution (underapproximate)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +
@@ -791,8 +800,9 @@ object Main {
       // nothing
     case _ : java.lang.OutOfMemoryError =>
       printError("out of memory", GlobalParameters.get.format)
-    case _ : java.lang.StackOverflowError =>
+    case t : java.lang.StackOverflowError =>
       printError("stack overflow", GlobalParameters.get.format)
+      t.printStackTrace
     case t : Exception =>
       printError(t.getMessage, GlobalParameters.get.format)
       t.printStackTrace

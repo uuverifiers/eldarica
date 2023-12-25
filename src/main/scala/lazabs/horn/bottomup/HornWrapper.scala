@@ -172,7 +172,7 @@ class HornWrapper(constraints  : Seq[HornClause],
        HornWrapper.NullStream
 
   private val originalClauses = constraints
-  private val unsimplifiedClauses = originalClauses map (transform(_))
+  private val nonpreprocessedClauses = originalClauses map (transform(_))
 
 //    if (GlobalParameters.get.printHornSimplified)
 //      printMonolithic(unsimplifiedClauses)
@@ -212,7 +212,7 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   private val hints : VerificationHints = {
     val name2Pred =
-      (for (Clause(head, body, _) <- unsimplifiedClauses.iterator;
+      (for (Clause(head, body, _) <- nonpreprocessedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
        yield (p.name -> p)).toMap
     readHints(GlobalParameters.get.cegarHintsFile, name2Pred)
@@ -225,13 +225,13 @@ class HornWrapper(constraints  : Seq[HornClause],
                                 :(Seq[Clause],
                                   VerificationHints,
                                   BackTranslator) = {
-    val (simplifiedClauses, simpPreHints, backTranslator) =
+    val (preprocessedClauses, simpPreHints, backTranslator) =
       Console.withErr(outStream) {
         if (lbe) {
-          (unsimplifiedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
+          (nonpreprocessedClauses, hints, HornPreprocessor.IDENTITY_TRANSLATOR)
         } else {
           val preprocessor = new DefaultPreprocessor
-          preprocessor.process(unsimplifiedClauses, hints)
+          preprocessor.process(nonpreprocessedClauses, hints)
         }
       }
 
@@ -241,7 +241,7 @@ class HornWrapper(constraints  : Seq[HornClause],
 //      println("-------------------------------")
 
       println("Clauses after preprocessing:")
-      for (c <- simplifiedClauses)
+      for (c <- preprocessedClauses)
         println(c.toPrologString)
       throw PrintingFinishedException
 
@@ -256,20 +256,20 @@ class HornWrapper(constraints  : Seq[HornClause],
 
     if (GlobalParameters.get.printHornSimplifiedSMT) {
       val predsToDeclare =
-        (for (c <- simplifiedClauses
+        (for (c <- preprocessedClauses
               if c.head.pred != FALSE) yield {
            c.predicates
          }).flatten.toSet.toList
 
       SMTLineariser("", "HORN", "", Nil, predsToDeclare,
-                    simplifiedClauses.map(_ toFormula))
+                    preprocessedClauses.map(_ toFormula))
 
       throw PrintingFinishedException
     }
 
     val postHints : VerificationHints = {
       val name2Pred =
-      (for (Clause(head, body, _) <- simplifiedClauses.iterator;
+      (for (Clause(head, body, _) <- preprocessedClauses.iterator;
             IAtom(p, _) <- (head :: body).iterator)
        yield (p.name -> p)).toMap
       readHints(GlobalParameters.get.cegarPostHintsFile, name2Pred)
@@ -277,7 +277,7 @@ class HornWrapper(constraints  : Seq[HornClause],
 
     val allHints = simpPreHints ++ postHints
 
-    (simplifiedClauses, allHints, backTranslator)
+    (preprocessedClauses, allHints, backTranslator)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -369,9 +369,9 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   def standardCheck() : ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      preprocessClauses(unsimplifiedClauses, hints)
+      preprocessClauses(nonpreprocessedClauses, hints)
     val symexEngine = getSymex(simplifiedClauses)
-    (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+    (new InnerHornWrapper(nonpreprocessedClauses, simplifiedClauses,
                           allHints, preprocBackTranslator,
                           disjunctive, outStream, symexEngine)).result
   }
@@ -388,23 +388,23 @@ class HornWrapper(constraints  : Seq[HornClause],
     // We apply static acceleration only if all clauses are linear,
     // and if the clauses only use LIA
 
-    if (unsimplifiedClauses exists isNotLinearLIA)
+    if (nonpreprocessedClauses exists isNotLinearLIA)
       throw new Exception("static acceleration cannot be applied")
 
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      preprocessClauses(unsimplifiedClauses, hints)
-    (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+      preprocessClauses(nonpreprocessedClauses, hints)
+    (new InnerHornWrapper(nonpreprocessedClauses, simplifiedClauses,
                           allHints, preprocBackTranslator,
                           disjunctive, outStream, None)).result
   }
 
   def templatePOCheck(delay : Int) : ResultType = {
     val (simplifiedClauses, allHints, preprocBackTranslator) =
-      preprocessClauses(unsimplifiedClauses, hints)
+      preprocessClauses(nonpreprocessedClauses, hints)
 
     ParallelComputation(GlobalParameters.get.withAndWOTemplates,
                         startDelay = delay) {
-      (new InnerHornWrapper(unsimplifiedClauses, simplifiedClauses,
+      (new InnerHornWrapper(nonpreprocessedClauses, simplifiedClauses,
                             allHints, preprocBackTranslator,
                             disjunctive, outStream, None)).result
     }

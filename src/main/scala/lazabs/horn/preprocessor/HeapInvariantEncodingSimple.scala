@@ -37,6 +37,7 @@ import ap.theories.ADT.ADTProxySort
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.{Clause, allPredicates}
+import lazabs.horn.bottomup.Util.{DagEmpty, DagNode}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -108,6 +109,7 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
   import HornPreprocessor._
 
   override val name : String = "Heap invariants encoder (simple)"
+  private val backMapping = new MHashMap[Clause, Clause]
 
   /**
    * HeapInvariantEncodingSimple is only applicable when the input CHCs contain
@@ -139,6 +141,8 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
       heap => heap -> new MonoSortedPredicate(
         s"Inv_${heap.HeapSort.name}", Seq(heap.AddressSort, heap.ObjectSort)))
       .toMap
+
+    val allHeapInvariants : Set[Predicate] = heapInvariantPerHeap.values.toSet
 
     // Collect maps from sorts to argument indices containing those sorts
     // in every predicate.
@@ -198,11 +202,24 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
         var addedThisClause = false
         for (conjunct <- conjuncts) {
           conjunct match {
-            // allocHeap(h0, o) == h1: push inv(newAddr(h0, o), o)
+            // alloc(h0, o) == ar: push inv(allocAddr(h0, o), o)
+            case Eq(IFunApp(heap.alloc, Seq(IConstant(h0), IConstant(o))),
+                    IConstant(ar)) =>
+              val a = heap.allocAddr(h0, o)
+              val newClause = Clause(inv(a, o), clause.body, clause.constraint)
+              newClauses += newClause
+              backMapping += newClause -> clause
+              newClauses += clause
+              assert(!addedThisClause)
+              addedThisClause = true
+
+            // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
             case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
                     IConstant(h1)) =>
               val a = heap.allocAddr(h0, o)
-              newClauses += Clause(inv(a, o), clause.body, clause.constraint)
+              val newClause = Clause(inv(a, o), clause.body, clause.constraint)
+              newClauses += newClause
+              backMapping += newClause -> clause
               newClauses += clause
               assert(!addedThisClause)
               addedThisClause = true
@@ -211,8 +228,10 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
             case Eq(IFunApp(heap.write,
                             Seq(IConstant(h0), IConstant(a), IConstant(o))),
                     IConstant(h1)) =>
-              newClauses += Clause(inv(a, o), clause.body,
-                                   clause.constraint &&& heap.isAlloc(h0, a))
+              val newClause = Clause(inv(a, o), clause.body,
+                                     clause.constraint &&& heap.isAlloc(h0, a))
+              newClauses += newClause
+              backMapping += newClause -> clause
               newClauses += clause
               assert(!addedThisClause)
               addedThisClause = true
@@ -223,10 +242,14 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
             case Eq(IFunApp(heap.read,
                             Seq(IConstant(h), IConstant(a))),
                     IConstant(o)) =>
-              newClauses += Clause(clause.head, inv(a, o) :: clause.body,
-                                   clause.constraint &&& heap.isAlloc(h, a))
-              newClauses += Clause(clause.head, clause.body,
-                                   clause.constraint &&& !heap.isAlloc(h, a))
+              val newClause1 =
+                Clause(clause.head, inv(a, o) :: clause.body,
+                       clause.constraint &&& heap.isAlloc(h, a))
+              val newClause2 =
+                Clause(clause.head, clause.body,
+                       clause.constraint &&& !heap.isAlloc(h, a))
+              newClauses ++= Seq(newClause1, newClause2)
+              backMapping ++= Map(newClause1 -> clause, newClause2 -> clause)
               assert(!addedThisClause)
               addedThisClause = true
             case _ =>
@@ -243,18 +266,17 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
 
     val backTranslator = new BackTranslator {
       override def translate(solution : Solution) : Solution = {
-        val newSolution = new MHashMap[Predicate, IFormula]
+        val newSolution                   = new MHashMap[Predicate, IFormula]
         val solutionWithoutHeapInvariants =
           solution -- heapInvariantPerHeap.values
         solutionWithoutHeapInvariants.foreach(newSolution +=)
         for (heap <- heapTheories; (pred, _) <- solutionWithoutHeapInvariants) {
           predSortToArgInds(pred) get heap.HeapSort match {
             case Some(heapInds) if heapInds.nonEmpty =>
-              val inv = heapInvariantPerHeap(heap)
-              val invF = solution(inv)
+              val invF = solution(heapInvariantPerHeap(heap))
               for (heapInd <- heapInds) {
                 val adtExploded = ADTExploder(invF).asInstanceOf[IFormula]
-                val simplified = SimpleAPI.withProver(_.simplify(adtExploded))
+                val simplified  = SimpleAPI.withProver(_.simplify(adtExploded))
 
                 // Augment the solution of this predicate with:
                 // forall a. valid(h, a) ==> inv(a, read(h, a))
@@ -273,7 +295,23 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
         }
         newSolution.toMap
       }
-      override def translate(cex : CounterExample) : CounterExample = ???
+      override def translate(cex : CounterExample) : CounterExample =
+        translateCEX(cex).collapseNodes
+
+      private def translateCEX(dag : CounterExample) : CounterExample =
+        dag match {
+          case DagNode(p@(a, clause), children, next) =>
+            val newChildren = children.filterNot(
+              i => allHeapInvariants.contains(dag(i)._1.pred))
+            val newNext = translateCEX(next)
+            backMapping get clause match {
+              case Some(oldClause) =>
+                DagNode((a, oldClause), newChildren, newNext)
+              case None =>
+                DagNode(p, newChildren, newNext)
+            }
+          case DagEmpty => DagEmpty
+        }
     }
 
 //    println("\nNew clauses")

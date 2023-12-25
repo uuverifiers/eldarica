@@ -247,17 +247,17 @@ class ClauseSplitterFuncsAndUnboundTerms(
       }.map(_.asInstanceOf[FunAppNode])
 
       if (unboundTermNodesToSplitOn.size + funAppNodesToSplitOn.size < 2) {
-        println(s"No splitting needed for ${clause.toPrologString}")
+//        println(s"No splitting needed for ${clause.toPrologString}")
         unchangedClauses += clause -> Seq(clause)
       } else {
-        println(s"Splitting clause ${clause.toPrologString}")
+//        println(s"Splitting clause ${clause.toPrologString}")
         if (unboundTermNodesToSplitOn.nonEmpty) {
           println(s"It has ${unboundTermNodesToSplitOn.size} " +
                     s"unbound terms to split on: $unboundTermNodesToSplitOn")
         }
         if (funAppNodesToSplitOn.nonEmpty) {
-          println(s"It has ${funAppNodesToSplitOn.size} " +
-                    s"fun apps to split on: $funAppNodesToSplitOn")
+//          println(s"It has ${funAppNodesToSplitOn.size} " +
+//                    s"fun apps to split on: $funAppNodesToSplitOn")
         }
 
         // Split after unbounded heap terms, and after the return term of funs.
@@ -274,14 +274,14 @@ class ClauseSplitterFuncsAndUnboundTerms(
         for (term <- toSplitNodesSorted.init) {
           val curDag = clauseDags pop
 
-          def connectorNodeInstantiator(orphanedNodes : List[Int]) : Node = {
+          def connectorNodeInstantiator(orphanedNodes : List[Node]) : (Node, Node) = {
             val newPredArgs =
-              for (ind <- orphanedNodes if curDag(ind).isInstanceOf[ConstNode])
-                yield curDag(ind).asInstanceOf[ConstNode].c.c
+              for (node <- orphanedNodes if node.isInstanceOf[ConstNode])
+                yield node.asInstanceOf[ConstNode].c.c
             val newPred = newGluePred(newPredArgs.map(Sort.sortOf(_)))
             clausePreds += newPred
             val newAtom = IAtom(newPred, newPredArgs)
-            AtomNode(newAtom)
+            (HeadNode(newAtom), BodyNode(newAtom))
           }
           // The splitting should fail if it is attempted for non-constant
           // nodes.
@@ -311,14 +311,14 @@ class ClauseSplitterFuncsAndUnboundTerms(
       pair => pair._1 -> pair._2.map(clauseDagToClause)) ++
         unchangedClauses).toMap
 
-    for ((clause, newClauses) <- clauseToNewClauses.filter(
-      c => !unchangedClauses.contains(c._1))) {
-      println("\n\nOld:")
-      println(clause.toPrologString)
-      println("\nNew:")
-      newClauses.foreach(c => println(c.toPrologString))
-    }
-    println
+//    for ((clause, newClauses) <- clauseToNewClauses.filter(
+//      c => !unchangedClauses.contains(c._1))) {
+//      println("\n\nOld:")
+//      println(clause.toPrologString)
+//      println("\nNew:")
+//      newClauses.foreach(c => println(c.toPrologString))
+//    }
+//    println
 
     //    while (remainingClauses nonEmpty) {
     /*
