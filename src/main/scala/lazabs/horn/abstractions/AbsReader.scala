@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2014-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -139,7 +139,7 @@ object AbsReader {
  */
 class AbsReader(input : java.io.Reader) {
 
-  import SMTParser2InputAbsy.{SMTType, SMTInteger, SMTBool, SMTArray, SMTBitVec}
+  import SMTTypes.{SMTType, SMTInteger, SMTBool, SMTArray, SMTBitVec}
 
   private val printer = new PrettyPrinterNonStatic
 

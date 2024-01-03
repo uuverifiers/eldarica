@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,92 +37,9 @@ import ap.types.MonoSortedPredicate
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  LinkedHashMap, HashSet => MHashSet}
 
-object CtorTypeExtender {
-
-  // The preprocessor can sometimes cause solution formulas that are illegal
-  // according to SMT-LIB because they contain the ADT.CtorId functions in
-  // wrong places. We need to rewrite such formulas.
-
-  object CtorIdRewriter extends CollectingVisitor[Unit, IExpression] {
-    import IExpression._
-
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
-      t match {
-        case LeafFormula(t) => {
-          // check whether there are any ctorid terms that we have to extract
-          val collector = new CtorIdCollector
-          val newT = collector(t)
-
-          collector.foundFunApp match {
-            case null => {
-              KeepArg
-            }
-            case funapp => {
-              val const = collector.faConst
-              val sort  = Sort sortOf funapp
-              TryAgain(
-                connectSimplify(
-                  for (n <- sort.individuals.iterator) yield {
-                    (funapp === n) &&&
-                    SimplifyingConstantSubstVisitor(newT, Map(const -> n))
-                  },
-                  IBinJunctor.Or),
-                arg)
-            }
-          }
-        }
-        case _ =>
-          KeepArg
-      }
-
-    def postVisit(t : IExpression,
-                  arg : Unit,
-                  subres : Seq[IExpression]) : IExpression =
-      t update subres
-  }
-
-  class CtorIdCollector
-        extends CollectingVisitor[(Boolean, Boolean), IExpression] {
-    import IExpression._
-
-    var foundFunApp : IFunApp = _
-    var faConst : ConstantTerm = _
-
-    def apply(f : IFormula) : IFormula =
-      this.visit(f, (true, false)).asInstanceOf[IFormula]
-
-    override def preVisit(t : IExpression,
-                          ctxt : (Boolean, Boolean)) : PreVisitResult =
-    t match {
-      case Eq(_, Const(_)) | Eq(Const(_), _) =>
-        UniSubArgs((false, true))
-      case t@IFunApp(ADT.CtorId(adt, num), _)
-          if foundFunApp == null && !ctxt._2 => {
-        foundFunApp = t
-        faConst = adt.ctorIds(num).resSort newConstant "fa"
-        ShortCutResult(faConst)
-      }
-      case t : IFunApp if foundFunApp == t =>
-        ShortCutResult(faConst)
-      case t : ITerm =>
-        UniSubArgs((false, false))
-      case t : IFormula =>
-        // only descend into the first level of formulae
-        if (ctxt._1) UniSubArgs((false, false)) else ShortCutResult(t)
-    }
-
-    def postVisit(t : IExpression,
-                  ctxt : (Boolean, Boolean),
-                  subres : Seq[IExpression]) : IExpression =
-      t update subres
-
-  }
-
-}
-
 /**
- * Preprocessor that adds explicit size arguments for each predicate
- * argument for a recursive ADT
+ * Preprocessor that adds explicit constructor type arguments for each
+ * ADT argument.
  */
 class CtorTypeExtender extends ArgumentExpander {
 
@@ -137,7 +54,7 @@ class CtorTypeExtender extends ArgumentExpander {
    * functions in wrong places. We need to rewrite such formulas.
    */
   override def postprocessSolution(p : Predicate, f : IFormula) : IFormula =
-    CtorTypeExtender.CtorIdRewriter.visit(f, ()).asInstanceOf[IFormula]
+    ADT.CtorIdRewriter.visit(f, ()).asInstanceOf[IFormula]
 
   def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
