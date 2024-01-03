@@ -30,13 +30,14 @@
 package lazabs.horn.extendedquantifiers
 
 import ap.Signature.PredicateMatchConfig
+import ap.parser._
 import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.parser.{IFormula, IFunction, ITerm, SymbolCollector}
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.{ConstantTerm, Formula}
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
 import ap.types.MonoSortedIFunction
+import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
 
 /**
  * This theory introduces a theory for the sole purpose of making available
@@ -73,7 +74,7 @@ class ExtendedQuantifier(
     val rangeFormulaLo: Option[(ITerm, ITerm, ITerm) => IFormula],
     val rangeFormulaHi: Option[(ITerm, ITerm, ITerm) => IFormula])
 // a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
-    extends Theory {
+    extends SMTLinearisableTheory with SMTParseableTheory {
 
   val arrayIndexSort: Sort = arrayTheory.indexSorts.head
   if (arrayTheory.indexSorts.length > 1)
@@ -164,10 +165,25 @@ class ExtendedQuantifier(
       case Theory.SatSoundnessConfig.Existential => true
       case _                                     => false
     }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // SMT Lineariser and Parser
+  /**
+   * Print an SMT-LIB declaration of this theory.
+   */
+  override def printSMTDeclaration : Unit = ???
+
+  /**
+   * Translate theory morphism applications.
+   */
+  override def translateSMTOperatorAST(
+    sym       : SymbolRef,
+    arguments : Seq[(Int) => (IExpression, SMTTypes.SMTType)],
+    polarity  : Int)
+  : Option[(IExpression, SMTTypes.SMTType)] = Some(???)
 }
 
 object ExtendedQuantifier {
-
   /**
    * Extractor recognising the <code>fun</code> function of
    * any ExtendedQuantifier theory.
