@@ -101,8 +101,8 @@ object MainExtQuans extends App {
       p(0)(a, i + 1) :- (p(0)(a, i), o === ar.select(a, i), i < 10),
       p(1)(a, i) :- (p(0)(a, i), i >= 10),
       false :- (p(1)(a, i),
-      extQuanMax.fun(a, 0, 10) <= 30) // right-open interval
-    )
+      extQuanMax.morphism(a, 0, 10) <= 30) // right-open interval
+      )
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =
@@ -166,8 +166,8 @@ object NormalizerTest extends App {
         .select(a2, 0), a4 =/= a3),
       p(1)(a1, i) :- (p(0)(a1, i), ar.select(a1, 1) >= ar.select(a1, 0)),
       false :- (p(1)(a1, i), //ar.select(a1,1) =/= 2)
-      extQuan.fun(a1, 0, 2) =/= 3) // right-open interval
-    )
+      extQuan.morphism(a1, 0, 2) =/= 3) // right-open interval
+      )
 
     val preprocessor = new DefaultPreprocessor
     val (simpClauses, _, backTranslator) =
@@ -236,8 +236,8 @@ object AxiomsTest extends App {
       p(0)(a, i) :- (i === 0),
       p(0)(a, i + 1) :- (p(0)(a, i), i === ar.select(a, i), i < 10),
       p(1)(a, i) :- (p(0)(a, i), i >= 10),
-      false :- (p(1)(a, i), extQuan.fun(a, 0, 10) =/= 45) // right-open interval
-    )
+      false :- (p(1)(a, i), extQuan.morphism(a, 0, 10) =/= 45) // right-open interval
+      )
 
 //    // STORE (write)
 

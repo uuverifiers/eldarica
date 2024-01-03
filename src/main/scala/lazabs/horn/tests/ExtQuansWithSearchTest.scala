@@ -70,8 +70,8 @@ object ExtQuansWithSearchTest extends App {
                                                4 === ar.select(a2, i), i < 10),
       p(1)(a1, a2, i)     :- (p(0)(a1, a2, i), i >= 10),
       false          :- (p(1)(a1, a2, i),
-                        extQuan.fun(a1, 0, 10) =/= 30) // right-open interval
-    )
+                        extQuan.morphism(a1, 0, 10) =/= 30) // right-open interval
+      )
 
     val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
 

@@ -95,7 +95,7 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierInfo],
     var offset = argNum
     val ghostVars: Seq[(ITerm, Sort, String)] =
       (for ((info, infoId) <- extendedQuantifierInfos zipWithIndex) yield {
-        val baseName      = info.exTheory.fun.name
+        val baseName      = info.exTheory.morphism.name
         val loName        = baseName + "_lo"
         val hiName        = baseName + "_hi"
         val resName       = baseName + "_res"
@@ -221,7 +221,7 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierInfo],
       case Some(ghostVars) =>
         val newConjuncts = for ((exq, allGhostTerms) <- ghostVarInfosInPred(p);
                                 ghostTerms <- allGhostTerms) yield {
-          exq.fun(ghostTerms.arr, ghostTerms.lo, ghostTerms.hi) === ghostTerms.res
+          exq.morphism(ghostTerms.arr, ghostTerms.lo, ghostTerms.hi) === ghostTerms.res
           // todo: anything to do using alien terms?
         }
         val quanF = quanConsts(IExpression.Quantifier.EX,

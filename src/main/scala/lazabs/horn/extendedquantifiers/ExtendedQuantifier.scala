@@ -94,8 +94,8 @@ class ExtendedQuantifier(
     }
   }
 
-  // fun : (a : array, lo : Int, hi : Int) => Obj
-  val fun = MonoSortedIFunction(
+  // morphism : (a : array, lo : Int, hi : Int) => Obj
+  val morphism = MonoSortedIFunction(
     name,
     List(arrayTheory.sort, arrayIndexSort, arrayIndexSort),
     arrayTheory.objSort,
@@ -105,7 +105,7 @@ class ExtendedQuantifier(
   /**
    * The theory introduces the single extended quantifier function.
    */
-  override val functions: Seq[IFunction] = Seq(fun)
+  override val functions: Seq[IFunction] = Seq(morphism)
 
   val theoryAxioms: IFormula = {
     import ap.parser.IExpression._
@@ -118,9 +118,9 @@ class ExtendedQuantifier(
         arrayIndexSort.all(
           lo =>
             arrayIndexSort.all(hi =>
-              trig((lo < hi) ==> (fun(a, lo, hi) ===
-                     reduceOp(fun(a, lo + 1, hi), select(a, lo))),
-                   fun(a, lo, hi))))) & // triggers
+              trig((lo < hi) ==> (morphism(a, lo, hi) ===
+                     reduceOp(morphism(a, lo + 1, hi), select(a, lo))),
+                   morphism(a, lo, hi))))) & // triggers
 //    arrayTheory.sort.all(
 //      a =>
 //        arrayIndexSort.all(
@@ -136,9 +136,9 @@ class ExtendedQuantifier(
           arrayIndexSort.all(
             lo =>
               arrayIndexSort.all(hi =>
-                trig((lo >= hi) ==> (fun(a, lo, hi) ===
+                trig((lo >= hi) ==> (morphism(a, lo, hi) ===
                        identity),
-                     fun(a, lo, hi)))))
+                     morphism(a, lo, hi)))))
   }
 
   val (funPredicates, axioms1, order, functionTranslation) = Theory.genAxioms(
@@ -175,8 +175,8 @@ object ExtendedQuantifier {
   object ExtendedQuantifierFun {
     def unapply(f: IFunction): Option[ExtendedQuantifier] =
       (TheoryRegistry lookupSymbol f) match {
-        case Some(t: ExtendedQuantifier) if f == t.fun => Some(t)
-        case _ => None
+        case Some(t: ExtendedQuantifier) if f == t.morphism => Some(t)
+        case _                                              => None
       }
   }
 

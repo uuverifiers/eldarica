@@ -140,7 +140,7 @@ class InstrumentingPreprocessor(clauses : Clauses,
                 case Some(inst) => inst
                 case None =>
                   throw new Exception("Could not find an instrumenter for the" +
-                    " extended quantifier: " + extendedQuantifierInfo.exTheory.fun.name)
+                    " extended quantifier: " + extendedQuantifierInfo.exTheory.morphism.name)
               }
             clauseInstrumenter.instrument(clause,
               //getGhostVarInds(extendedQuantifierInfo, ghostVarMap),

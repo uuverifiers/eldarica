@@ -130,7 +130,7 @@ object HornPrinter {
       // TODO: ??
 
       case ExtQuantifierFun(extQuantifier, exprList) =>
-        extQuantifier.fun.name + "(" + exprList.map(printExp).mkString(", ") + ")"
+        extQuantifier.morphism.name + "(" + exprList.map(printExp).mkString(", ") + ")"
 
       case Variable(_,Some(index)) => 
         if (index < vars.size)

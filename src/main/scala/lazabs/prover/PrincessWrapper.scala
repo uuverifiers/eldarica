@@ -273,7 +273,7 @@ class PrincessWrapper {
       // Extended quantifiers
       case ExtQuantifierFun(extQuantifier, exprList) =>
         val termArgs = exprList.map(f2pterm(_))
-        extQuantifier.fun(termArgs : _*)
+        extQuantifier.morphism(termArgs : _*)
 
       // Bit-vectors
 
