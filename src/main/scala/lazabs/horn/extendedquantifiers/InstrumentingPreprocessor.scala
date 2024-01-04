@@ -71,25 +71,38 @@ object InstrumentingPreprocessor {
 //  def rewriteExtQuansFunApps(clauses : Clauses) : Clauses
 //}
 
-class InstrumentingPreprocessor(clauses : Clauses,
-                                hints : VerificationHints,
-                                frozenPredicates : Set[Predicate],
-                                clauseInstrumenters : Map[ExtendedQuantifier, ClauseInstrumenter],
-                                numGhostRanges : Int)
-//  extends ClauseInstrumenter with ExtendedQuantifierFunAppRewriter
+class InstrumentingPreprocessor(
+  clauses                  : Clauses,
+  hints                    : VerificationHints,
+  frozenPredicates         : Set[Predicate],
+  instrumentationOperators : Set[InstrumentationOperator],
+  numGhostRanges           : Int)
 {
   import InstrumentingPreprocessor._
-  val extendedQuantifierInfos : Seq[ExtendedQuantifierApp] =
-    gatherExtQuans(clauses)
-  val extendedQuantifiers: Set[ExtendedQuantifier]         =
-    extendedQuantifierInfos.map(_.exTheory).toSet
+  private val exqApps : Seq[ExtendedQuantifierApp] = gatherExtQuans(clauses)
+  private val exqs : Set[ExtendedQuantifier] = exqApps.map(_.exTheory).toSet
+
+  {
+    val undefinedExqs = exqs.diff(instrumentationOperators.map(_.exq))
+    if (undefinedExqs.nonEmpty) {
+      throw new IllegalArgumentException(
+        "Input set of clauses contains extended quantifier applications for " +
+        "which an instrumentationn operator is not defined: {" +
+        undefinedExqs.map(_.morphism.name).mkString(",") + "}.")
+    }
+  }
+
+  private val exqToInstrumentationOperator
+  : Map[ExtendedQuantifier, InstrumentationOperator] =
+    instrumentationOperators.map(op => op.exq -> op).toMap
 
   private val translators = new ArrayBuffer[BackTranslator]
   private val branchPreds = new MHashSet[Predicate]
 
-  extendedQuantifiers foreach TheoryRegistry.register
+  exqs foreach TheoryRegistry.register
 
   // normalize the clauses
+  // TODO: test and switch to the new normalizer
   private val normalizer = new Normalizer
   val (clausesNormalized, hintsNormalized, backTranslatorNormalized) =
   normalizer.process(clauses, hints, frozenPredicates)
@@ -97,14 +110,14 @@ class InstrumentingPreprocessor(clauses : Clauses,
 
   // add ghost variables for each extended quantifier application
   private val ghostVariableAdder =
-    new GhostVariableAdder(extendedQuantifierInfos, numGhostRanges)
+    new GhostVariableAdder(exqApps, exqToInstrumentationOperator, numGhostRanges)
   val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap, alienVarToPredVar) =
     ghostVariableAdder.processAndGetGhostVarMap(clausesNormalized, hintsNormalized, frozenPredicates)
   translators += backTranslatorGhost
 
   // intitialize the ghost variables
   private val ghostVariableInitializer =
-    new GhostVariableInitializer(ghostVarMap)
+    new GhostVariableInitializer(ghostVarMap, exqToInstrumentationOperator)
   private val (clausesGhostInit, hintsGhostInit, backTranslatorGhostInit) =
     ghostVariableInitializer.process(clausesGhost, hintsGhost, frozenPredicates)
   translators += backTranslatorGhostInit
@@ -134,9 +147,9 @@ class InstrumentingPreprocessor(clauses : Clauses,
       }
       else {
         val instrumentationsForClause =
-          for (extendedQuantifierInfo <- extendedQuantifierInfos) yield {
-            val clauseInstrumenter: ClauseInstrumenter =
-              clauseInstrumenters get extendedQuantifierInfo.exTheory match {
+          for (extendedQuantifierInfo <- exqApps) yield {
+            val clauseInstrumenter : InstrumentationOperator =
+              instrumentationOperators get extendedQuantifierInfo.exTheory match {
                 case Some(inst) => inst
                 case None =>
                   throw new Exception("Could not find an instrumenter for the" +

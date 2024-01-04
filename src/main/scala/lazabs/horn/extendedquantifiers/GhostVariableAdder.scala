@@ -42,27 +42,22 @@ import scala.collection.mutable.{
 }
 
 object GhostVariableAdder {
-  case class AlienGhostVariableInds(v:      Int, vSet: Int)
-  case class AlienGhostVariableTerms(v:     ITerm, vSet: ITerm)
-  case class GhostVariableInds(lo:          Int,
-                               hi:          Int,
-                               res:         Int,
-                               arr:         Int,
-                               alienInds:   Seq[AlienGhostVariableInds])
-  case class GhostVariableTerms(lo:         ITerm,
-                                hi:         ITerm,
-                                res:        ITerm,
-                                arr:        ITerm,
-                                alienTerms: Seq[AlienGhostVariableTerms])
+  case class AlienGhostVariableInds(v : Int, vSet : Int)
+  case class AlienGhostVariableTerms(v : ITerm, vSet: ITerm)
+  case class GhostVariableInds(ghostInds : Map[GhostVar, Int],
+                               alienInds : Seq[AlienGhostVariableInds])
+  case class GhostVariableTerms(ghostTerms : Map[GhostVar, ITerm],
+                                alienTerms : Seq[AlienGhostVariableTerms])
 }
 
 /**
  * Class to introduce ghost variables to predicates
- * Adds a set of ghost variables for each extended quantifier.
+ * Adds a set of ghost variables for each extended quantifier application.
  */
-class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierApp],
-                         numGhostRanges:          Int)
-    extends SimpleArgumentExpander {
+class GhostVariableAdder(
+  exqApps                      : Seq[ExtendedQuantifierApp],
+  exqToInstrumentationOperator : Map[ExtendedQuantifier, InstrumentationOperator],
+  numGhostRanges               : Int) extends SimpleArgumentExpander {
 
   import GhostVariableAdder._
   import HornPreprocessor.Clauses
@@ -94,28 +89,36 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierApp],
 
     var offset = argNum
     val ghostVars: Seq[(ITerm, Sort, String)] =
-      (for ((info, infoId) <- extendedQuantifierInfos zipWithIndex) yield {
-        val baseName      = info.exTheory.morphism.name
-        val loName        = baseName + "_lo"
-        val hiName        = baseName + "_hi"
-        val resName       = baseName + "_res"
-        val shadowArrName = baseName + "_arr"
-        val arrayTheory   = info.exTheory.arrayTheory
+      (for ((exqApp, exqAppId) <- exqApps zipWithIndex) yield {
+        val baseName      = exqApp.exTheory.morphism.name
+        val instOp        = exqToInstrumentationOperator(exqApp.exTheory)
+        val arrayTheory   = exqApp.exTheory.arrayTheory
         val indexSort     = arrayTheory.indexSorts.head
+
+        // Add the ghost variables specified in the instrumentation operator.
 
         val alienIndsToTerms = new MHashMap[Int, (IConstant, Sort, String)]
 
         val ghostVariableInds: Seq[GhostVariableInds] = {
-          val numGhostVars            = 4
+          val numGhostVars = instOp.ghostVars.size
+          /**
+           * `numGhostVarsPerAlienVar` is fixed to 2: we introduce the pair of
+           * ghost variables `(cShad, cSet)` for each alien var `c`.
+           * See [[ExtendedQuantifier.alienConstantsInPredicate]] for details.
+           */
           val numGhostVarsPerAlienVar = 2
           val numAlienGhostVars =
-            info.exTheory.alienConstantsInPredicate.length * numGhostVarsPerAlienVar
+            exqApp.exTheory.alienConstantsInPredicate.length * numGhostVarsPerAlienVar
 
-          val numAllGhostVars = numGhostVars + numAlienGhostVars // todo: refactor
+          val numAllGhostVars = numGhostVars + numAlienGhostVars
           val arrayInds = for (numGhostRange <- 0 until numGhostRanges) yield {
-            val shift = offset + numGhostRange * numAllGhostVars + numGhostRanges * numAllGhostVars * infoId
+            val shift = offset + numGhostRange * numAllGhostVars +
+                        numGhostRanges * numAllGhostVars * exqAppId
+            val ghostVarToInd : Map[GhostVar, Int] =
+              instOp.ghostVars.zipWithIndex.map{
+                case (ghostVar, ind) => ghostVar -> (shift + ind + 1)}.toMap
             val alienGhostVarInds =
-              for ((c, i) <- info.exTheory.alienConstantsInPredicate zipWithIndex)
+              for ((c, i) <- exqApp.exTheory.alienConstantsInPredicate zipWithIndex)
                 yield {
                   val alienVarShift   = shift + numGhostVars + i * numGhostVarsPerAlienVar
                   val (vInd, vSetInd) = (alienVarShift + 1, alienVarShift + 2)
@@ -138,65 +141,49 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierApp],
                   alienVarToPredInd += (vTerm._1 -> vInd)
                   AlienGhostVariableInds(v = vInd, vSet = vSetInd)
                 }
-            GhostVariableInds(shift + 1,
-                              shift + 2,
-                              shift + 3,
-                              shift + 4,
-                              alienGhostVarInds)
+            GhostVariableInds(ghostVarToInd, alienGhostVarInds)
           }
           arrayInds
         }
 
         val prevMap: Map[Predicate, Seq[GhostVariableInds]] =
-          extQuantifierToGhostVars.getOrElse(info, Map())
+          extQuantifierToGhostVars.getOrElse(exqApp, Map())
         val newMap: Map[Predicate, Seq[GhostVariableInds]] =
           Map(pred -> ghostVariableInds) ++ prevMap
-        extQuantifierToGhostVars.put(info, newMap)
+        extQuantifierToGhostVars.put(exqApp, newMap)
 
-        val resultSort = info.exTheory.predicate match {
+        val resultSort = exqApp.exTheory.predicate match {
           case Some(_) => ap.types.Sort.Bool
           case None    => arrayTheory.objSort
         }
 
         (for (ghostVarInds <- ghostVariableInds) yield {
-          val loTerm =
-            new SortedConstantTerm(loName + ghostVarInds.lo, indexSort)
-          val hiTerm =
-            new SortedConstantTerm(hiName + ghostVarInds.hi, indexSort)
-          val resTerm =
-            new SortedConstantTerm(resName + ghostVarInds.res, resultSort)
-          val shadowArrTerm = new SortedConstantTerm(shadowArrName +
-                                                       ghostVarInds.arr,
-                                                     arrayTheory.sort)
-          val regularGhostVars: Seq[(ITerm, Sort, String)] = Seq(
-            (IConstant(loTerm), indexSort, loName),
-            (IConstant(hiTerm), indexSort, hiName),
-            (IConstant(resTerm), resultSort, resName),
-            (IConstant(shadowArrTerm), arrayTheory.sort, shadowArrName)
-          )
+          val ghostTerms = instOp.ghostVars.map(
+            gVar => new SortedConstantTerm(s"${baseName}_${gVar.toString}",
+                                           gVar.sort))
+          val ghostVarToTerm : Map[GhostVar, ITerm] =
+            instOp.ghostVars.zip(ghostTerms.map(IConstant(_))).toMap
+          val regularGhostVars: Seq[(ITerm, Sort, String)] =
+            ghostTerms.map(t => (IConstant(t), t.sort, t.name))
           val alienGhostVariableTerms = new ArrayBuffer[AlienGhostVariableTerms]
           val alienGhostVars: Seq[(ITerm, Sort, String)] = {
             (for (alienVarInds <- ghostVarInds.alienInds) yield {
               val vTerm    = alienIndsToTerms(alienVarInds.v)
               val vSetTerm = alienIndsToTerms(alienVarInds.vSet)
-              alienGhostVariableTerms += AlienGhostVariableTerms(v = vTerm._1,
-                                                                 vSet =
-                                                                   vSetTerm._1)
+              alienGhostVariableTerms +=
+                AlienGhostVariableTerms(v = vTerm._1, vSet = vSetTerm._1)
               Seq(vTerm, vSetTerm)
             }).flatten
           }
 
           val newGhostVarTerms = Seq(
-            GhostVariableTerms(lo = loTerm,
-                               hi = hiTerm,
-                               res = resTerm,
-                               arr = shadowArrTerm,
+            GhostVariableTerms(ghostTerms = ghostVarToTerm,
                                alienTerms = alienGhostVariableTerms))
           val oldMap: Map[ExtendedQuantifier, Seq[GhostVariableTerms]] =
-            ghostVarInfosInPred.getOrElse(pred, Map(info.exTheory -> Nil))
+            ghostVarInfosInPred.getOrElse(pred, Map(exqApp.exTheory -> Nil))
           val combinedGhostVarTerms: Seq[GhostVariableTerms] = oldMap(
-            info.exTheory) ++ newGhostVarTerms
-          val newMap = oldMap ++ Map(info.exTheory -> combinedGhostVarTerms)
+            exqApp.exTheory) ++ newGhostVarTerms
+          val newMap = oldMap ++ Map(exqApp.exTheory -> combinedGhostVarTerms)
           ghostVarInfosInPred += (pred -> newMap)
           regularGhostVars ++ alienGhostVars
         }).flatten
@@ -221,13 +208,16 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierApp],
       case Some(ghostVars) =>
         val newConjuncts = for ((exq, allGhostTerms) <- ghostVarInfosInPred(p);
                                 ghostTerms <- allGhostTerms) yield {
-          exq.morphism(ghostTerms.arr, ghostTerms.lo, ghostTerms.hi) === ghostTerms.res
+          // TODO: adapt solutions for the refactor
+          ???
+          // exq.morphism(ghostTerms.arr, ghostTerms.lo, ghostTerms.hi) === ghostTerms.res
           // todo: anything to do using alien terms?
         }
-        val quanF = quanConsts(IExpression.Quantifier.EX,
-                               ghostVars,
-                               and(Seq(f) ++ newConjuncts))
-        quanF
+//        val quanF = quanConsts(IExpression.Quantifier.EX,
+//                               ghostVars,
+//                               and(Seq(f) ++ newConjuncts))
+//        quanF
+      ???
       //(new Simplifier) (quanF)
       case None => f
     }

@@ -40,7 +40,8 @@ import lazabs.horn.preprocessor._
 import lazabs.prover.PrincessWrapper.expr2Formula
 
 class GhostVariableInitializer(
-  ghostVarInds : Map[ExtendedQuantifierApp, Map[Predicate, Seq[GhostVariableInds]]])
+  ghostVarInds : Map[ExtendedQuantifierApp, Map[Predicate, Seq[GhostVariableInds]]],
+  exqToInstrumentationOperator : Map[ExtendedQuantifier, InstrumentationOperator])
   extends HornPreprocessor {
   override val name: String = "Initializing ghost variables"
 
@@ -53,12 +54,17 @@ class GhostVariableInitializer(
     val newClauses = for (clause <- clauses) yield {
       if (entryClauses contains clause) {
         val newConjuncts = new collection.mutable.ArrayBuffer[IFormula]
-        for ((exq, predToGhostVars) <- ghostVarInds) {
+        for ((exqApp, predToGhostVars) <- ghostVarInds) {
+          val instOp = exqToInstrumentationOperator(exqApp.exTheory)
           val ghostVars = predToGhostVars(clause.head.pred)
-          for (GhostVariableInds(lo, hi, res, arr, alienInds) <- ghostVars) {
-            newConjuncts +=
-              clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&
-              exq.exTheory.identity === clause.head.args(res)
+          for (GhostVariableInds(ghostInds, alienInds) <- ghostVars) {
+            for ((ghostVar, ghostInd) <- ghostInds) {
+              instOp.ghostVarInitialValues get ghostVar match {
+                case Some(initialValue) =>
+                  newConjuncts += clause.head.args(ghostInd) === initialValue
+                case None => // no initialization needed
+              }
+            }
             for (AlienGhostVariableInds(_, vSet) <- alienInds) {
               // ghost alien vars are initially not set
               newConjuncts += !expr2Formula(clause.head.args(vSet))

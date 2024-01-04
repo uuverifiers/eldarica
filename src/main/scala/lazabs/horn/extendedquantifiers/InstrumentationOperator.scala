@@ -1,6 +1,7 @@
 package lazabs.horn.extendedquantifiers
 
 import ap.parser._
+import ap.types.Sort
 import lazabs.horn.extendedquantifiers.Util.{ConstInfo, ExtendedQuantifierApp, SelectInfo, StoreInfo}
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
@@ -10,7 +11,7 @@ object RewriteRules {
                     assertions      : Seq[IFormula])
 }
 
-abstract class GhostVar
+abstract class GhostVar(val sort : Sort)
 
 trait RewriteRules {
   // These rules are hardcoded as the array operations, but with some effort
@@ -38,24 +39,37 @@ trait RewriteRules {
                     exqInfo : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
 }
 
-abstract class InstrumentationOperator extends RewriteRules {
+abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
+  extends RewriteRules {
   // old and new ghost variables will be passed in the same order as specified
   // in ghostVars.
   val ghostVars : Seq[GhostVar]
+  // Initial values for the ghost variables. If an initial value is not found
+  // for a GhostVar, it is not initialized to any value.
+  val ghostVarInitialValues : Map[GhostVar, ITerm]
 }
 
 /**
  * A general instrumentation not specialized to any operator.
  */
-class StandardInstrumentation(exq : ExtendedQuantifier) extends InstrumentationOperator {
-  case object GhLo     extends GhostVar
-  case object GhHi     extends GhostVar
-  case object GhRes    extends GhostVar
-  case object GhArr    extends GhostVar
-  case object GhArrInd extends GhostVar
+class StandardInstrumentation(exq : ExtendedQuantifier)
+  extends InstrumentationOperator(exq) {
+  case object GhLo     extends GhostVar(exq.arrayIndexSort)
+  case object GhHi     extends GhostVar(exq.arrayIndexSort)
+  case object GhRes    extends GhostVar(exq.arrayTheory.objSort)
+  case object GhArr    extends GhostVar(exq.arrayTheory.sort)
+  case object GhArrInd extends GhostVar(exq.arrayIndexSort)
 
   override val ghostVars : Seq[GhostVar] =
     Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd)
+
+  override val ghostVarInitialValues : Map[GhostVar, ITerm] = Map(
+    GhLo     -> IExpression.i(0),
+    GhHi     -> IExpression.i(0),
+    GhRes    -> exq.identity,
+    GhArrInd -> IExpression.i(0)
+    // GhArr is not initialized
+  )
 
   private def pred(o : ITerm, i : ITerm) = exq.predicate match {
     case Some(p) => p(o, i)
