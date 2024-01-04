@@ -37,7 +37,7 @@ import ap.terfor.{ConstantTerm, Formula}
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
 import ap.types.MonoSortedIFunction
-import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
+import ap.parser.smtlib.Absyn.SymbolRef
 
 /**
  * This theory introduces a theory for the sole purpose of making available
@@ -84,7 +84,27 @@ class ExtendedQuantifier(
   // this theory depends on the theory of extensional arrays with specified sorts
   override val dependencies: Iterable[Theory] = List(arrayTheory)
 
-  // alien constants (if any) in the predicate (if any)
+  /**
+   * ''alien'' terms refer to unbound variables of
+   * [[ExtendedQuantifier.predicate]] (when this predicate is provided).
+   * This `predicate` is of the form `p(o, i)`, where `o` is the
+   * written/read object at index `i`.
+   * Example: in `p(o, i): o = i + c`, `c` is an alien term.
+   * In the paper we cannot deal with these alien terms, but in practice these
+   * pop up often. To deal with such terms, we do an encoding as follows:
+   *  - Introduce a pair of ghost variables `(cShad, cSet)` for each `c`.
+   *    Primed versions denote the corresponding updated variables.
+   *  - During instrumentation, for each `c`, add the following as a conjunct
+   *    to the instrumentation constraint:
+   *      `ite(cSet, cShad' === cShad, cShad' = c) & cSet'`
+   *    This ensures that cShad tracks c and is set.
+   *    And add the following as an assertion:
+   *      `cSet ==> (cShad === c))`
+   *    This fails if `cShad` is tracking the wrong `c`. This can happen because
+   *    the implementation ''guesses'' which `c` to track in the clauses by the
+   *    name of `c`, which can be incorrect. If this assertion fails, that means
+   *    the guess was incorrect.
+   */
   val alienConstantsInPredicate: Seq[ConstantTerm] = {
     predicate match {
       case Some(pred) =>

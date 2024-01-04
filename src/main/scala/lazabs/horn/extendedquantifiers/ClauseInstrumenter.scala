@@ -50,24 +50,22 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
   protected def instrumentStore (storeInfo             : StoreInfo,
                                  headTerms             : GhostVariableTerms,
                                  bodyTerms             : GhostVariableTerms,
-                                 alienTermMap          : Map[ITerm, ITerm],
-                                 termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                                 bodyArgs              : Seq[ITerm]) : Seq[InstrumentationResult]
+                                 alienTermMap          : Map[ITerm, ITerm])
+  : Seq[InstrumentationResult]
   protected def instrumentSelect(selectInfo            : SelectInfo,
                                  headTerms             : GhostVariableTerms,
                                  bodyTerms             : GhostVariableTerms,
-                                 alienTermMap          : Map[ITerm, ITerm],
-                                 termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                                 bodyArgs              : Seq[ITerm]) : Seq[InstrumentationResult]
+                                 alienTermMap          : Map[ITerm, ITerm])
+  : Seq[InstrumentationResult]
   protected def instrumentConst (constInfo             : ConstInfo,
                                  headTerms             : GhostVariableTerms,
                                  bodyTerms             : GhostVariableTerms,
-                                 alienTermMap          : Map[ITerm, ITerm],
-                                 termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                                 bodyArgs              : Seq[ITerm]) : Seq[InstrumentationResult]
+                                 alienTermMap          : Map[ITerm, ITerm])
+  : Seq[InstrumentationResult]
   protected def rewriteAggregateFun (exqInfo    : ExtendedQuantifierInfo,
                                      ghostVarTerms : Seq[GhostVariableTerms],
-                                     alienVarToPredVar : Map[ITerm, ITerm]) : Seq[InstrumentationResult]
+                                     alienVarToPredVar : Map[ITerm, ITerm])
+  : Seq[InstrumentationResult]
 
   protected val arrayTheory = extendedQuantifier.arrayTheory
 
@@ -194,22 +192,17 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
           }
         }.toMap
 
-        val termToHeadAlienVarInd : Map[ConstantTerm, Int] = {
-          extendedQuantifier.alienConstantsInPredicate zip
-            allGhostVarInds(clause.head.pred).flatMap(_.alienInds.map(_.v))
-        }.toMap
-
         val instrumentationResults : Seq[InstrumentationResult] =
           relevantConjuncts.headOption match {
             case Some(c) if isSelect(c) =>
               instrumentSelect(extractSelectInfo(c), headTerms, bodyTerms,
-                               alienTermMap, termToHeadAlienVarInd, bAtom.args)
+                               alienTermMap)
             case Some(c) if isStore(c) =>
               instrumentStore(extractStoreInfo(c), headTerms, bodyTerms,
-                              alienTermMap, termToHeadAlienVarInd, bAtom.args)
+                              alienTermMap)
             case Some(c) if isConst(c) =>
               instrumentConst(extractConstInfo(c), headTerms, bodyTerms,
-                              alienTermMap, termToHeadAlienVarInd, bAtom.args)
+                              alienTermMap)
             case None => Nil
           }
         for(result <- instrumentationResults) yield
@@ -387,9 +380,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   def instrumentStore(storeInfo             : StoreInfo,
                       headTerms             : GhostVariableTerms,
                       bodyTerms             : GhostVariableTerms,
-                      alienTermMap          : Map[ITerm, ITerm],
-                      termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                      bodyArgs              : Seq[ITerm]): Seq[InstrumentationResult] = {
+                      alienTermMap          : Map[ITerm, ITerm]): Seq[InstrumentationResult] = {
     val StoreInfo(a1, a2, i, o, arrayTheory2) = storeInfo
     if (arrayTheory != arrayTheory2)
       Nil
@@ -403,7 +394,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       val standardInstrumentation = {
         val alienSubstMap : Map[ConstantTerm, ITerm] =  // todo: incorrect - fix
           (for ((alienC, alienI) <- extendedQuantifier.alienConstantsInPredicate.zipWithIndex) yield {
-            alienC -> headTerms.alienTerms(alienI).v//headArgs(termToHeadAlienVarInd(alienC))
+            alienC -> headTerms.alienTerms(alienI).v
           }).toMap
         val instrConstraint1 =
           (headTerms.arr === a2) &&& alienTermInitFormula &&&
@@ -455,9 +446,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   def instrumentSelect(selectInfo            : SelectInfo,
                        headTerms             : GhostVariableTerms,
                        bodyTerms             : GhostVariableTerms,
-                       alienTermMap          : Map[ITerm, ITerm],
-                       termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                       bodyArgs              : Seq[ITerm]): Seq[InstrumentationResult] = {
+                       alienTermMap          : Map[ITerm, ITerm]): Seq[InstrumentationResult] = {
     val SelectInfo(a, i, o, arrayTheory2) = selectInfo
     if (arrayTheory != arrayTheory2)
       Nil
@@ -467,8 +456,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
       val alienSubstMap : Map[ConstantTerm, ITerm] = // todo: incorrect - fix
         (for ((alienC, alienI) <- extendedQuantifier
           .alienConstantsInPredicate.zipWithIndex) yield {
-          alienC -> headTerms.alienTerms(alienI).v//headArgs
-          // (termToHeadAlienVarInd(alienC))
+          alienC -> headTerms.alienTerms(alienI).v
         }).toMap
       val (alienTermInitFormula, alienTermAssertionFormula) =
         getAlienTermsFormulaAndAssertion(headTerms, bodyTerms,
@@ -498,9 +486,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   def instrumentConst(constInfo : ConstInfo,
                       headTerms : GhostVariableTerms,
                       bodyTerms : GhostVariableTerms,
-                      alienTermMap : Map[ITerm, ITerm],
-                      termToHeadAlienVarInd : Map[ConstantTerm, Int],
-                      bodyArgs : Seq[ITerm]) : Seq[InstrumentationResult] =
+                      alienTermMap : Map[ITerm, ITerm]) : Seq[InstrumentationResult] =
     Nil
   //  val ConstInfo(a, o, arrayTheory) = constInfo
   //  val instr =
