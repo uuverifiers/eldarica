@@ -62,7 +62,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
                                  bodyTerms             : GhostVariableTerms,
                                  alienTermMap          : Map[ITerm, ITerm])
   : Seq[InstrumentationResult]
-  protected def rewriteAggregateFun (exqInfo    : ExtendedQuantifierInfo,
+  protected def rewriteAggregateFun (exqInfo    : ExtendedQuantifierApp,
                                      ghostVarTerms : Seq[GhostVariableTerms],
                                      alienVarToPredVar : Map[ITerm, ITerm])
   : Seq[InstrumentationResult]
@@ -77,7 +77,7 @@ ClauseInstrumenter(extendedQuantifier : ExtendedQuantifier) {
   // returns all instrumentations of a clause
   def instrument (clause                 : Clause,
                   allGhostVarInds        : Map[Predicate, Seq[GhostVariableInds]],
-                  extendedQuantifierInfo : ExtendedQuantifierInfo,
+                  extendedQuantifierInfo : ExtendedQuantifierApp,
                   alienVarToPredVar : Map[ITerm, ITerm]) : Seq[Instrumentation] = {
     val rewrites : Seq[Instrumentation] = {
       val conjuncts : Seq[IFormula] =
@@ -494,7 +494,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
   //      hres === extendedQuantifier.reduceOp(o, o)
 
   override protected
-  def rewriteAggregateFun(exqInfo       : ExtendedQuantifierInfo,
+  def rewriteAggregateFun(exqInfo       : ExtendedQuantifierApp,
                           ghostVarTerms : Seq[GhostVariableTerms],
                           alienVarToPredVar : Map[ITerm, ITerm]) : Seq[InstrumentationResult] = {
     // range1 ? res1 : (range 2 ? res2 : (... : range1+range2 ? res1+res : range2+range1 ? res2+res1 : ... ))
@@ -503,7 +503,7 @@ class SimpleClauseInstrumenter(extendedQuantifier : ExtendedQuantifier)
         ghostVarTerms.combinations(i)
       }).flatten
 
-    val ExtendedQuantifierInfo(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
     def loExpr = extendedQuantifier.rangeFormulaLo.getOrElse(
       (t1 : ITerm, t2 : ITerm, t3 : ITerm) => t1 === t2)
     def hiExpr = extendedQuantifier.rangeFormulaHi.getOrElse(

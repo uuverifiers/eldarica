@@ -1,7 +1,7 @@
 package lazabs.horn.extendedquantifiers
 
 import ap.parser._
-import lazabs.horn.extendedquantifiers.Util.{ConstInfo, ExtendedQuantifierInfo, SelectInfo, StoreInfo}
+import lazabs.horn.extendedquantifiers.Util.{ConstInfo, ExtendedQuantifierApp, SelectInfo, StoreInfo}
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 object RewriteRules {
@@ -35,7 +35,7 @@ trait RewriteRules {
                 newGhostTerms : Seq[ITerm],
                 constInfo     : ConstInfo) : Seq[RewriteRules.Result]
   def ruleAggregate(ghostTerms : Seq[Seq[ITerm]],
-                    exqInfo : ExtendedQuantifierInfo) : Seq[RewriteRules.Result]
+                    exqInfo : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
 }
 
 abstract class InstrumentationOperator extends RewriteRules {
@@ -164,7 +164,7 @@ class StandardInstrumentation(exq : ExtendedQuantifier) extends InstrumentationO
   }
 
   override def ruleAggregate(ghostTerms : Seq[Seq[ITerm]],
-                             exqInfo : ExtendedQuantifierInfo)
+                             exqInfo : ExtendedQuantifierApp)
   : Seq[RewriteRules.Result] = {
 
     if(ghostTerms.size > 1) {
@@ -172,14 +172,20 @@ class StandardInstrumentation(exq : ExtendedQuantifier) extends InstrumentationO
       throw new NotImplementedException
     }
 
-    val Seq(gLo, gHi, gRes, gArr, gArrInd) = ghostTerms.head
-    val ExtendedQuantifierInfo(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+    val Seq(gLo, gHi, gRes, gArr, gArrInd)                       = ghostTerms
+      .head
+    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+
+    def loExpr = exq.rangeFormulaLo.getOrElse(
+      (t1 : ITerm, t2 : ITerm, t3 : ITerm) => t1 === t2)
+    def hiExpr = exq.rangeFormulaHi.getOrElse(
+      (t1 : ITerm, t2 : ITerm, t3 : ITerm) => t1 === t2)
 
     val newConjunct =
-      ((gLo === lo & gHi === hi & gArr === a) ==> (gRes === o)) &&&
-      ((lo >= hi) ==> (exq.identity === o))
+      ((loExpr(gLo, lo, gRes) & hiExpr(gHi, hi, gRes) & gArr === a) ==>
+       (gRes === o)) & ((lo >= hi) ==> (exq.identity === o))
     val assertionFormula =
-      (gLo === lo & gHi === hi & gArr === a) ||| (gLo >= gHi)
+      (loExpr(gLo, lo, gRes) & hiExpr(gHi, hi, gRes) & gArr === a) | (lo >= hi)
 
     Seq(RewriteRules.Result(
       newConjunct     = IExpression.i(true),

@@ -30,17 +30,17 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.{Predicate, _}
+import ap.parser.IExpression._
 import ap.parser.IFormula
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
+import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierApp
 import lazabs.horn.extendedquantifiers.GhostVariableAdder._
 import lazabs.horn.preprocessor.HornPreprocessor._
 import lazabs.horn.preprocessor._
 import lazabs.prover.PrincessWrapper.expr2Formula
 
 class GhostVariableInitializer(
-  ghostVarInds : Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]])
+  ghostVarInds : Map[ExtendedQuantifierApp, Map[Predicate, Seq[GhostVariableInds]]])
   extends HornPreprocessor {
   override val name: String = "Initializing ghost variables"
 

@@ -79,9 +79,9 @@ class InstrumentingPreprocessor(clauses : Clauses,
 //  extends ClauseInstrumenter with ExtendedQuantifierFunAppRewriter
 {
   import InstrumentingPreprocessor._
-  val extendedQuantifierInfos : Seq[ExtendedQuantifierInfo] =
+  val extendedQuantifierInfos : Seq[ExtendedQuantifierApp] =
     gatherExtQuans(clauses)
-  val extendedQuantifiers: Set[ExtendedQuantifier] =
+  val extendedQuantifiers: Set[ExtendedQuantifier]         =
     extendedQuantifierInfos.map(_.exTheory).toSet
 
   private val translators = new ArrayBuffer[BackTranslator]

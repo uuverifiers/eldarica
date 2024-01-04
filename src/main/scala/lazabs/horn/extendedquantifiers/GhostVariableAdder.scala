@@ -31,7 +31,7 @@ package lazabs.horn.extendedquantifiers
 
 import ap.parser._
 import ap.types.SortedConstantTerm
-import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
+import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierApp
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.horn.preprocessor.HornPreprocessor
 
@@ -60,7 +60,7 @@ object GhostVariableAdder {
  * Class to introduce ghost variables to predicates
  * Adds a set of ghost variables for each extended quantifier.
  */
-class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierInfo],
+class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierApp],
                          numGhostRanges:          Int)
     extends SimpleArgumentExpander {
 
@@ -83,7 +83,7 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierInfo],
   // a map from each extended quantifier to another map that is a map from
   // predicates to a sequence of ghost variable argument indices in that predicate
   private val extQuantifierToGhostVars =
-    new MHashMap[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]]
+    new MHashMap[ExtendedQuantifierApp, Map[Predicate, Seq[GhostVariableInds]]]
 
   private val expandedPredicates = new MHashSet[Predicate]
 
@@ -241,7 +241,7 @@ class GhostVariableAdder(extendedQuantifierInfos: Seq[ExtendedQuantifierInfo],
     : (Clauses,
        VerificationHints,
        HornPreprocessor.BackTranslator,
-       Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]],
+       Map[ExtendedQuantifierApp, Map[Predicate, Seq[GhostVariableInds]]],
        Map[ITerm, ITerm]) = { // last argument is a map from added alien vars back to the terms they represent
     val (newClauses, newHints, backTranslator) =
       super.process(clauses, hints, frozenPredicates)

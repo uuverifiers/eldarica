@@ -42,16 +42,18 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object Util {
 
-  case class ExtendedQuantifierInfo(exTheory      : ExtendedQuantifier,
-                                    funApp        : IFunApp,
-                                    arrayTerm     : ITerm,
-                                    loTerm        : ITerm,
-                                    hiTerm        : ITerm,
-                                    aggregateTerm : ITerm,
-                                    conjunct      : IFormula)
+  /**
+   * For storing applications of [[ExtendedQuantifier.morphism]].
+   */
+  case class ExtendedQuantifierApp(exTheory      : ExtendedQuantifier,
+                                   funApp        : IFunApp,
+                                   arrayTerm     : ITerm,
+                                   loTerm        : ITerm,
+                                   hiTerm        : ITerm,
+                                   aggregateTerm : ITerm,
+                                   conjunct      : IFormula)
 
-  case class SelectInfo(a: ITerm, i: ITerm, o: ITerm,
-                        theory: ExtArray)
+  case class SelectInfo(a: ITerm, i: ITerm, o: ITerm, theory: ExtArray)
 
   case class StoreInfo(oldA: ITerm, newA: ITerm, i: ITerm, o: ITerm,
                        theory: ExtArray)
@@ -78,8 +80,8 @@ object Util {
    * occurring in an expression.
    */
   object ExtQuantifierFunctionApplicationCollector {
-    def apply(t: IExpression): Seq[ExtendedQuantifierInfo] = {
-      val apps = new ArrayBuffer[ExtendedQuantifierInfo]
+    def apply(t: IExpression): Seq[ExtendedQuantifierApp] = {
+      val apps = new ArrayBuffer[ExtendedQuantifierApp]
       val c = new ExtQuantifierFunctionApplicationCollector(apps)
       c.visitWithoutResult(t, 0)
       apps
@@ -87,14 +89,14 @@ object Util {
   }
 
   class ExtQuantifierFunctionApplicationCollector(
-                                                   extQuantifierInfos: ArrayBuffer[ExtendedQuantifierInfo])
+    extQuantifierInfos: ArrayBuffer[ExtendedQuantifierApp])
     extends CollectingVisitor[Int, Unit] {
     def postVisit(t: IExpression, boundVars: Int, subres: Seq[Unit]): Unit =
       t match {
         case conj@Eq(app@IFunApp(
         ExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)), o) =>
           extQuantifierInfos +=
-            ExtendedQuantifierInfo(theory, app, a, lo, hi, o, conj)
+            ExtendedQuantifierApp(theory, app, a, lo, hi, o, conj)
         case _ => // nothing
       }
   }
@@ -146,9 +148,9 @@ object Util {
     (atoms.flatMap(_.args), sorts)
   }
 
-  def gatherExtQuans(clauses: Clauses): Seq[ExtendedQuantifierInfo] = {
+  def gatherExtQuans(clauses: Clauses): Seq[ExtendedQuantifierApp] = {
     val allInfos = (for (Clause(head, body, constraint) <- clauses) yield {
-      val infos: Seq[ExtendedQuantifierInfo] =
+      val infos: Seq[ExtendedQuantifierApp] =
         ExtQuantifierFunctionApplicationCollector(constraint)
       infos
     }).flatten.distinct
