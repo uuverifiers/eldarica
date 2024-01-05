@@ -19,12 +19,8 @@ trait RewriteRules {
   // rewrite rules.
 
   /**
-   * `oldGhostTerms` and `newGhostTerms` are the sequence of ghost variables
-   * in the same order as [[InstrumentationOperator.ghostVars]], referring to
-   * the old and new values of those variables, respectively.
-   *
-   * @param storeInfo
-   * @return
+   * `oldGhostTerms` and `newGhostTerms` are the old and new values of ghost
+   * variables defined in [[InstrumentationOperator.ghostVars]].
    */
   def rewriteStore(oldGhostTerms : Map[GhostVar, ITerm],
                    newGhostTerms : Map[GhostVar, ITerm],
@@ -41,11 +37,11 @@ trait RewriteRules {
 
 abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
   extends RewriteRules {
-  // old and new ghost variables will be passed in the same order as specified
-  // in ghostVars.
   val ghostVars : Seq[GhostVar]
-  // Initial values for the ghost variables. If an initial value is not found
-  // for a GhostVar, it is not initialized to any value.
+  /**
+   * Initial values for the ghost variables. If an initial value is not found
+   * for a GhostVar, it is not initialized to any value.
+   */
   val ghostVarInitialValues : Map[GhostVar, ITerm]
 }
 
