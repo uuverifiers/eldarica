@@ -35,6 +35,7 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import HornPreprocessor.{Clauses, VerificationHints, _}
 import Util._
 import InstrumentingPreprocessor._
+import lazabs.horn.extendedquantifiers.instrumentationoperators.GeneralInstrumentationOperator
 
 class SimpleExtendedQuantifierInstrumenter(clauses : Clauses,
                                            hints : VerificationHints,
@@ -42,7 +43,7 @@ class SimpleExtendedQuantifierInstrumenter(clauses : Clauses,
                                            numGhostRanges : Int) {
   val exqApps = gatherExtQuans(clauses)
   val exqs = exqApps.map(_.exTheory).toSet
-  val instrumentationOperators = exqs.map(new StandardInstrumentation(_))
+  val instrumentationOperators = exqs.map(new GeneralInstrumentationOperator(_))
   private val instrumentingPreprocessor =
     new InstrumentingPreprocessor(clauses, hints, frozenPredicates,
                                   instrumentationOperators.toSet, numGhostRanges)
