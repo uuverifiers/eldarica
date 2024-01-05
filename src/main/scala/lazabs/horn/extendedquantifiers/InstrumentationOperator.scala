@@ -26,17 +26,17 @@ trait RewriteRules {
    * @param storeInfo
    * @return
    */
-  def ruleStore(oldGhostTerms : Seq[ITerm],
-                newGhostTerms : Seq[ITerm],
-                storeInfo     : StoreInfo) : Seq[RewriteRules.Result]
-  def ruleSelect(oldGhostTerms : Seq[ITerm],
-                 newGhostTerms : Seq[ITerm],
-                 selectInfo    : SelectInfo) : Seq[RewriteRules.Result]
-  def ruleConst(oldGhostTerms : Seq[ITerm],
-                newGhostTerms : Seq[ITerm],
-                constInfo     : ConstInfo) : Seq[RewriteRules.Result]
-  def ruleAggregate(ghostTerms : Seq[Seq[ITerm]],
-                    exqInfo : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
+  def rewriteStore(oldGhostTerms : Map[GhostVar, ITerm],
+                   newGhostTerms : Map[GhostVar, ITerm],
+                   storeInfo     : StoreInfo) : Seq[RewriteRules.Result]
+  def rewriteSelect(oldGhostTerms : Map[GhostVar, ITerm],
+                    newGhostTerms : Map[GhostVar, ITerm],
+                    selectInfo    : SelectInfo) : Seq[RewriteRules.Result]
+  def rewriteConst(oldGhostTerms : Map[GhostVar, ITerm],
+                   newGhostTerms : Map[GhostVar, ITerm],
+                   constInfo     : ConstInfo) : Seq[RewriteRules.Result]
+  def rewriteAggregate(ghostTerms : Seq[Map[GhostVar, ITerm]],
+                       exqInfo    : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
 }
 
 abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
@@ -60,6 +60,10 @@ class StandardInstrumentation(exq : ExtendedQuantifier)
   case object GhArr    extends GhostVar(exq.arrayTheory.sort)
   case object GhArrInd extends GhostVar(exq.arrayIndexSort)
 
+  /**
+   * The concrete rewrite rules in this class depend on the order and length of
+   * ghostVars, so those rules should be updated if ghostVars is modified.
+   */
   override val ghostVars : Seq[GhostVar] =
     Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd)
 
@@ -76,19 +80,21 @@ class StandardInstrumentation(exq : ExtendedQuantifier)
     case None    => o
   }
 
-  override def ruleStore(oldGhostTerms : Seq[ITerm],
-                         newGhostTerms : Seq[ITerm],
-                         storeInfo     : StoreInfo)
+  override def rewriteStore(oldGhostTerms : Map[GhostVar, ITerm],
+                            newGhostTerms : Map[GhostVar, ITerm],
+                            storeInfo     : StoreInfo)
   : Seq[RewriteRules.Result] = {
     import IExpression._
     import exq.arrayTheory.select
 
-    val Seq(oldLo, oldHi, oldRes, oldArr, oldArrInd) = oldGhostTerms
-    val Seq(newLo, newHi, newRes, newArr, newArrInd) = newGhostTerms
-
     val StoreInfo(a1, a2, i, o, arrayTheory2) = storeInfo
 
     if(arrayTheory2 != exq.arrayTheory) return Seq()
+
+    val Seq(oldLo, oldHi, oldArr, oldRes, oldArrInd) =
+      ghostVars.map(gVar => oldGhostTerms(gVar))
+    val Seq(newLo, newHi, newRes, newArr, newArrInd) =
+      ghostVars.map(gVar => newGhostTerms(gVar))
 
     // Array pass-through instrumentation for stores. This allows ignoring
     // stores to outside the tracked range.
@@ -138,17 +144,20 @@ class StandardInstrumentation(exq : ExtendedQuantifier)
     Seq(arrayPassThroughInstrumentation, standardInstrumentation)
   }
 
-  override def ruleSelect(oldGhostTerms : Seq[ITerm],
-                          newGhostTerms : Seq[ITerm],
-                          selectInfo    : SelectInfo)
+  override def rewriteSelect(oldGhostTerms : Map[GhostVar, ITerm],
+                             newGhostTerms : Map[GhostVar, ITerm],
+                             selectInfo    : SelectInfo)
   : Seq[RewriteRules.Result] = {
     import IExpression._
 
-    val Seq(oldLo, oldHi, oldRes, oldArr, oldArrInd) = oldGhostTerms
-    val Seq(newLo, newHi, newRes, newArr, newArrInd) = newGhostTerms
     val SelectInfo(a, i, o, arrayTheory2) = selectInfo
 
     if(arrayTheory2 != exq.arrayTheory) return Seq()
+
+    val Seq(oldLo, oldHi, oldArr, oldRes, oldArrInd) =
+      ghostVars.map(gVar => oldGhostTerms(gVar))
+    val Seq(newLo, newHi, newRes, newArr, newArrInd) =
+      ghostVars.map(gVar => newGhostTerms(gVar))
 
     val instrConstraint =
       (newArr === a) &&&
@@ -171,14 +180,14 @@ class StandardInstrumentation(exq : ExtendedQuantifier)
                             assertions = Seq(assertion)))
   }
 
-  override def ruleConst(oldGhostTerms : Seq[ITerm],
-                         newGhostTerms : Seq[ITerm],
-                         constInfo : ConstInfo) : Seq[RewriteRules.Result] = {
+  override def rewriteConst(oldGhostTerms : Map[GhostVar, ITerm],
+                            newGhostTerms : Map[GhostVar, ITerm],
+                            constInfo     : ConstInfo) : Seq[RewriteRules.Result] = {
     ???
   }
 
-  override def ruleAggregate(ghostTerms : Seq[Seq[ITerm]],
-                             exqInfo : ExtendedQuantifierApp)
+  override def rewriteAggregate(ghostTerms : Seq[Map[GhostVar, ITerm]],
+                                exqInfo    : ExtendedQuantifierApp)
   : Seq[RewriteRules.Result] = {
 
     if(ghostTerms.size > 1) {
@@ -186,8 +195,10 @@ class StandardInstrumentation(exq : ExtendedQuantifier)
       throw new NotImplementedException
     }
 
-    val Seq(gLo, gHi, gRes, gArr, gArrInd)                       = ghostTerms
-      .head
+    val ghostVarToGhostTerm = ghostTerms.head
+    val Seq(gLo, gHi, gArr, gRes, gArrInd) =
+      ghostVars.map(gVar => ghostVarToGhostTerm(gVar))
+
     val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
 
     def loExpr = exq.rangeFormulaLo.getOrElse(

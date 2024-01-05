@@ -148,9 +148,9 @@ class InstrumentingPreprocessor(
       else {
         val instrumentationsForClause =
           for (extendedQuantifierInfo <- exqApps) yield {
-            val clauseInstrumenter : InstrumentationOperator =
-              instrumentationOperators get extendedQuantifierInfo.exTheory match {
-                case Some(inst) => inst
+            val clauseInstrumenter : ClauseInstrumenter =
+              exqToInstrumentationOperator get extendedQuantifierInfo.exTheory match {
+                case Some(instOp) => new ClauseInstrumenter(instOp)
                 case None =>
                   throw new Exception("Could not find an instrumenter for the" +
                     " extended quantifier: " + extendedQuantifierInfo.exTheory.morphism.name)

@@ -42,11 +42,10 @@ class SimpleExtendedQuantifierInstrumenter(clauses : Clauses,
                                            numGhostRanges : Int) {
   val exqApps = gatherExtQuans(clauses)
   val exqs = exqApps.map(_.exTheory).toSet
-  private val clauseInstrumenters = (exqs.map(exq =>
-    (exq, new SimpleClauseInstrumenter(exq)))).toMap
+  val instrumentationOperators = exqs.map(new StandardInstrumentation(_))
   private val instrumentingPreprocessor =
     new InstrumentingPreprocessor(clauses, hints, frozenPredicates,
-      clauseInstrumenters, numGhostRanges)
+                                  instrumentationOperators.toSet, numGhostRanges)
   val (InstrumentationResult(instrumentedClauses, branchPredicates, searchSpace),
         newHints, backTranslator) = instrumentingPreprocessor.process
 }
