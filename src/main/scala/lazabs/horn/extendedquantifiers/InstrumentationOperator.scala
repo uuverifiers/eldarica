@@ -79,10 +79,32 @@ abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
   val ghostVars : Seq[GhostVar]
 
   /**
-   * Optional initial values for `ghostVars`.
+   * Initial values for `ghostVars`.
    * If an initial value is not found for a GhostVar, it is left uninitialized.
    */
   val ghostVarInitialValues : Map[GhostVar, ITerm]
+
+  /**
+   * Each instrumentation operator is initially assigned one set of ghost
+   * variables. If `maxSupportedGhostVarRanges` is set to a value other than 1,
+   * if the result is `Inconclusive` the number of ghost variable sets is
+   * incremented by one, at most until `maxSupportedGhostVarRanges`.
+   * If a value other than `1` is specified,
+   * [[InstrumentationOperator.rewriteAggregate]] should handle the combining
+   * values coming from multiple sets of ghost variables. Other rewrite rules
+   * do not require special treatment, as they each rule will automatically be
+   * applied once per ghost variable set, per extended quantifier application.
+   * @todo This is currently ignored, refactor to consider it.
+   */
+  val maxSupportedGhostVarRanges : Int = 1
+
+  /**
+   * Given a map from ghost variables to terms, this should construct a formula
+   * using those terms and [[exq.morphism]]. This is later used when
+   * back-translating solutions in [[GhostVariableAdder]] to eliminate
+   * ghost variables.
+   */
+  def ghostVarsToAggregateFormula(ghostTerms : Map[GhostVar, ITerm]) : IFormula
 }
 
 

@@ -62,14 +62,8 @@ class GhostVariableAdder(
 
   val name = s"adding $numGhostRanges sets of ghost variables"
 
-  private val ghostVarsInPred = new MHashMap[Predicate, Seq[ConstantTerm]]
-
-//  /**
-//   * In each `Predicate`, for each `ExtendedQuantifier`, we add `numGhostRanges`
-//   * [[InstrumentationOperator.ghostVars]].
-//   */
-//  private val predToGhostTermsPerExtendedQuantifier =
-//    new MHashMap[Predicate, Map[ExtendedQuantifier, GhostVariableTerms]]
+  private val predToSolutionAggrFormula = new MHashMap[Predicate, IFormula]
+  private val predToGhostTerms = new MHashMap[Predicate, Seq[ConstantTerm]]
 
   /**
    * A map from each extended quantifier application to another map from
@@ -90,7 +84,7 @@ class GhostVariableAdder(
    */
   def expand(pred : Predicate, argNum : Int, sort : Sort)
   : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
-    val ghostVars: Seq[(ITerm, Sort, String)] =
+    val allGhostVars : Seq[(ITerm, Sort, String)] =
       (for ((exqApp, exqAppId) <- exqApps zipWithIndex) yield {
         val baseName      = exqApp.exTheory.morphism.name
         val instOp        = exqToInstrumentationOperator(exqApp.exTheory)
@@ -124,19 +118,36 @@ class GhostVariableAdder(
           Map(pred -> ghostVariableInds) ++ prevMap
         exqAppToGhostVars.put(exqApp, newMap)
 
-        for (_ <- 0 until numGhostRanges;
-             ghostVar <- instOp.ghostVars) yield {
-          val ghostTermName = s"${baseName}_${ghostVar.name}"
-          (IConstant(new SortedConstantTerm(ghostTermName, ghostVar.sort)),
-            ghostVar.sort,
-            ghostTermName)
-        }
+        (for (_ <- 0 until numGhostRanges) yield {
+          val ghostVarToTerm = (for (ghostVar <- instOp.ghostVars) yield {
+            ghostVar -> IConstant(new SortedConstantTerm(
+              s"${baseName}_${ghostVar.name}", ghostVar.sort))
+          }).toMap
+          /**
+           * Update the formula we need to add to solutions during
+           * back-translation.
+           */
+          predToSolutionAggrFormula.update(
+            pred,
+            predToSolutionAggrFormula.getOrElse(pred, IExpression.i(true)) &&&
+            instOp.ghostVarsToAggregateFormula(ghostVarToTerm))
+          /**
+           * Also update the ghost terms in this predicate, these will be
+           * existentially quantified during back-translation of the solution.
+           */
+          predToGhostTerms.update(pred,
+            predToGhostTerms.getOrElse(pred, Nil) ++
+              ghostVarToTerm.values.map(_.c))
+          ghostVarToTerm.map{
+            case (ghostVar, ghostTerm) =>
+              (ghostTerm, ghostVar.sort, ghostTerm.c.name)
+          }
+        }).flatten
       }).flatten
-    ghostVarsInPred.put(pred, ghostVars.map(_._1.asInstanceOf[IConstant].c))
 
     expandedPredicates += pred
 
-    Some((ghostVars, None))
+    Some((allGhostVars, None))
   }
 
   override def setup(clauses          : Clauses,
@@ -147,21 +158,12 @@ class GhostVariableAdder(
     !(expandedPredicates contains p)
 
   override def postprocessSolution(p: Predicate, f: IFormula): IFormula = {
-    ghostVarsInPred get p match {
-      case Some(ghostVars) =>
-//        val newConjuncts = for ((exq, allGhostTerms) <- predToGhostTermsPerExtendedQuantifier(p);
-//                                ghostTerms <- allGhostTerms) yield {
-          // TODO: adapt solutions for the refactor
-          ???
-          // exq.morphism(ghostTerms.arr, ghostTerms.lo, ghostTerms.hi) === ghostTerms.res
-          // todo: anything to do using alien terms?
-//        }
-//        val quanF = quanConsts(IExpression.Quantifier.EX,
-//                               ghostVars,
-//                               and(Seq(f) ++ newConjuncts))
-//        quanF
-      ???
-      //(new Simplifier) (quanF)
+    predToSolutionAggrFormula get p match {
+      case Some(aggregateF) =>
+        val quanF = quanConsts(IExpression.Quantifier.EX,
+                               predToGhostTerms(p),
+                               f &&& aggregateF)
+        (new Simplifier) (quanF)
       case None => f
     }
   }

@@ -100,7 +100,7 @@ class InstrumentationLoop (clauses : Clauses,
   private var lastInstrumenter : InstrumentationOperatorApplier = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
-    val numRanges = 2//ghostVarRanges.head
+    val numRanges = ghostVarRanges.head
     ghostVarRanges -= numRanges
 
     println("# ghost variable ranges: " + numRanges)

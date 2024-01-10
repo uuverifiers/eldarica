@@ -37,6 +37,7 @@ import lazabs.horn.bottomup._
 import lazabs.horn.extendedquantifiers.InstrumentationLoop
 import HornClauses._
 import IExpression._
+import ap.api.SimpleAPI
 import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 
@@ -55,25 +56,32 @@ object ExtQuansWithSearchTest extends App {
     val a1 = new SortedConstantTerm("a1", ar.sort)
     val a2 = new SortedConstantTerm("a2", ar.sort)
     val i = new ConstantTerm("i")
-    val s = new ConstantTerm("s")
-    val o = new SortedConstantTerm("o",ar.objSort)
-    val o2 = new SortedConstantTerm("o'",ar.objSort)
-
 
     val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
       Seq(ar.sort, ar.sort, Sort.Integer)))
 
      //SELECT (read)
     val clauses = List(
-      p(0)(a1, a2, i)  :- (i === 0),
+      p(0)(a1, a2, i)     :- (i === 0),
       p(0)(a1, a2, i + 1) :- (p(0)(a1, a2, i), 3 === ar.select(a1, i),
                                                4 === ar.select(a2, i), i < 10),
       p(1)(a1, a2, i)     :- (p(0)(a1, a2, i), i >= 10),
-      false          :- (p(1)(a1, a2, i),
-                        extQuan.morphism(a1, 0, 10) =/= 30) // right-open interval
+      false               :- (p(1)(a1, a2, i),
+                             extQuan.morphism(a1, 0, 10) =/= 30) // [0, 10)
       )
 
     val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((pred, f) <- sln) {
+          println(s"$pred -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
 
     println(instrLoop.result)
   }

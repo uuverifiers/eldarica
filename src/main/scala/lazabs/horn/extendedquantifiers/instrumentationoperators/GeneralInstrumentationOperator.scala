@@ -1,6 +1,6 @@
 package lazabs.horn.extendedquantifiers.instrumentationoperators
 
-import ap.parser.{IConstant, IExpression, ITerm}
+import ap.parser.{IConstant, IExpression, IFormula, ITerm}
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.extendedquantifiers._
 import InstrumentationOperator.GhostVar
@@ -86,6 +86,19 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     // GhArr is not initialized
   ) ++ alienGhostVarInitialValues
 
+  /**
+   * @todo Consider alien ghost variables as well.
+   */
+  override def ghostVarsToAggregateFormula(ghostTerms : Map[GhostVar, ITerm])
+  : IFormula = {
+    import IExpression._
+    assert(ghostVars.forall(ghostTerms contains))
+    // exq.morphism(arr, lo, hi) === res
+    exq.morphism(ghostTerms(GhArr),
+                 ghostTerms(GhLo),
+                 ghostTerms(GhHi)) === ghostTerms(GhRes)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   /**
    * A convenience method that uses the predicate of the extended quantifier
@@ -110,10 +123,11 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
 
     if (arrayTheory2 != exq.arrayTheory) return Seq()
 
-    val Seq(oldLo, oldHi, oldArr, oldRes, oldArrInd) =
-      ghostVars.map(gVar => oldGhostTerms(gVar))
-    val Seq(newLo, newHi, newRes, newArr, newArrInd) =
-      ghostVars.map(gVar => newGhostTerms(gVar))
+    val (oldLo, newLo)         = (oldGhostTerms(GhLo), newGhostTerms(GhLo))
+    val (oldHi, newHi)         = (oldGhostTerms(GhHi), newGhostTerms(GhHi))
+    val (oldRes, newRes)       = (oldGhostTerms(GhRes), newGhostTerms(GhRes))
+    val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
+    val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
     // Array pass-through instrumentation for stores. This allows ignoring
     // stores to outside the tracked range.
@@ -181,10 +195,11 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
 
     if (arrayTheory2 != exq.arrayTheory) return Seq()
 
-    val Seq(oldLo, oldHi, oldArr, oldRes, oldArrInd) =
-      ghostVars.map(gVar => oldGhostTerms(gVar))
-    val Seq(newLo, newHi, newRes, newArr, newArrInd) =
-      ghostVars.map(gVar => newGhostTerms(gVar))
+    val (oldLo, newLo)         = (oldGhostTerms(GhLo), newGhostTerms(GhLo))
+    val (oldHi, newHi)         = (oldGhostTerms(GhHi), newGhostTerms(GhHi))
+    val (oldRes, newRes)       = (oldGhostTerms(GhRes), newGhostTerms(GhRes))
+    val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
+    val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
     val instrConstraint =
       (newArr === a) &&&
@@ -227,13 +242,18 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
   : Seq[RewriteRules.Result] = {
     if (ghostTerms.size > 1) {
       // TODO: Generalize to multiple ghost variable ranges.
-      throw new NotImplementedError("Multiple ghost variable sets are currently" +
-                                    "unsupported.")
+      throw new NotImplementedError(
+        "Multiple ghost variable sets are currently unsupported.")
     }
 
-    val ghostVarToGhostTerm = ghostTerms.head
-    val Seq(gLo, gHi, gArr, gRes, gArrInd) =
-      ghostVars.map(gVar => ghostVarToGhostTerm(gVar))
+    val ghostVarToGhostTerm                = ghostTerms.head
+    val Seq(gLo, gHi, gArr, gRes, gArrInd) = Seq(
+      ghostVarToGhostTerm(GhLo),
+      ghostVarToGhostTerm(GhHi),
+      ghostVarToGhostTerm(GhArr),
+      ghostVarToGhostTerm(GhRes),
+      ghostVarToGhostTerm(GhArrInd)
+    )
 
     val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
 
