@@ -96,15 +96,15 @@ class InstrumentationLoop (clauses : Clauses,
   private var rawResult : Result = Inconclusive
   private val searchSpaceSizePerNumGhostRanges = new MHashMap[Int, Int]
   private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
-  private var lastSolver : IncrementalHornPredAbs[Clause] = _
-  private var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
+  private var lastSolver : IncrementalHornPredAbs[Clause]       = _
+  private var lastInstrumenter : InstrumentationOperatorApplier = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
-    val numRanges = ghostVarRanges.head
+    val numRanges = 2//ghostVarRanges.head
     ghostVarRanges -= numRanges
 
     println("# ghost variable ranges: " + numRanges)
-    val instrumenter = new SimpleExtendedQuantifierInstrumenter(
+    val instrumenter = new InstrumentationOperatorApplier(
       simpClauses, curHints, Set.empty, numRanges)
     lastInstrumenter = instrumenter
 

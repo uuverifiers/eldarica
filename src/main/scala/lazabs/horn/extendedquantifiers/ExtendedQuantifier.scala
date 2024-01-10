@@ -90,20 +90,6 @@ class ExtendedQuantifier(
    * This `predicate` is of the form `p(o, i)`, where `o` is the
    * written/read object at index `i`.
    * Example: in `p(o, i): o = i + c`, `c` is an alien term.
-   * In the paper we cannot deal with these alien terms, but in practice these
-   * pop up often. To deal with such terms, we do an encoding as follows:
-   *  - Introduce a pair of ghost variables `(cShad, cSet)` for each `c`.
-   *    Primed versions denote the corresponding updated variables.
-   *  - During instrumentation, for each `c`, add the following as a conjunct
-   *    to the instrumentation constraint:
-   *      `ite(cSet, cShad' === cShad, cShad' = c) & cSet'`
-   *    This ensures that cShad tracks c and is set.
-   *    And add the following as an assertion:
-   *      `cSet ==> (cShad === c))`
-   *    This fails if `cShad` is tracking the wrong `c`. This can happen because
-   *    the implementation ''guesses'' which `c` to track in the clauses by the
-   *    name of `c`, which can be incorrect. If this assertion fails, that means
-   *    the guess was incorrect.
    */
   val alienConstantsInPredicate: Seq[ConstantTerm] = {
     predicate match {

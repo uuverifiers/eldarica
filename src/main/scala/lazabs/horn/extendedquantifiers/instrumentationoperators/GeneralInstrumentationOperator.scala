@@ -1,27 +1,82 @@
 package lazabs.horn.extendedquantifiers.instrumentationoperators
 
-import ap.parser.{IExpression, ITerm}
+import ap.parser.{IConstant, IExpression, ITerm}
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.extendedquantifiers._
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
+import InstrumentationOperator.GhostVar
+import ap.terfor.ConstantTerm
+import ap.theories.ADT
+import ap.types.Sort
 
 /**
  * A general instrumentation not specialized to any operator.
  */
 class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     extends InstrumentationOperator(exq) {
-  case object GhLo     extends GhostVar(exq.arrayIndexSort)
-  case object GhHi     extends GhostVar(exq.arrayIndexSort)
-  case object GhRes    extends GhostVar(exq.arrayTheory.objSort)
-  case object GhArr    extends GhostVar(exq.arrayTheory.sort)
-  case object GhArrInd extends GhostVar(exq.arrayIndexSort)
+  // Extended quantifier ghost variables.
+  case object GhLo     extends GhostVar(exq.arrayIndexSort, "gLo")
+  case object GhHi     extends GhostVar(exq.arrayIndexSort, "gHi")
+  case object GhRes    extends GhostVar(exq.arrayTheory.objSort, "gRes")
+  case object GhArr    extends GhostVar(exq.arrayTheory.sort, "gArr")
+  case object GhArrInd extends GhostVar(exq.arrayIndexSort, "gArrInd")
 
   /**
-   * The concrete rewrite rules in this class depend on the order and length of
-   * ghostVars, so those rules should be updated if ghostVars is modified.
+   * In the paper we cannot deal with alien terms appearing in
+   * [[ExtendedQuantifier.predicate]].
+   * Example: in `p(o, i): o = i + c`, `c` is an alien term.
+   *
+   * In practice such terms pop up often. To deal with such terms, we do an
+   * encoding as follows:
+   * (1)Introduce a pair of ghost variables `(cShad, cSet)` for each `c`.
+   *    Primed versions denote the corresponding updated variables. Note that
+   *    these ghost variables track actual variables of the program and do not
+   *    need to be duplicated as other ghost variables with more tracked ranges,
+   *    but for simplicity of the implementation we duplicate them too.
+   * (2)During instrumentation, for each `c`, add the following as a conjunct
+   *    to the instrumentation constraint:
+   *      `ite(cSet, cShad' === cShad, cShad' = c) & cSet'`
+   *    This ensures that cShad tracks c and is set.
+   *    And add the following as an assertion:
+   *      `cSet ==> (cShad === c))`
+   *    This fails if `cShad` is tracking the wrong `c`. This can happen because
+   *    the implementation ''guesses'' which `c` to track in the clauses by the
+   *    name of `c`, which can be incorrect. If this assertion fails, that means
+   *    the guess was incorrect.
    */
-  override val ghostVars: Seq[GhostVar] =
-    Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd)
+
+  case class AlienGhostVars(vShad : GhostVar, vSet : GhostVar)
+
+  // We declare two case classes to be able to easily distinguish between the
+  // 'shadow' and 'set' ghost variables for alien terms.
+  case class GhAlienShad(_sort : Sort, _name : String)
+    extends GhostVar(_sort, _name)
+  case class GhAlienSet (_name : String) extends GhostVar(Sort.Bool, _name)
+
+  val alienConstantToAlienGhostVars : Map[ConstantTerm, AlienGhostVars] =
+    (for (c <- exq.alienConstantsInPredicate) yield {
+      // As per (1) from the explanation above, create one pair per constant.
+      val vShad = GhAlienShad(Sort.sortOf(IConstant(c)), c.name + "Shad")
+      val vSet  = GhAlienSet(c.name + "Set")
+      c -> AlienGhostVars(vShad = vShad, vSet = vSet)
+    }).toMap
+
+  // Alien ghost variables should not be duplicated, so we declare them as such.
+  val alienGhostVars : Seq[GhostVar] =
+    alienConstantToAlienGhostVars.values.flatMap(
+      pair => Seq(pair.vShad, pair.vSet)).toSeq
+
+  /**
+   * Declare the ghost variables for the extended quantifier + other ghosts.
+   */
+  override val ghostVars : Seq[GhostVar] =
+    Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd) ++ alienGhostVars
+
+  private val alienGhostVarInitialValues : Map[GhostVar, ITerm] =
+    alienGhostVars.collect{
+      // GhAlienShad variables should be left uninitialized so we only set vSet
+      // to false during initialization.
+      case vSet : GhAlienSet => vSet -> ADT.BoolADT.False
+    }.toMap
 
   override val ghostVarInitialValues: Map[GhostVar, ITerm] = Map(
     GhLo     -> IExpression.i(0),
@@ -29,8 +84,17 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     GhRes    -> exq.identity,
     GhArrInd -> IExpression.i(0)
     // GhArr is not initialized
-  )
+  ) ++ alienGhostVarInitialValues
 
+  //////////////////////////////////////////////////////////////////////////////
+  /**
+   * A convenience method that uses the predicate of the extended quantifier
+   * theory, if one is provided, otherwise the passed object. This allows
+   * having a common encoding for extended quantifiers with predicates and
+   * without predicates.
+   * @param o `o` in `a[i] = o`
+   * @param i `i` in `a[i] = o`
+   */
   private def pred(o: ITerm, i: ITerm) = exq.predicate match {
     case Some(p) => p(o, i)
     case None    => o
@@ -163,7 +227,8 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
   : Seq[RewriteRules.Result] = {
     if (ghostTerms.size > 1) {
       // TODO: Generalize to multiple ghost variable ranges.
-      throw new NotImplementedException
+      throw new NotImplementedError("Multiple ghost variable sets are currently" +
+                                    "unsupported.")
     }
 
     val ghostVarToGhostTerm = ghostTerms.head

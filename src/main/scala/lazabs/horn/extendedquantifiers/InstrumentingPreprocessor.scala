@@ -111,7 +111,7 @@ class InstrumentingPreprocessor(
   // add ghost variables for each extended quantifier application
   private val ghostVariableAdder =
     new GhostVariableAdder(exqApps, exqToInstrumentationOperator, numGhostRanges)
-  val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap, alienVarToPredVar) =
+  val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap) =
     ghostVariableAdder.processAndGetGhostVarMap(clausesNormalized, hintsNormalized, frozenPredicates)
   translators += backTranslatorGhost
 
@@ -158,8 +158,7 @@ class InstrumentingPreprocessor(
             clauseInstrumenter.instrument(clause,
               //getGhostVarInds(extendedQuantifierInfo, ghostVarMap),
               ghostVarMap(extendedQuantifierInfo),
-              extendedQuantifierInfo,
-              alienVarToPredVar)
+              extendedQuantifierInfo)
           }
         // in each clause, the search space is the product of instrumentations for each extended quantifier
         val combinedInstrumentations =

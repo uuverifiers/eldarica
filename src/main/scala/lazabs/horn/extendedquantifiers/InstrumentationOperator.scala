@@ -2,25 +2,34 @@ package lazabs.horn.extendedquantifiers
 
 import ap.parser._
 import ap.types.Sort
-import lazabs.horn.extendedquantifiers.Util.{ConstInfo, ExtendedQuantifierApp, SelectInfo, StoreInfo}
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
+import lazabs.horn.extendedquantifiers.Util._
 
 object RewriteRules {
+  /**
+   * The result of a rewrite rule. Let `c` be the original conjunct that the
+   * rewrite rule is applied to. Then the new formula  will be:
+   * `subst(c &&& newConjunct, rewriteFormulas)` where `subst` is some method
+   * that rewrites all formulas appearing in the keys of `rewriteFormulas` with
+   * their values.
+   * Each formula in `assertions` will also be asserted.
+   */
   case class Result(newConjunct     : IFormula,
                     rewriteFormulas : Map[IFormula, IFormula],
                     assertions      : Seq[IFormula])
 }
-
-abstract class GhostVar(val sort : Sort)
 
 trait RewriteRules {
   // These rules are hardcoded as the array operations, but with some effort
   // the methods could also be generalized to a map from theory functions to
   // rewrite rules.
 
+  import InstrumentationOperator.GhostVar
+
   /**
    * `oldGhostTerms` and `newGhostTerms` are the old and new values of ghost
    * variables defined in [[InstrumentationOperator.ghostVars]].
+   * All rewrite rules return a sequence of [[RewriteRules.Result]], which
+   * contains information about which conjuncts to add, rewrite, and assert.
    */
   def rewriteStore(oldGhostTerms : Map[GhostVar, ITerm],
                    newGhostTerms : Map[GhostVar, ITerm],
@@ -31,16 +40,47 @@ trait RewriteRules {
   def rewriteConst(oldGhostTerms : Map[GhostVar, ITerm],
                    newGhostTerms : Map[GhostVar, ITerm],
                    constInfo     : ConstInfo) : Seq[RewriteRules.Result]
-  def rewriteAggregate(ghostTerms : Seq[Map[GhostVar, ITerm]],
-                       exqInfo    : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
+
+  /**
+   * The rule for rewriting applications of [[ExtendedQuantifier.morphism]].
+   * @param ghostTerms A collection of [[InstrumentationOperator.ghostVars]].
+   *                   There will be
+   *                   [[InstrumentationOperatorApplier.numGhostRanges]] such
+   *                   collections.
+   * @param exqInfo Information extracted from the application of
+   *                [[ExtendedQuantifier.morphism]].
+   */
+  def rewriteAggregate(
+    ghostTerms              : Seq[Map[GhostVar, ITerm]],
+    exqInfo                 : ExtendedQuantifierApp) : Seq[RewriteRules.Result]
+}
+
+object InstrumentationOperator {
+  class GhostVar(val sort : Sort, val name : String) {
+    override def toString : String = name
+  }
 }
 
 abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
   extends RewriteRules {
-  val ghostVars : Seq[GhostVar]
+  import InstrumentationOperator.GhostVar
+
   /**
-   * Initial values for the ghost variables. If an initial value is not found
-   * for a GhostVar, it is not initialized to any value.
+   * These are the ghost variables of the extended quantifier.
+   * There will be [[InstrumentationOperatorApplier.numGhostRanges]] such
+   * sequences of ghost variables.
+   * Sometimes we might want additional ghost variables that are not directly
+   * related to the extended quantifier (such as alien terms). For simplicity,
+   * these should be declared as part of below ghostVars. As a result, these
+   * terms will be needlessly duplicated when `numGhostRanges > 1`.
+   *
+   * @todo Check if Eldarica's other preprocessors slice away such copies.
+   */
+  val ghostVars : Seq[GhostVar]
+
+  /**
+   * Optional initial values for `ghostVars`.
+   * If an initial value is not found for a GhostVar, it is left uninitialized.
    */
   val ghostVarInitialValues : Map[GhostVar, ITerm]
 }

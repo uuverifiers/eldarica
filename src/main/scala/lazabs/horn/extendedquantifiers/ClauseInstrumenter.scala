@@ -52,9 +52,8 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
 
   // returns all instrumentations of a clause
   def instrument (clause                 : Clause,
-                  allGhostVarInds        : Map[Predicate, Seq[GhostVariableInds]],
-                  extendedQuantifierInfo : ExtendedQuantifierApp,
-                  alienVarToPredVar : Map[ITerm, ITerm]) : Seq[Instrumentation] = {
+                  allGhostVarInds        : Map[Predicate, GhostVariableInds],
+                  extendedQuantifierInfo : ExtendedQuantifierApp) : Seq[Instrumentation] = {
     val rewrites : Seq[Instrumentation] = {
       val conjuncts : Seq[IFormula] =
         LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
@@ -66,24 +65,16 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
           throw new Exception("More than one conjunct found for rewriting," +
             " are the clauses normalized?\n" + clause.toPrologString)
 
-        val ghostVarTerms: Seq[GhostVariableTerms] =
-          for (GhostVariableInds(oldGhostInds, oldAlienInds) <-
-                  allGhostVarInds(clause.body.head.pred)) yield {
-            val ghostTerms =
-              for((ghostVar, ind) <- oldGhostInds) yield
-                ghostVar -> clause.body.head.args(ind)
-            val alienTerms =
-              for (AlienGhostVariableInds(iv, ivSet) <- oldAlienInds) yield
-                AlienGhostVariableTerms(v = clause.body.head.args(iv),
-                                        vSet = clause.body.head.args(ivSet))
-            GhostVariableTerms(ghostTerms, alienTerms = alienTerms)
-          }
+        val ghostVarTerms: GhostVariableTerms =
+          for (oldGhostInds <- allGhostVarInds(clause.body.head.pred)) yield
+            for((ghostVar, ind) <- oldGhostInds) yield
+              ghostVar -> clause.body.head.args(ind)
 
         val rewriteResults: Seq[RewriteRules.Result] =
           relevantConjuncts.headOption match {
             case Some(c) if extendedQuantifierInfo ==
               ExtQuantifierFunctionApplicationCollector(c).head =>
-              instOp.rewriteAggregate(ghostVarTerms.map(_.ghostTerms), extendedQuantifierInfo)
+              instOp.rewriteAggregate(ghostVarTerms, extendedQuantifierInfo)
             case _ => Nil
           }
         for (result <- rewriteResults) yield
@@ -94,19 +85,21 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
 
     // returns instrumentations for body atom, EXCEPT the identity instrumentations
     def instrForBodyAtom(bAtom : IAtom) : Seq[Instrumentation] = {
-      (for ((GhostVariableInds(oldGhostInds, oldAlienInds), iGhostVars) <-
-              allGhostVarInds(bAtom.pred).zipWithIndex
+      (for ((ghostVarToBodyInd, iGhostVars)
+              <- allGhostVarInds(bAtom.pred).zipWithIndex
             if allGhostVarInds contains clause.head.pred) yield {
-        val alienBodyTerms =
-          for (AlienGhostVariableInds(iv, ivSet) <- oldAlienInds) yield
-            AlienGhostVariableTerms(v = bAtom.args(iv),
-                                    vSet = bAtom.args(ivSet))
-        val ghostBodyTerms =
-          for ((ghostVar, ghostInd) <- oldGhostInds) yield
-            ghostVar -> clause.body.head.args(ghostInd)
-        val bodyTerms = GhostVariableTerms(ghostBodyTerms, alienBodyTerms)
+
+        val bodyGhostTerms =
+          for ((ghostVar, bodyInd) <- ghostVarToBodyInd) yield
+            ghostVar -> bAtom.args(bodyInd)
+
         val conjuncts : Seq[IFormula] =
           LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
+
+        /**
+         * @todo These functions should not be hardcoded and extracted from the
+         *       instrumentation operator instead!
+         */
         val relevantConjuncts =
           conjuncts filter (c => isSelect(c) || isConst(c) || isStore(c))
         if(relevantConjuncts.length > 1)
@@ -120,70 +113,55 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
             arrayTheory.objSort
         }
 
-        val alienHeadTerms =
-          for (AlienGhostVariableTerms(v, vSet) <- bodyTerms.alienTerms) yield {
-            AlienGhostVariableTerms(
-              IConstant(new SortedConstantTerm(v.toString + iGhostVars + "'", Sort.sortOf(v))),
-              IConstant(new SortedConstantTerm(vSet.toString + iGhostVars + "'", Sort.Bool)))
-          }
-        val ghostHeadTerms =
-          for ((ghostVar, ghostTerm) <- bodyTerms.ghostTerms) yield {
+        val headGhostTerms =
+          for (ghostVar <- instOp.ghostVars) yield
             ghostVar -> IConstant(new SortedConstantTerm(
-              ghostTerm.toString + "_" + iGhostVars + "'", ghostVar.sort))
-          }
-
-        val headTerms = GhostVariableTerms(ghostHeadTerms, alienHeadTerms)
+              s"${ghostVar.name}_$iGhostVars\'", ghostVar.sort))
 
         val ghostVarSetsInPred = allGhostVarInds(clause.head.pred)
         val hInds = ghostVarSetsInPred(iGhostVars)
 
-        val alienTermHeadIndMap : Map[Int, ITerm] = ({
-          (for((inds, terms) <- hInds.alienInds zip headTerms.alienTerms) yield {
-            Seq(inds.v -> terms.v, inds.vSet -> terms.vSet)
-          }).flatten
-        }).toMap
-        val ghostTermHeadIndMap : Map[Int, ITerm] =
-          for ((inds, terms) <- hInds.ghostInds zip headTerms.ghostTerms)
+        val headTermMap : Map[Int, ITerm] =
+          for ((inds, terms) <- hInds zip headGhostTerms)
             yield inds._2 -> terms._2
 
-        val headTermMap = ghostTermHeadIndMap ++ alienTermHeadIndMap
-
         // try to "guess" some constants for the alien terms in predicates
-        val alienTermMap : Map[ITerm, ITerm] = {
-          val clauseConstants : Seq[ConstantTerm] = clause.constantsSorted
-          for (t <- alienBodyTerms) yield {
-            clauseConstants.find(c => // todo: refactor
-              t.v.asInstanceOf[IConstant].c.name contains (c.name ++ "_shad"))
-            match {
-              case Some(c) =>
-                t.v -> IConstant(c)
-              case None => // try the first argument,
-                // if the wrong argument is picked this will be caught in the
-                // last assertion
-                t.v -> IConstant(clauseConstants.headOption.getOrElse(
-                  t.v.asInstanceOf[IConstant].c))
-            }
-          }
-        }.toMap
+//        val alienTermMap : Map[ITerm, ITerm] = {
+//          val clauseConstants : Seq[ConstantTerm] = clause.constantsSorted
+//          for (t <- alienBodyTerms) yield {
+//            clauseConstants.find(c => // todo: refactor
+//              t.v.asInstanceOf[IConstant].c.name contains (c.name ++ "_shad"))
+//            match {
+//              case Some(c) =>
+//                t.v -> IConstant(c)
+//              case None => // try the first argument,
+//                // if the wrong argument is picked this will be caught in the
+//                // last assertion
+//                t.v -> IConstant(clauseConstants.headOption.getOrElse(
+//                  t.v.asInstanceOf[IConstant].c))
+//            }
+//          }
+//        }.toMap
 
         // TODO: currently this ignores alien terms, either the results should
         //       updated to take those into account (i.e., by adding/adjusting
         //       the constraint and the assertions, or the implementation of
         //       RewriteRules should deal with them (which is probably less
         //       ideal)
-        val instrumentationResults : Seq[RewriteRules.Result] =
-          relevantConjuncts.headOption match {
-            case Some(c) if isSelect(c) => instOp.rewriteSelect(
-              ghostBodyTerms, ghostHeadTerms, extractSelectInfo(c))
-            case Some(c) if isStore(c)  => instOp.rewriteStore(
-              ghostBodyTerms, ghostHeadTerms, extractStoreInfo(c))
-            case Some(c) if isConst(c) => instOp.rewriteConst(
-              ghostBodyTerms, ghostHeadTerms, extractConstInfo(c))
-            case None => Nil
-          }
-        for(result <- instrumentationResults) yield Instrumentation(
-          result.newConjunct, result.assertions, headTermMap, Map())
-      }).flatten
+        val instrumentationResults : Seq[RewriteRules.Result] = Nil
+//          relevantConjuncts.headOption match {
+//            case Some(c) if isSelect(c) => instOp.rewriteSelect(
+//              ghostBodyTerms, ghostHeadTerms, extractSelectInfo(c))
+//            case Some(c) if isStore(c)  => instOp.rewriteStore(
+//              ghostBodyTerms, ghostHeadTerms, extractStoreInfo(c))
+//            case Some(c) if isConst(c) => instOp.rewriteConst(
+//              ghostBodyTerms, ghostHeadTerms, extractConstInfo(c))
+//            case None => Nil
+//          }
+//        for(result <- instrumentationResults) yield Instrumentation(
+//          result.newConjunct, result.assertions, headTermMap, Map())
+      })//.flatten
+      ???
     }
 
     // todo: correctly compose identity and regular instrumentations for multiple sets of ghost variables!
@@ -195,118 +173,119 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
     //  e.g. h(g1,g2,g3) :- b(g1,g2,g3). Assume g1 & g2 were instrumented,
     //  we create a new instrumentation where g1 & g2 are instrumented and g3 is
     //  passed unchanged (the original instrumentation says nothing about g3).
-    def getCompleteInstrumentation (bodyAtom : IAtom,
-                                    inst     : Instrumentation)
-    : Instrumentation = {
-      if(allGhostVarInds contains clause.head.pred) {
-        val bodyGhostVarInds: Seq[GhostVariableInds] =
-          allGhostVarInds(bodyAtom.pred)
-        val headGhostVarInds   : Seq[GhostVariableInds] =
-          allGhostVarInds(clause.head.pred)
-        val unusedHeadBodyInds : Seq[(GhostVariableInds, GhostVariableInds)] =
-          (headGhostVarInds zip bodyGhostVarInds).filter(inds =>
-            !inst.headTerms.exists(t => inds._1.ghostInds.values.toSeq.contains(t._1)))
-        val identityInds =
-          for ((hInds, bInds) <- unusedHeadBodyInds) yield {
-            val alienHeadTerms =
-              for(AlienGhostVariableInds(iv, ivSet) <- bInds.alienInds) yield {
-                AlienGhostVariableTerms(v = clause.head.args(iv),
-                                        vSet = clause.head.args(ivSet))
-              }
-            val ghostHeadTerms = (for (ghostVar <- instOp.ghostVars) yield
-              ghostVar -> clause.head.args(hInds.ghostInds(ghostVar))).toMap
-
-            val headTerms = GhostVariableTerms(ghostHeadTerms, alienHeadTerms)
-
-            val alienBodyTerms =
-              for (AlienGhostVariableInds(iv, ivSet) <- bInds.alienInds)
-                yield AlienGhostVariableTerms(v = bodyAtom.args(iv),
-                                              vSet = bodyAtom.args(ivSet))
-            val ghostBodyTerms = (for (ghostVar <- instOp.ghostVars) yield
-              ghostVar -> bodyAtom.args(bInds.ghostInds(ghostVar))).toMap
-
-            val bodyTerms = GhostVariableTerms(ghostBodyTerms, alienBodyTerms)
-
-            val alienConjuncts =
-              (for ((ts1, ts2) <-
-                      headTerms.alienTerms zip bodyTerms.alienTerms) yield {
-                ts1.v === ts2.v &&& ts1.vSet === ts2.vSet
-              }).fold(i(true))((c1, c2) => c1 &&& c2)
-
-            val newConjunct = and(for(ghostVar <- instOp.ghostVars) yield {
-              headTerms.ghostTerms(ghostVar) === bodyTerms.ghostTerms(ghostVar)
-            }) &&& alienConjuncts
-
-            val alienTermIndMap : Map[Int, ITerm] = ({
-              (for ((inds, terms) <- hInds.alienInds zip headTerms
-                .alienTerms) yield {
-                Seq(inds.v -> terms.v, inds.vSet -> terms.vSet)
-              }).flatten
-            }).toMap
-
-            val headTermMap: Map[Int, ITerm] =
-              (for (ghostVar <- instOp.ghostVars) yield
-                hInds.ghostInds(ghostVar) -> headTerms.ghostTerms(ghostVar)
-                ).toMap ++ alienTermIndMap
-
-            Instrumentation(newConjunct, Nil, headTermMap, Map())
-          }
-        identityInds.reduceOption(_ + _).
-          getOrElse(Instrumentation.emptyInstrumentation) + inst
-      } else inst
-    }
+//    def getCompleteInstrumentation (bodyAtom : IAtom,
+//                                    inst     : Instrumentation)
+//    : Instrumentation = {
+//      if(allGhostVarInds contains clause.head.pred) {
+//        val bodyGhostVarInds: Seq[GhostVariableInds] =
+//          allGhostVarInds(bodyAtom.pred)
+//        val headGhostVarInds   : Seq[GhostVariableInds] =
+//          allGhostVarInds(clause.head.pred)
+//        val unusedHeadBodyInds : Seq[(GhostVariableInds, GhostVariableInds)] =
+//          (headGhostVarInds zip bodyGhostVarInds).filter(inds =>
+//            !inst.headTerms.exists(t => inds._1.ghostInds.values.toSeq.contains(t._1)))
+//        val identityInds =
+//          for ((hInds, bInds) <- unusedHeadBodyInds) yield {
+//            val alienHeadTerms =
+//              for(AlienGhostVariableInds(iv, ivSet) <- bInds.alienInds) yield {
+//                AlienGhostVariableTerms(v = clause.head.args(iv),
+//                                        vSet = clause.head.args(ivSet))
+//              }
+//            val ghostHeadTerms = (for (ghostVar <- instOp.ghostVars) yield
+//              ghostVar -> clause.head.args(hInds.ghostInds(ghostVar))).toMap
+//
+//            val headTerms = GhostVariableTerms(ghostHeadTerms, alienHeadTerms)
+//
+//            val alienBodyTerms =
+//              for (AlienGhostVariableInds(iv, ivSet) <- bInds.alienInds)
+//                yield AlienGhostVariableTerms(v = bodyAtom.args(iv),
+//                                              vSet = bodyAtom.args(ivSet))
+//            val ghostBodyTerms = (for (ghostVar <- instOp.ghostVars) yield
+//              ghostVar -> bodyAtom.args(bInds.ghostInds(ghostVar))).toMap
+//
+//            val bodyTerms = GhostVariableTerms(ghostBodyTerms, alienBodyTerms)
+//
+//            val alienConjuncts =
+//              (for ((ts1, ts2) <-
+//                      headTerms.alienTerms zip bodyTerms.alienTerms) yield {
+//                ts1.v === ts2.v &&& ts1.vSet === ts2.vSet
+//              }).fold(i(true))((c1, c2) => c1 &&& c2)
+//
+//            val newConjunct = and(for(ghostVar <- instOp.ghostVars) yield {
+//              headTerms.ghostTerms(ghostVar) === bodyTerms.ghostTerms(ghostVar)
+//            }) &&& alienConjuncts
+//
+//            val alienTermIndMap : Map[Int, ITerm] = ({
+//              (for ((inds, terms) <- hInds.alienInds zip headTerms
+//                .alienTerms) yield {
+//                Seq(inds.v -> terms.v, inds.vSet -> terms.vSet)
+//              }).flatten
+//            }).toMap
+//
+//            val headTermMap: Map[Int, ITerm] =
+//              (for (ghostVar <- instOp.ghostVars) yield
+//                hInds.ghostInds(ghostVar) -> headTerms.ghostTerms(ghostVar)
+//                ).toMap ++ alienTermIndMap
+//
+//            Instrumentation(newConjunct, Nil, headTermMap, Map())
+//          }
+//        identityInds.reduceOption(_ + _).
+//          getOrElse(Instrumentation.emptyInstrumentation) + inst
+//      } else inst
+//    }
 
     // returns the identity instrumentation (i.e., all ghost vars are passed unchanged)
-    def identityInstrumentation (bAtom : IAtom) =
-      if(allGhostVarInds contains clause.head.pred)
-        getCompleteInstrumentation(bAtom, Instrumentation.emptyInstrumentation)
-      else Instrumentation.emptyInstrumentation
-
-    val instrsForBodyAtoms : Seq[(IAtom, Seq[Instrumentation])] =
-      clause.body map (atom => (atom, instrForBodyAtom(atom)))
-    val identityInstrsForBodyAtoms : Seq[Instrumentation] =
-      clause.body map identityInstrumentation
+//    def identityInstrumentation (bAtom : IAtom) =
+//      if(allGhostVarInds contains clause.head.pred)
+//        getCompleteInstrumentation(bAtom, Instrumentation.emptyInstrumentation)
+//      else Instrumentation.emptyInstrumentation
+//
+//    val instrsForBodyAtoms : Seq[(IAtom, Seq[Instrumentation])] =
+//      clause.body map (atom => (atom, instrForBodyAtom(atom)))
+//    val identityInstrsForBodyAtoms : Seq[Instrumentation] =
+//      clause.body map identityInstrumentation
 
     // this will propagate ghost variables if there is a head
-    val instrsFromRewrites =
-      if(rewrites nonEmpty) {
-        rewrites.map(inst => getCompleteInstrumentation(clause.body.head, inst))
-      } else rewrites
-
-    // if we have a rewrite in this clause, there should not be any other
-    // instrumentations due to normalization.
-    assert(rewrites.isEmpty || instrsForBodyAtoms.forall(_._2.isEmpty))
-
-    val numGhostVarSets = allGhostVarInds.head._2.length
-    val combsForBodyAtoms: Seq[Seq[Instrumentation]] =
-      for ((bAtom, instrs) <- instrsForBodyAtoms) yield {
-        val combinations: Seq[Seq[Instrumentation]] =
-          (for (i <- 1 to numGhostVarSets) yield {
-            instrs.combinations(i)
-          }).flatten
-
-        val differentCombinations = combinations.filter{combs =>
-          val headTermsSeq = combs.map(_.headTerms)
-          val firstElementsSeq = headTermsSeq.map(_.toSeq.headOption)
-          // no duplicates, i.e., no instrumentations are updating the same
-          // head terms, they can be combined
-          (firstElementsSeq.distinct.size == firstElementsSeq.size)
-        }
-        val completeCombinatons: Seq[Instrumentation] =
-          for (combination <- differentCombinations) yield {
-            getCompleteInstrumentation(bAtom,
-              combination.reduceOption(_ + _).getOrElse(
-                Instrumentation.emptyInstrumentation))
-          }
-        completeCombinatons
-      }
-
-    if(rewrites isEmpty)
-      combsForBodyAtoms.reduceOption((instrs1, instrs2) =>
-        Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++
-        identityInstrsForBodyAtoms
-    else
-      instrsFromRewrites
+//    val instrsFromRewrites =
+//      if(rewrites nonEmpty) {
+//        rewrites.map(inst => getCompleteInstrumentation(clause.body.head, inst))
+//      } else rewrites
+//
+//    // if we have a rewrite in this clause, there should not be any other
+//    // instrumentations due to normalization.
+//    assert(rewrites.isEmpty || instrsForBodyAtoms.forall(_._2.isEmpty))
+//
+//    val numGhostVarSets = allGhostVarInds.head._2.length
+//    val combsForBodyAtoms: Seq[Seq[Instrumentation]] =
+//      for ((bAtom, instrs) <- instrsForBodyAtoms) yield {
+//        val combinations: Seq[Seq[Instrumentation]] =
+//          (for (i <- 1 to numGhostVarSets) yield {
+//            instrs.combinations(i)
+//          }).flatten
+//
+//        val differentCombinations = combinations.filter{combs =>
+//          val headTermsSeq = combs.map(_.headTerms)
+//          val firstElementsSeq = headTermsSeq.map(_.toSeq.headOption)
+//          // no duplicates, i.e., no instrumentations are updating the same
+//          // head terms, they can be combined
+//          (firstElementsSeq.distinct.size == firstElementsSeq.size)
+//        }
+//        val completeCombinatons: Seq[Instrumentation] =
+//          for (combination <- differentCombinations) yield {
+//            getCompleteInstrumentation(bAtom,
+//              combination.reduceOption(_ + _).getOrElse(
+//                Instrumentation.emptyInstrumentation))
+//          }
+//        completeCombinatons
+//      }
+//
+//    if(rewrites isEmpty)
+//      combsForBodyAtoms.reduceOption((instrs1, instrs2) =>
+//        Instrumentation.product(instrs1, instrs2)).getOrElse(Nil) ++
+//        identityInstrsForBodyAtoms
+//    else
+//      instrsFromRewrites
+    ???
   }
 }
 
