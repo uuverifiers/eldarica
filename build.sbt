@@ -125,7 +125,7 @@ lazy val root = (project in file(".")).
            "-encoding", "UTF-8"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.17" => "-opt:_"
+      case "1.12.17" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
@@ -150,7 +150,7 @@ lazy val root = (project in file(".")).
 //
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //
-    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
