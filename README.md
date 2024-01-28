@@ -22,9 +22,7 @@ with further contributions by Zafer Esen, Filip Konecny, and Pavle Subotic.
 
 There is a simple **web interface** to experiment with the C interface
 of Eldarica:
-http://logicrunch.it.uu.se:4096/~wv/eldarica
-
-The latest **nightly build** is available from: http://logicrunch.it.uu.se:4096/~wv/eldarica/eldarica-bin-nightly.zip
+https://eldarica.org/eldarica
 
 Documentation
 -------------
@@ -44,7 +42,7 @@ When using a binary release, one can instead also call
 
   <code>java -jar target/scala-2.\*/Eldarica-assembly\*.jar regression-tests/horn-smt-lib/rate_limiter.c.nts.smt2</code>
 
-A set of examples is provided on http://logicrunch.it.uu.se:4096/~wv/eldarica, and included
+A set of examples is provided on https://eldarica.org/eldarica, and included
 in the distributions directory <code>regression-tests</code>.
 
 You can use the script <code>eld-client</code> instead of
