@@ -286,8 +286,25 @@ object Main {
   def openInputFile {
     val params = GlobalParameters.parameters.value
     import params._
-    in = new FileInputStream(fileName)
+    in = getFileStream(fileName)
   }
+
+  def setInputToSTDIN {
+    val params = GlobalParameters.parameters.value
+    params.in = System.in
+    params.format = GlobalParameters.InputFormat.SMTHorn
+  }
+
+  def getFileStream(fileName : String) : InputStream = {
+    try {
+      new FileInputStream(fileName)
+    } catch {
+      case e: FileNotFoundException =>
+        throw new MainException("No such file or option: " + fileName + ". Use -h for usage information" )
+        sys.exit(0)
+    }
+  }
+
 /*
   def checkInputFile {
     val params = GlobalParameters.parameters.value
@@ -359,6 +376,8 @@ object Main {
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
+
+      case "-in" :: rest => setInputToSTDIN; arguments(rest)
 
       case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
       case "-conc" :: rest => format = InputFormat.ConcurrentC; arguments(rest)
@@ -499,6 +518,7 @@ object Main {
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h                Show this information\n" +
+          " -in               Read from standard input (defaults to Horn SMT format)\n" +
           " -assert           Enable assertions in Eldarica\n" +
           " -log:n            Display progress based on verbosity level n (0 <= n <= 3)\n" +
           "                     1: Statistics only\n" +
@@ -656,11 +676,11 @@ object Main {
 
       val (clauseSet, absMap) = try { format match {
         case InputFormat.Prolog =>
-          (lazabs.horn.parser.HornReader.apply(fileName), None)
+          (lazabs.horn.parser.HornReader.apply(in), None)
         case InputFormat.SMTHorn =>
-          (lazabs.horn.parser.HornReader.fromSMT(fileName), None)
+          (lazabs.horn.parser.HornReader.fromSMT(in), None)
         case InputFormat.Nts =>
-          (NtsHorn(NtsWrapper(fileName)), None)
+          (NtsHorn(NtsWrapper(in)), None)
 /*        case InputFormat.UppaalOG =>
           lazabs.upp.OwickiGries(fileName, templateBasedInterpolation)
         case InputFormat.UppaalRG =>
@@ -686,7 +706,8 @@ object Main {
       }
 
       if(solFileName != "") {
-        val solution = lazabs.horn.parser.HornReader.apply(solFileName)
+        val solStream = getFileStream(solFileName)
+        val solution = lazabs.horn.parser.HornReader.apply(solStream)
         return
       }
 
@@ -764,7 +785,7 @@ object Main {
 
     val (cfg,m) = format match {
       case InputFormat.Nts =>
-        val ntsc = NtsCFG(NtsWrapper(fileName),lbe,staticAccelerate)
+        val ntsc = NtsCFG(NtsWrapper(in), lbe, staticAccelerate)
         (ntsc,Some(Map[Int,String]().empty ++ NtsWrapper.stateNameMap))        
 /*      case InputFormat.Scala =>
         checkInputFile

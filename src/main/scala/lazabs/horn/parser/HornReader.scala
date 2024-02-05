@@ -58,9 +58,8 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, LinkedHashSet}
 
 object HornReader {
-  def apply(fileName: String): Seq[HornClause] = {
-    val in = new java.io.BufferedReader (
-                 new java.io.FileReader(fileName))
+  def apply(inputStream: InputStream): Seq[HornClause] = {
+    val in = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream))
     val lexer = new HornLexer(in)
     val parser = new Parser(lexer)
     val tree = parser.parse()
@@ -68,10 +67,16 @@ object HornReader {
        tree.value.asInstanceOf[java.util.List[HornClause]]))
   }
 
-  def fromSMT(fileName: String) : Seq[HornClause] =
+  def fromSMT(fileName: String) : Seq[HornClause] = {
+    val inputStream = new java.io.FileInputStream(fileName)
+    fromSMT(inputStream)
+  }
+
+  def fromSMT(inputStream: InputStream) : Seq[HornClause] = {
     SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
-      (new SMTHornReader(fileName, p)).result
+      (new SMTHornReader(inputStream, p)).result
     }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -227,7 +232,7 @@ object HornReader {
 ////////////////////////////////////////////////////////////////////////////////
 
 class SMTHornReader protected[parser] (
-         fileName: String,
+         inputStream: InputStream,
          // we need a prover for some of the
          // clause preprocessing, in general
          p : SimpleAPI) {
@@ -248,7 +253,7 @@ class SMTHornReader protected[parser] (
   }
 
   private val reader = new java.io.BufferedReader (
-                 new java.io.FileReader(new java.io.File (fileName)))
+                 new java.io.InputStreamReader(inputStream))
   private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
                    ParserSettings.DEFAULT, true)
 
