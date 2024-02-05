@@ -292,7 +292,10 @@ object Main {
   def setInputToSTDIN {
     val params = GlobalParameters.parameters.value
     params.in = System.in
-    params.format = GlobalParameters.InputFormat.SMTHorn
+    params.format = 
+      if (params.format == GlobalParameters.InputFormat.AutoDetect) 
+        GlobalParameters.InputFormat.SMTHorn 
+      else params.format
   }
 
   def getFileStream(fileName : String) : InputStream = {
