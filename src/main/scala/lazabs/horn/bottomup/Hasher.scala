@@ -152,7 +152,7 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
 
   import Hasher._
   import IHasher._
-  private implicit val _globalOrder = globalOrder
+  private implicit val _globalOrder: TermOrder = globalOrder
 
   private val watchedFormulas = new ArrayBuffer[Conjunction]
   private val evalVectors     = new ArrayBuffer[MBitSet]
@@ -364,7 +364,7 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
       assertionStack(i) match {
         case AssertionFrame(vec) => {
           currentEvalVector = vec
-          assertionStack reduceToSize i
+          assertionStack.remove(i, assertionStack.size - i)
           return
         }
         case _ =>
@@ -372,6 +372,7 @@ class Hasher(globalOrder : TermOrder, reducerSettings : ReducerSettings)
       }
       i = i - 1
     }
+    assertionStack.trimToSize()
   }
 
   def scope[A](comp : => A) : A = {

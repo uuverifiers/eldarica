@@ -98,7 +98,7 @@ class IncrementalHornPredAbs
       if (lazabs.GlobalParameters.get.log)
         println("Testing substitution, remaining clauses: " + normClauses.size)
 
-      override val relationSymbolOccurrences = computeRSOccurrences
+      override val relationSymbolOccurrences = computeRSOccurrences.toMap
       override val hasher                    = createHasher
       override val clauseHashIndexes         = computeClauseHashIndexes
 

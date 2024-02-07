@@ -181,7 +181,7 @@ abstract class TreeInterpolator {
     if (lazabs.GlobalParameters.get.log)
       print(treeSize(newProblem2))
 
-    (newProblem2, symbolTranslation, witnesses)
+    (newProblem2, symbolTranslation, witnesses.toSeq)
   }
 
   def propagateSymbols(problem : Tree[Conjunction], order : TermOrder)

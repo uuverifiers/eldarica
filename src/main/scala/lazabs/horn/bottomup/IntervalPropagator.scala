@@ -65,7 +65,7 @@ object IntervalPropagator {
       case _ => {
         // replace c with a minimal constant in the ordering to extract
         // more information from the constraint
-        implicit val _ = order
+        implicit val _order: TermOrder = order
         import TerForConvenience._
         val newConstr =
           ReduceWithConjunction(c === smallConstant, order)(constr)
@@ -106,7 +106,7 @@ object IntervalPropagator {
   def toFormulas(c : ConstantTerm,
                  bounds : (Option[IdealInt], Option[IdealInt]),
                  order : TermOrder) : Iterator[Formula] = {
-    implicit val _ = order
+    implicit val _order: TermOrder = order
     import TerForConvenience._
 
     (for (b <- bounds._1.iterator) yield (c >= b)) ++

@@ -92,7 +92,7 @@ object Util {
     def subdagIterator = new Iterator[DagNode[D]] {
       private var rem = Dag.this
       def hasNext = DagEmpty != rem
-      def next = {
+      def next() = {
         val res = rem.asInstanceOf[DagNode[D]]
         rem = res.next
         res

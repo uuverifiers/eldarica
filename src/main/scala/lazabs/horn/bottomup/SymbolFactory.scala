@@ -84,7 +84,7 @@ object SymbolFactory {
 
     def order : TermOrder = {
       if (!constantsToAdd.isEmpty) {
-        orderVar = orderVar extend constantsToAdd
+        orderVar = orderVar extend constantsToAdd.toSeq
         constantsToAdd.clear
       }
       orderVar

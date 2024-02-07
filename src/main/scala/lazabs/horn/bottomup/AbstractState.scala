@@ -112,7 +112,7 @@ import lazabs.horn.Util._
       birthTime
     }
 
-    private implicit val ord = new Ordering[Expansion] {
+    private implicit val ord: Ordering[Expansion] = new Ordering[Expansion] {
       def compare(s : Expansion, t : Expansion) =
         priority(t) - priority(s)
     }

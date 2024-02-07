@@ -51,6 +51,7 @@ import SimpleAPI.ProverStatus
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, ArrayBuffer}
+import ap.terfor.RichPredicate
 
 object DisjInterpolator {
 
@@ -223,10 +224,10 @@ object DisjInterpolator {
       }
 
       def flag2Conj(f : IFormula) : Conjunction = {
-        implicit val _ = order
+        implicit val _order: TermOrder = order
         import TerForConvenience._
         f match {
-          case IAtom(p, Seq()) => p(List())
+          case IAtom(p, Seq()) => p(Seq.empty)
         }
       }
 
@@ -849,7 +850,7 @@ object DisjInterpolator {
                     o, o + sharedHeadLits(sharedInd).predicate.arity)
                 }
               }
-              clause.instantiateConstraint(newHeadArgs, newBodyArgs,
+              clause.instantiateConstraint(newHeadArgs, newBodyArgs.toSeq.map(_.toSeq),
                                            localVariables, sig)
             }
           }
@@ -871,11 +872,11 @@ object DisjInterpolator {
                                     localVariables : Seq[ConstantTerm],
                                     sig : Signature) = {
             import TerForConvenience._
-            implicit val _ = sig.order
+            implicit val _order: TermOrder = sig.order
             val tempPredArgs = bodyArguments.head
             (headArguments === tempPredArgs.take(headArguments.size)) & conj(
                 for ((args, o) <- bodyArguments.tail zip tempPredArgOffsets)
-                yield (args === tempPredArgs.view(o, o + args.size)))
+                yield (args === tempPredArgs.view(o, o + args.size).toSeq))
           }
         }
 
@@ -906,7 +907,7 @@ object DisjInterpolator {
       }
     }
 
-    (dag, localPreds)
+    (dag, localPreds.toSeq)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -957,7 +958,7 @@ object DisjInterpolator {
         if (headLit.predicate != FALSE)
           order = order extendPred pred
 
-        implicit val _ = order
+        implicit val _order: TermOrder = order
         import TerForConvenience._
         freshRelSyms.put(i, Atom(pred, for (c <- args) yield l(c), order))
       }
