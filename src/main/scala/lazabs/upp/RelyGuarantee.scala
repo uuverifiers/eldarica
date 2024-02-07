@@ -233,7 +233,7 @@ object RelyGuarantee {
         //----------------------------------------------------------------------------------------
         case UppTransition(dest, action, assigns, guard) =>
             UppTransition(dest, action, assigns, shortCircuit(Conjunction(chansGuard,guard)))
-      }))
+      }).toMap)
     }
     individualClauses(uppaal.copy(automata = newAutomata, functions = uppaal.functions ++ newFunctions), toAbs)
   }
