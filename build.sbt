@@ -47,8 +47,7 @@ lazy val commonSettings = Seq(
                               )
                             ),
     description          := "Eldarica is an SMT solver for systems of Constrained Horn Clauses (CHC).",
-    scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.18"),
+    scalaVersion := "2.13.12",
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/compilation/public_html/maven/" )) )
@@ -170,9 +169,13 @@ lazy val root = (project in file(".")).
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
       case "2.12.18" => "-opt:_"
+      case "2.13.12" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
+//
+    libraryDependencies +=
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0",
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
@@ -181,13 +184,13 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.1",
 //
     libraryDependencies +=
-      "org.scalactic" %% "scalactic" % "3.2.14",
+      "org.scalactic" %% "scalactic" % "3.2.17",
 //
     libraryDependencies +=
-      "org.scalatest" %% "scalatest" % "3.2.14" % "test",
+      "org.scalatest" %% "scalatest" % "3.2.17" % "test",
 //
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2024-03-22"
 //
