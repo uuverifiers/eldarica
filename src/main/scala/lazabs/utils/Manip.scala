@@ -205,7 +205,7 @@ object Manip {
   def substitute(original: Map[CFGVertex,Set[CFGAdjacent]], replace: Map[Variable,Expression]): Map[CFGVertex,Set[CFGAdjacent]] = {
     original.mapValues {
       s => s.map(adj => CFGAdjacent(substitute(adj.label,replace),adj.to))
-    }
+    }.toMap
   }
   /**
    * inputs a formula and puts version number for variables
