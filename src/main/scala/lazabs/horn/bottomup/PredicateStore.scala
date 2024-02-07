@@ -279,7 +279,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
 
       impliedPreds.isEmpty || {
         import TerForConvenience._
-        implicit val _ = sf.order
+        implicit val order: TermOrder = sf.order
         val c = sf reduce conj(impliedPreds)
         !((sf reducer c)(f).isTrue)
       }

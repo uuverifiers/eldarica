@@ -466,7 +466,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
     val (remainingExp, reactivatedExp) =
       postponedExpansions partition (_._1 exists (backwardSubsumedStates contains _))
-    postponedExpansions reduceToSize 0
+    postponedExpansions.clearAndShrink(remainingExp.size)
     postponedExpansions ++= remainingExp
 
     for (exp <- reactivatedExp)
@@ -503,7 +503,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
       } else {
 
-        implicit val _ = clause.order
+        implicit val _order: TermOrder = clause.order
 
         val initialAssumptions =
           sf.reduce(conj(List(clause.constraint) ++ (state instances occ)))
@@ -532,7 +532,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
                         fixedIndex : Int, occ : Int,
                         byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
-    implicit val _ = clause.order
+    implicit val _order: TermOrder = clause.order
 
     val NormClause(constraint, body, head) = clause
 
@@ -564,7 +564,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
                            fixedIndex : Int, occ : Int,
                            byStates : Array[Seq[AbstractState]]) : Unit = {
     import TerForConvenience._
-    implicit val _ = clause.order
+    implicit val _order: TermOrder = clause.order
 
     val NormClause(constraint, body, head) = clause
 
@@ -707,7 +707,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
        } else {
          val flags = createBooleanVariables(activeAbstractStates(brs).size)
 
-         implicit val _ = order
+         order: TermOrder order
          addAssertion(
            disj(for ((s, IAtom(p, _)) <-
                        activeAbstractStates(brs).iterator zip flags.iterator)
@@ -748,7 +748,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     val remainingEdges = for (e@AbstractEdge(from, to, _, _) <- abstractEdges;
                               if (from forall reachable))
                          yield e
-    abstractEdges reduceToSize 0
+    abstractEdges.clearAndShrink(remainingEdges.size)
     abstractEdges ++= remainingEdges
     
     for ((_, preds) <- activeAbstractStates)
@@ -764,7 +764,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       for (exp@(from, _, _, _) <- postponedExpansions;
            if (from forall reachable))
       yield exp
-    postponedExpansions reduceToSize 0
+    postponedExpansions.clearAndShrink(remainingPostponedExpansions.size)
     postponedExpansions ++= remainingPostponedExpansions
 
     // Previously subsumed states might become relevant again

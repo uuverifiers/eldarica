@@ -279,8 +279,8 @@ object HornClauses {
     }
   }
 
-  implicit def toPrologSyntax(f : IFormula) = new PrologApplier(!f)
-  implicit def toPrologSyntax(b : Boolean)  = new PrologApplier(!b)
+  implicit def toPrologSyntax(f : IFormula): PrologApplier = new PrologApplier(!f)
+  implicit def toPrologSyntax(b : Boolean): PrologApplier  = new PrologApplier(!b)
 
   //////////////////////////////////////////////////////////////////////////////
 
