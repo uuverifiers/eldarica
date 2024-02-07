@@ -194,7 +194,7 @@ class DefaultPreprocessor extends HornPreprocessor {
                         (System.currentTimeMillis - startTime))
     Console.err.println
 
-    (curClauses, curHints, new ComposedBackTranslator(translators.reverse))
+    (curClauses, curHints, new ComposedBackTranslator(translators.reverse.toSeq))
   }
 
 }
