@@ -46,6 +46,8 @@ import verimag.flata_backend.BackEnd
 import verimag.flata_backend.Closure
 import verimag.flata_backend.Loop
 
+import scala.jdk.CollectionConverters._
+
 object AccelerationStrategy extends Enumeration {
   type AccelerationStrategy = Value
   val PRECISE, UNDER_APPROX, OVER_APPROX = Value
@@ -96,10 +98,10 @@ object FlataWrapper {
     var table = new nts.parser.VarTable(null)
     val ntsForms = exps.map(ll => ll.map(Eldarica2Nts(_)))
     val variables = ntsForms.map(x => x.map(_._2)).reduceLeft(_++_).reduceLeft(_++_)
-    val disjunctive = scala.collection.JavaConversions.seqAsJavaList(ntsForms.map(x => (new Loop(scala.collection.JavaConversions.seqAsJavaList(x.map(_._1)))).asInstanceOf[acceleration.ILoop]))
+    val disjunctive = ntsForms.map(x => (new Loop(x.map(_._1.asInstanceOf[nts.interf.base.IExpr]).asJava)).asInstanceOf[acceleration.ILoop]).asJava
     val prefixForms = prefix.map(Eldarica2Nts(_))
     val prefixVars = prefixForms.map(_._2).reduceLeft(_++_)
-    val pref = scala.collection.JavaConversions.seqAsJavaList(prefixForms.map(_._1).map(_.asInstanceOf[nts.interf.base.IExpr]))
+    val pref = prefixForms.map(_._1).map(_.asInstanceOf[nts.interf.base.IExpr]).asJava
     (variables ++ prefixVars).foreach {declareInt(table,_)}
     ntsForms.map(x => x.map(_._1)).reduceLeft(_++_).foreach(_.semanticChecks(table))
     prefixForms.map(_._1).foreach(_.semanticChecks(table))
