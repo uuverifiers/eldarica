@@ -31,15 +31,7 @@ package lazabs.horn.symex
 import lazabs.horn.bottomup.{NormClause, RelationSymbol}
 import ap.terfor.preds.Predicate
 
-import scala.collection.{AbstractSeq, IndexedSeqLike}
-import scala.collection.mutable.{
-  ListBuffer,
-  ArrayBuffer => MArrayBuffer,
-  HashMap => MHashMap,
-  HashSet => MHashSet,
-  LinkedHashSet => MLinkedHashSet,
-  Stack => MStack
-}
+import scala.collection.mutable.{HashMap => MHashMap, Stack => MStack}
 
 /**
  * Class to keep track of CUCs
