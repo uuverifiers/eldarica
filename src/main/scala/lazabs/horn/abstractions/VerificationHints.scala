@@ -154,7 +154,7 @@ object VerificationHints {
 
     def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {
       val remHints = predicateHints filterKeys remainingPreds
-      VerificationHints(remHints)
+      VerificationHints(remHints.toMap)
     }
 
     def filterNotPredicates(removed : GSet[IExpression.Predicate]) =
@@ -225,7 +225,7 @@ object VerificationHints {
   class InitPredicateVerificationHints(preds : Map[Predicate, Seq[IFormula]])
         extends VerificationHints {
     import VerificationHints._
-    val predicateHints = preds mapValues { l => l map (VerifHintInitPred(_)) }
+    val predicateHints = preds.mapValues(l => l map (VerifHintInitPred(_))).toMap
   }
 
   //////////////////////////////////////////////////////////////////////////////

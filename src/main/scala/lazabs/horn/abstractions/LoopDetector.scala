@@ -191,11 +191,11 @@ class LoopDetector(clauses : Seq[HornClauses.Clause]) {
 
        val lattices : List[AbsLattice] =
          (if (preds.isEmpty) List()
-          else List(PredicateLattice(preds, head.name))) ++
+          else List(PredicateLattice(preds.toSeq, head.name))) ++
          (if (terms.isEmpty) List()
-          else List(TermSubsetLattice(terms, head.name))) ++
+          else List(TermSubsetLattice(terms.toSeq, head.name))) ++
          (if (ineqs.isEmpty) List()
-          else List(TermIneqLattice(ineqs, head.name)))
+          else List(TermIneqLattice(ineqs.toSeq, head.name)))
 
        val latt = lattices reduceLeft (ProductLattice(_, _, true))
 
