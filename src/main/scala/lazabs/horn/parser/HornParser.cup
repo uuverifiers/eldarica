@@ -178,7 +178,7 @@ HornClauses       ::= HornClause:c
 
 HornClause        ::= HeadLiteral:h IF BodyLiterals:bls DOT
                    {:                      
-                      RESULT = new HornClause(h,scala.collection.JavaConversions.asScalaBuffer(bls).toList()); 
+                      RESULT = new HornClause(h,scala.jdk.javaapi.CollectionConverters.asScala(bls).toList()); 
                    :}
                    ;
 
@@ -191,17 +191,17 @@ BodyLiterals      ::= BodyLiteral: b
 RelationVariable  ::= ID:id LPAREN Parameters:ps RPAREN
                    {:
                       parser.relVarCount += 1;
-                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(ps).toList()); 
+                      RESULT = new RelVar(id, scala.jdk.javaapi.CollectionConverters.asScala(ps).toList()); 
                    :}
                    | ID:id ARMC_PARAMS_S Parameters:ps ARMC_PARAMS_E
                    {:
                       parser.relVarCount += 1;
-                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(ps).toList()); 
+                      RESULT = new RelVar(id, scala.jdk.javaapi.CollectionConverters.asScala(ps).toList()); 
                    :}
                    |  ID:id
                    {:
                       parser.relVarCount += 1;
-                      RESULT = new RelVar(id, scala.collection.JavaConversions.asScalaBuffer(new ArrayList()).toList());
+                      RESULT = new RelVar(id, scala.jdk.javaapi.CollectionConverters.asScala(new ArrayList()).toList());
                    :}
                    ;
 

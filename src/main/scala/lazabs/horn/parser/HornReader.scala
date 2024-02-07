@@ -57,14 +57,14 @@ import ap.parameters.{ParserSettings, PreprocessingSettings, Param}
 import scala.collection.{Map => CMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, LinkedHashSet}
+import scala.jdk.CollectionConverters._
 
 object HornReader {
   def apply(inputStream: Reader): Seq[HornClause] = {
     val lexer = new HornLexer(inputStream)
     val parser = new Parser(lexer)
     val tree = parser.parse()
-    (scala.collection.JavaConversions.asScalaBuffer(
-       tree.value.asInstanceOf[java.util.List[HornClause]]))
+    tree.value.asInstanceOf[java.util.List[HornClause]].asScala.toSeq
   }
 
   def fromSMT(fileName: String) : Seq[HornClause] = {
@@ -348,7 +348,7 @@ class SMTHornReader protected[parser] (
           }
         }
 
-        val newOrder = oriSignature.order extendPred newPreds
+        val newOrder = oriSignature.order extendPred newPreds.toSeq
 
         (UniformSubstVisitor(oriF, unintPredMapping),
          unintPredicates, oriSignature updateOrder newOrder)
@@ -745,8 +745,8 @@ class ClauseQuantifierEliminator(rawClause       : IFormula,
     def existentialiseAtom(a : Atom) : IAtom = {
       val existConsts = createExistentialConstants(a.size)
 
-      implicit val _ = order
-      import TerForConvenience._
+      implicit val _order: TermOrder = order
+      import TerForConvenience.*
 
       addAssertion(a === (for (IConstant(c) <- existConsts) yield c))
 
