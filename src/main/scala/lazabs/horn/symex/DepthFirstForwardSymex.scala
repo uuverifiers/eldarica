@@ -58,7 +58,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     unitClauseDB add (fact, parents = (factToNormClause(fact), Nil)) // add each fact to the stack
     val possibleChoices = clausesWithRelationInBody(fact.rs)
     val choiceQueue     = new MQueue[NormClause]
-    choiceQueue.enqueue(possibleChoices: _*)
+    choiceQueue.enqueueAll(possibleChoices)
     choicesStack push choiceQueue
   }
 
@@ -101,7 +101,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
           "Warning: new unit clause has no clauses to resolve against " + clause)
       case _ => // a decision point
         val choiceQueue = new MQueue[NormClause]
-        choiceQueue.enqueue(possibleChoices: _*)
+        choiceQueue.enqueueAll(possibleChoices)
         choicesStack push choiceQueue
     }
   }
