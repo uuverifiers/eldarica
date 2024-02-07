@@ -642,7 +642,7 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
 
     def simplifier = new PredElimSimplifier(booleanVars.toSet, select, store)
 
-    for (intTree <- treeInterpolate(andTree, constants, booleanVars)) yield {
+    for (intTree <- treeInterpolate(andTree, constants, booleanVars.toSeq)) yield {
       (for ((Some(l), f) <- (labelTree zip intTree).toSeq.iterator)
        yield (l -> simplifier(f))).toMap
     }
