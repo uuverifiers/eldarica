@@ -281,6 +281,7 @@ object Main {
   class MainException(msg : String) extends Exception(msg)
   object TimeoutException extends MainException("timeout")
   object StoppedException extends MainException("stopped")
+  case class FileOrOptionNotFoundException(fileName: String) extends MainException(s"No such file or option: $fileName . Use -h for usage information")
   object PrintingFinishedException extends Exception
 
   def openInputFile {
@@ -302,9 +303,8 @@ object Main {
     try {
       new FileInputStream(fileName)
     } catch {
-      case e: FileNotFoundException =>
-        throw new MainException("No such file or option: " + fileName + ". Use -h for usage information" )
-        sys.exit(0)
+      case _: FileNotFoundException => throw FileOrOptionNotFoundException(fileName)
+      case e: Throwable => throw e
     }
   }
 
