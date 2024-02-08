@@ -30,7 +30,7 @@
 
 package lazabs
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{InputStream, FileNotFoundException, Reader, FileReader, BufferedReader, File}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
@@ -73,7 +73,7 @@ object GlobalParameters {
 }
 
 class GlobalParameters extends Cloneable {
-  var in: InputStream = null
+  var in: Reader = null
   var fileName = ""
   var funcName = "main"
   var solFileName = ""
@@ -292,16 +292,16 @@ object Main {
 
   def setInputToSTDIN {
     val params = GlobalParameters.parameters.value
-    params.in = System.in
+    params.in = new BufferedReader(Console.in)
     params.format = 
       if (params.format == GlobalParameters.InputFormat.AutoDetect) 
         GlobalParameters.InputFormat.SMTHorn 
       else params.format
   }
 
-  def getFileStream(fileName : String) : InputStream = {
+  def getFileStream(fileName : String) : Reader = {
     try {
-      new FileInputStream(fileName)
+      new BufferedReader(new FileReader(new File(fileName)))
     } catch {
       case _: FileNotFoundException => throw FileOrOptionNotFoundException(fileName)
       case e: Throwable => throw e

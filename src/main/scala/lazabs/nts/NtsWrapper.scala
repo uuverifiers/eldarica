@@ -58,8 +58,8 @@ object NtsWrapper {
   /**
    * returns the NTS system
    */
-  def apply(inputStream: InputStream): Nts = {
-    val is: InputStream = inputStream
+  def apply(inputStream: Reader): Nts = {
+    val is = new InputStream { def read(): Int = inputStream.read() }
     val listen: ParserListener = new ParserListener
     NTSParser.parseNTS(is, listen)
     val nts:NTS = listen.nts

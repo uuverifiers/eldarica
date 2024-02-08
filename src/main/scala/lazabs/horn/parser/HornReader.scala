@@ -30,7 +30,7 @@
 
 package lazabs.horn.parser
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{FileInputStream, InputStream, FileNotFoundException, Reader, BufferedReader, FileReader, File}
 
 import lazabs.horn.global._
 import lazabs.prover.PrincessWrapper
@@ -58,9 +58,8 @@ import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, LinkedHashSet}
 
 object HornReader {
-  def apply(inputStream: InputStream): Seq[HornClause] = {
-    val in = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream))
-    val lexer = new HornLexer(in)
+  def apply(inputStream: Reader): Seq[HornClause] = {
+    val lexer = new HornLexer(inputStream)
     val parser = new Parser(lexer)
     val tree = parser.parse()
     (scala.collection.JavaConversions.asScalaBuffer(
@@ -68,11 +67,11 @@ object HornReader {
   }
 
   def fromSMT(fileName: String) : Seq[HornClause] = {
-    val inputStream = new java.io.FileInputStream(fileName)
+    val inputStream = new BufferedReader(new FileReader(new File(fileName)))
     fromSMT(inputStream)
   }
 
-  def fromSMT(inputStream: InputStream) : Seq[HornClause] = {
+  def fromSMT(inputStream: Reader) : Seq[HornClause] = {
     SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
       (new SMTHornReader(inputStream, p)).result
     }
@@ -232,7 +231,7 @@ object HornReader {
 ////////////////////////////////////////////////////////////////////////////////
 
 class SMTHornReader protected[parser] (
-         inputStream: InputStream,
+         inputStream: Reader,
          // we need a prover for some of the
          // clause preprocessing, in general
          p : SimpleAPI) {
@@ -252,8 +251,7 @@ class SMTHornReader protected[parser] (
       "---------------------------------- Parsing -------------------------------------")
   }
 
-  private val reader = new java.io.BufferedReader (
-                 new java.io.InputStreamReader(inputStream))
+  private val reader = new BufferedReader(inputStream)
   private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
                    ParserSettings.DEFAULT, true)
 
