@@ -205,7 +205,7 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
             // alloc(h0, o) == ar: push inv(allocAddr(h0, o), o)
             case Eq(IFunApp(heap.alloc, Seq(IConstant(h0), IConstant(o))),
                     IConstant(ar)) =>
-              val a = heap.allocAddr(h0, o)
+              val a = heap.newAddr(ar)
               val newClause = Clause(inv(a, o), clause.body, clause.constraint)
               newClauses += newClause
               backMapping += newClause -> clause

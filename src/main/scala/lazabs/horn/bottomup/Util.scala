@@ -82,6 +82,14 @@ object Util {
                                  insertedDags : Map[Int, Dag[B]])
                                 : (Dag[B], List[Int])
 
+    /**
+     * Inserts <code>insertedDag</code> at <code>index</code>, pushing the
+     * existing sub-dag that starts at <code>index</code> downwards.
+     * Above the insertion, children of existing nodes are shifted by the size
+     * of the inserted dag.
+     */
+    def insertAt[B >: D](index: Int, insertedDag: Dag[B]): Dag[B]
+
     def head = apply(0)
     def tail = drop(1)
 
@@ -274,6 +282,26 @@ object Util {
         }
       }
     }
+
+    private def updateNextOfLastNode[B >: D](dag     : Dag[B],
+                                             nextDag : Dag[B]) : Dag[B] = {
+      dag match {
+        case DagNode(d, children, DagEmpty) =>
+          DagNode(d, children, nextDag)
+        case DagNode(d, children, next) =>
+          DagNode(d, children, updateNextOfLastNode(next, nextDag))
+        case DagEmpty =>
+          nextDag
+      }
+    }
+
+    def insertAt[B >: D](index : Int, insertedDag : Dag[B]) : Dag[B] = {
+      if (index == 0)
+        updateNextOfLastNode(insertedDag, this)
+      else
+        DagNode(d, children.map(_ + insertedDag.size),
+                next.insertAt(index - 1, insertedDag))
+    }
   }
 
   case object DagEmpty extends Dag[Nothing] {
@@ -310,6 +338,8 @@ object Util {
       def substituteHelp[B >: Nothing](depth : Int,
                                        insertedDags : Map[Int, Dag[B]])
                                       : (Dag[B], List[Int]) = (this, List())
+    def insertAt[B](index : Int, insertedDag : Dag[B]) : Dag[B] =
+      if (index == 0) insertedDag else throw new IllegalArgumentException
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -601,99 +631,64 @@ object Util {
           // TODO: order children so that the cuts are minimized
           val childDags = maybeChildDags.map(_.get).sorted(dagOrdering)
 
-          node match {
-            case BodyNode(_) =>
-            // Ensure all (ConstantNode) children of a BodyNode are right after
-            // that node. This eliminates the need to duplicate those children
-            // when splitting the DAG if they are left under the split. This is
-            // possible because there cannot be back-edges to the direct
-            // children of a BodyNode if the graph is a DAG.
-
-            val numChildren = childNodes.size
-            val childrenChildren =
-              for ((childDag, i) <- childDags.zipWithIndex) yield {
-                // childDag.children will get adjusted as
-                // i = 0 by numChildren - 1,
-                // i = 1 by numChildren - 2   + |childDags(0)|,
-                // i = 2 by numChildren - 3   + |childDags(0)| + |childDags(1)|, ...
-                // i.e.,    numChildren-(i+1) + sum(0, i, |childDags(i)|))
-                childDag match {
-                  case DagEmpty => DagEmpty
-                  case d : DagNode[Node] =>
-                    def sumUpTo(lo: Int, hi: Int) : Int =
-                      if (lo >= hi) 0
-                      else childDags(lo).size + sumUpTo(lo+1, hi)
-                    val newChildren = d.children.map(
-                      j => j + numChildren-(i+1) + sumUpTo(0, i))
-                    DagNode(d.d, newChildren, )
+          val dagNode = (node match {
+            case _ : ConstNode | _ : SyncNode =>
+              val nextDag : Dag[Node] =
+                if (childDags isEmpty) {
+                  DagEmpty
+                } else {
+                  var next : Dag[Node] = DagEmpty
+                  for (subDag <- childDags.reverse if !subDag.isEmpty) {
+                    next = DagNode(subDag.head, Nil, next)
+                  }
+                  next
                 }
+                DagNode(node, childDags.indices.map(_ + 1).toList, nextDag)
+                  .substitute(
+                    childDags.indices.map(_ + 1).toList.zip(childDags).toMap)
+            case _ : AtomNode | _ : FunAppNode =>
+            // Ensure all (ConstNode) children of a node are right below
+            // that node. This is needed, because when splitting a DAG, we want
+            // the splits to only happen from a ConstNode to some other node,
+            // as the splitting code duplicates ConstNodes to below the DAG.
+            // Alternatively, such nodes would need to be duplicated above,
+            // or we would need to use hypergraphs, which would both be more
+            // complicated.
+            // This is possible because there cannot be more than one incoming
+            // edge to a ConstNode (ensured by EquationInliner by splitting such
+            // cases). Therefore this modification cannot introduce back-edges.z
+              val conjoinedChildDags = childDags.size match {
+                case 1 => childDags.head
+                case _ =>
+                  childDags.reduceRightOption(
+                    (childDag, dagToInsert) => childDag.insertAt(1, dagToInsert))
+                    .getOrElse(DagEmpty)
               }
-            for ((childDag, childChildren) <- childDags zip childrenChildren) {
-
-            }
-
-
-            // Tails of child dags of node, these will be placed after children.
-            val childTails = childDags.map(_.tail)
-
-
-            // Connect the tails to get a single tail
-            var tail = childTails.lastOption.getOrElse(DagEmpty)
-//            for (childTail <- childTails.reverse.tail) {
-//              tail = childTail.substitute()
-//            }
-
-            val initDag = DagNode(node, childDags.indices.map(_ + 1).toList, )
-
-            val children = childDags.indices.map(_ + 1).toList
-
-            val grandChildren =
-              for ((childDag, i) <- childDags.zipWithIndex) yield {
-
-              childDag
-            }
-
-            // This will give us a dag missing its tail (the grandchildren).
-            // Then come the grandchildren. these are childDags.map(_.tail)
-            // We can simply use substitute?
-
-            case _ => ???
-          }
-
-          val nextDag : Dag[Node] =
-            if (childDags isEmpty) {
-              DagEmpty
-            } else {
-              var next : Dag[Node] = DagEmpty
-              for (subDag <- childDags.reverse if !subDag.isEmpty) {
-                next = DagNode(subDag.head, Nil, next)
+              val dnode = DagNode(node, (1 to childDags.size).toList, conjoinedChildDags)
+              val dNodeCollapsed = dnode.collapseNodes
+              if (childDags.size > 1 && !node.isInstanceOf[ConstNode]) {
+//                Util.show(dNodeCollapsed, "collapsed", false)
+//                Util.show(dnode, "orig", false)
+//                println("Orig")
+//                dnode.prettyPrint
+//                println("Coll")
+//                dNodeCollapsed.prettyPrint
+//                println("="*80)
+                //         Util.show(dNodeCollapsed, "dagNode", false)
               }
-              next
-            }
-
+              dnode
+          })
+          val dNodeCollapsed = dagNode.collapseNodes
           visiting -= node
 
-          val dagNode =
-            DagNode(node, childDags.indices.map(_ + 1).toList, nextDag)
-              .substitute(
-                childDags.indices.map(_ + 1).toList.zip(childDags).toMap)
-          createdSubDags += ((node, dagNode))
-
-          Some(dagNode.collapseNodes)
+          createdSubDags += ((node, dNodeCollapsed))
+          Some(dNodeCollapsed)
         }
       }
 
       buildDagFromNode(getPseudoRoot) match {
-        case Some(dag) =>
-
-          // E.g., let B be a body Node, with C and D its children ,and C' and
-          // D' as the descendants of C and D.
-          // B -> C -> C' -> D  -> D' is reordered as
-          // B -> C -> D  -> C' -> D'
-//          val reorderedDag = dag.collapseNodes.
-        Some(dag.collapseNodes)
-//          Some(reorderedDag.collapseNodes)
-        case None => None
+        case Some(dag) => Some(dag.collapseNodes)
+        case None      => None
       }
     }
 
@@ -716,6 +711,23 @@ object Util {
      * @tparam T The type of nodes in the DAG.
      * @return A tuple containing the two parts of the DAG, in order.
      */
+    /**
+     * Splits a topologically-sorted DAG into two parts after the specified node.
+     *
+     * @param dag The original DAG to be split.
+     * @param node The node in the DAG after which the split is to occur.
+     * @param glueNodeInstantiator A function to instantiate a new node
+     *                             to serve as a connector between the two parts.
+     *                             Its argument is a list of indices of incoming
+     *                             nodes, and it should return the glue node.
+     * @param isSplittable A predicate to check if the passed node is splittable,
+     *                     i.e., if it can be connected via the connector node.
+     * @param hasPseudoRoot if true, edges coming from the root will not be
+     *                     considered real, and any such orphans will be connected
+     *                     to the glue node below.
+     * @tparam T The type of nodes in the DAG.
+     * @return A tuple containing the two parts of the DAG, in order.
+     */
     def splitDagAfterNode[T](dag                  : Dag[T],
                              node                 : T,
                              glueNodeInstantiator : List[T] => (T, T),
@@ -730,7 +742,11 @@ object Util {
           "Node T cannot be the last node or is not found in the DAG")
       }
 
-      /* Sync nodes */
+      // Index for the glue node
+      val glueInd = splitInd + 1
+
+      /* Sync nodes
+       */
       val syncsAboveSplit : Seq[DagNode[(T, Int)]] = {
         indexedDag.subdagIterator.collect{
           case d@DagNode((SyncNode(_), i), children, _)
@@ -740,60 +756,22 @@ object Util {
 
       val parentToOrphanChildren     = new ArrayBuffer[(T, List[Int])]
       val orphanedParentInds         = new ArrayBuffer[(DagNode[(T, Int)], Int)]
-
-      // (Index of node to be updated -> (new node, list of new children))
       val orphanedNodeAboveUpdateMap = new MHashMap[Int, (T, List[Int])]
-
-      // It could be that the child of a body atom node is left below the split,
-      // in this case we should duplicate the child above as a child of that
-      // body atom, and pass it along through the glue node. For every such
-      // duplication, glue node index should be incremented by one, as each one
-      // introduces an additional node just above the glue node. We do a pass
-      // first to collect such nodes.
-
-      // (Index of parent body node, list of orphan constant nodes and their indices)
-      val constantNodesToBeDuplicatedAbove = new MHashMap[Int, List[(T, Int)]]
-      for (n : DagNode[(T, Int)] <- indexedDag.subdagIterator
-           // only iterate over nodes above the split and ignore pseudo-root
-           if n.d._2 <= splitInd && (!hasPseudoRoot || n.d._2 > 0)) {
-        n.d._1 match {
-          case BodyNode(_) =>
-            val nInd = n.d._2
-            val constantNodesBelowSplit =
-              n.children.filter(childInd => childInd + nInd > splitInd)
-            if (constantNodesBelowSplit.nonEmpty) {
-              constantNodesToBeDuplicatedAbove +=
-                n.d._2 -> constantNodesBelowSplit
-                  .map(ind => dag(nInd + ind) -> ind)
-            }
-          case _ => // nothing
-        }
-      }
-      assert(constantNodesToBeDuplicatedAbove isEmpty)
-
-      // We shift the glue node ind by the number of the duplicated nodes above split.
-      val glueInd = splitInd +
-        constantNodesToBeDuplicatedAbove.flatMap(_._2).size + 1
-
-      val nodeIndexToOriginalChildren = indexedDag.subdagIterator.map(
-        d => d.d._2 -> d.children).toMap
-
       // Orphaned nodes have at least one child below split
       for (n : DagNode[(T, Int)] <- indexedDag.subdagIterator
            // only iterate over nodes above the split and ignore pseudo-root
-           if n.d._2 <= splitInd && (!hasPseudoRoot || n.d._2 > 0)) {
+           if n.d._2 < glueInd && (!hasPseudoRoot || n.d._2 > 0)) {
         val nInd    = n.d._2
         val orphans =
           n.children.filter(childInd => childInd + nInd > splitInd &&
-            !syncsAboveSplit.contains(n) &&
-            !n.d._1.isInstanceOf[BodyNode])
-            .map(childInd => childInd + nInd - (splitInd + 1)) // cannot use glueInd here, because we might append additional nodes
+            !syncsAboveSplit.contains(n))
+            .map(childInd => childInd + nInd - glueInd)
         if (orphans nonEmpty) {
           parentToOrphanChildren += n.d._1 -> orphans
           orphanedParentInds += n -> nInd
           val newChildren = n.children.map(
             childInd =>
-              if (childInd + nInd >= splitInd+1) glueInd - nInd else childInd)
+              if (childInd + nInd > glueInd) glueInd - nInd else childInd)
             .distinct.sorted
           orphanedNodeAboveUpdateMap += nInd -> (n.d._1, newChildren)
         }
@@ -802,9 +780,6 @@ object Util {
           orphanedNodeAboveUpdateMap += nInd -> (n.d._1, List(glueInd - nInd))
         }
       }
-
-      assert(orphanedParentInds.forall(_._1.d._1.isInstanceOf[ConstNode]),
-             "Internal error: only constant nodes can be orphaned")
 
       /* If there was a pseudo-root with orphaned edges, carry those over to
          the glue node as outgoing edges.
@@ -818,36 +793,17 @@ object Util {
         }
       // Create the glue node using the information of orphaned nodes and
       // duplicated nodes.
-      val (glueNodeSink, glueNodeSource) =
-        glueNodeInstantiator(
-          orphanedParentInds.map(pair => pair._1.d._1).toList ++
-          constantNodesToBeDuplicatedAbove.flatMap(_._2).keys)
+      val (glueNodeSink, glueNodeSource) = glueNodeInstantiator(
+        orphanedParentInds.map(pair => pair._1.d._1).toList)
 
-      val root = dag.asInstanceOf[DagNode[T]]
-
-      // Create the new tail of the dag
-      var aboveTail = DagNode(glueNodeSink, List(), DagEmpty)
-      var distFromSink = 0
-      for ((parentInd, duplicatedNodes) <- constantNodesToBeDuplicatedAbove) {
-        val oldChildren = nodeIndexToOriginalChildren(parentInd)
-        val newChildren = oldChildren.diff(duplicatedNodes.map(_._2)) ++
-          (for ((node, nodeInd) <- duplicatedNodes) yield {
-            distFromSink += 1
-            aboveTail = DagNode(node, List(distFromSink), aboveTail)
-            // glueInd-distFromSink gives us the exact index, subtracting
-            // parentInd gives the new offset from parent
-            (glueInd - distFromSink) - parentInd
-          })
-        orphanedNodeAboveUpdateMap += parentInd -> (dag(parentInd), newChildren)
-      }
-
+      val root          = dag.asInstanceOf[DagNode[T]]
       val dagAboveSplit =
         DagNode(root.d, root.children.diff(orphansFromPseudoRoot), root.next)
-          .substitute(Map(splitInd + 1 -> aboveTail))
+          .substitute(Map(glueInd -> DagNode(glueNodeSink, List(), DagEmpty)))
           .updated(orphanedNodeAboveUpdateMap.toMap).elimUnconnectedNodes
 
       val dagBelowSplit = {
-        val belowOldDag = dag.drop(splitInd + 1)
+        val belowOldDag = dag.drop(glueInd)
         var next        = belowOldDag
         // orphaned nodes are replicated below
         for (((orphanedNode, orphanInds), i) <- parentToOrphanChildren.zipWithIndex) {
@@ -856,30 +812,20 @@ object Util {
           val newNode     = DagNode(orphanedNode, newChildren, next)
           next = newNode
         }
-        // We add orphanChildrenOffset many children below the dag, right below
-        // the glue node.
-        val orphanChildrenOffset = parentToOrphanChildren.size - splitInd
-        val pseudoChildren = orphansFromPseudoRoot.map(_ + orphanChildrenOffset)
-        val childrenThatWereDuplicatedAbove = {
-          for ((parentInd, children) <- constantNodesToBeDuplicatedAbove) yield {
-            children.map(child => child._2 + parentInd - splitInd +
-              parentToOrphanChildren.size)
-          }
-        }.flatten
+        val pseudoChildren = orphansFromPseudoRoot.map(
+          childInd => childInd - glueInd + parentToOrphanChildren.size + 1)
         DagNode(glueNodeSource, (1 to parentToOrphanChildren.size).toList ++
-          pseudoChildren ++ childrenThatWereDuplicatedAbove, next)
+          pseudoChildren, next)
       }
 
-//      if (constantNodesToBeDuplicatedAbove.nonEmpty) {
-        lazabs.horn.bottomup.Util.show(dag, "dag", false)
-        println("\nabove\n")
-        lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
-        dagAboveSplit.prettyPrint
-        println("\nbelow\n")
-        lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
-        dagBelowSplit.prettyPrint
-        println
-//      }
+//      lazabs.horn.bottomup.Util.show(dag, "dag", false)
+//      println("\nabove\n")
+//      lazabs.horn.bottomup.Util.show(dagAboveSplit, "aboveSplit", false)
+//      dagAboveSplit.prettyPrint
+//      println("\nbelow\n")
+//      lazabs.horn.bottomup.Util.show(dagBelowSplit, "belowSplit", false)
+//      dagBelowSplit.prettyPrint
+//      println
 
       (dagAboveSplit, dagBelowSplit)
     }
