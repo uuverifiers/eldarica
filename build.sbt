@@ -6,7 +6,7 @@ lazy val commonSettings = Seq(
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.17"),
+    crossScalaVersions := Seq("2.11.12", "2.12.18"),
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
@@ -127,7 +127,7 @@ lazy val root = (project in file(".")).
            "-encoding", "UTF-8"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.17" => "-opt:_"
+      case "2.12.18" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
@@ -152,7 +152,7 @@ lazy val root = (project in file(".")).
 //
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //
-    resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven/").withAllowInsecureProtocol(true),
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
