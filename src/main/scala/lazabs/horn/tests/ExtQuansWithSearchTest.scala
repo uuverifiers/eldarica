@@ -40,10 +40,12 @@ import IExpression._
 import ap.api.SimpleAPI
 import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.extendedquantifiers.ExtendedQuantifier
+import lazabs.prover.PrincessWrapper.{expr2Formula, expr2Term}
 
 object ExtQuansWithSearchTest extends App {
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
 
   val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
 
@@ -77,6 +79,143 @@ object ExtQuansWithSearchTest extends App {
         println("SAFE")
         for((pred, f) <- sln) {
           println(s"$pred -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansForallTest extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => expr2Term(expr2Formula(a) &&& expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess === i
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifier(
+      name = "\\forall",
+      arrayTheory = ar,
+      identity = expr2Term(IBoolLit(true)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = Some(predicate),
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i)     :- (i === 0),
+      p(0)(a1, i + 1) :- (p(0)(a1, i), i === ar.select(a1, i), i < 3),
+      p(1)(a1, i)     :- (p(0)(a1, i), i >= 3),
+      false           :- (p(1)(a1, i),
+        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+      )
+
+    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansForallAlienTermTest extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => expr2Term(expr2Formula(a) &&& expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+    val c = new ConstantTerm("c") // this is the alien term
+    val c0 = new ConstantTerm("c")
+    val c1 = new ConstantTerm("c")
+    val c2 = new ConstantTerm("c")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess === c // note the rhs is an alien term
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifier(
+      name = "\\forall",
+      arrayTheory = ar,
+      identity = expr2Term(IBoolLit(true)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = Some(predicate),
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i, c)      :- (i === 0, c === 42),
+      p(0)(a1, i + 1, c0) :- (p(0)(a1, i, c0), c0 === ar.select(a1, i), i < 3),
+      p(1)(a1, i, c1)     :- (p(0)(a1, i, c1), i >= 3),
+      false               :- (p(1)(a1, i, c2),
+        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+      )
+
+    /**
+     * The result here is expected to be safe, if unsafe, that means alien
+     * terms are not handled properly.
+     * Multiple `c` terms with the same name is introduced, to reflect that
+     * in the clauses these c's are not guaranteed to be the same term.
+     */
+
+    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
         }
       case Right(cex) =>
         println("UNSAFE")

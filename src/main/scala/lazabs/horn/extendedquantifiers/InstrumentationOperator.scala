@@ -1,5 +1,6 @@
 package lazabs.horn.extendedquantifiers
 
+import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.types.Sort
 import lazabs.horn.extendedquantifiers.Util._
@@ -28,18 +29,23 @@ trait RewriteRules {
   /**
    * `oldGhostTerms` and `newGhostTerms` are the old and new values of ghost
    * variables defined in [[InstrumentationOperator.ghostVars]].
+   * `otherConstants` contains other terms that might be relevant for the
+   * rewriting, for instance alien terms which can appear in predicates.
    * All rewrite rules return a sequence of [[RewriteRules.Result]], which
    * contains information about which conjuncts to add, rewrite, and assert.
    */
-  def rewriteStore(oldGhostTerms : Map[GhostVar, ITerm],
-                   newGhostTerms : Map[GhostVar, ITerm],
-                   storeInfo     : StoreInfo) : Seq[RewriteRules.Result]
-  def rewriteSelect(oldGhostTerms : Map[GhostVar, ITerm],
-                    newGhostTerms : Map[GhostVar, ITerm],
-                    selectInfo    : SelectInfo) : Seq[RewriteRules.Result]
-  def rewriteConst(oldGhostTerms : Map[GhostVar, ITerm],
-                   newGhostTerms : Map[GhostVar, ITerm],
-                   constInfo     : ConstInfo) : Seq[RewriteRules.Result]
+  def rewriteStore(oldGhostTerms  : Map[GhostVar, ITerm],
+                   newGhostTerms  : Map[GhostVar, ITerm],
+                   otherConstants : Set[IConstant],
+                   storeInfo      : StoreInfo) : Seq[RewriteRules.Result]
+  def rewriteSelect(oldGhostTerms  : Map[GhostVar, ITerm],
+                    newGhostTerms  : Map[GhostVar, ITerm],
+                    otherConstants : Set[IConstant],
+                    selectInfo     : SelectInfo) : Seq[RewriteRules.Result]
+  def rewriteConst(oldGhostTerms  : Map[GhostVar, ITerm],
+                   newGhostTerms  : Map[GhostVar, ITerm],
+                   otherConstants : Set[IConstant],
+                   constInfo      : ConstInfo) : Seq[RewriteRules.Result]
 
   /**
    * The rule for rewriting applications of [[ExtendedQuantifier.morphism]].

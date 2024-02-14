@@ -137,37 +137,20 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
         val headTermMap : Map[Int, ITerm] = for ((ghostVar, ind) <- hInds)
           yield ind -> headGhostTerms(ghostVar)
 
-        // try to "guess" some constants for the alien terms in predicates
-//        val alienTermMap : Map[ITerm, ITerm] = {
-//          val clauseConstants : Seq[ConstantTerm] = clause.constantsSorted
-//          for (t <- alienBodyTerms) yield {
-//            clauseConstants.find(c => // todo: refactor
-//              t.v.asInstanceOf[IConstant].c.name contains (c.name ++ "_shad"))
-//            match {
-//              case Some(c) =>
-//                t.v -> IConstant(c)
-//              case None => // try the first argument,
-//                // if the wrong argument is picked this will be caught in the
-//                // last assertion
-//                t.v -> IConstant(clauseConstants.headOption.getOrElse(
-//                  t.v.asInstanceOf[IConstant].c))
-//            }
-//          }
-//        }.toMap
-
-        // TODO: currently this ignores alien terms, either the results should
-        //       updated to take those into account (i.e., by adding/adjusting
-        //       the constraint and the assertions, or the implementation of
-        //       RewriteRules should deal with them (which is probably less
-        //       ideal)
+        val allGhostTerms = (bodyGhostTerms.values ++ headGhostTerms.values).toSet
+        val nonGhostConstants = clause.constantsSorted.map(IConstant).filterNot(
+          allGhostTerms contains).toSet
         val instrumentationResults : Seq[RewriteRules.Result] =
           relevantConjuncts.headOption match {
             case Some(c) if isSelect(c) => instOp.rewriteSelect(
-              bodyGhostTerms, headGhostTerms, extractSelectInfo(c))
+              bodyGhostTerms, headGhostTerms, nonGhostConstants,
+              extractSelectInfo(c))
             case Some(c) if isStore(c)  => instOp.rewriteStore(
-              bodyGhostTerms, headGhostTerms, extractStoreInfo(c))
+              bodyGhostTerms, headGhostTerms, nonGhostConstants,
+              extractStoreInfo(c))
             case Some(c) if isConst(c) => instOp.rewriteConst(
-              bodyGhostTerms, headGhostTerms, extractConstInfo(c))
+              bodyGhostTerms, headGhostTerms, nonGhostConstants,
+              extractConstInfo(c))
             case None => Nil
           }
         for(result <- instrumentationResults) yield Instrumentation(
