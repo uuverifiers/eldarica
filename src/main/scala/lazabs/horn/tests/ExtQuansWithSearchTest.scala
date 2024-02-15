@@ -40,6 +40,7 @@ import IExpression._
 import ap.api.SimpleAPI
 import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.extendedquantifiers.ExtendedQuantifier
+import lazabs.horn.extendedquantifiers.instrumentationoperators.{BooleanInstrumentationOperator, GeneralInstrumentationOperator}
 import lazabs.prover.PrincessWrapper.{expr2Formula, expr2Term}
 
 object ExtQuansWithSearchTest extends App {
@@ -72,7 +73,11 @@ object ExtQuansWithSearchTest extends App {
                              extQuan.morphism(a1, 0, 10) =/= 30) // [0, 10)
       )
 
-    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+    val instOps = Map(
+      extQuan -> new GeneralInstrumentationOperator(extQuan)
+    )
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
 
     instrLoop.result match {
       case Left(sln) =>
@@ -135,7 +140,12 @@ object ExtQuansForallTest extends App {
         !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
       )
 
-    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+    val instOps = Map(
+      extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
 
     instrLoop.result match {
       case Left(sln) =>
@@ -152,7 +162,7 @@ object ExtQuansForallTest extends App {
   }
 }
 
-object ExtQuansForallAlienTermTest extends App {
+object ExtQuansForallAlienTermTestSafe extends App {
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
   lazabs.GlobalParameters.get.assertions = true
@@ -195,10 +205,10 @@ object ExtQuansForallAlienTermTest extends App {
     TheoryRegistry register extQuan
 
     val clauses = List(
-      p(0)(a1, i, c)      :- (i === 0, c === 42),
+      p(0)(a1, i, c2)      :- (i === 0, c2 === 42),
       p(0)(a1, i + 1, c0) :- (p(0)(a1, i, c0), c0 === ar.select(a1, i), i < 3),
       p(1)(a1, i, c1)     :- (p(0)(a1, i, c1), i >= 3),
-      false               :- (p(1)(a1, i, c2),
+      false               :- (p(1)(a1, i, c),
         !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
       )
 
@@ -209,7 +219,93 @@ object ExtQuansForallAlienTermTest extends App {
      * in the clauses these c's are not guaranteed to be the same term.
      */
 
-    val instrLoop = new InstrumentationLoop(clauses, EmptyVerificationHints)
+    val instOps = Map(
+      extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansForallAlienTermTestUnsafe extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => expr2Term(expr2Formula(a) &&& expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+    val c = new ConstantTerm("c")
+    val c0 = new ConstantTerm("c")
+    val c1 = new ConstantTerm("c")
+    val c2 = new ConstantTerm("c")
+    val actualC = new ConstantTerm("c")  // this is the actual alien term
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate(
+      "p" + i, Seq(ar.sort, Sort.Integer, Sort.Integer, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess === actualC // note the rhs is an alien term
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifier(
+      name = "\\forall",
+      arrayTheory = ar,
+      identity = expr2Term(IBoolLit(true)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = Some(predicate),
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i, c, actualC)      :- (i === 0, c === 42, actualC === 3),
+      p(0)(a1, i + 1, c0, actualC) :- (p(0)(a1, i, c0, actualC), c0 === ar.select(a1, i), i < 3),
+      p(1)(a1, i, c1, actualC)     :- (p(0)(a1, i, c1, actualC), i >= 3),
+      false                      :- (p(1)(a1, i, c2, actualC),
+        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+      )
+
+    /**
+     * The result here is expected to be unsafe, if safe, that means an assertion
+     * making sure that the guessed alien term was not added while rewriting
+     * aggregate. It might also be safe if the heuristic for guessing the
+     * alien term is changed (i.e., not picking the first one with a matching
+     * name).
+     */
+
+    val instOps = Map(
+      extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
 
     instrLoop.result match {
       case Left(sln) =>

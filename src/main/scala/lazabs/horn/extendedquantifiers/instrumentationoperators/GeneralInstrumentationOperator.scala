@@ -13,7 +13,7 @@ import lazabs.prover.PrincessWrapper.expr2Formula
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * A general instrumentation not specialized to any operator.
+ * A general instrumentation operator suitable for \sum, \min and \max.
  */
 class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     extends InstrumentationOperator(exq) {
@@ -25,120 +25,19 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
   case object GhArrInd extends GhostVar(exq.arrayIndexSort, "gArrInd")
 
   /**
-   * In the paper we cannot deal with alien terms appearing in
-   * [[ExtendedQuantifier.predicate]].
-   * Example: in `p(o, i): o = i + c`, `c` is an alien term.
-   *
-   * In practice such terms pop up often. To deal with such terms, we do an
-   * encoding as follows:
-   * (1)Introduce a pair of ghost variables `(cShad, cSet)` for each `c`.
-   *    Primed versions denote the corresponding updated variables. Note that
-   *    these ghost variables track actual variables of the program and do not
-   *    need to be duplicated as other ghost variables with more tracked ranges,
-   *    but for simplicity of the implementation we duplicate them too.
-   * (2)During instrumentation, for each `c`, add the following as a conjunct
-   *    to the instrumentation constraint:
-   *      `cShad' = ite(cSet, cShad, c) & cSet'`
-   *    This ensures that cShad tracks c and is set.
-   *    And add the following as an assertion:
-   *      `cSet ==> (cShad === c))`
-   *    This fails if `cShad` is tracking the wrong `c`. This can happen because
-   *    the implementation ''guesses'' which `c` to track in the clauses by the
-   *    name of `c`, which can be incorrect. If this assertion fails, that means
-   *    the guess was incorrect.
-   */
-
-  case class AlienGhostVars(vShad : GhostVar, vSet : GhostVar)
-
-  // We declare two case classes to be able to easily distinguish between the
-  // 'shadow' and 'set' ghost variables for alien terms.
-  case class GhAlienShad(_sort : Sort, _name : String)
-    extends GhostVar(_sort, _name)
-  case class GhAlienSet (_name : String) extends GhostVar(Sort.Bool, _name)
-
-  private val alienShadowVarSuffix = "Shad"
-  private val alienSetVarSuffix = "Set"
-
-  val alienConstantToAlienGhostVars : Map[ConstantTerm, AlienGhostVars] =
-    (for (c <- exq.alienConstantsInPredicate) yield {
-      // As per (1) from the explanation above, create one pair per constant.
-      val vShad = GhAlienShad(Sort.sortOf(IConstant(c)), c.name ++ alienShadowVarSuffix)
-      val vSet  = GhAlienSet(c.name ++ alienSetVarSuffix)
-      c -> AlienGhostVars(vShad = vShad, vSet = vSet)
-    }).toMap
-
-  /**
-   * A utility method to guess alien terms for their corresponding ghost
-   * variables. Returns a map from alien ghost variables to the guessed terms.
-   * @note The guess is primitive and tries to find a constant such that its
-   *       name appended with [[alienShadowVarSuffix]] corresponds to the ghost
-   *       variable.
-   */
-  private def guessAlienTerms(nonGhostConstants : Set[IConstant])
-  : Map[GhostVar, IConstant] = {
-    val vShads = alienConstantToAlienGhostVars.values.map(_.vShad)
-    for (vShad <- vShads;
-         term <- nonGhostConstants.find(
-           term => vShad.name contains(term.c.name ++ alienShadowVarSuffix))
-    ) yield vShad -> term
-  }.toMap
-
-  private def getAlienTermsFormulaAndAssertion(
-    oldGhostTerms         : Map[GhostVar, ITerm],
-    newGhostTerms         : Map[GhostVar, ITerm],
-    alienVarToGuessedTerm : Map[GhostVar, IConstant]) : (IFormula, IFormula) = {
-    val initConjuncts      = new ArrayBuffer[IFormula]
-    val assertionConjuncts = new ArrayBuffer[IFormula]
-
-    for ((_, AlienGhostVars(vShad, vSet)) <- alienConstantToAlienGhostVars
-         if alienVarToGuessedTerm contains vShad) {
-      val vShadOld = oldGhostTerms(vShad)
-      val vSetOld  = oldGhostTerms(vSet)
-      val vShadNew = newGhostTerms(vShad)
-      val vSetNew  = newGhostTerms(vSet)
-
-      initConjuncts +=
-      ((expr2Formula(vSetOld) &&& vShadOld === vShadNew) |||
-       vShadNew === alienVarToGuessedTerm(vShad)) &&& expr2Formula(vSetNew)
-
-      assertionConjuncts +=
-      (expr2Formula(vSetNew) ==> (vShadOld === alienVarToGuessedTerm(vShad)))// &&&
-      (expr2Formula(vSetNew))
-    }
-
-    (initConjuncts.fold(i(true))((c1, c2) => c1 &&& c2),
-      assertionConjuncts.fold(i(true))((c1, c2) => c1 &&& c2))
-  }
-
-  // Alien ghost variables should not be duplicated, so we declare them as such.
-  val alienGhostVars : Seq[GhostVar] =
-    alienConstantToAlienGhostVars.values.flatMap(
-      pair => Seq(pair.vShad, pair.vSet)).toSeq
-
-  /**
    * Declare the ghost variables for the extended quantifier + other ghosts.
    */
   override val ghostVars : Seq[GhostVar] =
-    Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd) ++ alienGhostVars
-
-  private val alienGhostVarInitialValues : Map[GhostVar, ITerm] =
-    alienGhostVars.collect{
-      // GhAlienShad variables should be left uninitialized so we only set vSet
-      // to false during initialization.
-      case vSet : GhAlienSet => vSet -> ADT.BoolADT.False
-    }.toMap
+    Seq(GhLo, GhHi, GhRes, GhArr, GhArrInd)
 
   override val ghostVarInitialValues: Map[GhostVar, ITerm] = Map(
     GhLo     -> IExpression.i(0),
     GhHi     -> IExpression.i(0),
     GhRes    -> exq.identity,
     GhArrInd -> IExpression.i(0)
-    // GhArr is not initialized
-  ) ++ alienGhostVarInitialValues
+    // GhArr is left uninitialized
+  )
 
-  /**
-   * @todo Consider alien ghost variables as well.
-   */
   override def ghostVarsToAggregateFormula(ghostTerms : Map[GhostVar, ITerm])
   : IFormula = {
     import IExpression._
@@ -150,26 +49,6 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  /**
-   * A convenience method that uses the predicate of the extended quantifier
-   * theory, if one is provided, otherwise the passed object. This allows
-   * having a common encoding for extended quantifiers with predicates and
-   * without predicates.
-   * @param o `o` in `a[i] = o`
-   * @param i `i` in `a[i] = o`
-   * @param alienSubstMap If the predicate contains alien terms, these should be
-   *                      rewritten. This map provides that information.
-   */
-  private def pred(o: ITerm,
-                   i: ITerm,
-                   alienSubstMap : Map[ConstantTerm, ITerm]) = exq.predicate match {
-    case Some(p) =>
-      if(alienSubstMap.nonEmpty)
-        // rewrite alien terms in the app to their corresponding ghost variables
-        ConstantSubstVisitor(p(o, i), alienSubstMap)
-      else p(o, i)
-    case None => o
-  }
 
   override def rewriteStore(oldGhostTerms  : Map[GhostVar, ITerm],
                             newGhostTerms  : Map[GhostVar, ITerm],
@@ -187,17 +66,6 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     val (oldRes, newRes)       = (oldGhostTerms(GhRes), newGhostTerms(GhRes))
     val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
     val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
-
-    val alienSubstMap : Map[ConstantTerm, ITerm] =
-      (for (alienC <- exq.alienConstantsInPredicate) yield {
-        alienC -> newGhostTerms(alienConstantToAlienGhostVars(alienC).vShad)
-      }).toMap
-
-    val alienTermGuesses = guessAlienTerms(otherConstants)
-
-    val (alienTermInitFormula, alienTermAssertionFormula) =
-      getAlienTermsFormulaAndAssertion(oldGhostTerms, newGhostTerms,
-                                       alienTermGuesses)
 
     // Array pass-through instrumentation for stores. This allows ignoring
     // stores to outside the tracked range.
@@ -217,18 +85,18 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
 
     val standardInstrumentation = {
       val instrConstraint =
-        (newArr === a2) &&& alienTermInitFormula &&&
+        (newArr === a2) &&&
           ite(
             oldLo === oldHi,
             (newLo === i) & (newHi === i + 1) &
-            (newRes === pred(o, i, alienSubstMap)),
+            (newRes === o),
             ite(
               (oldLo - 1 === i),
-              (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap)))
+              (newRes === exq.reduceOp(oldRes, o))
                 & (newLo === i) & newHi === oldHi,
               ite(
                 oldHi === i,
-                (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+                (newRes === exq.reduceOp(oldRes, o)) &
                   (newHi === i + 1 & newLo === oldLo),
                 ite(
                   oldLo <= i & oldHi > i,
@@ -236,20 +104,19 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
                     case Some(f) =>
                       newRes === exq.reduceOp(
                         f(oldRes, exq.arrayTheory.select(a1, i)),
-                        pred(o, i, alienSubstMap)) &
+                        o) &
                       newLo === oldLo & newHi === oldHi
                     case _ =>
                       (newLo === i) & (newHi === i + 1) &
-                        (newRes === pred(o, i, alienSubstMap))
+                        (newRes === o)
                   },
                   (newLo === i) & (newHi === i + 1) &
-                    (newRes === pred(o, i, alienSubstMap))
+                    (newRes === o)
                 )
               )
             )
           ) // outside bounds, reset
-      val assertion = oldLo === oldHi ||| (a1 === oldArr &&&
-                                           alienTermAssertionFormula)
+      val assertion = oldLo === oldHi ||| (a1 === oldArr)
 
       RewriteRules.Result(newConjunct = instrConstraint,
                           rewriteFormulas = Map(),
@@ -275,40 +142,30 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
     val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
-    val alienSubstMap : Map[ConstantTerm, ITerm] =
-      (for (alienC <- exq.alienConstantsInPredicate) yield {
-        alienC -> newGhostTerms(alienConstantToAlienGhostVars(alienC).vShad)
-      }).toMap
-
-    val alienTermGuesses = guessAlienTerms(otherConstants)
-
-    val (alienTermInitFormula, alienTermAssertionFormula) =
-      getAlienTermsFormulaAndAssertion(oldGhostTerms, newGhostTerms,
-                                       alienTermGuesses)
     val instrConstraint =
-      (newArr === a) &&& alienTermInitFormula &&&
+      (newArr === a) &&&
         ite(
           oldLo === oldHi,
           (newLo === i) & (newHi === i + 1) &
-            (newRes === pred(o, i, alienSubstMap)),
+            (newRes === o),
           ite(
             (oldLo - 1 === i),
-            (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+            (newRes === exq.reduceOp(oldRes, o)) &
               (newLo === i) & newHi === oldHi,
             ite(
               oldHi === i,
               (newRes === exq
-                .reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+                .reduceOp(oldRes, o)) &
               (newHi === i + 1 & newLo === oldLo),
               ite(oldLo <= i & oldHi > i,
                   newRes === oldRes & newLo === oldLo & newHi === oldHi, //
                   // no change within bounds
                   (newLo === i) & (newHi === i + 1) &
-                    (newRes === pred(o, i, alienSubstMap)))
+                    (newRes === o))
             )
           )
         ) //outside bounds, reset
-    val assertion = oldLo === oldHi ||| (a === oldArr &&& alienTermAssertionFormula)
+    val assertion = oldLo === oldHi ||| (a === oldArr)
     Seq(RewriteRules.Result(newConjunct = instrConstraint,
                             rewriteFormulas = Map(),
                             assertions = Seq(assertion)))

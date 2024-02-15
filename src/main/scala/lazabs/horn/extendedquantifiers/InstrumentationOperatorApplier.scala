@@ -42,19 +42,18 @@ import lazabs.horn.extendedquantifiers.instrumentationoperators.GeneralInstrumen
  * @param numGhostRanges There will be this many collections of
  *                       [[InstrumentationOperator.ghostVars]] per
  *                       instrumentation operator.
- * @todo: The instrumentation operators are currently hardcoded, this should
- *        be a parameter of this class.
  */
-class InstrumentationOperatorApplier(clauses          : Clauses,
-                                     hints            : VerificationHints,
-                                     frozenPredicates : Set[Predicate],
-                                     numGhostRanges   : Int) {
+class InstrumentationOperatorApplier(
+  clauses          : Clauses,
+  hints            : VerificationHints,
+  frozenPredicates : Set[Predicate],
+  extendedQuantifierToInstOp : Map[ExtendedQuantifier, InstrumentationOperator],
+  numGhostRanges   : Int) {
   val exqApps = gatherExtQuans(clauses)
   val exqs = exqApps.map(_.exTheory).toSet
-  val instrumentationOperators = exqs.map(new GeneralInstrumentationOperator(_))
   private val instrumentingPreprocessor =
     new InstrumentingPreprocessor(clauses, hints, frozenPredicates,
-                                  instrumentationOperators.toSet, numGhostRanges)
+                                  extendedQuantifierToInstOp, numGhostRanges)
   val (InstrumentationResult(instrumentedClauses, branchPredicates, searchSpace),
         newHints, backTranslator) = instrumentingPreprocessor.process
 }

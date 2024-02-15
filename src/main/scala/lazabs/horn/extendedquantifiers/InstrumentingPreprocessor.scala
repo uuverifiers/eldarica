@@ -75,7 +75,7 @@ class InstrumentingPreprocessor(
   clauses                  : Clauses,
   hints                    : VerificationHints,
   frozenPredicates         : Set[Predicate],
-  instrumentationOperators : Set[InstrumentationOperator],
+  exqToInstrumentationOp   : Map[ExtendedQuantifier, InstrumentationOperator],
   numGhostRanges           : Int)
 {
   import InstrumentingPreprocessor._
@@ -83,7 +83,7 @@ class InstrumentingPreprocessor(
   private val exqs : Set[ExtendedQuantifier] = exqApps.map(_.exTheory).toSet
 
   {
-    val undefinedExqs = exqs.diff(instrumentationOperators.map(_.exq))
+    val undefinedExqs = exqs diff exqToInstrumentationOp.keySet
     if (undefinedExqs.nonEmpty) {
       throw new IllegalArgumentException(
         "Input set of clauses contains extended quantifier applications for " +
@@ -91,10 +91,6 @@ class InstrumentingPreprocessor(
         undefinedExqs.map(_.morphism.name).mkString(",") + "}.")
     }
   }
-
-  private val exqToInstrumentationOperator
-  : Map[ExtendedQuantifier, InstrumentationOperator] =
-    instrumentationOperators.map(op => op.exq -> op).toMap
 
   private val translators = new ArrayBuffer[BackTranslator]
   private val branchPreds = new MHashSet[Predicate]
@@ -110,14 +106,14 @@ class InstrumentingPreprocessor(
 
   // add ghost variables for each extended quantifier application
   private val ghostVariableAdder =
-    new GhostVariableAdder(exqApps, exqToInstrumentationOperator, numGhostRanges)
+    new GhostVariableAdder(exqApps, exqToInstrumentationOp, numGhostRanges)
   val (clausesGhost, hintsGhost, backTranslatorGhost, ghostVarMap) =
     ghostVariableAdder.processAndGetGhostVarMap(clausesNormalized, hintsNormalized, frozenPredicates)
   translators += backTranslatorGhost
 
   // intitialize the ghost variables
   private val ghostVariableInitializer =
-    new GhostVariableInitializer(ghostVarMap, exqToInstrumentationOperator)
+    new GhostVariableInitializer(ghostVarMap, exqToInstrumentationOp)
   private val (clausesGhostInit, hintsGhostInit, backTranslatorGhostInit) =
     ghostVariableInitializer.process(clausesGhost, hintsGhost, frozenPredicates)
   translators += backTranslatorGhostInit
@@ -149,7 +145,7 @@ class InstrumentingPreprocessor(
         val instrumentationsForClause =
           for (extendedQuantifierInfo <- exqApps) yield {
             val clauseInstrumenter : ClauseInstrumenter =
-              exqToInstrumentationOperator get extendedQuantifierInfo.exTheory match {
+              exqToInstrumentationOp get extendedQuantifierInfo.exTheory match {
                 case Some(instOp) => new ClauseInstrumenter(instOp)
                 case None =>
                   throw new Exception("Could not find an instrumenter for the" +

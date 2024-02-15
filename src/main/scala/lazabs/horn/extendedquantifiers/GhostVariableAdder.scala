@@ -93,7 +93,7 @@ class GhostVariableAdder(
           val numGhostVars    = instOp.ghostVars.size
 
           for (numGhostRange <- 0 until numGhostRanges) yield {
-            val numNonGhostVars = argNum
+            val numNonGhostVars = argNum // excluding current arg
             val numPrevGhostVarsFromSameExqApp = numGhostRange * numGhostVars
             val numPrevGhostVarsFromOtherExqApps =
               numGhostRanges * numGhostVars * exqAppId
@@ -138,7 +138,12 @@ class GhostVariableAdder(
           predToGhostTerms.update(pred,
             predToGhostTerms.getOrElse(pred, Nil) ++
               ghostVarToTerm.values.map(_.c))
-          ghostVarToTerm.map{
+          /**
+           * The terms need to be in the same order as the indexes assigned
+           * earlier, so we convert ghostVarToTerm into a seq and sort it.
+           */
+          ghostVarToTerm.toSeq.sortBy(
+            p => ghostVariableInds(exqAppId)(p._1)).map{
             case (ghostVar, ghostTerm) =>
               (ghostTerm, ghostVar.sort, ghostTerm.c.name)
           }
