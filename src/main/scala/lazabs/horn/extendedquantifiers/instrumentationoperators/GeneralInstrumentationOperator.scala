@@ -84,34 +84,37 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     }
 
     val standardInstrumentation = {
+      val storeEmptySeq = (newLo === i) & (newHi === i + 1) & (newRes === o)
+      val storeBelow = (newRes === exq.reduceOp(oldRes, o)) &
+                        (newLo === i) & newHi === oldHi
+      val storeAbove = (newRes === exq.reduceOp(oldRes, o)) &
+        (newHi === i + 1 & newLo === oldLo)
+      val storeInside = exq.invReduceOp match {
+        case Some(f) =>
+          newRes === exq.reduceOp(
+            f(oldRes, exq.arrayTheory.select(a1, i)),
+            o) &
+          newLo === oldLo & newHi === oldHi
+        case _ =>
+          (newLo === i) & (newHi === i + 1) &
+            (newRes === o)
+      }
+      val storeOutside = (newLo === i) & (newHi === i + 1) & (newRes === o)
       val instrConstraint =
         (newArr === a2) &&&
           ite(
             oldLo === oldHi,
-            (newLo === i) & (newHi === i + 1) &
-            (newRes === o),
+            storeEmptySeq,
             ite(
               (oldLo - 1 === i),
-              (newRes === exq.reduceOp(oldRes, o))
-                & (newLo === i) & newHi === oldHi,
+              storeBelow,
               ite(
                 oldHi === i,
-                (newRes === exq.reduceOp(oldRes, o)) &
-                  (newHi === i + 1 & newLo === oldLo),
+                storeAbove,
                 ite(
                   oldLo <= i & oldHi > i,
-                  exq.invReduceOp match {
-                    case Some(f) =>
-                      newRes === exq.reduceOp(
-                        f(oldRes, exq.arrayTheory.select(a1, i)),
-                        o) &
-                      newLo === oldLo & newHi === oldHi
-                    case _ =>
-                      (newLo === i) & (newHi === i + 1) &
-                        (newRes === o)
-                  },
-                  (newLo === i) & (newHi === i + 1) &
-                    (newRes === o)
+                  storeInside,
+                  storeOutside
                 )
               )
             )
@@ -142,30 +145,35 @@ class GeneralInstrumentationOperator(exq: ExtendedQuantifier)
     val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
     val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
+    val selectEmpty = (newLo === i) & (newHi === i + 1) &
+      (newRes === o)
+    val selectBelow = (newRes === exq.reduceOp(oldRes, o)) &
+                      (newLo === i) & (newHi === oldHi)
+    val selectAbove = (newRes === exq.reduceOp(oldRes, o)) &
+                      (newHi === i + 1 & newLo === oldLo)
+    val selectInside = newRes === oldRes & newLo === oldLo & newHi === oldHi
+    val selectOutside = (newLo === i) & (newHi === i + 1) & (newRes === o)
+
     val instrConstraint =
       (newArr === a) &&&
         ite(
           oldLo === oldHi,
-          (newLo === i) & (newHi === i + 1) &
-            (newRes === o),
+          selectEmpty,
           ite(
             (oldLo - 1 === i),
-            (newRes === exq.reduceOp(oldRes, o)) &
-              (newLo === i) & newHi === oldHi,
+            selectBelow,
             ite(
               oldHi === i,
-              (newRes === exq
-                .reduceOp(oldRes, o)) &
-              (newHi === i + 1 & newLo === oldLo),
+              selectAbove,
               ite(oldLo <= i & oldHi > i,
-                  newRes === oldRes & newLo === oldLo & newHi === oldHi, //
+                  selectInside, //
                   // no change within bounds
-                  (newLo === i) & (newHi === i + 1) &
-                    (newRes === o))
+                  selectOutside
+              )
             )
           )
         ) //outside bounds, reset
-    val assertion = oldLo === oldHi ||| (a === oldArr)
+    val assertion = (oldLo === oldHi) ||| (a === oldArr)
     Seq(RewriteRules.Result(newConjunct = instrConstraint,
                             rewriteFormulas = Map(),
                             assertions = Seq(assertion)))
