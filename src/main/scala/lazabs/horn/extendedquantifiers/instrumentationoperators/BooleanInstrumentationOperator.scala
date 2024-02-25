@@ -8,6 +8,7 @@ import ap.types.Sort
 import lazabs.horn.extendedquantifiers.InstrumentationOperator.GhostVar
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.extendedquantifiers._
+import lazabs.horn.extendedquantifiers.theories.{ExtendedQuantifier, ExtendedQuantifierWithPredicate}
 import lazabs.prover.PrincessWrapper.expr2Formula
 
 import scala.collection.mutable.ArrayBuffer
@@ -15,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * An instrumentation operator for forall and exists.
  */
-class BooleanInstrumentationOperator(exq : ExtendedQuantifier)
+class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     extends InstrumentationOperator(exq) {
   // Extended quantifier ghost variables.
   case object GhLo     extends GhostVar(exq.arrayIndexSort, "gLo")
@@ -26,7 +27,7 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifier)
 
   /**
    * In the paper we cannot deal with alien terms appearing in
-   * [[ExtendedQuantifier.predicate]].
+   * [[ExtendedQuantifierWithPredicate.predicate]].
    * Example: in `p(o, i): o = i + c`, `c` is an alien term.
    *
    * In practice such terms pop up often. To deal with such terms, we do an

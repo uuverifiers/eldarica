@@ -35,6 +35,7 @@ import ap.parser.IFormula
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierApp
 import lazabs.horn.extendedquantifiers.GhostVariableAdder._
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 import lazabs.horn.preprocessor._
 import lazabs.horn.preprocessor.HornPreprocessor._
 
@@ -44,7 +45,7 @@ import lazabs.horn.preprocessor.HornPreprocessor._
  */
 class GhostVariableInitializer(
   predToGhostVarIndsPerExqApp  : Map[ExtendedQuantifierApp, Map[Predicate, GhostVariableInds]],
-  exqToInstrumentationOperator : Map[ExtendedQuantifier, InstrumentationOperator])
+  exqToInstrumentationOperator : Map[AbstractExtendedQuantifier, InstrumentationOperator])
   extends HornPreprocessor {
   override val name: String = "Initializing ghost variables"
 

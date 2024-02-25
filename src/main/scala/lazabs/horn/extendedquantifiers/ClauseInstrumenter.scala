@@ -119,13 +119,6 @@ class ClauseInstrumenter(instrumentationOperator : InstrumentationOperator) {
           throw new Exception("More than one conjunct found for instrumentation," +
             " are the clauses normalized?\n" + clause.toPrologString)
 
-        val resultSort = instOp.exq.predicate match {
-          case Some(_) =>
-            ap.types.Sort.Bool
-          case None    =>
-            arrayTheory.objSort
-        }
-
         val headGhostTerms =
           (for (ghostVar <- instOp.ghostVars) yield
             ghostVar -> IConstant(new SortedConstantTerm(

@@ -34,13 +34,13 @@ import ap.parser._
 import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup._
-import lazabs.horn.extendedquantifiers.InstrumentationLoop
+import lazabs.horn.extendedquantifiers.{InstrumentationLoop, InstrumentationOperator}
 import HornClauses._
 import IExpression._
 import ap.api.SimpleAPI
 import lazabs.horn.abstractions.EmptyVerificationHints
-import lazabs.horn.extendedquantifiers.ExtendedQuantifier
 import lazabs.horn.extendedquantifiers.instrumentationoperators.{BooleanInstrumentationOperator, GeneralInstrumentationOperator}
+import lazabs.horn.extendedquantifiers.theories._
 import lazabs.prover.PrincessWrapper.{expr2Formula, expr2Term}
 
 object ExtQuansWithSearchTest extends App {
@@ -52,7 +52,7 @@ object ExtQuansWithSearchTest extends App {
 
   def sum (a : ITerm, b : ITerm) : ITerm = a + b
   def invSum (a : ITerm, b : ITerm) : ITerm = a - b
-  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None, None, None)
+  val extQuan = new ExtendedQuantifier("sum", ar, i(0), sum, Some(invSum), None, None)
   TheoryRegistry.register(extQuan)
 
   {
@@ -73,9 +73,10 @@ object ExtQuansWithSearchTest extends App {
                              extQuan.morphism(a1, 0, 10) =/= 30) // [0, 10)
       )
 
-    val instOps = Map(
-      extQuan -> new GeneralInstrumentationOperator(extQuan)
-    )
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new GeneralInstrumentationOperator(extQuan)
+        )
     val instrLoop = new InstrumentationLoop(
       clauses, EmptyVerificationHints, instOps)
 
@@ -118,7 +119,7 @@ object ExtQuansForallTest extends App {
         ExpressionReplacingVisitor(
           ExpressionReplacingVisitor(pred, arrAccess, access),
           arrIndex, index))
-    val extQuan = new ExtendedQuantifier(
+    val extQuan = new ExtendedQuantifierWithPredicate(
       name = "\\forall",
       arrayTheory = ar,
       identity = expr2Term(IBoolLit(true)),
@@ -140,8 +141,9 @@ object ExtQuansForallTest extends App {
         !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
       )
 
-    val instOps = Map(
-      extQuan -> new BooleanInstrumentationOperator(extQuan)
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -190,7 +192,7 @@ object ExtQuansForallAlienTermTestSafe extends App {
         ExpressionReplacingVisitor(
           ExpressionReplacingVisitor(pred, arrAccess, access),
           arrIndex, index))
-    val extQuan = new ExtendedQuantifier(
+    val extQuan = new ExtendedQuantifierWithPredicate(
       name = "\\forall",
       arrayTheory = ar,
       identity = expr2Term(IBoolLit(true)),
@@ -219,8 +221,9 @@ object ExtQuansForallAlienTermTestSafe extends App {
      * in the clauses these c's are not guaranteed to be the same term.
      */
 
-    val instOps = Map(
-      extQuan -> new BooleanInstrumentationOperator(extQuan)
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -270,7 +273,7 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
         ExpressionReplacingVisitor(
           ExpressionReplacingVisitor(pred, arrAccess, access),
           arrIndex, index))
-    val extQuan = new ExtendedQuantifier(
+    val extQuan = new ExtendedQuantifierWithPredicate(
       name = "\\forall",
       arrayTheory = ar,
       identity = expr2Term(IBoolLit(true)),
@@ -300,8 +303,9 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
      * name).
      */
 
-    val instOps = Map(
-      extQuan -> new BooleanInstrumentationOperator(extQuan)
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
       )
 
     val instrLoop = new InstrumentationLoop(

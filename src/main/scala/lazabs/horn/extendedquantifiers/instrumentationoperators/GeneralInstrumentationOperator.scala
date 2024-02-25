@@ -8,6 +8,7 @@ import ap.parser.IExpression.i
 import ap.terfor.ConstantTerm
 import ap.theories.ADT
 import ap.types.Sort
+import lazabs.horn.extendedquantifiers.theories.ExtendedQuantifier
 import lazabs.prover.PrincessWrapper.expr2Formula
 
 import scala.collection.mutable.ArrayBuffer

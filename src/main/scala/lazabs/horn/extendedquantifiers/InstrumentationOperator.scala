@@ -1,9 +1,9 @@
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.types.Sort
 import lazabs.horn.extendedquantifiers.Util._
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 object RewriteRules {
   /**
@@ -48,13 +48,13 @@ trait RewriteRules {
                    constInfo      : ConstInfo) : Seq[RewriteRules.Result]
 
   /**
-   * The rule for rewriting applications of [[ExtendedQuantifier.morphism]].
+   * The rule for rewriting applications of [[AbstractExtendedQuantifier.morphism]].
    * @param ghostTerms A collection of [[InstrumentationOperator.ghostVars]].
    *                   There will be
    *                   [[InstrumentationOperatorApplier.numGhostRanges]] such
    *                   collections.
    * @param exqInfo Information extracted from the application of
-   *                [[ExtendedQuantifier.morphism]].
+   *                [[AbstractExtendedQuantifier.morphism]].
    */
   def rewriteAggregate(
     ghostTerms              : Seq[Map[GhostVar, ITerm]],
@@ -67,7 +67,7 @@ object InstrumentationOperator {
   }
 }
 
-abstract class InstrumentationOperator(val exq : ExtendedQuantifier)
+abstract class InstrumentationOperator(val exq : AbstractExtendedQuantifier)
   extends RewriteRules {
   import InstrumentationOperator.GhostVar
 

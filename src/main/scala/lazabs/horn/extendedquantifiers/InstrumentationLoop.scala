@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.{IAtom, IExpression, IFormula, IIntLit}
+import ap.parser.{IAtom, IExpression, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
@@ -39,9 +39,10 @@ import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, NormClause, PredicateStore, TemplateInterpolator}
+import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, PredicateStore, TemplateInterpolator}
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
-import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
+import lazabs.horn.preprocessor.DefaultPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.mutable.{ArrayBuffer, Buffer => MBuffer, HashMap => MHashMap, HashSet => MHashSet}
@@ -57,7 +58,7 @@ object InstrumentationLoop {
 class InstrumentationLoop (
   clauses                           : Clauses,
   hints                             : VerificationHints,
-  extendedQuantifierToInstOp        : Map[ExtendedQuantifier, InstrumentationOperator],
+  extendedQuantifierToInstOp        : Map[AbstractExtendedQuantifier, InstrumentationOperator],
   templateBasedInterpolation        : Boolean = false,
   templateBasedInterpolationTimeout : Long = 2000,
   templateBasedInterpolationType    :

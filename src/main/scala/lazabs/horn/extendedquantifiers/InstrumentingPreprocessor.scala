@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,9 +40,9 @@ import ap.terfor.TermOrder
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.TheoryRegistry
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
 
 object InstrumentingPreprocessor {
   case class InstrumentationResult(
@@ -75,12 +75,12 @@ class InstrumentingPreprocessor(
   clauses                  : Clauses,
   hints                    : VerificationHints,
   frozenPredicates         : Set[Predicate],
-  exqToInstrumentationOp   : Map[ExtendedQuantifier, InstrumentationOperator],
+  exqToInstrumentationOp   : Map[AbstractExtendedQuantifier, InstrumentationOperator],
   numGhostRanges           : Int)
 {
   import InstrumentingPreprocessor._
   private val exqApps : Seq[ExtendedQuantifierApp] = gatherExtQuans(clauses)
-  private val exqs : Set[ExtendedQuantifier] = exqApps.map(_.exTheory).toSet
+  private val exqs : Set[AbstractExtendedQuantifier] = exqApps.map(_.exTheory).toSet
 
   {
     val undefinedExqs = exqs diff exqToInstrumentationOp.keySet

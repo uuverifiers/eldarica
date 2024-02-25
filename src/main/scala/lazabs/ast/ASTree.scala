@@ -30,8 +30,8 @@
 package lazabs.ast
 
 import lazabs.types._
-import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
-import lazabs.horn.extendedquantifiers.ExtendedQuantifier
+import ap.theories.{ADT, Heap}
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 
 object ASTree {
@@ -111,7 +111,7 @@ object ASTree {
                      exprList: Seq[Expression]) extends Expression
 
   // Extended quantifiers
-  case class ExtQuantifierFun(extQuantifier: ExtendedQuantifier,
+  case class ExtQuantifierFun(extQuantifier: AbstractExtendedQuantifier,
                               exprList: Seq[Expression]) extends Expression
 
   // Bit-vectors

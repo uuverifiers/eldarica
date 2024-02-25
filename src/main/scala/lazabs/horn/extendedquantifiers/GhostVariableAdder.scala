@@ -35,12 +35,9 @@ import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierApp
 import lazabs.horn.preprocessor.HornPreprocessor.VerificationHints
 import lazabs.horn.preprocessor.HornPreprocessor
 import InstrumentationOperator.GhostVar
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
-import scala.collection.mutable.{
-  ArrayBuffer,
-  HashMap => MHashMap,
-  HashSet => MHashSet
-}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
 
 object GhostVariableAdder {
   type GhostVariableTerms = Seq[Map[GhostVar, ITerm]]
@@ -53,7 +50,7 @@ object GhostVariableAdder {
  */
 class GhostVariableAdder(
   exqApps                      : Seq[ExtendedQuantifierApp],
-  exqToInstrumentationOperator : Map[ExtendedQuantifier, InstrumentationOperator],
+  exqToInstrumentationOperator : Map[AbstractExtendedQuantifier, InstrumentationOperator],
   numGhostRanges               : Int) extends SimpleArgumentExpander {
 
   import GhostVariableAdder._

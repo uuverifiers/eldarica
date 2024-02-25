@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,22 +30,22 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.{Eq, Predicate}
+import ap.parser.IExpression.Eq
 import ap.parser.{CollectingVisitor, IAtom, IExpression, IFormula, IFunApp, ITerm}
 import ap.theories.ExtArray
 import ap.types.{MonoSortedPredicate, Sort}
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.extendedquantifiers.GhostVariableAdder.GhostVariableInds
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.ArrayBuffer
 
 object Util {
 
   /**
-   * For storing applications of [[ExtendedQuantifier.morphism]].
+   * For storing applications of [[AbstractExtendedQuantifier.morphism]].
    */
-  case class ExtendedQuantifierApp(exTheory      : ExtendedQuantifier,
+  case class ExtendedQuantifierApp(exTheory      : AbstractExtendedQuantifier,
                                    funApp        : IFunApp,
                                    arrayTerm     : ITerm,
                                    loTerm        : ITerm,
@@ -94,7 +94,7 @@ object Util {
     def postVisit(t: IExpression, boundVars: Int, subres: Seq[Unit]): Unit =
       t match {
         case conj@Eq(app@IFunApp(
-        ExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)), o) =>
+        AbstractExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)), o) =>
           extQuantifierInfos +=
             ExtendedQuantifierApp(theory, app, a, lo, hi, o, conj)
         case _ => // nothing
@@ -117,7 +117,7 @@ object Util {
   }
 
   def isAggregateFun(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(ExtendedQuantifier.ExtendedQuantifierFun(_), _), _) => true
+    case Eq(IFunApp(AbstractExtendedQuantifier.ExtendedQuantifierFun(_), _), _) => true
     case _ => false
   }
 

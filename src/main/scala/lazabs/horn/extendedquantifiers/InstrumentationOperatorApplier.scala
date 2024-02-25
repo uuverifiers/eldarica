@@ -35,7 +35,7 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import HornPreprocessor.{Clauses, VerificationHints, _}
 import Util._
 import InstrumentingPreprocessor._
-import lazabs.horn.extendedquantifiers.instrumentationoperators.GeneralInstrumentationOperator
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 /**
  * A preprocessor that applies instrumentation operators to `clauses`.
@@ -47,7 +47,7 @@ class InstrumentationOperatorApplier(
   clauses          : Clauses,
   hints            : VerificationHints,
   frozenPredicates : Set[Predicate],
-  extendedQuantifierToInstOp : Map[ExtendedQuantifier, InstrumentationOperator],
+  extendedQuantifierToInstOp : Map[AbstractExtendedQuantifier, InstrumentationOperator],
   numGhostRanges   : Int) {
   val exqApps = gatherExtQuans(clauses)
   val exqs = exqApps.map(_.exTheory).toSet
