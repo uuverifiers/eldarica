@@ -99,7 +99,7 @@ class ProductInstrumentationOperator(exq: ExtendedQuantifier)
     def zeroReduceOp(res: ITerm, newVal: ITerm) =
         { ite(newVal === 0, res, exq.reduceOp(res,newVal)) }
     def zeroInvReduceOp(res:ITerm, oldVal:ITerm, inv_f:(ITerm, ITerm) => ITerm) =
-        {if(oldVal == i(0)) {res} else {inv_f(res,oldVal)}}
+        { ite(oldVal === 0, res, inv_f(res,oldVal)) }
     // Array pass-through instrumentation for stores. This allows ignoring
     // stores to outside the tracked range.
     val arrayPassThroughInstrumentation: RewriteRules.Result = {
