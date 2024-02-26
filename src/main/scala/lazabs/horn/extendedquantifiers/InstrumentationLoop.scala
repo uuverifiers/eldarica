@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,22 +30,22 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.{IAtom, IExpression, IFormula, IIntLit}
+import ap.parser.{IAtom, IExpression, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
+import lazabs.GlobalParameters
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, NormClause, PredicateStore, TemplateInterpolator}
+import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, PredicateStore, TemplateInterpolator}
 import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
-import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
+import lazabs.horn.preprocessor.DefaultPreprocessor
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
-import scala.collection.immutable.Map
-import scala.collection.{immutable, mutable}
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, Buffer => MBuffer, HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.Random
 
 object InstrumentationLoop {
@@ -55,14 +55,17 @@ object InstrumentationLoop {
   case object Inconclusive extends Result
 }
 
-class InstrumentationLoop (clauses : Clauses,
-                           hints : VerificationHints,
-                           templateBasedInterpolation : Boolean = false,
-                           templateBasedInterpolationTimeout : Long = 2000,
-                           templateBasedInterpolationType :
-                            StaticAbstractionBuilder.AbstractionType.Value =
-                            StaticAbstractionBuilder.AbstractionType.RelationalEqs,
-                           globalPredicateTemplates: Map[Predicate, Seq[VerifHintElement]] = Map()) {
+class InstrumentationLoop (
+  clauses                           : Clauses,
+  hints                             : VerificationHints,
+  extendedQuantifierToInstOp        : Map[AbstractExtendedQuantifier, InstrumentationOperator],
+  templateBasedInterpolation        : Boolean = false,
+  templateBasedInterpolationTimeout : Long = 2000,
+  templateBasedInterpolationType    :
+    StaticAbstractionBuilder.AbstractionType.Value =
+    StaticAbstractionBuilder.AbstractionType.RelationalEqs,
+  globalPredicateTemplates          :
+    Map[Predicate, Seq[VerifHintElement]] = Map()) {
   import InstrumentationLoop._
 
   private val backTranslators = new ArrayBuffer[BackTranslator]
@@ -81,7 +84,11 @@ class InstrumentationLoop (clauses : Clauses,
   private var curHints : VerificationHints = hints
   private val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
-      preprocessor.process(clauses, curHints)
+      val slicingPre = GlobalParameters.get.slicing
+      GlobalParameters.get.slicing = false
+      val res = preprocessor.process(clauses, curHints)
+      GlobalParameters.get.slicing = slicingPre
+      res
     }
   curHints = newHints1
   backTranslators += backTranslator1
@@ -92,20 +99,20 @@ class InstrumentationLoop (clauses : Clauses,
 //  clauses.foreach(clause => println(clause.toPrologString))
 //  println("="*80 + "\n")
 
-  private val ghostVarRanges: mutable.Buffer[Int] = (1 to 2).toBuffer
+  private val ghostVarRanges: MBuffer[Int] = (1 to 2).toBuffer
   private var rawResult : Result = Inconclusive
   private val searchSpaceSizePerNumGhostRanges = new MHashMap[Int, Int]
   private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
-  private var lastSolver : IncrementalHornPredAbs[Clause] = _
-  private var lastInstrumenter : SimpleExtendedQuantifierInstrumenter = _
+  private var lastSolver : IncrementalHornPredAbs[Clause]       = _
+  private var lastInstrumenter : InstrumentationOperatorApplier = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
     val numRanges = ghostVarRanges.head
     ghostVarRanges -= numRanges
 
     println("# ghost variable ranges: " + numRanges)
-    val instrumenter = new SimpleExtendedQuantifierInstrumenter(
-      simpClauses, curHints, Set.empty, numRanges)
+    val instrumenter = new InstrumentationOperatorApplier(
+      simpClauses, curHints, Set.empty, extendedQuantifierToInstOp, numRanges)
     lastInstrumenter = instrumenter
 
     curHints = instrumenter.newHints

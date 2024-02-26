@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,17 +30,22 @@
 
 package lazabs.horn.extendedquantifiers
 
-import ap.parser.IExpression.{Predicate, _}
+import ap.parser.IExpression._
 import ap.parser.IFormula
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierInfo
+import lazabs.horn.extendedquantifiers.Util.ExtendedQuantifierApp
 import lazabs.horn.extendedquantifiers.GhostVariableAdder._
-import lazabs.horn.preprocessor.HornPreprocessor._
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 import lazabs.horn.preprocessor._
-import lazabs.prover.PrincessWrapper.expr2Formula
+import lazabs.horn.preprocessor.HornPreprocessor._
 
+/**
+ * Initializes ghost variables added by [[GhostVariableAdder]] using
+ * the initializers [[InstrumentationOperator.ghostVarInitialValues]].
+ */
 class GhostVariableInitializer(
-  ghostVarInds : Map[ExtendedQuantifierInfo, Map[Predicate, Seq[GhostVariableInds]]])
+  predToGhostVarIndsPerExqApp  : Map[ExtendedQuantifierApp, Map[Predicate, GhostVariableInds]],
+  exqToInstrumentationOperator : Map[AbstractExtendedQuantifier, InstrumentationOperator])
   extends HornPreprocessor {
   override val name: String = "Initializing ghost variables"
 
@@ -53,17 +58,16 @@ class GhostVariableInitializer(
     val newClauses = for (clause <- clauses) yield {
       if (entryClauses contains clause) {
         val newConjuncts = new collection.mutable.ArrayBuffer[IFormula]
-        for ((exq, predToGhostVars) <- ghostVarInds) {
-          val ghostVars = predToGhostVars(clause.head.pred)
-          for (GhostVariableInds(lo, hi, res, arr, alienInds) <- ghostVars) {
-            newConjuncts +=
-              clause.head.args(lo) === 0 &&& clause.head.args(hi) === 0 &&&
-              exq.exTheory.identity === clause.head.args(res)
-            for (AlienGhostVariableInds(_, vSet) <- alienInds) {
-              // ghost alien vars are initially not set
-              newConjuncts += !expr2Formula(clause.head.args(vSet))
-            }
-          }
+        for ((exqApp, predToGhostVarInds) <- predToGhostVarIndsPerExqApp) {
+          val instOp = exqToInstrumentationOperator(exqApp.exTheory)
+
+          for (ghostVarToInd <- predToGhostVarInds(clause.head.pred))
+            for ((ghostVar, ghostInd) <- ghostVarToInd)
+              instOp.ghostVarInitialValues get ghostVar match {
+                case Some(initialValue) =>
+                  newConjuncts += clause.head.args(ghostInd) === initialValue
+                case None               => // no initialization needed
+              }
         }
         val newConstraint = clause.constraint &&&
           newConjuncts.fold(i(true))((c1, c2) => c1 &&& c2)

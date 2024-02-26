@@ -33,7 +33,6 @@ package lazabs.prover
 import lazabs.ast.ASTree._
 import lazabs.types._
 import ap.basetypes._
-import ap.basetypes.IdealInt._
 import ap.parser._
 import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
@@ -41,8 +40,7 @@ import ap.terfor.conjunctions.Quantifier
 import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
-import ap.types.MonoSortedIFunction
-import lazabs.horn.extendedquantifiers.ExtendedQuantifier
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -468,7 +466,7 @@ class PrincessWrapper {
         HeapFun(h, f.name, e.map(rvT(_)))
 
       // Theory of extended quantifiers
-      case IFunApp(f@ExtendedQuantifier.ExtendedQuantifierFun(extQuantifier), e) =>
+      case IFunApp(f@AbstractExtendedQuantifier.Morphism(extQuantifier), e) =>
         ExtQuantifierFun(extQuantifier, e.map(rvT(_)))
 
       // Bit-vectors

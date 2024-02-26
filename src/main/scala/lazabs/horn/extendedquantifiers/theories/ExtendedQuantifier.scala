@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,17 +27,12 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package lazabs.horn.extendedquantifiers
+package lazabs.horn.extendedquantifiers.theories
 
-import ap.Signature.PredicateMatchConfig
 import ap.parser._
-import ap.parser.IExpression.{Predicate, Sort, i}
-import ap.proof.theoryPlugins.Plugin
-import ap.terfor.{ConstantTerm, Formula}
-import ap.terfor.conjunctions.Conjunction
-import ap.theories.{ExtArray, Theory, TheoryRegistry}
+import ap.parser.smtlib.Absyn.SymbolRef
+import ap.theories.ExtArray
 import ap.types.MonoSortedIFunction
-import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
 
 /**
  * This theory introduces a theory for the sole purpose of making available
@@ -49,11 +44,6 @@ import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
  * @param identity        : term to return for empty ranges
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
  * @param invReduceOp     : only for cancellative reduce operations
-
- * The following three parameters are typically used with general quantifiers.
- * @param predicate       : a predicate to apply during aggregation, this also
- *                          implies that the ghost variable used in aggregation
- *                          will be a predicate
  * @param rangeFormulaLo  : an optional range expression to be used when
  *                          rewriting the extended quantifier assertion. This
  *                          relaxes the requirement that ranges must exactly
@@ -65,50 +55,27 @@ import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
  * @param rangeFormulaHi  : similar to above, but for hi.
  */
 class ExtendedQuantifier(
-    name:               String,
-    val arrayTheory:    ExtArray,
-    val identity:       ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
-    val reduceOp:       (ITerm, ITerm) => ITerm,
-    val invReduceOp:    Option[(ITerm, ITerm) => ITerm],
-    val predicate:      Option[(ITerm, ITerm) => ITerm],
-    val rangeFormulaLo: Option[(ITerm, ITerm, ITerm) => IFormula],
-    val rangeFormulaHi: Option[(ITerm, ITerm, ITerm) => IFormula])
-// a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
-    extends SMTLinearisableTheory with SMTParseableTheory {
-
-  val arrayIndexSort: Sort = arrayTheory.indexSorts.head
-  if (arrayTheory.indexSorts.length > 1)
-    throw new Exception(
-      "Currently only 1-d integer indexed arrays are supported!")
-
-  // this theory depends on the theory of extensional arrays with specified sorts
-  override val dependencies: Iterable[Theory] = List(arrayTheory)
-
-  // alien constants (if any) in the predicate (if any)
-  val alienConstantsInPredicate: Seq[ConstantTerm] = {
-    predicate match {
-      case Some(pred) =>
-        val t1 = new ConstantTerm("t1")
-        val t2 = new ConstantTerm("t2")
-        SymbolCollector.constantsSorted(pred(t1, t2)) diff Seq(t1, t2)
-      case None => Nil
-    }
-  }
+    name           : String,
+    arrayTheory    : ExtArray,
+    identity       : ITerm, // todo: see what ACSL does here - we maybe do not really consider monoids but semi-groups
+    reduceOp       : (ITerm, ITerm) => ITerm,
+    invReduceOp    : Option[(ITerm, ITerm) => ITerm],
+    rangeFormulaLo : Option[(ITerm, ITerm, ITerm) => IFormula],
+    rangeFormulaHi : Option[(ITerm, ITerm, ITerm) => IFormula])
+  extends AbstractExtendedQuantifier(
+    name = name, arrayTheory = arrayTheory, identity = identity,
+    reduceOp = reduceOp, invReduceOp = invReduceOp,
+    rangeFormulaLo = rangeFormulaLo, rangeFormulaHi = rangeFormulaHi) {
 
   // morphism : (a : array, lo : Int, hi : Int) => Obj
-  val morphism = MonoSortedIFunction(
+  override val morphism = MonoSortedIFunction(
     name,
     List(arrayTheory.sort, arrayIndexSort, arrayIndexSort),
     arrayTheory.objSort,
     partial = false,
     relational = false)
 
-  /**
-   * The theory introduces the single extended quantifier function.
-   */
-  override val functions: Seq[IFunction] = Seq(morphism)
-
-  val theoryAxioms: IFormula = {
+  override val theoryAxioms: IFormula = {
     import ap.parser.IExpression._
     import arrayTheory._
     arrayTheory.sort.all(
@@ -142,30 +109,6 @@ class ExtendedQuantifier(
                      morphism(a, lo, hi)))))
   }
 
-  val (funPredicates, axioms1, order, functionTranslation) = Theory.genAxioms(
-    theoryFunctions = functions,
-    theoryAxioms = theoryAxioms,
-    otherTheories = dependencies.toList)
-
-  override val functionalPredicates: Set[Predicate] = funPredicates.toSet
-  override val predicates:           Seq[Predicate] = funPredicates
-  override val functionPredicateMapping: Seq[(IFunction, Predicate)] =
-    functions zip functionalPredicates
-
-  override val predicateMatchConfig:     PredicateMatchConfig = Map()
-  override val triggerRelevantFunctions: Set[IFunction]       = functions.toSet
-  override val axioms:                   Formula              = axioms1
-  override val totalityAxioms:           Formula              = Conjunction.TRUE
-  override def plugin:                   Option[Plugin]       = None
-
-  override def isSoundForSat(theories: Seq[Theory],
-                             config:   Theory.SatSoundnessConfig.Value): Boolean =
-    config match {
-      case Theory.SatSoundnessConfig.Elementary  => true
-      case Theory.SatSoundnessConfig.Existential => true
-      case _                                     => false
-    }
-
   //////////////////////////////////////////////////////////////////////////////
   // SMT Lineariser and Parser
   /**
@@ -181,19 +124,4 @@ class ExtendedQuantifier(
     arguments : Seq[(Int) => (IExpression, SMTTypes.SMTType)],
     polarity  : Int)
   : Option[(IExpression, SMTTypes.SMTType)] = Some(???)
-}
-
-object ExtendedQuantifier {
-  /**
-   * Extractor recognising the <code>fun</code> function of
-   * any ExtendedQuantifier theory.
-   */
-  object ExtendedQuantifierFun {
-    def unapply(f: IFunction): Option[ExtendedQuantifier] =
-      (TheoryRegistry lookupSymbol f) match {
-        case Some(t: ExtendedQuantifier) if f == t.morphism => Some(t)
-        case _                                              => None
-      }
-  }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,18 +35,25 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import HornPreprocessor.{Clauses, VerificationHints, _}
 import Util._
 import InstrumentingPreprocessor._
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
-class SimpleExtendedQuantifierInstrumenter(clauses : Clauses,
-                                           hints : VerificationHints,
-                                           frozenPredicates : Set[Predicate],
-                                           numGhostRanges : Int) {
+/**
+ * A preprocessor that applies instrumentation operators to `clauses`.
+ * @param numGhostRanges There will be this many collections of
+ *                       [[InstrumentationOperator.ghostVars]] per
+ *                       instrumentation operator.
+ */
+class InstrumentationOperatorApplier(
+  clauses          : Clauses,
+  hints            : VerificationHints,
+  frozenPredicates : Set[Predicate],
+  extendedQuantifierToInstOp : Map[AbstractExtendedQuantifier, InstrumentationOperator],
+  numGhostRanges   : Int) {
   val exqApps = gatherExtQuans(clauses)
   val exqs = exqApps.map(_.exTheory).toSet
-  private val clauseInstrumenters = (exqs.map(exq =>
-    (exq, new SimpleClauseInstrumenter(exq)))).toMap
   private val instrumentingPreprocessor =
     new InstrumentingPreprocessor(clauses, hints, frozenPredicates,
-      clauseInstrumenters, numGhostRanges)
+                                  extendedQuantifierToInstOp, numGhostRanges)
   val (InstrumentationResult(instrumentedClauses, branchPredicates, searchSpace),
         newHints, backTranslator) = instrumentingPreprocessor.process
 }
