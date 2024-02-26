@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

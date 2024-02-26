@@ -1,3 +1,34 @@
+/**
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
 package lazabs.horn.extendedquantifiers.instrumentationoperators
 
 import ap.parser.IExpression.i
@@ -8,7 +39,7 @@ import ap.types.Sort
 import lazabs.horn.extendedquantifiers.InstrumentationOperator.GhostVar
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.extendedquantifiers._
-import lazabs.horn.extendedquantifiers.theories.{ExtendedQuantifier, ExtendedQuantifierWithPredicate}
+import lazabs.horn.extendedquantifiers.theories.ExtendedQuantifierWithPredicate
 import lazabs.prover.PrincessWrapper.expr2Formula
 
 import scala.collection.mutable.ArrayBuffer
@@ -61,7 +92,7 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
   private val alienSetVarSuffix = "Set"
 
   val alienConstantToAlienGhostVars : Map[ConstantTerm, AlienGhostVars] =
-    (for (c <- exq.alienConstantsInPredicate) yield {
+    (for (c <- exq.alienConstants) yield {
       // As per (1) from the explanation above, create one pair per constant.
       val vShad = GhAlienShad(Sort.sortOf(IConstant(c)), c.name ++ alienShadowVarSuffix)
       val vSet  = GhAlienSet(c.name ++ alienSetVarSuffix)
@@ -146,9 +177,9 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     import IExpression._
     assert(ghostVars.forall(ghostTerms contains))
     // exq.morphism(arr, lo, hi) === res
-    exq.morphism(ghostTerms(GhArr),
-                 ghostTerms(GhLo),
-                 ghostTerms(GhHi)) === ghostTerms(GhRes)
+    exq.applyMorphism(ghostTerms(GhArr),
+                      ghostTerms(GhLo),
+                      ghostTerms(GhHi)) === ghostTerms(GhRes)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -162,15 +193,11 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
    */
   private def pred(o: ITerm,
                    i: ITerm,
-                   alienSubstMap : Map[ConstantTerm, ITerm]) = exq.predicate match {
-    case Some(p) =>
-      if(alienSubstMap.nonEmpty)
-        // rewrite alien terms in the app to their corresponding ghost variables
-        ConstantSubstVisitor(p(o, i), alienSubstMap)
-      else p(o, i)
-    case None => throw new IllegalArgumentException(
-      s"$this expects an extended quantifier with nonempty predicate.")
-  }
+                   alienSubstMap : Map[ConstantTerm, ITerm]) =
+    if(alienSubstMap.nonEmpty)
+      // rewrite alien terms in the app to their corresponding ghost variables
+      ConstantSubstVisitor(exq.predicate(o, i), alienSubstMap)
+    else exq.predicate(o, i)
 
   override def rewriteStore(oldGhostTerms  : Map[GhostVar, ITerm],
                             newGhostTerms  : Map[GhostVar, ITerm],
@@ -190,7 +217,7 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
     val alienSubstMap : Map[ConstantTerm, ITerm] =
-      (for (alienC <- exq.alienConstantsInPredicate) yield {
+      (for (alienC <- exq.alienConstants) yield {
         alienC -> newGhostTerms(alienConstantToAlienGhostVars(alienC).vShad)
       }).toMap
 
@@ -277,7 +304,7 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms(GhArrInd))
 
     val alienSubstMap : Map[ConstantTerm, ITerm] =
-      (for (alienC <- exq.alienConstantsInPredicate) yield {
+      (for (alienC <- exq.alienConstants) yield {
         alienC -> newGhostTerms(alienConstantToAlienGhostVars(alienC).vShad)
       }).toMap
 
@@ -341,7 +368,8 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
       ghostVarToGhostTerm(GhArrInd)
     )
 
-    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, alienTerms, conjunct) =
+      exqInfo
 
     def loExpr =
       exq.rangeFormulaLo.getOrElse((t1: ITerm, t2: ITerm, t3: ITerm) =>
@@ -351,10 +379,11 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
         t1 === t2)
 
     val alienGuard = {
-      for ((alienTerm, AlienGhostVars(vShad, vSet)) <- alienConstantToAlienGhostVars)
+      for ((alienC, ind) <- exq.alienConstants zipWithIndex)
         yield {
+          val AlienGhostVars(vShad, vSet) = alienConstantToAlienGhostVars(alienC)
           expr2Formula(ghostVarToGhostTerm(vSet)) &&&
-          (ghostVarToGhostTerm(vShad) === ???) // TODO: here we should use the actual argument to the predicate, not the one from exq.
+          (ghostVarToGhostTerm(vShad) === alienTerms(ind))
         }
     }.fold(i(true))((c1, c2) => c1 &&& c2)
 

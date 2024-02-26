@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ import lazabs.horn.preprocessor.HornPreprocessor
 import InstrumentationOperator.GhostVar
 import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 object GhostVariableAdder {
   type GhostVariableTerms = Seq[Map[GhostVar, ITerm]]

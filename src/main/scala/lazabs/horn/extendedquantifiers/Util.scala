@@ -51,6 +51,7 @@ object Util {
                                    loTerm        : ITerm,
                                    hiTerm        : ITerm,
                                    aggregateTerm : ITerm,
+                                   alienTerms    : Seq[ITerm],
                                    conjunct      : IFormula)
 
   case class SelectInfo(a: ITerm, i: ITerm, o: ITerm, theory: ExtArray)
@@ -94,9 +95,14 @@ object Util {
     def postVisit(t: IExpression, boundVars: Int, subres: Seq[Unit]): Unit =
       t match {
         case conj@Eq(app@IFunApp(
-        AbstractExtendedQuantifier.ExtendedQuantifierFun(theory), Seq(a, lo, hi)), o) =>
+        AbstractExtendedQuantifier.Morphism(theory), args), o)
+          if args.size > 2 => // args are: Seq(a, lo, hi, alienConstants)
+          val a = args(0)
+          val lo = args(1)
+          val hi = args(2)
+          val alienTerms = args.drop(3)
           extQuantifierInfos +=
-            ExtendedQuantifierApp(theory, app, a, lo, hi, o, conj)
+            ExtendedQuantifierApp(theory, app, a, lo, hi, o, alienTerms, conj)
         case _ => // nothing
       }
   }
@@ -117,8 +123,8 @@ object Util {
   }
 
   def isAggregateFun(conjunct: IFormula): Boolean = conjunct match {
-    case Eq(IFunApp(AbstractExtendedQuantifier.ExtendedQuantifierFun(_), _), _) => true
-    case _ => false
+    case Eq(IFunApp(AbstractExtendedQuantifier.Morphism(_), _), _) => true
+    case _                                                         => false
   }
 
   def getNewArrayTerm(conjunct: IFormula): (Seq[ITerm], Seq[Sort]) =

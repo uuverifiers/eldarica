@@ -466,7 +466,7 @@ class PrincessWrapper {
         HeapFun(h, f.name, e.map(rvT(_)))
 
       // Theory of extended quantifiers
-      case IFunApp(f@AbstractExtendedQuantifier.ExtendedQuantifierFun(extQuantifier), e) =>
+      case IFunApp(f@AbstractExtendedQuantifier.Morphism(extQuantifier), e) =>
         ExtQuantifierFun(extQuantifier, e.map(rvT(_)))
 
       // Bit-vectors

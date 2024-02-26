@@ -125,7 +125,7 @@ object ExtQuansForallTest extends App {
       identity = expr2Term(IBoolLit(true)),
       reduceOp = reduceOp,
       invReduceOp = None,
-      predicate = Some(predicate),
+      predicate = predicate,
       rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
@@ -198,7 +198,7 @@ object ExtQuansForallAlienTermTestSafe extends App {
       identity = expr2Term(IBoolLit(true)),
       reduceOp = reduceOp,
       invReduceOp = None,
-      predicate = Some(predicate),
+      predicate = predicate,
       rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
@@ -211,7 +211,7 @@ object ExtQuansForallAlienTermTestSafe extends App {
       p(0)(a1, i + 1, c0) :- (p(0)(a1, i, c0), c0 === ar.select(a1, i), i < 3),
       p(1)(a1, i, c1)     :- (p(0)(a1, i, c1), i >= 3),
       false               :- (p(1)(a1, i, c),
-        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+        !expr2Formula(extQuan.morphism(a1, 0, 3, c))) // [0, 3)
       )
 
     /**
@@ -279,7 +279,7 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
       identity = expr2Term(IBoolLit(true)),
       reduceOp = reduceOp,
       invReduceOp = None,
-      predicate = Some(predicate),
+      predicate = predicate,
       rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
@@ -292,7 +292,7 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
       p(0)(a1, i + 1, c0, actualC) :- (p(0)(a1, i, c0, actualC), c0 === ar.select(a1, i), i < 3),
       p(1)(a1, i, c1, actualC)     :- (p(0)(a1, i, c1, actualC), i >= 3),
       false                      :- (p(1)(a1, i, c2, actualC),
-        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+        !expr2Formula(extQuan.morphism(a1, 0, 3, actualC))) // [0, 3)
       )
 
     /**

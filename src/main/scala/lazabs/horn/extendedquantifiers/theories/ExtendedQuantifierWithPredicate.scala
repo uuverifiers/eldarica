@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,10 @@
  */
 package lazabs.horn.extendedquantifiers.theories
 
-import ap.Signature.PredicateMatchConfig
-import ap.parser.IExpression.Predicate
+import ap.parser.IExpression.Sort
 import ap.parser._
-import ap.proof.theoryPlugins.Plugin
-import ap.terfor.conjunctions.Conjunction
-import ap.terfor.{ConstantTerm, Formula}
-import ap.theories.{ExtArray, Theory}
+import ap.terfor.ConstantTerm
+import ap.theories.ExtArray
 import ap.types.MonoSortedIFunction
 
 /**
@@ -48,11 +45,6 @@ import ap.types.MonoSortedIFunction
  * @param identity        : term to return for empty ranges
  * @param reduceOp        : reduce operator, e.g.: def sum(a, b) = a + b
  * @param invReduceOp     : only for cancellative reduce operations
-
- * The following three parameters are typically used with general quantifiers.
- * @param predicate       : a predicate to apply during aggregation, this also
- *                          implies that the ghost variable used in aggregation
- *                          will be a predicate
  * @param rangeFormulaLo  : an optional range expression to be used when
  *                          rewriting the extended quantifier assertion. This
  *                          relaxes the requirement that ranges must exactly
@@ -62,23 +54,23 @@ import ap.types.MonoSortedIFunction
  *                          must be ghost variable tracking lo, and the
  *                          second argument must be lo from the assertion.
  * @param rangeFormulaHi  : similar to above, but for hi.
+ * @param predicate       : a predicate to apply during aggregation.
+ *                          argument terms are (x, i) in a[i] = x
  */
 class ExtendedQuantifierWithPredicate(
   name           : String,
   arrayTheory    : ExtArray,
   identity       : ITerm, // todo: see what ACSL does here - we maybe do
-  // not really consider monoids but semi-groups
+                          //       not really consider monoids but semi-groups
   reduceOp       : (ITerm, ITerm) => ITerm,
   invReduceOp    : Option[(ITerm, ITerm) => ITerm],
   rangeFormulaLo : Option[(ITerm, ITerm, ITerm) => IFormula],
   rangeFormulaHi : Option[(ITerm, ITerm, ITerm) => IFormula],
-  val predicate      : Option[(ITerm, ITerm) => ITerm])
-// a predicate in case of general quantifiers, argument terms are (x, i) in a[i] = x
-  extends AbstractExtendedQuantifier(
+  val predicate  : (ITerm, ITerm) => ITerm
+) extends AbstractExtendedQuantifier(
     name = name, arrayTheory = arrayTheory, identity = identity,
     reduceOp = reduceOp, invReduceOp = invReduceOp,
     rangeFormulaLo = rangeFormulaLo, rangeFormulaHi = rangeFormulaHi) {
-
   /**
    * ''alien'' terms refer to unbound variables of
    * [[ExtendedQuantifierWithPredicate.predicate]] (when this predicate is provided).
@@ -86,57 +78,53 @@ class ExtendedQuantifierWithPredicate(
    * written/read object at index `i`.
    * Example: in `p(o, i): o = i + c`, `c` is an alien term.
    */
-  val alienConstantsInPredicate: Seq[ConstantTerm] = {
-    predicate match {
-      case Some(pred) =>
-        val t1 = new ConstantTerm("t1")
-        val t2 = new ConstantTerm("t2")
-        SymbolCollector.constantsSorted(pred(t1, t2)) diff Seq(t1, t2)
-      case None => Nil
-    }
+  val alienConstants : Seq[ConstantTerm] = {
+    val t1 = new ConstantTerm("t1")
+    val t2 = new ConstantTerm("t2")
+    SymbolCollector.constantsSorted(predicate(t1, t2)) diff Seq(t1, t2)
   }
+  val alienConstantSorts : Seq[Sort] = alienConstants.map(
+    c => Sort.sortOf(IConstant(c)))
 
   // morphism : (a : array, lo : Int, hi : Int) => Obj
   override val morphism = MonoSortedIFunction(
     name,
-    List(arrayTheory.sort, arrayIndexSort, arrayIndexSort),
+    List(arrayTheory.sort, arrayIndexSort, arrayIndexSort) ++ alienConstantSorts,
     arrayTheory.objSort,
     partial = false,
     relational = false)
 
-  override val theoryAxioms: IFormula = {
-    import ap.parser.IExpression._
-    arrayTheory.sort.all(
-      a =>
-        // TODO
-        //  1. systematic splitting - eliminate overlaps
-        //  2. propagate summation across stores
-        arrayIndexSort.all(
-          lo =>
-            arrayIndexSort.all(hi =>
-              trig((lo < hi) ==> (morphism(a, lo, hi) ===
-                     reduceOp(morphism(a, lo + 1, hi),
-                              arrayTheory.select(a, lo))),
-                   morphism(a, lo, hi))))) & // triggers
+  def applyMorphism(a : ITerm, lo : ITerm, hi : ITerm) =
+    IFunApp(morphism, Seq(a, lo, hi) ++ alienConstants.map(IConstant))
+    override val theoryAxioms : IFormula = IExpression.i(true)
+//  override val theoryAxioms: IFormula = {
+//    import ap.parser.IExpression._
 //    arrayTheory.sort.all(
 //      a =>
+//        // TODO
+//        //  1. systematic splitting - eliminate overlaps
+//        //  2. propagate summation across stores
 //        arrayIndexSort.all(
 //          lo =>
-//            arrayIndexSort.all(
-//              hi =>
-//                trig((lo < hi) ==> (fun(a, lo, hi) ===
-//                                    reduceOp(fun(a, lo, hi-1), select(a,
-//                                                                      hi-1))),
-//                     fun(a, lo, hi))))) &
-      arrayTheory.sort.all(
-        a =>
-          arrayIndexSort.all(
-            lo =>
-              arrayIndexSort.all(hi =>
-                trig((lo >= hi) ==> (morphism(a, lo, hi) ===
-                       identity),
-                     morphism(a, lo, hi)))))
-  }
+//            arrayIndexSort.all(hi =>
+//              trig((lo < hi) ==> (applyMorphism(a, lo, hi) ===
+//                     reduceOp(applyMorphism(a, lo+1, hi), predicate(a, lo))),
+//                   applyMorphism(a, lo, hi))))) & // triggers
+////    arrayTheory.sort.all(
+////      a =>
+////        arrayIndexSort.all(
+////          lo =>
+////            arrayIndexSort.all(
+////              hi =>
+////                trig((lo < hi) ==> (fun(a, lo, hi) ===
+////                                    reduceOp(fun(a, lo, hi-1), select(a,
+////                                                                      hi-1))),
+////                     fun(a, lo, hi))))) &
+//      arrayTheory.sort.all(a => arrayIndexSort.all(lo =>
+//        arrayIndexSort.all(hi =>
+//          trig((lo >= hi) ==> (applyMorphism(a, lo, hi) === identity),
+//               applyMorphism(a, lo, hi)))))
+//  }
 
   //////////////////////////////////////////////////////////////////////////////
   // SMT Lineariser and Parser

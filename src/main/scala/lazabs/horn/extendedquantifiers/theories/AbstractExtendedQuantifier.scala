@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
+ * Copyright (c) 2024 Jesper Amilon, Zafer Esen, Philipp Ruemmer.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,12 +32,10 @@ package lazabs.horn.extendedquantifiers.theories
 import ap.Signature.PredicateMatchConfig
 import ap.parser.IExpression.{Predicate, Sort}
 import ap.parser._
-import ap.parser.smtlib.Absyn.SymbolRef
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.Formula
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{ExtArray, Theory, TheoryRegistry}
-import ap.types.MonoSortedIFunction
 
 /**
  * This theory introduces a theory for the sole purpose of making available
@@ -121,7 +119,7 @@ object AbstractExtendedQuantifier {
    * Extractor recognising the <code>fun</code> function of
    * any ExtendedQuantifier theory.
    */
-  object ExtendedQuantifierFun {
+  object Morphism {
     def unapply(f : IFunction): Option[AbstractExtendedQuantifier] =
       (TheoryRegistry lookupSymbol f) match {
         case Some(t : AbstractExtendedQuantifier)
