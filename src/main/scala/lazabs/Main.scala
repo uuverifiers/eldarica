@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2011-2023 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
- * Pavle Subotic. All rights reserved.
+ * Copyright (c) 2011-2024 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Pavle Subotic, Gambhir Sankalp. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -270,7 +270,24 @@ class GlobalParameters extends Cloneable {
       case _ => as
     }
   }
-  
+ 
+  def openInputFile {
+    in = Main.getFileStream(fileName)
+  }
+ 
+  def setInputToSTDIN {
+    format match {
+      case GlobalParameters.InputFormat.AutoDetect |
+           GlobalParameters.InputFormat.SMTHorn => {
+        format = GlobalParameters.InputFormat.SMTHorn
+        in = new ap.parser.SMTParsingUtils.SMTCommandTerminator(Console.in)
+      }
+      case _ => {
+        in = Console.in
+      }
+    }
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -284,21 +301,6 @@ object Main {
   case class FileOrOptionNotFoundException(fileName: String) extends MainException(s"No such file or option: $fileName . Use -h for usage information")
   object PrintingFinishedException extends Exception
 
-  def openInputFile {
-    val params = GlobalParameters.parameters.value
-    import params._
-    in = getFileStream(fileName)
-  }
-
-  def setInputToSTDIN {
-    val params = GlobalParameters.parameters.value
-    params.in = new BufferedReader(Console.in)
-    params.format = 
-      if (params.format == GlobalParameters.InputFormat.AutoDetect) 
-        GlobalParameters.InputFormat.SMTHorn 
-      else params.format
-  }
-
   def getFileStream(fileName : String) : Reader = {
     try {
       new BufferedReader(new FileReader(new File(fileName)))
@@ -307,29 +309,6 @@ object Main {
       case e: Throwable => throw e
     }
   }
-
-/*
-  def checkInputFile {
-    val params = GlobalParameters.parameters.value
-    import params._
-    if (in == null)
-      throw new MainException("Input file missing")
-  }
-*/
-  /*
-  def getASTree = {
-    val params = GlobalParameters.parameters.value
-    import params._
-    val lexer = new Lexer(in)
-    val parser = new Parser(lexer)
-    val tree = parser.parse()
-    if(!(tree.value.isInstanceOf[lazabs.ast.ASTree.Sobject]))
-      throw new MainException("The input file is invalid")
-    //val spa = PointerAnalysis(tree.value.asInstanceOf[lazabs.ast.ASTree.Sobject])
-    val so = inline(spa)
-    val typ = lazabs.types.TypeCheck(so)
-    typ
-  }*/
 
   def main(args: Array[String]) : Unit = doMain(args, false)
 
