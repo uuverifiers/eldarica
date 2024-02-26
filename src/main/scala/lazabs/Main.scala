@@ -30,7 +30,7 @@
 
 package lazabs
 
-import java.io.{FileInputStream,InputStream,FileNotFoundException}
+import java.io.{InputStream, FileNotFoundException, Reader, FileReader, BufferedReader, File}
 import parser._
 import lazabs.art._
 import lazabs.art.SearchMethod._
@@ -73,7 +73,7 @@ object GlobalParameters {
 }
 
 class GlobalParameters extends Cloneable {
-  var in: InputStream = null
+  var in: Reader = null
   var fileName = ""
   var funcName = "main"
   var solFileName = ""
@@ -281,13 +281,33 @@ object Main {
   class MainException(msg : String) extends Exception(msg)
   object TimeoutException extends MainException("timeout")
   object StoppedException extends MainException("stopped")
+  case class FileOrOptionNotFoundException(fileName: String) extends MainException(s"No such file or option: $fileName . Use -h for usage information")
   object PrintingFinishedException extends Exception
 
   def openInputFile {
     val params = GlobalParameters.parameters.value
     import params._
-    in = new FileInputStream(fileName)
+    in = getFileStream(fileName)
   }
+
+  def setInputToSTDIN {
+    val params = GlobalParameters.parameters.value
+    params.in = new BufferedReader(Console.in)
+    params.format = 
+      if (params.format == GlobalParameters.InputFormat.AutoDetect) 
+        GlobalParameters.InputFormat.SMTHorn 
+      else params.format
+  }
+
+  def getFileStream(fileName : String) : Reader = {
+    try {
+      new BufferedReader(new FileReader(new File(fileName)))
+    } catch {
+      case _: FileNotFoundException => throw FileOrOptionNotFoundException(fileName)
+      case e: Throwable => throw e
+    }
+  }
+
 /*
   def checkInputFile {
     val params = GlobalParameters.parameters.value
@@ -359,6 +379,8 @@ object Main {
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
+
+      case "-in" :: rest => setInputToSTDIN; arguments(rest)
 
       case "-ints" :: rest => format = InputFormat.Nts; arguments(rest)
       case "-conc" :: rest => format = InputFormat.ConcurrentC; arguments(rest)
@@ -499,6 +521,7 @@ object Main {
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h                Show this information\n" +
+          " -in               Read from standard input (defaults to Horn SMT format)\n" +
           " -assert           Enable assertions in Eldarica\n" +
           " -log:n            Display progress based on verbosity level n (0 <= n <= 3)\n" +
           "                     1: Statistics only\n" +
@@ -656,11 +679,11 @@ object Main {
 
       val (clauseSet, absMap) = try { format match {
         case InputFormat.Prolog =>
-          (lazabs.horn.parser.HornReader.apply(fileName), None)
+          (lazabs.horn.parser.HornReader.apply(in), None)
         case InputFormat.SMTHorn =>
-          (lazabs.horn.parser.HornReader.fromSMT(fileName), None)
+          (lazabs.horn.parser.HornReader.fromSMT(in), None)
         case InputFormat.Nts =>
-          (NtsHorn(NtsWrapper(fileName)), None)
+          (NtsHorn(NtsWrapper(in)), None)
 /*        case InputFormat.UppaalOG =>
           lazabs.upp.OwickiGries(fileName, templateBasedInterpolation)
         case InputFormat.UppaalRG =>
@@ -686,7 +709,8 @@ object Main {
       }
 
       if(solFileName != "") {
-        val solution = lazabs.horn.parser.HornReader.apply(solFileName)
+        val solStream = getFileStream(solFileName)
+        val solution = lazabs.horn.parser.HornReader.apply(solStream)
         return
       }
 
@@ -764,7 +788,7 @@ object Main {
 
     val (cfg,m) = format match {
       case InputFormat.Nts =>
-        val ntsc = NtsCFG(NtsWrapper(fileName),lbe,staticAccelerate)
+        val ntsc = NtsCFG(NtsWrapper(in), lbe, staticAccelerate)
         (ntsc,Some(Map[Int,String]().empty ++ NtsWrapper.stateNameMap))        
 /*      case InputFormat.Scala =>
         checkInputFile
