@@ -30,3 +30,9 @@ for name in $TESTS; do
     echo $name
     $LAZABS -cex -ssol -abstract:off -t:30 "$@" $name 2>&1 | grep -v 'at '
 done
+
+# Input from stdin
+
+echo
+echo amotsa.smt2
+cat amotsa.smt2 | $LAZABS -in -assert "$@"
