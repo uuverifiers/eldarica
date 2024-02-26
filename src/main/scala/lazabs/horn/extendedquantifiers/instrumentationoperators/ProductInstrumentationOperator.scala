@@ -244,7 +244,7 @@ class ProductInstrumentationOperator(exq: ExtendedQuantifier)
       ghostVarToGhostTerm(GhArrInd)
     )
 
-    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, conjunct) = exqInfo
+    val ExtendedQuantifierApp(_, _, a, lo, hi, o, _, conjunct) = exqInfo
 
     def loExpr =
       exq.rangeFormulaLo.getOrElse((t1: ITerm, t2: ITerm, t3: ITerm) =>
