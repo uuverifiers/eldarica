@@ -32,6 +32,8 @@ package lazabs.ast
 import lazabs.types._
 import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
 
+import scala.jdk.CollectionConverters._
+
 
 object ASTree {
   sealed abstract class ASTree extends ScalaType
@@ -648,13 +650,13 @@ object ASTree {
   // helper method
   def expandPreds(p: Predicate): java.util.List[Predicate] = p match {
     case Predicate(Block(pred), children) =>
-      scala.collection.JavaConversions.seqAsJavaList(pred.map(p => {
+      pred.map(p => {
         if(!p.isInstanceOf[Expression]) {
           throw new Exception("Nested predicates are required to be expressions: " + p)
         }
         Predicate(p.asInstanceOf[Expression], children)
-      }))
-    case _ => scala.collection.JavaConversions.seqAsJavaList(List(p))
+      }).asJava
+    case _ => List(p).asJava
   }
   
 }

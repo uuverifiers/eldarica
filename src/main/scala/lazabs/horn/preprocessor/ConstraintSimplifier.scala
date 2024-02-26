@@ -499,7 +499,7 @@ class ConstraintSimplifier extends HornPreprocessor {
     case IConstant(c) =>
       Some(Map(c -> IdealInt.ONE))
     case ITimes(coeff, t) =>
-      for (m <- asLinearComb(t)) yield m.mapValues(_ * coeff)
+      for (m <- asLinearComb(t)) yield m.mapValues(_ * coeff).toMap
     case IPlus(s, t) =>
       for (m1 <- asLinearComb(s); m2 <- asLinearComb(t)) yield {
         m1 ++ (for ((c, coeff) <- m2.iterator)
@@ -548,7 +548,7 @@ class ConstraintSimplifier extends HornPreprocessor {
     }
 
     if (changed)
-      Some(newConjuncts)
+      Some(newConjuncts.toSeq)
     else
       None
   }

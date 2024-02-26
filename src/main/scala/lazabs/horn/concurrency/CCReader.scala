@@ -197,7 +197,7 @@ class CCReader private (prog : Program,
 
   import IExpression._
 
-  private implicit def toRichType(typ : CCType) = new Object {
+  private class RichCCType(typ : CCType) {
     import ModuloArithmetic._
 
     def toSort : Sort = arithmeticMode match {
@@ -268,13 +268,17 @@ class CCReader private (prog : Program,
 
   }
 
+  private implicit def toRichType(typ : CCType): RichCCType = new RichCCType(typ)
+
   //////////////////////////////////////////////////////////////////////////////
 
-  private implicit def toRichExpr(expr : CCExpr) = new Object {
+  private class RichCCExpr(expr: CCExpr) {
     def mapTerm(m : ITerm => ITerm) : CCExpr =
       // TODO: type promotion when needed
       CCTerm(expr.typ cast m(expr.toTerm), expr.typ)
   }
+
+  private implicit def toRichExpr(expr : CCExpr): RichCCExpr = new RichCCExpr(expr) 
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -326,23 +330,29 @@ class CCReader private (prog : Program,
     localFrameStack push localVars.size
   private def popLocalFrame = {
     val newSize = localFrameStack.pop
-    localVars reduceToSize newSize
-    localVarTypes reduceToSize newSize
-    variableHints reduceToSize (globalVars.size + newSize)
+    // resize safely
+    if (localVars.size > newSize) localVars.remove(newSize, localVars.size - newSize)
+    if (localVarTypes.size > newSize) localVarTypes.remove(newSize, localVarTypes.size - newSize)
+
+    val varSize = globalVars.size + newSize
+    if (variableHints.size > varSize) variableHints.remove(varSize, variableHints.size - varSize)
+    
+    // actaully trigger resizing
+    localVars.trimToSize; localVarTypes.trimToSize; variableHints.trimToSize
   }
 
   private def allFormalVars : Seq[ITerm] =
-    globalVars.toList ++ localVars.toList
+    (globalVars.toSeq: Seq[ITerm]) ++ (localVars.toSeq: Seq[ITerm])
   private def allFormalVarTypes : Seq[CCType] =
-    globalVarTypes.toList ++ localVarTypes.toList
+    globalVarTypes.toSeq ++ localVarTypes.toSeq
 
   private def allFormalExprs : Seq[CCExpr] =
     ((for ((v, t) <- globalVars.iterator zip globalVarTypes.iterator)
       yield CCTerm(v, t)) ++
      (for ((v, t) <- localVars.iterator zip localVarTypes.iterator)
-      yield CCTerm(v, t))).toList
+      yield CCTerm(v, t))).toSeq
   private def allVarInits : Seq[ITerm] =
-    (globalVarsInit.toList map (_.toTerm)) ++ (localVars.toList map (i(_)))
+    (globalVarsInit.toSeq map (_.toTerm)) ++ (localVars.toSeq map (i(_)))
 
   private def freeFromGlobal(t : IExpression) : Boolean =
     !ContainsSymbol(t, (s:IExpression) => s match {
@@ -405,7 +415,7 @@ class CCReader private (prog : Program,
 
     val lastClauses = transitionClauses groupBy (_._1.body.head.pred)
 
-    clauses reduceToSize from
+    clauses.remove(from, clauses.size - from); clauses.trimToSize()
 
     def chainClauses(currentClause : Clause,
                      currentSync : ParametricEncoder.Synchronisation,
@@ -499,7 +509,7 @@ class CCReader private (prog : Program,
         hints
       }
 
-    predicateHints.put(res, allHints)
+    predicateHints.put(res, allHints.toSeq)
     res
   }
 
@@ -510,7 +520,7 @@ class CCReader private (prog : Program,
 
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
-  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+  import scala.jdk.CollectionConverters._
 
   // Reserve two variables for time
   val GT = CCClock newConstant "_GT"
@@ -535,13 +545,13 @@ class CCReader private (prog : Program,
     atomicMode = true
     val globalVarSymex = Symex(null)
 
-    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
+    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_.asScala)
       decl match {
         case decl : Global =>
           collectVarDecls(decl.dec_, true, globalVarSymex)
 
         case decl : Chan =>
-          for (name <- decl.chan_def_.asInstanceOf[AChan].listcident_) {
+          for (name <- decl.chan_def_.asInstanceOf[AChan].listcident_.asScala) {
             if (channels contains name)
               throw new TranslationException(
                 "Channel " + name + " is already declared")
@@ -575,7 +585,7 @@ class CCReader private (prog : Program,
     // then translate the threads
     atomicMode = false
 
-    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_)
+    for (decl <- prog.asInstanceOf[Progr].listexternal_declaration_.asScala)
       decl match {
         case decl : Athread =>
           decl.thread_def_ match {
@@ -643,10 +653,10 @@ class CCReader private (prog : Program,
   private def collectVarDecls(dec : Dec,
                               global : Boolean,
                               values : Symex) : Unit = dec match {
-    case decl : Declarators if !isTypeDef(decl.listdeclaration_specifier_) => {
-      val typ = getType(decl.listdeclaration_specifier_)
+    case decl : Declarators if !isTypeDef(decl.listdeclaration_specifier_.asScala.toSeq) => {
+      val typ = getType(decl.listdeclaration_specifier_.asScala.toSeq)
 
-      for (initDecl <- decl.listinit_declarator_) {
+      for (initDecl <- decl.listinit_declarator_.asScala) {
         var isVariable = false
 
         initDecl match {
@@ -697,7 +707,7 @@ class CCReader private (prog : Program,
 
             isVariable = true
             val c = typ newConstant getName(declarator)
-            val (initValue, initGuard) = initializer match {
+            val (initValue: CCExpr, initGuard: IFormula) = initializer match {
               case init : InitExpr =>
                 if (init.exp_.isInstanceOf[Enondet])
                   (CCTerm(c, typ), typ rangePred c)
@@ -729,8 +739,8 @@ class CCReader private (prog : Program,
         if (isVariable) {
           // parse possible model checking hints
           val hints : Seq[Abs_hint] = initDecl match {
-            case decl : HintDecl => decl.listabs_hint_
-            case decl : HintInitDecl => decl.listabs_hint_
+            case decl : HintDecl => decl.listabs_hint_.asScala.toSeq
+            case decl : HintInitDecl => decl.listabs_hint_.asScala.toSeq
             case _ => List()
           }
 
@@ -757,10 +767,10 @@ class CCReader private (prog : Program,
             val hintEls =
               for (hint <- hints;
                    cHint = hint.asInstanceOf[Comment_abs_hint];
-                   hint_clause <- cHint.listabs_hint_clause_;
+                   hint_clause <- cHint.listabs_hint_clause_.asScala;
                    if (hint_clause.isInstanceOf[Predicate_hint]);
                    pred_hint = hint_clause.asInstanceOf[Predicate_hint];
-                   cost = pred_hint.maybe_cost_ match {
+                   cost: Int = pred_hint.maybe_cost_ match {
                      case c : SomeCost => c.unboundedinteger_.toInt
                      case _ : NoCost => 1
                    };
@@ -817,7 +827,7 @@ class CCReader private (prog : Program,
 
   private def getType(name : Type_name) : CCType = name match {
     case name : PlainType =>
-      getType(for (qual <- name.listspec_qual_.iterator;
+      getType(for (qual <- name.listspec_qual_.iterator.asScala;
                    if (qual.isInstanceOf[TypeSpec]))
               yield qual.asInstanceOf[TypeSpec].type_specifier_)
   }
@@ -868,7 +878,7 @@ class CCReader private (prog : Program,
 
   private def getType(functionDef : Function_def) : CCType =
     functionDef match {
-      case f : NewFunc    => getType(f.listdeclaration_specifier_)
+      case f : NewFunc    => getType(f.listdeclaration_specifier_.asScala.toSeq)
       case _ : NewFuncInt => CCInt
     }
 
@@ -997,7 +1007,7 @@ class CCReader private (prog : Program,
         if (varMapping forall { case (_, ind) => ind >= 0 }) {
           val defTerm =
             ConstantSubstVisitor(v.toTerm,
-                                 varMapping mapValues (IExpression.v(_)))
+                                 varMapping.mapValues(IExpression.v(_)).toMap)
           val rhs = IExpression.v(variableHints.size - 1)
 
           if (defTerm != rhs) {
@@ -1386,16 +1396,16 @@ class CCReader private (prog : Program,
         }
         case "assert" | "static_assert" | "__VERIFIER_assert"
                           if (exp.listexp_.size == 1) => {
-          assertProperty(atomicEval(exp.listexp_.head).toFormula)
+          assertProperty(atomicEval(exp.listexp_.asScala.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
         case "assume" | "__VERIFIER_assume"
                           if (exp.listexp_.size == 1) => {
-          addGuard(atomicEval(exp.listexp_.head).toFormula)
+          addGuard(atomicEval(exp.listexp_.asScala.head).toFormula)
           pushVal(CCFormula(true, CCInt))
         }
         case cmd@("chan_send" | "chan_receive") if (exp.listexp_.size == 1) => {
-          val name = printer print exp.listexp_.head
+          val name = printer print exp.listexp_.asScala.head
           (channels get name) match {
             case Some(chan) => {
               val sync = cmd match {
@@ -1414,7 +1424,7 @@ class CCReader private (prog : Program,
           // then we inline the called function
 
           // evaluate the arguments
-          for (e <- exp.listexp_)
+          for (e <- exp.listexp_.asScala)
             evalHelp(e)
           outputClause
 
@@ -1422,7 +1432,7 @@ class CCReader private (prog : Program,
 
           // get rid of the local variables, which are later
           // replaced with the formal arguments
-          for (e <- exp.listexp_)
+          for (e <- exp.listexp_.asScala)
             popVal
 
           callFunctionInlining(name, functionEntry)
@@ -1673,18 +1683,18 @@ class CCReader private (prog : Program,
     declarator.asInstanceOf[NoPointer].direct_declarator_ match {
       case dec : NewFuncDec =>
         for (argDec <- dec.parameter_type_.asInstanceOf[AllSpec]
-                          .listparameter_declaration_)
+                          .listparameter_declaration_.asScala)
           argDec match {
             case argDec : OnlyType =>
               // ignore, a void argument implies that there are no arguments
             case argDec : TypeAndParam => {
-              val typ = getType(argDec.listdeclaration_specifier_)
+              val typ = getType(argDec.listdeclaration_specifier_.asScala.toSeq)
               addLocalVar(typ newConstant getName(argDec.declarator_), typ)
             }
             case argDec : TypeHintAndParam => {
-              val typ = getType(argDec.listdeclaration_specifier_)
+              val typ = getType(argDec.listdeclaration_specifier_.asScala.toSeq)
               addLocalVar(typ newConstant getName(argDec.declarator_), typ)
-              processHints(argDec.listabs_hint_)
+              processHints(argDec.listabs_hint_.asScala.toSeq)
             }
 //            case argDec : Abstract =>
           }
@@ -1787,7 +1797,7 @@ class CCReader private (prog : Program,
 
       val offset = sortedBlocks.head._1
       var concernedClauses = clauses.slice(offset, clauses.size).toList
-      clauses reduceToSize offset
+      clauses.remove(offset, clauses.size - offset); clauses.trimToSize()
 
       var curPos = offset
       for ((bstart, bend) <- sortedBlocks)
@@ -1880,7 +1890,7 @@ class CCReader private (prog : Program,
       case compound : ScompTwo => {
         pushLocalFrame
 
-        val stmsIt = ap.util.PeekIterator(compound.liststm_.iterator)
+        val stmsIt = ap.util.PeekIterator(compound.liststm_.iterator.asScala)
 
         // merge simple side-effect-free declarations with
         // the entry clause
@@ -1908,7 +1918,7 @@ class CCReader private (prog : Program,
         stm.dec_ match {
           case _ : NoDeclarator => true
           case dec : Declarators =>
-            dec.listinit_declarator_ forall {
+            dec.listinit_declarator_.asScala forall {
               case _ : OnlyDecl => true
               case _ : HintDecl => true
               case decl : InitDecl =>
@@ -1938,7 +1948,7 @@ class CCReader private (prog : Program,
         pushLocalFrame
 
         val stmsIt = compound.liststm_.iterator
-        translateStmSeq(stmsIt, entry, exit)
+        translateStmSeq(stmsIt.asScala, entry, exit)
 
         popLocalFrame
       }
@@ -2115,7 +2125,7 @@ class CCReader private (prog : Program,
           selectorSymex.restoreState
         }
 
-        defaults match {
+        defaults.toSeq match {
           case Seq() =>
             // add an assertion that we never try to jump to a case that
             // does not exist. TODO: add a parameter for this?
@@ -2227,7 +2237,7 @@ class CCReader private (prog : Program,
       processes.head._2 == ParametricEncoder.Singleton
 
     val predHints =
-      (for (p <- ParametricEncoder.processPreds(processes).iterator;
+      (for (p <- ParametricEncoder.processPreds(processes.toSeq).iterator;
             preds = predicateHints(p);
             if (!preds.isEmpty))
        yield (p -> preds.toList)).toMap
@@ -2243,7 +2253,7 @@ class CCReader private (prog : Program,
                                ParametricEncoder.ContinuousTime(0, 1)
                              else
                                ParametricEncoder.NoTime,
-                             timeInvariants,
+                             timeInvariants.toSeq,
                              assertionClauses.toList,
                              VerificationHints(predHints))
   }

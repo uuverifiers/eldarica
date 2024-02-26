@@ -577,7 +577,7 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
 
       def hasNext = aPeek.hasNext || bPeek.hasNext
 
-      def next =
+      def next() =
         if (aPeek.hasNext) {
           if (bPeek.hasNext &&
               a.cost(aPeek.peekNext) + bCost > aCost + b.cost(bPeek.peekNext)) {
@@ -602,7 +602,7 @@ class ProductLattice[A <: AbsLattice, B <: AbsLattice] private (val a : A, val b
 
     def hasNext = aIt.hasNext || bIt.hasNext
 
-    def next =
+    def next() =
       if (!aIt.hasNext)
         (x._1, bIt.next)
       else if (!bIt.hasNext)
@@ -729,8 +729,9 @@ abstract class BitSetLattice(width : Int, val name : String) extends AbsLattice 
             (implicit randGen : Random) : LatticeObject = {
     val nelem = for (x <- upper;
                      if ( (lower contains x) || randGen.nextInt(100) < 80)) yield x
-    assert(latticeOrder.lteq(bottom, nelem))
-    nelem
+    val bitset = BitSet.fromSpecific(nelem)
+    assert(latticeOrder.lteq(bottom, bitset))
+    bitset
   }
 
   def cost(obj : LatticeObject) : Int =
@@ -764,7 +765,7 @@ abstract class BitSetLattice(width : Int, val name : String) extends AbsLattice 
 
     def hasNext = !remaining.isEmpty
 
-    def next = {
+    def next() = {
       val selected =
         if (remaining.size > 1) {
           val it = remaining.iterator

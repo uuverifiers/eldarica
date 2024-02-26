@@ -182,7 +182,7 @@ object MakeCFG {
         aTrans = (addMultiMap(aTrans,Map(to -> (aTrans.getOrElse(aStart, Set.empty)))) - aStart).mapValues(s => s.map(adj => adj match {
           case CFGAdjacent(adjLabel, adjTo) if (aFinish == adjTo) => CFGAdjacent(adjLabel, to)
           case _ => adj
-        }))
+        })).toMap
         predMap = predMap - aStart - aFinish
         varsMap = varsMap - aStart - aFinish
         trans = addMultiMap(trans,aTrans)
@@ -213,7 +213,7 @@ object MakeCFG {
           aTrans = (addMultiMap(aTrans,Map(actorStartVertex -> (aTrans.getOrElse(aStart, Set.empty)))) - aStart).mapValues(s => s.map(adj => adj match {
             case CFGAdjacent(adjLabel, adjTo) if (aFinish == adjTo) => CFGAdjacent(adjLabel, to)
             case _ => adj
-            }))
+            })).toMap
           predMap = predMap - aStart - aFinish
           varsMap = varsMap - aStart - aFinish
           trans = addMultiMap(trans,aTrans)
@@ -448,7 +448,7 @@ object MakeCFG {
             atomicTrans = atomicTrans.mapValues(s => s.map(adj => adj match {
               case CFGAdjacent(adjLabel, adjTo) if (adjTo == atomicFinishVertex) => CFGAdjacent(adjLabel, atomicFinishVertexWithPredicates)
               case _ => adj
-            }))
+            })).toMap
             val currentVertex1  = CFGVertex(FreshCFGStateId.apply)
             val currentVertex2  = CFGVertex(FreshCFGStateId.apply)
             val finishVertex  = CFGVertex(FreshCFGStateId.apply)

@@ -548,7 +548,7 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
               // only keep relation symbols that were also part of the orginal problem
               res filterKeys allPredicates(unsimplifiedClauses)
             }
-          }
+          }.toMap
 
         val r = Left(solFun _)
 

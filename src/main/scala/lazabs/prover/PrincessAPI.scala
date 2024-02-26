@@ -98,7 +98,7 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
     val todo = new ArrayStack[Tree[D]]
     todo push Tree.this
     def hasNext = !todo.isEmpty
-    def next = {
+    def next() = {
       val Tree(data, children) = todo.pop
       todo ++= children
       data
@@ -705,7 +705,7 @@ abstract class AbstractPrincessAPI extends PrincessAPI {
 
     def simplifier = new PredElimSimplifier(booleanVars.toSet, select, store)
 
-    for (intTree <- treeInterpolate(andTree, constants, booleanVars)) yield {
+    for (intTree <- treeInterpolate(andTree, constants, booleanVars.toSeq)) yield {
       (for ((Some(l), f) <- (labelTree zip intTree).toSeq.iterator)
        yield (l -> simplifier(f))).toMap
     }

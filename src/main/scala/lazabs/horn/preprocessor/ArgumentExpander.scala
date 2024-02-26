@@ -138,8 +138,8 @@ abstract class ArgumentExpander extends HornPreprocessor {
 
             for (reconstr <- oldArgReconstr) {
               // in that case we can remove the old argument
-              solSubst.reduceToSize(solSubst.size - 1)
-              newSorts.reduceToSize(newSorts.size - 1)
+              solSubst.remove(solSubst.size - 1)
+              newSorts.remove(newSorts.size - 1)
               argMapping -= argNum
               cexArgs(cexArgs.size - 1) =
                 IExpression.shiftVars(reconstr, newSorts.size)
@@ -157,9 +157,9 @@ abstract class ArgumentExpander extends HornPreprocessor {
       }
 
       if (changed) {
-        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts)
-        newPreds       .put(pred,    (newPred, addedArgs, argMapping.toMap))
-        predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs))
+        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts.toSeq)
+        newPreds       .put(pred,    (newPred, addedArgs.toSeq, argMapping.toMap))
+        predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs.toSeq))
       }
     }
 
@@ -195,7 +195,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
                 newArgs += t
                 for ((newArgSpecs, oldArgReconstr) <- maybeArgs) {
                   if (oldArgReconstr.isDefined)
-                    newArgs.reduceToSize(newArgs.size - 1)
+                    newArgs.remove(newArgs.size - 1)
 
                   val subst = (List(t), 1)
                   for ((s, sort, name) <- newArgSpecs) {
@@ -214,7 +214,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
                 }
               }
 
-              IAtom(newPred, newArgs)
+              IAtom(newPred, newArgs.toSeq)
             }
             case None =>
               a

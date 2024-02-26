@@ -80,8 +80,8 @@ class DepGraph(orig : Seq[HornClauses.Clause]) extends AbsGraph {
     (s,orig,p2n,triple2e)
   } 
   
-  override def nodes() : Iterable[Node] = n.values
-  override def edges() : Iterable[Edge] = e.values
+  override def nodes : Iterable[Node] = n.values
+  override def edges : Iterable[Edge] = e.values
   
   override def filterPrefix(pref : Seq[Edge]) : Boolean = {
     val c = HornManipulate.inlineSequence(pref.map(_.c))

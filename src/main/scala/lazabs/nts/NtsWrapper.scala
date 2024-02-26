@@ -32,7 +32,7 @@ package lazabs.nts
 import lazabs.ast.ASTree._
 import lazabs.types._
 import java.io._
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 import nts.interf._
 import nts.interf.base._
@@ -73,13 +73,13 @@ object NtsWrapper {
     result
   }
   def Nts2Eldarica(e: nts.interf.INTS): Nts = {
-    preCondition = lazabs.utils.Manip.prime(Nts2Eldarica(e.precondition,e.varTable.visibleUnprimed.toList.map(v => Variable("sc_" + v.name).stype(IntegerType()))))
-    Nts(e.name,e.varTable.visibleUnprimed.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())),e.subsystems.toList.map(Nts2Eldarica))
+    preCondition = lazabs.utils.Manip.prime(Nts2Eldarica(e.precondition,e.varTable.visibleUnprimed.asScala.toList.map(v => Variable("sc_" + v.name).stype(IntegerType()))))
+    Nts(e.name,e.varTable.visibleUnprimed.asScala.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())),e.subsystems.asScala.toList.map(Nts2Eldarica))
   }
   def Nts2Eldarica(e: nts.interf.ISubsystem): NtsSubsystem = {
-    val allVariables = e.varTable.visibleUnprimed.toList.filter(v => v.name != "tid").map(v => Variable("sc_" + v.name).stype(IntegerType()))
-    val originalTransitions = e.transitions.toList.map(Nts2Eldarica(_,e.marksError.toList,allVariables,e.name))
-    val originalInitials = e.marksInit.toList.map(Nts2Eldarica(_,e.marksError.toList,e.name)) 
+    val allVariables = e.varTable.visibleUnprimed.asScala.toList.filter(v => v.name != "tid").map(v => Variable("sc_" + v.name).stype(IntegerType()))
+    val originalTransitions = e.transitions.asScala.toList.map(Nts2Eldarica(_,e.marksError.asScala.toList,allVariables,e.name))
+    val originalInitials = e.marksInit.asScala.toList.map(Nts2Eldarica(_,e.marksError.asScala.toList,e.name)) 
     val (transitions,initials) = if(e.name == "main" && preCondition != BoolConst(true)) {
       val fresh = lazabs.cfg.FreshCFGStateId.apply
       stateIdMap += (("main","") -> fresh)
@@ -91,12 +91,12 @@ object NtsWrapper {
     NtsSubsystem(
         e.name, 
         transitions, 
-        e.varIn.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())), 
-        e.varOut.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())), 
+        e.varIn.asScala.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())), 
+        e.varOut.asScala.toList.map(v => Variable("sc_" + v.name).stype(IntegerType())), 
         allVariables, 
         initials,
-        e.marksFinal.toList.map(Nts2Eldarica(_,e.marksError.toList,e.name)), 
-        e.marksError.toList.map(Nts2Eldarica(_,e.marksError.toList,e.name)))        
+        e.marksFinal.asScala.toList.map(Nts2Eldarica(_,e.marksError.asScala.toList,e.name)), 
+        e.marksError.asScala.toList.map(Nts2Eldarica(_,e.marksError.asScala.toList,e.name)))        
   }
   /**
    * @param e the transition
@@ -110,7 +110,7 @@ object NtsWrapper {
   import java.lang.reflect._
   def Nts2Eldarica(e: nts.interf.base.ILabel, variables: scala.collection.immutable.List[Variable]): Expression = e match {
     case em@(_: nts.interf.expr.IExprExists) =>
-      val binders = e.asInstanceOf[nts.parser.ExExists].varTable.innermost.map(binder => 
+      val binders = e.asInstanceOf[nts.parser.ExExists].varTable.innermost.asScala.toList.map(binder => 
         BinderVariable("sc_" + (binder.asInstanceOf[nts.parser.VarTableEntry].name)).stype(IntegerType()))
       val formula = Nts2Eldarica(em.asInstanceOf[nts.parser.ExExists].operand,variables)
       //(binder.asInstanceOf[nts.parser.VarTableEntry].name.replaceFirst("\\$", "d"))),
@@ -136,15 +136,15 @@ object NtsWrapper {
       else
         Variable("sc_" + em.asInstanceOf[nts.parser.Access].varName,None).stype(IntegerType())
     case em@(_: nts.parser.Havoc) =>
-      val frame = variables.diff(em.vars.map(x => Nts2Eldarica(x,variables))).map(x => Equality(x,lazabs.utils.Manip.prime(x)))
+      val frame = variables.diff(em.vars.asScala.toList.map(x => Nts2Eldarica(x,variables))).map(x => Equality(x,lazabs.utils.Manip.prime(x)))
       (frame.size) match {
         case 0 => BoolConst(true)
         case 1 => frame.head
         case _ => frame.reduceLeft(Conjunction(_,_))
       }
     case em@(_: nts.parser.Call) =>
-      NTSCall(em.callee.name, em.actualParameters.toList.map(Nts2Eldarica(_,variables)), em.returnVars.toList.map(x => Variable("sc_" + x.asInstanceOf[nts.parser.Access].varName,None).stype(IntegerType())),
-          (if(em.asInstanceOf[nts.parser.Call].hasHavoc) Some(em.asInstanceOf[nts.parser.Call].havoc.vars.toList.map(x => Nts2Eldarica(x,variables).asInstanceOf[Variable])) else None))
+      NTSCall(em.callee.name, em.actualParameters.asScala.toList.map(Nts2Eldarica(_,variables)), em.returnVars.asScala.toList.map(x => Variable("sc_" + x.asInstanceOf[nts.parser.Access].varName,None).stype(IntegerType())),
+          (if(em.asInstanceOf[nts.parser.Call].hasHavoc) Some(em.asInstanceOf[nts.parser.Call].havoc.vars.asScala.toList.map(x => Nts2Eldarica(x,variables).asInstanceOf[Variable])) else None))
     case em@(_: nts.interf.expr.ILitInt) => NumericalConst(em.asInstanceOf[nts.parser.LitInt].value)
     case em@(_: nts.interf.expr.ILitBool) => BoolConst(em.asInstanceOf[nts.parser.LitBool].value)
     case _ => 

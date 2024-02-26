@@ -156,9 +156,9 @@ class HeapExpander(val name : String,
       }
 
       if (changed) {
-        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts)
-        newPreds       .put(pred,    (newPred, addedArgs, argMapping.toMap))
-        predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs))
+        val newPred = MonoSortedPredicate(pred.name + "_exp", newSorts.toSeq)
+        newPreds       .put(pred,    (newPred, addedArgs.toSeq, argMapping.toMap))
+        predBackMapping.put(newPred, (pred, solSubst.toList, cexArgs.toSeq))
       }
     }
 
@@ -205,7 +205,7 @@ class HeapExpander(val name : String,
                 }
               }
 
-              IAtom(newPred, newArgs)
+              IAtom(newPred, newArgs.toSeq)
             }
             case None =>
               a

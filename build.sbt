@@ -5,8 +5,7 @@ lazy val commonSettings = Seq(
     version := "2.0.9",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
-    scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.18"),
+    scalaVersion := "2.13.12",
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
@@ -126,12 +125,13 @@ lazy val root = (project in file(".")).
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
       case "2.12.18" => "-opt:_"
+      case "2.13.12" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
@@ -140,13 +140,13 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.1",
 //
     libraryDependencies +=
-      "org.scalactic" %% "scalactic" % "3.2.14",
+      "org.scalactic" %% "scalactic" % "3.2.17",
 //
     libraryDependencies +=
-      "org.scalatest" %% "scalatest" % "3.2.14" % "test",
+      "org.scalatest" %% "scalatest" % "3.2.17" % "test",
 //
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2023-04-07"
 //

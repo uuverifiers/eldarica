@@ -71,7 +71,7 @@ object HornPredAbs {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  implicit def normClause2ConstraintClause(nc : NormClause) = {
+  implicit def normClause2ConstraintClause(nc : NormClause): ConstraintClause = {
     val NormClause(_, bodyLits, (RelationSymbol(headPred), _)) = nc
 
     new ConstraintClause {
