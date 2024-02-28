@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import ap.types.TypeTheory
 import ap.parameters.{Param, GoalSettings}
 import ap.util.Timeout
 
-import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
+import scala.collection.mutable.{LinkedHashMap, ArrayBuffer, LinkedHashSet}
 import scala.util.Random
 
 trait HornPredAbsContext[CC] {
@@ -192,12 +192,11 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
   implicit val sf = new SymbolFactory(theories)
 
   val relationSymbols = {
-    val preds =
-      (for (c <- iClauses.iterator;
-            lit <- (Iterator single c.head) ++ c.body.iterator;
-            p = lit.predicate)
-       yield p).toSet
-    (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
+    val preds = new LinkedHashSet[Predicate]
+    for (c <- iClauses;
+         lit <- (Iterator single c.head) ++ c.body.iterator)
+      preds += lit.predicate
+    (for (p <- preds.iterator) yield (p -> RelationSymbol(p))).toMap
   }
 
   // make sure that arguments constants have been instantiated
