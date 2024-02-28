@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
 import ap.basetypes.IdealInt
 import ap.parameters.{Param, GoalSettings}
@@ -46,6 +46,8 @@ import ap.proof.theoryPlugins.PluginSequence
 import ap.proof.certificates.Certificate
 import ap.util.Seqs
 
+import lazabs.horn.Util
+
 import lazabs.prover.Tree
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
@@ -59,14 +61,6 @@ object TreeInterpolator {
 
   val interpolator = LinTreeInterpolator
 //  val interpolator = BSTreeInterpolator
-
-  def size(t : Tree[Conjunction]) =
-    (for (c <- t.iterator) yield nodeCount(c)).sum
-
-  def nodeCount(c : Conjunction) : Int =
-    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
-      case (n,d) => n + nodeCount(d)
-    }
 
   def treeInterpolate(oriProblem : Tree[Conjunction],
                       order : TermOrder,
@@ -83,7 +77,7 @@ object TreeInterpolator {
  */
 abstract class TreeInterpolator {
 
-  import TreeInterpolator.size
+  import Util.treeSize
 
     def treeInterpolate(oriProblem : Tree[Conjunction],
                         order : TermOrder,
@@ -177,7 +171,7 @@ abstract class TreeInterpolator {
                   Tree[Map[ConstantTerm, ConstantTerm]],
                   Seq[ModelElement]) = {
     if (lazabs.GlobalParameters.get.log)
-      print(" " + size(problem) + " -> ")
+      print(" " + treeSize(problem) + " -> ")
 
     val (newProblem, symbolTranslation) = propagateSymbols(problem, order)
 
@@ -187,7 +181,7 @@ abstract class TreeInterpolator {
     val newProblem2 = elimLocalSyms(newProblem, order, witnesses)
 
     if (lazabs.GlobalParameters.get.log)
-      print(size(newProblem2))
+      print(treeSize(newProblem2))
 
     (newProblem2, symbolTranslation, witnesses.toSeq)
   }

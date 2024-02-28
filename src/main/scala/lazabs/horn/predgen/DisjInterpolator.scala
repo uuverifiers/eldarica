@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
 import ap.theories.{Theory, TheoryCollector}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
@@ -42,9 +42,9 @@ import ap.util.Timeout
 import IExpression.{ConstantTerm, Predicate}
 
 import lazabs.prover.{Tree, Leaf}
-import Util._
+import lazabs.horn.Util._
 
-import HornClauses._
+import lazabs.horn.bottomup.HornClauses._
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
@@ -55,11 +55,7 @@ import ap.terfor.RichPredicate
 
 object DisjInterpolator {
 
-  abstract sealed class AndOrNode[AndD, OrD]
-  case class AndNode[AndD, OrD](d : AndD) extends AndOrNode[AndD, OrD]
-  case class OrNode [AndD, OrD](d : OrD)  extends AndOrNode[AndD, OrD]
-
-  //////////////////////////////////////////////////////////////////////////////
+  import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
   /**
    * The predicate generator receives an and/or-clause-dag, and either

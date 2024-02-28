@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,8 +70,7 @@ object HornPredAbsMain extends App {
 
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses, Map(), DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {
@@ -107,8 +106,7 @@ object HornPredAbsMain extends App {
   
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses, Map(), DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {
@@ -197,10 +195,7 @@ object HornPredAbsMain extends App {
 
   println("Solving " + clauses + " ...")
   
-  val predAbs =
-    new HornPredAbs(clauses,
-                    Map(),
-                    DagInterpolator.interpolatingPredicateGenCEX _)
+  val predAbs = new HornPredAbs(clauses)
 
   println
   predAbs.result match {

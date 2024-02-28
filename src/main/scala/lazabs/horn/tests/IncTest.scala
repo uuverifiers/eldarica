@@ -41,8 +41,7 @@ object IncTest extends App {
     val incSolver =
       new IncrementalHornPredAbs(clauses,
                                  Map(),
-                                 Set(f0, f1, f2, Init),
-                                 DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+                                 Set(f0, f1, f2, Init))
 
     implicit val o = TermOrder.EMPTY
     import TerForConvenience._
