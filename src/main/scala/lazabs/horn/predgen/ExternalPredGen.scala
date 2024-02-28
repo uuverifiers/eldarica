@@ -41,6 +41,10 @@ import lazabs.horn.bottomup.{HornClauses, NormClause}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
+/**
+ * Class to invoke external tools as predicate generators. Currently
+ * not functional.
+ */
 class ExternalPredGen extends PredicateGenerator {
 
   import PredicateGenerator._
