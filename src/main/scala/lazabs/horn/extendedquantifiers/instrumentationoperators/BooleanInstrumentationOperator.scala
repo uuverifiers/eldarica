@@ -260,7 +260,7 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
               pred(o, i, alienSubstMap)) &
             newLo === oldLo & newHi === oldHi
           case _ =>
-            storeEmptySeq)
+            storeEmptySeq
         }
         val storeOutside = storeEmptySeq
 
