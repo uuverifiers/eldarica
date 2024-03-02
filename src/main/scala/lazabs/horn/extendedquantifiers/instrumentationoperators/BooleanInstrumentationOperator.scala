@@ -244,34 +244,39 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     }
 
     val standardInstrumentation = {
+      val storeEmptySeq = (newLo === i) & (newHi === i + 1) &
+                            (newRes === pred(o, i, alienSubstMap))
+      val storeBelow =
+        (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+          (newLo === i) & newHi === oldHi
+      val storeAbove =
+        (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+          (newHi === i + 1 & newLo === oldLo)
+      val storeInside =
+        exq.invReduceOp match {
+          case Some(f) =>
+            newRes === exq.reduceOp(
+              f(oldRes, exq.arrayTheory.select(a1, i)),
+              pred(o, i, alienSubstMap)) &
+            newLo === oldLo & newHi === oldHi
+          case _ =>
+            storeEmptySeq)
+        }
+        val storeOutside = storeEmptySeq
+
       val instrConstraint =
         (newArr === a2) &&& alienTermInitFormula &&&
-          ite(
-            oldLo === oldHi,
-            (newLo === i) & (newHi === i + 1) &
-            (newRes === pred(o, i, alienSubstMap)),
+          ite(oldLo === oldHi, storeEmptySeq,
             ite(
               (oldLo - 1 === i),
-              (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap)))
-                & (newLo === i) & newHi === oldHi,
+              storeBelow,
               ite(
                 oldHi === i,
-                (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
-                  (newHi === i + 1 & newLo === oldLo),
+                storeAbove,
                 ite(
                   oldLo <= i & oldHi > i,
-                  exq.invReduceOp match {
-                    case Some(f) =>
-                      newRes === exq.reduceOp(
-                        f(oldRes, exq.arrayTheory.select(a1, i)),
-                        pred(o, i, alienSubstMap)) &
-                      newLo === oldLo & newHi === oldHi
-                    case _ =>
-                      (newLo === i) & (newHi === i + 1) &
-                        (newRes === pred(o, i, alienSubstMap))
-                  },
-                  (newLo === i) & (newHi === i + 1) &
-                    (newRes === pred(o, i, alienSubstMap))
+                  storeInside,
+                  storeOutside
                 )
               )
             )
@@ -313,26 +318,33 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     val (alienTermInitFormula, alienTermAssertionFormula) =
       getAlienTermsFormulaAndAssertion(oldGhostTerms, newGhostTerms,
                                        alienTermGuesses)
+    val selectEmptySeq = (newLo === i) & (newHi === i + 1) &
+                          (newRes === pred(o, i, alienSubstMap))
+    val selectBelow =
+      (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+        (newLo === i) & newHi === oldHi
+    val selectAbove =
+      (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
+        (newHi === i + 1 & newLo === oldLo)
+    val selectInside = newRes === oldRes & newLo === oldLo & newHi === oldHi //
+    // no change within bounds
+    val selectOutside = selectEmptySeq
+
     val instrConstraint =
       (newArr === a) &&& alienTermInitFormula &&&
         ite(
           oldLo === oldHi,
-          (newLo === i) & (newHi === i + 1) &
-            (newRes === pred(o, i, alienSubstMap)),
+          selectEmptySeq,
           ite(
             (oldLo - 1 === i),
-            (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
-              (newLo === i) & newHi === oldHi,
+            selectBelow,
             ite(
               oldHi === i,
-              (newRes === exq
-                .reduceOp(oldRes, pred(o, i, alienSubstMap))) &
-              (newHi === i + 1 & newLo === oldLo),
+              selectAbove,
               ite(oldLo <= i & oldHi > i,
-                  newRes === oldRes & newLo === oldLo & newHi === oldHi, //
-                  // no change within bounds
-                  (newLo === i) & (newHi === i + 1) &
-                    (newRes === pred(o, i, alienSubstMap)))
+                  selectInside,
+                  selectOutside
+                  )
             )
           )
         ) //outside bounds, reset
