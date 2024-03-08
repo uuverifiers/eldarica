@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2016 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,9 @@
 package lazabs.horn.concurrency
 
 import ap.parser._
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util}
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
+import lazabs.horn.Util
+import lazabs.horn.predgen.DagInterpolator
 
 object MainLimits extends App {
 

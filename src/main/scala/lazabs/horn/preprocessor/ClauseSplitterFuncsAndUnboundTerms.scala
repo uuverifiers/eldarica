@@ -35,7 +35,7 @@ import ap.parser._
 import ap.types.MonoSortedPredicate
 
 import lazabs.horn.bottomup.HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode, ClauseTermGraph}
+import lazabs.horn.Util.{Dag, DagEmpty, DagNode, ClauseTermGraph}
 import lazabs.horn.preprocessor.ClauseShortener.BTranslator
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, Stack => MStack}

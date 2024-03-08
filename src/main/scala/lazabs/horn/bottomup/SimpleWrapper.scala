@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,12 +31,12 @@ package lazabs.horn.bottomup
 
 import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
-import lazabs.horn.abstractions.{StaticAbstractionBuilder, AbstractionRecord,
-                                 InitPredicateVerificationHints}
+import lazabs.horn.abstractions.InitPredicateVerificationHints
 
 import ap.parser._
 import ap.terfor.preds.Predicate
-import Util._
+import lazabs.horn.Util._
+import lazabs.horn.predgen.Interpolators
 
 /**
  * Simple wrapper around the classes that can be used to
@@ -83,22 +83,10 @@ object SimpleWrapper {
 
       ParallelComputation(params) {
         val interpolator =
-          if (GlobalParameters.get.templateBasedInterpolation) {
-            val abstractionBuilder =
-              new StaticAbstractionBuilder(
-                newClauses,
-                GlobalParameters.get.templateBasedInterpolationType)
-            val abstractionMap =
-              abstractionBuilder.abstractionRecords
-            TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-              abstractionMap,
-              GlobalParameters.get.templateBasedInterpolationTimeout)
-          } else {
-            DagInterpolator.interpolatingPredicateGenCEXAndOr _
-          }
-      
+          Interpolators.constructPredGen(GlobalParameters.get, newClauses)
         val predAbs =
-          new HornPredAbs(newClauses, allHints.toInitialPredicates, interpolator)
+          new HornPredAbs(newClauses, allHints.toInitialPredicates,
+                          interpolator)
 
         predAbs.result match {
           case Left(x) => Left(() => backTranslator translate x)
@@ -132,7 +120,7 @@ object SimpleWrapper {
       case Right(x) => {
         val cex = x()
         if (showDot)
-          Util.show(cex map (_._1), "SimpleWrapper")
+          show(cex map (_._1), "SimpleWrapper")
         Right(cex)
       }
     }

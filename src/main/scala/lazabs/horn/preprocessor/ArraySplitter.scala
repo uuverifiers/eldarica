@@ -32,7 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
 
 import ap.parser._
 import IExpression._

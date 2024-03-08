@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -205,8 +205,22 @@ import scala.collection.mutable.ArrayBuffer
       }
     }
 
-    override def toString =
+    override def toString = {
       "" + head._1.toString(head._2) +
-      " :- " + ((for ((rs, occ) <- body) yield rs.toString(occ)) mkString ", ") +
+      " :- " + ((for ((rs, occ) <- body) yield rs.toString(occ)) mkString ", ")+
       " | " + constraint
+    }
+
+    def toHornClause : HornClauses.Clause = {
+      import IExpression._
+
+      val atoms =
+        for ((rs, occ) <- List(head) ++ body)
+        yield IAtom(rs.pred, rs.argumentITerms(occ))
+      val constr =
+        (new Simplifier)(Internal2InputAbsy(constraint))
+
+      HornClauses.Clause(atoms.head, atoms.tail, constr)
+    }
+
   }

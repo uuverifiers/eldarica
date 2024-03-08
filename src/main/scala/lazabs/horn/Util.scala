@@ -1,20 +1,20 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
- *
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * * Redistributions of source code must retain the above copyright notice, this
  *   list of conditions and the following disclaimer.
- *
+ * 
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- *
+ * 
  * * Neither the name of the authors nor the names of their
  *   contributors may be used to endorse or promote products derived from
  *   this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,23 +27,26 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn
 
 import ap.parser._
-import ap.parser.IExpression.{ConstantTerm, Eq, i}
+import ap.parser.IExpression.{Eq, i}
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.prover.Tree
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import ap.terfor.conjunctions.Conjunction
+
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
+                                 HashSet => MHashSet}
 
 object Util {
 
   def toStream[A](f : Int => A) : Stream[A] =
     toStreamHelp(0, f)
-
+  
   private def toStreamHelp[A](n : Int, f : Int => A) : Stream[A] =
     f(n) #:: toStreamHelp(n + 1, f)
-
+  
   //////////////////////////////////////////////////////////////////////////////
 
   abstract sealed class Dag[+D] {
@@ -401,7 +404,7 @@ object Util {
     def union(d : Int, e : Int) : Unit = {
       val dp = apply(d)
       val ep = apply(e)
-
+      
       if (dp != ep) {
         val dr = rank(dp)
         val er = rank(ep)
@@ -426,11 +429,19 @@ object Util {
     override def toString : String = "[" + (parent mkString ", ") + "]"
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  def treeSize(t : Tree[Conjunction]) =
+    (for (c <- t.iterator) yield nodeCount(c)).sum
+
+  def nodeCount(c : Conjunction) : Int =
+    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
+      case (n, d) => n + nodeCount(d)
+    }
+
   object ClauseTermGraph {
     case class Edge(from : Node, to : Node)
 
     abstract class Node
-
     // Used when a graph has more than one sink.
 //    case object PseudoNode extends Node
 

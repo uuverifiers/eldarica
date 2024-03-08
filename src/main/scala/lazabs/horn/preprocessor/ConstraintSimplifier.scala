@@ -29,6 +29,7 @@
 
 package lazabs.horn.preprocessor
 
+import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 import ap.theories.{ADT, Heap}

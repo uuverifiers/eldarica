@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,12 +34,12 @@ import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import lazabs.{ParallelComputation, GlobalParameters}
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator, Util,
-                             HornWrapper}
+import lazabs.horn.Util
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs, HornWrapper}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
                                  LoopDetector, AbstractionRecord,
                                  VerificationHints}
-import lazabs.horn.bottomup.TemplateInterpolator
+import lazabs.horn.predgen.Interpolators
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 import scala.collection.mutable.{LinkedHashSet, HashSet => MHashSet,
@@ -268,11 +268,11 @@ class VerificationLoop(system : ParametricEncoder.System,
             AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
           }
 
-        TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
+        new Interpolators.TemplateInterpolator(
           abstractionMap,
           GlobalParameters.get.templateBasedInterpolationTimeout)
       } else {
-        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        Interpolators.DagInterpolator
       }
 
       println

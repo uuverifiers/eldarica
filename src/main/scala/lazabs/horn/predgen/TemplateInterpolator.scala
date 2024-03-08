@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2023 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice,
                                  TermExtendingLattice, MUXSearcher,
@@ -49,8 +49,9 @@ import ap.util.Seqs
 import ap.util.Timeout
 
 import lazabs.prover.{Tree, Leaf}
-import Util._
-import DisjInterpolator._
+import lazabs.horn.Util._
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.bottomup.{NormClause, RelationSymbol, HornClauses}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, LinkedHashSet, ArrayBuffer}
@@ -60,7 +61,7 @@ import SimpleAPI.{ProverStatus, TimeoutException}
 
 object TemplateInterpolator {
 
-  import HornPredAbs._
+  import lazabs.horn.bottomup.HornPredAbs._
   import TerForConvenience._
 
   //////////////////////////////////////////////////////////////////////////////

@@ -34,6 +34,8 @@ import IExpression._
 import ap.theories.Heap
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.global._
+import lazabs.horn.Util.Dag
 
 import scala.collection.mutable.{ArrayBuffer}
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@ import IExpression._
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.global._
-import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,

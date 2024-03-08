@@ -58,13 +58,8 @@ object NtsWrapper {
   /**
    * returns the NTS system
    */
-  def apply(ntsFileName: String): Nts = {
-    val is: InputStream = try {
-      new FileInputStream(ntsFileName)
-    } catch {
-      case e: FileNotFoundException => println("No such file or option: " + ntsFileName + ". Use -h for usage information" )
-        sys.exit(0)
-    }
+  def apply(inputStream: Reader): Nts = {
+    val is = new InputStream { def read(): Int = inputStream.read() }
     val listen: ParserListener = new ParserListener
     NTSParser.parseNTS(is, listen)
     val nts:NTS = listen.nts

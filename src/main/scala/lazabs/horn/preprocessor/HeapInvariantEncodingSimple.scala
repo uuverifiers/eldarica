@@ -37,7 +37,7 @@ import ap.theories.ADT.ADTProxySort
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.{Clause, allPredicates}
-import lazabs.horn.bottomup.Util.{DagEmpty, DagNode}
+import lazabs.horn.Util.{DagEmpty, DagNode}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
