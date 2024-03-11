@@ -164,6 +164,286 @@ object ExtQuansForallTest extends App {
   }
 }
 
+object ExtQuansExistsTestSafe extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => expr2Term(expr2Formula(a) ||| expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess === 2
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifierWithPredicate(
+      name = "\\exists",
+      arrayTheory = ar,
+      identity = expr2Term(IBoolLit(false)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = predicate,
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i)     :- (i === 0),
+      p(0)(a1, i + 1) :- (p(0)(a1, i), i === ar.select(a1, i), i < 3),
+      p(1)(a1, i)     :- (p(0)(a1, i), i >= 3),
+      false           :- (p(1)(a1, i),
+        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+      )
+
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansExistsTestUnsafe extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => expr2Term(expr2Formula(a) ||| expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess === 4
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifierWithPredicate(
+      name = "\\exists",
+      arrayTheory = ar,
+      identity = expr2Term(IBoolLit(false)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = predicate,
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i)     :- (i === 0),
+      p(0)(a1, i + 1) :- (p(0)(a1, i), i === ar.select(a1, i), i < 3),
+      p(1)(a1, i)     :- (p(0)(a1, i), i >= 3),
+      false           :- (p(1)(a1, i),
+        !expr2Formula(extQuan.morphism(a1, 0, 3))) // [0, 3)
+      )
+
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansNumofTestUnsafe extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => ite(expr2Formula(b), a+++1, a)
+      // expr2Term(expr2Formula(a) ||| expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess > 1 //should be 0
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifierWithPredicate(
+      name = "\\numof",
+      arrayTheory = ar,
+      identity = 0,//expr2Term(IBoolLit(false)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = predicate,
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i)     :- (i === 0),
+      p(0)(a1, i + 1) :- (p(0)(a1, i), i === ar.select(a1, i), i < 3),
+      p(1)(a1, i)     :- (p(0)(a1, i), i >= 3),
+      false           :- (p(1)(a1, i),
+        !((extQuan.morphism(a1, 0, 3)) === 2)) // [0, 3)
+      )
+
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+object ExtQuansNumofTestSafe extends App {
+  ap.util.Debug enableAllAssertions true
+  lazabs.GlobalParameters.get.setLogLevel(1)
+  lazabs.GlobalParameters.get.assertions = true
+
+  {
+    val ar = ExtArray(Seq(Sort.Integer), Sort.Integer)
+    val reduceOp  : (ITerm, ITerm) => ITerm =
+      (a : ITerm, b : ITerm) => ite(expr2Formula(b), a+++1, a)
+      // expr2Term(expr2Formula(a) ||| expr2Formula(b))
+
+    val a1 = new SortedConstantTerm("a1", ar.sort)
+    val i = new ConstantTerm("i")
+
+    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
+                                                                Seq(ar.sort, Sort.Integer)))
+
+    val arrAccess = ar.select(a1, i)
+    val arrIndex = i
+    val pred = arrAccess > 0
+    val predicate : (ITerm, ITerm) => ITerm =
+      (access : ITerm, index : ITerm) => expr2Term(
+        ExpressionReplacingVisitor(
+          ExpressionReplacingVisitor(pred, arrAccess, access),
+          arrIndex, index))
+    val extQuan = new ExtendedQuantifierWithPredicate(
+      name = "\\numof",
+      arrayTheory = ar,
+      identity = 0,//expr2Term(IBoolLit(false)),
+      reduceOp = reduceOp,
+      invReduceOp = None,
+      predicate = predicate,
+      rangeFormulaLo = Some((ghostLo : ITerm, lo : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
+                                                                  lo)),
+      rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+    TheoryRegistry register extQuan
+
+    val clauses = List(
+      p(0)(a1, i)     :- (i === 0),
+      p(0)(a1, i + 1) :- (p(0)(a1, i), i === ar.select(a1, i), i < 3),
+      p(1)(a1, i)     :- (p(0)(a1, i), i >= 3),
+      false           :- (p(1)(a1, i),
+        !((extQuan.morphism(a1, 0, 3)) === 2)) // [0, 3)
+      )
+
+    val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
+      Map(
+        extQuan -> new BooleanInstrumentationOperator(extQuan)
+      )
+
+    val instrLoop = new InstrumentationLoop(
+      clauses, EmptyVerificationHints, instOps)
+
+    instrLoop.result match {
+      case Left(sln) =>
+        println("SAFE")
+        for((p, f) <- sln) {
+          println(s"$p -> ${SimpleAPI.pp(f)}")
+        }
+      case Right(cex) =>
+        println("UNSAFE")
+        cex.prettyPrint
+    }
+
+    println(instrLoop.result)
+  }
+}
+
+
+
 object ExtQuansForallAlienTermTestSafe extends App {
   ap.util.Debug enableAllAssertions true
   lazabs.GlobalParameters.get.setLogLevel(1)
