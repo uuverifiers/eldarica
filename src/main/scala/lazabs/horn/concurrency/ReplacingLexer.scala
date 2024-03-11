@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ package lazabs.horn.concurrency
 import lazabs.horn.concurrency.concurrentC.{Yylex, sym}
 import java_cup.runtime.{Scanner, Symbol}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, ArrayStack}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Stack}
 
 object TypedefReplacingLexer {
 
@@ -65,7 +65,7 @@ class TypedefReplacingLexer(underlying : Yylex) extends Scanner {
 
   private val typedefs = new MHashMap[String, Seq[Symbol]]
 
-  private val replacementStack = new ArrayStack[Symbol]
+  private val replacementStack = new Stack[Symbol]
 
   def next_token : Symbol =
     if (replacementStack.isEmpty) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.util.Seqs
 
-import scala.collection.mutable.{HashSet => MHashSet, ArrayStack}
+import scala.collection.mutable.{HashSet => MHashSet, Stack}
 
 /**
  * Simple pre-processor that removes clauses that are unreachable from the entry
@@ -63,7 +63,7 @@ object ReachabilityChecker extends HornPreprocessor {
     fwdReachable ++= frozenPredicates
 
     val fwdReachableClauses = {
-      val workList = new ArrayStack[Predicate]
+      val workList = new Stack[Predicate]
       for (x <- fwdReachable)
         workList push x
 
@@ -103,7 +103,7 @@ object ReachabilityChecker extends HornPreprocessor {
     bwdReachable ++= frozenPredicates
 
     val bwdReachableClauses = {
-      val workList = new ArrayStack[Predicate]
+      val workList = new Stack[Predicate]
       for (x <- bwdReachable)
         workList push x
 
