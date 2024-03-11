@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 package lazabs.horn.predgen
 
 import ap.basetypes.{IdealInt, UnionFind}
+import ap.basetypes.{Tree, Leaf}
 import ap.parser._
 import ap.Signature
 import ap.theories.{Theory, TheoryCollector}
@@ -40,7 +41,6 @@ import ap.terfor.substitutions.{ConstantSubst, VariableSubst}
 import ap.proof.{ModelSearchProver, QuantifierElimProver}
 import ap.util.Seqs
 
-import lazabs.prover.{Tree, Leaf}
 import lazabs.horn.Util._
 import DisjInterpolator.predicateGenerator
 import PredicateGenerator.{AndOrNode, AndNode, OrNode}

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 
 package lazabs.horn.predgen
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, Tree}
 import ap.parameters.{Param, GoalSettings}
 import ap.parser.PartName
 import ap.theories.Theory
@@ -47,8 +47,6 @@ import ap.proof.certificates.Certificate
 import ap.util.Seqs
 
 import lazabs.horn.Util
-
-import lazabs.prover.Tree
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
                                  HashMap => MHashMap}
