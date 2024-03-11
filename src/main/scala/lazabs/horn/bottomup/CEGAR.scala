@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -401,7 +401,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     
     for (n <- 0 until abstractEdges.size)
       if (abstractEdges(n).from.isEmpty)
-        edgesTodo += n
+        edgesTodo push n
 
     while (!edgesTodo.isEmpty) {
       val n = edgesTodo.pop
@@ -437,7 +437,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
           for (outgoing <- edgesFromState get newTo)
             for ((_, nextN) <- outgoing)
-              edgesTodo += nextN
+              edgesTodo push nextN
         }
       }
     }
