@@ -52,7 +52,7 @@ import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier,
 import ap.terfor.conjunctions.Quantifier
 import ap.util.LRUCache
 
-import scala.collection.mutable.{ArrayBuffer, ArrayStack}
+import scala.collection.mutable.{ArrayBuffer, Stack}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -95,7 +95,7 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
   def toSeq = toList
   def toSet = iterator.toSet
   def iterator = new Iterator[D] {
-    val todo = new ArrayStack[Tree[D]]
+    val todo = new Stack[Tree[D]]
     todo push Tree.this
     def hasNext = !todo.isEmpty
     def next() = {

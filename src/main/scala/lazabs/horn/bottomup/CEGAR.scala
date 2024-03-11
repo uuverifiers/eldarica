@@ -45,7 +45,7 @@ import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.{LinkedHashSet, LinkedHashMap, ArrayBuffer,
                                  HashSet => MHashSet, HashMap => MHashMap,
-                                 ArrayStack}
+                                 Stack}
 import scala.util.Sorting
 
 object CEGAR {
@@ -397,7 +397,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     val reachable = new MHashSet[AbstractState]
 
     val edgesDone = new MHashSet[Int]
-    val edgesTodo = new ArrayStack[Int]
+    val edgesTodo = new Stack[Int]
     
     for (n <- 0 until abstractEdges.size)
       if (abstractEdges(n).from.isEmpty)
