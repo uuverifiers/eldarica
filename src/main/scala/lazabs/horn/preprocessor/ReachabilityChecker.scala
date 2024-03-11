@@ -64,7 +64,8 @@ object ReachabilityChecker extends HornPreprocessor {
 
     val fwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
-      workList ++= fwdReachable
+      for (x <- fwdReachable)
+        workList push x
 
       // add entry predicates
       for (Clause(IAtom(p, _), Seq(), _) <- clauses)
@@ -103,7 +104,8 @@ object ReachabilityChecker extends HornPreprocessor {
 
     val bwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
-      workList ++= bwdReachable
+      for (x <- bwdReachable)
+        workList push x
 
       // fixed-point iteration
       val clausesWithHeadPred = fwdReachableClauses groupBy (_.head.pred)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2024 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,8 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
     def hasNext = !todo.isEmpty
     def next = {
       val Tree(data, children) = todo.pop
-      todo ++= children
+      for (c <- children)
+        todo push c
       data
     }
   }
