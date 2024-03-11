@@ -244,8 +244,9 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     }
 
     val standardInstrumentation = {
-      val storeEmptySeq = (newLo === i) & (newHi === i + 1) &
-                            (newRes === pred(o, i, alienSubstMap))
+      val storeEmptySeq =
+        (newLo === i) & (newHi === i + 1) &
+          (newRes === exq.reduceOp(exq.identity, pred(o, i, alienSubstMap)))
       val storeBelow =
         (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
           (newLo === i) & newHi === oldHi
@@ -318,8 +319,9 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
     val (alienTermInitFormula, alienTermAssertionFormula) =
       getAlienTermsFormulaAndAssertion(oldGhostTerms, newGhostTerms,
                                        alienTermGuesses)
-    val selectEmptySeq = (newLo === i) & (newHi === i + 1) &
-                          (newRes === pred(o, i, alienSubstMap))
+    val selectEmptySeq =
+      (newLo === i) & (newHi === i + 1) &
+        (newRes === exq.reduceOp(exq.identity, pred(o, i, alienSubstMap)))
     val selectBelow =
       (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
         (newLo === i) & newHi === oldHi
