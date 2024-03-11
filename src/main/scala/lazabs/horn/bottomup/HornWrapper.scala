@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2024 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@ import IExpression._
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.types.MonoSortedPredicate
+import ap.basetypes.Tree
 
 import lazabs.GlobalParameters
 import lazabs.ParallelComputation
@@ -46,7 +47,6 @@ import lazabs.horn.global._
 import lazabs.utils.Manip._
 import lazabs.prover.PrincessWrapper
 import PrincessWrapper._
-import lazabs.prover.Tree
 import lazabs.types.Type
 import lazabs.horn.Util._
 import lazabs.horn.predgen.Interpolators

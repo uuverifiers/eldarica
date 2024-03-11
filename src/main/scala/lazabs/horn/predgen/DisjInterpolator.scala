@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 
 package lazabs.horn.predgen
 
+import ap.basetypes.{Tree, Leaf}
 import ap.theories.{Theory, TheoryCollector}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                LazyConjunction}
@@ -41,7 +42,6 @@ import ap.Signature
 import ap.util.Timeout
 import IExpression.{ConstantTerm, Predicate}
 
-import lazabs.prover.{Tree, Leaf}
 import lazabs.horn.Util._
 
 import lazabs.horn.bottomup.HornClauses._

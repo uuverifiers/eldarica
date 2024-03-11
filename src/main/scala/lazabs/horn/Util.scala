@@ -29,8 +29,7 @@
 
 package lazabs.horn
 
-import lazabs.prover.Tree
-
+import ap.basetypes.Tree
 import ap.terfor.conjunctions.Conjunction
 
 import scala.collection.mutable.{HashMap => MHashMap}
