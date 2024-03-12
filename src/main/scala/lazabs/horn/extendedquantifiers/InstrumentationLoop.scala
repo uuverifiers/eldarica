@@ -99,7 +99,10 @@ class InstrumentationLoop (
 //  clauses.foreach(clause => println(clause.toPrologString))
 //  println("="*80 + "\n")
 
-  private val ghostVarRanges: MBuffer[Int] = (1 to 2).toBuffer
+  /**
+   * TODO: support ghost variable ranges > 1
+   */
+  private val ghostVarRanges: MBuffer[Int] = (1 to 1).toBuffer
   private var rawResult : Result = Inconclusive
   private val searchSpaceSizePerNumGhostRanges = new MHashMap[Int, Int]
   private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
