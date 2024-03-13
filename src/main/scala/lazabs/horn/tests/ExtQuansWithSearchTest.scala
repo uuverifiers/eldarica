@@ -143,7 +143,8 @@ object ExtQuansForallTest extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -212,7 +213,8 @@ object ExtQuansExistsTestSafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => !expr2Formula(a)))
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -281,7 +283,8 @@ object ExtQuansExistsTestUnsafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => !expr2Formula(a)))
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -351,7 +354,7 @@ object ExtQuansNumofTestUnsafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(extQuan, None)
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -421,7 +424,7 @@ object ExtQuansNumofTestSafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(extQuan, None)
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -503,7 +506,8 @@ object ExtQuansForallAlienTermTestSafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -585,7 +589,8 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
       )
 
     val instrLoop = new InstrumentationLoop(
@@ -666,7 +671,8 @@ object ExtQuansForallTestTwoSelectsSafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
         )
 
     val instrLoop = new InstrumentationLoop(
@@ -740,7 +746,8 @@ object ExtQuansForallTestTwoStoresSafe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
         )
 
     val instrLoop = new InstrumentationLoop(
@@ -773,12 +780,11 @@ object ExtQuansForallTestTwoStores2Safe extends App {
 
     val a1 = new SortedConstantTerm("a1", ar.sort)
     val a2 = new SortedConstantTerm("a2", ar.sort)
-    val a3 = new SortedConstantTerm("a3", ar.sort)
 
     val i = new ConstantTerm("i")
 
-    val p = for (i <- 0 until 5) yield (new MonoSortedPredicate("p" + i,
-                                                                Seq(ar.sort, Sort.Integer)))
+    val p = for (i <- 0 until 5) yield
+      new MonoSortedPredicate("p" + i, Seq(ar.sort, Sort.Integer))
 
     val arrAccess = ar.select(a1, i)
     val arrIndex = i
@@ -814,7 +820,8 @@ object ExtQuansForallTestTwoStores2Safe extends App {
 
     val instOps : Map[AbstractExtendedQuantifier, InstrumentationOperator] =
       Map(
-        extQuan -> new BooleanInstrumentationOperator(extQuan)
+        extQuan -> new BooleanInstrumentationOperator(
+          extQuan, Some((a: ITerm) => expr2Formula(a)))
         )
 
     val instrLoop = new InstrumentationLoop(

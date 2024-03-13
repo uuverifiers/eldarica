@@ -45,9 +45,25 @@ import lazabs.prover.PrincessWrapper.expr2Formula
 import scala.collection.mutable.ArrayBuffer
 
 /**
+ *
  * An instrumentation operator for forall and exists.
+ *@param exq                              The extended quantifier theory.
+ *@param doNotResetWithinBoundsCondition  If a store is made within the tracked
+ *                                        range, normally the range is reset
+ *                                        unless the extended quantifier is
+ *                                        cancellative. If the quantifier is
+ *                                        non-cancellative, then this parameter
+ *                                        can be passed to not reset the range
+ *                                        if the current value satisfies a
+ *                                        condition. Example: for forall, if the
+ *                                        aggregate value is true, we do not need
+ *                                        to reset on a write. Converse for exists.
+ *                                        I.e., for forall  expr2Formula(arg)
+ *                                          and for exists !expr2Formula(arg)
  */
-class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
+class BooleanInstrumentationOperator(
+  exq                             : ExtendedQuantifierWithPredicate,
+  doNotResetWithinBoundsCondition : Option[ITerm => IFormula])
     extends InstrumentationOperator(exq) {
   // Extended quantifier ghost variables.
   case object GhLo     extends GhostVar(exq.arrayIndexSort, "gLo")
@@ -253,17 +269,25 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
       val storeAbove =
         (newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap))) &
           (newHi === i + 1 & newLo === oldLo)
-      val storeInside =
-        exq.invReduceOp match {
-          case Some(f) =>
-            newRes === exq.reduceOp(
-              f(oldRes, exq.arrayTheory.select(a1, i)),
-              pred(o, i, alienSubstMap)) &
-            newLo === oldLo & newHi === oldHi
-          case _ =>
-            storeEmptySeq
-        }
-        val storeOutside = storeEmptySeq
+      val storeInside = exq.invReduceOp match {
+        case Some(f) =>
+          newRes === exq.reduceOp(
+            f(oldRes, exq.arrayTheory.select(a1, i)),
+            pred(o, i, alienSubstMap)) &
+          newLo === oldLo & newHi === oldHi
+        case None =>
+          doNotResetWithinBoundsCondition match {
+            case Some(f) =>
+              ite(f(oldRes),
+                  newRes === exq.reduceOp(oldRes, pred(o, i, alienSubstMap)) &
+                    newLo === oldLo & newHi === oldHi,
+                  storeEmptySeq)
+
+            case None =>
+              storeEmptySeq
+          }
+      }
+      val storeOutside = storeEmptySeq
 
       val instrConstraint =
         (newArr === a2) &&& alienTermInitFormula &&&

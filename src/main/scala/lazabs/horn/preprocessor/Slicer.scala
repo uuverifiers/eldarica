@@ -108,7 +108,8 @@ object Slicer extends HornPreprocessor {
               val bodyStates =
                 for (c <- children) yield newNext(c - 1)._1
               val simpleMapping =
-                computeHeapArgMapping(clause, oldClause, bodyStates, newHeadArgs)
+                computeHeapArgMapping(
+                  clause, oldClause, bodyStates, newHeadArgs, frozenPredicates)
 
               // check whether the values of all head arguments can
               // now be derived
@@ -199,10 +200,13 @@ object Slicer extends HornPreprocessor {
   private def computeHeapArgMapping(newClause : Clause,
                                     oldClause : Clause,
                                     oldBodyStates : Seq[IAtom],
-                                    newHeadArgs : Seq[ITerm])
+                                    newHeadArgs : Seq[ITerm],
+                                    frozenPredicates : Set[Predicate])
                                   : Map[ConstantTerm, ITerm] = {
     val Clause(newHead, newBody, newConstraint) = newClause
-    val Clause(oldHead, oldBody, oldConstraint) = oldClause
+    val Clause(oldHead, oldBodyWithFrozenPreds, oldConstraint) = oldClause
+    val oldBody = oldBodyWithFrozenPreds.filterNot(
+      b => frozenPredicates contains b.pred)
 
     assert(newHeadArgs.size == newHead.args.size)
     assert(oldBody.size == oldBodyStates.size)
