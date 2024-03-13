@@ -361,7 +361,21 @@ class BooleanInstrumentationOperator(exq : ExtendedQuantifierWithPredicate)
                             otherConstants : Set[IConstant],
                             constInfo      : ConstInfo)
   : Seq[RewriteRules.Result] = {
-    ???
+    val ConstInfo(a, o, arrayTheory2) = constInfo
+
+    if (arrayTheory2 != exq.arrayTheory) return Seq()
+
+    val (oldLo, newLo)         = (oldGhostTerms(GhLo), newGhostTerms(GhLo))
+    val (oldHi, newHi)         = (oldGhostTerms(GhHi), newGhostTerms(GhHi))
+    val (oldRes, newRes)       = (oldGhostTerms(GhRes), newGhostTerms(GhRes))
+    val (oldArr, newArr)       = (oldGhostTerms(GhArr), newGhostTerms(GhArr))
+    val (oldArrInd, newArrInd) = (oldGhostTerms(GhArrInd), newGhostTerms
+                                                           (GhArrInd))
+
+    val instrConstraint = newLo === 0 & newHi === 0 & newArr === a
+    Seq(RewriteRules.Result(newConjunct = instrConstraint,
+                            rewriteFormulas = Map(),
+                            assertions = Seq()))
   }
 
   override def rewriteAggregate(ghostTerms : Seq[Map[GhostVar, ITerm]],

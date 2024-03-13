@@ -139,6 +139,7 @@ class GhostVariableAdder(
            * The terms need to be in the same order as the indexes assigned
            * earlier, so we convert ghostVarToTerm into a seq and sort it.
            */
+          assert(exqAppId < ghostVariableInds.size)
           ghostVarToTerm.toSeq.sortBy(
             p => ghostVariableInds(exqAppId)(p._1)).map{
             case (ghostVar, ghostTerm) =>

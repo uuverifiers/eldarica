@@ -40,9 +40,9 @@ import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, PredicateStore, TemplateInterpolator}
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
+import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
 import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
-import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.preprocessor.{PreStagePreprocessor, DefaultPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.mutable.{ArrayBuffer, Buffer => MBuffer, HashMap => MHashMap, HashSet => MHashSet}
@@ -80,13 +80,12 @@ class InstrumentationLoop (
   private val prefixCompressionPeriod = 50
   private var prefixCompressionCounter = 0
 
-  private val preprocessor = new DefaultPreprocessor
   private var curHints : VerificationHints = hints
   private val (simpClauses, newHints1, backTranslator1) =
     Console.withErr(Console.out) {
       val slicingPre = GlobalParameters.get.slicing
       GlobalParameters.get.slicing = false
-      val res = preprocessor.process(clauses, curHints)
+      val res = (new PreStagePreprocessor).process(clauses, curHints)
       GlobalParameters.get.slicing = slicingPre
       res
     }
@@ -108,6 +107,7 @@ class InstrumentationLoop (
   private val searchStepsPerNumGhostRanges     = new MHashMap[Int, Int]
   private var lastSolver : IncrementalHornPredAbs[Clause]       = _
   private var lastInstrumenter : InstrumentationOperatorApplier = _
+  private var lastBackTranslator : BackTranslator = _
 
   while (ghostVarRanges.nonEmpty && rawResult == Inconclusive) {
     val numRanges = ghostVarRanges.head
@@ -118,7 +118,26 @@ class InstrumentationLoop (
       simpClauses, curHints, Set.empty, extendedQuantifierToInstOp, numRanges)
     lastInstrumenter = instrumenter
 
-    curHints = instrumenter.newHints
+    val outStream =
+      if (lazabs.GlobalParameters.get.logStat) Console.err
+      else lazabs.horn.bottomup.HornWrapper.NullStream
+
+    val (simpClauses2, hints, bTranslator) =
+      Console.withErr(lazabs.horn.bottomup.HornWrapper.NullStream){
+        (new DefaultPreprocessor).process(
+          instrumenter.instrumentedClauses,
+          instrumenter.newHints,
+          instrumenter.branchPredicates
+          )}
+    lastBackTranslator = bTranslator
+    curHints = hints
+    val branchPreds =
+      instrumenter.branchPredicates intersect
+      simpClauses2.flatMap(_.predicates).toSet
+
+    val filteredSearchSpace = (for (inst <- instrumenter.searchSpace) yield
+      inst.filter(branchPreds contains _._1).sortBy(_._1.name))
+      .filter(_.nonEmpty).distinct
 
 //    println("="*80)
 //    println("Clauses after instrumentation")
@@ -131,18 +150,14 @@ class InstrumentationLoop (
 //    println("="*80)
 //    println("Clauses after instrumentation (simplified)")
 
-    val outStream =
-      if (lazabs.GlobalParameters.get.logStat) Console.err
-      else lazabs.horn.bottomup.HornWrapper.NullStream
-
     val interpolator =
       if (templateBasedInterpolation)
         Console.withErr(outStream) {
           val builder =
             new StaticAbstractionBuilder(
-              instrumenter.instrumentedClauses, //simpClauses2,
+              simpClauses2,
               templateBasedInterpolationType,
-              instrumenter.branchPredicates) //remainingBranchPredicates)
+              branchPreds) //remainingBranchPredicates)
           val autoAbstractionMap =
             builder.abstractionRecords
 
@@ -194,16 +209,16 @@ class InstrumentationLoop (
 
     val incSolver =
       new IncrementalHornPredAbs(
-        instrumenter.instrumentedClauses,
+        simpClauses2,
         curHints.toInitialPredicates,
-        instrumenter.branchPredicates,
+        branchPreds,
         interpolator)
 
     lastSolver = incSolver
 
     Random.setSeed(42)
     val searchSpace = new MHashSet[Map[Predicate, Conjunction]]
-    Random.shuffle(instrumenter.searchSpace).foreach { search =>
+    Random.shuffle(filteredSearchSpace).foreach { search =>
       searchSpace += search.toMap
     }
 
@@ -245,7 +260,7 @@ class InstrumentationLoop (
 //                                                ineligiblePrefixes.toSet)
 
       println("\n(" + numSteps + ") Remaining search space size: " +
-              (instrumenter.searchSpace.size - totalExplored - postponedSearches.size))
+              (searchSpace.size))
         println("Postponed instrumentations : " + postponedSearches.size)
         println("Selected branches: " + instrumentation.map{instr =>
           instr._1.name + "(" + (instr._2.arithConj.positiveEqs.head.constant.
@@ -278,9 +293,8 @@ class InstrumentationLoop (
                 noTimeoutCount += 1
                 consecutiveTimeoutCount = 0
                 println("\ninconclusive, iterating...")
-                val prefix : Set[IAtom] = cex.subdagIterator.toList.flatMap(_.d
-                                                                             ._2.body.filter(
-                  instrumenter.branchPredicates contains _.pred)).toSet
+                val prefix : Set[IAtom] = cex.subdagIterator.toList.flatMap(
+                  _.d._2.body.filter(branchPreds contains _.pred)).toSet
 
                 prefixCompressionCounter += 1
                 ineligiblePrefixes += prefix
@@ -293,7 +307,7 @@ class InstrumentationLoop (
                       ineligiblePrefixes.filter(_.size < prefix.size).
                                         exists(other => other subsetOf prefix))
                     yield prefix
-                  val beforeSize        = ineligiblePrefixes.size
+                  val beforeSize = ineligiblePrefixes.size
                   redundantPrefixes.foreach(ineligiblePrefixes -=)
                   println("Compressed ineligible prefixes: " + beforeSize +
                           " to " + ineligiblePrefixes.size)
@@ -328,13 +342,18 @@ class InstrumentationLoop (
                   currentTimeout / 1e3)
         }
       }
+      if(postponedSearches.isEmpty && searchSpace.forall(
+        instrumentation => ineligiblePrefixes.exists(
+          prefix => prefix subsetOf computeAtoms(instrumentation)))) {
+        println("Search space exhausted - inconclusive")
+      }
       searchSpace.clear()
     }
   }
 
   private val backTranslator =
     new ComposedBackTranslator(
-      Seq(lastInstrumenter.backTranslator) ++ backTranslators.reverse)
+      Seq(lastBackTranslator) ++ backTranslators.reverse)
 
   /**
    * The result of CEGAR: either a solution of the Horn clauses, or
