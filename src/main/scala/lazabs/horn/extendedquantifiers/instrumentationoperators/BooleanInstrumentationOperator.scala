@@ -450,4 +450,128 @@ class BooleanInstrumentationOperator(
                             rewriteFormulas = Map(conjunct -> newConjunct),
                             assertions = Seq(assertionFormula)))
   }
+
+// A version of rewriteAggregate that can handle two ghost ranges - untested
+//    override def rewriteAggregate(ghostTerms : Seq[Map[GhostVar, ITerm]],
+//                                exqInfo    : ExtendedQuantifierApp)
+//  : Seq[RewriteRules.Result] = {
+//    if (ghostTerms.size > 2) {
+//      // TODO: Generalize to multiple ghost variable ranges.
+//      throw new NotImplementedError(
+//        "Multiple ghost variable sets are currently unsupported.")
+//    }
+//
+//    // range1 ? res1 : (range 2 ? res2 : (... : range1+range2 ? res1+res : range2+range1 ? res2+res1 : ... ))
+//    val combinations : Seq[Seq[Map[GhostVar, ITerm]]] =
+//      (for (i <- 1 to ghostTerms.length) yield {
+//        ghostTerms.combinations(i)
+//      }).flatten
+//
+//    def loExpr =
+//      exq.rangeFormulaLo.getOrElse((t1 : ITerm, t2 : ITerm, t3 : ITerm) =>
+//                                     t1 === t2)
+//    def hiExpr =
+//      exq.rangeFormulaHi.getOrElse((t1 : ITerm, t2 : ITerm, t3 : ITerm) =>
+//                                     t1 === t2)
+//
+//    val ExtendedQuantifierApp(_, funApp, a, lo, hi, o, alienTerms, conjunct) =
+//      exqInfo
+//
+//    def buildRangeFormula(combs : Seq[Seq[Map[GhostVar, ITerm]]]) : IFormula = {
+//      combs.headOption match {
+//        case Some(comb) =>
+//          comb length match {
+//            case 1 =>
+//              ((loExpr(comb.head(GhLo), lo, comb.head(GhRes)) &
+//                hiExpr(comb.head(GhHi), hi, comb.head(GhRes)) &
+//                comb.head(GhArr) === a) ==> (comb.head(GhRes) === o)) &&&
+//              ((lo >= hi) ==> (exq.identity === o)) &&&
+//                buildRangeFormula(combs.tail)
+//            case 2 => //todo: empty range for more than one ghost var range?
+//              ((loExpr(comb(0)(GhLo), lo, comb(0)(GhRes)) & hiExpr(comb(0)(GhHi), comb(1)(GhLo), comb(0)(GhRes)) &
+//                hiExpr(comb(1)(GhHi), hi, comb(1)(GhRes)) & comb(0)(GhArr) === a & comb(1)(GhArr) === a) ==>
+//                (exq.reduceOp(comb(0)(GhRes), comb(1)(GhRes)) === o) &&&
+//                ((loExpr(comb(1)(GhLo), lo, comb(1)(GhRes)) & hiExpr(comb(1)(GhHi), comb(0)(GhLo), comb(1)(GhRes)) &
+//                  hiExpr(comb(0)(GhHi), hi, comb(0)(GhRes)) & comb(0)(GhArr) === a & comb(1)(GhArr) === a) ==>
+//                  (exq.reduceOp(comb(1)(GhRes), comb(0)(GhRes)) === o))) &&&
+//                buildRangeFormula(combs.tail)
+//            case _ => ??? // todo: generalize this!
+//          }
+//        case None => i(true)
+//      }
+//    }
+//
+//    // this builds a formula to be asserted, such that at least one of the branches must be taken
+//    def buildAssertionFormula(combs : Seq[Seq[Map[GhostVar, ITerm]]]) : IFormula = {
+//      // todo: refactor
+//      combs.headOption match {
+//        case Some(comb) =>
+//          comb length match {
+//            case 1 =>
+//              // assert that the alien ghost vars are the same as those used
+//              // in the aggregate
+//              val ghostVarToGhostTerm = ghostTerms.head
+//              val alienGuard = {
+//                for ((alienC, ind) <- exq.alienConstants zipWithIndex)
+//                  yield {
+//                    val AlienGhostVars(vShad, vSet) =
+//                      alienConstantToAlienGhostVars(alienC)
+//                    expr2Formula(ghostVarToGhostTerm(vSet)) &&&
+//                    (ghostVarToGhostTerm(vShad) === alienTerms(ind))
+//                  }
+//              }.fold(i(true))((c1, c2) => c1 &&& c2)
+//
+//              val guard =
+//                (loExpr(comb.head(GhLo), lo, comb.head(GhRes)) &
+//                 hiExpr(comb.head(GhHi), hi, comb.head(GhRes)) &
+//                 comb.head(GhArr) === a &&& alienGuard) ||| (lo >= hi)
+//              guard ||| buildAssertionFormula(combs.tail)
+//            case 2 => //todo: empty range for more than one ghost var range?
+//              val alienGuard1 = {
+//                val ghostVarToGhostTerm = ghostTerms(0)
+//                for ((alienC, ind) <- exq.alienConstants zipWithIndex)
+//                  yield {
+//                    val AlienGhostVars(vShad, vSet) =
+//                      alienConstantToAlienGhostVars(alienC)
+//                    expr2Formula(ghostVarToGhostTerm(vSet)) &&&
+//                    (ghostVarToGhostTerm(vShad) === alienTerms(ind))
+//                  }
+//              }.fold(i(true))((c1, c2) => c1 &&& c2)
+//              val alienGuard2 = {
+//                val ghostVarToGhostTerm = ghostTerms(1)
+//                for ((alienC, ind) <- exq.alienConstants zipWithIndex)
+//                  yield {
+//                    val AlienGhostVars(vShad, vSet) =
+//                      alienConstantToAlienGhostVars(alienC)
+//                    expr2Formula(ghostVarToGhostTerm(vSet)) &&&
+//                    (ghostVarToGhostTerm(vShad) === alienTerms(ind))
+//                  }
+//              }.fold(i(true))((c1, c2) => c1 &&& c2)
+//
+//              val c1 =
+//                loExpr(comb(0)(GhLo), lo, comb(0)(GhRes)) &
+//                hiExpr(comb(0)(GhHi), comb(1)(GhLo), comb(0)(GhRes)) &
+//                hiExpr(comb(1)(GhHi), hi, comb(1)(GhRes)) & comb(0)(GhArr) === a &
+//                comb(1)(GhArr) === a &&& alienGuard1
+//              val c2 =
+//                loExpr(comb(1)(GhLo), lo, comb(1)(GhRes)) &
+//                hiExpr(comb(1)(GhHi), comb(0)(GhLo), comb(1)(GhRes)) &
+//                hiExpr(comb(0)(GhHi), hi, comb(0)(GhRes)) &
+//                comb(0)(GhArr) === a & comb(1)(GhArr) === a &&& alienGuard2
+//              (c1 ||| c2) ||| buildAssertionFormula(combs.tail)
+//            case _ => ??? // todo: generalize this!
+//          }
+//        case None => IExpression.i(false)
+//      }
+//    }
+//
+//    val rewriteConjuncts =
+//      Map(exqInfo.conjunct -> buildRangeFormula(combinations))
+//    val assertionFormula = buildAssertionFormula(combinations)
+//
+//    Seq(RewriteRules.Result(newConjunct = IExpression.i(true),
+//                            rewriteFormulas = rewriteConjuncts,
+//                            assertions = Seq(assertionFormula)))
+//  }
+
 }

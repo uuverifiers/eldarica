@@ -66,7 +66,8 @@ class ExtendedQuantifierWithPredicate(
   invReduceOp    : Option[(ITerm, ITerm) => ITerm],
   rangeFormulaLo : Option[(ITerm, ITerm, ITerm) => IFormula],
   rangeFormulaHi : Option[(ITerm, ITerm, ITerm) => IFormula],
-  val predicate  : (ITerm, ITerm) => ITerm
+  val predicate  : (ITerm, ITerm) => ITerm,
+  val alienConstants : Seq[ConstantTerm]
 ) extends AbstractExtendedQuantifier(
     name = name, arrayTheory = arrayTheory, identity = identity,
     reduceOp = reduceOp, invReduceOp = invReduceOp,
@@ -78,11 +79,6 @@ class ExtendedQuantifierWithPredicate(
    * written/read object at index `i`.
    * Example: in `p(o, i): o = i + c`, `c` is an alien term.
    */
-  val alienConstants : Seq[ConstantTerm] = {
-    val t1 = new ConstantTerm("t1")
-    val t2 = new ConstantTerm("t2")
-    SymbolCollector.constantsSorted(predicate(t1, t2)) diff Seq(t1, t2)
-  }
   val alienConstantSorts : Seq[Sort] = alienConstants.map(
     c => Sort.sortOf(IConstant(c)))
 

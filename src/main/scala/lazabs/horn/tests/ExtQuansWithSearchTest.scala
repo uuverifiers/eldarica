@@ -130,7 +130,8 @@ object ExtQuansForallTest extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -200,7 +201,8 @@ object ExtQuansExistsTestSafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -270,7 +272,8 @@ object ExtQuansExistsTestUnsafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -341,7 +344,8 @@ object ExtQuansNumofTestUnsafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -411,7 +415,8 @@ object ExtQuansNumofTestSafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -486,7 +491,8 @@ object ExtQuansForallAlienTermTestSafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq(c))
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -568,7 +574,8 @@ object ExtQuansForallAlienTermTestUnsafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq(actualC))
     TheoryRegistry register extQuan
 
     val clauses = List(
@@ -649,7 +656,8 @@ object ExtQuansForallTestTwoSelectsSafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     import ar._
@@ -731,7 +739,8 @@ object ExtQuansForallTestTwoStoresSafe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     import ar._
@@ -805,7 +814,8 @@ object ExtQuansForallTestTwoStores2Safe extends App {
                               ite(expr2Formula(p), ghostLo <= lo, ghostLo >=
                                                                   lo)),
       rangeFormulaHi = Some((ghostHi : ITerm, hi : ITerm, p : ITerm) =>
-                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)))
+                              ite(expr2Formula(p), ghostHi >= hi, ghostHi <= hi)),
+      alienConstants = Seq())
     TheoryRegistry register extQuan
 
     import ar._

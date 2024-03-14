@@ -233,6 +233,7 @@ class InstrumentationLoop (
     searchStepsPerNumGhostRanges += (numRanges -> numSteps)
 
     var currentTimeout = startingTimeout
+    var useTimeout = true
 
     var noTimeoutCount = 0
     var consecutiveTimeoutCount = 0
@@ -245,9 +246,13 @@ class InstrumentationLoop (
       if (searchSpace.isEmpty && postponedSearches.nonEmpty) {
         postponedSearches.foreach(searchSpace += _)
         postponedSearches.clear()
-        currentTimeout *= timeoutMultiplier
-        println("Retrying postponed instrumentations with new timeout: " +
-                currentTimeout / 1e3)
+        if (searchSpace.size == 1) {
+          useTimeout = false
+        } else {
+          currentTimeout *= timeoutMultiplier
+          println("Retrying postponed instrumentations with new timeout: " +
+                  currentTimeout / 1e3)
+        }
       }
 
       var prevI = 0
@@ -267,7 +272,7 @@ class InstrumentationLoop (
                                       intValue * (-1)) + ")"}.mkString(", "))
 
         // assuming empty instrumentation is not in searchSpace below
-        val maybeRes =
+        val maybeRes = if (useTimeout) {
           Timeout.withTimeoutMillis[Option[Either[Map[Predicate, Conjunction],
             Dag[(IAtom, Clause)]]]](currentTimeout){
             // computation
@@ -276,6 +281,7 @@ class InstrumentationLoop (
             // timeout computation
             None
           }
+        } else Some(incSolver.checkWithSubstitution(instrumentation))
 
         maybeRes match {
           case Some(res) =>
@@ -336,7 +342,6 @@ class InstrumentationLoop (
         }
         if (consecutiveTimeoutCount > maxConsecutiveTimeouts) {
           // too many timeouts, bump it up
-          consecutiveTimeoutCount = 0
           currentTimeout *= timeoutMultiplier
           println("Too many consecutive timeouts, increasing to " +
                   currentTimeout / 1e3)
