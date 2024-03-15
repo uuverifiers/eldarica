@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn
 
 import ap.parser._
 import IExpression._
@@ -42,6 +42,7 @@ import lazabs.ParallelComputation
 import lazabs.Main.{TimeoutException, StoppedException, PrintingFinishedException}
 import lazabs.horn.preprocessor.{DefaultPreprocessor, HornPreprocessor}
 import HornPreprocessor.BackTranslator
+import lazabs.horn.bottomup._
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.global._
 import lazabs.utils.Manip._
@@ -63,10 +64,6 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 
 
 object HornWrapper {
-
-  object NullStream extends java.io.OutputStream {
-    def write(b : Int) = {}
-  }
 
   def verifySolution(fullSol : HornPreprocessor.Solution,
                      unsimplifiedClauses : Seq[Clause]) : Unit = {
@@ -170,7 +167,7 @@ class HornWrapper(constraints  : Seq[HornClause],
      if (GlobalParameters.get.logStat)
        Console.err
      else
-       HornWrapper.NullStream
+       Util.NullStream
 
   private val originalClauses = constraints
   private val unsimplifiedClauses = originalClauses map (transform(_))

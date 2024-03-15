@@ -710,7 +710,7 @@ object Main {
     } else if (concurrentC) {
 
       val outStream =
-        if (logStat) Console.err else lazabs.horn.bottomup.HornWrapper.NullStream
+        if (logStat) Console.err else lazabs.horn.Util.NullStream
 
       Console.withOut(outStream) {
         println(

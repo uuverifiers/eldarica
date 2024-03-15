@@ -44,7 +44,7 @@ import lazabs.horn.predgen.DisjInterpolator.iPredicateGenerator
 import lazabs.horn.predgen.PredicateGenerator.{AndOrNode, AndNode, OrNode}
 import lazabs.horn.bottomup.HornClauses._
 import lazabs.horn.Util._
-import lazabs.horn.bottomup.HornTranslator
+import lazabs.horn.HornTranslator
  
 
 object Status extends Enumeration {

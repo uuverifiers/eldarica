@@ -39,7 +39,7 @@ import lazabs.horn.predgen.DagInterpolator
 import lazabs.horn.concurrency._
 import lazabs.horn.concurrency.ParametricEncoder._
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice}
-import lazabs.horn.bottomup.HornTranslator
+import lazabs.horn.HornTranslator
 
 
 object Relational {

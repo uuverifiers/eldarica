@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -115,7 +115,7 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     val newPredStore = new PredicateStore(context)
     newPredStore addRelationSymbolPreds preds
     try {
-      Console.withOut(HornWrapper.NullStream) {
+      Console.withOut(NullStream) {
         new CEGAR (context, newPredStore, PredicateGenerator.FailingPredGen)
       }
       true

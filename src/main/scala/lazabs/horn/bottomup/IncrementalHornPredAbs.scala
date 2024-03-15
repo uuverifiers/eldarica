@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,7 +59,7 @@ class IncrementalHornPredAbs
      if (lazabs.GlobalParameters.get.logStat)
        Console.err
      else
-       HornWrapper.NullStream
+       NullStream
 
   val baseContext : HornPredAbsContext[CC] =
     Console.withOut(outStream) {

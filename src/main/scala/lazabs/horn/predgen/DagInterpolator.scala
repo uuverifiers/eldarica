@@ -45,7 +45,7 @@ import lazabs.horn.Util._
 import DisjInterpolator.predicateGenerator
 import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 import lazabs.horn.bottomup.{NormClause, RelationSymbol, HornClauses,
-                             HornWrapper, HornPredAbs, CEGAR, SymbolFactory}
+                             HornPredAbs, CEGAR, SymbolFactory}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, ArrayBuffer}
@@ -279,7 +279,7 @@ object DagInterpolator {
 
 /*
     // Version 1 (of predicate extraction)
-    Console.withOut(HornWrapper.NullStream)(
+    Console.withOut(NullStream)(
       new HornPredAbs(clauses, Map(),
                       DagInterpolator.interpolatingPredicateGenCEXAndOr _,
                       CEGAR.CounterexampleMethod.FirstBestShortest).rawResult) match {
@@ -295,7 +295,7 @@ object DagInterpolator {
 */
 
     // Version 2 (of predicate extraction)
-    Console.withOut(HornWrapper.NullStream){
+    Console.withOut(NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     Interpolators.DagInterpolator,
                                     CEGAR.CounterexampleMethod.FirstBestShortest)
@@ -313,7 +313,7 @@ object DagInterpolator {
 
 /*
     // Version 3 (of predicate extraction)
-    Console.withOut(HornWrapper.NullStream){
+    Console.withOut(NullStream){
       val predAbs = new HornPredAbs(clauses, Map(),
                                     DagInterpolator.interpolatingPredicateGenCEXAndOr _,
                                     CEGAR.CounterexampleMethod.FirstBestShortest)

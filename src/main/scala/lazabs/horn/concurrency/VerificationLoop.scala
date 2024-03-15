@@ -34,8 +34,8 @@ import ap.util.Seqs
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import lazabs.{ParallelComputation, GlobalParameters}
-import lazabs.horn.Util
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, HornWrapper}
+import lazabs.horn.{Util, HornWrapper}
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.abstractions.{AbsLattice, StaticAbstractionBuilder,
                                  LoopDetector, AbstractionRecord,
                                  VerificationHints}

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,7 +110,7 @@ object ServerMain {
                   Console.withErr(if (showErrOutput)
                                     outStream
                                   else
-                                    lazabs.horn.bottomup.HornWrapper.NullStream) {
+                                    lazabs.horn.Util.NullStream) {
                     var lastPing = System.currentTimeMillis
                     var cancel = false
                     var watchdogCounter = WatchdogInit
