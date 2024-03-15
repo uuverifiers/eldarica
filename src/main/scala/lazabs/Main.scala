@@ -247,6 +247,12 @@ class GlobalParameters extends Cloneable {
          },
          this.clone)
 
+  def stdSymexParams : GlobalParameters = {
+    val p = this.clone
+    p.symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
+    p
+  }
+
   def generalPortfolioParams : Seq[GlobalParameters] =
     List({
            val p = this.clone
