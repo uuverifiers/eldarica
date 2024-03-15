@@ -429,13 +429,13 @@ class HornWrapper(constraints  : Seq[HornClause],
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
-                       simplifiedClauses : Seq[Clause],
-                       simpHints : VerificationHints,
+class InnerHornWrapper(unsimplifiedClauses   : Seq[Clause],
+                       simplifiedClauses     : Seq[Clause],
+                       simpHints             : VerificationHints,
                        preprocBackTranslator : BackTranslator,
-                       disjunctive : Boolean,
-                       outStream : java.io.OutputStream,
-                       symexEngine : Option[Symex[Clause]]) {
+                       disjunctive           : Boolean,
+                       outStream             : java.io.OutputStream,
+                       symexEngine           : Option[Symex[Clause]]) {
 
   /** Automatically computed interpolation abstraction hints */
   private val abstractionType =
@@ -491,13 +491,19 @@ class InnerHornWrapper(unsimplifiedClauses : Seq[Clause],
     val currentParams = GlobalParameters.get.clone
 
     val (result, maybePredAbs) = symexEngine match {
-      case Some(symex) =>
+      case Some(symex) => {
         val res = Console.withOut(outStream){
+          println
+          println(
+            "----------------------------------- SYMEX " +
+            "--------------------------------------")
+
           symex.printInfo = true
           symex.solve()
         }
 
         (res, None)
+      }
       case None =>
         val predAbs = Console.withOut(outStream){
           println
