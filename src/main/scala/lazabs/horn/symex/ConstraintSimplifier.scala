@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2024 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,7 @@
  */
 package lazabs.horn.symex
 
-import ap.terfor.{ComputationLogger, Term, TermOrder}
+import ap.terfor.{ComputationLogger, ConstantTerm, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
 
@@ -83,7 +83,30 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    new LocalSymbolEliminator(reducedConstraint, localSymbols, symex_sf.order)
-      .eliminate(ComputationLogger.NonLogger)
+    /**
+     * [[ConjunctEliminator]] does not seem to support formulas with
+     * disjunctions, so we remove constants appearing in disjuncts.
+     */
+    val elimSymbols : Set[Term] =
+      localSymbols -- constraint.negatedConjs.constants
+    val simpConstraint1 : Conjunction = new LocalSymbolEliminator(reducedConstraint,
+      elimSymbols, symex_sf.order).eliminate(ComputationLogger.NonLogger)
+
+    /**
+     * If there were disjunctions, then try another method of simplification.
+     */
+    if (constraint.negatedConjs.constants.nonEmpty) {
+      // quantify local symbols
+      val sortedLocalSymbols =
+        symex_sf.order.sort(localSymbols.map(_.asInstanceOf[ConstantTerm]))
+      val quanF = Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
+        sortedLocalSymbols,
+        simpConstraint1, simpConstraint1.order)
+      // try to eliminate the quantified vars
+      val reducedQuanF : Conjunction =
+        symex_sf.reducer(Conjunction.TRUE).apply(quanF)
+      // eliminate any remaining quantifiers by re-introducing local symbols
+      reducedQuanF.instantiate(sortedLocalSymbols)(reducedQuanF.order)
+    } else simpConstraint1
   }
 }
