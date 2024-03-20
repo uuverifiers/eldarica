@@ -52,8 +52,10 @@ object HornClauses {
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 
-  def allPredicatesCC[CC <% HornClauses.ConstraintClause]
-                     (clauses : Iterable[CC]) : Set[Predicate] =
+  def allPredicatesCC[CC]
+                     (clauses : Iterable[CC])
+                     (implicit ev: CC => HornClauses.ConstraintClause)
+                    : Set[Predicate] =
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 

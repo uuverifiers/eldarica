@@ -146,10 +146,11 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
+class HornPredAbsContextImpl[CC]
                             (iClauses : Iterable[CC],
                              intervalAnalysis : Boolean = true,
                              intervalAnalysisIgnoredSyms : Set[Predicate] = Set())
+                            (implicit ev: CC => HornClauses.ConstraintClause)
       extends HornPredAbsContext[CC] {
 
   import HornPredAbs._

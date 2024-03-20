@@ -200,8 +200,9 @@ object DagInterpolator {
     }
   }
 
-  def layeredPredicateGenHelp[CC <% HornClauses.ConstraintClause]
+  def layeredPredicateGenHelp[CC]
                              (clauseDag : Dag[AndOrNode[CC, Unit]])
+                             (implicit ev: CC => HornClauses.ConstraintClause)
                      : Either[Seq[(Predicate, Seq[Conjunction])],
                               Dag[(IAtom, CC)]] = {
       import HornClauses._

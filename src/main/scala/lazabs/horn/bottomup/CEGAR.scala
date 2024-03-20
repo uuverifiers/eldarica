@@ -71,12 +71,13 @@ object CEGAR {
 
 }
 
-class CEGAR[CC <% HornClauses.ConstraintClause]
+class CEGAR[CC]
            (context              : HornPredAbsContext[CC],
             predStore            : PredicateStore[CC],
             predicateGenerator   : PredicateGenerator,
             counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-              CEGAR.CounterexampleMethod.FirstBestShortest) {
+              CEGAR.CounterexampleMethod.FirstBestShortest)
+           (implicit ev: CC => HornClauses.ConstraintClause) {
 
   import CEGAR._
   import context._

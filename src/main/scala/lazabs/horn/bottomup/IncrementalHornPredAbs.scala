@@ -43,15 +43,15 @@ import PredicateGenerator.{AndOrNode, AndNode, OrNode}
  * same set of clauses. Variants are obtained by substituting some of
  * the relation symbols with concrete formulas.
  */
-class IncrementalHornPredAbs
-                 [CC <% HornClauses.ConstraintClause]
+class IncrementalHornPredAbs[CC]
                  (iClauses             : Iterable[CC],
                   initialPredicates    : Map[Predicate, Seq[IFormula]],
                   substitutableSyms    : Set[Predicate],
                   predicateGenerator   : PredicateGenerator =
                                            Interpolators.DagInterpolator,
                   counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-                                           CEGAR.CounterexampleMethod.FirstBestShortest) {
+                                           CEGAR.CounterexampleMethod.FirstBestShortest)
+                 (implicit ev: CC => HornClauses.ConstraintClause) {
 
   lazabs.GlobalParameters.get.setupApUtilDebug
 
