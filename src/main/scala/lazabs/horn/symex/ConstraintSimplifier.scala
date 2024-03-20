@@ -61,10 +61,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
     protected def universalElimination(m: ModelElement): Unit = {}
 
-    override protected def addDivisibility(f: Conjunction) =
-      divJudgements = f :: divJudgements
-
-    var divJudgements: List[Conjunction] = List()
+    override protected def addDivisibility(f: Conjunction) = {}
 
     override protected def isEliminationCandidate(t: Term): Boolean =
       localSymbols contains t
@@ -83,30 +80,36 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    /**
-     * [[ConjunctEliminator]] does not seem to support formulas with
-     * disjunctions, so we remove constants appearing in disjuncts.
-     */
-    val elimSymbols : Set[Term] =
-      localSymbols -- constraint.negatedConjs.constants
-    val simpConstraint1 : Conjunction = new LocalSymbolEliminator(reducedConstraint,
-      elimSymbols, symex_sf.order).eliminate(ComputationLogger.NonLogger)
-
-    /**
-     * If there were disjunctions, then try another method of simplification.
-     */
-    if (constraint.negatedConjs.constants.nonEmpty) {
+    if (constraint.negatedConjs.isEmpty) {
+      /**
+       * If the constraint is a conjunction, we can use the
+       * [[ConjunctEliminator]] class for simplification.
+       */
+      new LocalSymbolEliminator(reducedConstraint,
+                                localSymbols,
+                                symex_sf.order)
+        .eliminate(ComputationLogger.NonLogger)
+    } else {
+      /**
+       * If there are disjunctions, then try another method of
+       * simplification.
+       */
       // quantify local symbols
       val sortedLocalSymbols =
         symex_sf.order.sort(localSymbols.map(_.asInstanceOf[ConstantTerm]))
       val quanF = Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
-        sortedLocalSymbols,
-        simpConstraint1, simpConstraint1.order)
+                                       sortedLocalSymbols,
+                                       constraint, constraint.order)
+
       // try to eliminate the quantified vars
       val reducedQuanF : Conjunction =
         symex_sf.reducer(Conjunction.TRUE).apply(quanF)
+
       // eliminate any remaining quantifiers by re-introducing local symbols
-      reducedQuanF.instantiate(sortedLocalSymbols)(reducedQuanF.order)
-    } else simpConstraint1
+      assert(sortedLocalSymbols.size >= reducedQuanF.quans.size)
+
+      reducedQuanF.instantiate(sortedLocalSymbols take reducedQuanF.quans.size)(
+                               reducedQuanF.order)
+    }
   }
 }
