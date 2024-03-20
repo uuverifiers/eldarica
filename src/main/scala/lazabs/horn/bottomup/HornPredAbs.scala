@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -102,13 +102,14 @@ object HornPredAbs {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class HornPredAbs[CC <% HornClauses.ConstraintClause]
+class HornPredAbs[CC]
                  (iClauses             : Iterable[CC],
                   initialPredicates    : Map[Predicate, Seq[IFormula]] = Map(),
                   predicateGenerator   : PredicateGenerator =
                                            Interpolators.DagInterpolator,
                   counterexampleMethod : CEGAR.CounterexampleMethod.Value =
-                                           CEGAR.CounterexampleMethod.FirstBestShortest) {
+                                           CEGAR.CounterexampleMethod.FirstBestShortest)
+                 (implicit ev: CC => HornClauses.ConstraintClause) {
   
   import HornPredAbs._
 

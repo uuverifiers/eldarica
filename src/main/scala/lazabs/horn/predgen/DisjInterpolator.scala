@@ -61,8 +61,9 @@ object DisjInterpolator {
    * The predicate generator receives an and/or-clause-dag, and either
    * returns a list of new predicates, or a counterexample dag.
    */
-  def iPredicateGenerator[CC <% ConstraintClause]
+  def iPredicateGenerator[CC]
                          (clauseDag : Dag[AndOrNode[CC, Unit]])
+                         (implicit ev: CC => ConstraintClause)
                         : Either[Seq[(Predicate, Seq[IFormula])],
                                  Dag[(IAtom, Option[CC])]] = predicateGenerator(clauseDag) match {
     case Left(predicates) => {

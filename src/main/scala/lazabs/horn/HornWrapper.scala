@@ -644,7 +644,7 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
               fullSol
             } else {
               // only keep relation symbols that were also part of the orginal problem
-              res filterKeys allPredicates(unsimplifiedClauses)
+              (res filterKeys allPredicates(unsimplifiedClauses)).toMap
             }
           }
 
