@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2015-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,7 +58,7 @@ object SimpleWrapper {
                 : Either[() => Map[Predicate, IFormula],
                          () => Dag[(IAtom, HornClauses.Clause)]] = {
     val errOutput =
-      if (debuggingOutput) Console.err else HornWrapper.NullStream
+      if (debuggingOutput) Console.err else NullStream
 
     GlobalParameters.get.templateBasedInterpolation =
       useTemplates

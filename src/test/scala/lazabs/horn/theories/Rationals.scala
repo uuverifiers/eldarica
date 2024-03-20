@@ -29,6 +29,7 @@
 
 package lazabs.horn.theories
 
+import lazabs.horn.HornWrapper
 import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories.rationals.Rationals

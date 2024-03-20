@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2024 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@ package lazabs.horn.parser
 
 import java.io.{FileInputStream, InputStream, FileNotFoundException, Reader, BufferedReader, FileReader, File}
 
+import lazabs.horn.Util._
 import lazabs.horn.global._
 import lazabs.prover.PrincessWrapper
 import lazabs.ast.ASTree._
@@ -244,7 +245,7 @@ class SMTHornReader protected[parser] (
      if (lazabs.GlobalParameters.get.logStat)
        Console.err
      else
-       lazabs.horn.bottomup.HornWrapper.NullStream
+       NullStream
 
   Console.withOut(outStream) {
     println(
