@@ -5,7 +5,6 @@ lazy val commonSettings = Seq(
     version := "2.1",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
-    scalaVersion := "2.13.13",
     scmInfo              := Some(ScmInfo(
                                    url("https://github.com/uuverifiers/eldarica"),
                                    "scm:git@github.com/uuverifiers/eldarica.git")),
@@ -48,6 +47,7 @@ lazy val commonSettings = Seq(
                               )
                             ),
     description          := "Eldarica is an SMT solver for systems of Constrained Horn Clauses (CHC).",
+    scalaVersion := "2.13.13",
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/compilation/public_html/maven/" )) )
@@ -167,7 +167,7 @@ lazy val root = (project in file(".")).
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
       case "2.12.18" => "-opt:_"
-      case "2.13.12" => "-opt:_"
+      case "2.13.13" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
