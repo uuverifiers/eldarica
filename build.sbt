@@ -5,18 +5,60 @@ lazy val commonSettings = Seq(
     version := "2.1",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
+    scmInfo              := Some(ScmInfo(
+                                   url("https://github.com/uuverifiers/eldarica"),
+                                   "scm:git@github.com/uuverifiers/eldarica.git")),
+    developers           := List(
+                              Developer(
+                                id    = "hhojjat",
+                                name  = "Hossein Hojjat",
+                                email = "hhojjat@gmail.com",
+                                url   = url("https://cs.rit.edu/~hh/")
+                              ),
+                              Developer(
+                                id    = "pruemmer",
+                                name  = "Philipp Ruemmer",
+                                email = "ph_r@gmx.net",
+                                url   = url("https://philipp.ruemmer.org")
+                              ),
+                              Developer(
+                                id    = "zafer.esen",
+                                name  = "Zafer Esen",
+                                email = "zafer.esen@it.uu.se",
+                                url   = url("https://katalog.uu.se/empinfo/?id=N18-2424")
+                              ),
+                              Developer(
+                                id    = "filipkonecny",
+                                name  = "Filip Konecny",
+                                email = "filipkonecny@gmail.com",
+                                url   = url("https://github.com/filipkonecny")
+                              ),
+                              Developer(
+                                id    = "psubotic",
+                                name  = "Pavle Subotic",
+                                email = "psubotic@gmail.com",
+                                url   = url("https://psubotic.github.io/")
+                              ),
+                              Developer(
+                                id    = "sankalpgambhir",
+                                name  = "Gambhir Sankalp",
+                                email = "sankalp.gambhir@epfl.ch",
+                                url   = url("https://sankalp.gambhir.gg/")
+                              )
+                            ),
+    description          := "Eldarica is an SMT solver for systems of Constrained Horn Clauses (CHC).",
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.18"),
     run / fork := true,
     cancelable in Global := true,
-    publishTo := Some(Resolver.file("file",  new File( "/home/wv/public_html/maven/" )) )
+    publishTo := Some(Resolver.file("file",  new File( "/home/compilation/public_html/maven/" )) )
 )
 
 // Jar files for the parsers
 
 lazy val parserSettings = Seq(
-    packageDoc / publishArtifact := false,
-    packageSrc / publishArtifact := false,
+//    packageDoc / publishArtifact := false,
+//    packageSrc / publishArtifact := false,
     exportJars := true,
     crossPaths := true
 )
