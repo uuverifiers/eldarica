@@ -54,6 +54,8 @@ A full list of options can be obtained by calling <code>./eld -h</code>.
 The options <code>-disj</code>, <code>-abstract</code>, <code>-stac</code> can be used to control
 predicate generation. For the option <code>-stac</code> to work, it is currently necessary to have Yices (version 1) installed, as this is a dependency of the Flata library.
 
+The option <code>-sym</code> can be used to switch to the symbolic execution engine of Eldarica, which will then be applied instead of CEGAR.
+
 Papers
 ------
 
