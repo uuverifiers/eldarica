@@ -131,7 +131,8 @@ lazy val ccParser = (project in file("cc-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-CC-parser",
-    Compile / packageBin := baseDirectory.value / "cc-parser.jar"
+    Compile / packageBin := baseDirectory.value / "cc-parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "cc-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -140,7 +141,8 @@ lazy val tplspecParser = (project in file("template-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-tplspec-parser",
-    Compile / packageBin := baseDirectory.value / "tplspec-parser.jar"
+    Compile / packageBin := baseDirectory.value / "tplspec-parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "tplspec-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
