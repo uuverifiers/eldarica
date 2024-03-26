@@ -62,9 +62,9 @@ object PreprocessorTest extends App {
       //preprocessor.process(clauses, EmptyVerificationHints)
     }
     println("Flattened")
-    flattenedClauses.map(_.toPrologString).foreach(println)
+    flattenedClauses.sortBy(_.head.toString()).map(_.toPrologString).foreach(println)
     println
     println("Tagged")
-    simplifiedClauses.map(_.toPrologString).foreach(println)
+    simplifiedClauses.sortBy(_.head.toString()).map(_.toPrologString).foreach(println)
   }
 }

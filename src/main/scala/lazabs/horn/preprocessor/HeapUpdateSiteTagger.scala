@@ -30,6 +30,8 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
                             redeclaredObjSortInd : Int) {
     val taggedObjSort : Sort = theory.ObjectSort
     val taggedObjCtor : IFunction = theory.userADTCtors(theory.objectSortId)
+    val taggedObjContents : IFunction = theory.userADTSels(theory.objectSortId)(0)
+    val taggedObjTag  : IFunction = theory.userADTSels(theory.objectSortId)(1)
     val addrSort      : Sort = theory.AddressSort
     val heapSort      : Sort = theory.HeapSort
     val allocResSort  : Sort = theory.allocResSort
@@ -93,8 +95,8 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
           adtCtors(taggedObjSortInd)(heap._defObj, -1)
         }
 
-        val newHeap = new Heap(heapSortName = s"Tagged${heap.HeapSort.name}",
-                               addressSortName = s"Tagged${heap.AddressSort.name}",
+        val newHeap = new Heap(heapSortName = heap.HeapSort.name,
+                               addressSortName = heap.AddressSort.name,
                                objectSort = Heap.ADTSort(taggedObjSortInd),
                                sortNames = sortNames,
                                ctorSignatures = ctorSignatures,
@@ -106,27 +108,32 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
      * First create new preds as needed, and create a map from old preds
      */
 
-    val oldPreds = clauses.flatMap(_.predicates)
+    val oldUnintPreds = clauses.flatMap(_.predicates)
+
+    /**
+     * We could extract the sorts inside [[HeapClauseRewriter]], but we need the
+     * sorts here to create the predicates before calling the rewriter as the
+     * rewriter is for a single clause and the predicates need to be rewritten
+     * for all clauses at once.
+     * Dropping the last sort from the new heap as that does not exist in the old heap.
+     */
     val oldToNewSortMap : Map[Sort, Sort] = oldHeapToNewHeap.flatMap{
       case (oldHeap, newHeap) =>
         Map(oldHeap.HeapSort -> newHeap.heapSort,
             oldHeap.AddressSort -> newHeap.addrSort,
-            oldHeap.ObjectSort -> newHeap.redeclaredObjSort,
-            oldHeap.allocResSort -> newHeap.allocResSort)
-        // todo batchAllocResSort
+            oldHeap.ObjectSort -> newHeap.redeclaredObjSort) ++
+          (oldHeap.heapADTs.sorts zip
+            newHeap.theory.heapADTs.sorts.filterNot(_ == newHeap.taggedObjSort))
     }
 
-    for (oldPred <- oldPreds) {
+    for (oldPred <- oldUnintPreds) {
       val newPred = oldPred match {
         case sortedPred : MonoSortedPredicate =>
           val newSorts : Seq[Sort] =
-            for (oldSort <- sortedPred.argSorts) yield oldSort match {
-              case s@Heap.HeapSortExtractor(oldHeap) =>
-                oldToNewSortMap get s match {
-                  case Some(newSort) => newSort
-                  case None => oldSort
-                }
-              case _ => oldSort
+            for (oldSort <- sortedPred.argSorts) yield
+              oldToNewSortMap get oldSort match {
+              case Some(newSort) => newSort
+              case None => oldSort
             }
           if (newSorts.diff(sortedPred.argSorts) nonEmpty)
             new MonoSortedPredicate(oldPred.name, newSorts)
@@ -140,27 +147,30 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
 
     for ((oldHeap, newHeap) <- oldHeapToNewHeap) {
       for ((clause, tag) <- clauses zipWithIndex) {
-        val rewriter =
-          new HeapClauseRewriter(oldHeap, newHeap, oldToNewSortMap, clause, tag,
-                                 oldPredToNewPred)
+        val rewriter = new HeapClauseRewriter(
+          oldHeap, newHeap, oldPredToNewPred, oldToNewSortMap, clause, tag)
         val newClause : Clause = rewriter.rewriteClause
+        assert(!newClause.theories.contains(oldHeap))
         clauseBackMapping += newClause -> clause
       }
     }
 
     val backTranslator = new BackTranslator {
-      override def translate(solution : Solution) : Solution = {
-        ???
-      }
+      override def translate(solution : Solution) : Solution =
+        for((pred, sol) <- solution) yield predBackMapping(pred) -> sol
+
       override def translate(cex : CounterExample) : CounterExample =
         translateCEX(cex).collapseNodes
 
+      val sortBackMapping = oldToNewSortMap.map(_.swap)
       private def translateCEX(dag : CounterExample) : CounterExample =
         dag match {
           case DagNode((a, clause), children, next) =>
-            // TODO: update the atom `a`!
+//            val newPred = predBackMapping(a.pred)
+//            val newArgs = a.args // todo: update args with the new sorts
             assert(clauseBackMapping contains clause)
-            DagNode((a, clauseBackMapping(clause)), children, translateCEX(next))
+            DagNode((a, //todo: update a with IAtom(newPred, newArgs),
+                      clauseBackMapping(clause)), children, translateCEX(next))
           case DagEmpty => DagEmpty
         }
     }
@@ -183,21 +193,30 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
    */
   class HeapClauseRewriter(oldHeap         : Heap,
                            newHeap         : TaggedHeapInfo,
+                           oldToNewPredMap : Map[Predicate, Predicate],
                            oldToNewSortMap : Map[Sort, Sort],
                            clause          : Clause,
-                           tagId           : Int,
-                           oldNewPredMap   : Map[Predicate, Predicate])
+                           tagId           : Int)
     extends CollectingVisitor[Unit, IExpression] {
 
-    assert(clause.predicates.forall(oldNewPredMap contains))
+    assert(clause.predicates.forall(oldToNewPredMap contains))
 
-    private val oldHeapSorts : Set[Sort] = Set(oldHeap.HeapSort, oldHeap.AddressSort)
     private val oldNewTermMap : Map[ConstantTerm, ConstantTerm] =
       clause.constantsSorted.map{
         case c : SortedConstantTerm if oldToNewSortMap contains c.sort =>
           c -> new SortedConstantTerm(c.name, oldToNewSortMap(c.sort))
         case c => c -> c
       }.toMap
+
+    private val oldToNewFunMap : Map[IFunction, IFunction] = {
+      ((oldHeap.functions zip newHeap.theory.functions) ++
+        oldHeap.heapADTs.functions.map(
+          oldF => oldF ->
+            newHeap.theory.heapADTs.functions.find(_.name == oldF.name).get)).toMap
+    }
+
+    val oldToNewTheoryPredMap : Map[Predicate, Predicate] =
+      (oldHeap.predefPredicates zip newHeap.theory.predefPredicates).toMap
 
     def rewriteClause : Clause = {
       val newConstraint = visit(clause.constraint, ()).asInstanceOf[IFormula]
@@ -213,20 +232,24 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
           assert(oldNewTermMap contains c)
           IConstant(oldNewTermMap(c))
 
-        case IAtom(oldHeap.isAlloc, _) =>
-          IAtom(newHeap.theory.isAlloc, subres.map(_.asInstanceOf[ITerm]))
+        // Rewrite uninterpreted predicates using the provided map
+        case IAtom(pred, _) if oldToNewPredMap contains pred =>
+          IAtom(oldToNewPredMap(pred), subres.map(_.asInstanceOf[ITerm]))
 
-        case IAtom(pred, _) =>
-          oldNewPredMap(pred)(subres.map(_.asInstanceOf[ITerm]):_*)
+        // Rewrite theory predicates
+        case IAtom(pred, _) if oldToNewTheoryPredMap contains pred =>
+          IAtom(oldToNewTheoryPredMap(pred), subres.map(_.asInstanceOf[ITerm]))
 
+        // Rewrite functions using the provided map
+        case IFunApp(f, _) if oldToNewFunMap contains f =>
+          IFunApp(oldToNewFunMap(f), subres.map(_.asInstanceOf[ITerm]))
+
+        // Note that hp is still oldHeap in below check, because we do not look
+        // at subargs where the heap is the newHeap.
         case Eq(IFunApp(f@HeapFunExtractor(hp), _), _) if hp == oldHeap =>
           val funApp = subres(0).asInstanceOf[IFunApp]
           val rhs = subres(1).asInstanceOf[ITerm]
           f match {
-            case hp.emptyHeap =>
-              newHeap.theory.emptyHeap(funApp.args : _*) === rhs
-            case hp.nullAddr =>
-              newHeap.theory.nullAddr(funApp.args : _*) === rhs
             case hp.read =>
               /**
                * ex t. read(h,a) = TaggedObject(o,t) \wedge phi[t]
@@ -250,15 +273,10 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.allocAddr(
                 h, newHeap.taggedObjCtor(o, tagId)) === rhs
-            case hp.allocResCtor =>
-              val Seq(h, a) = funApp.args.map(_.asInstanceOf[IConstant])
-              newHeap.theory.allocResCtor(h, a) === rhs
             case _ =>
-              println("Not rewriting " + SimpleAPI.pp(t))
               t update subres
           }
         case _ =>
-          println("Not rewriting " + SimpleAPI.pp(t))
           t update subres
       }
     }
