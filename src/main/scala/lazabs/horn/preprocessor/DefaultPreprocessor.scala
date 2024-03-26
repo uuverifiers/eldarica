@@ -56,8 +56,8 @@ class DefaultPreprocessor extends HornPreprocessor {
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
     List(new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         RationalDenomUnifier,
-         new ClauseInliner)
+         RationalDenomUnifier//, new ClauseInliner
+         )
 
   def extendingStages : List[HornPreprocessor] = {
     (if (GlobalParameters.get.expandHeapArguments) {
@@ -141,7 +141,7 @@ class DefaultPreprocessor extends HornPreprocessor {
         applyStage(SimplePropagators.ConstantPropagator)
         applyStage(new UniqueConstructorExpander)
         applyStage(new ConstraintSimplifier)
-        applyStage(new ClauseInliner)
+        //applyStage(new ClauseInliner)
         if (GlobalParameters.get.slicing) {
           applyStage(ReachabilityChecker)
           applyStage(Slicer)
@@ -188,7 +188,9 @@ class DefaultPreprocessor extends HornPreprocessor {
       val heapTransformStages =
         List(new EquationUninliner) ++
           heapFunctionSplitters ++
-          List(new HeapInvariantEncodingSimple)
+          List(HeapUpdateSiteTagger,
+               //SimplePropagators.HeapAddressUpdateSitePropagator,
+               new HeapInvariantEncodingSimple)
       if (applyStages(heapTransformStages))
         condenseClauses
     }

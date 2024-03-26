@@ -112,12 +112,11 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
   private val backMapping = new MHashMap[Clause, Clause]
 
   /**
-   * HeapInvariantEncodingSimple is only applicable when the input CHCs contain
-   * exactly one heap theory.
+   * Only applicable when the input CHCs contain heap theories.
    */
   override def isApplicable(clauses          : Clauses,
                             frozenPredicates : Set[Predicate]) : Boolean = {
-    clauses.flatMap(c => c.theories).toSet.nonEmpty
+    clauses.flatMap(c => c.theories).toSet.exists(_.isInstanceOf[Heap])
   }
 
   override def process(clauses : Clauses,
