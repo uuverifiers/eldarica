@@ -150,7 +150,10 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
         val rewriter = new HeapClauseRewriter(
           oldHeap, newHeap, oldPredToNewPred, oldToNewSortMap, clause, tag)
         val newClause : Clause = rewriter.rewriteClause
-        assert(!newClause.theories.contains(oldHeap))
+        assert(!newClause.theories.exists(
+          t => t == oldHeap || t == oldHeap.heapADTs),
+          "HeapUpdateSiteTagger error: Rewritten clauses contain theories" +
+          "from the original heap.")
         clauseBackMapping += newClause -> clause
       }
     }
