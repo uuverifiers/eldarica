@@ -12,14 +12,15 @@ import lazabs.horn.preprocessor.PropagatingPreprocessor.InliningAbstractDomain
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashMap => MHashMap, Set => MSet}
 
-object HeapAddressUpdateSitesAnalysis {
+object HeapUpdateSitesAnalysis {
   /**
    * Collects update sites for all [[ap.theories.Heap.AddressSort]] terms as a
    * set from predicate indices to ???
    * @requires at most one update per clause - as guaranteed by
    *           [[ClauseSplitterFuncsAndUnboundTerms]].
    */
-  class UpdateSitesDomain extends InliningAbstractDomain {
+  class UpdateSitesDomain(updateSiteTags : Set[Int])
+    extends InliningAbstractDomain {
     private[preprocessor]
     case class HeapAddressIndPair(heapInd : Int,
                                   addrInd : Int,
@@ -27,49 +28,29 @@ object HeapAddressUpdateSitesAnalysis {
 
     override val name : String = "analysing heap address update sites"
 
-    // int *p;
-    // p = 0;
-    // p = alloc
-    // p = write
-    // h' = write(h, a, o), next(s) = a
-    //
-    // Sites can be either uninitialized ptr decls -> id = -1
-    //                     null ptr                -> id = 0
-    //                     an update               -> id > 0
-
-    //
-
     private[preprocessor]
-    trait LatticeElement {
-      def join(that : LatticeElement) : LatticeElement
-      def meet(that : LatticeElement) : LatticeElement
-    }
-    // Lattice is the powerset of clause indices ++ three special values
-    // 1) allocated but not coming from any updates (valid)
-    // 2) null
-    // 3) not yet allocated
-    private[preprocessor]
-    case class LatticeValue(value : BitSet) extends LatticeElement {
-      def join(that : LatticeElement) = that match {
-        case LatticeTop => LatticeTop
-        case LatticeValue(v) => LatticeValue(this.value union v)
-      }
-
-      def meet(that : LatticeElement) = that match {
-        case LatticeTop => this
-        case LatticeValue(v) => LatticeValue(this.value intersect v)
-      }
-
+    case class LatticeElement(value : BitSet) {
+      def join(that : LatticeElement) =
+        LatticeElement(this.value union that.value)
+      def meet(that : LatticeElement) =
+        LatticeElement(this.value intersect that.value)
       override def toString : String = "{" + value.mkString(",") + "}"
     }
-    // this is not needed, top is finite
-    private[preprocessor]
-    case object LatticeTop extends LatticeElement {
-      def join(that : LatticeElement) = this
-      def meet(that : LatticeElement) = that
-    }
     object LatticeElement {
-      val bottom : LatticeElement = LatticeValue(BitSet.empty)
+      /**
+       * Lattice is the powerset of clause indices ++ three special values
+       * NLL - null
+       * NYA - not yet allocated
+       * VLD - allocated but not coming from any updates (valid)
+       * (Negative values cannot appear in [[updateSiteTags]].)
+       * NLLCOMP - the complement of NLL
+       */
+      val NLL = LatticeElement(BitSet(-1))
+      val NYA = LatticeElement(BitSet(-2))
+      val VLD = LatticeElement(BitSet(-3))
+      val TOP = LatticeElement(BitSet(updateSiteTags.toSeq:_*, -1, -2, -3))
+      val BOT = LatticeElement(BitSet.empty)
+      val NLLCOMP = LatticeElement(TOP.value -- NLL.value)
     }
 
     /**
@@ -121,9 +102,10 @@ object HeapAddressUpdateSitesAnalysis {
          */
         def updateLocalMap(key  : HeapAddressPair,
                            elem : LatticeElement) : Boolean = {
-          val meetValue = localElementMap.getOrElse(key, LatticeTop) meet elem
+          val meetValue =
+            localElementMap.getOrElse(key, LatticeElement.TOP) meet elem
           localElementMap.put(key, meetValue)
-          if (meetValue == LatticeElement.bottom) {
+          if (meetValue == LatticeElement.BOT) {
             println(
               "contradiction for " + "(" + key.heap + "," + key.addr + ")")
             false
@@ -134,23 +116,54 @@ object HeapAddressUpdateSitesAnalysis {
           }
         }
 
-        // updates all keys containing the passed heap
-        def udpateAllPairsWithHeap(h    : ConstantTerm,
-                                   elem : LatticeElement) : Boolean =
-          localElementMap.filter(pair => pair._1.heap == h).keys.
-            forall(updateLocalMap(_, elem))
+        /**
+         * Updates all keys for which the specified predicate holds, by
+         * computing the meet of their associated elements
+         * and applying this meet element to them.
+         *
+         * @param predicate A function that takes a key and returns a Boolean
+         *                  indicating whether the key matches the condition.
+         * @return Boolean indicating success of the operation.
+         */
+        def meetUpdateAllPairsWhere(predicate : HeapAddressPair => Boolean)
+        : Boolean = {
+          val relevantKeys = localElementMap.keys.filter(predicate).toSeq
+          if (relevantKeys isEmpty) return true
+          val meetElement =
+            relevantKeys.map(localElementMap(_)).reduce(_ meet _)
+          relevantKeys.forall(key => updateLocalMap(key, meetElement))
+        }
 
-        // updates all keys containing the passed addr
-        def udpateAllPairsWithAddr(a    : ConstantTerm,
-                                   elem : LatticeElement) : Boolean =
-          localElementMap.filter(pair => pair._1.addr == a).keys.
-            forall(updateLocalMap(_, elem))
+        def handleHeapEquality(h1 : ConstantTerm, h2 : ConstantTerm) : Boolean =
+          meetUpdateAllPairsWhere(key => key.heap == h1 || key.heap == h2)
 
-        def handleAddressEquality(term : ConstantTerm, term1 : ConstantTerm) : Boolean =
-          ???
-        def handleAddressInequality(term  : SortedConstantTerm,
-                                    term1 : ConstantTerm) : Boolean =
-          ???
+        def handleAddrEquality(a1 : ConstantTerm, a2 : ConstantTerm) : Boolean =
+          meetUpdateAllPairsWhere(key => key.addr == a1 || key.addr == a2)
+
+        /**
+         * For all h, if (h,a1) = {NLL}, (h,a2) cannot contain NLL.
+         * We subtract NLL via a meet with [[LatticeElement.NLLCOMP]].
+         */
+        def handleAddressInequality(a1:  ConstantTerm,
+                                    a2 : ConstantTerm) : Boolean = {
+          val hasNLLa1 = localElementMap.exists {
+            case (key, value) => key.addr == a1 && value == LatticeElement.NLL
+          }
+          val hasNLLa2 = localElementMap.exists {
+            case (key, value) => key.addr == a2 && value == LatticeElement.NLL
+          }
+          (hasNLLa1, hasNLLa2) match {
+            case (true, _) =>
+              localElementMap.keys.filter(_.addr == a2).forall(
+                key => updateLocalMap(
+                  key, localElementMap(key).meet(LatticeElement.NLLCOMP)))
+            case (_, true) =>
+              localElementMap.keys.filter(_.addr == a1).forall(
+                key => updateLocalMap(
+                  key, localElementMap(key).meet(LatticeElement.NLLCOMP)))
+            case _ => true // No change if neither address is NLL.
+          }
+        }
 
         val conjuncts = LineariseVisitor(
           Transform2NNF(clause.constraint), IBinJunctor.And)
@@ -307,7 +320,7 @@ object HeapAddressUpdateSitesAnalysis {
                       outputChanged = true
                     }
                   }
-                  if (!handleAddressEquality(a1, a2)) return None
+                  if (!handleAddrEquality(a1, a2)) return None
 
                 // a1 =/= a2 (both are addresses)
                 case INot(Eq(IConstant(SortedConstantTerm(a1, sort)),

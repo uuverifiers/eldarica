@@ -61,10 +61,20 @@ object PreprocessorTest extends App {
       HeapUpdateSiteTagger.process(flattenedClauses, EmptyVerificationHints)
       //preprocessor.process(clauses, EmptyVerificationHints)
     }
+
+    val updateSiteTags : Set[Int] = HeapUpdateSiteTagger.getUpdateSiteIds
+
+    val (analysedClauses, _, _) =
+      SimplePropagators.HeapAddressUpdateSitePropagator(updateSiteTags).process(
+        simplifiedClauses, EmptyVerificationHints)
+
     println("Flattened")
     flattenedClauses.sortBy(_.head.toString()).map(_.toPrologString).foreach(println)
     println
     println("Tagged")
     simplifiedClauses.sortBy(_.head.toString()).map(_.toPrologString).foreach(println)
+    println
+    println("Analysed & augmented")
+    analysedClauses.sortBy(_.head.toString()).map(_.toPrologString).foreach(println)
   }
 }

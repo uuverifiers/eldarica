@@ -10,13 +10,15 @@ import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses.Clause
 import IExpression.{toFunApplier, toPredApplier, Eq}
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 object HeapUpdateSiteTagger extends HornPreprocessor {
   import HornPreprocessor._
   override val name : String = "adding heap update site tags"
   private val clauseBackMapping = new MHashMap[Clause, Clause]
   private val predBackMapping = new MHashMap[Predicate, Predicate]
+  private val updateSiteIds = new MHashSet[Int]
+  def getUpdateSiteIds : Set[Int] = updateSiteIds.toSet
 
   /**
    * Only applicable when the input CHCs contain heap theories.
@@ -149,12 +151,14 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
       for ((clause, tag) <- clauses zipWithIndex) {
         val rewriter = new HeapClauseRewriter(
           oldHeap, newHeap, oldPredToNewPred, oldToNewSortMap, clause, tag)
-        val newClause : Clause = rewriter.rewriteClause
+        val (newClause, usedTag) = rewriter.rewriteClause
         assert(!newClause.theories.exists(
           t => t == oldHeap || t == oldHeap.heapADTs),
           "HeapUpdateSiteTagger error: Rewritten clauses contain theories" +
           "from the original heap.")
         clauseBackMapping += newClause -> clause
+        if (usedTag)
+          updateSiteIds += tag
       }
     }
 
@@ -191,7 +195,7 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
    * Rewrites formulas over the oldHeap to formulas over the newHeap, while
    * also adding tags to alloc and write operations. Reads are also rewritten
    * to a special form to allow replacing phi with a formula that will be
-   * guessed by an oracle (e.g., by [[HeapAddressUpdateSitesAnalysis]].
+   * guessed by an oracle (e.g., by [[HeapUpdateSitesAnalysis]].
    * Returns a map from old constants to new constants.
    */
   class HeapClauseRewriter(oldHeap         : Heap,
@@ -221,11 +225,16 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
     val oldToNewTheoryPredMap : Map[Predicate, Predicate] =
       (oldHeap.predefPredicates zip newHeap.theory.predefPredicates).toMap
 
-    def rewriteClause : Clause = {
+    private var usedTag = false
+    /**
+     * Rewrites a clause and returns the rewritten clause paired with
+     * a flag to signal if the passed [[tagId]] is used.
+     */
+    def rewriteClause : (Clause, Boolean) = {
       val newConstraint = visit(clause.constraint, ()).asInstanceOf[IFormula]
       val newHead = visit(clause.head, ()).asInstanceOf[IAtom]
       val newBody = clause.body.map(a => visit(a, ()).asInstanceOf[IAtom])
-      Clause(newHead, newBody, newConstraint)
+      (Clause(newHead, newBody, newConstraint), usedTag)
     }
 
     override def postVisit(t : IExpression, arg : Unit,
@@ -262,17 +271,21 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
               Sort.Integer.ex(t => newHeap.theory.read(funApp.args : _*) ===
                 newHeap.taggedObjCtor(rhs, t))
             case hp.write =>
+              usedTag = true
               val Seq(h, a, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.write(
                 h, a, newHeap.taggedObjCtor(o, tagId)) === rhs
             case hp.alloc =>
+              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.alloc(h, newHeap.taggedObjCtor(o, tagId)) === rhs
             case hp.allocHeap =>
+              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.allocHeap(
                 h, newHeap.taggedObjCtor(o, tagId)) === rhs
             case hp.allocAddr =>
+              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.allocAddr(
                 h, newHeap.taggedObjCtor(o, tagId)) === rhs
