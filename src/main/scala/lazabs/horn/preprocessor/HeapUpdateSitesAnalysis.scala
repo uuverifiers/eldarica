@@ -3,14 +3,16 @@ package lazabs.horn.preprocessor
 import ap.parser.IExpression.{ConstantTerm, Eq, Predicate}
 import ap.parser._
 import ap.theories.Heap
-import ap.theories.Heap.{HeapFunExtractor, HeapSort}
-import ap.types.SortedConstantTerm
+import ap.theories.Heap.{HeapFunExtractor, HeapSort, HeapSortExtractor}
+import ap.types.{MonoSortedPredicate, SortedConstantTerm}
+import com.sun.xml.internal.bind.v2.schemagen.xmlschema.LocalElement
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.preprocessor.AbstractAnalyser.AbstractTransformer
-import lazabs.horn.preprocessor.PropagatingPreprocessor.InliningAbstractDomain
+import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.preprocessor.AbstractAnalyserMk2.AbstractTransformerMk2
+import lazabs.horn.preprocessor.PropagatingPreprocessorMk2.InliningAbstractDomain
 
 import scala.collection.immutable.BitSet
-import scala.collection.mutable.{HashMap => MHashMap, Set => MSet}
+import scala.collection.mutable.{Buffer => MBuffer, HashMap => MHashMap, HashSet => MHashSet}
 
 object HeapUpdateSitesAnalysis {
   /**
@@ -35,6 +37,7 @@ object HeapUpdateSitesAnalysis {
       def meet(that : LatticeElement) =
         LatticeElement(this.value intersect that.value)
       override def toString : String = "{" + value.mkString(",") + "}"
+      def <= (that : LatticeElement) : Boolean = this.value subsetOf that.value
     }
     object LatticeElement {
       /**
@@ -45,12 +48,15 @@ object HeapUpdateSitesAnalysis {
        * (Negative values cannot appear in [[updateSiteTags]].)
        * NLLCOMP - the complement of NLL
        */
-      val NLL = LatticeElement(BitSet(-1))
-      val NYA = LatticeElement(BitSet(-2))
-      val VLD = LatticeElement(BitSet(-3))
-      val TOP = LatticeElement(BitSet(updateSiteTags.toSeq:_*, -1, -2, -3))
+      private val maxTag = updateSiteTags.max
+      val NLL = LatticeElement(BitSet(maxTag + 1))
+      val NYA = LatticeElement(BitSet(maxTag + 2))
+      val VLD = LatticeElement(BitSet(maxTag + 3))
+      val TOP = LatticeElement(BitSet(updateSiteTags.toSeq: _*) ++
+                                 NLL.value ++ NYA.value ++ VLD.value)
       val BOT = LatticeElement(BitSet.empty)
       val NLLCOMP = LatticeElement(TOP.value -- NLL.value)
+      val IDS = LatticeElement(BitSet(updateSiteTags.toSeq: _*))
     }
 
     /**
@@ -83,305 +89,344 @@ object HeapUpdateSitesAnalysis {
       }
     }
 
-    case class HeapAddressPair(heap   : ConstantTerm,
-                               addr   : ConstantTerm,
-                               theory : Heap)
+    class HeapUpdateSitesTransformer(clause : Clause)
+      extends AbstractTransformerMk2[Element](clause) {
+      case class HeapAddressPair(heap   : ConstantTerm,
+                                 addr   : ConstantTerm,
+                                 theory : Heap)
 
-    /**
-     * This is the map whose fixed point (LUB) will be the head element
-     * this one is also in terms of constant terms rather than arg indices.
-     */
-    val localElementMap = new MHashMap[HeapAddressPair, LatticeElement]
-    private val nullAddrs    : MSet[ConstantTerm] = MSet()
-    private val notNullAddrs : MSet[ConstantTerm] = MSet()
+      override type LocalElement = Map[HeapAddressPair, LatticeElement]
 
-    override def transformerFor(clause : HornClauses.Clause) =
-      new AbstractTransformer[Element] {
-        /**
-         * Helper functions
-         */
-        def updateLocalMap(key  : HeapAddressPair,
-                           elem : LatticeElement) : Boolean = {
-          val meetValue =
-            localElementMap.getOrElse(key, LatticeElement.TOP) meet elem
-          localElementMap.put(key, meetValue)
-          if (meetValue == LatticeElement.BOT) {
-            println(
-              "contradiction for " + "(" + key.heap + "," + key.addr + ")")
-            false
-          }
-          else {
-            println("(" + key.heap + "," + key.addr + ") -> " + meetValue)
-            true
-          }
-        }
-
-        /**
-         * Updates all keys for which the specified predicate holds, by
-         * computing the meet of their associated elements
-         * and applying this meet element to them.
-         *
-         * @param predicate A function that takes a key and returns a Boolean
-         *                  indicating whether the key matches the condition.
-         * @return Boolean indicating success of the operation.
-         */
-        def meetUpdateAllPairsWhere(predicate : HeapAddressPair => Boolean)
-        : Boolean = {
-          val relevantKeys = localElementMap.keys.filter(predicate).toSeq
-          if (relevantKeys isEmpty) return true
-          val meetElement =
-            relevantKeys.map(localElementMap(_)).reduce(_ meet _)
-          relevantKeys.forall(key => updateLocalMap(key, meetElement))
-        }
-
-        def handleHeapEquality(h1 : ConstantTerm, h2 : ConstantTerm) : Boolean =
-          meetUpdateAllPairsWhere(key => key.heap == h1 || key.heap == h2)
-
-        def handleAddrEquality(a1 : ConstantTerm, a2 : ConstantTerm) : Boolean =
-          meetUpdateAllPairsWhere(key => key.addr == a1 || key.addr == a2)
-
-        /**
-         * For all h, if (h,a1) = {NLL}, (h,a2) cannot contain NLL.
-         * We subtract NLL via a meet with [[LatticeElement.NLLCOMP]].
-         */
-        def handleAddressInequality(a1:  ConstantTerm,
-                                    a2 : ConstantTerm) : Boolean = {
-          val hasNLLa1 = localElementMap.exists {
-            case (key, value) => key.addr == a1 && value == LatticeElement.NLL
-          }
-          val hasNLLa2 = localElementMap.exists {
-            case (key, value) => key.addr == a2 && value == LatticeElement.NLL
-          }
-          (hasNLLa1, hasNLLa2) match {
-            case (true, _) =>
-              localElementMap.keys.filter(_.addr == a2).forall(
-                key => updateLocalMap(
-                  key, localElementMap(key).meet(LatticeElement.NLLCOMP)))
-            case (_, true) =>
-              localElementMap.keys.filter(_.addr == a1).forall(
-                key => updateLocalMap(
-                  key, localElementMap(key).meet(LatticeElement.NLLCOMP)))
-            case _ => true // No change if neither address is NLL.
-          }
-        }
-
-        val conjuncts = LineariseVisitor(
-          Transform2NNF(clause.constraint), IBinJunctor.And)
-
-        override def transform(bodyValues : Seq[Element]) : Element = {
-          if (bodyValues contains None) { // a body element has a contradiction
-            println("bodyVals has None")
-            return None
-          }
-
-          localElementMap.clear
-
-          for ((bodyAtom, bodyElement) <- clause.body zip bodyValues;
-               (pair, pairValue) <- bodyElement.get) {
-            val IConstant(heapTerm) = bodyAtom.args(pair.heapInd)
-            val IConstant(addrTerm) = bodyAtom.args(pair.addrInd)
-            if (!updateLocalMap(
-              HeapAddressPair(heapTerm, addrTerm, pair.theory), pairValue))
-              return None
-          }
-
-          // 2nd step: collect all possible pairs from the head atom, and fill
-          // in the localElementMap. This is required since we have cases
-          // like nullAddr(a), where we do not know which <h,a> pair to update
-          for (IConstant(addrTerm@SortedConstantTerm(_, aSort)) <- clause.head.args
-               if aSort.isInstanceOf[Heap.AddressSort];
-               IConstant(heapTerm@SortedConstantTerm(_, hSort)) <- clause.head.args
-               if hSort.isInstanceOf[Heap.HeapSort]) {
-            val theory = hSort.asInstanceOf[HeapSort].heapTheory
-            if (!updateLocalMap(HeapAddressPair(heapTerm, addrTerm, theory),
-                                LatticeTop))
-              return None
-          }
-
-          // a map from the original heap to the newly allocated addr
-          val heapAllocAddrMap = new MHashMap[ConstantTerm, ConstantTerm]
-          println("/" * 80 + "\nclause: " + clause.toPrologString)
-
-          // analyze the constraint and calculate the fixed point
-          var outputChanged : Boolean = true
-          while(outputChanged) {
-            outputChanged = false
-            val oldMap = localElementMap.clone
-            for (f <- conjuncts) {
-              f match {
-                // nullAddr() = a
-                case Eq(IFunApp(fun@HeapFunExtractor(heap), _), IConstant(a))
-                  if fun == heap.nullAddr =>
-                  println("case null = " + a)
-                  if (!(nullAddrs contains a)) {
-                    nullAddrs += a
-                    outputChanged = true
-                  }
-                  for (key <- localElementMap.keys.filter(_.addr == a))
-                    if (!updateLocalMap(key, LatticeValue(BitSet(0))))
-                      return None
-
-                // valid(h, a) // todo ignore?
-//                case IAtom(pred@Heap.HeapPredExtractor(heap),
-//                           Seq(IConstant(h), IConstant(a))) if pred == heap.isAlloc =>
-//                  println("case valid" + HeapAddressPair(h, a, heap))
-//                  if (!updateLocalMap(HeapAddressPair(h, a, heap), ValidElem))
-//                    return None
-//                  if (!(notNullAddrs contains a)) {
-//                    if(nullAddrs contains a) return None
-//                    notNullAddrs += a
-//                    outputChanged = true
-//                  }
-
-                // !valid(h, a) // todo ignore?
-//                case INot(IAtom(pred@Heap.HeapPredExtractor(heap),
-//                                Seq(IConstant(h), IConstant(a)))) if pred == heap.isAlloc =>
-//                  println("case !valid(" + h + ", " + a + ")")
-//                  if(!updateLocalMap(HeapAddressPair(h, a, heap), NullOrNotAllocElem))
-//                    return None
-
-                // write(h1, _, _) = h2
-                case Eq(IFunApp(fun@HeapFunExtractor(heap),
-                                Seq(IConstant(h1), _, _)), IConstant(h2))
-                  if fun == heap.write =>
-                  println("case write(" + h1 + ",_,_) = " + h2)
-//                  if (!handleHeapEquality(h1, h2)) return None
-                   ???
-
-                // allocAddr(h,_) = a
-                case Eq(IFunApp(fun@HeapFunExtractor(heap),
-                                Seq(IConstant(h), _)), IConstant(a))
-                  if fun == heap.allocAddr =>
-                  println("case allocAddr(" + h + ",_) = " + a)
-                  ???
-//                  if (!updateLocalMap(HeapAddressPair(h, a, heap), NotAllocElem))
-//                    return None
-//                  if (!udpateAllPairsWithAddr(a, ValidOrNotAllocElem))
-//                    return None
-//                  if (!(heapAllocAddrMap contains h)) {
-//                    heapAllocAddrMap += ((h, a))
-//                    outputChanged = true
-//                  }
-//                  if (!(notNullAddrs contains a)) {
-//                    if(nullAddrs contains a) return None
-//                    notNullAddrs += a
-//                    outputChanged = true
-//                  }
-
-                // allocHeap(h1,_) = h2
-                case Eq(IFunApp(fun@HeapFunExtractor(heap),
-                                Seq(IConstant(h1), _)), IConstant(h2))
-                  if fun == heap.allocHeap =>
-                  println("case allocHeap(" + h1 + ",_) = " + h2)
-                  ???
-//                  heapAllocAddrMap get h1 match {
-//                    case Some(a) =>
-//                      println("  address found for " + h1 + ": " + a)
-//                      // h1 and h2 are equal everywhere except a
-//                      //if (!handleHeapEquality(h1, h2, List(a))) return None
-//                      // todo: we cannot equate addresses by only excluding a, as there might be other addresses equal to a
-//                      // todo: whose meet might go down the wrong path of the tree (e.g. from ValidOrNotAlloc to NotAlloc)
-//                      // todo: instead of to Valid. Can we somehow solve this by finding the equivalence class of a? or by removing those earlier?
-//                      // h2 is valid in a
-//                      if (!updateLocalMap(HeapAddressPair(h2, a, heap), ValidElem))
-//                        return None
-//                    // h1 is not yet alloc in a (handled in allocAddr case)
-//                    //updateLocalMap(HeapAddressPair(h1, a, heap), NotAllocElem)
-//                    case _ => println("  alloc address not found for " + h1)
-//                    // nothing
-//                  }
-
-                // alloc(h1,o) = AllocResHeap(h2, a)
-                case Eq(IFunApp(fun1@HeapFunExtractor(heap),
-                                Seq(IConstant(h1), IConstant(o))),
-                        IFunApp(fun2, Seq(IConstant(h2), IConstant(a))))
-                  if fun1 == heap.alloc && fun2 == heap.allocResCtor =>
-                  println("case alloc(" + h1 + "," + o + ") = " +
-                            "AllocResHeap(" + h2 + "," + a + ")")
-                  ???
-//                  if (!updateLocalMap(HeapAddressPair(h2, a, heap), ValidElem))
-//                    return None
-
-                // emptyHeap() = h
-                case Eq(IFunApp(fun@Heap.HeapFunExtractor(heap), _),
-                        IConstant(h))
-                  if fun == heap.emptyHeap =>
-                  println("case emptyHeap")
-//                  if (!udpateAllPairsWithHeap(h, NullOrNotAllocElem)) return None // i.e., invalid
-                ???
-
-                // a1 === a2 (both are addresses)
-                case Eq(IConstant(a1@SortedConstantTerm(_, sort)),
-                        IConstant(a2)) if sort.isInstanceOf[Heap.AddressSort] =>
-                  println("case addrEq1: " + f)
-                  for (List(p1, p2) <- List(a1,a2).permutations) {
-                    if ((nullAddrs contains p1) && !(nullAddrs contains p2)) {
-                      nullAddrs += p2
-                      outputChanged = true
-                    }
-                  }
-                  if (!handleAddrEquality(a1, a2)) return None
-
-                // a1 =/= a2 (both are addresses)
-                case INot(Eq(IConstant(SortedConstantTerm(a1, sort)),
-                             IConstant(a2)))
-                  if sort.isInstanceOf[Heap.AddressSort] =>
-                  println("case addrNeq1: " + f)
-                  for (List(p1, p2) <- List(a1,a2).permutations) {
-                    if ((nullAddrs contains p1) && !(notNullAddrs contains p2)) {
-                      if (nullAddrs contains p2) return None // contradiction
-                      notNullAddrs += p2
-                      outputChanged = true
-                    }
-                  }
-                  if (!handleAddressInequality(a1, a2)) return None
-
-                // h1 === h2 (both are heaps)
-                case Eq(IConstant(SortedConstantTerm(h1, sort)),
-                        IConstant(h2)) if sort.isInstanceOf[Heap.HeapSort] =>
-                  println("case heapEq.1")
-//                  if (!handleHeapEquality(h1, h2)) return None
-
-                // h1 === h2 (both are heaps)
-                case Eq(IConstant(h1), IConstant(SortedConstantTerm(h2, sort)))
-                  if sort.isInstanceOf[Heap.HeapSort] =>
-                  println("case heapEq.2")
-//                  if (!handleHeapEquality(h1, h2)) return None
-
-                case f =>
-                  println("undhandled case: " + f)
-                // nothing
+      override def meet(a : LocalElement, b : LocalElement) : LocalElement = {
+        val result = new MHashMap[HeapAddressPair, LatticeElement]
+        for ((key, aValue) <- a) {
+          b.get(key) match {
+            case Some(bValue) =>
+              val meetResult = aValue meet bValue
+              if (meetResult == LatticeElement.BOT) {
+                return botLocalElement
               }
-            }
-//            if (!(oldMap equals localDefinednessMap)) {
-//              outputChanged = true
-//              println("-"*80)
-//              println(localDefinednessMap)
-//              println("-"*80)
-//            }
+              result += (key -> meetResult)
+            case None => // nothing needed
           }
+        }
+        result.toMap
+      }
 
-//          // a map to convert from terms to head argument indices
-//          val term2HeadArgInd = term2AtomArgInd(head)
-//
-//          // convert localDefinednessMap to the element for the head
-//          // (for the pairs that exist in the head)
-//          Some (
-//            (for ((HeapAddressPair(h, a, theory), elem) <- localDefinednessMap
-//                  if term2HeadArgInd.contains(h) && term2HeadArgInd.contains(a)) yield {
-//              (HeapAddressIndPair(term2HeadArgInd(h), term2HeadArgInd(a), theory), elem)
-//            }).toMap
-//            )
-
-          ???
+      /**
+       * Meets *all* elements that satisfy cond and `v`
+       */
+      def meetAllWhere(cond : HeapAddressPair => Boolean,
+                       elem : LocalElement,
+                       v    : LatticeElement) : Option[LocalElement] = {
+        elem.keys.filter(cond).foldLeft(Option(elem)){(accOpt, key) =>
+          accOpt.flatMap{accMap =>
+            accMap(key) meet v match {
+              case LatticeElement.BOT => None
+              case updated => Some(accMap + (key -> updated))
+            }
+          }
         }
       }
 
+      override val topLocalElement : LocalElement = {
+        val heaps = clause.theories.collect{case h : Heap => h}
+        val elem  = new MHashMap[HeapAddressPair, LatticeElement]
+
+        for (heap <- heaps) {
+          val heapTerms = MBuffer[ConstantTerm]()
+          val addrTerms = MBuffer[ConstantTerm]()
+
+          /** Collect heap and address pairs */
+          clause.constants.foreach{
+            case SortedConstantTerm(c, sort) if sort == heap.HeapSort =>
+              heapTerms += c
+            case SortedConstantTerm(c, sort) if sort == heap.AddressSort =>
+              addrTerms += c
+            case otherSort => // nothing
+          }
+
+          /** Initialize all pairs to the TOP element */
+          for (heapTerm <- heapTerms; addrTerm <- addrTerms)
+            elem += (HeapAddressPair(heapTerm, addrTerm, heap) ->
+              LatticeElement.TOP)
+        }
+        elem.toMap
+      }
+
+      override val botLocalElement : LocalElement = Map()
+
+      override def localElementForAtom(e : Element,
+                                       a : IAtom) : LocalElement = {
+        if (e.isEmpty) return botLocalElement
+        val elem = e.get
+        e.get.keys.foldLeft(topLocalElement){(curElem, indPair) =>
+          // Construct the actual HeapAddressPair based on indices and the
+          // atom's arguments.
+          val heapTerm = a.args(indPair.heapInd).asInstanceOf[IConstant].c
+          val addrTerm = a.args(indPair.addrInd).asInstanceOf[IConstant].c
+          val termPair =
+            HeapAddressPair(heapTerm, addrTerm, indPair.theory)
+
+          assert(curElem contains termPair,
+                 s"top does not have value for $termPair")
+          curElem.updated(termPair, elem(indPair) meet curElem(termPair))
+        }
+      }
+
+      override def elementForAtom(e : LocalElement, a : IAtom) : Element = {
+        assert(a.args.forall(_.isInstanceOf[IConstant]),
+               s"Atom must only have constant terms as arguments: $a")
+        val args = a.args.map(_.asInstanceOf[IConstant].c)
+        val res  = a.pred match {
+          case p : MonoSortedPredicate =>
+            val heaps = clause.theories.collect{case h : Heap => h}
+            val keys  = heaps.flatMap{heap =>
+              val heapInds = new MHashSet[Int]
+              val addrInds = new MHashSet[Int]
+              for ((sort, ind) <- p.argSorts zipWithIndex) sort match {
+                case heap.HeapSort => heapInds += ind
+                case heap.AddressSort => addrInds += ind
+              }
+              for (hInd <- heapInds; aInd <- addrInds) yield
+                HeapAddressIndPair(hInd, aInd, heap)
+            }
+            keys.map{
+              case key@HeapAddressIndPair(hInd, aInd, heap) =>
+                val localKey = HeapAddressPair(args(hInd), args(aInd), heap)
+                key -> e(localKey)
+            }.toMap
+        }
+        if (res isEmpty) None else Some(res)
+      }
+
+      /**
+       * Consider the function applications
+       * allocHeap(h,o) = h', allocAddr(h,o) = a, and alloc(h,o) = ar
+       * where any of them by itself does not provide enough information about
+       * the newly allocated heap-address pair.
+       * We run a pre-analysis to collect this information.
+       * This analysis only runs within a single clause - it will not yield any
+       * useful information if the functions are spread over multiple clauses.
+       */
+      private type OldHeapToAddrAfterAlloc = Map[ConstantTerm, ConstantTerm]
+      private type AllocResToHeapAddrPair = Map[ConstantTerm, HeapAddressPair]
+      override type PreAnalysisResult =
+        (OldHeapToAddrAfterAlloc, AllocResToHeapAddrPair)
+      override def preAnalysisFun(conjuncts : Seq[IFormula]) : PreAnalysisResult = {
+        val oldHeapToAddrAfterAlloc = new MHashMap[ConstantTerm, ConstantTerm]
+        val allocResToAddr = new MHashMap[ConstantTerm, ConstantTerm]
+        val allocResToHeap = new MHashMap[ConstantTerm, ConstantTerm]
+        val allocResToHeapAddrPair = new MHashMap[ConstantTerm, HeapAddressPair]
+        var continue = true
+        while(continue) {
+          continue = false
+          for(conjunct <- conjuncts) {
+            conjunct match {
+              /** allocAddr(h,_) = a */
+              case Eq(IFunApp(fun@HeapFunExtractor(heap),
+                              Seq(IConstant(h), _)), IConstant(a))
+                if fun == heap.allocAddr && !(oldHeapToAddrAfterAlloc contains h) =>
+                oldHeapToAddrAfterAlloc += h -> a
+
+              /** newHeap(ar) = h */
+              case Eq(IFunApp(fun@HeapFunExtractor(heap),
+                              Seq(IConstant(ar))), IConstant(h))
+                if fun == heap.newHeap && !(allocResToHeap contains h) =>
+                allocResToHeap += ar -> h
+                continue = true
+
+              /** newAddr(ar) = a */
+              case Eq(IFunApp(fun@HeapFunExtractor(heap),
+                              Seq(IConstant(ar))), IConstant(a))
+                if fun == heap.newAddr && !(allocResToAddr contains a) =>
+                allocResToAddr += ar -> a
+                continue = true
+
+              /** alloc(h,o) = ar */
+              case Eq(IFunApp(fun@HeapFunExtractor(heap),
+                              Seq(IConstant(ar))), IConstant(a))
+                if fun == heap.alloc &&
+                  allocResToHeap.contains(ar) && allocResToAddr.contains(ar) =>
+                allocResToHeapAddrPair += ar -> HeapAddressPair(
+                  allocResToHeap(ar), allocResToAddr(ar), heap)
+
+              case _ => // nothing
+            }
+          }
+        }
+        (oldHeapToAddrAfterAlloc.toMap, allocResToHeapAddrPair.toMap)
+      }
+
+      private def handleAllocate(h1      : ConstantTerm,
+                                 h2      : ConstantTerm,
+                                 heap    : Heap,
+                                 a       : IExpression.ConstantTerm,
+                                 tag     : Int,
+                                 element : LocalElement) : Option[LocalElement] = {
+        // Allocated address will have id i in the new heap
+        val elem1 = meetAllWhere(key => key.heap == h2 && key.addr == a,
+                                 element, LatticeElement(BitSet(tag)))
+        elem1 match {
+          case Some(e) =>
+            // All other addresses, except those with value NYA, will preserve
+            // their old values in the new heap.
+            val allAddresses = e.keys.map(_.addr)
+            allAddresses.foldLeft(Option(e)){(curEOpt, addr) =>
+              curEOpt.flatMap{
+                curE =>
+                  val oldPair = HeapAddressPair(h1, addr, heap)
+                  val newPair = HeapAddressPair(h2, addr, heap)
+                  if (!(LatticeElement.NYA <= curE(oldPair))) {
+                    meetAllWhere(
+                      key => key.heap == newPair.heap && key.addr == newPair.addr,
+                      curE, curE(oldPair))
+                  } else Some(curE)
+              }
+            }
+          case None => None
+        }
+      }
+
+      override protected def constraintPropagator(conjunct : IFormula,
+                                                  element  : LocalElement,
+                                         preAnalysisResult : PreAnalysisResult)
+      : Option[LocalElement] = conjunct match {
+
+        /** nullAddress() = a */
+        case Eq(IFunApp(fun@HeapFunExtractor(heap), _),
+                IConstant(a)) if fun == heap.nullAddr =>
+          println(s"case null = $a")
+          meetAllWhere(_.addr == a, element, LatticeElement.NLL)
+
+        /** emptyHeap() = h */
+        case Eq(IFunApp(fun@Heap.HeapFunExtractor(heap), _), IConstant(h))
+          if fun == heap.emptyHeap =>
+          println("case emptyHeap")
+          meetAllWhere(_.heap == h, element,
+                       LatticeElement.NYA join LatticeElement.NLL)
+
+        /** valid(h,a) & !((h,a) <= Ids)*/
+        case IAtom(pred@Heap.HeapPredExtractor(heap),
+                   Seq(IConstant(h), IConstant(a))) if pred == heap.isAlloc &&
+          !(element(HeapAddressPair(h, a, heap)) <= LatticeElement.IDS)=>
+          val key = HeapAddressPair(h, a, heap)
+          println("case valid " + key)
+          meetAllWhere(e => e.heap == h && e.addr == a, element, LatticeElement.VLD)
+
+        /** !valid(h, a) */
+        case INot(IAtom(pred@Heap.HeapPredExtractor(heap),
+                        Seq(IConstant(h), IConstant(a)))) if pred == heap.isAlloc =>
+          val key = HeapAddressPair(h, a, heap)
+          println("case !valid " + key)
+          meetAllWhere(key => key.heap == h && key.addr == a,
+                       element, LatticeElement.NYA join LatticeElement.NLL)
+
+        /** write(h1,a,TaggedObject(o,i)) = h2 & !({VLD} <= (h1,a))
+         * @note We are assuming the inner app is TaggedObject without checking.
+         */
+        case Eq(IFunApp(fun@HeapFunExtractor(heap), Seq(
+          IConstant(h1),IConstant(a),
+          IFunApp(f, Seq(IConstant(o), IIntLit(i))))), IConstant(h2))
+          if fun == heap.write &&
+            !(LatticeElement.VLD <= element(HeapAddressPair(h1, a, heap))) =>
+          println(s"case write($h1,$a,${f.name}($o,$i)) = $h2")
+          val newVal = element(HeapAddressPair(h1, a, heap)) join
+            LatticeElement(BitSet(i.intValue))
+          meetAllWhere(e => e.heap == h2 && e.addr == a, element, newVal)
+
+        /** write(h1,a,TaggedObject(o,i)) = h2 & {VLD} <= (h1,a) */
+        case Eq(IFunApp(fun@HeapFunExtractor(heap), Seq(
+        IConstant(h1), IConstant(a),
+        IFunApp(f, Seq(IConstant(o), IIntLit(i))))), IConstant(h2))
+          if fun == heap.write &&
+            LatticeElement.VLD <= element(HeapAddressPair(h1, a, heap)) =>
+          println(s"case write($h1,$a,${f.name}($o,$i)) = $h2")
+          val newVal = LatticeElement(BitSet(i.intValue))
+          meetAllWhere(e => e.heap == h2 && e.addr == a, element, newVal)
+        ???
+
+        /** alloc(h1,TaggedObject(o,i)) = ar */
+        case eq@Eq(IFunApp(fun1@HeapFunExtractor(heap),
+                        Seq(IConstant(h1),
+                            IFunApp(f, Seq(IConstant(o), IIntLit(i))))),
+                IConstant(ar)) if fun1 == heap.alloc &&
+        preAnalysisResult._2.contains(ar) =>
+          println("case alloc " + eq)
+          val HeapAddressPair(h2, a, _) = preAnalysisResult._2(ar)
+          handleAllocate(h1, h2, heap, a, i.intValue, element)
+
+        /**
+         * allocHeap(h1,TaggedObject(o,i)) = h2
+         * allocAddr is not handled separately.
+         */
+        case eq@Eq(IFunApp(fun1@HeapFunExtractor(heap),
+                           Seq(IConstant(h1),
+                               IFunApp(f, Seq(IConstant(o), IIntLit(i))))),
+                   IConstant(h2)) if fun1 == heap.allocHeap &&
+          preAnalysisResult._1.contains(h1) =>
+          println("case allocHeap " + eq)
+          handleAllocate(h1, h2, heap, preAnalysisResult._1(h1), i.intValue, element)
+
+        /** a1 === a2 (address equality) */
+        case eq@Eq(IConstant(a1@SortedConstantTerm(_, sort)),
+                IConstant(a2)) if sort.isInstanceOf[Heap.AddressSort] =>
+          println("case addrEq1: " + eq)
+          meetAllWhere(key => key.addr == a1 || key.addr == a2, element,
+                       LatticeElement.TOP)
+
+        /** h1 === h2 (heap equality) */
+        case eq@Eq(IConstant(h1@SortedConstantTerm(_, sort)),
+                   IConstant(h2)) if sort.isInstanceOf[Heap.HeapSort] =>
+          println("case heapEq1: " + eq)
+          meetAllWhere(key => key.heap == h1 || key.heap == h2, element,
+                       LatticeElement.TOP)
+
+        /** a1 =/= a2 (address inequality) */
+        case eq@INot(Eq(IConstant(SortedConstantTerm(a1, sort)),
+                        IConstant(a2)))
+          if sort.isInstanceOf[Heap.AddressSort] =>
+          println("case addrNeq1: " + eq)
+          val a1IsNLL = element.exists{
+            case (key, value) => key.addr == a1 && value == LatticeElement.NLL
+          }
+          val a2IsNLL = element.exists {
+            case (key, value) => key.addr == a2 && value == LatticeElement.NLL
+          }
+
+          (a1IsNLL, a2IsNLL) match {
+            case (true, _) =>
+              meetAllWhere(_.addr == a2, element, LatticeElement.NLLCOMP)
+            case (_, true) =>
+              meetAllWhere(_.addr == a1, element, LatticeElement.NLLCOMP)
+            case _ => Some(element)
+          }
+
+        /** No applicable rule */
+        case _ => Some(element)
+      }
+    }
+
+
+    override def transformerFor(clause : HornClauses.Clause) =
+      new HeapUpdateSitesTransformer(clause)
+
+    var printedLegend = false
     override def inline(a : IAtom, value : Element) : (IAtom, IFormula) = {
-      ???
+      if(!printedLegend) {
+        printedLegend = true
+        println(s"NLL -> ${LatticeElement.NLL.value}, NYA -> ${
+          LatticeElement.NYA.value
+        }, VLD -> ${LatticeElement.VLD.value}")
+      }
+      print(s"Element for atom $a: ")
+      value.foreach(println)
+      a -> true
+      // TODO
     }
     override def augmentSolution(sol : IFormula, value : Element) : IFormula = {
-      ???
+      sol
+      // TODO
     }
   }
 }

@@ -383,6 +383,6 @@ object SimplePropagators {
     new PropagatingPreprocessor(new EqualityPropDomain)
 
   def HeapAddressUpdateSitePropagator(updateSiteTags : Set[Int]) =
-    new PropagatingPreprocessor(
+    new PropagatingPreprocessorMk2(
       new HeapUpdateSitesAnalysis.UpdateSitesDomain(updateSiteTags))
 }
