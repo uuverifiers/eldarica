@@ -105,10 +105,10 @@ object ADTExploder {
 
 }
 
-class HeapInvariantEncodingSimple extends HornPreprocessor {
+class HeapInvariantEncoding extends HornPreprocessor {
   import HornPreprocessor._
 
-  override val name : String = "Heap invariants encoder (simple)"
+  override val name : String = "Heap invariants encoder"
   private val backMapping = new MHashMap[Clause, Clause]
 
   /**
@@ -215,7 +215,11 @@ class HeapInvariantEncodingSimple extends HornPreprocessor {
             // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
             case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
                     IConstant(h1)) =>
-              val a = heap.allocAddr(h0, o)
+              val a = if(lazabs.GlobalParameters.get.eliminateHeaps) {
+                heap.counter(h0) + 1
+              } else {
+                heap.allocAddr(h0, o)
+              }
               val newClause = Clause(inv(a, o), clause.body, clause.constraint)
               newClauses += newClause
               backMapping += newClause -> clause

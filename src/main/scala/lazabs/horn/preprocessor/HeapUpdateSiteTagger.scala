@@ -8,12 +8,12 @@ import ap.types.{MonoSortedIFunction, MonoSortedPredicate, Sort, SortedConstantT
 import lazabs.horn.Util.{DagEmpty, DagNode}
 import lazabs.horn.abstractions.VerificationHints._
 import lazabs.horn.bottomup.HornClauses.Clause
-import IExpression.{toFunApplier, toPredApplier, Eq}
+import IExpression.{Eq, toFunApplier, toPredApplier}
+import lazabs.horn.preprocessor.HornPreprocessor._
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
-object HeapUpdateSiteTagger extends HornPreprocessor {
-  import HornPreprocessor._
+class HeapUpdateSiteTagger extends HornPreprocessor {
   override val name : String = "adding heap update site tags"
   private val clauseBackMapping = new MHashMap[Clause, Clause]
   private val predBackMapping = new MHashMap[Predicate, Predicate]
@@ -29,11 +29,12 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
   }
 
   case class TaggedHeapInfo(theory : Heap,
-                            redeclaredObjSortInd : Int) {
+                            redeclaredObjSortInd : Int,
+                            taggedObjCtorId : Int) {
     val taggedObjSort : Sort = theory.ObjectSort
-    val taggedObjCtor : IFunction = theory.userADTCtors(theory.objectSortId)
-    val taggedObjContents : IFunction = theory.userADTSels(theory.objectSortId)(0)
-    val taggedObjTag  : IFunction = theory.userADTSels(theory.objectSortId)(1)
+    val taggedObjCtor : IFunction = theory.userADTCtors(taggedObjCtorId)
+    val taggedObjContents : IFunction = theory.userADTSels(taggedObjCtorId)(0)
+    val taggedObjTag  : IFunction = theory.userADTSels(taggedObjCtorId)(1)
     val addrSort      : Sort = theory.AddressSort
     val heapSort      : Sort = theory.HeapSort
     val allocResSort  : Sort = theory.allocResSort
@@ -69,7 +70,8 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
          * Prepare the signature of the new theory. Appending tagged object to
          * the signature, so its index is the last one.
          */
-        val taggedObjSortInd = oldCtorSignatures.size
+        val taggedObjSortInd = oldSortNames.size
+        val taggedObjCtorInd = oldCtorSignatures.size
         val taggedObjSortName = s"Tagged${heap.ObjectSort.name}"
 
         /**
@@ -85,16 +87,28 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
             Heap.ADTSort(taggedObjSortInd))))
         val sortNames = oldSortNames ++ Seq(taggedObjSortName)
 
-        /**
-         * todo: make public the original defObjCtor and use that,
-         *       we cannot use the defObj term directly.
-         */
         def defObjCtor(adtCtors : Seq[MonoSortedIFunction],
                        heapADTS : ADT) : ITerm = {
           /**
            * Create a default object with an invalid tag (-1)
            */
-          adtCtors(taggedObjSortInd)(heap._defObj, -1)
+          //val o = heap.defaultObjectCtor(adtCtors.dropRight(1), heapADTS)
+
+          val o = heap._defObj match {
+            case IFunApp(f, Seq()) => // this works for clauses coming from TriCera
+              heapADTS.constructors.find(_.name == f.name) match {
+                case Some(ctor) =>
+                  IFunApp(ctor, Seq())
+                case None => ???
+              }
+            case _ if lazabs.GlobalParameters.get.printHornSimplifiedSMT ||
+                      lazabs.GlobalParameters.get.printHornSimplified =>
+              // TODO: do not use defObj from the old heap, this is incorrect
+              //   below only works when printing and not trying to solve directly
+              heap._defObj
+            case _ => heap._defObj
+          }
+          adtCtors(taggedObjCtorInd)(o, -1)
         }
 
         val newHeap = new Heap(heapSortName = heap.HeapSort.name,
@@ -103,7 +117,7 @@ object HeapUpdateSiteTagger extends HornPreprocessor {
                                sortNames = sortNames,
                                ctorSignatures = ctorSignatures,
                                defaultObjectCtor = defObjCtor)
-        heap -> TaggedHeapInfo(newHeap, redeclaredObjSortInd)
+        heap -> TaggedHeapInfo(newHeap, redeclaredObjSortInd, taggedObjCtorInd)
       }).toMap
 
     /**

@@ -34,6 +34,7 @@ import ap.parser._
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.preprocessor.AbstractAnalyserMk2.AbstractTransformerMk2
 import lazabs.horn.preprocessor.HornPreprocessor.Clauses
 
 import scala.collection.mutable.{LinkedHashSet, HashMap => MHashMap}
@@ -50,6 +51,9 @@ object AbstractAnalyserMk2 {
     /** The type of abstract elements in this domain */
     type Element
 
+    /** The local element type over clause terms */
+    type LocalElement
+
     /** The abstract bottom element */
     def bottom(p : Predicate) : Element
 
@@ -60,17 +64,15 @@ object AbstractAnalyserMk2 {
     def isBottom(b : Element) : Boolean
 
     /** Create an abstract transformer for the given clause */
-    def transformerFor(clause : Clause) : AbstractTransformerMk2[Element]
+    def transformerFor(clause : Clause) : AbstractTransformerMk2[Element,
+                                                                 LocalElement]
   }
 
   /**
    * Transformer that computes the abstract value of a clause head given
    * the abstract values for the body literals.
    */
-  abstract class AbstractTransformerMk2[Element](clause : Clause) {
-
-    /** The local element type over clause terms */
-    type LocalElement
+  abstract class AbstractTransformerMk2[Element, LocalElement](clause : Clause) {
 
     /** Compute the meet of two local elements */
     protected def meet(a : LocalElement, b : LocalElement) : LocalElement
@@ -90,7 +92,7 @@ object AbstractAnalyserMk2 {
     /** The return type of the optional pre-analysis */
     type PreAnalysisResult
 
-    /** Method to perform pre-analysis with a customizable return type */
+    /** Method to perform pre-analysis with a custom return type */
     def preAnalysisFun(conjuncts : Seq[IFormula]) : PreAnalysisResult
 
     /**
@@ -126,7 +128,7 @@ object AbstractAnalyserMk2 {
     }
 
     def transform(bodyValues    : Seq[Element],
-                  bottomElement : Element) : Element = {
+                  bottomElement : Element) : (Element, Option[LocalElement]) = {
 
       /** Compute the initial local element by constraining top local element
         * with the values coming from the clause body.
@@ -146,15 +148,18 @@ object AbstractAnalyserMk2 {
       }
 
       /** Early return if initialLocalElement is bottom */
-      if (initialLocalElement isEmpty) return bottomElement
+      if (initialLocalElement isEmpty) return (bottomElement, None)
 
       /** Run the pre-analysis first */
 
 
       /** Start the constraint propagation loop */
       propagate(initialLocalElement.get, clause.constraint) match {
-        case None => bottomElement
-        case Some(e) => elementForAtom(e, clause.head)
+        case Some(e) if clause.head.pred == HornClauses.FALSE =>
+          (bottomElement, Some(e))
+        case Some(e) =>
+          (elementForAtom(e, clause.head), Some(e))
+        case None => (bottomElement, None)
       }
     }
   }
@@ -164,20 +169,21 @@ class AbstractAnalyserMk2[Domain <: AbstractAnalyserMk2.AbstractDomainMk2]
                       (clauses : Clauses, val domain : Domain,
                        frozenPredicates : Set[Predicate]) {
 
-  val result : GMap[Predicate, domain.Element] = {
+  val (predToElement   : GMap[Predicate, domain.Element],
+       clauseToElement : GMap[Clause, Option[domain.LocalElement]]) = {
     val allPreds = HornClauses allPredicates clauses
 
     val clauseSeq = clauses.toVector
     val clausesWithBodyPred =
       (for ((clause, n) <- clauseSeq.zipWithIndex;
-            if clause.head.pred != HornClauses.FALSE;
             IAtom(p, _) <- clause.body)
        yield (p, n)) groupBy (_._1)
 
-    val propagators =
-      for (clause <- clauseSeq) yield (domain transformerFor clause)
+    val propagators = clauseSeq map domain.transformerFor
 
-    val abstractValues = new MHashMap[Predicate, domain.Element]
+    val predAbstractValues = new MHashMap[Predicate, domain.Element]
+    val clauseAbstractValues = new MHashMap[Clause, Option[domain.LocalElement]]
+
     for (p <- allPreds)
       if (frozenPredicates contains p) {
         // set the frozen predicates to the top value
@@ -185,10 +191,12 @@ class AbstractAnalyserMk2[Domain <: AbstractAnalyserMk2.AbstractDomainMk2]
         val args  = for (s <- sorts) yield s.newConstant("X")
         val head  = IAtom(p, args)
         val prop  = domain transformerFor Clause(head, List(), true)
-        abstractValues.put(p, prop transform(List(), domain.bottom(head.pred)))
+        val (elementForPred, _) =
+          prop transform(List(), domain.bottom(head.pred))
+        predAbstractValues.put(p, elementForPred)
       } else {
         // everything else to bottom
-        abstractValues.put(p, domain bottom p)
+        predAbstractValues.put(p, domain bottom p)
       }
 
     val clausesTodo = new LinkedHashSet[Int]
@@ -196,34 +204,34 @@ class AbstractAnalyserMk2[Domain <: AbstractAnalyserMk2.AbstractDomainMk2]
     // start with the clauses with empty body
     for ((Clause(IAtom(p, _), body, _), n) <-
            clauseSeq.iterator.zipWithIndex;
-         if p != HornClauses.FALSE;
          if body forall { case IAtom(q, _) => frozenPredicates contains q })
       clausesTodo += n
       
     while (!clausesTodo.isEmpty) {
       val nextID = clausesTodo.head
       clausesTodo -= nextID
-      val Clause(head, body, _) = clauseSeq(nextID)
+      val clause@Clause(head, body, _) = clauseSeq(nextID)
 
       val bodyValues =
-        for (IAtom(p, _) <- body) yield abstractValues(p)
-      val newAbstractEl =
+        for (IAtom(p, _) <- body) yield predAbstractValues(p)
+      val (newAbstractPredEl, newAbstractClauseEl) =
         propagators(nextID) transform(bodyValues, domain.bottom(head.pred))
 
-      if (!(domain isBottom newAbstractEl)) {
+      if (!(domain isBottom newAbstractPredEl)) {
         val headPred = head.pred
-        val oldAbstractEl = abstractValues(headPred)
-        val jointEl = domain.join(oldAbstractEl, newAbstractEl)
+        val oldAbstractEl = predAbstractValues(headPred)
+        val jointEl = domain.join(oldAbstractEl, newAbstractPredEl)
 
         if (jointEl != oldAbstractEl) {
-          abstractValues.put(headPred, jointEl)
+          predAbstractValues.put(headPred, jointEl)
           for ((_, n) <- clausesWithBodyPred.getOrElse(headPred, List()))
             clausesTodo += n
         }
       }
+      clauseAbstractValues put (clause, newAbstractClauseEl)
     }
 
-    abstractValues
+    (predAbstractValues, clauseAbstractValues)
   }
 
 }

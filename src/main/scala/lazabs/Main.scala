@@ -96,6 +96,7 @@ class GlobalParameters extends Cloneable {
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
   var heapInvariantEncoding = false
+  var eliminateHeaps = true
   var expandHeapArguments = true
   var global = false
   var disjunctive = false

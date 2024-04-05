@@ -31,6 +31,7 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.HornClauses.Clause
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -45,6 +46,10 @@ object PropagatingPreprocessorMk2 {
     /** Inline the abstract value of a clause body literal by possibly
      *  modifying the literal, and adding a further constraint to the clause */
     def inline(a : IAtom, value : Element) : (IAtom, IFormula)
+
+    /** Rewrite the constraint of a clause using the local abstract element
+     *  for that clause. */
+    def rewriteClauseConstraint(c : Clause, value : Option[LocalElement]) : IFormula
 
     /** Augment a solution constraint by the information expressed in an
      *  abstract value */
@@ -70,9 +75,9 @@ class PropagatingPreprocessorMk2(
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
-    val analyser = new AbstractAnalyserMk2(clauses, _domain,
-                                                 frozenPredicates)
-    val abstractValues = analyser.result
+    val analyser = new AbstractAnalyserMk2(clauses, _domain, frozenPredicates)
+    val predAbstractValues = analyser.predToElement
+    val clauseAbstractValues = analyser.clauseToElement
     val clauseBackMapping = new MHashMap[Clause, Clause]
     import analyser.domain
 
@@ -81,13 +86,17 @@ class PropagatingPreprocessorMk2(
     val newClauses =
       for (clause <- clauses) yield {
         val Clause(head, body, constraint) = clause
-        var newConstraint = constraint
 
         var clauseChanged = false
 
+        var newConstraint = clauseAbstractValues get clause match {
+          case Some(v) => domain.rewriteClauseConstraint(clause, v)
+          case None => clause.constraint
+        }
+
         val newBody =
           for (a <- body) yield {
-            val aValue = abstractValues(a.pred)
+            val aValue = predAbstractValues(a.pred)
             val (newA, constr) = domain.inline(a, aValue)
             newConstraint = newConstraint &&& constr
             if (!(newA eq a))
@@ -119,7 +128,7 @@ class PropagatingPreprocessorMk2(
           def translate(solution : Solution) =
             solution transform {
               case (pred, sol) =>
-                domain.augmentSolution(sol, abstractValues(pred))
+                domain.augmentSolution(sol, predAbstractValues(pred))
             }
           
           def translate(cex : CounterExample) =

@@ -304,8 +304,9 @@ class ConstraintSimplifier extends HornPreprocessor {
       case Conj(_, _) =>
         KeepArg
       case INot(Eq(IFunApp(ADT.CtorId(_), _), SimpleTerm(_)))
-        if lazabs.GlobalParameters.get.printHornSimplified ||
-           lazabs.GlobalParameters.get.printHornSimplifiedSMT =>
+        if (lazabs.GlobalParameters.get.printHornSimplified ||
+           lazabs.GlobalParameters.get.printHornSimplifiedSMT) &&
+           !lazabs.GlobalParameters.get.heapInvariantEncoding =>
         KeepArg
       case _ =>
         UniSubArgs(true)
@@ -791,8 +792,9 @@ class ConstraintSimplifier extends HornPreprocessor {
         }
       }
 
-      if (!GlobalParameters.get.printHornSimplified &&
-          !GlobalParameters.get.printHornSimplifiedSMT &&
+      if (lazabs.GlobalParameters.get.heapInvariantEncoding ||
+          !(GlobalParameters.get.printHornSimplified ||
+            GlobalParameters.get.printHornSimplifiedSMT) &&
           cont && containsFunctions &&
           clause.theories.exists(_.isInstanceOf[Heap])) {
         // check whether heap simplifications are possible
