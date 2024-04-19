@@ -159,89 +159,98 @@ class DefaultPreprocessor extends HornPreprocessor {
     // First set of processors
     applyStages(preStages)
 
+//    println("Before analysis")
+//    println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//              .map(c => c.toPrologString).mkString("\n"))
+
+    applyStage(new IntraClauseReadWriteEliminator)
+
+//    println("After analysis")
+//    println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//              .map(c => c.toPrologString).mkString("\n"))
+
     condenseClauses(!GlobalParameters.get.heapInvariantEncoding)
 
-    val heapTheories1 = curClauses.flatMap(_.theories
-                                         .filter(_.isInstanceOf[Heap])
-                                         .map(_.asInstanceOf[Heap])).toSet
+    if(GlobalParameters.get.heapInvariantEncoding) {
+      val heapTheories1 = curClauses.flatMap(
+        _.theories.filter(_.isInstanceOf[Heap]).map(_.asInstanceOf[Heap])).toSet
 
-    val heapFunctionSplittersLite = for (heap <- heapTheories1) yield {
-      val funs = Set(heap.alloc, heap.allocHeap, heap.write)
-      val funOrdering = new Ordering[IFunction] {
-        def compare(a : IFunction, b : IFunction) : Int = {
-          // Assign each function a priority
-          def priority(fun : IFunction) : Int = fun match {
-            case heap.alloc => 3
-            case heap.allocHeap => 3
-            case heap.write => 4
-            case _ => 0 // Any other function gets highest priority
+      val heapFunctionSplittersLite = for (heap <- heapTheories1) yield {
+        val funs = Set(heap.alloc, heap.allocHeap, heap.write)
+        val funOrdering = new Ordering[IFunction] {
+          def compare(a : IFunction, b : IFunction) : Int = {
+            // Assign each function a priority
+            def priority(fun : IFunction) : Int = fun match {
+              case heap.alloc => 3
+              case heap.allocHeap => 3
+              case heap.write => 4
+              case _ => 0 // Any other function gets highest priority
+            }
+
+            // Use the priorities to compare two functions
+            priority(a) compare priority(b)
           }
-
-          // Use the priorities to compare two functions
-          priority(a) compare priority(b)
         }
+        new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
+                                               Some(funOrdering))
       }
-      new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
-                                             Some(funOrdering))
-    }
 
-    {
       val heapNormalizationStagesLite =
         List(new EquationUninliner) ++ heapFunctionSplittersLite
       applyStages(heapNormalizationStagesLite)
-    }
 
-    val updateSiteTagger = new HeapUpdateSiteTagger
+      val updateSiteTagger = new HeapUpdateSiteTagger
 
-//    println("Before analysis")
-//    println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
+//      println("Before analysis")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
 
-    applyStage(updateSiteTagger)
-    applyStage(SimplePropagators.HeapAddressUpdateSitePropagator(
-      updateSiteTagger.getUpdateSiteIds))
+      applyStage(updateSiteTagger)
+      applyStage(SimplePropagators.HeapAddressUpdateSitePropagator(
+        updateSiteTagger.getUpdateSiteIds))
 
-//    println("After analysis")
-//    println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
+//      println("After analysis")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
 
-    val heapTheories2 = curClauses.flatMap(
-      _.theories.filter(_.isInstanceOf[Heap]).map(_.asInstanceOf[Heap])).toSet
+      val heapTheories2 = curClauses.flatMap(
+        _.theories.filter(_.isInstanceOf[Heap]).map(_.asInstanceOf[Heap])).toSet
 
-    // TODO: split only functions from the same theory?
-    val heapFunctionSplittersAll = for (heap <- heapTheories2) yield {
-      val funs        = Set(heap.alloc, heap.allocHeap, heap.read,
-                            heap.write, heap.emptyHeap)
-      val funOrdering = new Ordering[IFunction] {
-        def compare(a : IFunction, b : IFunction) : Int = {
-          // Assign each function a priority
-          def priority(fun : IFunction) : Int = fun match {
-            case heap.emptyHeap => 1
-            case heap.read => 2
-            case heap.alloc => 3
-            case heap.allocHeap => 3
-            case heap.write => 4
-            case _ => 0 // Any other function gets highest priority
+      // TODO: split only functions from the same theory?
+      val heapFunctionSplittersAll = for (heap <- heapTheories2) yield {
+        val funs        = Set(heap.alloc, heap.allocHeap, heap.read,
+                              heap.write, heap.emptyHeap)
+        val funOrdering = new Ordering[IFunction] {
+          def compare(a : IFunction, b : IFunction) : Int = {
+            // Assign each function a priority
+            def priority(fun : IFunction) : Int = fun match {
+              case heap.emptyHeap => 1
+              case heap.read => 2
+              case heap.alloc => 3
+              case heap.allocHeap => 3
+              case heap.write => 4
+              case _ => 0 // Any other function gets highest priority
+            }
+
+            // Use the priorities to compare two functions
+            priority(a) compare priority(b)
           }
-
-          // Use the priorities to compare two functions
-          priority(a) compare priority(b)
         }
+        new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
+                                               Some(funOrdering))
       }
-      new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
-                                             Some(funOrdering))
-    }
 
-    if (GlobalParameters.get.heapInvariantEncoding) {
       if (applyStages(List(new ConstraintSimplifier, new EquationUninliner) ++
                         heapFunctionSplittersAll ++
                         List(new HeapInvariantEncoding))) {
 
-//        println
-//        println(curClauses.sortBy(c => c.head.pred.name + c.body)
-//                  .map(c => c.toPrologString).mkString("\n"))
-        applyStage(new HeapEliminator)
-//        println
-//        println(curClauses.sortBy(c => c.head.pred.name + c.body)
-//                  .map(c => c.toPrologString).mkString("\n"))
+        //        println
+        //        println(curClauses.sortBy(c => c.head.pred.name + c.body)
+        //                  .map(c => c.toPrologString).mkString("\n"))
+        if(lazabs.GlobalParameters.get.eliminateHeaps) {
+          applyStage(new HeapEliminator)
+        }
+        //        println
+        //        println(curClauses.sortBy(c => c.head.pred.name + c.body)
+        //                  .map(c => c.toPrologString).mkString("\n"))
 
         condenseClauses(true, true)
       }

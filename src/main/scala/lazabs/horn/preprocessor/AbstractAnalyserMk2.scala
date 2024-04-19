@@ -202,12 +202,13 @@ class AbstractAnalyserMk2[Domain <: AbstractAnalyserMk2.AbstractDomainMk2]
     val clausesTodo = new LinkedHashSet[Int]
 
     // start with the clauses with empty body
-    for ((Clause(IAtom(p, _), body, _), n) <-
-           clauseSeq.iterator.zipWithIndex;
-         if body forall { case IAtom(q, _) => frozenPredicates contains q })
-      clausesTodo += n
+//    for ((Clause(IAtom(p, _), body, _), n) <-
+//           clauseSeq.iterator.zipWithIndex;
+//         if body forall { case IAtom(q, _) => frozenPredicates contains q })
+//      clausesTodo += n
+    clauseSeq.indices.foreach(clausesTodo +=)
       
-    while (!clausesTodo.isEmpty) {
+    while (clausesTodo nonEmpty) {
       val nextID = clausesTodo.head
       clausesTodo -= nextID
       val clause@Clause(head, body, _) = clauseSeq(nextID)

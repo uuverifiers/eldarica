@@ -96,7 +96,7 @@ class GlobalParameters extends Cloneable {
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
   var heapInvariantEncoding = false
-  var eliminateHeaps = true
+  var eliminateHeaps = false
   var expandHeapArguments = true
   var global = false
   var disjunctive = false
@@ -350,6 +350,7 @@ object Main {
         symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
         arguments(rest)
       case "-heapInv" :: rest => heapInvariantEncoding = true; arguments(rest)
+      case "-heapElim" :: rest => heapInvariantEncoding = true; eliminateHeaps = true; arguments(rest)
       case "-heapNoExpand" :: rest => expandHeapArguments = false; arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
           symexEngine = symexOpt.drop("-sym:".length) match {
@@ -552,6 +553,7 @@ object Main {
           " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
           "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
           " -heapInv          Use heap invariants encoding\n" +
+          " -heapElim         Use heap invariants encoding and eliminate heaps (overapproximate)\n" +
           " -symDepth:n       Set a max depth for symbolic execution (underapproximate)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +

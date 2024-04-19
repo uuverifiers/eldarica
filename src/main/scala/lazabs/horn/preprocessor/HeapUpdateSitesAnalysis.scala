@@ -416,7 +416,7 @@ object HeapUpdateSitesAnalysis {
     override def transformerFor(clause : HornClauses.Clause) =
       new HeapUpdateSitesTransformer(clause)
 
-//    val printedPreds = new MHashSet[Predicate]
+    val printedPreds = new MHashSet[Predicate]
     override def inline(a : IAtom, value : Element) : (IAtom, IFormula) = {
       import IExpression._
 //      if(!(printedPreds contains a.pred)) {
@@ -463,14 +463,16 @@ object HeapUpdateSitesAnalysis {
     override def rewriteClauseConstraint(
       c : Clause, value : Option[LocalElement]) : IFormula = {
       import IExpression._
-      if (value.isEmpty) return i(false)
+      if (value.isEmpty) return c.constraint
       val conjuncts =
         LineariseVisitor(Transform2NNF(c.constraint), IBinJunctor.And)
       var rewrite = false
 
-//      println("Local element for clause ")
+//      println("Local element for ")
 //      println(c.toPrologString)
-//      value.get.foreach(v => println("  " + v))
+//      println
+//      println("  " + value.get.mkString(", "))
+//      println("-"*80)
 
       val newConjuncts = for (conjunct <- conjuncts) yield conjunct match {
         /** \exists i; read(h, a) = TaggedObject(_, i) */

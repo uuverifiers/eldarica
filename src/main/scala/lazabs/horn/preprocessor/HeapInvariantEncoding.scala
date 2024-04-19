@@ -198,6 +198,12 @@ class HeapInvariantEncoding extends HornPreprocessor {
         val conjuncts =
           LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
 
+        val oldHeapToAddrAfterAlloc = conjuncts.collect{
+          case Eq(IFunApp(fun, Seq(IConstant(h), _)),
+                  IConstant(a)) if fun == heap.allocAddr =>
+            (h, a)
+        }.toMap
+
         var addedThisClause = false
         for (conjunct <- conjuncts) {
           conjunct match {
@@ -215,7 +221,9 @@ class HeapInvariantEncoding extends HornPreprocessor {
             // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
             case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
                     IConstant(h1)) =>
-              val a = if(lazabs.GlobalParameters.get.eliminateHeaps) {
+              val a = if (oldHeapToAddrAfterAlloc contains h0) {
+                IConstant(oldHeapToAddrAfterAlloc(h0))
+              } else if(lazabs.GlobalParameters.get.eliminateHeaps) {
                 heap.counter(h0) + 1
               } else {
                 heap.allocAddr(h0, o)
@@ -250,7 +258,8 @@ class HeapInvariantEncoding extends HornPreprocessor {
                        clause.constraint &&& heap.isAlloc(h, a))
               val newClause2 =
                 Clause(clause.head, clause.body,
-                       clause.constraint &&& !heap.isAlloc(h, a))
+                       clause.constraint &&& !heap.isAlloc(h, a) &&&
+                         heap._defObj === o)
               newClauses ++= Seq(newClause1, newClause2)
               backMapping ++= Map(newClause1 -> clause, newClause2 -> clause)
               assert(!addedThisClause)
