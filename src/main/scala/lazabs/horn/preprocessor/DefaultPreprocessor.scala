@@ -34,6 +34,7 @@ import IExpression._
 import ap.theories.Heap
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.HornClauses.Clause
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -56,16 +57,18 @@ class DefaultPreprocessor extends HornPreprocessor {
     List(new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          RationalDenomUnifier,
-         new ClauseInliner)
+         new ClauseInliner,
+         new IntraClauseReadWriteEliminator
+         )
 
   def extendingStages : List[HornPreprocessor] = {
     (if (GlobalParameters.get.expandHeapArguments) {
       (if (printingEnabled) List() else List(
-        //new HeapSizeArgumentExtender
+        new HeapSizeArgumentExtender
         ))
     } else List()) ++
       (if (GlobalParameters.get.expandADTArguments) {
-        //List(new SizeArgumentExtender) ++
+        List(new SizeArgumentExtender) ++
           (if (printingEnabled) List() else List(new CtorTypeExtender))
       } else List())
   }
@@ -112,6 +115,21 @@ class DefaultPreprocessor extends HornPreprocessor {
 
         val (newClauses, newHints, translator) =
           stage.process(curClauses, curHints, frozenPredicates)
+
+//        println("=" * 80)
+//        if(curClauses != newClauses) {
+//          println("(Only showing diff)")
+//          println(s"Before ${stage.name} (${curClauses.size} clauses)")
+//          println(curClauses.diff(newClauses).sortBy(c => c.head.pred.name + c.body)
+//                    .map(c => c.toPrologString).mkString("\n"))
+//          println("-" * 80)
+//          println(s"After  ${stage.name} (${newClauses.size} clauses)")
+//          println(newClauses.diff(curClauses).sortBy(c => c.head.pred.name + c.body)
+//                    .map(c => c.toPrologString).mkString("\n"))
+//        } else {
+//          println(s"${stage.name} did not change the clauses")
+//        }
+//        println("=" * 80)
         curClauses = newClauses
         curHints = newHints
 
@@ -150,6 +168,13 @@ class DefaultPreprocessor extends HornPreprocessor {
           applyStage(ReachabilityChecker)
           applyStage(Slicer)
         }
+        var lastClauses : Set[Clause] = Set()
+        while(lastClauses != curClauses.toSet) {
+          lastClauses = curClauses.toSet
+          applyStage(new IntraClauseReadWriteEliminator)
+          applyStage(new ConstraintSimplifier)
+        }
+
         curSize = curClauses.size
       }
     }
@@ -163,8 +188,6 @@ class DefaultPreprocessor extends HornPreprocessor {
 //    println(curClauses.sortBy(c => c.head.pred.name + c.body)
 //              .map(c => c.toPrologString).mkString("\n"))
 
-    applyStage(new IntraClauseReadWriteEliminator)
-
 //    println("After analysis")
 //    println(curClauses.sortBy(c => c.head.pred.name + c.body)
 //              .map(c => c.toPrologString).mkString("\n"))
@@ -176,11 +199,13 @@ class DefaultPreprocessor extends HornPreprocessor {
         _.theories.filter(_.isInstanceOf[Heap]).map(_.asInstanceOf[Heap])).toSet
 
       val heapFunctionSplittersLite = for (heap <- heapTheories1) yield {
-        val funs = Set(heap.alloc, heap.allocHeap, heap.write)
+        val funs = Set(heap.alloc, heap.allocHeap, heap.write, heap.read, heap.emptyHeap)
         val funOrdering = new Ordering[IFunction] {
           def compare(a : IFunction, b : IFunction) : Int = {
             // Assign each function a priority
             def priority(fun : IFunction) : Int = fun match {
+              case heap.emptyHeap => 1
+              case heap.read => 2
               case heap.alloc => 3
               case heap.allocHeap => 3
               case heap.write => 4
@@ -192,24 +217,44 @@ class DefaultPreprocessor extends HornPreprocessor {
           }
         }
         new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
+                                               "_glue1",
                                                Some(funOrdering))
       }
+
+//      condenseClauses(true, true)
+//      println("Before normalization")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                .map(c => c.toPrologString).mkString("\n"))
 
       val heapNormalizationStagesLite =
         List(new EquationUninliner) ++ heapFunctionSplittersLite
       applyStages(heapNormalizationStagesLite)
 
+//      println("After normalization")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                .map(c => c.toPrologString).mkString("\n"))
+//
+//      condenseClauses(true, true)
+//
+//      println("After inlining back")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                .map(c => c.toPrologString).mkString("\n"))
+
+//      System.exit(0)
+
       val updateSiteTagger = new HeapUpdateSiteTagger
 
-//      println("Before analysis")
-//      println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
-
       applyStage(updateSiteTagger)
-      applyStage(SimplePropagators.HeapAddressUpdateSitePropagator(
-        updateSiteTagger.getUpdateSiteIds))
+//      applyStage(SimplePropagators.HeapAddressUpdateSitePropagator(
+//        updateSiteTagger.getUpdateSiteIds))
 
-//      println("After analysis")
-//      println(curClauses.sortBy(c => c.head.pred.name + c.body).map(c => c.toPrologString).mkString("\n"))
+//      println("Before analysis")
+//      println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                .map(c => c.toPrologString).mkString("\n"))
+
+      applyStage(new HeapUpdateSitesTagSetAnalysis)
+
+      condenseClauses(true, true)
 
       val heapTheories2 = curClauses.flatMap(
         _.theories.filter(_.isInstanceOf[Heap]).map(_.asInstanceOf[Heap])).toSet
@@ -235,13 +280,13 @@ class DefaultPreprocessor extends HornPreprocessor {
           }
         }
         new ClauseSplitterFuncsAndUnboundTerms(funs.toSet, Set(heap.HeapSort),
+                                               "_glue2",
                                                Some(funOrdering))
       }
 
       if (applyStages(List(new ConstraintSimplifier, new EquationUninliner) ++
                         heapFunctionSplittersAll ++
                         List(new HeapInvariantEncoding))) {
-
         //        println
         //        println(curClauses.sortBy(c => c.head.pred.name + c.body)
         //                  .map(c => c.toPrologString).mkString("\n"))
@@ -251,8 +296,13 @@ class DefaultPreprocessor extends HornPreprocessor {
         //        println
         //        println(curClauses.sortBy(c => c.head.pred.name + c.body)
         //                  .map(c => c.toPrologString).mkString("\n"))
-
+//        println("After analysis1")
+//        println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                  .map(c => c.toPrologString).mkString("\n"))
         condenseClauses(true, true)
+//        println("After analysis2")
+//        println(curClauses.sortBy(c => c.head.pred.name + c.body)
+//                  .map(c => c.toPrologString).mkString("\n"))
       }
     }
 

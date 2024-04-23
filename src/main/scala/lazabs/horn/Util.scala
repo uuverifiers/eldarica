@@ -505,7 +505,7 @@ object Util {
     }
   }
 
-  class ClauseTermGraph(clause : Clause) {
+  class ClauseTermGraph(clause : Clause, funsWithDirection : Set[IFunction]) {
     import ClauseTermGraph._
 
     // TODO: optimize
@@ -544,7 +544,8 @@ object Util {
     for (conjunct <- conjuncts) {
       conjunct match {
         case IBoolLit(true) => // ignore - used as pseudo-root
-        case Eq(funApp@IFunApp(f, args), IConstant(_)) if args isEmpty =>
+        case Eq(funApp@IFunApp(f, args), IConstant(_))
+          if funsWithDirection.contains(f) && args.isEmpty =>
           // 0-ary function applications (constants)
           val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
           for (fromArg <- node.fromArgs) {
@@ -552,7 +553,8 @@ object Util {
           }
           curEdges += Edge(node, ConstNode(node.toArg))
           curNodes += node
-        case Eq(funApp@IFunApp(f, args), IConstant(_)) if args nonEmpty =>
+        case Eq(funApp@IFunApp(f, args), IConstant(_))
+          if funsWithDirection.contains(f) && args.nonEmpty =>
           val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
           for (fromArg <- node.fromArgs) {
             curEdges += Edge(ConstNode(fromArg), node)
@@ -640,7 +642,7 @@ object Util {
           None // Cycle detected in one of the child nodes
         } else {
           // TODO: order children so that the cuts are minimized
-          val childDags = maybeChildDags.map(_.get).sorted(dagOrdering)
+          val childDags = maybeChildDags.map(_.get)//.sorted(dagOrdering)
 
           val dagNode = (node match {
             case _ : ConstNode | _ : SyncNode =>

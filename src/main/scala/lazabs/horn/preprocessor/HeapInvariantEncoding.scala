@@ -221,6 +221,7 @@ class HeapInvariantEncoding extends HornPreprocessor {
             // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
             case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
                     IConstant(h1)) =>
+              val aTerm = IConstant(new SortedConstantTerm("a", heap.AddressSort))
               val a = if (oldHeapToAddrAfterAlloc contains h0) {
                 IConstant(oldHeapToAddrAfterAlloc(h0))
               } else if(lazabs.GlobalParameters.get.eliminateHeaps) {
@@ -228,7 +229,7 @@ class HeapInvariantEncoding extends HornPreprocessor {
               } else {
                 heap.allocAddr(h0, o)
               }
-              val newClause = Clause(inv(a, o), clause.body, clause.constraint)
+              val newClause = Clause(inv(aTerm, o), clause.body, clause.constraint &&& a === aTerm)
               newClauses += newClause
               backMapping += newClause -> clause
               newClauses += clause

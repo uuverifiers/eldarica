@@ -38,7 +38,7 @@ import lazabs.horn.preprocessor.HornPreprocessor._
 import lazabs.horn.bottomup.HornClauses._
 
 /**
- * A very simple preprocessor that ensures that does the following.
+ * A very simple preprocessor that ensures the following.
  *
  * 1) Constant terms on the RHS of every function application are distinct, e.g.,
  *   f(a) = c, g(b) = c

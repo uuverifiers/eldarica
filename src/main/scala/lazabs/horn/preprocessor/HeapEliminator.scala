@@ -245,41 +245,41 @@ class HeapEliminator extends HornPreprocessor {
 
       /** emptyHeap = h --> h === 0 */
       case Eq(IFunApp(f, _), _) if f == heap.emptyHeap =>
-        subres(1).asInstanceOf[ITerm] === 0
+        i(true) //subres(1).asInstanceOf[ITerm] === 0
 
       case Eq(IFunApp(f, _), _) if f == heap.nullAddr =>
-        subres(1).asInstanceOf[ITerm] === 0
+        i(true) //subres(1).asInstanceOf[ITerm] === 0
 
       /** read(_,_) = _ --> remove */
       case Eq(IFunApp(f, _), _) if f == heap.read =>
-        i(true)
+        i(true) //i(true)
 
       /** write(h1,_,_) = h2 --> h1 === h2 */
       case Eq(IFunApp(f, _), _) if f == heap.write =>
         val funApp = subres(0).asInstanceOf[IFunApp]
         val h1 = funApp.args.head
         val h2 = subres(1).asInstanceOf[ITerm]
-        h1 === h2
+        i(true) //h1 === h2
 
       /** allocHeap(h1,_) = h2 --> h1+1 === h2 */
       case Eq(IFunApp(f, _), _) if f == heap.allocHeap =>
         val funApp = subres(0).asInstanceOf[IFunApp]
         val h1 = funApp.args.head
         val h2 = subres(1).asInstanceOf[ITerm]
-        h1 + 1 === h2
+        i(true) //h1 + 1 === h2
 
       /** allocAddr(h1,_) = a2 --> h1+1 === a2 */
       case Eq(IFunApp(f, _), _) if f == heap.allocAddr =>
         val funApp = subres(0).asInstanceOf[IFunApp]
         val h1 = funApp.args.head
         val a2 = subres(1).asInstanceOf[ITerm]
-        h1 + 1 === a2
+        i(true) //h1 + 1 === a2
 
       /** valid(h,a) --> h >= a > 0 */
       case IAtom(pred, _) if pred == heap.isAlloc =>
         val h = subres(0).asInstanceOf[ITerm]
         val a = subres(1).asInstanceOf[ITerm]
-        h >= a &&& a > 0
+        i(true) //h >= a &&& a > 0
 
       case _ =>
         t update subres

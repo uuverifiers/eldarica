@@ -90,7 +90,7 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
         def defObjCtor(adtCtors : Seq[MonoSortedIFunction],
                        heapADTS : ADT) : ITerm = {
           /**
-           * Create a default object with an invalid tag (-1)
+           * Create a default object with an invalid tag (-100)
            */
           //val o = heap.defaultObjectCtor(adtCtors.dropRight(1), heapADTS)
 
@@ -108,8 +108,8 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
               heap._defObj
             case _ => heap._defObj
           }
-          adtCtors(taggedObjCtorInd)(o, -1)
-        }
+          adtCtors(taggedObjCtorInd)(o, -100)
+      }
 
         val newHeap = new Heap(heapSortName = heap.HeapSort.name,
                                addressSortName = heap.AddressSort.name,

@@ -33,9 +33,10 @@ import ap.basetypes.{Leaf, Tree}
 import ap.parser.IExpression._
 import ap.parser._
 import ap.types.MonoSortedPredicate
-
+import lazabs.horn.Util
 import lazabs.horn.bottomup.HornClauses._
-import lazabs.horn.Util.{Dag, DagEmpty, DagNode, ClauseTermGraph}
+import lazabs.horn.Util.{ClauseTermGraph, Dag, DagEmpty, DagNode}
+import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.preprocessor.ClauseShortener.BTranslator
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, Stack => MStack}
@@ -137,6 +138,7 @@ object ClauseSplitterFuncsAndUnboundTerms {
 class ClauseSplitterFuncsAndUnboundTerms(
   functionsToSplitOn            : Set[IFunction],
   sortsForUnboundTermsToSplitOn : Set[Sort],
+  gluePredName                  : String,
   functionOrdering              : Option[Ordering[IFunction]] = None)
   extends HornPreprocessor {
   import HornPreprocessor._
@@ -171,7 +173,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
     clauses.reverse.foreach(remainingClauses push)
 
     val clauseGraphs : Map[Clause, ClauseTermGraph] = clauses.map(
-      clause => (clause, new ClauseTermGraph(clause))).toMap
+      clause => (clause, new ClauseTermGraph(clause, functionsToSplitOn))).toMap
 
     // A custom ordering used when combining subDags during topological sorting
     val dagOrdering : Ordering[Dag[Node]] = new Ordering[Dag[Node]] {
@@ -200,7 +202,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
             // sort by Dag size, put smaller DAG first
             if (x.size <= y.size) -1 else 1
         }
-        // TOdO: order so that sync nodes appear as early as possible.
+        // TODO: order so that sync nodes appear as early as possible.
       }
     }
 
@@ -209,6 +211,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
         graph.topologicalSort(dagOrdering) match {
           case Some(dag) => (clause, dag)
           case None =>
+//            graph.show("failedClause.png")
             println(
               s"Warning: cannot apply ($name) because a clause cannot be" +
                 "converted to a DAG (from body to head)\n" + clause
@@ -225,7 +228,7 @@ class ClauseSplitterFuncsAndUnboundTerms(
     def newGluePred(argSorts : Seq[Sort]) : Predicate = {
       gluePredCounter += 1
       val newPred = new MonoSortedPredicate(
-        s"_Glue$gluePredCounter", argSorts)
+        s"$gluePredName$gluePredCounter", argSorts)
       tempPredicates += newPred
       // TODO: update hints
       newPred
@@ -293,15 +296,14 @@ class ClauseSplitterFuncsAndUnboundTerms(
           clauseDags push headDag
           clauseDags push tailDag
         }
-        //        println("\nStarting DAG: ")
-        //        clauseDag.prettyPrint
-
-        //        println("\nSplit DAG(s):")
-        //        for ((dag, i) <- clauseDags.reverse.zipWithIndex) {
-        //          println(s"DAG $i:")
-        //          dag.prettyPrint
-        //          println
-        //        }
+//        println(clauseDagToClause(clauseDag).toPrologString)
+//        Util.show(clauseDag, "dag-init.png", false)
+//
+//        for ((dag, i) <- clauseDags.reverse.zipWithIndex) {
+//          print("-- ")
+//          println(clauseDagToClause(dag).toPrologString)
+//          Util.show(dag, s"dag-$i.png", false)
+//        }
         clauseNewDags += clause -> clauseDags.reverse
         clauseNewPreds += clause -> clausePreds.toSet
       }
