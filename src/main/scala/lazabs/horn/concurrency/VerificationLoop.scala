@@ -219,9 +219,11 @@ class VerificationLoop(system : ParametricEncoder.System,
         val allPredicates =
           HornClauses allPredicates encoder.allClauses
 
-        SMTLineariser("C_VC", "HORN", "unknown",
-                      List(), allPredicates.toSeq.sortBy(_.name),
-                      clauseFors)
+        SMTLineariser.printWithDecls(benchmarkName  = "C_VC",
+                                     logic          = "HORN",
+                                     predsToDeclare =
+                                       allPredicates.toSeq.sortBy(_.name),
+                                     formulas       = clauseFors)
       }
       out.close
     }

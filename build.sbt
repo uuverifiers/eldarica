@@ -130,7 +130,8 @@ lazy val ccParser = (project in file("cc-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-CC-parser",
-    Compile / packageBin := baseDirectory.value / "cc-parser.jar"
+    Compile / packageBin := baseDirectory.value / "cc-parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "cc-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -139,7 +140,8 @@ lazy val tplspecParser = (project in file("template-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Eldarica-tplspec-parser",
-    Compile / packageBin := baseDirectory.value / "tplspec-parser.jar"
+    Compile / packageBin := baseDirectory.value / "tplspec-parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "tplspec-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -173,9 +175,6 @@ lazy val root = (project in file(".")).
     assembly / test := None,
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
-//
-    libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
 //
     libraryDependencies +=
@@ -190,10 +189,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.17" % "test",
 //
-    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2024-03-22"
+//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2024-03-22"
 //
-//    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //

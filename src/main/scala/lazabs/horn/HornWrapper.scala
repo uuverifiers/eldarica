@@ -259,8 +259,10 @@ class HornWrapper(constraints  : Seq[HornClause],
            c.predicates
          }).flatten.toSet.toList
 
-      SMTLineariser("", "HORN", "", Nil, predsToDeclare,
-                    simplifiedClauses.map(_ toFormula))
+      SMTLineariser.printWithDecls(logic          = "HORN",
+                                   predsToDeclare = predsToDeclare,
+                                   formulas       =
+                                     simplifiedClauses.map(_ toFormula))
 
       throw PrintingFinishedException
     }
