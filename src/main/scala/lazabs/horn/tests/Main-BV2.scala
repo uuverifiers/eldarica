@@ -60,7 +60,7 @@ object MainBV2 extends App {
 
     SimpleWrapper.solve(prop :: defClauses, useTemplates = true,
                         debuggingOutput = true) match {
-      case Left(sol) => println("sat"); println(sol mapValues (pp(_)))
+      case Left(sol) => println("sat"); println(sol.mapValues(pp(_)).toMap)
       case Right(cex) => println("unsat"); println(cex)
     }
   }
