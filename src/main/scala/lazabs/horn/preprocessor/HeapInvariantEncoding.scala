@@ -190,9 +190,10 @@ class HeapInvariantEncoding extends HornPreprocessor {
  * split the original clause into num_reads, and then transform each clause
  * with a read into two clauses, leading to num_reads*2 clauses.
 */
-    // Each heap theory
+    val invariantAssertions = new ArrayBuffer[HornClauses.Clause]
+    val newClauses = new ArrayBuffer[HornClauses.Clause]
     for (heap <- heapTheories) {
-      val newClauses = new ArrayBuffer[HornClauses.Clause]
+
       val inv = heapInvariantPerHeap(heap)
       for (clause <- currentClauses) {
         val conjuncts =
@@ -204,77 +205,82 @@ class HeapInvariantEncoding extends HornPreprocessor {
             (h, a)
         }.toMap
 
-        var addedThisClause = false
-        for (conjunct <- conjuncts) {
-          conjunct match {
-            // alloc(h0, o) == ar: push inv(allocAddr(h0, o), o)
-            case Eq(IFunApp(heap.alloc, Seq(IConstant(h0), IConstant(o))),
-                    IConstant(ar)) =>
-              val a = heap.newAddr(ar)
-              val newClause = Clause(inv(a, o), clause.body, clause.constraint)
-              newClauses += newClause
-              backMapping += newClause -> clause
-              newClauses += clause
-              assert(!addedThisClause)
-              addedThisClause = true
+        for (conjunct <- conjuncts) conjunct match {
+          // alloc(h0, o) == ar: push inv(allocAddr(h0, o), o)
+          case Eq(IFunApp(heap.alloc, Seq(IConstant(h0), IConstant(o))),
+                  IConstant(ar)) =>
+            val a         = heap.newAddr(ar)
+            val newClause = Clause(inv(a, o), clause.body, clause.constraint)
+            invariantAssertions += newClause
+            backMapping += newClause -> clause
 
-            // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
-            case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
-                    IConstant(h1)) =>
-              val aTerm = IConstant(new SortedConstantTerm("a", heap.AddressSort))
-              val a = if (oldHeapToAddrAfterAlloc contains h0) {
-                IConstant(oldHeapToAddrAfterAlloc(h0))
-              } else if(lazabs.GlobalParameters.get.eliminateHeaps) {
-                heap.counter(h0) + 1
-              } else {
-                heap.allocAddr(h0, o)
-              }
-              val newClause = Clause(inv(aTerm, o), clause.body, clause.constraint &&& a === aTerm)
-              newClauses += newClause
-              backMapping += newClause -> clause
-              newClauses += clause
-              assert(!addedThisClause)
-              addedThisClause = true
+          // allocHeap(h0, o) == h1: push inv(allocAddr(h0, o), o)
+          case Eq(IFunApp(heap.allocHeap, Seq(IConstant(h0), IConstant(o))),
+                  IConstant(h1)) =>
+            val aTerm     = IConstant(
+              new SortedConstantTerm("a", heap.AddressSort))
+            val a         = if (oldHeapToAddrAfterAlloc contains h0) {
+              IConstant(oldHeapToAddrAfterAlloc(h0))
+            } else if (lazabs.GlobalParameters.get.eliminateHeaps) {
+              heap.counter(h0) + 1
+            } else {
+              heap.allocAddr(h0, o)
+            }
+            val newClause = Clause(inv(aTerm, o), clause.body,
+                                   clause.constraint &&& a === aTerm)
+            invariantAssertions += newClause
+            backMapping += newClause -> clause
 
-            // write(h0, a, o) == h1: push inv(a, o) if valid(h0, a)
-            case Eq(IFunApp(heap.write,
-                            Seq(IConstant(h0), IConstant(a), IConstant(o))),
-                    IConstant(h1)) =>
-              val newClause = Clause(inv(a, o), clause.body,
-                                     clause.constraint &&& heap.isAlloc(h0, a))
-              newClauses += newClause
-              backMapping += newClause -> clause
-              newClauses += clause
-              assert(!addedThisClause)
-              addedThisClause = true
+          // write(h0, a, o) == h1: push inv(a, o) if valid(h0, a)
+          case Eq(IFunApp(heap.write,
+                          Seq(IConstant(h0), IConstant(a), IConstant(o))),
+                  IConstant(h1)) =>
+            val newClause = Clause(inv(a, o), clause.body,
+                                   clause.constraint &&& heap.isAlloc(h0, a))
+            invariantAssertions += newClause
+            backMapping += newClause -> clause
 
-            // read(h, a) == o: replace original clause with two clauses:
-            //   1) head :- body & valid(h, a) & I(a, o)
-            //   2) head :- body & !valid(h,a)
-            case Eq(IFunApp(heap.read,
-                            Seq(IConstant(h), IConstant(a))),
-                    IConstant(o)) =>
-              val newClause1 =
-                Clause(clause.head, inv(a, o) :: clause.body,
-                       clause.constraint &&& heap.isAlloc(h, a))
-              val newClause2 =
-                Clause(clause.head, clause.body,
-                       clause.constraint &&& !heap.isAlloc(h, a) &&&
-                         heap._defObj === o)
-              newClauses ++= Seq(newClause1, newClause2)
-              backMapping ++= Map(newClause1 -> clause, newClause2 -> clause)
-              assert(!addedThisClause)
-              addedThisClause = true
-            case _ =>
-//              println(s"Ignoring conjunct $conjunct in clause ${clause.toPrologString}")
+          case _ =>
+          //              println(s"Ignoring conjunct $conjunct in clause
+          //              ${clause.toPrologString}")
 
-            // todo: handle unbound heap terms
-          }
+          // todo: handle unbound heap terms
         }
-        if (!addedThisClause)
-          newClauses += clause
       }
-      currentClauses = newClauses
+
+      for (clause <- currentClauses ++ invariantAssertions) {
+        val conjuncts =
+          LineariseVisitor(Transform2NNF(clause.constraint), IBinJunctor.And)
+        var hasRead = false
+        for (conjunct <- conjuncts) conjunct match {
+          // read(h, a) == o: replace original clause with two clauses:
+          //   1) head :- body & valid(h, a) & I(a, o)
+          //   2) head :- body & !valid(h,a) & o = defObj
+          case Eq(IFunApp(heap.read,
+                          Seq(IConstant(h), IConstant(a))),
+                  IConstant(o)) =>
+            val newClause1 =
+              Clause(clause.head,
+                     inv(a, o) :: clause.body,
+                     clause.constraint &&& heap.isAlloc(h, a))
+            val newClause2 =
+              Clause(clause.head,
+                     clause.body,
+                     clause.constraint &&& !heap.isAlloc(h, a) &&&
+                       heap._defObj === o)
+            newClauses ++= Seq(newClause1, newClause2)
+            backMapping ++= Map(newClause1 -> clause, newClause2 -> clause)
+            hasRead = true
+          case _ => // nothing
+        }
+
+        if (!hasRead) {
+          newClauses += clause
+          if (!invariantAssertions.contains(clause))
+            backMapping += clause -> clause
+        }
+        currentClauses = newClauses
+      }
     }
 
     val backTranslator = new BackTranslator {

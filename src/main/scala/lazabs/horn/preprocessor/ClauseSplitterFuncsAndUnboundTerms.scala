@@ -137,6 +137,7 @@ object ClauseSplitterFuncsAndUnboundTerms {
  */
 class ClauseSplitterFuncsAndUnboundTerms(
   functionsToSplitOn            : Set[IFunction],
+  functionsToOrderOn            : Set[IFunction], // used optionally if full ordering fails
   sortsForUnboundTermsToSplitOn : Set[Sort],
   gluePredName                  : String,
   functionOrdering              : Option[Ordering[IFunction]] = None)
@@ -172,9 +173,6 @@ class ClauseSplitterFuncsAndUnboundTerms(
     val remainingClauses = new MStack[Clause]
     clauses.reverse.foreach(remainingClauses push)
 
-    val clauseGraphs : Map[Clause, ClauseTermGraph] = clauses.map(
-      clause => (clause, new ClauseTermGraph(clause, functionsToSplitOn))).toMap
-
     // A custom ordering used when combining subDags during topological sorting
     val dagOrdering : Ordering[Dag[Node]] = new Ordering[Dag[Node]] {
       // Extract the last FunAppNode from a Dag[Node] containing a
@@ -206,19 +204,28 @@ class ClauseSplitterFuncsAndUnboundTerms(
       }
     }
 
-    val clauseDags : Map[Clause, Dag[Node]] = clauseGraphs.map{
-      case (clause, graph) =>
-        graph.topologicalSort(dagOrdering) match {
-          case Some(dag) => (clause, dag)
-          case None =>
-//            graph.show("failedClause.png")
-            println(
-              s"Warning: cannot apply ($name) because a clause cannot be" +
-                "converted to a DAG (from body to head)\n" + clause
-                .toPrologString + "\n" +
-                "Applying identity transformation instead.")
-            return (clauses, hints, IDENTITY_TRANSLATOR)
-        }
+    val clauseGraphs = scala.collection.mutable.Map[Clause, ClauseTermGraph]()
+    val clauseDags = scala.collection.mutable.Map[Clause, Dag[Node]]()
+
+    for (clause <- clauses) {
+      val fullyOrderedGraph = new ClauseTermGraph(clause, Set())
+      clauseGraphs(clause) = fullyOrderedGraph
+
+      fullyOrderedGraph.topologicalSort(dagOrdering) match {
+        case Some(dag) =>
+          clauseDags(clause) = dag
+        case None =>
+          val partiallyOrderedGraph = new ClauseTermGraph(clause, functionsToOrderOn)
+          clauseGraphs(clause) = partiallyOrderedGraph  // Update with the more detailed graph
+          partiallyOrderedGraph.topologicalSort(dagOrdering) match {
+            case Some(dag) =>
+              clauseDags(clause) = dag
+            case None =>
+//              partiallyOrderedGraph.show("failedClause.png")
+//              println(s"Warning: cannot apply ($name) because a clause cannot be converted to a DAG (from body to head)\n${clause.toPrologString}\nApplying identity transformation instead.")
+              return (clauses, hints, IDENTITY_TRANSLATOR)
+          }
+      }
     }
 
     val clauseNewDags  = new MHashMap[Clause, Seq[Dag[Node]]]

@@ -1,5 +1,4 @@
 package lazabs.horn.preprocessor
-import ap.SimpleAPI
 import ap.parser.IExpression.{ConstantTerm, Predicate}
 import ap.parser._
 import ap.theories.Heap.HeapFunExtractor
@@ -106,10 +105,12 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
               // TODO: do not use defObj from the old heap, this is incorrect
               //   below only works when printing and not trying to solve directly
               heap._defObj
-            case _ => heap._defObj
+            case _ =>
+              assert(false)
+              heap._defObj
           }
           adtCtors(taggedObjCtorInd)(o, -100)
-      }
+        }
 
         val newHeap = new Heap(heapSortName = heap.HeapSort.name,
                                addressSortName = heap.AddressSort.name,
@@ -161,18 +162,63 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
 
     val oldPredToNewPred = Map() ++ predBackMapping.map(_.swap)
 
+    class TagGenerator(tagOffset : Int) {
+      private var curTag = tagOffset
+      private var clauseId = -1
+      private val usedTagsPerClauseId = new MHashMap[Int, MHashMap[IFunApp, Int]]
+
+      def setClauseId(id : Int) : Unit = {
+        assert(!usedTagsPerClauseId.contains(id))
+        clauseId = id
+        usedTagsPerClauseId += id -> new MHashMap[IFunApp, Int]
+      }
+
+      def getUsedIdsForClause : Set[Int] =
+        usedTagsPerClauseId(clauseId).values.toSet
+
+      private def getOrCreateTag(funApp  : IFunApp,
+                                 matcher : IFunApp => Boolean) : Int = {
+        usedTagsPerClauseId(clauseId).find { case (app, _) => matcher(app) } match {
+          case Some((_, id)) => id
+          case None =>
+            curTag += 1
+            usedTagsPerClauseId(clauseId) += funApp -> curTag
+            curTag
+        }
+      }
+
+      def getTag(funApp : IFunApp) : Int = funApp match {
+        case IFunApp(f@Heap.HeapFunExtractor(hp), Seq(h, o))
+          if f == hp.allocHeap || f == hp.allocAddr =>
+          getOrCreateTag(funApp, {
+            case IFunApp(otherFun, Seq(h2, o2)) =>
+              ((otherFun == hp.allocHeap || otherFun == hp.allocAddr) && h2 == h && o2 == o) ||
+              usedTagsPerClauseId(clauseId).contains(funApp)
+            case _ => false
+          })
+        case _ => getOrCreateTag(funApp, _ => false)
+      }
+    }
+
+
     for ((oldHeap, newHeap) <- oldHeapToNewHeap) {
-      for ((clause, tag) <- clauses zipWithIndex) {
+      val tagGenerator = new TagGenerator(tagOffset = updateSiteIds.size)
+      for ((clause, id) <- clauses zipWithIndex) {
+        tagGenerator.setClauseId(id)
         val rewriter = new HeapClauseRewriter(
-          oldHeap, newHeap, oldPredToNewPred, oldToNewSortMap, clause, tag)
-        val (newClause, usedTag) = rewriter.rewriteClause
+          oldHeap, newHeap, oldPredToNewPred, oldToNewSortMap, clause, tagGenerator.getTag)
+        val newClause = rewriter.rewriteClause
         assert(!newClause.theories.exists(
           t => t == oldHeap || t == oldHeap.heapADTs),
           "HeapUpdateSiteTagger error: Rewritten clauses contain theories" +
           "from the original heap.")
         clauseBackMapping += newClause -> clause
-        if (usedTag)
-          updateSiteIds += tag
+//        println("tagged: " + newClause.toPrologString)
+//        println("orig  : " + clause.toPrologString)
+//        println
+        val clauseTags = tagGenerator.getUsedIdsForClause
+        assert(updateSiteIds.intersect(clauseTags).isEmpty)
+        updateSiteIds ++= clauseTags
       }
     }
 
@@ -217,7 +263,7 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
                            oldToNewPredMap : Map[Predicate, Predicate],
                            oldToNewSortMap : Map[Sort, Sort],
                            clause          : Clause,
-                           tagId           : Int)
+                           getTag          : IFunApp => Int)
     extends CollectingVisitor[Unit, IExpression] {
 
     assert(clause.predicates.forall(oldToNewPredMap contains))
@@ -239,16 +285,15 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
     val oldToNewTheoryPredMap : Map[Predicate, Predicate] =
       (oldHeap.predefPredicates zip newHeap.theory.predefPredicates).toMap
 
-    private var usedTag = false
     /**
      * Rewrites a clause and returns the rewritten clause paired with
      * a flag to signal if the passed [[tagId]] is used.
      */
-    def rewriteClause : (Clause, Boolean) = {
+    def rewriteClause : Clause = {
       val newConstraint = visit(clause.constraint, ()).asInstanceOf[IFormula]
       val newHead = visit(clause.head, ()).asInstanceOf[IAtom]
       val newBody = clause.body.map(a => visit(a, ()).asInstanceOf[IAtom])
-      (Clause(newHead, newBody, newConstraint), usedTag)
+      Clause(newHead, newBody, newConstraint)
     }
 
     override def postVisit(t : IExpression, arg : Unit,
@@ -285,24 +330,20 @@ class HeapUpdateSiteTagger extends HornPreprocessor {
               Sort.Integer.ex(t => newHeap.theory.read(funApp.args : _*) ===
                 newHeap.taggedObjCtor(rhs, t))
             case hp.write =>
-              usedTag = true
               val Seq(h, a, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.write(
-                h, a, newHeap.taggedObjCtor(o, tagId)) === rhs
+                h, a, newHeap.taggedObjCtor(o, getTag(funApp))) === rhs
             case hp.alloc =>
-              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
-              newHeap.theory.alloc(h, newHeap.taggedObjCtor(o, tagId)) === rhs
+              newHeap.theory.alloc(h, newHeap.taggedObjCtor(o, getTag(funApp))) === rhs
             case hp.allocHeap =>
-              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.allocHeap(
-                h, newHeap.taggedObjCtor(o, tagId)) === rhs
+                h, newHeap.taggedObjCtor(o, getTag(funApp))) === rhs
             case hp.allocAddr =>
-              usedTag = true
               val Seq(h, o) = funApp.args.map(_.asInstanceOf[IConstant])
               newHeap.theory.allocAddr(
-                h, newHeap.taggedObjCtor(o, tagId)) === rhs
+                h, newHeap.taggedObjCtor(o, getTag(funApp))) === rhs
             case _ =>
               t update subres
           }

@@ -446,7 +446,7 @@ object Util {
 //    case object PseudoNode extends Node
 
     case class ConstNode(c : IConstant) extends Node {
-      override def toString : String = s"$c (${c.hashCode})"
+      override def toString : String = s"\'$c (${c.hashCode})\'"
     }
 
     class AtomNode(a : IAtom) extends Node {
@@ -505,7 +505,7 @@ object Util {
     }
   }
 
-  class ClauseTermGraph(clause : Clause, funsWithDirection : Set[IFunction]) {
+  class ClauseTermGraph(clause : Clause, funsWithDirection : Set[IFunction] = Set()) {
     import ClauseTermGraph._
 
     // TODO: optimize
@@ -545,7 +545,8 @@ object Util {
       conjunct match {
         case IBoolLit(true) => // ignore - used as pseudo-root
         case Eq(funApp@IFunApp(f, args), IConstant(_))
-          if funsWithDirection.contains(f) && args.isEmpty =>
+          if funsWithDirection.contains(f) && args.isEmpty ||
+             funsWithDirection.isEmpty =>
           // 0-ary function applications (constants)
           val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
           for (fromArg <- node.fromArgs) {
@@ -554,7 +555,8 @@ object Util {
           curEdges += Edge(node, ConstNode(node.toArg))
           curNodes += node
         case Eq(funApp@IFunApp(f, args), IConstant(_))
-          if funsWithDirection.contains(f) && args.nonEmpty =>
+          if funsWithDirection.contains(f) && args.nonEmpty ||
+             funsWithDirection.isEmpty =>
           val node = FunAppNode(funApp, conjunct.asInstanceOf[IEquation])
           for (fromArg <- node.fromArgs) {
             curEdges += Edge(ConstNode(fromArg), node)

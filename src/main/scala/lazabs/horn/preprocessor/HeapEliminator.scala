@@ -164,7 +164,12 @@ class HeapEliminator extends HornPreprocessor {
           case DagEmpty => DagEmpty
         }
     }
-    assert(newClauses.flatMap(_.theories).forall(t => !t.isInstanceOf[Heap]))
+//    val c = newClauses.filter(c => c.theories.exists(_.isInstanceOf[Heap]))
+//    c.foreach(c => println(c.toPrologString))
+    // The following assertion does not necessarily hold here, there might be
+    // heap-conjuncts remaining that will be eliminated by constraint simplifier,
+    // and there might also be the HeapTuple ADT with a heap selector.
+//    assert(newClauses.flatMap(_.theories).forall(t => !t.isInstanceOf[Heap]))
     (newClauses, hints, backTranslator)
   }
 
@@ -280,6 +285,10 @@ class HeapEliminator extends HornPreprocessor {
         val h = subres(0).asInstanceOf[ITerm]
         val a = subres(1).asInstanceOf[ITerm]
         i(true) //h >= a &&& a > 0
+
+      /** !valid(h,a) */
+      case INot(IAtom(pred, _)) if pred == heap.isAlloc =>
+        i(true)
 
       case _ =>
         t update subres

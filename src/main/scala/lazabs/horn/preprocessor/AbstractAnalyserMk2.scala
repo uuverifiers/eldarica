@@ -132,7 +132,7 @@ object AbstractAnalyserMk2 {
 
       /** Compute the initial local element by constraining top local element
         * with the values coming from the clause body.
-       * Will return None if any element becomes botLocalElement.
+        * Will return None if any element becomes botLocalElement.
         */
       val initialLocalElement : Option[LocalElement] = {
         (clause.body zip bodyValues).foldLeft(Option(topLocalElement)){
@@ -140,6 +140,7 @@ object AbstractAnalyserMk2 {
             accOpt.flatMap{accElem =>
               val (bodyAtom, bodyElement) = bodyAtomElem
               meet(accElem, localElementForAtom(bodyElement, bodyAtom)) match {
+                case e if e == topLocalElement => Some(e)
                 case e if e == botLocalElement => None
                 case e => Some(e)
               }

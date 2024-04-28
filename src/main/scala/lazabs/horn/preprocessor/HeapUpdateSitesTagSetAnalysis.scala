@@ -36,7 +36,7 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
     val heaps : Set[Heap] =
       clauses.flatMap(c => c.theories).collect{case h : Heap => h}.toSet
 
-    /** 1) Create a tuple sort to rewrite the heap sort with in the CHCs. */
+    /** 1) Create a tuple sort to rewrite the heap sort within the CHCs. */
     val heapToHeapTuple : Map[Heap, ADT] = (for (heap <- heaps) yield {
       val heapName = heap.HeapSort.name
       val tupleName = s"${heapName}Tuple"
@@ -97,6 +97,7 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
           .asInstanceOf[IFormula]), IBinJunctor.And)
       val newConjuncts = new ArrayBuffer[IFormula]
       val additionalBodyAtoms = new ArrayBuffer[IAtom]
+      val tagSetAssertions = new ArrayBuffer[(Clause, Boolean)]
       for (conjunct <- conjuncts) conjunct match {
         /** emptyHeap() = t */
         case Eq(IFunApp(f@HeapFunExtractor(hp), _), t) if f == hp.emptyHeap =>
@@ -107,16 +108,17 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
         /** write(t1, a, TaggedObject(o, i)) = t2 */
         case Eq(IFunApp(f@HeapFunExtractor(hp),
                Seq(t1, a, tagO@IFunApp(_, Seq(o, i)))), t2) if f == hp.write =>
-          val tupleCtor = heapToHeapTuple(hp).constructors.head
-          val getHeap = heapToHeapTuple(hp).selectors(0)(0)
+          val tupleCtor  = heapToHeapTuple(hp).constructors.head
+          val getHeap    = heapToHeapTuple(hp).selectors(0)(0)
           val getLastTag = heapToHeapTuple(hp).selectors(0)(1)
-          val getPg = heapToHeapTuple(hp).selectors(0)(2)
-          val newTag = IConstant(new ConstantTerm("newTag"))
+          val getPg      = heapToHeapTuple(hp).selectors(0)(2)
+          val newTag     = IConstant(new ConstantTerm("newTag"))
           newConjuncts +=
-            t2 === tupleCtor(hp.write(getHeap(t1),a, tagO), newTag, getPg(t1))
-          newConjuncts +=
-            (getPg(t1) =/= a ||| newTag === i) &&&
-              (getPg(t1) === a ||| newTag === getLastTag(t1))
+            t2 === tupleCtor(hp.write(getHeap(t1), a, tagO), newTag, getPg(t1))
+//          newConjuncts +=
+//            (getPg(t1) =/= a ||| newTag === i) &&&
+//              (getPg(t1) === a ||| newTag === getLastTag(t1))
+          newConjuncts += newTag === IExpression.ite(getPg(t1) === a, i, getLastTag(t1))
 
         /** allocHeap(t1, TaggedObject(o, i)) = t2 */
         case Eq(IFunApp(f@HeapFunExtractor(hp),
@@ -129,14 +131,15 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
           val newTag = IConstant(new ConstantTerm("newTag"))
           newConjuncts +=
             t2 === tupleCtor(hp.allocHeap(getHeap(t1), tagO), newTag, getPg(t1))
-          newConjuncts +=
-            (getPg(t1) =/= a ||| newTag === i) &&& // a = pg ==> tag = i
-              (getPg(t1) === a ||| newTag === getLastTag(t1)) // a != pg ==> tag = lastTag
+//          newConjuncts +=
+//            (getPg(t1) =/= a ||| newTag === i) &&& // a = pg ==> tag = i
+//              (getPg(t1) === a ||| newTag === getLastTag(t1)) // a != pg ==> tag = lastTag
+          newConjuncts += newTag === IExpression.ite(getPg(t1) === a, i, getLastTag(t1))
 
         /** allocAddr(t, TaggedObject(o, i)) = a */
         case Eq(IFunApp(f@HeapFunExtractor(hp),
                         Seq(t, tagO@IFunApp(_, Seq(o, i)))), a) if f == hp.allocAddr =>
-          val getHeap    = heapToHeapTuple(hp).selectors(0)(0)
+          val getHeap = heapToHeapTuple(hp).selectors(0)(0)
           newConjuncts += hp.allocAddr(getHeap(t), tagO) === a
 
         /** counter(t) = c --> counter(h) = c */
@@ -155,21 +158,28 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
           val getHeap    = heapToHeapTuple(hp).selectors(0)(0)
           val getLastTag = heapToHeapTuple(hp).selectors(0)(1)
           val getPg      = heapToHeapTuple(hp).selectors(0)(2)
-          val oldLastTag = IConstant(new ConstantTerm("newLastTag"))
-          val tagSetAssertionConjunct =
+          val oldLastTag = IConstant(new ConstantTerm("oldLastTag"))
+          val (tagSetAssertionConjunct, needsFullConstraint) =
             if (clause.body.flatMap(_.args) contains t) {
-              getPg(t) === a &&& getLastTag(t) === oldLastTag
+              (getPg(t) === a &&& getLastTag(t) === oldLastTag, false)
             } else {
-              getPg(t) === a &&& and(conjuncts)
+              (getPg(t) === a, true)
             }
-          val tagSetAssertion = Clause(tagSetPred(oldLastTag),
-            clause.body, tagSetAssertionConjunct)
-          clauseBackMapping += tagSetAssertion -> clause
+          // note that these assertion clauses are incomplete, they are
+          // completed after the conjuncts are fully rewritten
+          tagSetAssertions +=
+            ((Clause(tagSetPred(oldLastTag), clause.body, tagSetAssertionConjunct), needsFullConstraint))
           val tagC = new ConstantTerm("tag")
           additionalBodyAtoms += tagSetPred(tagC)
           newConjuncts += hp.read(getHeap(t), a) === taggedObjCtor(o, tagC)
 
         case Eq(IFunApp(f@HeapFunExtractor(hp), _), _) if f == hp.nullAddr =>
+          newConjuncts += conjunct
+
+        case IAtom(f@HeapPredExtractor(hp), _) if f == hp.isAlloc =>
+          newConjuncts += conjunct
+
+        case INot(IAtom(f@HeapPredExtractor(hp), _)) if f == hp.isAlloc =>
           newConjuncts += conjunct
 
         case Eq(IFunApp(f@HeapFunExtractor(hp), _), _) =>
@@ -185,6 +195,11 @@ class HeapUpdateSitesTagSetAnalysis extends HornPreprocessor {
       val newClause = Clause(clause.head,
                              clause.body ++ additionalBodyAtoms, newConstraint)
       clauseBackMapping += newClause -> clause
+      for ((Clause(head, body, c), needsFullConstraint) <- tagSetAssertions) {
+        clauseBackMapping += Clause(head, body, c &&&
+          (if(needsFullConstraint) newConstraint else i(true))
+                                    ) -> clause
+      }
     }
 
     /**
@@ -264,7 +279,8 @@ class ValidAtomRewriter(heapToHeapTuple : Map[Heap, ADT])
       /** valid(t,a) */
       case IAtom(p@HeapPredExtractor(hp), Seq(t, a)) if p == hp.isAlloc =>
         val getHeap = heapToHeapTuple(hp).selectors(0)(0)
-        hp.isAlloc(getHeap(t), a)
+        hp.isAlloc(getHeap(subres(0).asInstanceOf[ITerm]),
+                           subres(1).asInstanceOf[ITerm])
       case _ => t update subres
     }
   }
