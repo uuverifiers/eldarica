@@ -423,9 +423,11 @@ class SMTHornReader protected[parser] (
 
     if (ContainsSymbol(clause, (x:IExpression) => x match {
           case IFunApp(f, _) => !(TheoryRegistry lookupSymbol f).isDefined
+          case IConstant(_) => true
           case _ => false
         }))
-      throw new Exception ("Uninterpreted functions are not supported")
+      throw new Exception (
+        "Uninterpreted functions or constants in clauses are not supported")
 
     clause =
       if (elimArrays) {
