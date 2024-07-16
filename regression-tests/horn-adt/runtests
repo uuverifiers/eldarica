@@ -12,7 +12,8 @@ TESTS="simple-adt-horn.smt2 \
        testers.smt2 \
        tuple.smt2 \
        tuple2.smt2 \
-       polymorphicTuple.smt2"
+       polymorphicTuple.smt2 \
+       adt-bug.smt2"
 
 for name in $TESTS; do
     echo

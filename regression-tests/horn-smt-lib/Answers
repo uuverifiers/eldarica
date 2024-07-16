@@ -358,3 +358,7 @@ Warning: ignoring exit
 unsat
 
 0: FALSE
+
+illformed.smt2
+Warning: ignoring get-model
+(error "Uninterpreted functions or constants in clauses are not supported")

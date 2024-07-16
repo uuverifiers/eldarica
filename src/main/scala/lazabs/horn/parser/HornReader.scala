@@ -238,8 +238,7 @@ class SMTHornReader protected[parser] (
          p : SimpleAPI) {
 
   import IExpression._
-  import HornReader.{cnf_if_needed, PredUnderQuantifierVisitor,
-                     QuantifiedBodyPredsVisitor, DivZeroEliminator}
+  import HornReader.{cnf_if_needed, QuantifiedBodyPredsVisitor, DivZeroEliminator}
 
   private val outStream =
      if (lazabs.GlobalParameters.get.logStat)
@@ -424,9 +423,11 @@ class SMTHornReader protected[parser] (
 
     if (ContainsSymbol(clause, (x:IExpression) => x match {
           case IFunApp(f, _) => !(TheoryRegistry lookupSymbol f).isDefined
+          case IConstant(_) => true
           case _ => false
         }))
-      throw new Exception ("Uninterpreted functions are not supported")
+      throw new Exception (
+        "Uninterpreted functions or constants in clauses are not supported")
 
     clause =
       if (elimArrays) {
@@ -443,8 +444,6 @@ class SMTHornReader protected[parser] (
         EquivExpander(PartialEvaluator(clause))
       }
 
-//    println
-//    println(clause)
     // transformation to prenex normal form
     clause = Transform2Prenex(Transform2NNF(clause), Set(Quantifier.ALL))
 
@@ -466,15 +465,12 @@ class SMTHornReader protected[parser] (
         clause
       }
 
-//    println
-//    println(groundClause)
-    
     // transform to CNF and try to generate one clause per conjunct
     for (conjunctRaw <- cnf_if_needed(groundClause);
-         conjunct <- elimQuansTheories(conjunctRaw,
-                                       unintPredicates,
-                                       signature.theories,
-                                       elimArrays)) yield {
+         conjunct <- elimQuantifiers(conjunctRaw,
+                                     unintPredicates,
+                                     signature.theories,
+                                     elimArrays)) yield {
 
       for (c <- SymbolCollector constantsSorted conjunct;
            if (!(symMap contains c)))
@@ -587,85 +583,109 @@ class SMTHornReader protected[parser] (
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def elimQuansTheories(
-                clause : IFormula,
+  private def elimQuantifiers(
+                clause          : IFormula,
                 unintPredicates : LinkedHashSet[Predicate],
-                allTheories : Seq[Theory],
-                elimArrays : Boolean) : Seq[IFormula] = {
-
-    val containsArraySymbol =
-      ContainsSymbol(clause, (e : IExpression) => e match {
-        case IFunApp(f, _) => (TheoryRegistry lookupSymbol f) match {
-          case Some(_ : SimpleArray | _ : ExtArray) => true
-          case _ => false
-        }
-        case IAtom(p, _) => (TheoryRegistry lookupSymbol p) match {
-          case Some(_ : SimpleArray | _ : ExtArray) => true
-          case _ => false
-        }
-        case _ => false
-      })
-
-    val quanNum = QuantifierCountVisitor(clause)
-
-    if (quanNum == 0 && !(containsArraySymbol && elimArrays))
-      return List(clause)
-
-    if (containsArraySymbol || PredUnderQuantifierVisitor(clause))
+                allTheories     : Seq[Theory],
+                elimArrays      : Boolean) : Seq[IFormula] = {
+    val elim = new ClauseQuantifierEliminator(clause, unintPredicates,
+                                              allTheories, elimArrays)(p)
+    if (elim.incompleteTransformation)
       lazabs.GlobalParameters.get.didIncompleteTransformation = true
+    elim.result
+  }
+}
 
-    import p._
+///////////////////////////////////////////////////////////////////////////////
 
-    addTheories(allTheories)
+/**
+ * Class to eliminate different kinds of quantifiers in clauses. The
+ * class applies in particular to cases where body atoms are
+ * universally quantified. We then use e-matching to replace the
+ * quantified atoms with some set of instances.
+ */
+class ClauseQuantifierEliminator(rawClause       : IFormula,
+                                 unintPredicates : LinkedHashSet[IExpression.Predicate],
+                                 allTheories     : Seq[Theory],
+                                 elimArrays      : Boolean)
+                                (implicit p : SimpleAPI) {
+  import p._
+  import IExpression._
+  import HornReader.PredUnderQuantifierVisitor
 
-    def additionalAxioms(instantiatedPreds : Set[Predicate]) : Conjunction = {
-      val formula =
-        or(for (literal@IQuantified(Quantifier.EX, _) <-
-                  LineariseVisitor(clause, IBinJunctor.Or).iterator;
-                if (ContainsSymbol(literal, (x:IExpression) => x match {
+  // First simplify constraints
+  val clause =
+    QuantifierCountVisitor(rawClause) match {
+      case 0 => rawClause
+      case n => scope {
+        addTheories(allTheories)
+        addRelations(unintPredicates)
+        addConstantsRaw(SymbolCollector constantsSorted rawClause)
+        or(for (f <- LineariseVisitor(rawClause, IBinJunctor.Or))
+           yield simplify(f))
+      }
+    }
+
+  def containsArraySymbol(f : IFormula) =
+    ContainsSymbol(f, (e : IExpression) => e match {
+      case IFunApp(f, _) => (TheoryRegistry lookupSymbol f) match {
+        case Some(_ : SimpleArray | _ : ExtArray) => true
+        case _ => false
+      }
+      case IAtom(p, _) => (TheoryRegistry lookupSymbol p) match {
+        case Some(_ : SimpleArray | _ : ExtArray) => true
+        case _ => false
+      }
+      case _ => false
+    })
+
+  def additionalAxioms(instantiatedPreds : Set[Predicate]) : Conjunction = {
+    val formula =
+      or(for (literal@IQuantified(Quantifier.EX, _) <-
+              LineariseVisitor(clause, IBinJunctor.Or).iterator;
+              if (ContainsSymbol(literal, (x:IExpression) => x match {
                       case IAtom(p, _) => (unintPredicates contains p) &&
                                           !(instantiatedPreds contains p)
                       case _ => false
                     })))
-           yield {
-               var quanNum = 0
-               var formula : IFormula = literal
-               while (formula.isInstanceOf[IQuantified]) {
-                 val IQuantified(Quantifier.EX, h) = formula
-                 quanNum = quanNum + 1
-                 formula = h
-               }
+         yield {
+           var quanNum = 0
+           var formula : IFormula = literal
+           while (formula.isInstanceOf[IQuantified]) {
+             val IQuantified(Quantifier.EX, h) = formula
+             quanNum = quanNum + 1
+             formula = h
+           }
 
-               val newMatrix =
-                 or(for (h <- LineariseVisitor(formula, IBinJunctor.And).iterator)
-                    yield h match {
-                      case s@IAtom(p, _) => {
-                        (TheoryRegistry lookupSymbol p) match {
-                          case Some(t) if (t.functionalPredicates contains p) =>
-                            // nothing
-                          case _ =>
-                            throw new Exception(
+           val newMatrix =
+             or(for (h <- LineariseVisitor(formula, IBinJunctor.And).iterator)
+                yield h match {
+                  case s@IAtom(p, _) => {
+                    (TheoryRegistry lookupSymbol p) match {
+                      case Some(t) if (t.functionalPredicates contains p) =>
+                        // nothing
+                      case _ =>
+                        throw new Exception(
                               "Unexpected quantified clause literal: " + literal)
-                        }
-                        ~s
-                      }
-                      case s => s
-                    })
+                    }
+                    ~s
+                  }
+                  case s => s
+                })
 
-               quan(for (_ <- 0 until quanNum) yield Quantifier.ALL, newMatrix)
-             })
+           quan(for (_ <- 0 until quanNum) yield Quantifier.ALL, newMatrix)
+         })
       asConjunction(formula)
     }
 
-    val qfClauses = scope {
-      val qfClauses = new ArrayBuffer[Conjunction]
+  def elimQuantifiersByInstantiation(f : IFormula) : Seq[Conjunction] = scope {
+    val qfClauses = new ArrayBuffer[Conjunction]
 
-      addRelations(unintPredicates)
-      addConstantsRaw(SymbolCollector constantsSorted clause)
+    addTheories(allTheories)
+    addRelations(unintPredicates)
+    addConstantsRaw(SymbolCollector constantsSorted f)
 
-      // first eliminate quantifiers by instantiation
-
-      setupTheoryPlugin(new Plugin {
+    setupTheoryPlugin(new Plugin {
         import Plugin.GoalState
         override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
           goalState(goal) match {
@@ -689,73 +709,82 @@ class SMTHornReader protected[parser] (
           }
       })
 
-      ?? (clause)
-      checkSat(false)
-      while (getStatus(100) == ProverStatus.Running)
-        lazabs.GlobalParameters.get.timeoutChecker()
-
-      qfClauses
-    }
-
-    // then eliminate theory symbols
-    val resClauses = new ArrayBuffer[IFormula]
-
-    for (c <- qfClauses) scope {
+    ?? (f)
+    checkSat(false)
+    while (getStatus(100) == ProverStatus.Running)
       lazabs.GlobalParameters.get.timeoutChecker()
 
-      setMostGeneralConstraints(true)
+    qfClauses.toSeq
+  }
 
-      addConstantsRaw(c.order sort c.order.orderedConstants)
+  def elimTheories(c : Conjunction) : IFormula = scope {
+    lazabs.GlobalParameters.get.timeoutChecker()
 
-      val (unintBodyLits, theoryBodyLits) =
-        c.predConj.positiveLits partition (unintPredicates contains _.pred)
-      val (unintHeadLits, theoryHeadLits) =
-        c.predConj.negativeLits partition (unintPredicates contains _.pred)
+    addTheories(allTheories)
+    setMostGeneralConstraints(true)
 
-      if (unintHeadLits.size > 1)
-        throw new Exception (
-          "Multiple positive literals in a clause: " +
+    addConstantsRaw(c.order sort c.order.orderedConstants)
+
+    val (unintBodyLits, theoryBodyLits) =
+      c.predConj.positiveLits partition (unintPredicates contains _.pred)
+    val (unintHeadLits, theoryHeadLits) =
+      c.predConj.negativeLits partition (unintPredicates contains _.pred)
+
+    if (unintHeadLits.size > 1)
+      throw new Exception (
+        "Multiple positive literals in a clause: " +
           (unintHeadLits mkString ", "))
 
-      addAssertion(
-        c.updatePredConj(
-          c.predConj.updateLits(theoryBodyLits,
-                                theoryHeadLits)(c.order))(c.order))
+    addAssertion(
+      c.updatePredConj(
+        c.predConj.updateLits(theoryBodyLits,
+                              theoryHeadLits)(c.order))(c.order))
 
-      // Create new existential constants for the arguments of the
-      // individual atoms
-      def existentialiseAtom(a : Atom) : IAtom = {
-        val existConsts = createExistentialConstants(a.size)
+    // Create new existential constants for the arguments of the
+    // individual atoms
+    def existentialiseAtom(a : Atom) : IAtom = {
+      val existConsts = createExistentialConstants(a.size)
 
-        implicit val _order: TermOrder = order
-        import TerForConvenience._
+      implicit val _order: TermOrder = order
+      import TerForConvenience._
 
-        addAssertion(a === (for (IConstant(c) <- existConsts) yield c))
+      addAssertion(a === (for (IConstant(c) <- existConsts) yield c))
 
-        IAtom(a.pred, existConsts)
-      }
-
-      val newUnintHeadLits = unintHeadLits map (existentialiseAtom _)
-      val newUnintBodyLits = unintBodyLits map (existentialiseAtom _)
-
-      checkSat(false)
-      while (getStatus(100) == ProverStatus.Running)
-        lazabs.GlobalParameters.get.timeoutChecker()
-
-      resClauses += (??? match {
-        case ProverStatus.Unsat =>
-          Transform2NNF(getMinimisedConstraint |||
-                        ~and(newUnintBodyLits) |||
-                        or(newUnintHeadLits))
-        case ProverStatus.Sat | ProverStatus.Inconclusive =>
-          // then the resulting constraint is false
-          Transform2NNF(~and(newUnintBodyLits) |||
-                        or(newUnintHeadLits))
-      })
+      IAtom(a.pred, existConsts)
     }
 
-    reset
+    val newUnintHeadLits = unintHeadLits map (existentialiseAtom _)
+    val newUnintBodyLits = unintBodyLits map (existentialiseAtom _)
 
-    resClauses.toSeq
+    checkSat(false)
+    while (getStatus(100) == ProverStatus.Running)
+      lazabs.GlobalParameters.get.timeoutChecker()
+
+    ??? match {
+      case ProverStatus.Unsat =>
+        Transform2NNF(getMinimisedConstraint |||
+                      ~and(newUnintBodyLits) |||
+                      or(newUnintHeadLits))
+      case ProverStatus.Sat | ProverStatus.Inconclusive =>
+        // then the resulting constraint is false
+        Transform2NNF(~and(newUnintBodyLits) |||
+                      or(newUnintHeadLits))
+    }
   }
+
+  val (result, incompleteTransformation) : (Seq[IFormula], Boolean) = {
+    if (!PredUnderQuantifierVisitor(clause) &&
+        !(containsArraySymbol(clause) && elimArrays)) {
+      (List(clause), false)
+    } else {
+      // Instantiate quantified predicates
+      val qfClauses = elimQuantifiersByInstantiation(clause)
+
+      // then eliminate theory symbols
+      val resClauses = for (c <- qfClauses) yield elimTheories(c)
+
+      (resClauses, true)
+    }
+  }
+
 }

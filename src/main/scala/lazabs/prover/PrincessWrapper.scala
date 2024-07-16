@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2024 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -290,10 +290,10 @@ class PrincessWrapper {
       case BinaryExpression(left, BVBinPred(pred, bits), right) =>
         pred(bits, f2pterm(left), f2pterm(right))
        
-      case UnaryExpression(BV2Int(bits), arg) =>
-        ModuloArithmetic.cast2SignedBV(bits, f2pterm(arg))
-      case UnaryExpression(BV2Nat(bits), arg) =>
-        ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
+      case UnaryExpression(BV2Int(), arg) =>
+        ModuloArithmetic.cast2Int(f2pterm(arg))
+      case UnaryExpression(BV2Nat(), arg) =>
+        ModuloArithmetic.cast2Int(f2pterm(arg))
       case UnaryExpression(Int2BV(bits), arg) =>
         ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
 
@@ -482,7 +482,7 @@ class PrincessWrapper {
         val ModuloArithmetic.SignedBVSort(bits2) =
           ModuloArithmetic.ModSort(lower2, upper2)
         UnaryExpression(Int2BV(bits1),
-          UnaryExpression(BV2Int(bits2),
+          UnaryExpression(BV2Int(),
                           rvT(arg)).stype(IntegerType())).stype(BVType(bits1))
       }
 
@@ -496,11 +496,15 @@ class PrincessWrapper {
             UnaryExpression(Int2BV(bits), argExpr).stype(BVType(bits))
           case BVType(bits2) =>
             UnaryExpression(Int2BV(bits),
-              UnaryExpression(BV2Nat(bits2),
+              UnaryExpression(BV2Nat(),
                               argExpr).stype(IntegerType())).stype(BVType(bits))
           case t =>
             throw new Exception("Unhandled type: " + t)
         }
+      }
+
+      case IFunApp(ModuloArithmetic.int_cast, Seq(arg)) => {
+        UnaryExpression(BV2Int(), rvT(arg)).stype(IntegerType())
       }
 
       case IFunApp(fun, Seq(IIntLit(IdealInt(bits)), left, right))

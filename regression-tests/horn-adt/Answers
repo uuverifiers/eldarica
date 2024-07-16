@@ -79,5 +79,9 @@ polymorphicTuple.smt2
 sat
 (define-fun p1 ((A (Pair Int Int)) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
 
+adt-bug.smt2
+sat
+(define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (or (not (= B a)) (and (= D C) (= A 0))))
+
 list-synasc-unsat.smt2
 unsat
