@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2024 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -178,7 +178,7 @@ object HornSMTPrinter {
       case UnaryExpression(op : BVneg, e) => "(" + op.st + " " + printExp(e) + ")"
 
       case _ =>
-        throw new Exception("Invalid expression " + e)
+        throw new Exception("Don't know how to print expression " + e)
         ""
     }
     val head = printHornLiteral(h.head)
