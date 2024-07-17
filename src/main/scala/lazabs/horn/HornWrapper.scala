@@ -628,7 +628,7 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
         "----------------------------------- SYMEX " +
           "--------------------------------------")
 
-      symex.printInfo = true
+      symex.printInfo = lazabs.GlobalParameters.get.log
       symex.solve()
     }
 
