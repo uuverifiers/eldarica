@@ -146,8 +146,8 @@ object ASTree {
   case class BVsle(bits : Int)   extends BinaryOperator("bvsle")
   case class BVcomp(bits : Int)  extends BinaryOperator("bvcomp")
 
-  case class BV2Int()            extends UnaryOperator ("bv2int")
-  case class BV2Nat()            extends UnaryOperator ("bv2nat")
+  case class BV2Int(bits : Int)  extends UnaryOperator ("bv2int")
+  case class BV2Nat(bits : Int)  extends UnaryOperator ("bv2nat")
 
   case class Int2BV(bits : Int)  extends UnaryOperator ("int2bv")
 

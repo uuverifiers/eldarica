@@ -179,5 +179,13 @@ unsat
 
 0: FALSE
 
+sign-extend.smt2
+Warning: ignoring get-model
+sat
+
+bv2intnat.smt2
+Warning: ignoring get-model
+sat
+
 int2bv.smt2
 unsat
