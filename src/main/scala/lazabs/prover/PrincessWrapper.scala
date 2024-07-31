@@ -290,10 +290,10 @@ class PrincessWrapper {
       case BinaryExpression(left, BVBinPred(pred, bits), right) =>
         pred(bits, f2pterm(left), f2pterm(right))
        
-      case UnaryExpression(BV2Int(), arg) =>
-        ModuloArithmetic.cast2Int(f2pterm(arg))
-      case UnaryExpression(BV2Nat(), arg) =>
-        ModuloArithmetic.cast2Int(f2pterm(arg))
+      case UnaryExpression(BV2Int(bits), arg) =>
+        ModuloArithmetic.cast2SignedBV(bits, f2pterm(arg))
+      case UnaryExpression(BV2Nat(bits), arg) =>
+        ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
       case UnaryExpression(Int2BV(bits), arg) =>
         ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
 
@@ -482,7 +482,7 @@ class PrincessWrapper {
         val ModuloArithmetic.SignedBVSort(bits2) =
           ModuloArithmetic.ModSort(lower2, upper2)
         UnaryExpression(Int2BV(bits1),
-          UnaryExpression(BV2Int(),
+          UnaryExpression(BV2Int(bits2),
                           rvT(arg)).stype(IntegerType())).stype(BVType(bits1))
       }
 
@@ -496,15 +496,34 @@ class PrincessWrapper {
             UnaryExpression(Int2BV(bits), argExpr).stype(BVType(bits))
           case BVType(bits2) =>
             UnaryExpression(Int2BV(bits),
-              UnaryExpression(BV2Nat(),
+              UnaryExpression(BV2Nat(bits2),
                               argExpr).stype(IntegerType())).stype(BVType(bits))
           case t =>
             throw new Exception("Unhandled type: " + t)
         }
       }
 
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(lower), IIntLit(upper), arg)) => {
+        val ModuloArithmetic.SignedBVSort(bits) =
+          ModuloArithmetic.ModSort(lower, upper)
+        val argExpr = rvT(arg)
+        argExpr.stype match {
+          case BVType(_) =>
+            UnaryExpression(BV2Int(bits), argExpr).stype(IntegerType())
+          case t =>
+            throw new Exception("Unhandled type: " + t)
+        }
+      }
+
       case IFunApp(ModuloArithmetic.int_cast, Seq(arg)) => {
-        UnaryExpression(BV2Int(), rvT(arg)).stype(IntegerType())
+        val sub = rvT(arg)
+        sub.stype match {
+          case BVType(bits) =>
+            UnaryExpression(BV2Int(bits), sub).stype(IntegerType())
+          case t =>
+            throw new Exception("Unhandled type: " + t)
+        }
       }
 
       case IFunApp(fun, Seq(IIntLit(IdealInt(bits)), left, right))
