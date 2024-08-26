@@ -1,9 +1,7 @@
 #!/bin/sh
 
-if [ $(uname) = "Linux" ]; then
+if [ $(uname) = "Linux" -o $(uname) = "Darwin" ]; then
     pathCmd="readlink -f"
-elif [ $(uname) = "Darwin" ]; then
-    pathCmd="stat -f %N"
 else
     pathCmd="realpath"
 fi
