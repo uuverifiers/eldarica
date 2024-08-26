@@ -60,9 +60,6 @@ object PrincessWrapper {
        : (List[IExpression], LinkedHashMap[String, ConstantTerm]) =
     localWrapper.value.formula2Princess(ts, initialSymbolMap, keepReservoir)
 
-  def reduceDeBruijn(e: Expression): Expression =
-    localWrapper.value.reduceDeBruijn(e)
-
   def formula2Eldarica(t: IFormula,
                        symMap : Map[ConstantTerm, String],
                        removeVersions: Boolean): Expression =
@@ -364,22 +361,6 @@ class PrincessWrapper {
       throw new Exception ("" + t + " is not an array type")
   }
   
-  /**
-   * reduces all the debruijn indices by one
-   */
-  def reduceDeBruijn(e: Expression): Expression = e match {
-    case Existential(bv, body) => Existential(bv, reduceDeBruijn(body))
-    case Universal(bv, body) => Universal(bv, reduceDeBruijn(body))
-    case BinaryExpression(e1, op, e2) => BinaryExpression(reduceDeBruijn(e1), op, reduceDeBruijn(e2)).stype(IntegerType())
-    case TernaryExpression(op, e1, e2, e3) => TernaryExpression(op, reduceDeBruijn(e1), reduceDeBruijn(e2), reduceDeBruijn(e3)).stype(IntegerType())
-    case UnaryExpression(op, e) => UnaryExpression(op, reduceDeBruijn(e)).stype(IntegerType())
-    case v@Variable(name,Some(i)) => i match {
-      case 0 => Variable(name,None).stype(IntegerType())
-      case i => Variable("_" + (i-1),Some(i-1)).stype(IntegerType())
-    }
-    case _ => e
-  }
-
   
   /**
    * converts a formula in Princess format to a formula in Eldarica format
@@ -633,7 +614,7 @@ class PrincessWrapper {
       case ISortedQuantified(Quantifier.EX,
                              Sort.Integer, Var0Eq(varCoeff, remainder)) =>
        lazabs.ast.ASTree.Equality(
-         lazabs.ast.ASTree.Modulo(reduceDeBruijn(rvT(remainder)).stype(IntegerType()),
+         lazabs.ast.ASTree.Modulo(rvT(shiftVars(remainder, 1, -1)).stype(IntegerType()),
                                   rvT(varCoeff.abs).stype(IntegerType())),
          NumericalConst(0)).stype(BooleanType())
       case ISortedQuantified(Quantifier.EX, s, e) =>
