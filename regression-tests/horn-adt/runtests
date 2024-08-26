@@ -26,7 +26,7 @@ TESTS="de-brujin-bug.smt2"
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -pngNo -ssol -cex "$@" $name 2>&1 | grep -v "^Elapsed Time"
+    $LAZABS -pngNo -ssol -cex -abstractTO:4 "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
 # Examples with currently unstable output, do not show the counterexample
