@@ -59,6 +59,12 @@ object HornClauses {
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 
+  def allTheories(clauses : Iterable[Clause]) : Seq[Theory] = {
+    val coll = new TheoryCollector
+    clauses.foreach(_.collectTheories(coll))
+    coll.theories
+  }
+
   def allTermsSimple(terms : Iterable[ITerm]) : Boolean =
     terms forall {
       case SimpleTerm(_) => true
@@ -86,12 +92,16 @@ object HornClauses {
     lazy val predicates =
       (for (IAtom(p, _) <- (Iterator single head) ++ body.iterator) yield p).toSet
 
-    lazy val theories : Seq[Theory] = {
-      val coll = new TheoryCollector
+    def collectTheories(coll : TheoryCollector) : Unit = {
       coll(head)
       for (a <- body)
         coll(a)
       coll(constraint)
+    }
+
+    lazy val theories : Seq[Theory] = {
+      val coll = new TheoryCollector
+      collectTheories(coll)
       coll.theories
     }
 
