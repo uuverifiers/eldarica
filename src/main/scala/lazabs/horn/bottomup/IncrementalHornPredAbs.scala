@@ -113,7 +113,8 @@ class IncrementalHornPredAbs
     predStore.addIPredicates(initialPredicates)
 
     val cegar = new CEGAR(context, predStore,
-                          predicateGenerator, counterexampleMethod)
+                          predicateGenerator,
+                          counterexampleMethod = counterexampleMethod)
     cegar.rawResult
   }
 

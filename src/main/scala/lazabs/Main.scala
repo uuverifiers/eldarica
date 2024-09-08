@@ -108,6 +108,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
+  var cegarThreads : Int = 1
   var cegarHintsFile : String = ""
   var cegarPostHintsFile : String = ""
   var predicateOutputFile : String = ""
@@ -201,6 +202,7 @@ class GlobalParameters extends Cloneable {
     that.templateBasedInterpolationTimeout = this.templateBasedInterpolationTimeout
     that.portfolio = this.portfolio
     that.templateBasedInterpolationPrint = this.templateBasedInterpolationPrint
+    that.cegarThreads = this.cegarThreads
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
     that.predicateOutputFile = this.predicateOutputFile
@@ -419,6 +421,10 @@ object Main {
           (java.lang.Float.parseFloat(tTimeout.drop(12)) * 1000).toInt;
         arguments(rest)
 
+      case tFile :: rest if (tFile.startsWith("-threads:")) => {
+        cegarThreads = (tFile drop 9).toInt
+        arguments(rest)
+      }
       case tFile :: rest if (tFile.startsWith("-hints:")) => {
         cegarHintsFile = tFile drop 7
         arguments(rest)

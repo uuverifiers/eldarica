@@ -55,13 +55,16 @@ object CEGAR {
     override def toString = "<" + (from mkString ", ") + "> -> " + to + ", " + clause
   }
 
-  case class Counterexample(from : Seq[AbstractState], clause : NormClause)
-             extends Exception("Predicate abstraction counterexample")
-
   object CounterexampleMethod extends Enumeration {
     val FirstBestShortest, RandomShortest, AllShortest,
         MaxNOrShortest = Value
   }
+
+  abstract class GenEdgeResult
+  case object GERInconsistent                         extends GenEdgeResult
+  case class  GERNewEdge       (edge : AbstractEdge)  extends GenEdgeResult
+  case class  GERCounterexample(from : Seq[AbstractState],
+                                clause : NormClause)  extends GenEdgeResult
 
   val MaxNOr = 5
 
@@ -112,6 +115,48 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
   val postponedExpansions =
     new ArrayBuffer[(Seq[AbstractState], NormClause, Conjunction, nextToProcess.TimeType)]
 
+  def isBackwardSubsumed(expansion : CEGARStateQueue#Expansion)
+                                   : Boolean =
+    if (expansion._1 exists (backwardSubsumedStates contains _)) {
+      postponedExpansions += expansion
+      true
+    } else {
+      false
+    }
+
+  /**
+   * The invariants supposed to be preserved by the subsumption mechanism
+   */
+  def checkSubsumptionInvs = {
+    assert(
+      (maxAbstractStates forall {
+        case (rs, preds) => (preds subsetOf activeAbstractStates(rs)) &&
+                            (preds forall { s => activeAbstractStates(rs) forall {
+                                                   t => s == t || !subsumes(t, s) } }) }) &&
+      (backwardSubsumedStates forall {
+        case (s, t) => s != t && subsumes(t, s) &&
+                       (activeAbstractStates(s.rs) contains s) &&
+                       !(maxAbstractStates(s.rs) contains s) &&
+                       (activeAbstractStates(t.rs) contains t) }) &&
+      (forwardSubsumedStates forall {
+        case (s, t) => s != t && subsumes(t, s) &&
+                       !(activeAbstractStates(s.rs) contains s) &&
+                       (activeAbstractStates(t.rs) contains t) }) &&
+      (activeAbstractStates forall {
+        case (rs, preds) =>
+                       preds forall { s => (maxAbstractStates(rs) contains s) ||
+                       (backwardSubsumedStates contains s) } }) &&
+      (postponedExpansions forall {
+        case (from, _, _, _) => from exists (backwardSubsumedStates contains _) })
+    )
+  }
+
+
+  // Number of expansions that failed because no predicates could be generated.
+  // When this number gets too great, state space exploration will be
+  // considered a failure.
+  var failedExpansionCount = 0
+
   // seed the ARG construction using the clauses with empty bodies (facts)
   for ((clause@NormClause(constraint, Seq(), _), _) <- normClauses)
     nextToProcess.enqueue(List(), clause, constraint)
@@ -130,114 +175,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       println("Starting CEGAR ...")
     }
 
-    import TerForConvenience._
-    var res : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] = null
-
-    var postponedExpansionCount = 0
-
-    while (!nextToProcess.isEmpty && res == null) {
-      lazabs.GlobalParameters.get.timeoutChecker()
-
-/*
-      // The invariants supposed to be preserved by the subsumption mechanism
-      assert(
-        (maxAbstractStates forall {
-          case (rs, preds) => (preds subsetOf activeAbstractStates(rs)) &&
-                              (preds forall { s => activeAbstractStates(rs) forall {
-                                                   t => s == t || !subsumes(t, s) } }) }) &&
-        (backwardSubsumedStates forall {
-          case (s, t) => s != t && subsumes(t, s) &&
-                         (activeAbstractStates(s.rs) contains s) &&
-                         !(maxAbstractStates(s.rs) contains s) &&
-                         (activeAbstractStates(t.rs) contains t) }) &&
-        (forwardSubsumedStates forall {
-          case (s, t) => s != t && subsumes(t, s) &&
-                         !(activeAbstractStates(s.rs) contains s) &&
-                         (activeAbstractStates(t.rs) contains t) }) &&
-        (activeAbstractStates forall {
-          case (rs, preds) =>
-                         preds forall { s => (maxAbstractStates(rs) contains s) ||
-                         (backwardSubsumedStates contains s) } }) &&
-        (postponedExpansions forall {
-          case (from, _, _, _) => from exists (backwardSubsumedStates contains _) })
-      )
-*/
-
-      val expansion@(states, clause, assumptions, _) = nextToProcess.dequeue
-
-      if (states exists (backwardSubsumedStates contains _)) {
-        postponedExpansions += expansion
-      } else {
-        try {
-          for (e <- genEdge(clause, states, assumptions))
-            addEdge(e)
-        } catch {
-          case Counterexample(from, clause) => {
-            if (postponedExpansionCount > nextToProcess.size)
-              throw new Exception("Predicate generation failed")
-
-            val clauseDag = extractCounterexample(from, clause)
-            iterationNum = iterationNum + 1
-
-            if (lazabs.GlobalParameters.get.log) {
-    	      println
-              print("Found counterexample #" + iterationNum + ", refining ... ")
-
-              if (lazabs.GlobalParameters.get.logCEX) {
-                println
-                clauseDag.prettyPrint
-              }
-            }
-        
-            {
-              val predStartTime = System.currentTimeMillis
-              val preds = predicateGenerator(clauseDag)
-              predicateGeneratorTime =
-                predicateGeneratorTime + System.currentTimeMillis - predStartTime
-              preds
-            } match {
-              case Right(trace) => {
-                if (lazabs.GlobalParameters.get.log)
-                  print(" ... failed, counterexample is genuine")
-                val clauseMapping = normClauses.toMap
-                res = Right(for (p <- trace) yield (p._1, clauseMapping(p._2)))
-              }
-              case Left(newPredicates) => {
-                if (lazabs.GlobalParameters.get.log)
-                  println(" ... adding predicates:")
-                if (addPredicates(newPredicates, expansion))
-                  postponedExpansionCount = 0
-                else
-                  postponedExpansionCount = postponedExpansionCount + 1
-              }
-            }
-          }
-        }
-      }
-    }
-  
-    if (res == null) {
-      assert(nextToProcess.isEmpty)
-
-      implicit val order = sf.order
-    
-      res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
-                       if (rs.pred != HornClauses.FALSE)) yield {
-        val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
-          conj((for (f <- fors.iterator) yield f.rawPred) ++
-               (Iterator single relationSymbolBounds(rs)))
-        })
-        val simplified = //!QuantifierElimProver(!rawFor, true, order)
-                         PresburgerTools elimQuantifiersWithPreds rawFor
-
-        val symMap =
-          (rs.arguments.head.iterator zip (
-             for (i <- 0 until rs.arity) yield v(i)).iterator).toMap
-        val subst = ConstantSubst(symMap, order)
-             
-        rs.pred -> subst(simplified)
-      }).toMap)
-    }
+    val res = cegarLoop(this)
 
 //    inferenceAPIProver = null
 
@@ -247,6 +185,81 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 //  private var inferenceAPIProver : SimpleAPI = null
 
   val cegarEndTime = System.currentTimeMillis
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Handle a counterexample generated by CEGAR. This will either create
+   * new predicates or return a concrete counterexample DAG.
+   */
+  def handleCounterexample(expansion : CEGARStateQueue#Expansion)
+                                     : Option[Dag[(IAtom, CC)]] = {
+    val (from, clause, _, _) = expansion
+    if (failedExpansionCount > nextToProcess.size)
+      throw new Exception("Predicate generation failed")
+
+    val clauseDag = extractCounterexample(from, clause)
+    iterationNum = iterationNum + 1
+
+    if (lazabs.GlobalParameters.get.log) {
+    	println
+      print("Found counterexample #" + iterationNum + ", refining ... ")
+
+      if (lazabs.GlobalParameters.get.logCEX) {
+        println
+        clauseDag.prettyPrint
+      }
+    }
+        
+    {
+      val predStartTime = System.currentTimeMillis
+      val preds = predicateGenerator(clauseDag)
+      predicateGeneratorTime =
+        predicateGeneratorTime + System.currentTimeMillis - predStartTime
+      preds
+    } match {
+      case Right(trace) => {
+        if (lazabs.GlobalParameters.get.log)
+          print(" ... failed, counterexample is genuine")
+        val clauseMapping = normClauses.toMap
+        Some(for (p <- trace) yield (p._1, clauseMapping(p._2)))
+      }
+      case Left(newPredicates) => {
+        if (lazabs.GlobalParameters.get.log)
+          println(" ... adding predicates:")
+        if (addPredicates(newPredicates, expansion))
+          failedExpansionCount = 0
+        else
+          failedExpansionCount = failedExpansionCount + 1
+        None
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def genSolution : Map[Predicate, Conjunction] = {
+    assert(nextToProcess.isEmpty)
+
+    implicit val order = sf.order
+    import TerForConvenience._
+    
+    (for ((rs, preds) <- maxAbstractStates.iterator;
+          if (rs.pred != HornClauses.FALSE)) yield {
+      val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
+        conj((for (f <- fors.iterator) yield f.rawPred) ++
+             (Iterator single relationSymbolBounds(rs)))
+      })
+      val simplified = PresburgerTools elimQuantifiersWithPreds rawFor
+
+      val symMap =
+        (rs.arguments.head.iterator zip (
+            for (i <- 0 until rs.arity) yield v(i)).iterator).toMap
+      val subst = ConstantSubst(symMap, order)
+             
+      rs.pred -> subst(simplified)
+    }).toMap
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -801,8 +814,9 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     (forwardUnsubsumedStates, backwardUnsubsumedStates)
   }
 
-  def genEdge(clause : NormClause,
-              from : Seq[AbstractState], assumptions : Conjunction) = {
+  def genEdge(clause      : NormClause,
+              from        : Seq[AbstractState],
+              assumptions : Conjunction) : GenEdgeResult = {
     val startTime = System.currentTimeMillis
     lazy val prover = emptyProver.assert(assumptions, clause.order)
 
@@ -828,17 +842,17 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
       if (valid) {
         // assumptions are inconsistent, nothing to do
-        None
+        GERInconsistent
       } else {
         // assumptions are consistent
         clause.head._1.pred match {
           case HornClauses.FALSE =>
-            throw new Counterexample(from, clause)
+            GERCounterexample(from, clause)
           case _ => {
             val state = genAbstractState(assumptions,
                                          clause.head._1, clause.head._2,
                                          prover, clause.order)
-            Some(AbstractEdge(from, state, clause, assumptions))
+            GERNewEdge(AbstractEdge(from, state, clause, assumptions))
           }
         }
       }

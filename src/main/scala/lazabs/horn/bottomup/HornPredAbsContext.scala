@@ -75,6 +75,8 @@ trait HornPredAbsContext[CC] {
 
   val emptyProver : ModelSearchProver.IncProver
 
+  val cegarLoop : CEGARLoop[CC]
+
   private var hardValidityCheckNum = 0
   private var hardValidityCheckThreshold = 27
   private var hardValidityCheckNumSqrt = 3
@@ -140,6 +142,7 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
   val relationSymbolReducers    = underlying.relationSymbolReducers
   val goalSettings              = underlying.goalSettings
   val emptyProver               = underlying.emptyProver
+  val cegarLoop                 = underlying.cegarLoop
   val hasher                    = underlying.hasher
   val clauseHashIndexes         = underlying.clauseHashIndexes
 }
@@ -172,6 +175,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
     for (t <- theories; p <- t.plugin.toSeq) yield p
 
   val useHashing =
+    lazabs.GlobalParameters.get.cegarThreads == 1 &&
     (theories forall {
        case ap.types.TypeTheory                 => true
        case ap.theories.GroebnerMultiplication  => true
@@ -281,6 +285,12 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       prover = prover.assert(Conjunction.conj(t.axioms, order), order)
     prover
   }
+
+  val cegarLoop =
+    lazabs.GlobalParameters.get.cegarThreads match {
+      case 1 => new SeqCEGARLoop[CC](this)
+      case n => new ThreadedCEGARLoop[CC](this, n)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
