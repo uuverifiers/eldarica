@@ -435,7 +435,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
     prover.scope {
-      prover.addAssertion(constraint)
+      prover.addAssertionPreproc(constraint)
       prover.???
     }
   }
