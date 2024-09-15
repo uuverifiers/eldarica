@@ -86,6 +86,9 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // Note that the prover must be manually shut down for clean-up.
   implicit val prover: SimpleAPI = SimpleAPI.spawn
   prover.addTheories(theories)
+
+  // TODO: keeping preds as a set is problematic, it will introduced
+  // non-determinism. Turn the preds field into a Seq[Predicate]?
   prover.addRelations(preds)
 
   // Keeps track of all the terms and adds new symbols to the prover
@@ -123,6 +126,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (rel, normClauses.filter(_._1.head._1 == rel).map(_._1))
     }).toMap
 
+  // TODO: this block will not have any effect?
   for (pred <- preds) {
 
     normClauses.filter(
@@ -431,7 +435,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
     prover.scope {
-      prover.addAssertion(constraint)
+      prover.addAssertionPreproc(constraint)
       prover.???
     }
   }
