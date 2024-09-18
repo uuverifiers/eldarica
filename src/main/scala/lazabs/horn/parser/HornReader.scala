@@ -746,7 +746,7 @@ class ClauseQuantifierEliminator(rawClause       : IFormula,
       val existConsts = createExistentialConstants(a.size)
 
       implicit val _order: TermOrder = order
-      import TerForConvenience.*
+      import TerForConvenience._
 
       addAssertion(a === (for (IConstant(c) <- existConsts) yield c))
 
