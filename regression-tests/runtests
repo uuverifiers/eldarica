@@ -1,7 +1,7 @@
 #!/bin/sh
 
 export TERM=xterm;
-wget http://logicrunch.it.uu.se:4096/~philipp/yices;
+wget -c http://eldarica.org/yices;
 chmod +x yices;
 export PATH=`pwd`:$PATH;
 ./runalldirs
