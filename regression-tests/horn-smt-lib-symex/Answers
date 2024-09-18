@@ -24,11 +24,15 @@ unsat
 uninterpreted_fun.smt2
 Warning: ignoring get-model
 sat
+(
+)
 
 inconclusive.smt2
 Warning: ignoring get-model
 sat
-(define-fun INV_MAIN_0 ((A Int) (B Int)) Bool true)
+(
+    (define-fun INV_MAIN_0 ((A Int) (B Int)) Bool true)
+)
 
 quantifier.smt2
 unsat
@@ -69,15 +73,17 @@ unsat
 
 solution-verifier-bug.smt2
 sat
-(define-fun ULTIMATE.start_L-1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= A 0) (not (= I true))))
-(define-fun ULTIMATE.start_L17 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (and (= G (- 3)) (= F (- 3))) (= A 0)) (not (= I true))))
-(define-fun ULTIMATE.start_L23 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (not (= I true)) (= D 3)))
-(define-fun ULTIMATE.start_L29 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (= D 3) (= A 3)) (not (= I true))))
-(define-fun ULTIMATE.start_L5 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I 1))
-(define-fun ULTIMATE.start_L7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool false)
-(define-fun ULTIMATE.start_ULTIMATE.startENTRY ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= B A) (not (= I true))))
-(define-fun ULTIMATE.start_ULTIMATE.startEXIT ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I 1))
-(define-fun ULTIMATE.start_ULTIMATE.startFINAL ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= I false) (= E C)))
+(
+    (define-fun ULTIMATE.start_L-1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= A 0) (not (= I true))))
+    (define-fun ULTIMATE.start_L17 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (and (= G (- 3)) (= F (- 3))) (= A 0)) (not (= I true))))
+    (define-fun ULTIMATE.start_L23 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (not (= I true)) (= D 3)))
+    (define-fun ULTIMATE.start_L29 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (and (= D 3) (= A 3)) (not (= I true))))
+    (define-fun ULTIMATE.start_L5 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I 1))
+    (define-fun ULTIMATE.start_L7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool false)
+    (define-fun ULTIMATE.start_ULTIMATE.startENTRY ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= B A) (not (= I true))))
+    (define-fun ULTIMATE.start_ULTIMATE.startEXIT ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (= I 1))
+    (define-fun ULTIMATE.start_ULTIMATE.startFINAL ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= I false) (= E C)))
+)
 
 groebner-bug.smt2
 Warning: ignoring exit

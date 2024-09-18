@@ -205,50 +205,58 @@ sat
 
 array-elim.smt2
 sat
-(define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
-(define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
-(define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= F 0) (= A 1)))
-(define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (and (= C 1) (= F 0)) (and (= F 0) (not (= B 0))))))
-(define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (= F 0)) (and (= F 0) (not (= B 0)))) (and (= F 0) (not (= D 0))))))
-(define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
-(define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (and (<= F 1) (>= F 0))) (and (not (= B 0)) (and (<= F 1) (>= F 0)))) (and (not (= D 0)) (and (<= F 1) (>= F 0))))))
-(define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F 0) (= A 1)) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
-(define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)
+(
+    (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
+    (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
+    (define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= F 0) (= A 1)))
+    (define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (and (= C 1) (= F 0)) (and (= F 0) (not (= B 0))))))
+    (define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (= F 0)) (and (= F 0) (not (= B 0)))) (and (= F 0) (not (= D 0))))))
+    (define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
+    (define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (and (<= F 1) (>= F 0))) (and (not (= B 0)) (and (<= F 1) (>= F 0)))) (and (not (= D 0)) (and (<= F 1) (>= F 0))))))
+    (define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F 0) (= A 1)) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
+    (define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)
+)
 
 constant.smt2
 sat
-(define-fun inv ((A Int) (B Int)) Bool (and (<= B 10) (>= B 5)))
+(
+    (define-fun inv ((A Int) (B Int)) Bool (and (<= B 10) (>= B 5)))
+)
 
 array-elim.smt2
 sat
-(define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
-(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
-(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
-(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
-(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
-(define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
+(
+    (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
+    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
+    (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
+)
 
 leos-example.smt2
 Warning: ignoring get-model
 sat
-(define-fun block_3_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool true)
-(define-fun block_4_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (= I G) (= H F)) (= A 0))))
-(define-fun block_5_return_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (and (and (and (>= J 0) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= I 0)) (<= I 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (or (and (exists ((var0 Bool)) (not var0)) (>= J I)) (>= (- I J) 1))) (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0))))))
-(define-fun block_6_for_header_f_31_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (= H F) (= I G)) (and (= A 0) (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= (- G J) 1)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)))))
-(define-fun block_7_for_body_f_30_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (>= (- G K) 1) (>= K 0)) (>= (- G J) 1)) (>= J 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)))))
-(define-fun block_8_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0)))))
-(define-fun contract_initializer_C_40_1_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
-(define-fun contract_initializer_after_init_C_40_10_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
-(define-fun contract_initializer_entry_C_40_9_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
-(define-fun error_target_2_0 () Bool false)
-(define-fun implicit_constructor_entry_C_40_11_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
-(define-fun interface_C_40_0 ((A Int) (B abi_type) (C crypto_type) (D state_type)) Bool true)
-(define-fun nondet_interface_C_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E state_type) (F state_type)) Bool true)
-(define-fun summary_2_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int)) Bool (and (and (= H F) (= I G)) (= A 0)))
-(define-fun summary_constructor_C_40_0_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (and (= G F) (and (= A 0) (= (balances F) (balances F)))))
+(
+    (define-fun block_3_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool true)
+    (define-fun block_4_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (= I G) (= H F)) (= A 0))))
+    (define-fun block_5_return_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (and (and (and (>= J 0) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= I 0)) (<= I 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (or (and (exists ((var0 Bool)) (not var0)) (>= J I)) (>= (- I J) 1))) (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0))))))
+    (define-fun block_6_for_header_f_31_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (= H F) (= I G)) (and (= A 0) (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= (- G J) 1)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)))))
+    (define-fun block_7_for_body_f_30_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (>= (- G K) 1) (>= K 0)) (>= (- G J) 1)) (>= J 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)))))
+    (define-fun block_8_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0)))))
+    (define-fun contract_initializer_C_40_1_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
+    (define-fun contract_initializer_after_init_C_40_10_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
+    (define-fun contract_initializer_entry_C_40_9_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
+    (define-fun error_target_2_0 () Bool false)
+    (define-fun implicit_constructor_entry_C_40_11_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
+    (define-fun interface_C_40_0 ((A Int) (B abi_type) (C crypto_type) (D state_type)) Bool true)
+    (define-fun nondet_interface_C_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E state_type) (F state_type)) Bool true)
+    (define-fun summary_2_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int)) Bool (and (and (= H F) (= I G)) (= A 0)))
+    (define-fun summary_constructor_C_40_0_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (and (= G F) (and (= A 0) (= (balances F) (balances F)))))
+)
 
 leos-example-2.smt2
 unsat
@@ -268,7 +276,9 @@ unsat
 
 constant.smt2
 sat
-(define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))
+(
+    (define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))
+)
 
 splitting.smt2
 unsat
@@ -279,24 +289,32 @@ unsat
 
 splitting2.smt2
 sat
-(define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (or (= C 0) (and (>= C 1) (>= (- (select B 0) (select A 0)) 1))))
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (or (= C 0) (and (>= C 1) (>= (- (select B 0) (select A 0)) 1))))
+)
 
 splitting3.smt2
 sat
-(define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+)
 
 splitting4.smt2
 sat
-(define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+)
 
 array-elim.smt2
 sat
-(define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-(define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-(define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
-(define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
-(define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
-(define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
-(define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-(define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
-(define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
+(
+    (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
+    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
+    (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
+)
