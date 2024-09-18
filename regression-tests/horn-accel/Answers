@@ -311,9 +311,13 @@ unsat
 booleans.smt2
 Warning: ignoring exit
 sat
-(define-fun main_1 ((A Int) (B Int) (C Int) (D Int) (E Bool) (F Int)) Bool (or (= A 0) (and (= A 1) (and (= E true) (and (and (and (and (and (and (and (and (>= (+ (* 2 C) (+ (* (- 2) D) F)) B) (<= B 999999)) (>= B 0)) (<= C 499998)) (<= D 499999)) (>= D 1)) (<= F 999999)) (>= F 4)) (or (>= (- F B) 3) (and (= (+ B (+ (* (- 2) C) (- (* 2 D) F))) 0) (>= (- D C) 1))))))))
+(
+    (define-fun main_1 ((A Int) (B Int) (C Int) (D Int) (E Bool) (F Int)) Bool (or (= A 0) (and (= A 1) (and (= E true) (and (and (and (and (and (and (and (and (>= (+ (* 2 C) (+ (* (- 2) D) F)) B) (<= B 999999)) (>= B 0)) (<= C 499998)) (<= D 499999)) (>= D 1)) (<= F 999999)) (>= F 4)) (or (>= (- F B) 3) (and (= (+ B (+ (* (- 2) C) (- (* 2 D) F))) 0) (>= (- D C) 1))))))))
+)
 
 chc-LIA-Lin_421.smt2
 Warning: ignoring exit
 sat
-(define-fun predh11_1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int) (U Int) (V Int) (W Int) (X Int) (Y Int) (Z Int) (A1 Int) (B1 Int) (C1 Int) (D1 Int) (E1 Int) (F1 Int) (G1 Int) (H1 Int) (I1 Int) (J1 Int) (K1 Int) (L1 Int) (M1 Int) (N1 Int) (O1 Int) (P1 Int) (Q1 Int) (R1 Int) (S1 Int) (T1 Int) (U1 Int) (V1 Int) (W1 Int) (X1 Int) (Y1 Int) (Z1 Int) (A2 Int) (B2 Int) (C2 Int) (D2 Int) (E2 Int) (F2 Int) (G2 Int) (H2 Int)) Bool (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= H2 D1) (= G2 C1)) (= (- F2 F) 1)) (= E2 1)) (= D2 F)) (= C2 1)) (= (- B2 F) 1)) (= A2 1)) (= Z1 F)) (= Y1 1)) (= X1 F)) (= W1 1)) (= V1 R)) (= U1 Q)) (= T1 P)) (= (+ S1 (- L R1)) 0)) (= Q1 1)) (= P1 L)) (= O1 K)) (= N1 J)) (= M1 I)) (= L1 H)) (= K1 G)) (= J1 F)) (= I1 E)) (= H1 D)) (= G1 C)) (= F1 B)) (= E1 A)) (and (>= (- F J) (- 1)) (>= J 1))))
+(
+    (define-fun predh11_1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int) (K Int) (L Int) (M Int) (N Int) (O Int) (P Int) (Q Int) (R Int) (S Int) (T Int) (U Int) (V Int) (W Int) (X Int) (Y Int) (Z Int) (A1 Int) (B1 Int) (C1 Int) (D1 Int) (E1 Int) (F1 Int) (G1 Int) (H1 Int) (I1 Int) (J1 Int) (K1 Int) (L1 Int) (M1 Int) (N1 Int) (O1 Int) (P1 Int) (Q1 Int) (R1 Int) (S1 Int) (T1 Int) (U1 Int) (V1 Int) (W1 Int) (X1 Int) (Y1 Int) (Z1 Int) (A2 Int) (B2 Int) (C2 Int) (D2 Int) (E2 Int) (F2 Int) (G2 Int) (H2 Int)) Bool (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= H2 D1) (= G2 C1)) (= (- F2 F) 1)) (= E2 1)) (= D2 F)) (= C2 1)) (= (- B2 F) 1)) (= A2 1)) (= Z1 F)) (= Y1 1)) (= X1 F)) (= W1 1)) (= V1 R)) (= U1 Q)) (= T1 P)) (= (+ S1 (- L R1)) 0)) (= Q1 1)) (= P1 L)) (= O1 K)) (= N1 J)) (= M1 I)) (= L1 H)) (= K1 G)) (= J1 F)) (= I1 E)) (= H1 D)) (= G1 C)) (= F1 B)) (= E1 A)) (and (>= (- F J) (- 1)) (>= J 1))))
+)

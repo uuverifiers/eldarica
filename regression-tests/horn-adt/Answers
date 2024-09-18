@@ -1,12 +1,16 @@
 
 simple-adt-horn.smt2
 sat
-(define-fun I1 ((A Pair)) Bool (and (= (right A) true) (>= (left A) 0)))
-(define-fun I2 ((A Pair)) Bool (and (not (= (right A) true)) (>= (left A) 1)))
+(
+    (define-fun I1 ((A Pair)) Bool (and (= (right A) true) (>= (left A) 0)))
+    (define-fun I2 ((A Pair)) Bool (and (not (= (right A) true)) (>= (left A) 1)))
+)
 
 bool.smt2
 sat
-(define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A true) (= B true)) (and (not (= A true)) (not (= B true)))))
+(
+    (define-fun Inv ((A Bool) (B Bool)) Bool (or (and (= A true) (= B true)) (and (not (= A true)) (not (= B true)))))
+)
 
 bool-unsat.smt2
 unsat
@@ -17,10 +21,14 @@ unsat
 
 list-synasc.smt2
 sat
-(define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= (+ (_size A) (- (_size B) (_size C))) 1) (and (>= (_size C) (_size B)) (>= (_size B) 1))) (= (head C) (head A))) (and (and (and (and (= (_size A) 1) (or (and (is-Nil B) (is-Nil C)) (and (is-Cons B) (is-Cons C)))) (= (_size B) (_size C))) (>= (_size C) 1)) (or (not (is-Cons C)) (= (head C) (head B))))))
+(
+    (define-fun Concat ((A IList) (B IList) (C IList)) Bool (or (and (and (= (+ (_size A) (- (_size B) (_size C))) 1) (and (>= (_size C) (_size B)) (>= (_size B) 1))) (= (head C) (head A))) (and (and (and (and (= (_size A) 1) (or (and (is-Nil B) (is-Nil C)) (and (is-Cons B) (is-Cons C)))) (= (_size B) (_size C))) (>= (_size C) 1)) (or (not (is-Cons C)) (= (head C) (head B))))))
+)
 
 unbounded-tree.smt2
 sat
+(
+)
 
 record-cex.smt2
 unsat
@@ -58,11 +66,15 @@ unsat
 
 testers.smt2
 sat
-(define-fun p1 ((A XS)) Bool (is-XS_cons A))
+(
+    (define-fun p1 ((A XS)) Bool (is-XS_cons A))
+)
 
 tuple.smt2
 sat
-(define-fun p1 ((A Pair) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+(
+    (define-fun p1 ((A Pair) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+)
 
 tuple2.smt2
 unsat
@@ -77,17 +89,23 @@ unsat
 
 polymorphicTuple.smt2
 sat
-(define-fun p1 ((A (Pair Int Int)) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+(
+    (define-fun p1 ((A (Pair Int Int)) (B Int)) Bool (and (and (>= (first A) 1) (<= (second A) 2)) (>= B 42)))
+)
 
 adt-bug.smt2
 sat
-(define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (or (not (= B a)) (and (= D C) (= A 0))))
+(
+    (define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (or (not (= B a)) (and (= D C) (= A 0))))
+)
 
 de-brujin-bug.smt2
 sat
-(define-fun mmin ((A f)) Bool (= (h 0 g) A))
-(define-fun n ((A f)) Bool (= (_size A) 1))
-(define-fun p ((A f) (B d1) (C f)) Bool (or (or (and (and (= (_size A) (_size C)) (= (_size B) 1)) (>= (_size C) 1)) (and (and (and (is-b B) (= (_size B) 3)) (and (>= (_size A) 1) (>= (_size C) 1))) (is-b B))) (and (and (and (is-b B) (and (and (and (and (or (and (is-g A) (>= (_size B) 4)) (and (is-h A) (>= (+ (- 1) (_size B)) 4))) (or (and (is-g A) (>= (_size B) 5)) (and (is-h A) (>= (+ 1 (_size B)) 5)))) (>= (+ (_size A) (_size B)) 6)) (>= (_size A) 1)) (>= (_size C) 1))) (is-b B)) (= (mod (+ 1 (_size B)) 2) 0))))
+(
+    (define-fun mmin ((A f)) Bool (= (h 0 g) A))
+    (define-fun n ((A f)) Bool (= (_size A) 1))
+    (define-fun p ((A f) (B d1) (C f)) Bool (or (or (and (and (= (_size A) (_size C)) (= (_size B) 1)) (>= (_size C) 1)) (and (and (and (is-b B) (= (_size B) 3)) (and (>= (_size A) 1) (>= (_size C) 1))) (is-b B))) (and (and (and (is-b B) (and (and (and (and (or (and (is-g A) (>= (_size B) 4)) (and (is-h A) (>= (+ (- 1) (_size B)) 4))) (or (and (is-g A) (>= (_size B) 5)) (and (is-h A) (>= (+ 1 (_size B)) 5)))) (>= (+ (_size A) (_size B)) 6)) (>= (_size A) 1)) (>= (_size C) 1))) (is-b B)) (= (mod (+ 1 (_size B)) 2) 0))))
+)
 
 list-synasc-unsat.smt2
 unsat
