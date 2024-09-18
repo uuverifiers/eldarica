@@ -1055,7 +1055,7 @@ object DisjInterpolator {
     benchmarkCounter = benchmarkCounter + 1
     Console.withOut(benchmarkFile) {
       SMTLineariser.printWithDeclsSig(
-        formulas      = clauseFormulas,
+        formulas      = clauseFormulas.toSeq,
         signature     = Signature(Set(), Set(), Set(), order restrict Set()),
         logic         = "HORN",
         status        = solvable match {
