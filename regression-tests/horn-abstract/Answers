@@ -194,7 +194,7 @@ sat
     (define-fun |fail$unknown:11| ((A Int) (B Int)) Bool false)
     (define-fun |g_1032$unknown:19| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (and (= G D) (= H E)) (and (and (and (and (and (= B 0) (= C 0)) (= D 0)) (= E 0)) (= D 0)) (= E 0))))
     (define-fun |g_1032$unknown:20| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (= H E) (= I F)) (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= E 0)) (= F 0))))
-    (define-fun |g_1032$unknown:23| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (exists ((var0 Int)) (and (not (= var0 0)) (= (* 0 var0) F))) (and (and (and (and (and (= 0 B) (= 0 C)) (= 0 D)) (= 0 E)) (= 0 G)) (= 0 H))))
+    (define-fun |g_1032$unknown:23| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (exists ((var0 Int)) (and (not (= var0 0)) (= (* 0 var0) F))) (and (and (and (and (and (= B 0) (= C 0)) (= D 0)) (= E 0)) (= G 0)) (= H 0))))
     (define-fun |g_1032$unknown:24| ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int)) Bool (and (and (= H E) (= I F)) (and (and (and (and (and (= C 0) (= D 0)) (= E 0)) (= F 0)) (= E 0)) (= F 0))))
     (define-fun |succ_1030$unknown:27| ((A Int) (B Int) (C Int)) Bool (and (= C 0) (= B 0)))
     (define-fun |succ_1030$unknown:28| ((A Int) (B Int) (C Int) (D Int)) Bool (and (and (= D 0) (= C 0)) (= (- B A) (- 1))))

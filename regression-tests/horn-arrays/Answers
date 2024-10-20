@@ -228,12 +228,12 @@ sat
 (
     (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
     (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
-    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
-    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
-    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= A 1)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= A 1)))
     (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= A 1)))
     (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 )
 
@@ -305,16 +305,24 @@ sat
     (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
 )
 
+array-mod-bug.smt2
+Warning: ignoring get-model
+sat
+(
+    (define-fun pbool ((A Bool)) Bool (not (= A true)))
+    (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (or (exists ((var0 Int)) (exists ((var1 Int)) (exists ((var2 Int)) (exists ((var3 Int)) (and (and (and (and (<= (* 6 var2) 5) (>= var2 0)) (and (and (>= (+ (* (- 6) var2) (* (- 6) var1)) (- 10)) (>= (+ (* 6 var2) (* 6 var1)) 5)) (>= (+ (* 6 var2) (* 6 var1)) 3))) (and (and (<= (* 6 var3) 5) (>= var3 0)) (and (>= (+ (* (- 6) var3) (* (- 6) var0)) (- 5)) (>= (* 6 var3) (* (- 6) var0))))) (= (select (select A 1) (+ 5 (+ (* (- 6) var3) (* (- 6) var0)))) 0)))))) (exists ((var0 (Array Int Int))) (exists ((var1 Int)) (exists ((var2 Int)) (exists ((var3 Int)) (exists ((var4 (Array Int (Array Int Int)))) (exists ((var5 Int)) (and (and (and (and (<= (* 6 var3) 5) (>= var3 0)) (and (and (>= (+ (* (- 6) var3) (* (- 6) var2)) (- 10)) (>= (+ (* 6 var3) (* 6 var2)) 5)) (>= (+ (* (- 6) var3) (* (- 6) var2)) (- 2)))) (= A (store (store var4 1 var0) 1 (store (store (select var4 1) var5 var1) 2 0)))) (= (select (select var4 1) var5) 0))))))))) (not (= B true))))
+)
+
 array-elim.smt2
 sat
 (
     (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
     (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= 1 A)))
-    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))) (= 1 A)))
-    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= 0 D))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= 0 D) (= (select C 0) (select B 0))))))))) (= 1 A)))
-    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= 1 A)))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= A 1)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= A 1)))
     (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= 1 A)))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= A 1)))
     (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 )
