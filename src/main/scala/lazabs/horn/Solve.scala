@@ -153,7 +153,8 @@ object Solve {
               // and require tests to be updated
 
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
-                for((pred,sol) <- sortedSol) {
+                val builder = new StringBuilder
+                for((pred,sol) <- sortedSol) yield {
                   val cl = HornClause(RelVar(pred.name,
                   (0 until pred.arity).zip(HornPredAbs.predArgumentSorts(pred).map(
                       lazabs.prover.PrincessWrapper.sort2Type(_))).map(p =>
@@ -161,8 +162,10 @@ object Solve {
                   ).toList),
                       List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
-                  println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
+                  builder.append("\n    ")
+                  builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
                 }
+                println(s"(${builder.toString}\n)")
             }
           }
         }

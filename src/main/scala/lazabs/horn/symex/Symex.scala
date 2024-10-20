@@ -75,20 +75,17 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   if (theories.nonEmpty)
     printInfo("Theories: " + (theories mkString ", ") + "\n")
 
-  val preds: Set[Predicate] =
+  val preds: Seq[Predicate] =
     (for (c   <- iClauses.iterator;
           lit <- (Iterator single c.head) ++ c.body.iterator;
           p = lit.predicate)
-      yield p).toSet
+      yield p).toSeq.distinct
 
   // We keep a prover initialized with all the symbols running, which we will
   // use to check the satisfiability of constraints.
   // Note that the prover must be manually shut down for clean-up.
   implicit val prover: SimpleAPI = SimpleAPI.spawn
   prover.addTheories(theories)
-
-  // TODO: keeping preds as a set is problematic, it will introduced
-  // non-determinism. Turn the preds field into a Seq[Predicate]?
   prover.addRelations(preds)
 
   // Keeps track of all the terms and adds new symbols to the prover
@@ -108,12 +105,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   ).toSeq
 
   val normClauseToCC: Map[NormClause, CC] = normClauses.toMap
-  //
-  //private val originalLocalSymbols = new MHashSet[ConstantTerm]
-  //private val rewrittenSymbols     = new UnionFind[ConstantTerm]
-  //
-  //for ((normClause, _) <- normClauses)
-  //  originalLocalSymbols ++= normClause.localSymbols
 
   val clausesWithRelationInBody: Map[RelationSymbol, Seq[NormClause]] =
     (for (rel <- relationSymbols.values) yield {
@@ -125,15 +116,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     (for (rel <- relationSymbols.values) yield {
       (rel, normClauses.filter(_._1.head._1 == rel).map(_._1))
     }).toMap
-
-  // TODO: this block will not have any effect?
-  for (pred <- preds) {
-
-    normClauses.filter(
-      clause =>
-        clause._1.head._1.pred == pred ||
-          clause._1.body.exists(_._1.pred == pred))
-  }
 
   val predicatesAndMaxOccurrences: Map[Predicate, Int] = {
     val maxOccs = new MHashMap[Predicate, Int]
@@ -347,7 +329,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
         val backtranslatedPredSolution =
           ConstantSubstVisitor(prover.asIFormula(predSolution), argSubst)
-        //ConstantSubst(predSolution, argSubst ++ constSubst)
 
         (pred, backtranslatedPredSolution)
       }
@@ -387,25 +368,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             }
           }
           val subDags: Seq[Dag[(IAtom, CC)]] = {
-            //if (electrons.length == childrenAtoms.length) {
             for ((electron, atom) <- electrons zip childrenAtoms)
               yield computeAtoms(atom, electron)
-            //} else if (electrons.isEmpty) {
-            //  // this might happen in clauses with literals in body that were
-            //  // not derived, e.g., a single assertion clause
-            //  //for ((childAtom, lit) <- childrenAtoms zip nucleus.body) yield {
-            //  //  // create a dag with artificial clauses to present the atoms in the cex
-            //  //  DagNode(
-            //  //    (childAtom,
-            //  //     normClauseToCC(NormClause(Conjunction.TRUE, Nil, lit))),
-            //  //    Nil,
-            //  //    DagEmpty)
-            //  //}
-            //} else {
-            //  throw new UnsupportedOperationException(
-            //    "Cannot compute the" +
-            //      "counterexample using: " + headAtom + " and\n" + cuc)
-            //}
           }
 
           val nextDag: Dag[(IAtom, CC)] =
@@ -524,5 +488,4 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
         unitClause
     }
   }
-
 }
