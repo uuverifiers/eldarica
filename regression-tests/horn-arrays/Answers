@@ -310,7 +310,7 @@ Warning: ignoring get-model
 sat
 (
     (define-fun pbool ((A Bool)) Bool (not (= A true)))
-    (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (or (exists ((var0 Int)) (exists ((var1 Int)) (exists ((var2 Int)) (exists ((var3 Int)) (and (and (and (and (<= (* 6 var2) 5) (>= var2 0)) (and (and (>= (+ (* (- 6) var2) (* (- 6) var1)) (- 10)) (>= (+ (* 6 var2) (* 6 var1)) 5)) (>= (+ (* 6 var2) (* 6 var1)) 3))) (and (and (<= (* 6 var3) 5) (>= var3 0)) (and (>= (+ (* (- 6) var3) (* (- 6) var0)) (- 5)) (>= (* 6 var3) (* (- 6) var0))))) (= (select (select A 1) (+ 5 (+ (* (- 6) var3) (* (- 6) var0)))) 0)))))) (exists ((var0 (Array Int Int))) (exists ((var1 Int)) (exists ((var2 Int)) (exists ((var3 Int)) (exists ((var4 (Array Int (Array Int Int)))) (exists ((var5 Int)) (and (and (and (and (<= (* 6 var3) 5) (>= var3 0)) (and (and (>= (+ (* (- 6) var3) (* (- 6) var2)) (- 10)) (>= (+ (* 6 var3) (* 6 var2)) 5)) (>= (+ (* (- 6) var3) (* (- 6) var2)) (- 2)))) (= A (store (store var4 1 var0) 1 (store (store (select var4 1) var5 var1) 2 0)))) (= (select (select var4 1) var5) 0))))))))) (not (= B true))))
+    (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (= (select (select A 1) 5) 0) (not (= B true))))
 )
 
 array-elim.smt2
