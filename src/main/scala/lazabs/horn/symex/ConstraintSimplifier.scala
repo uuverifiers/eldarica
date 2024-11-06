@@ -80,7 +80,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    if (constraint.negatedConjs.isEmpty) {
+    if (constraint.negatedConjs.isEmpty ||
+        constraint.negatedConjs.forall(x => x.quans.head != ap.terfor.conjunctions.Quantifier.ALL)) {
       /**
        * If the constraint is a conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
@@ -91,8 +92,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         .eliminate(ComputationLogger.NonLogger)
     } else {
       /**
-       * If there are disjunctions, then try another method of
-       * simplification.
+       * If there are disjunctions (negated universal quantifiers),
+       * then try another method of simplification.
        */
       // quantify local symbols
       val sortedLocalSymbols =
