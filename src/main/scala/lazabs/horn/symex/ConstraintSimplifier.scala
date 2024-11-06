@@ -54,14 +54,14 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                               order:        TermOrder)
       extends ConjunctEliminator(constraint, localSymbols, Set(), order) {
 
-    override protected def nonUniversalElimination(f: Conjunction) = {}
+    override protected def nonUniversalElimination(f: Conjunction): Unit = {}
 
     // todo: check if this eliminates function applications
     //   e.g., unused select and stores
 
     protected def universalElimination(m: ModelElement): Unit = {}
 
-    override protected def addDivisibility(f: Conjunction) = {}
+    override protected def addDivisibility(f: Conjunction): Unit = {}
 
     override protected def isEliminationCandidate(t: Term): Boolean =
       localSymbols contains t
