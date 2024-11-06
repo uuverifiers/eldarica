@@ -37,6 +37,7 @@ import ap.terfor._
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
@@ -56,9 +57,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   import Symex._
 
   var printInfo = false
-
-  // This might be set to true in SymexHornWrapper
-  var generateCounterExample = false
 
   def printInfo(s : String, newLine : Boolean = true) : Unit = {
     if (printInfo)
@@ -231,7 +229,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val proverStatus = checkFeasibility(newElectron.constraint)
           if (hasContradiction(newElectron, proverStatus)) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
-            if (generateCounterExample) {
+            if (GlobalParameters.get.needFullCEX || lazabs.GlobalParameters.get.simplifiedCEX) {
+              // Only generate a counterexample when it is asked for
               result = Right(buildCounterExample(newElectron))
             } else {
               result = Right(DagEmpty)
@@ -285,7 +284,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
               if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
-                if (generateCounterExample) {
+                if (GlobalParameters.get.needFullCEX || lazabs.GlobalParameters.get.simplifiedCEX) {
+                  // Only generate a counterexample when it is asked for
                   result = Right(buildCounterExample(cuc))
                 } else {
                   result = Right(DagEmpty)

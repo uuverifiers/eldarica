@@ -629,7 +629,6 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
           "--------------------------------------")
 
       symex.printInfo = lazabs.GlobalParameters.get.log
-      symex.generateCounterExample = lazabs.GlobalParameters.get.plainCEX || lazabs.GlobalParameters.get.simplifiedCEX
       symex.solve()
     }
 
@@ -646,7 +645,7 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
               HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
               fullSol
             } else {
-              // only keep relation symbols that were also part of the orginal problem
+              // only keep relation symbols that were also part of the original problem
               res filterKeys allPredicates(unsimplifiedClauses)
             }
           }
