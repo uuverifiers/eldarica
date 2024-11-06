@@ -56,6 +56,10 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   import Symex._
 
   var printInfo = false
+
+  // This might be set to true in SymexHornWrapper
+  var generateCounterExample = false
+
   def printInfo(s : String, newLine : Boolean = true) : Unit = {
     if (printInfo)
       print(s + (if (newLine) "\n" else ""))
@@ -227,7 +231,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val proverStatus = checkFeasibility(newElectron.constraint)
           if (hasContradiction(newElectron, proverStatus)) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
-            result = Right(buildCounterExample(newElectron))
+            if (generateCounterExample) {
+              result = Right(buildCounterExample(newElectron))
+            } else {
+              result = Right(DagEmpty)
+            }
           } else if (constraintIsFalse(newElectron, proverStatus)) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
@@ -277,7 +285,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
               if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
-                result = Right(buildCounterExample(cuc))
+                if (generateCounterExample) {
+                  result = Right(buildCounterExample(cuc))
+                } else {
+                  result = Right(DagEmpty)
+                }
               }
             }
             if (result == null) { // none of the assertions failed, so this is SAT
