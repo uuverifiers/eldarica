@@ -305,12 +305,49 @@ sat
     (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
 )
 
+splitting5.smt2
+sat
+(
+    (define-fun j ((A g)) Bool (>= (y (select (f (select (h A) 0)) 0)) 1))
+)
+
 array-mod-bug.smt2
 Warning: ignoring get-model
 sat
 (
     (define-fun pbool ((A Bool)) Bool (not (= A true)))
     (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (= (select (select A 1) 5) 0) (not (= B true))))
+)
+
+splitting.smt2
+unsat
+
+0: FALSE -> 1
+1: inv(store(const(4), 0, 1), store(const(3), 0, 2), 1, 2) -> 2
+2: inv(store(const(4), 0, 1), store(const(3), 0, 2), 0, 0)
+
+splitting2.smt2
+sat
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (or (= C 0) (and (>= C 1) (>= (- (select B 0) (select A 0)) 1))))
+)
+
+splitting3.smt2
+sat
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+)
+
+splitting4.smt2
+sat
+(
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (forall ((var0 Int)) (>= (select B var0) 2))))
+)
+
+splitting5.smt2
+sat
+(
+    (define-fun j ((A g)) Bool (>= (y (select (f (select (h A) 0)) 0)) 1))
 )
 
 array-elim.smt2
