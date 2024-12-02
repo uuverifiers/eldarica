@@ -1,5 +1,8 @@
 (set-logic HORN)
 
+; TODO: handling of constant arrays could be more precise; at the
+; moment, in this example, no arrays can be cloned
+
 (declare-fun inv ((Array Int Int) (Array Int Int) Int) Bool)
 
 (assert (forall ((f (Array Int Int)) (g (Array Int Int)))

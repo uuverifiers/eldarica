@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2023-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -410,6 +410,11 @@ class ArraySplitter extends HornPreprocessor {
                      Seq(arTerm : ITerm, otherTerms @ _*)) => {
         union(ClauseExpr(clauseNum, t), ClauseExpr(clauseNum, arTerm))
         addUnknownTerms(otherTerms, clauseNum)
+        KeepArg
+      }
+
+      case t@IFunApp(_, _) ::: ArraySort(_) => {
+        addUnknownTerm(t, clauseNum)
         KeepArg
       }
 
