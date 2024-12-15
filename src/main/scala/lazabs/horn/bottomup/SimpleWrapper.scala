@@ -41,8 +41,6 @@ import lazabs.horn.predgen.Interpolators
 /**
  * Simple wrapper around the classes that can be used to
  * call Eldarica from Java or Scala applications.
- *
- * 
  */
 object SimpleWrapper {
 
