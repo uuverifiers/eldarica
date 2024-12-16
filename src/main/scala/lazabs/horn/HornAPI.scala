@@ -34,7 +34,10 @@ import ap.terfor.preds.Predicate
 
 import lazabs.GlobalParameters
 import lazabs.horn.Util._
+import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.bottomup.{HornClauses, SimpleWrapper}
+import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.symex._
 
 /**
  * Simplified API for calling the different Horn clause back-ends.
@@ -71,10 +74,22 @@ object HornAPI {
     val useAbstractPO     : Boolean                       = false
   }
 
+  sealed trait SymexStrategy
+  object SymexStrategy {
+    case object BreadthFirstForward extends SymexStrategy
+    case object DepthFirstForward   extends SymexStrategy
+  }
+
   /**
    * Options for the symbolic execution engine.
+   * If `maxDepth` is not `None`, execution will stop after the number of unit
+   * clauses for any predicate exceeds `depth`.
+   * Currently only `BreadthFirstForward` allows specifying `maxDepth`.
    */
-  class SymexOptions extends Options
+  class SymexOptions extends Options {
+    val strategy : SymexStrategy = SymexStrategy.BreadthFirstForward
+    val maxDepth : Option[Int]   = None
+  }
 
   /**
    * Exception indicating that a Horn backend has run into a timeout.
@@ -119,7 +134,30 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
             debuggingOutput   = options.debuggingOutput,
             useAbstractPO     = options.useAbstractPO)
         case options : SymexOptions =>
-          ???
+          val errOutput = if (options.debuggingOutput) Console.err else NullStream
+          Console.withErr(errOutput) { Console.withOut(Console.err) {
+            val (newClauses, _, backTranslator) = {
+              val preprocessor = new DefaultPreprocessor
+              preprocessor.process(clauses.toSeq, EmptyVerificationHints)
+            }
+
+            val symex = options.strategy match {
+              case SymexStrategy.BreadthFirstForward =>
+                new BreadthFirstForwardSymex[HornClauses.Clause](newClauses, options.maxDepth)
+              case SymexStrategy.DepthFirstForward   =>
+                new DepthFirstForwardSymex[HornClauses.Clause](newClauses)
+            }
+            symex.printInfo = options.debuggingOutput
+
+            val result = symex.solve()
+            symex.shutdown
+
+            result match {
+              case Left(x) => Left(() => backTranslator translate x)
+              case Right(x) => Right(() => backTranslator translate x)
+            }
+          }
+          }
       }
     }
 
