@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -227,6 +227,7 @@ object ConstraintSimplifier {
 class ConstraintSimplifier extends HornPreprocessor {
   import HornPreprocessor._
   import ConstraintSimplifier._
+  import PartialConstraintEvaluator.LiteralEvaluator
 
   val name : String = "constraint simplification"
 
@@ -718,7 +719,7 @@ class ConstraintSimplifier extends HornPreprocessor {
 
     val headSyms  = SymbolCollector constants head
     var body      = oriBody
-    var conjuncts = flattenConstraint(constraint)
+    var conjuncts = flattenConstraint(LiteralEvaluator(constraint))
 
     if (conjuncts exists (_.isFalse))
       throw InconsistencyException
