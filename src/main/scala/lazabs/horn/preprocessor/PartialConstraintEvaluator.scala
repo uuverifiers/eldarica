@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,14 +34,41 @@ import lazabs.horn.bottomup.HornClauses._
 
 import ap.parser._
 import IExpression._
+import ap.theories.ModuloArithmetic
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
+object PartialConstraintEvaluator {
+
+  /**
+   * Evaluate literals in different theories (in particular, bit-vectors) to
+   * integers.
+   */
+  object LiteralEvaluator extends CollectingVisitor[Unit, IExpression] {
+    def apply(t : IFormula) =
+      visit(t, ()).asInstanceOf[IFormula]
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (t, subres) match {
+        case (IFunApp(ModuloArithmetic.mod_cast, _),
+              Seq(Const(l), Const(u), Const(value))) =>
+          i(ModuloArithmetic.evalModCast(l, u, value))
+        case _ =>
+          t update subres
+      }
+  }
+
+}
+
 /**
- * Elimination of remaining Boolean structure in clauses.
+ * Simplification and partial evaluation of the constraints. This will also
+ * replace the arguments of atoms with fresh constants.
  */
 class PartialConstraintEvaluator extends HornPreprocessor {
   import HornPreprocessor._
+  import PartialConstraintEvaluator._
 
   val name : String = "partial evaluation"
 
@@ -114,8 +141,10 @@ class PartialConstraintEvaluator extends HornPreprocessor {
 
     val newHead = IAtom(headPred, newHeadArgs)
 
+    val evaluatedConstraint =
+      LiteralEvaluator(PartialEvaluator(~newConstraint))
     val processedConstraint =
-      EquivExpander(PartialEvaluator(~newConstraint))
+      EquivExpander(evaluatedConstraint)
 
     var prenexConstraint =
       Transform2Prenex(Transform2NNF(processedConstraint))
@@ -157,5 +186,4 @@ class PartialConstraintEvaluator extends HornPreprocessor {
     }
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
-
 }
