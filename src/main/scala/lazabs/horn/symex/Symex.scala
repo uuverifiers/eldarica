@@ -224,31 +224,37 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
-          val proverStatus = checkFeasibility(newElectron.constraint)
-          if (hasContradiction(newElectron, proverStatus)) { // false :- true
-            unitClauseDB.add(newElectron, (nucleus, electrons))
-            result = Right(buildCounterExample(newElectron))
-          } else if (constraintIsFalse(newElectron, proverStatus)) {
-            printInfo("")
-            handleFalseConstraint(nucleus, electrons)
-          } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
-            printInfo("subsumed by existing unit clauses.")
-            handleForwardSubsumption(nucleus, electrons)
-          } else {
-            val backSubsumed =
-              checkBackwardSubsumption(newElectron, unitClauseDB)
-            if (backSubsumed nonEmpty) {
-              printInfo(
-                "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
-                newLine = false)
-              handleBackwardSubsumption(backSubsumed)
+          val isGoal = // TODO: do we need both disjuncts?
+            (newElectron.rs.pred == HornClauses.FALSE) || (!newElectron.isPositive)
+
+          if (isGoal) {
+            val proverStatus = checkFeasibility(newElectron.constraint)
+            if (hasContradiction(newElectron, proverStatus)) { // false :- true
+              unitClauseDB.add(newElectron, (nucleus, electrons))
+              result = Right(buildCounterExample(newElectron))
             }
-            if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
-              printInfo("\n  (Added to database.)\n")
-              handleNewUnitClause(newElectron)
-            } else {
-              printInfo("\n  (Derived clause already exists in the database.)")
+          } else { // not a goal clause, no sat check needed
+            if (newElectron.constraint.isFalse) { // only a simple check, replace with a sat check w/ short t/o?
+              handleFalseConstraint(nucleus, electrons)
+            } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
+              printInfo("subsumed by existing unit clauses.")
               handleForwardSubsumption(nucleus, electrons)
+            } else {
+              val backSubsumed =
+                checkBackwardSubsumption(newElectron, unitClauseDB)
+              if (backSubsumed nonEmpty) {
+                printInfo(
+                  "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
+                  newLine = false)
+                handleBackwardSubsumption(backSubsumed)
+              }
+              if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
+                printInfo("\n  (Added to database.)\n")
+                handleNewUnitClause(newElectron)
+              } else {
+                printInfo("\n  (Derived clause already exists in the database.)")
+                handleForwardSubsumption(nucleus, electrons)
+              }
             }
           }
         }
@@ -398,9 +404,13 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
   private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
-    prover.scope {
-      prover.addAssertionPreproc(constraint)
-      prover.???
+    if (constraint.isTrue) {
+      ProverStatus.Valid
+    } else if (constraint.isFalse) {
+      ProverStatus.Invalid
+    } else prover.scope {
+        prover.addAssertionPreproc(constraint)
+        prover.???
     }
   }
 
