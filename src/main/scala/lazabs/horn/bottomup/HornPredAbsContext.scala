@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -272,6 +272,8 @@ class HornPredAbsContextImpl[CC]
     gs = Param.THEORY_PLUGIN.set(gs, PluginSequence(plugins))
     gs = Param.REDUCER_SETTINGS.set(gs, sf.reducerSettings)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(12354))
+//    gs = Param.NONLINEAR_SPLITTING_ORDER.set(gs, Param.NonLinearSplittingOrder.Vars)
+//    gs = Param.NONLINEAR_SPLITTING.set(gs, Param.NonLinearSplitting.Spherical)
     gs
   }
 

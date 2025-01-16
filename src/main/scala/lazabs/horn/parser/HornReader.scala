@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,8 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
-                    MulTheory, ModuloArithmetic, ExtArray, Heap, DivZero}
+                    MulTheory, ModuloArithmetic, ExtArray, Heap, DivZero,
+                    IntValueEnumTheory}
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -368,15 +369,16 @@ class SMTHornReader protected[parser] (
     }
 
   if (signature.theories exists {
-        case _ : SimpleArray  => false
-        case _ : ExtArray     => false
-        case _ : Heap         => false
-        case _ : ADT          => false
-        case _ : MulTheory    => false
-        case _ : DivZero      => false
-        case TypeTheory       => false
-        case ModuloArithmetic => false
-        case _                => true
+        case _ : SimpleArray        => false
+        case _ : ExtArray           => false
+        case _ : Heap               => false
+        case _ : ADT                => false
+        case _ : MulTheory          => false
+        case _ : DivZero            => false
+        case _ : IntValueEnumTheory => false
+        case TypeTheory             => false
+        case ModuloArithmetic       => false
+        case _                      => true
       })
     throw new Exception ("Combination of theories is not supported: " +
                            signature.theories.mkString(", "))
