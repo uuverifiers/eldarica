@@ -65,8 +65,7 @@ class DepthFirstForwardSymex[CC](clauses : Iterable[CC])(
     choicesStack push choiceQueue
   }
 
-  @tailrec final override def getClausesForResolution
-    : Option[(NormClause, Seq[UnitClause])] = {
+  def getClausesForResolution : Option[(NormClause, Seq[UnitClause])] = {
     if (unitClauseDB isEmpty) { // the search space is exhausted
       None
     } else {
@@ -138,7 +137,7 @@ class DepthFirstForwardSymex[CC](clauses : Iterable[CC])(
     facts.foreach(fact => touched += factToNormClause(fact))
 
     // start traversal
-    var ind = 0
+    var ind : Long = 0
     while (result == null) {
       lazabs.GlobalParameters.get.timeoutChecker()
       ind += 1
@@ -153,7 +152,8 @@ class DepthFirstForwardSymex[CC](clauses : Iterable[CC])(
             (newElectron.rs.pred == HornClauses.FALSE) || (!newElectron.isPositive)
 
           if (isGoal) {
-            val proverStatus = checkFeasibility(newElectron.constraint)
+            val proverStatus =
+              checkFeasibility(newElectron.constraint, timeoutMs = None)
             if (hasContradiction(newElectron, proverStatus)) { // false :- true
               unitClauseDB.add(newElectron, (nucleus, electrons))
               result = Right(buildCounterExample(newElectron))
@@ -207,7 +207,7 @@ class DepthFirstForwardSymex[CC](clauses : Iterable[CC])(
                     false)
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
-              if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
+              if (hasContradiction(cuc, checkFeasibility(cuc.constraint, timeoutMs = None))) {
                 result = Right(buildCounterExample(cuc))
               }
             }

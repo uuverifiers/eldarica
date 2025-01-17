@@ -28,6 +28,7 @@
  */
 package lazabs.horn.symex
 
+import ap.api.SimpleAPI.ProverStatus
 import ap.parser.IAtom
 import ap.util.Combinatorics
 import lazabs.horn.Util.Dag
@@ -53,6 +54,9 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   import Symex._
 
+  val initialTimeoutMs  = 50 // TODO: make this a setting
+  val timeoutGrowthRate = 2  // TODO: make this a setting
+
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
   // Explore the state graph (the derived unit clauses) breadth-first. At
@@ -64,7 +68,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   // than a single state, if other states we use are in the queue, we remove
   // from those states' queue the path that we are about to take.
 
-  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause])]
+  // The last argument of the tuple is the timeout (ms) used in sat checks.
+  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
@@ -74,15 +79,15 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     handleNewUnitClause(fact)
   }
 
-  final override def getClausesForResolution
-    : Option[(NormClause, Seq[UnitClause])] = {
+  def getClausesForResolution
+    : Option[(NormClause, Seq[UnitClause], Long)] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
       None
     else {
       maxDepth match {
         case None => Some(choicesQueue.dequeue)
         case Some(depth) =>
-          var res : Option[(NormClause, Seq[UnitClause])] = None
+          var res : Option[(NormClause, Seq[UnitClause], Long)] = None
           var continue = true
           do {
             val candidate = choicesQueue.dequeue()
@@ -117,7 +122,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         } else unitClauseDB.inferred(rs).getOrElse(Seq())
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList))
-        choicesQueue enqueue ((nucleus, choice))
+        choicesQueue enqueue ((nucleus, choice, initialTimeoutMs))
     }
 
   }
@@ -139,13 +144,13 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     facts.foreach(fact => touched += factToNormClause(fact))
 
     // start traversal
-    var ind = 0
+    var ind : Long = 0
     while (result == null) {
       lazabs.GlobalParameters.get.timeoutChecker()
       ind += 1
       printInfo(ind + ".", false)
       getClausesForResolution match {
-        case Some((nucleus, electrons)) => {
+        case Some((nucleus, electrons, timeoutMs)) => {
           touched += nucleus
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
@@ -154,8 +159,12 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             (newElectron.rs.pred == HornClauses.FALSE) || (!newElectron.isPositive)
 
           if (isGoal) {
-            val proverStatus = checkFeasibility(newElectron.constraint)
-            if (hasContradiction(newElectron, proverStatus)) { // false :- true
+            val proverStatus =
+              checkFeasibility(newElectron.constraint, Some(timeoutMs))
+            if (proverStatus == ProverStatus.Unknown) { // TODO: use exception for timeouts, unknown might arise from non-timeouts?
+              printInfo(s"  SAT check timed out ($timeoutMs ms), postponing...")
+              choicesQueue.enqueue((nucleus, electrons, timeoutMs*timeoutGrowthRate)) // requeue
+            } else if (hasContradiction(newElectron, proverStatus)) { // false :- true
               unitClauseDB.add(newElectron, (nucleus, electrons))
               result = Right(buildCounterExample(newElectron))
             }
@@ -208,7 +217,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                     false)
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
-              if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
+              if (hasContradiction(cuc, checkFeasibility(cuc.constraint, timeoutMs = None))) {
                 result = Right(buildCounterExample(cuc))
               }
             }

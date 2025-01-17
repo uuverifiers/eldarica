@@ -155,13 +155,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
   /**
-   * Returns optionally a nucleus and electrons that can be hyper-resolved into
-   * another electron. The sequence indices i of returned electrons correspond
-   * to atoms at nucleus.body(i). Returns None if the search space is exhausted.
-   */
-  def getClausesForResolution: Option[(NormClause, Seq[UnitClause])]
-
-  /**
    * Applies hyper-resolution using nucleus and electrons and returns the
    * resulting unit clause.
    * @note This implementation only infers positive CUCs.
@@ -311,31 +304,38 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
   }
 
-  protected def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
+  protected def checkFeasibility(constraint : Conjunction,
+                                 timeoutMs  : Option[Long]) : ProverStatus.Value = {
     if (constraint.isTrue) {
       ProverStatus.Valid
     } else if (constraint.isFalse) {
       ProverStatus.Invalid
     } else prover.scope {
         prover.addAssertionPreproc(constraint)
-        prover.???
+      timeoutMs match {
+        case Some(millis) => try prover.withTimeout(millis) {
+          prover.???
+        } catch  {
+          case SimpleAPI.TimeoutException => ProverStatus.Unknown
+        }
+        case None => prover.???
+      }
     }
   }
 
   // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
-  protected def hasContradiction(cuc:          UnitClause,
-                               proverStatus: ProverStatus.Value): Boolean = {
+  protected def hasContradiction(cuc         : UnitClause,
+                                proverStatus : ProverStatus.Value) : Boolean = {
     ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive)) &&
     (proverStatus match { // check if cuc constraint is satisfiable
-      case ProverStatus.Valid | ProverStatus.Sat     => true
+      case ProverStatus.Valid   | ProverStatus.Sat   => true
       case ProverStatus.Invalid | ProverStatus.Unsat => false
-      case s => {
+      case s =>
         Console.err.println(
           "Constraint could not be checked during symbolic execution")
         Console.err.println(cuc)
         Console.err.println("Checker said: " + s)
         true
-      }
     })
   }
 
