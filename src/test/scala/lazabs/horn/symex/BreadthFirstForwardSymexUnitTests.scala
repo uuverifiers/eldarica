@@ -403,6 +403,41 @@ class BreadthFirstForwardSymexUnitTests
           }
         }
       }
+      "Timeout tests" - {
+        "Bitvectors" - {
+          import ap.theories.bitvectors.ModuloArithmetic._
+
+          "Unsafe" in {
+            scope {
+              val bv64 = UnsignedBVSort(64)
+              val bv128 = UnsignedBVSort(128)
+              val p = createRelation("p", List(bv64))
+              val q = createRelation("q", List(bv128))
+              val r = createRelation("r", List(bv128))
+              val x  = createConstant("x", bv64)
+              val y  = createConstant("y", bv128)
+
+              val clauses : Seq[Clause] = List(
+                p(x)  :- true,
+                q(y)  :- (p(x), y === bvmul(zero_extend(64, x), zero_extend(64, x))),
+                r(y)  :- (q(y), bv_extract(63, 0, y) === bv(64, 0)),  // (1)
+                r(y)  :- (q(y), bv_extract(63, 0, y) =/= bv(64, 0)),  // (2)
+                false :- (r(y), bv_extract(127, 120, y) =/= bv(8, 0)) // (3)
+              )
+              /**
+               * Princess gets stuck when checking the constraint of (1) + (3),
+               * however (2) + (3) works. Timing out and requesting the former
+               * should lead to a result.
+               */
+
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+
+              symex.solve()
+            } should beUnsat
+          }
+        }
+      }
     }
   }
 }
