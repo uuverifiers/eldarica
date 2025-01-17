@@ -124,6 +124,7 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
 
       GlobalParameters.get.assertions     = options.enableAssertions
       GlobalParameters.get.timeoutChecker = newTimeoutChecker
+      GlobalParameters.get.setLogLevel(2)
 
       options match {
         case options : CEGAROptions =>
