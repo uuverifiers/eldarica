@@ -211,18 +211,18 @@ nonlinear2.hcc
 Warning: no definition of function "nondet" available
 UNSAFE
 
---------------
+------------------
 Init:
-    main2     
---------------
-      |       
-      |       
-      V       
- main10(2, 4) 
---------------
+      main2       
+------------------
+        |         
+        |         
+        V         
+ main10(42, 1764) 
+------------------
 Final:
- main10(2, 4) 
---------------
+ main10(42, 1764) 
+------------------
 
 typedef1.hcc
 SAFE

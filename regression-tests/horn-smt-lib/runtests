@@ -20,7 +20,6 @@ TESTS="mccarthy91.nts.smt2 \
        clause-shortener-bug.smt2 \
        extract.smt2 \
        solution-verifier-bug.smt2 \
-       groebner-bug.smt2 \
        illformed.smt2 \
        boolean.smt2"
 

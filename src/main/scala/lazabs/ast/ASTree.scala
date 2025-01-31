@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -67,8 +67,9 @@ object ASTree {
   // Expressions
   case class Block(declList: List[ASTree]) extends Expression
   case class FunctionCall(funcName: String, exprList: List[Expression]) extends Expression
-  case class Variable(val name: String, deBruijn: Option[Int] = None) extends Expression  
-  case class NumericalConst(val num: BigInt) extends Expression
+  case class Variable(name: String, deBruijn: Option[Int] = None) extends Expression  
+  case class NumericalConst(num: BigInt) extends Expression
+  case class RationalConst(num: BigInt, denom : BigInt) extends Expression
   case class CreateObject(cName: String, cArgs: List[Expression]) extends Expression
   case class BoolConst(value: Boolean) extends Expression
   case class WhileLoop(cond: Expression, body: Expression) extends Expression
@@ -202,6 +203,7 @@ object ASTree {
   case class SetHeadOp() extends UnaryOperator ("head")
   case class SetSizeOp() extends UnaryOperator ("size")
   case class UnaryExpression(op: UnaryOperator, e: Expression) extends Expression  
+  case class ToRationalOp() extends UnaryOperator ("toRational")
   
   case class Skip() extends Expression
   case class Null() extends Expression
@@ -304,6 +306,15 @@ object ASTree {
     def unapply(exp: Expression) : Option[(Expression)] = 
       exp match {
         case UnaryExpression(MinusOp(), e) => Some(e)
+        case _ => None
+      }
+  }
+  
+  object ToRational {
+    def apply(e: Expression) = UnaryExpression(ToRationalOp(), e) 
+    def unapply(exp: Expression) : Option[(Expression)] = 
+      exp match {
+        case UnaryExpression(ToRationalOp(), e) => Some(e)
         case _ => None
       }
   }

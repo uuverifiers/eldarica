@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,6 +45,7 @@ import IExpression.{ConstantTerm, Predicate}
 import lazabs.horn.Util._
 
 import lazabs.horn.bottomup.HornClauses._
+import lazabs.horn.bottomup.HornPredAbsContextImpl
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
@@ -191,7 +192,8 @@ object DisjInterpolator {
                          giveUpCondition : (Int, Int) => Boolean)
                        : Either[Seq[(Predicate, Seq[Conjunction])],
                                 Dag[(IAtom, CC)]] =
-    SimpleAPI.withProver(enableAssert = lazabs.GlobalParameters.get.assertions) { p =>
+    SimpleAPI.withProver(enableAssert = lazabs.GlobalParameters.get.assertions,
+                         otherSettings = HornPredAbsContextImpl.getOtherSettings) { p =>
       import p._
 
       val coll = new TheoryCollector
