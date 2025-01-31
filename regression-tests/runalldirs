@@ -9,6 +9,7 @@ set -e
 ./rundir horn-arrays ""
 ./rundir horn-adt "" -assert -t:60
 ./rundir horn-bv "" -assert -t:60
+./rundir horn-rat "" -assert -scex -t:60
 ./rundir horn-hcc "" -assert -t:60
 ./rundir horn-hcc-2 "" -assert -t:60
 ./rundir nts "" -assert -t:60
