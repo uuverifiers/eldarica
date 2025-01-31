@@ -6,6 +6,10 @@ echo array-exception.smt2
 $LAZABS -assert -pngNo -abstract:off -t:20 "$@" array-exception.smt2 2>&1 | grep -v "^Elapsed Time"
 
 
+echo groebner-bug.smt2
+$LAZABS -pngNo -ssol -abstract:off -fairNIASplitting "$@" groebner-bug.smt2 2>&1 | grep -v "^Elapsed Time"
+
+
 # Test case that takes a while ...
 
 echo

@@ -381,12 +381,6 @@ sat
     (define-fun ULTIMATE.start_ULTIMATE.startFINAL ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Bool)) Bool (and (= I false) (= E C)))
 )
 
-groebner-bug.smt2
-Warning: ignoring exit
-unsat
-
-0: FALSE
-
 illformed.smt2
 Warning: ignoring get-model
 (error "Uninterpreted functions or constants in clauses are not supported")
