@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic, Gambhir Sankalp. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -140,6 +140,7 @@ class GlobalParameters extends Cloneable {
   var cexInSMT = false;
   var assertions = false
   var verifyInterpolants = false
+  var niaFairSplitting = false // refers to ap.parameters.Param.NonLinearSplitting
   var minePredicates = false
   var timeoutChecker : () => Unit = () => ()
 
@@ -468,6 +469,7 @@ object Main {
       case "-cloneArrays" :: rest => arrayCloning = true; arguments(rest)
       case "-noSlicing" :: rest => slicing = false; arguments(rest)
       case "-noIntervals" :: rest => intervals = false; arguments(rest)
+      case "-fairNIASplitting" :: rest => niaFairSplitting = true; arguments(rest)
       //case "-array" :: rest => arrayRemoval = true; arguments(rest)
       case "-princess" :: rest => princess = true; arguments(rest)
       case "-stac" :: rest => staticAccelerate = true; arguments(rest)

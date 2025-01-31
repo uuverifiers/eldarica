@@ -37,8 +37,10 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.TypeTheory
-import ap.parameters.{Param, GoalSettings}
+import ap.parameters.{Param, GoalSettings, GlobalSettings}
 import ap.util.Timeout
+
+import lazabs.GlobalParameters
 
 import scala.collection.mutable.{LinkedHashMap, ArrayBuffer, LinkedHashSet}
 import scala.util.Random
@@ -146,6 +148,20 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object HornPredAbsContextImpl {
+
+  protected[horn] def getNIASplittingMode : Param.NonLinearSplitting.Value =
+    if (GlobalParameters.get.niaFairSplitting)
+      Param.NonLinearSplitting.Spherical
+    else
+      Param.NonLinearSplitting.Sign
+
+  protected[horn] def getOtherSettings : GlobalSettings =
+    Param.NONLINEAR_SPLITTING.set(
+      GlobalSettings.DEFAULT, getNIASplittingMode)
+
+}
+
 class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
                             (iClauses : Iterable[CC],
                              intervalAnalysis : Boolean = true,
@@ -153,6 +169,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
+  import HornPredAbsContextImpl._
 
   val rand = new Random (98762521)
 
@@ -272,7 +289,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
     gs = Param.REDUCER_SETTINGS.set(gs, sf.reducerSettings)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(12354))
 //    gs = Param.NONLINEAR_SPLITTING_ORDER.set(gs, Param.NonLinearSplittingOrder.Vars)
-//    gs = Param.NONLINEAR_SPLITTING.set(gs, Param.NonLinearSplitting.Spherical)
+    gs = Param.NONLINEAR_SPLITTING.set(gs, getNIASplittingMode)
     gs
   }
 

@@ -1,6 +1,9 @@
 array-exception.smt2
 Warning: ignoring get-model
 unknown
+groebner-bug.smt2
+Warning: ignoring exit
+unsat
 
 fib.smt2
 Warning: ignoring get-model
