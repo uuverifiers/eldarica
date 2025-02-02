@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -134,6 +134,7 @@ object HornPrinter {
         else
           getAlphabeticChar(index - vars.size)
       case NumericalConst(num) => num.toString
+      case RationalConst(num, denom) => "(" + num + " / " + denom + ")"
       case BoolConst(v) => "" + v
       case BVconst(bits, v) => "" + v
       case _ =>
