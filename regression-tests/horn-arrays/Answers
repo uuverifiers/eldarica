@@ -350,6 +350,14 @@ sat
     (define-fun j ((A g)) Bool (>= (y (select (f (select (h A) 0)) 0)) 1))
 )
 
+splitting6.smt2
+sat
+(
+    (define-fun atom1 () Bool true)
+    (define-fun atom3 () Bool false)
+    (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
+)
+
 array-elim.smt2
 sat
 (
