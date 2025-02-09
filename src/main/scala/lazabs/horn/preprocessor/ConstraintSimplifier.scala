@@ -371,7 +371,8 @@ class ConstraintSimplifier extends HornPreprocessor {
           } else if (!(replacedConsts contains c) &&
                      !(replacedConsts contains d) &&
                      (Sort sortOf left) == (Sort sortOf right)) {
-
+            // TODO: make sure that Real and Integer are considered
+            // as compatible sorts
             if (!(headSyms contains c)) {
               replacement.put(c, right +++ offset)
             } else if (!(headSyms contains d)) {

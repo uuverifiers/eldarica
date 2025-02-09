@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,14 +32,20 @@ package lazabs.horn.abstractions
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.concurrency.ReaderMain
+import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.basetypes.IdealInt
 import ap.theories.nia.GroebnerMultiplication
+import ap.theories.rationals.Rationals
+import ap.theories.bitvectors.ModuloArithmetic.ModSort
 import ap.parser._
+import ap.terfor.{VariableTerm, TermOrder, TerForConvenience}
+import ap.terfor.linearcombination.LinearCombination
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs = Value
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, RelationalEqs2 =
+      Value
   }
 }
 
@@ -211,6 +217,107 @@ class StaticAbstractionBuilder(
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def lcRelationAbstractions(ineqs : Boolean) = VerificationHints(
+    for ((loopHead, argTransformations) <-
+           ModifiedLoopVarsDetector.linearTransformations(loopDetector)) yield {
+      implicit val order = TermOrder.EMPTY
+      implicit val lcOrder = order.lcOrdering
+
+      def effectiveSort(s : Sort) : Sort =
+        s match {
+          case Sort.Numeric(_) => Sort.Integer
+          case Rationals.dom   => Sort.Integer
+            // bit-vectors?
+          case _               => s
+      }
+
+      def incPattern(inc : Option[LinearCombination]) : LinearCombination =
+        inc match {
+          case Some(lc) if !lc.isConstant => lc.makePrimitiveAndPositive
+          case _                          => LinearCombination.ONE
+        }
+
+      def effectiveInc(inc : Option[LinearCombination]) : LinearCombination =
+        inc match {
+          case Some(lc) => lc
+          case _        => LinearCombination.ONE
+        }
+
+      val argIncrements = {
+        import TerForConvenience._
+        (for ((t, n) <- argTransformations.zipWithIndex) yield {
+           for (lc <- t; if lc.get(v(n)).isOne)
+           yield lc - l(v(n))
+         }).toVector
+      }
+
+      val unmodifiedArgs =
+        (for ((Some(lc), n) <- argIncrements.iterator.zipWithIndex;
+              if lc.isZero)
+         yield n).toSet
+
+      val singleArgTemplates =
+        for (k <- 0 until loopHead.arity)
+        yield (v(k) -> (if (unmodifiedArgs(k)) 1 else 6))
+
+      val argSorts = predArgumentSorts(loopHead)
+      val argsPerSort = argSorts.zipWithIndex.groupBy(p => effectiveSort(p._1))
+
+      val intTemplates =
+        (for (args <- argsPerSort.get(Sort.Integer).toSeq) yield {
+           val increments =
+             (for ((_, n) <- args.iterator; if !unmodifiedArgs(n))
+              yield (n -> argIncrements(n))).toVector
+           val incGroups =
+             increments.groupBy(p => incPattern(p._2))
+
+           for ((_, argsIncs) <- incGroups.toVector.sortBy(_._1);
+                if argsIncs.size > 1;
+                effArgsIncs = argsIncs.map(p => (p._1, effectiveInc(p._2)));
+                (masterInd, masterInc) = effArgsIncs.head;
+                (otherInd, otherInc) <- effArgsIncs.tail)
+           yield {
+             ((v(masterInd) *** otherInc.leadingCoeff) +
+              (v(otherInd) *** -masterInc.leadingCoeff)) -> 2
+           }
+         }).flatten
+
+      val otherTemplates =
+        for ((sort, args) <- argsPerSort; if sort != Sort.Integer;
+             relevantArgs = for ((_, n) <- args; if !unmodifiedArgs(n)) yield n;
+             if relevantArgs.size > 1;
+             masterInd = relevantArgs.head;
+             otherInd <- relevantArgs.tail) yield {
+          (v(masterInd) - v(otherInd)) -> 2
+        }
+
+      val bvTemplates =
+        for ((sort, args) <- argsPerSort; if sort.isInstanceOf[ModSort];
+             relevantArgs = for ((_, n) <- args; if !unmodifiedArgs(n)) yield n;
+             if relevantArgs.size > 1;
+             masterInd = relevantArgs.head;
+             otherInd <- relevantArgs.tail) yield {
+          (v(masterInd) + v(otherInd)) -> 2
+        }
+
+      val allTemplates =
+        singleArgTemplates ++ intTemplates ++ otherTemplates ++ bvTemplates
+
+      Console.err.println("   " + loopHead +
+         " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
+         allTemplates.size + " templates)")
+
+      // TODO: use inequalities only for arithmetic sorts
+
+      (loopHead,
+       if (ineqs)
+         for ((t, c) <- allTemplates) yield VerifHintTplInEqTermPosNeg(t, c)
+       else
+         for ((t, c) <- allTemplates) yield VerifHintTplEqTerm(t, c))
+    })
+
+  //////////////////////////////////////////////////////////////////////////////
+
   import StaticAbstractionBuilder._
 
   val abstractionHints : VerificationHints =
@@ -223,6 +330,8 @@ class StaticAbstractionBuilder(
         octagonAbstractions
       case AbstractionType.RelationalEqs =>
         relationAbstractions(false)
+      case AbstractionType.RelationalEqs2 =>
+        lcRelationAbstractions(false)
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
     }
