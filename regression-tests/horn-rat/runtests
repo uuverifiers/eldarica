@@ -11,3 +11,6 @@ for name in $TESTS; do
     $LAZABS -pngNo -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
+echo
+echo monniaux-loop3.smt2
+$LAZABS -abstract:relEqs2 -pngNo "$@" monniaux-loop3.smt2 2>&1 | grep -v "^Elapsed Time"
