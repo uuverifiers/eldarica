@@ -34,6 +34,7 @@ import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
 import ap.theories.{ModuloArithmetic, ADT}
+import ap.theories.rationals.Rationals
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -278,6 +279,16 @@ class ConstraintSimplifier extends HornPreprocessor {
     IConstant(res)
   }
 
+  /**
+   * At this point, we do not have to distinguish integer and rational
+   * sort.
+   */
+  private def toEffectiveSort(s : Sort) =
+    s match {
+      case Rationals.dom => Sort.Integer
+      case s             => s
+    }
+
   private object InconsistencyException extends Exception
 
   //////////////////////////////////////////////////////////////////////////////
@@ -370,8 +381,8 @@ class ConstraintSimplifier extends HornPreprocessor {
 
           } else if (!(replacedConsts contains c) &&
                      !(replacedConsts contains d) &&
-                     (Sort sortOf left) == (Sort sortOf right)) {
-
+                     toEffectiveSort(Sort sortOf left) ==
+                       toEffectiveSort(Sort sortOf right)) {
             if (!(headSyms contains c)) {
               replacement.put(c, right +++ offset)
             } else if (!(headSyms contains d)) {
@@ -447,15 +458,19 @@ class ConstraintSimplifier extends HornPreprocessor {
 
     val singletonConstants =
       (for ((c, 1) <- occurrenceNums.iterator;
-            if (Sort sortOf c) == Sort.Integer)
+            if toEffectiveSort(Sort sortOf c) == Sort.Integer)
        yield c).toSet
 
     if (singletonConstants.isEmpty)
       return None
 
     val remConjuncts = conjuncts filter {
-      case INot(EqZ(t)) if containsUnitConst(t, singletonConstants) => false
-      case GeqZ(t) if containsSingletonConst(t, singletonConstants) => false
+      case EqZ(t)
+          if containsUnitConst(t, singletonConstants) => false
+      case INot(EqZ(t))
+          if containsSingletonConst(t, singletonConstants) => false
+      case GeqZ(t)
+          if containsSingletonConst(t, singletonConstants) => false
       case _ => true
     }
 

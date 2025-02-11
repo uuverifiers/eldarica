@@ -11,3 +11,7 @@ unsat
 3: (I (/ 1 4)) -> 4
 4: (I (/ 1 2)) -> 5
 5: (I (/ 1 1))
+
+monniaux-loop3.smt2
+Warning: ignoring get-model
+sat
