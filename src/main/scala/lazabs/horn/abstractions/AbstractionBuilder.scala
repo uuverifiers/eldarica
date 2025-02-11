@@ -44,7 +44,8 @@ import ap.terfor.linearcombination.LinearCombination
 
 object StaticAbstractionBuilder {
   object AbstractionType extends Enumeration {
-    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs, RelationalEqs2 =
+    val Empty, Term, Octagon, RelationalEqs, RelationalIneqs,
+        RelationalEqs2, RelationalIneqs2 =
       Value
   }
 }
@@ -227,9 +228,16 @@ class StaticAbstractionBuilder(
         s match {
           case Sort.Numeric(_) => Sort.Integer
           case Rationals.dom   => Sort.Integer
-            // bit-vectors?
           case _               => s
-      }
+        }
+
+      def toTemplate(term : ITerm, cost : Int, s : Sort) =
+        s match {
+          case Sort.Numeric(_) | Rationals.dom | _ : ModSort if ineqs =>
+            VerifHintTplInEqTermPosNeg(term, cost)
+          case _ =>
+            VerifHintTplEqTerm(term, cost)
+        }
 
       def incPattern(inc : Option[LinearCombination]) : LinearCombination =
         inc match {
@@ -256,39 +264,41 @@ class StaticAbstractionBuilder(
               if lc.isZero)
          yield n).toSet
 
-      val singleArgTemplates =
-        for (k <- 0 until loopHead.arity)
-        yield (v(k) -> (if (unmodifiedArgs(k)) 1 else 6))
-
       val argSorts = predArgumentSorts(loopHead)
+
+      val singleArgTemplates =
+        for ((s, k) <- argSorts.zipWithIndex) yield {
+          val cost = if (unmodifiedArgs(k)) 1 else 6
+          toTemplate(v(k), cost, s)
+        }
+
       val argsPerSort = argSorts.zipWithIndex.groupBy(p => effectiveSort(p._1))
 
       val intTemplates =
-        (for (args <- argsPerSort.get(Sort.Integer).toSeq) yield {
-           val increments =
-             (for ((_, n) <- args.iterator; if !unmodifiedArgs(n))
-              yield (n -> argIncrements(n))).toVector
-           val incGroups =
-             increments.groupBy(p => incPattern(p._2))
-
-           for ((_, argsIncs) <- incGroups.toVector.sortBy(_._1);
-                if argsIncs.size > 1;
-                effArgsIncs = argsIncs.map(p => (p._1, effectiveInc(p._2)));
-                (masterInd, masterInc) = effArgsIncs.head;
-                (otherInd, otherInc) <- effArgsIncs.tail)
-           yield {
-             ((v(masterInd) *** otherInc.leadingCoeff) +
-              (v(otherInd) *** -masterInc.leadingCoeff)) -> 2
-           }
-         }).flatten
+        for (args <- argsPerSort.get(Sort.Integer).toSeq;
+             increments = (for ((_, n) <- args.iterator; if !unmodifiedArgs(n))
+                           yield (n -> argIncrements(n))).toVector;
+             incGroups = increments.groupBy(p => incPattern(p._2));
+             (_, argsIncs) <- incGroups.toVector.sortBy(_._1);
+             if argsIncs.size > 1;
+             effArgsIncs = argsIncs.map(p => (p._1, effectiveInc(p._2)));
+             (masterInd, masterInc) = effArgsIncs.head;
+             (otherInd, otherInc) <- effArgsIncs.tail)
+        yield {
+          val term = (v(masterInd) *** otherInc.leadingCoeff) +
+                     (v(otherInd) *** -masterInc.leadingCoeff)
+          val cost = 2
+          toTemplate(term, cost, Sort.Integer)
+        }
 
       val otherTemplates =
         for ((sort, args) <- argsPerSort; if sort != Sort.Integer;
              relevantArgs = for ((_, n) <- args; if !unmodifiedArgs(n)) yield n;
              if relevantArgs.size > 1;
              masterInd = relevantArgs.head;
-             otherInd <- relevantArgs.tail) yield {
-          (v(masterInd) - v(otherInd)) -> 2
+             otherInd <- relevantArgs.tail)
+        yield {
+          toTemplate(v(masterInd) - v(otherInd), 2, sort)
         }
 
       val bvTemplates =
@@ -296,8 +306,9 @@ class StaticAbstractionBuilder(
              relevantArgs = for ((_, n) <- args; if !unmodifiedArgs(n)) yield n;
              if relevantArgs.size > 1;
              masterInd = relevantArgs.head;
-             otherInd <- relevantArgs.tail) yield {
-          (v(masterInd) + v(otherInd)) -> 2
+             otherInd <- relevantArgs.tail)
+        yield {
+          toTemplate(v(masterInd) + v(otherInd), 2, sort)
         }
 
       val allTemplates =
@@ -307,13 +318,7 @@ class StaticAbstractionBuilder(
          " (" + loopDetector.loopBodies(loopHead).size + " clauses, " +
          allTemplates.size + " templates)")
 
-      // TODO: use inequalities only for arithmetic sorts
-
-      (loopHead,
-       if (ineqs)
-         for ((t, c) <- allTemplates) yield VerifHintTplInEqTermPosNeg(t, c)
-       else
-         for ((t, c) <- allTemplates) yield VerifHintTplEqTerm(t, c))
+      (loopHead, allTemplates)
     })
 
   //////////////////////////////////////////////////////////////////////////////
@@ -334,6 +339,8 @@ class StaticAbstractionBuilder(
         lcRelationAbstractions(false)
       case AbstractionType.RelationalIneqs =>
         relationAbstractions(true)
+      case AbstractionType.RelationalIneqs2 =>
+        lcRelationAbstractions(true)
     }
 
   if (GlobalParameters.get.templateBasedInterpolationPrint)

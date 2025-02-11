@@ -465,9 +465,12 @@ class ConstraintSimplifier extends HornPreprocessor {
       return None
 
     val remConjuncts = conjuncts filter {
-      case EqZ(t)       if containsUnitConst(t, singletonConstants) => false
-      case INot(EqZ(t)) if containsUnitConst(t, singletonConstants) => false
-      case GeqZ(t) if containsSingletonConst(t, singletonConstants) => false
+      case EqZ(t)
+          if containsUnitConst(t, singletonConstants) => false
+      case INot(EqZ(t))
+          if containsSingletonConst(t, singletonConstants) => false
+      case GeqZ(t)
+          if containsSingletonConst(t, singletonConstants) => false
       case _ => true
     }
 

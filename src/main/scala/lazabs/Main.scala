@@ -416,6 +416,11 @@ object Main {
         templateBasedInterpolationType = AbstractionType.RelationalIneqs
         arguments(rest)
       }
+      case "-abstract:relIneqs2" :: rest => {
+        templateBasedInterpolation = true
+        templateBasedInterpolationType = AbstractionType.RelationalIneqs2
+        arguments(rest)
+      }
       case "-abstract:off" :: rest => {
         templateBasedInterpolation = false
         arguments(rest)
