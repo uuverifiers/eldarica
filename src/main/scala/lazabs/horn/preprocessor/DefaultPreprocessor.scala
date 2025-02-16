@@ -52,8 +52,8 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def preStages : List[HornPreprocessor] =
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
-    List(new PartialConstraintEvaluator,
-         RationalDenomUnifier,
+    List(RationalDenomUnifier,
+         new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner)
 
