@@ -104,7 +104,7 @@ class GlobalParameters extends Cloneable {
   var didIncompleteTransformation = false
   var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value =
-    AbstractionType.RelationalEqs
+    AbstractionType.RelationalEqs2
   var templateBasedInterpolationTimeout = 2000
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
@@ -565,7 +565,7 @@ object Main {
 //	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
           " -abstract:t       Interp. abstraction: off, manual, term, oct,\n" +
-          "                     relEqs (default), relIneqs\n" +
+          "                     relEqs, relIneqs, relEqs2 (default), relIneqs2\n" +
           " -abstractTO:t     Timeout (s) for abstraction search (default: 2.0)\n" +
           " -abstractPO       Run with and w/o interpolation abstraction in parallel\n" +
           " -portfolio        Run different standard configurations in parallel\n" +

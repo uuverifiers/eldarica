@@ -182,7 +182,7 @@ Initially:                                             4         2
 
 ------------------------------ Analysing loops ---------------------------------
 Loop heads:
-   C/2 (1 clauses, 3 templates)
+   C/2 (1 clauses, 4 templates)
 Theories: Types, GroebnerMultiplicationValueEnumerator, GroebnerMultiplication, ModuloArithmetic
 State hashing enabled
 Unique satisfiable clauses: 3
