@@ -390,6 +390,7 @@ class SMTHornReader protected[parser] (
       case _ : SimpleArray => true
       case _ : ExtArray    => true
       case _ : DivZero     => true
+      case ADT.BoolADT     => true
       case TypeTheory      => true
       case _               => false
     }
