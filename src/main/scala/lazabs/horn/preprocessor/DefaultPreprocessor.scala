@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,10 +31,14 @@ package lazabs.horn.preprocessor
 
 import ap.parser._
 import IExpression._
+
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.global._
+import lazabs.horn.Util.Dag
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 LinkedHashSet, ArrayBuffer}
 
 /**
  * Default preprocessing pipeline used in Eldarica.
@@ -48,9 +52,9 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def preStages : List[HornPreprocessor] =
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
-    List(new PartialConstraintEvaluator,
+    List(RationalDenomUnifier,
+         new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         RationalDenomUnifier,
          new ClauseInliner)
 
   def extendingStages : List[HornPreprocessor] =
@@ -104,7 +108,6 @@ class DefaultPreprocessor extends HornPreprocessor {
 
         val (newClauses, newHints, translator) =
           stage.process(curClauses, curHints, frozenPredicates)
-
         curClauses = newClauses
         curHints = newHints
 

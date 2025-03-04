@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2011-2014 Filip Konecny
- *                    2022 Philipp Ruemmer
+ *               2022-2024 Philipp Ruemmer
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,8 @@
  */
 
 package lazabs.horn.acceleration
+
+import lazabs.GlobalParameters
 
 import scala.collection.mutable.{ArrayBuffer, Buffer}
 
@@ -190,6 +192,8 @@ abstract class AbsGraph { thisGraph =>
                       suff : List[Edge],
                       seen : Set[Node],
                       acc  : Buffer[Seq[Edge]]) : Unit = {
+    GlobalParameters.get.timeoutChecker()
+
     if (from == to)
       acc += suff
 

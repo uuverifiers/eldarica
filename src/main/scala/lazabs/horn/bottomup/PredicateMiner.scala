@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,9 @@ import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
-import Util._
-import DisjInterpolator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.Util._
+import lazabs.horn.predgen.PredicateGenerator
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -114,22 +115,15 @@ class PredicateMiner[CC <% HornClauses.ConstraintClause]
     val newPredStore = new PredicateStore(context)
     newPredStore addRelationSymbolPreds preds
     try {
-      Console.withOut(HornWrapper.NullStream) {
-        new CEGAR (context, newPredStore, exceptionalPredGen)
+      Console.withOut(NullStream) {
+        new CEGAR (context, newPredStore, PredicateGenerator.FailingPredGen)
       }
       true
     } catch {
-      case PredGenException => {
+      case _ : PredicateGenerator.PredGenFailed => {
         false
       }
     }
   }
-
-  private object PredGenException extends Exception
-
-  private def exceptionalPredGen(d : Dag[AndOrNode[NormClause, Unit]]) 
-                               : Either[Seq[(Predicate, Seq[Conjunction])],
-                                        Dag[(IAtom, NormClause)]] =
-   throw PredGenException
 
 }

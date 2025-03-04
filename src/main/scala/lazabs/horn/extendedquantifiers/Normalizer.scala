@@ -36,7 +36,7 @@ import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty, DagNode}
+import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.extendedquantifiers.Util._
 import lazabs.horn.preprocessor.{ClauseShortener, HornPreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor._

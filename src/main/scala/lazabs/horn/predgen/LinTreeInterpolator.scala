@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,8 +27,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
+import ap.basetypes.Tree
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
 import ap.parser.{PartName, IInterpolantSpec}
 import ap.proof.certificates.Certificate
@@ -37,8 +38,6 @@ import ap.terfor.{TermOrder, ConstantTerm}
 import ap.util.Timeout
 
 import ap.proof.certificates.{CertificatePrettyPrinter, CertFormula}
-
-import lazabs.prover.Tree
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
                                  HashMap => MHashMap}

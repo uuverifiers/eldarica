@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,6 +57,12 @@ object HornClauses {
     (for (clause <- clauses.iterator;
           p <- clause.predicates.iterator) yield p).toSet - HornClauses.FALSE
 
+  def allTheories(clauses : Iterable[Clause]) : Seq[Theory] = {
+    val coll = new TheoryCollector
+    clauses.foreach(_.collectTheories(coll))
+    coll.theories
+  }
+
   def allTermsSimple(terms : Iterable[ITerm]) : Boolean =
     terms forall {
       case SimpleTerm(_) => true
@@ -84,12 +90,18 @@ object HornClauses {
     lazy val predicates =
       (for (IAtom(p, _) <- (Iterator single head) ++ body.iterator) yield p).toSet
 
-    lazy val theories : Seq[Theory] = {
-      val coll = new TheoryCollector
+    def collectTheories(coll : TheoryCollector) : Unit = {
       coll(head)
       for (a <- body)
         coll(a)
       coll(constraint)
+      for (c <- constants)
+        coll(Sort sortOf c)
+    }
+
+    lazy val theories : Seq[Theory] = {
+      val coll = new TheoryCollector
+      collectTheories(coll)
       coll.theories
     }
 
@@ -370,7 +382,8 @@ object HornClauses {
     case Right(c) => c
   }
 
-  implicit def clause2ConstraintClause(c : Clause) : ConstraintClause = new ConstraintClause {
+  implicit def clause2ConstraintClause(c : Clause) : ConstraintClause =
+    new ConstraintClause {
 /*    private val (headSymbols, bodySymbols, localVariables, constraint) = {
       val coll = new TheoryCollector
       collectTheories(coll)
@@ -424,12 +437,8 @@ object HornClauses {
                                         c.constraint & headEqs & bodyEqs),
                              sig)
     }
-    override def collectTheories(coll : TheoryCollector) : Unit = {
-      coll(c.head)
-      for (a <- c.body)
-        coll(a)
-      coll(c.constraint)
-    }
+    override def collectTheories(coll : TheoryCollector) : Unit =
+      c.collectTheories(coll)
   }
 
 }

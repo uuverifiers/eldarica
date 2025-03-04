@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2014 Hossein Hojjat. All rights reserved.
+ * Copyright (c) 2011-2014 Hossein Hojjat, 2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,11 +34,12 @@ import UppAst._
 import lazabs.ast.ASTree._
 import lazabs.types._
 import HornUpp._
-import lazabs.horn.bottomup.{HornClauses, HornPredAbs, DagInterpolator}
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
+import lazabs.horn.predgen.DagInterpolator
 import lazabs.horn.concurrency._
 import lazabs.horn.concurrency.ParametricEncoder._
 import lazabs.horn.abstractions.{AbsLattice, TermSubsetLattice, ProductLattice}
-import lazabs.horn.bottomup.HornTranslator
+import lazabs.horn.HornTranslator
 
 
 object Relational {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,9 +27,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.bottomup
+package lazabs.horn.predgen
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, Tree}
 import ap.parameters.{Param, GoalSettings}
 import ap.parser.PartName
 import ap.theories.Theory
@@ -46,7 +46,7 @@ import ap.proof.theoryPlugins.PluginSequence
 import ap.proof.certificates.Certificate
 import ap.util.Seqs
 
-import lazabs.prover.Tree
+import lazabs.horn.Util
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
                                  HashMap => MHashMap}
@@ -59,14 +59,6 @@ object TreeInterpolator {
 
   val interpolator = LinTreeInterpolator
 //  val interpolator = BSTreeInterpolator
-
-  def size(t : Tree[Conjunction]) =
-    (for (c <- t.iterator) yield nodeCount(c)).sum
-
-  def nodeCount(c : Conjunction) : Int =
-    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
-      case (n,d) => n + nodeCount(d)
-    }
 
   def treeInterpolate(oriProblem : Tree[Conjunction],
                       order : TermOrder,
@@ -83,7 +75,7 @@ object TreeInterpolator {
  */
 abstract class TreeInterpolator {
 
-  import TreeInterpolator.size
+  import Util.treeSize
 
     def treeInterpolate(oriProblem : Tree[Conjunction],
                         order : TermOrder,
@@ -177,7 +169,7 @@ abstract class TreeInterpolator {
                   Tree[Map[ConstantTerm, ConstantTerm]],
                   Seq[ModelElement]) = {
     if (lazabs.GlobalParameters.get.log)
-      print(" " + size(problem) + " -> ")
+      print(" " + treeSize(problem) + " -> ")
 
     val (newProblem, symbolTranslation) = propagateSymbols(problem, order)
 
@@ -187,7 +179,7 @@ abstract class TreeInterpolator {
     val newProblem2 = elimLocalSyms(newProblem, order, witnesses)
 
     if (lazabs.GlobalParameters.get.log)
-      print(size(newProblem2))
+      print(treeSize(newProblem2))
 
     (newProblem2, symbolTranslation, witnesses)
   }

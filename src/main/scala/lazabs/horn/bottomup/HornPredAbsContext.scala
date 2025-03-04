@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,10 +37,12 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.theories.{Theory, TheoryCollector}
 import ap.types.TypeTheory
-import ap.parameters.{Param, GoalSettings}
+import ap.parameters.{Param, GoalSettings, GlobalSettings}
 import ap.util.Timeout
 
-import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
+import lazabs.GlobalParameters
+
+import scala.collection.mutable.{LinkedHashMap, ArrayBuffer, LinkedHashSet}
 import scala.util.Random
 
 trait HornPredAbsContext[CC] {
@@ -146,6 +148,20 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object HornPredAbsContextImpl {
+
+  protected[horn] def getNIASplittingMode : Param.NonLinearSplitting.Value =
+    if (GlobalParameters.get.niaFairSplitting)
+      Param.NonLinearSplitting.Spherical
+    else
+      Param.NonLinearSplitting.Sign
+
+  protected[horn] def getOtherSettings : GlobalSettings =
+    Param.NONLINEAR_SPLITTING.set(
+      GlobalSettings.DEFAULT, getNIASplittingMode)
+
+}
+
 class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
                             (iClauses : Iterable[CC],
                              intervalAnalysis : Boolean = true,
@@ -153,6 +169,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
+  import HornPredAbsContextImpl._
 
   val rand = new Random (98762521)
 
@@ -176,6 +193,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
        case ap.types.TypeTheory                 => true
        case ap.theories.GroebnerMultiplication  => true
        case ap.theories.ModuloArithmetic        => true
+       case _ : ap.theories.IntValueEnumTheory  => true
        case _ : ap.theories.ADT                 => true
        case _                                   => false
      }) &&
@@ -192,12 +210,11 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
   implicit val sf = new SymbolFactory(theories)
 
   val relationSymbols = {
-    val preds =
-      (for (c <- iClauses.iterator;
-            lit <- (Iterator single c.head) ++ c.body.iterator;
-            p = lit.predicate)
-       yield p).toSet
-    (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
+    val preds = new LinkedHashSet[Predicate]
+    for (c <- iClauses;
+         lit <- (Iterator single c.head) ++ c.body.iterator)
+      preds += lit.predicate
+    (for (p <- preds.iterator) yield (p -> RelationSymbol(p))).toMap
   }
 
   // make sure that arguments constants have been instantiated
@@ -272,6 +289,8 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
     gs = Param.THEORY_PLUGIN.set(gs, PluginSequence(plugins))
     gs = Param.REDUCER_SETTINGS.set(gs, sf.reducerSettings)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(12354))
+//    gs = Param.NONLINEAR_SPLITTING_ORDER.set(gs, Param.NonLinearSplittingOrder.Vars)
+    gs = Param.NONLINEAR_SPLITTING.set(gs, getNIASplittingMode)
     gs
   }
 

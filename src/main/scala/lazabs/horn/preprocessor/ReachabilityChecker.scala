@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@ package lazabs.horn.preprocessor
 
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
 
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -64,7 +64,8 @@ object ReachabilityChecker extends HornPreprocessor {
 
     val fwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
-      workList ++= fwdReachable
+      for (x <- fwdReachable)
+        workList push x
 
       // add entry predicates
       for (Clause(IAtom(p, _), Seq(), _) <- clauses)
@@ -103,7 +104,8 @@ object ReachabilityChecker extends HornPreprocessor {
 
     val bwdReachableClauses = {
       val workList = new ArrayStack[Predicate]
-      workList ++= bwdReachable
+      for (x <- bwdReachable)
+        workList push x
 
       // fixed-point iteration
       val clausesWithHeadPred = fwdReachableClauses groupBy (_.head.pred)

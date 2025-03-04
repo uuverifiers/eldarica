@@ -35,14 +35,15 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.util.Timeout
 import lazabs.GlobalParameters
+import lazabs.horn.Util.{Dag, DagEmpty, NullStream}
 import lazabs.horn.abstractions.AbstractionRecord.AbstractionMap
 import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
 import lazabs.horn.abstractions.VerificationHints.VerifHintElement
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.{DagInterpolator, IncrementalHornPredAbs, PredicateStore, TemplateInterpolator}
-import lazabs.horn.bottomup.Util.{Dag, DagEmpty}
+import lazabs.horn.bottomup.{IncrementalHornPredAbs, PredicateStore}
 import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
-import lazabs.horn.preprocessor.{PreStagePreprocessor, DefaultPreprocessor}
+import lazabs.horn.predgen.Interpolators
+import lazabs.horn.preprocessor.{DefaultPreprocessor, PreStagePreprocessor}
 import lazabs.horn.preprocessor.HornPreprocessor.{BackTranslator, Clauses, ComposedBackTranslator, VerificationHints}
 
 import scala.collection.mutable.{ArrayBuffer, Buffer => MBuffer, HashMap => MHashMap, HashSet => MHashSet}
@@ -119,11 +120,10 @@ class InstrumentationLoop (
     lastInstrumenter = instrumenter
 
     val outStream =
-      if (lazabs.GlobalParameters.get.logStat) Console.err
-      else lazabs.horn.bottomup.HornWrapper.NullStream
+      if (lazabs.GlobalParameters.get.logStat) Console.err else NullStream
 
     val (simpClauses2, hints, bTranslator) =
-      Console.withErr(lazabs.horn.bottomup.HornWrapper.NullStream){
+      Console.withErr(NullStream){
         (new DefaultPreprocessor).process(
           instrumenter.instrumentedClauses,
           instrumenter.newHints,
@@ -150,40 +150,36 @@ class InstrumentationLoop (
 //    println("="*80)
 //    println("Clauses after instrumentation (simplified)")
 
+
     val interpolator =
-      if (templateBasedInterpolation)
-        Console.withErr(outStream) {
-          val builder =
-            new StaticAbstractionBuilder(
-              simpClauses2,
-              templateBasedInterpolationType,
-              branchPreds) //remainingBranchPredicates)
-          val autoAbstractionMap =
-            builder.abstractionRecords
+      if (templateBasedInterpolation) Console.withErr(outStream) {
+        val builder =
+          new StaticAbstractionBuilder(
+            simpClauses2,
+            templateBasedInterpolationType,
+            branchPreds) //remainingBranchPredicates)
+        val autoAbstractionMap =
+          builder.abstractionRecords
 
-          val abstractionMap: AbstractionMap =
-            if (globalPredicateTemplates.isEmpty) {
-              autoAbstractionMap
-            } else {
-              val loopDetector = builder.loopDetector
+        val abstractionMap: AbstractionMap =
+          if (globalPredicateTemplates.isEmpty) {
+            autoAbstractionMap
+          } else {
+            val loopDetector = builder.loopDetector
 
-              print("Using interpolation templates provided in program: ")
+            print("Using interpolation templates provided in program: ")
 
-              val hintsAbstractionMap =
-                loopDetector hints2AbstractionRecord curHints
+            val hintsAbstractionMap = loopDetector hints2AbstractionRecord curHints
 
-              println(
-                hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
+            println(hintsAbstractionMap.keys.toSeq sortBy (_.name) mkString ", ")
 
-              AbstractionRecord.mergeMaps(autoAbstractionMap,
-                                          hintsAbstractionMap)
-            }
+            AbstractionRecord.mergeMaps(autoAbstractionMap, hintsAbstractionMap)
+          }
 
-          TemplateInterpolator.interpolatingPredicateGenCEXAbsGen(
-            abstractionMap,
-            templateBasedInterpolationTimeout)
-        } else {
-        DagInterpolator.interpolatingPredicateGenCEXAndOr _
+        new Interpolators.TemplateInterpolator(
+          abstractionMap, templateBasedInterpolationTimeout)
+      } else {
+        Interpolators.DagInterpolator
       }
 
     def computeAtoms(inst : Map[Predicate, Conjunction]) : Set[IAtom] = {

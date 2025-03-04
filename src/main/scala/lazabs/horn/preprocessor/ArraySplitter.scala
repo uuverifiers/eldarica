@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2023-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
 
 import ap.parser._
 import IExpression._
@@ -401,7 +401,15 @@ class ArraySplitter extends HornPreprocessor {
         ShortCutResult(())
       }
 
-      case IFunApp(ExtArray.Select(_), Seq(arTerm, otherTerms @ _*)) => {
+      // don't clone arrays nested inside other arrays
+      case t@IFunApp(ExtArray.Select(_),
+                     Seq(arTerm, otherTerms @ _*)) ::: ArraySort(_) => {
+        addUnknownTerm(t, clauseNum)
+        addUnknownTerms(otherTerms, clauseNum)
+        KeepArg
+      }
+
+      case t@IFunApp(ExtArray.Select(_), Seq(arTerm, otherTerms @ _*)) => {
         addUnknownTerms(otherTerms, clauseNum)
         KeepArg
       }
@@ -410,6 +418,11 @@ class ArraySplitter extends HornPreprocessor {
                      Seq(arTerm : ITerm, otherTerms @ _*)) => {
         union(ClauseExpr(clauseNum, t), ClauseExpr(clauseNum, arTerm))
         addUnknownTerms(otherTerms, clauseNum)
+        KeepArg
+      }
+
+      case t@IFunApp(_, _) ::: ArraySort(_) => {
+        addUnknownTerm(t, clauseNum)
         KeepArg
       }
 

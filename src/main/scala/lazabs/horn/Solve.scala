@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2023 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@ import global._
 import bottomup._
 import bottomup.RelationSymbol
 import abstractions.AbsLattice
-import lazabs.horn.bottomup.Util.Dag
+import Util.Dag
 
 import ap.parser._
 
@@ -153,7 +153,8 @@ object Solve {
               // and require tests to be updated
 
                 val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
-                for((pred,sol) <- sortedSol) {
+                val builder = new StringBuilder
+                for((pred,sol) <- sortedSol) yield {
                   val cl = HornClause(RelVar(pred.name,
                   (0 until pred.arity).zip(HornPredAbs.predArgumentSorts(pred).map(
                       lazabs.prover.PrincessWrapper.sort2Type(_))).map(p =>
@@ -161,8 +162,10 @@ object Solve {
                   ).toList),
                       List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
                                    Map[ap.terfor.ConstantTerm,String]().empty,false))))
-                  println(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
+                  builder.append("\n    ")
+                  builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
                 }
+                println(s"(${builder.toString}\n)")
             }
           }
         }

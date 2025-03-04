@@ -34,6 +34,7 @@ import ap.theories._
 import ap.types.{MonoSortedPredicate, SortedConstantTerm}
 import lazabs.horn.abstractions.EmptyVerificationHints
 import lazabs.horn.extendedquantifiers.Normalizer
+import lazabs.horn.predgen.Interpolators
 import lazabs.horn.preprocessor.DefaultPreprocessor
 
 object MainExtQuans extends App {
@@ -111,9 +112,7 @@ object MainExtQuans extends App {
     println("Solving " + simpClauses + " ...")
 
     val predAbs =
-      new HornPredAbs(simpClauses,
-                      Map(),
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+      new HornPredAbs(simpClauses, Map(), Interpolators.DagInterpolator)
 
     println
     predAbs.result match {
@@ -186,9 +185,7 @@ object NormalizerTest extends App {
     normalizedClauses.foreach(clause => println(clause.toPrologString))
 
     val predAbs =
-      new HornPredAbs(normalizedClauses,
-                      Map(),
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+      new HornPredAbs(normalizedClauses, Map(), Interpolators.DagInterpolator)
 
     println
     predAbs.result match {
@@ -256,9 +253,7 @@ object AxiomsTest extends App {
     println("Solving " + simpClauses + " ...")
 
     val predAbs =
-      new HornPredAbs(simpClauses,
-                      Map(),
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+      new HornPredAbs(simpClauses, Map(), Interpolators.DagInterpolator)
 
     println
     predAbs.result match {

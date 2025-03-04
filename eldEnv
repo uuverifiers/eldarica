@@ -21,7 +21,7 @@ LAZABS_HOME=`dirname "${SOURCE}"`;
 
 # export LD_LIBRARY_PATH=${Z3_LIB_PATH}:/usr/local/lib:/usr/local/lib/jni:/usr/lib/jni;
 
-export JAVA_OPTS="-Xmx2024m -Xss20000k";
+export JAVA_OPTS="-Xmx8096m -Xss20000k";
 
 if [ -f "${LAZABS_HOME}/dist/lazabs.jar" ]; then
 

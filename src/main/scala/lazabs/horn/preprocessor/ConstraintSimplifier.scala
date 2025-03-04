@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,11 +29,12 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import HornClauses._
 
 import ap.theories.{ModuloArithmetic, ADT}
+import ap.theories.rationals.Rationals
 import ap.basetypes.IdealInt
 import ap.parser._
 import IExpression._
@@ -227,6 +228,7 @@ object ConstraintSimplifier {
 class ConstraintSimplifier extends HornPreprocessor {
   import HornPreprocessor._
   import ConstraintSimplifier._
+  import PartialConstraintEvaluator.LiteralEvaluator
 
   val name : String = "constraint simplification"
 
@@ -276,6 +278,16 @@ class ConstraintSimplifier extends HornPreprocessor {
     symbolCounter = symbolCounter + 1
     IConstant(res)
   }
+
+  /**
+   * At this point, we do not have to distinguish integer and rational
+   * sort.
+   */
+  private def toEffectiveSort(s : Sort) =
+    s match {
+      case Rationals.dom => Sort.Integer
+      case s             => s
+    }
 
   private object InconsistencyException extends Exception
 
@@ -369,8 +381,8 @@ class ConstraintSimplifier extends HornPreprocessor {
 
           } else if (!(replacedConsts contains c) &&
                      !(replacedConsts contains d) &&
-                     (Sort sortOf left) == (Sort sortOf right)) {
-
+                     toEffectiveSort(Sort sortOf left) ==
+                       toEffectiveSort(Sort sortOf right)) {
             if (!(headSyms contains c)) {
               replacement.put(c, right +++ offset)
             } else if (!(headSyms contains d)) {
@@ -446,15 +458,19 @@ class ConstraintSimplifier extends HornPreprocessor {
 
     val singletonConstants =
       (for ((c, 1) <- occurrenceNums.iterator;
-            if (Sort sortOf c) == Sort.Integer)
+            if toEffectiveSort(Sort sortOf c) == Sort.Integer)
        yield c).toSet
 
     if (singletonConstants.isEmpty)
       return None
 
     val remConjuncts = conjuncts filter {
-      case INot(EqZ(t)) if containsUnitConst(t, singletonConstants) => false
-      case GeqZ(t) if containsSingletonConst(t, singletonConstants) => false
+      case EqZ(t)
+          if containsUnitConst(t, singletonConstants) => false
+      case INot(EqZ(t))
+          if containsSingletonConst(t, singletonConstants) => false
+      case GeqZ(t)
+          if containsSingletonConst(t, singletonConstants) => false
       case _ => true
     }
 
@@ -718,7 +734,7 @@ class ConstraintSimplifier extends HornPreprocessor {
 
     val headSyms  = SymbolCollector constants head
     var body      = oriBody
-    var conjuncts = flattenConstraint(constraint)
+    var conjuncts = flattenConstraint(LiteralEvaluator(constraint))
 
     if (conjuncts exists (_.isFalse))
       throw InconsistencyException

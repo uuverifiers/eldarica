@@ -12,12 +12,21 @@ TESTS="simple-adt-horn.smt2 \
        testers.smt2 \
        tuple.smt2 \
        tuple2.smt2 \
-       polymorphicTuple.smt2"
+       polymorphicTuple.smt2 \
+       adt-bug.smt2"
 
 for name in $TESTS; do
     echo
     echo $name
     $LAZABS -pngNo -ssol -cex -abstract:off "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done
+
+TESTS="de-brujin-bug.smt2"
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol -cex -abstractTO:4 "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
 
 # Examples with currently unstable output, do not show the counterexample

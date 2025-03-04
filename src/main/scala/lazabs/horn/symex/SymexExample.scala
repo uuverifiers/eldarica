@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ import ap.parser.{IAtom, IFormula}
 import ap.terfor.preds.Predicate
 import ap.theories.ExtArray
 import lazabs.horn.bottomup.HornClauses.Clause
-import lazabs.horn.bottomup.Util.Dag
+import lazabs.horn.Util.Dag
 
 /**
  * An example application

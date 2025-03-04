@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,8 +38,10 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.proof.ModelSearchProver
 import ap.util.Seqs
 
+import lazabs.horn._
 import Util._
-import DisjInterpolator.{AndOrNode, AndNode, OrNode}
+import lazabs.horn.predgen.PredicateGenerator
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 import scala.collection.mutable.{LinkedHashSet, LinkedHashMap, ArrayBuffer,
                                  HashSet => MHashSet, HashMap => MHashMap,
@@ -70,11 +72,9 @@ object CEGAR {
 }
 
 class CEGAR[CC <% HornClauses.ConstraintClause]
-           (context : HornPredAbsContext[CC],
-            predStore : PredicateStore[CC],
-            predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                                    Either[Seq[(Predicate, Seq[Conjunction])],
-                                           Dag[(IAtom, NormClause)]],
+           (context              : HornPredAbsContext[CC],
+            predStore            : PredicateStore[CC],
+            predicateGenerator   : PredicateGenerator,
             counterexampleMethod : CEGAR.CounterexampleMethod.Value =
               CEGAR.CounterexampleMethod.FirstBestShortest) {
 
@@ -266,7 +266,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
       (for ((_, s) <- predicates.iterator) yield s.size).sum
     val totalPredSize =
       (for ((_, s) <- predicates.iterator; p <- s.iterator)
-       yield TreeInterpolator.nodeCount(p.rawPred)).sum
+       yield nodeCount(p.rawPred)).sum
     val averagePredSize =
       if (predNum == 0) 0.0 else (totalPredSize.toFloat / predNum)
     println("Number of generated predicates:                        " + predNum)
@@ -401,7 +401,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
     
     for (n <- 0 until abstractEdges.size)
       if (abstractEdges(n).from.isEmpty)
-        edgesTodo += n
+        edgesTodo push n
 
     while (!edgesTodo.isEmpty) {
       val n = edgesTodo.pop
@@ -437,7 +437,7 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
           for (outgoing <- edgesFromState get newTo)
             for ((_, nextN) <- outgoing)
-              edgesTodo += nextN
+              edgesTodo push nextN
         }
       }
     }

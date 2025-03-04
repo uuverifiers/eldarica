@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2021-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,9 @@ import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
-import Util._
-import DisjInterpolator._
+import lazabs.horn.Util._
+import lazabs.horn.predgen.{PredicateGenerator, Interpolators}
+import PredicateGenerator.{AndOrNode, AndNode, OrNode}
 
 /**
  * An incremental version of <code>HornPredAbs</code>. This class is
@@ -44,12 +45,11 @@ import DisjInterpolator._
  */
 class IncrementalHornPredAbs
                  [CC <% HornClauses.ConstraintClause]
-                 (iClauses : Iterable[CC],
-                  initialPredicates : Map[Predicate, Seq[IFormula]],
-                  substitutableSyms : Set[Predicate],
-                  predicateGenerator : Dag[AndOrNode[NormClause, Unit]] =>
-                                       Either[Seq[(Predicate, Seq[Conjunction])],
-                                              Dag[(IAtom, NormClause)]],
+                 (iClauses             : Iterable[CC],
+                  initialPredicates    : Map[Predicate, Seq[IFormula]],
+                  substitutableSyms    : Set[Predicate],
+                  predicateGenerator   : PredicateGenerator =
+                                           Interpolators.DagInterpolator,
                   counterexampleMethod : CEGAR.CounterexampleMethod.Value =
                                            CEGAR.CounterexampleMethod.FirstBestShortest) {
 
@@ -59,7 +59,7 @@ class IncrementalHornPredAbs
      if (lazabs.GlobalParameters.get.logStat)
        Console.err
      else
-       HornWrapper.NullStream
+       NullStream
 
   val baseContext : HornPredAbsContext[CC] =
     Console.withOut(outStream) {

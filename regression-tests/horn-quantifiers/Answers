@@ -1,33 +1,45 @@
 
 simple-init.smt2
 sat
-(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (and (= B E) (>= A 1)) (and (not (= D 0)) (>= A 1)))))
+(
+    (define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (and (= B E) (>= A 1)) (and (not (= D 0)) (>= A 1)))))
+)
 
 heaps.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= G C) (or (and (and (= B F) (= D H)) (>= D 0)) (and (and (= D H) (not (= A E))) (>= D 0)))))
+(
+    (define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int)) Bool (and (= G C) (or (and (and (= B F) (= D H)) (>= D 0)) (and (and (= D H) (not (= A E))) (>= D 0)))))
+)
 
 double-heap.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 sat
-(define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (= H C) (= I D)) (or (and (and (= B G) (= E J)) (>= E 0)) (and (and (= E J) (not (= A F))) (>= E 0)))))
+(
+    (define-fun INV1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int) (G Int) (H Int) (I Int) (J Int)) Bool (and (and (= H C) (= I D)) (or (and (and (= B G) (= E J)) (>= E 0)) (and (and (= E J) (not (= A F))) (>= E 0)))))
+)
 
 array_noloop_crash.smt2
 Warning: ignoring get-model
 Warning: ignoring exit
 sat
+(
+)
 
 bubble-quans.smt2
 sat
-(define-fun sp0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (<= A 1) (>= A 0)) (>= C 0)) (>= E 0)))
-(define-fun sp1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (<= A 1) (>= A 0)) (>= B 0)) (>= C 0)) (>= E 0)))
-(define-fun sp2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (and (>= E 0) (>= (- C B) 2)) (>= C 0)) (>= B 0)) (<= A 1)) (>= A 0)))
-(define-fun sp3 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 0) (and (>= E 0) (>= C 0))))
+(
+    (define-fun sp0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (<= A 1) (>= A 0)) (>= C 0)) (>= E 0)))
+    (define-fun sp1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (<= A 1) (>= A 0)) (>= B 0)) (>= C 0)) (>= E 0)))
+    (define-fun sp2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (and (>= E 0) (>= (- C B) 2)) (>= C 0)) (>= B 0)) (<= A 1)) (>= A 0)))
+    (define-fun sp3 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 0) (and (>= E 0) (>= C 0))))
+)
 
 init.cleaned.smt2
 sat
-(define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (or (or (and (= A 1) (>= D 1)) (and (= B E) (>= A 1))) (and (and (>= D A) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
-(define-fun inv2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (= B E) (>= A 0)) (and (>= A C) (>= A 0))) (and (>= (- A D) 1) (>= A 0))) (and (>= A 0) (>= D C))))
+(
+    (define-fun inv1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (= A 0) (or (or (or (and (= A 1) (>= D 1)) (and (= B E) (>= A 1))) (and (and (>= D A) (>= A 1)) (>= D 2))) (and (>= A 1) (<= D (- 1))))))
+    (define-fun inv2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (or (or (or (and (= B E) (>= A 0)) (and (>= A C) (>= A 0))) (and (>= (- A D) 1) (>= A 0))) (and (>= A 0) (>= D C))))
+)

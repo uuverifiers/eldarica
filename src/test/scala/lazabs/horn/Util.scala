@@ -1,6 +1,6 @@
 package lazabs.horn
 
-import lazabs.horn.bottomup.HornWrapper
+import lazabs.horn.Util._
 import ap.api.SimpleAPI.ProverStatus
 import lazabs.horn.preprocessor.HornPreprocessor.{CounterExample, Solution}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -24,8 +24,8 @@ trait CHCResultMatchers extends Matchers {
   }
 
   def hideOutput[A](comp : => A) : A =
-    Console.withOut(HornWrapper.NullStream) {
-      Console.withErr(HornWrapper.NullStream) {
+    Console.withOut(NullStream) {
+      Console.withErr(NullStream) {
         comp
       }
     }

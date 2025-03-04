@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2023-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 
 package lazabs.horn.theories
 
+import lazabs.horn.HornWrapper
 import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories.rationals.Rationals
@@ -57,9 +58,7 @@ class RationalTests
     val (simplifiedClauses, simpPreHints, backTranslator) =
       preprocessor.process(clauses, EmptyVerificationHints)
 
-    val predAbs =
-      new HornPredAbs(simplifiedClauses, Map(),
-                      DagInterpolator.interpolatingPredicateGenCEXAndOr _)
+    val predAbs = new HornPredAbs(simplifiedClauses)
 
     predAbs.result match {
       case Right(cex) => {

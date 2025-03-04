@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,17 +31,22 @@ package lazabs.horn.abstractions
 
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.preprocessor.HornPreprocessor
+
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
 import ap.basetypes.IdealInt
-import ap.parser.IExpression.Predicate
-import ap.terfor.ConstantTerm
+import ap.terfor.{ConstantTerm, VariableTerm, TermOrder, TerForConvenience}
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.substitutions.VariableShiftSubst
+import ap.terfor.equations.ReduceWithEqs
 import ap.types.Sort
 import ap.theories.ModuloArithmetic
 import ap.parser._
-import ap.util.LRUCache
+import ap.parser.IExpression.Predicate
+import ap.util.{LRUCache, Seqs}
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{LinkedHashSet, ArrayBuffer,
+                                 HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Compute loops and loop heads of the given set of clauses,
@@ -587,6 +592,126 @@ class StrideDomain(sizeBound : Int, p : SimpleAPI)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Linear combination domain: for each argument of a relation
+ * variable, remember whether the value of the argument can be
+ * represented as a linear combination of initial argument
+ * values. References to initial arguments are done via variables: the
+ * variable <code>v(0)></code> refers to the first argument, etc.
+ */
+class LinCombDomain extends AbstractDomain {
+
+  import HornClauses.Clause
+
+  type Element = Option[Seq[Option[LinearCombination]]]
+
+  private implicit val order = TermOrder.EMPTY
+
+  import TerForConvenience._
+
+  private def lv(i : Int) : LinearCombination = l(v(i))
+
+  def top(arity : Int)    : Element =
+    Some((for (_ <- 0 until arity) yield None).toList)
+  def bottom(arity : Int) : Element =
+    None
+  def initial(arity : Int) : Element =
+    Some((for (i <- 0 until arity) yield Some(lv(i))).toList)
+
+  def join(a : Element, b : Element) : Element = (a, b) match {
+    case (None, x) => x
+    case (x, None) => x
+    case (Some(a), Some(b)) =>
+      Some((for ((x, y) <- a.iterator zip b.iterator) yield {
+              if (x == y) x else None
+            }).toList)
+  }
+
+  private def maxVar(e : Element) =
+    Seqs.max(
+        for (l0 <- e.iterator;
+             l1 <- l0.iterator;
+             l2 <- l1.iterator;
+             v  <- l2.variables.iterator)
+        yield v.index
+    )
+
+  def post(clause : Clause, inputs : Seq[Element]) : Element = {
+    if (inputs contains None)
+      return None
+
+    // We set up a system of equations, equating the arguments of the
+    // body literals of the clause with the linear combinations
+    // provided by the abstract domain elements. Since we want to
+    // solve the equations for the constants that occur in the clause
+    // head, we also represent all the constants in the clause as
+    // variables and make sure that the indexes of those variables are
+    // smaller than the indexes used for the abstract domain. This
+    // requires us to first shift up and later shift down the indexes.
+
+    var nextVar = 0
+    def newVar() : VariableTerm = {
+      val res = v(nextVar)
+      nextVar = nextVar + 1
+      res
+    }
+
+    val Clause(head, body, constraint) = clause
+
+    val const2Var  = new MHashMap[ConstantTerm, VariableTerm]
+    val otherTerms = new MHashMap[ITerm, VariableTerm]
+
+    // Function used to convert the terms occurring in the clause to
+    // linear combinations only containing variables.
+    def toLC(t : ITerm) : LinearCombination = t match {
+      case IIntLit(value)   => LinearCombination(value)
+      case IPlus(t1, t2)    => toLC(t1) + toLC(t2)
+      case ITimes(coeff, t) => toLC(t) * coeff
+      case IConstant(c)     => l(const2Var.getOrElseUpdate(c, newVar()))
+      case t                => l(otherTerms.getOrElseUpdate(t, newVar()))
+    }
+
+    val (translatedArgs, lcs) =
+      (for ((a, Some(lcs)) <- body zip inputs;
+            (t, Some(lc))  <- a.args zip lcs)
+       yield (toLC(t), lc)).unzip
+
+    val (eqsLeft, eqsRight) =
+      (for (IExpression.Eq(t1, t2) <-
+              LineariseVisitor(Transform2NNF(constraint), IBinJunctor.And))
+       yield (toLC(t1), toLC(t2))).unzip
+
+    // All terms have been translated, now we know how far up we have
+    // to shift variables.
+    val shiftDist =
+      nextVar
+    val upShifter =
+      VariableShiftSubst.upShifter[LinearCombination](shiftDist, order)
+    val eqs =
+      (translatedArgs ++ eqsLeft) === (lcs.map(upShifter) ++ eqsRight)
+
+    if (eqs.isFalse) {
+      None
+    } else {
+      val reducer = ReduceWithEqs(eqs, order)
+      val downShifter =
+        VariableShiftSubst.downShifter[LinearCombination](shiftDist, order).lift
+      val headLCs =
+        head.args.map(
+          t => t match {
+            case IConstant(c) if const2Var contains c =>
+              downShifter(reducer(l(const2Var(c))))
+            case _ =>
+              None
+          })
+      Some(headLCs)
+    }
+  }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 object ModifiedLoopVarsDetector {
 
   def simpleModifiedVars(loops : LoopDetector)
@@ -615,6 +740,15 @@ object ModifiedLoopVarsDetector {
         (loopHead, offsets)
       }
     }
+
+  def linearTransformations(loops : LoopDetector)
+                          : Map[IExpression.Predicate,
+                                Seq[Option[LinearCombination]]] = {
+    def detector = new ModifiedLoopVarsDetector(loops, new LinCombDomain)
+    for ((loopHead, Some(abstractValue)) <- detector.abstractValues) yield {
+      (loopHead, abstractValue)
+    }
+  }
 
 }
 

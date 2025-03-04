@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,10 +32,11 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import HornClauses._
-import lazabs.horn.bottomup.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
 
 import ap.basetypes.IdealInt
 import ap.parser._
+import ap.theories.Theory
 import IExpression._
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
@@ -82,6 +83,17 @@ class ClauseInliner extends HornPreprocessor {
       // solutions
 
       def translate(solution : Solution) = {
+        val clauseTheories = HornClauses.allTheories(clauses)
+
+        // theory-specific simplification of solutions
+        val rewritings =
+          Rewriter.combineRewritings(Theory.postSimplifiers(clauseTheories))
+        val simplifier =
+          new Simplifier {
+            protected override def furtherSimplifications(expr : IExpression) =
+              rewritings(expr)
+          }
+
         // augment solution to also satisfy inlined clauses
         var remaining =
           (for ((p, c) <- inlinedClauses.iterator;
@@ -117,7 +129,7 @@ class ClauseInliner extends HornPreprocessor {
                       yield subst(curSolution(pred), args.toList, 0)) &
                   (head.args === headVars)
 
-                val simpSol = (new Simplifier)(projectEx(completeConstraint, headVars))
+                val simpSol = simplifier(projectEx(completeConstraint, headVars))
                 val simpSolVar =
                   ConstantSubstVisitor(simpSol,
                                        (for ((IConstant(c), n) <-

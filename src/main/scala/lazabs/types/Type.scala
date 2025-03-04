@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2018 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@ import ap.types._
 sealed abstract class Type
 case class UnitType() extends Type
 case class IntegerType() extends Type
+case class RationalType() extends Type
 case class RangeType(val lower: Int, val upper: Int) extends Type
 case class BooleanType() extends Type
 case class StringType() extends Type

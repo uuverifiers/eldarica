@@ -179,5 +179,20 @@ unsat
 
 0: FALSE
 
+sign-extend.smt2
+Warning: ignoring get-model
+sat
+
+bv2intnat.smt2
+Warning: ignoring get-model
+sat
+
+bitwise6.smt2
+unsat
+
+0: FALSE -> 1
+1: q(mod_cast(0, 4294967295, 2)) -> 2
+2: p(mod_cast(0, 4294967295, 4294967283))
+
 int2bv.smt2
 unsat

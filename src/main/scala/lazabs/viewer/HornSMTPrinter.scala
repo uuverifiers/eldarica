@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -96,6 +96,13 @@ object HornSMTPrinter {
         getAlphabeticChar(newIndex)
     }
 
+    def printNum(num : BigInt) : String =
+      if (num<0) {
+        "(- "+(num.abs)+")"
+      } else {
+        num.toString
+      }
+
     def printExp(e: Expression)(implicit vars : List[String]): String = e match {
       case Existential(v, qe) => {
         val name = "var" + vars.size
@@ -166,11 +173,9 @@ object HornSMTPrinter {
         else
           getAlphabeticChar(index - vars.size)
       case NumericalConst(num) =>
-        if (num<0) {
-          "(- "+(num.abs)+")"
-        } else {
-          num.toString
-        }
+        printNum(num)
+      case RationalConst(num, denom) =>
+        "(/ " + printNum(num) + " " + printNum(denom) + ")"
       case BoolConst(v) => quoteIdentifier(v.toString)
 
       case BVconst(bits, v) => "(_ bv" + v + " " + bits + ")"
@@ -178,7 +183,7 @@ object HornSMTPrinter {
       case UnaryExpression(op : BVneg, e) => "(" + op.st + " " + printExp(e) + ")"
 
       case _ =>
-        throw new Exception("Invalid expression " + e)
+        throw new Exception("Don't know how to print expression " + e)
         ""
     }
     val head = printHornLiteral(h.head)
