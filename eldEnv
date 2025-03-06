@@ -23,19 +23,31 @@ LAZABS_HOME=`dirname "${SOURCE}"`;
 
 export JAVA_OPTS="-Xmx8096m -Xss20000k";
 
-if [ -f ${LAZABS_HOME}/dist/lazabs.jar ]; then
+if [ -f "${LAZABS_HOME}/dist/lazabs.jar" ]; then
 
-   	# binary distribution
-	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/dist/lazabs.jar"
-
-else if [ -f ${LAZABS_HOME}/target/scala-2.*/Eldarica-assembly*.jar ]; then
-
-        # binary distribution from sbt
-	export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/target/scala-2.*/Eldarica-assembly*.jar"
-
+    # binary distribution
+    export LAZABS_CMD="java ${JAVA_OPTS} -cp ${LAZABS_HOME}/dist/lazabs.jar"
 else
+    ASSEMBLY_FILES=$(ls -1 ${LAZABS_HOME}/target/scala-2.*/Eldarica-assembly*.jar 2>/dev/null)
+    ASSEMBLY_COUNT=$(echo "$ASSEMBLY_FILES" | grep -c '^')
 
+    if [ "$ASSEMBLY_COUNT" -gt 0 ]; then
+        if [ "$ASSEMBLY_COUNT" -eq 1 ]; then
+            # binary distribution from sbt
+            export LAZABS_CMD="java ${JAVA_OPTS} -cp $ASSEMBLY_FILES"
+        else
+            # find latest assembly
+            latest=''
+            for file in $ASSEMBLY_FILES; do
+                if [ -z "$latest" ] || [ "$file" -nt "$latest" ]; then
+                    latest=$file
+                fi
+            done
+            echo "Warning: multiple assembly files found in target directory, using $latest"
+            export LAZABS_CMD="java ${JAVA_OPTS} -cp $latest"
+        fi
+    else
         echo "Could not find Eldarica jar" >&2
         exit 1
-
-fi; fi
+    fi
+fi

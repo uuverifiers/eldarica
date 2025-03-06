@@ -35,6 +35,7 @@ import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.basetypes.IdealInt
+import ap.parser.IExpression.Predicate
 import ap.theories.nia.GroebnerMultiplication
 import ap.theories.rationals.Rationals
 import ap.theories.bitvectors.ModuloArithmetic.ModSort
@@ -56,13 +57,14 @@ object StaticAbstractionBuilder {
  */
 class StaticAbstractionBuilder(
          clauses : Seq[HornClauses.Clause],
-         abstractionType : StaticAbstractionBuilder.AbstractionType.Value) {
+         abstractionType : StaticAbstractionBuilder.AbstractionType.Value,
+         substitutablePredicates : Set[Predicate] = Set()) {
 
   import IExpression._
   import HornClauses.Clause
   import VerificationHints._
 
-  val loopDetector = new LoopDetector(clauses)
+  val loopDetector = new LoopDetector(clauses, substitutablePredicates)
 
   Console.err.println("Loop heads:")
 

@@ -1,20 +1,20 @@
 /**
  * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice, this
  *   list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of the authors nor the names of their
  *   contributors may be used to endorse or promote products derived from
  *   this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,26 +27,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.preprocessor
+package lazabs.horn.extendedquantifiers
 
 import lazabs.horn.bottomup.HornClauses
-import HornClauses.Clause
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import lazabs.horn.abstractions.VerificationHints
-
 import ap.parser._
 import IExpression.{Predicate, Sort, and}
 import ap.types.MonoSortedPredicate
+import lazabs.horn.bottomup.HornClauses.Clause
+import lazabs.horn.preprocessor.HornPreprocessor
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 LinkedHashMap}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap}
 
 
 /**
  * Class used to expand predicate arguments into multiple arguments;
  * for instance, to explicitly keep track of the size of ADT arguments.
  */
-abstract class ArgumentExpander extends HornPreprocessor {
+abstract class SimpleArgumentExpander extends HornPreprocessor {
   import HornPreprocessor._
 
   val name : String
@@ -67,7 +66,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
     (HornClauses allPredicates clauses) exists {
       p =>
         !(frozenPredicates contains p) &&
-        (predArgumentSorts(p) exists (s => isExpandableSort(s, p)))
+          (predArgumentSorts(p) exists (s => isExpandableSort(s, p)))
     }
 
   /**
@@ -80,7 +79,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
    * _1, ...</code> for this purpose.
    */
   def expand(pred : Predicate, argNum : Int, sort : Sort)
-           : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
+  : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])]
 
   /**
    * Optionally, apply a postprocessor to solution formulas.
@@ -89,27 +88,27 @@ abstract class ArgumentExpander extends HornPreprocessor {
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
-             : (Clauses, VerificationHints, BackTranslator) = {
+  : (Clauses, VerificationHints, BackTranslator) = {
     setup(clauses, frozenPredicates)
 
     val predicates =
       HornClauses allPredicates clauses
     val newPreds =
       new MHashMap[Predicate,
-                   (Predicate,                         // new predicate
-                    Seq[Option[(Seq[(ITerm, Sort, String)],
-                                Option[ITerm])]],      // additional arguments
-                    Map[Int, Int])]                    // argument mapping,
-                                                       //   needed for
-                                                       //   VerifHintElement
-                                                       //      .shiftArguments
+        (Predicate,                         // new predicate
+          Seq[Option[(Seq[(ITerm, Sort, String)],
+            Option[ITerm])]],      // additional arguments
+          Map[Int, Int])]                    // argument mapping,
+    //   needed for
+    //   VerifHintElement
+    //      .shiftArguments
 
     val predBackMapping =
       new MHashMap[Predicate,
-                   (Predicate,                         // old predicate
-                    List[ITerm],                       // solution substitution
-                    Seq[ITerm])]                       // argument list for
-                                                       //   counterexamples
+        (Predicate,                         // old predicate
+          List[ITerm],                       // solution substitution
+          Seq[ITerm])]                       // argument list for
+    //   counterexamples
 
     //
     // First search for predicates with arguments that should be expanded
@@ -119,7 +118,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
       val addedArgs  = new ArrayBuffer[Option[(Seq[(ITerm, Sort, String)],
-                                               Option[ITerm])]]
+        Option[ITerm])]]
       val argMapping = new MHashMap[Int, Int]
       val solSubst   = new ArrayBuffer[ITerm]
       val cexArgs    = new ArrayBuffer[ITerm]
@@ -223,12 +222,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
         val newHead = rewriteAtom(head)
         val newBody = for (a <- body) yield rewriteAtom(a)
 
-        val newConstraint =
-          ConstraintSimplifier.rewriteConstraint(constraint, newTerms) &&&
-          and(additionalConstraints) &&&
-          and(for ((t, c) <- newTerms.iterator) yield (t === c))
-
-        val newClause = Clause(newHead, newBody, newConstraint)
+        val newClause = Clause(newHead, newBody, constraint)
         clauseBackMapping.put(newClause, clause)
 
         newClause
@@ -248,13 +242,13 @@ abstract class ArgumentExpander extends HornPreprocessor {
           case Some((newPred, _, mapping)) => {
             val newList = for (hint <- hintList;
                                newHint <- hint.shiftArguments(mapping))
-                          yield newHint
+              yield newHint
             (newPred, newList)
           }
           case None =>
             (pred, hintList)
         }
-       }).toMap
+      }).toMap
 
     val newHints = VerificationHints(newPredicateHints)
 
@@ -283,7 +277,7 @@ abstract class ArgumentExpander extends HornPreprocessor {
                 case Some((newPred, _, oldArgsTemplates)) => {
                   val subst   = (args.toList, 0)
                   val oldArgs = for (p <- oldArgsTemplates)
-                                yield VariableSubstVisitor(p, subst)
+                    yield VariableSubstVisitor(p, subst)
                   (IAtom(newPred, oldArgs), newClause)
                 }
                 case None =>
@@ -298,3 +292,4 @@ abstract class ArgumentExpander extends HornPreprocessor {
     (newClauses, newHints, translator)
   }
 }
+

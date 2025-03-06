@@ -33,7 +33,6 @@ package lazabs.prover
 import lazabs.ast.ASTree._
 import lazabs.types._
 import ap.basetypes._
-import ap.basetypes.IdealInt._
 import ap.parser._
 import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
@@ -42,7 +41,7 @@ import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
 import ap.theories.rationals.Rationals
-import ap.types.MonoSortedIFunction
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 import scala.collection.mutable.LinkedHashMap
 
@@ -299,6 +298,11 @@ class PrincessWrapper {
         val termArgs = exprList.map(f2pterm(_))
         pred(termArgs : _*)
 
+      // Extended quantifiers
+      case ExtQuantifierFun(extQuantifier, exprList) =>
+        val termArgs = exprList.map(f2pterm(_))
+        extQuantifier.morphism(termArgs : _*)
+
       // Bit-vectors
 
       case BVconst(bits, value) =>
@@ -492,12 +496,15 @@ class PrincessWrapper {
       case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
         ADTtest(adt, sortNum, rvT(e))
 
-      // Theory of heap
+      // Theory of heaps
       case IFunApp(f@Heap.HeapFunExtractor(h), e) =>
         HeapFun(h, f.name, e.map(rvT(_)))
 
-      // Bit-vectors
+      // Theory of extended quantifiers
+      case IFunApp(f@AbstractExtendedQuantifier.Morphism(extQuantifier), e) =>
+        ExtQuantifierFun(extQuantifier, e.map(rvT(_)))
 
+      // Bit-vectors
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO),
                        IIntLit(upper), IIntLit(value))) => {

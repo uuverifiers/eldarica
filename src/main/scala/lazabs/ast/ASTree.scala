@@ -30,7 +30,8 @@
 package lazabs.ast
 
 import lazabs.types._
-import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
+import ap.theories.{ADT, Heap}
+import lazabs.horn.extendedquantifiers.theories.AbstractExtendedQuantifier
 
 
 object ASTree {
@@ -109,6 +110,11 @@ object ASTree {
                      exprList: Seq[Expression]) extends Expression
   case class HeapPred(heap: Heap, name: String,
                      exprList: Seq[Expression]) extends Expression
+
+  // Extended quantifiers
+  case class ExtQuantifierFun(extQuantifier: AbstractExtendedQuantifier,
+                              exprList: Seq[Expression]) extends Expression
+
   // Bit-vectors
 
   case class BVconst(bits: Int, num : BigInt) extends Expression
@@ -157,10 +163,11 @@ object ASTree {
   // ternary expressions
   sealed abstract class TernaryOperator(val st: String)
   case class IfThenElseOp() extends TernaryOperator ("if")
-  case class ArrayUpdateOp() extends TernaryOperator ("update")  
+  case class ArrayUpdateOp() extends TernaryOperator ("update")
+  case class ExtendedQuantifierOp() extends TernaryOperator ("extquans")
   case class TernaryExpression(op: TernaryOperator, e1: Expression, e2: Expression, e3: Expression) extends Expression  
 
-  // binray expressions
+  // binary expressions
   sealed abstract class BinaryOperator(val st: String)
   case class IfThenOp() extends BinaryOperator ("if")
   case class AssignmentOp() extends BinaryOperator ("=")

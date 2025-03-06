@@ -323,8 +323,8 @@ splitting.smt2
 unsat
 
 0: FALSE -> 1
-1: inv(store(const(4), 0, 1), store(const(3), 0, 2), 1, 2) -> 2
-2: inv(store(const(4), 0, 1), store(const(3), 0, 2), 0, 0)
+1: inv(store(const(3), 0, 1), store(const(4), 0, 2), 1, 2) -> 2
+2: inv(store(const(3), 0, 1), store(const(4), 0, 2), 0, 0)
 
 splitting2.smt2
 sat

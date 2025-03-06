@@ -79,7 +79,8 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
     val translator =
       ClauseShortener.BTranslator.withIndexes(tempPredicates.toSet,
-                                              clauseBackMapping.toMap)
+                                              clauseBackMapping.toMap,
+                                              frozenPredicates)
 
     tempPredicates.clear
     clauseBackMapping.clear

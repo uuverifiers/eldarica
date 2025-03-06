@@ -63,7 +63,8 @@ class DefaultPreprocessor extends HornPreprocessor {
            new SizeArgumentExtender,
            new CtorTypeExtender)
     else
-      List()
+      List(
+        new HeapSizeArgumentExtender) // todo (zafer): fix this in main repo)
 
   def postStages : List[HornPreprocessor] =
     List(new ClauseShortener) ++
@@ -153,7 +154,8 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     condenseClauses
 
-    // check whether any ADT or Heap arguments can be extended
+    // check whether any ADT or Heap arguments can be extended or
+    // ghost variables need to be added
     if (applyStages(extendingStages))
       condenseClauses
 
@@ -188,6 +190,91 @@ class DefaultPreprocessor extends HornPreprocessor {
 
     // Last set of processors
     applyStages(postStages)
+
+    Console.err.println
+    Console.err.println("Total preprocessing time (ms): " +
+                        (System.currentTimeMillis - startTime))
+    Console.err.println
+
+    (curClauses, curHints, new ComposedBackTranslator(translators.reverse))
+  }
+
+}
+
+/**
+ * A preprocessor that only applies the pre stages of the default preprocessor
+ */
+class PreStagePreprocessor extends HornPreprocessor {
+  import HornPreprocessor._
+
+  val name : String = "pre-stage"
+  val printWidth = 55
+  val clauseNumWidth = 10
+
+  def preStages : List[HornPreprocessor] =
+    (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
+    List(new PartialConstraintEvaluator,
+         new ConstraintSimplifier,
+         new ClauseInliner)
+
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
+  : (Clauses, VerificationHints, BackTranslator) = {
+    var curClauses = clauses
+    var curHints = hints
+
+    def printStats(prefix : String) : Unit = {
+      val predNum = (HornClauses allPredicates curClauses).size
+      val clauseNumStr = "" + curClauses.size
+      Console.err.println(prefix + (" " * (printWidth - prefix.size)) +
+                          clauseNumStr +
+                          (" " * (clauseNumWidth - clauseNumStr.size)) +
+                          predNum)
+    }
+
+    Console.err.println
+    Console.err.println(
+      "------------------------ Preprocessing (pre-stages) -----------------------")
+
+    Console.err.println((" " * printWidth) + "#clauses  #relation syms")
+    printStats("Initially:")
+
+    val translators = new ArrayBuffer[BackTranslator]
+
+    def applyStage(stage : HornPreprocessor) : Boolean =
+      if (!curClauses.isEmpty &&
+          stage.isApplicable(curClauses, frozenPredicates)) {
+        GlobalParameters.get.timeoutChecker()
+
+        val startTime = System.currentTimeMillis
+
+        val (newClauses, newHints, translator) =
+          stage.process(curClauses, curHints, frozenPredicates)
+
+        curClauses = newClauses
+        curHints = newHints
+
+        val time = "" + (System.currentTimeMillis - startTime) + "ms"
+        printStats("After " + stage.name + " (" + time + "):")
+
+        translators += translator
+
+        true
+      } else {
+        false
+      }
+
+    def applyStages(stages : Iterable[HornPreprocessor]) : Boolean = {
+      var applied = false
+      for (s <- stages)
+        applied = applyStage(s) || applied
+      applied
+    }
+
+    val startTime = System.currentTimeMillis
+
+    // First set of processors
+    applyStages(preStages)
 
     Console.err.println
     Console.err.println("Total preprocessing time (ms): " +
