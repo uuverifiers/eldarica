@@ -84,7 +84,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   private def enqueue(clause    : NormClause,
                       electrons : Seq[UnitClause],
                       timeoutMS : Long) : Unit = {
-    val cost = clauseCost(clause, electrons) + enqueueCount
+    val cost = clauseCost(clause, electrons, timeoutMS) + enqueueCount
 //    println(electrons)
 //    println("enqueuing, cost " + cost)
     choicesQueue.enqueue((clause, electrons, timeoutMS, -cost))
@@ -116,12 +116,21 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   /**
    * Determine the cost (negated priority) of elements put in the queue.
    */
-  private def clauseCost(clause : NormClause, electrons : Seq[UnitClause]) : Long =
+  private def clauseCost(clause    : NormClause,
+                         electrons : Seq[UnitClause],
+                         timeoutMS : Long) : Long =
+    // Postpone clauses with complicated constraints
     clause.constraint.opCount.toLong +
+    // Postpone unit clauses with complicated constraints
     electrons.map(_.constraint.opCount.toLong).sum +
-    distToAssertion.getOrElse(clause.head._1.pred, 1000) * 10
+    // Postpone predicates that are far away from assertions
+    distToAssertion.getOrElse(clause.head._1.pred, 1000) * 10 +
+    // Postpone checks with big timeout
+    timeoutMS / initialTimeoutMs
 
-  private def clauseCostX(clause : NormClause, electrons : Seq[UnitClause]) : Long =
+  private def clauseCostX(clause    : NormClause,
+                          electrons : Seq[UnitClause],
+                          timeoutMS : Long) : Long =
     0
 
   /*
