@@ -30,13 +30,14 @@ package lazabs.horn.symex
 
 import ap.api.SimpleAPI.ProverStatus
 import ap.parser.IAtom
-import ap.util.Combinatorics
+import ap.util.{Combinatorics, Dijkstra}
+import ap.terfor.preds.Predicate
 import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
+import scala.collection.mutable.{HashSet => MHashSet, PriorityQueue}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -68,8 +69,61 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   // than a single state, if other states we use are in the queue, we remove
   // from those states' queue the path that we are about to take.
 
-  // The last argument of the tuple is the timeout (ms) used in sat checks.
-  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
+  // The third argument of the tuple is the timeout (ms) used in sat checks.
+
+  // The fourth argument is the cost of this expansion.
+
+  private type QueueTuple = (NormClause, Seq[UnitClause], Long, Long)
+
+  private implicit val queuePriority = Ordering.by[QueueTuple, Long](_._4)
+
+  private val choicesQueue = new PriorityQueue[QueueTuple]
+
+  private var enqueueCount : Long = 0
+
+  private def enqueue(clause    : NormClause,
+                      electrons : Seq[UnitClause],
+                      timeoutMS : Long) : Unit = {
+    val cost = clauseCost(clause, electrons) + enqueueCount
+//    println(electrons)
+//    println("enqueuing, cost " + cost)
+    choicesQueue.enqueue((clause, electrons, timeoutMS, -cost))
+    enqueueCount = enqueueCount + 1
+  }
+
+  private def dequeue() : (NormClause, Seq[UnitClause], Long) = {
+    val t = choicesQueue.dequeue
+    (t._1, t._2, t._3)
+  }
+
+  /**
+   * Map telling how far each of the predicates is away from an
+   * assertion clause.
+   */
+  private val distToAssertion : Map[Predicate, Int] = {
+    val clauseGraph =
+      new Dijkstra.WeightedGraph[Predicate] {
+        def successors(p : Predicate) : Iterator[(Predicate, Int)] =
+          for ((nc, _) <- normClauses.iterator;
+               if nc.head._1.pred == p;
+               (rs, _) <- nc.body.iterator)
+          yield (rs.pred, 1)
+      }
+
+    Dijkstra.distances(clauseGraph, HornClauses.FALSE)
+  }
+
+  /**
+   * Determine the cost (negated priority) of elements put in the queue.
+   */
+  private def clauseCost(clause : NormClause, electrons : Seq[UnitClause]) : Long =
+    clause.constraint.opCount.toLong +
+    electrons.map(_.constraint.opCount.toLong).sum +
+    distToAssertion.getOrElse(clause.head._1.pred, 1000) * 10
+
+  private def clauseCostX(clause : NormClause, electrons : Seq[UnitClause]) : Long =
+    0
+
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
@@ -85,12 +139,14 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
       None
     else {
       maxDepth match {
-        case None => Some(choicesQueue.dequeue)
+        case None => {
+          Some(dequeue())
+        }
         case Some(depth) =>
           var res : Option[(NormClause, Seq[UnitClause], Long)] = None
           var continue = true
           do {
-            val candidate = choicesQueue.dequeue()
+            val candidate = dequeue()
             val rs        = candidate._1.head._1
             unitClauseDB.inferred(rs) match {
               case Some(cucs) if cucs.length >= depth =>
@@ -122,7 +178,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         } else unitClauseDB.inferred(rs).getOrElse(Seq())
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList))
-        choicesQueue enqueue ((nucleus, choice, initialTimeoutMs))
+        enqueue(nucleus, choice, initialTimeoutMs)
     }
 
   }
@@ -163,7 +219,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               checkFeasibility(newElectron.constraint, Some(timeoutMs))
             if (proverStatus == ProverStatus.Unknown) { // TODO: use exception for timeouts, unknown might arise from non-timeouts?
               printInfo(s"  SAT check timed out ($timeoutMs ms), postponing...")
-              choicesQueue.enqueue((nucleus, electrons, timeoutMs*timeoutGrowthRate)) // requeue
+              enqueue(nucleus, electrons, timeoutMs*timeoutGrowthRate) // requeue
             } else if (hasContradiction(newElectron, proverStatus)) { // false :- true
               unitClauseDB.add(newElectron, (nucleus, electrons))
               result = Right(buildCounterExample(newElectron))
