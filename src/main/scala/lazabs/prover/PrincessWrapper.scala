@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ import ap.terfor.conjunctions.Quantifier
 import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
 import ap.theories.nia.GroebnerMultiplication
+import ap.theories.rationals.Rationals
 import ap.types.MonoSortedIFunction
 
 import scala.collection.mutable.LinkedHashMap
@@ -95,6 +96,7 @@ object PrincessWrapper {
 
   def type2Sort(t : Type) : Sort = t match {
     case IntegerType()            => Sort.Integer
+    case RationalType()           => Rationals.dom
     case BooleanType()            => Sort.MultipleValueBool
     case AdtType(s)               => s //??? sorts are in ADT.sorts
     case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
@@ -111,17 +113,23 @@ object PrincessWrapper {
     case s => s
   }
 
+  val IntT = IntegerType()
+  val RatT = RationalType()
+  val BoolT = BooleanType()
+
   def sort2Type(s : Sort) : Type = s match {
     case Sort.Integer =>
-      IntegerType()
+      IntT
+    case Rationals.dom =>
+      RatT
     case Sort.Bool | Sort.MultipleValueBool =>
-      BooleanType()
+      BoolT
     case s : ADT.ADTProxySort =>
       AdtType(s) // ??? s.adtTheory is the ADT
     case ModuloArithmetic.UnsignedBVSort(n) =>
       BVType(n)
     case SimpleArray.ArraySort(1) =>
-      ArrayType(IntegerType(), IntegerType())
+      ArrayType(IntT, IntT)
     case ExtArray.ArraySort(theory) if theory.indexSorts.size == 1 =>
       ArrayType(sort2Type(theory.indexSorts.head), sort2Type(theory.objSort))
     case s : HeapSort =>
@@ -138,7 +146,7 @@ class PrincessWrapper {
   
   private val api = new PrincessAPI_v1
   import api._
-  import PrincessWrapper.{type2Sort, sort2Type}
+  import PrincessWrapper.{type2Sort, sort2Type, IntT, RatT, BoolT}
 
   /**
    * converts a list of formulas in Eldarica format to a list of formulas in Princess format
@@ -152,7 +160,7 @@ class PrincessWrapper {
     val symbolMap = initialSymbolMap
 
     def f2p(ex: Expression): IExpression = ex match {
-      case lazabs.ast.ASTree.ArraySelect(ArrayWithType(array, t), ind) =>
+      case ArraySelect(ArrayWithType(array, t), ind) =>
         theoryForArrayType(t).select(f2pterm(array), f2pterm(ind))
       case ArrayUpdate(ArrayWithType(array, t), index, value) =>
         theoryForArrayType(t).store(f2pterm(array), f2pterm(index), f2pterm(value))
@@ -169,63 +177,88 @@ class PrincessWrapper {
         store(0, -1, f2pterm(len)) */
 
       // Theory of sets (not really supported anymore ...)
-      case lazabs.ast.ASTree.SetUnion(e1, e2) =>
+      case SetUnion(e1, e2) =>
         union(f2pterm(e1), f2pterm(e2))
-      case lazabs.ast.ASTree.SetIntersect(e1, e2) =>
+      case SetIntersect(e1, e2) =>
         intersection(f2pterm(e1), f2pterm(e2))      
-      case lazabs.ast.ASTree.SetSubset(e1, e2) =>
+      case SetSubset(e1, e2) =>
         subsetof(f2pterm(e1), f2pterm(e2))
-      case lazabs.ast.ASTree.SetDifference(e1, e2) =>
+      case SetDifference(e1, e2) =>
         difference(f2pterm(e1), f2pterm(e2))
-      case lazabs.ast.ASTree.SetContains(e1, e2) =>
+      case SetContains(e1, e2) =>
         in(f2pterm(e2), f2pterm(e1))  // note that Eldarica has "contains" and princess has "in". They are reverse
-      case lazabs.ast.ASTree.SetSize(e1) =>
+      case SetSize(e1) =>
         size(f2pterm(e1))
-      case lazabs.ast.ASTree.SetConst(elems) =>
+      case SetConst(elems) =>
         elems.map(x =>
         singleton(f2pterm(x))).foldLeft[ITerm](emptyset)((a,b) => union(a,b))
         
-      case lazabs.ast.ASTree.Universal(v: BinderVariable, qe: Expression) =>
+      case Universal(v: BinderVariable, qe: Expression) =>
         ISortedQuantified(Quantifier.ALL, type2Sort(v.stype), f2pformula(qe))
-      case lazabs.ast.ASTree.Existential(v: BinderVariable, qe: Expression) =>
+      case Existential(v: BinderVariable, qe: Expression) =>
         ISortedQuantified(Quantifier.EX, type2Sort(v.stype), f2pformula(qe))
-      case lazabs.ast.ASTree.Conjunction(e1, e2) =>
+      case Conjunction(e1, e2) =>
         f2pformula(e1) & f2pformula(e2)
-      case lazabs.ast.ASTree.Disjunction(e1, e2) =>
+      case Disjunction(e1, e2) =>
         f2pformula(e1) | f2pformula(e2)
-      case lazabs.ast.ASTree.LessThan(e1, e2) =>
+      case LessThan(e1, e2) if areRational(e1, e2) =>
+        Rationals.lt(f2pterm(e1), f2pterm(e2))
+      case LessThan(e1, e2) =>
         f2pterm(e1) < f2pterm(e2)
-      case lazabs.ast.ASTree.LessThanEqual(e1, e2) =>
+      case LessThanEqual(e1, e2) if areRational(e1, e2) =>
+        Rationals.leq(f2pterm(e1), f2pterm(e2))
+      case LessThanEqual(e1, e2) =>
         f2pterm(e1) <= f2pterm(e2)
-      case lazabs.ast.ASTree.GreaterThan(e1, e2) =>
+      case GreaterThan(e1, e2) if areRational(e1, e2) =>
+        Rationals.lt(f2pterm(e2), f2pterm(e1))
+      case GreaterThan(e1, e2) =>
         f2pterm(e1) > f2pterm(e2)
-      case lazabs.ast.ASTree.GreaterThanEqual(e1, e2) =>
+      case GreaterThanEqual(e1, e2) if areRational(e1, e2) =>
+        Rationals.leq(f2pterm(e2), f2pterm(e1))
+      case GreaterThanEqual(e1, e2) =>
         f2pterm(e1) >= f2pterm(e2)
-      case lazabs.ast.ASTree.Addition(e1,e2)
-        if (e1.stype == SetType(IntegerType()) && e2.stype == IntegerType()) =>
+      case Addition(e1,e2)
+        if (e1.stype == SetType(IntT) && e2.stype == IntT) =>
         union(f2pterm(e1), singleton(f2pterm(e2)))
-      case lazabs.ast.ASTree.Addition(e1,e2) =>
+      case Addition(e1,e2) if areRational(e1, e2) =>
+        Rationals.plus(f2pterm(e1), f2pterm(e2))
+      case Addition(e1,e2) =>
         f2pterm(e1) + f2pterm(e2)
-      case lazabs.ast.ASTree.Minus(e) =>
+      case Minus(e) if areRational(e) =>
+        Rationals.minus(f2pterm(e))
+      case Minus(e) =>
         -f2pterm(e)    
-      case lazabs.ast.ASTree.Subtraction(e1,e2) =>
+      case Subtraction(e1,e2) if areRational(e1, e2) =>
+        Rationals.minus(f2pterm(e1), f2pterm(e2))
+      case Subtraction(e1,e2) =>
         f2pterm(e1) - f2pterm(e2)
-      case lazabs.ast.ASTree.Multiplication(e1,e2) =>
+      case Multiplication(ToRational(e1),e2) if areRational(e2) =>
+        Rationals.times(f2pterm(e1), f2pterm(e2))
+      case Multiplication(Division(ToRational(e1), ToRational(e2)), e3) if areRational(e2) =>
+        Rationals.multWithFraction(f2pterm(e1), f2pterm(e2), f2pterm(e3))
+      case Multiplication(e1,e2) if areRational(e1, e2) =>
+        Rationals.mul(f2pterm(e1), f2pterm(e2))
+      case Multiplication(e1,e2) =>
         GroebnerMultiplication.mult(f2pterm(e1), f2pterm(e2))
+      case Division(e1,e2) if areRational(e1, e2) =>
+        Rationals.div(f2pterm(e1), f2pterm(e2))
       case Division(e1,e2) =>
         div(f2pterm(e1), f2pterm(e2))
       case Modulo(e1,e2) =>
         mod(f2pterm(e1), f2pterm(e2))
 
-      case lazabs.ast.ASTree.Not(e) =>
+      case ToRational(e) =>
+        Rationals.int2ring(f2pterm(e))
+
+      case Not(e) =>
         !f2pformula(e)
-      case lazabs.ast.ASTree.Inequality(e1, e2) =>
-        f2p(lazabs.ast.ASTree.Not(lazabs.ast.ASTree.Equality(e1, e2)))
-      case lazabs.ast.ASTree.Equality(e1, lazabs.ast.ASTree.ScSet(None)) =>
+      case Inequality(e1, e2) =>
+        f2p(Not(Equality(e1, e2)))
+      case Equality(e1, ScSet(None)) =>
         size(f2pterm(e1)) === 0
-      case lazabs.ast.ASTree.Equality(lazabs.ast.ASTree.ScSet(None), e1) =>
+      case Equality(ScSet(None), e1) =>
         isEmpty(f2pterm(e1))
-      case lazabs.ast.ASTree.Equality(e1, e2) =>
+      case Equality(e1, e2) =>
         e1.stype match {
           case BooleanType() =>
             f2pformula(e1) <=> f2pformula(e2)
@@ -234,25 +267,25 @@ class PrincessWrapper {
           case _ =>
             f2pterm(e1) === f2pterm(e2)
         }
-      case s@lazabs.ast.ASTree.Variable(vname,None) =>
+      case s@Variable(vname,None) =>
         symbolMap.getOrElseUpdate(vname, {
           type2Sort(s.stype) newConstant vname
         })
 
       // ADT conversion to Princess
-      case lazabs.ast.ASTree.ADTctor(adt, ctorName, exprList) => {
+      case ADTctor(adt, ctorName, exprList) => {
         val Some(ctor) = adt.constructors.find(_.name == ctorName)
         val termArgs = exprList.map(f2pterm(_))
         ctor(termArgs : _*)
       }
-      case lazabs.ast.ASTree.ADTsel(adt, selName, exprList) => {
+      case ADTsel(adt, selName, exprList) => {
         val Some(sel) = adt.selectors.flatten.find(_.name == selName)
         val termArgs = exprList.map(f2pterm(_))
         sel(termArgs : _*)
       }
-      case e1@lazabs.ast.ASTree.ADTtest(adt, sortNum, v) =>
+      case e1@ADTtest(adt, sortNum, v) =>
         adt.ctorIds(sortNum)(f2pterm(v))
-      case e2@lazabs.ast.ASTree.ADTsize(adt, sortNum, v) =>
+      case e2@ADTsize(adt, sortNum, v) =>
         adt.termSize(sortNum)(f2pterm(v))
 
       // Heap theory
@@ -294,10 +327,13 @@ class PrincessWrapper {
       case UnaryExpression(Int2BV(bits), arg) =>
         ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
 
-      case lazabs.ast.ASTree.Variable(vname,Some(i)) => IVariable(i)
-      case lazabs.ast.ASTree.NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
-      case lazabs.ast.ASTree.BoolConst(v) => IBoolLit(v)
-      case lazabs.ast.ASTree.ScSet(None) => emptyset
+      case Variable(vname,Some(i)) => IVariable(i)
+      case NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
+      case RationalConst(num, denom) =>
+        Rationals.Fraction(IIntLit(ap.basetypes.IdealInt(num.bigInteger)),
+                           IIntLit(ap.basetypes.IdealInt(denom.bigInteger)))
+      case BoolConst(v) => IBoolLit(v)
+      case ScSet(None) => emptyset
       case _ =>
         println("Error in conversion from Eldarica to Princess: " + ex)
         IBoolLit(false)
@@ -312,6 +348,9 @@ class PrincessWrapper {
     val res = ts.map(f2p)
     (res,symbolMap)
   }
+
+  private def areRational(e : Expression*) : Boolean =
+    e.forall(t => t.stype == RatT)
 
   private object BVBinFun {
     def unapply(op : BinaryOperator) : Option[(IFunction, Int)] = op match {
@@ -372,61 +411,76 @@ class PrincessWrapper {
     import Sort.:::
     def rvT(t: ITerm): Expression = t match {
       case IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2)) =>
-        lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType())).stype(IntegerType())
+        Subtraction(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
       case IPlus(ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2), e1) =>
-        lazabs.ast.ASTree.Subtraction(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType())).stype(IntegerType())
-      case IPlus(e1,e2) => lazabs.ast.ASTree.Addition(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType())).stype(IntegerType())
-      case ITimes(e1,e2) => lazabs.ast.ASTree.Multiplication(rvT(e1).stype(IntegerType()), rvT(e2).stype(IntegerType())).stype(IntegerType())
+        Subtraction(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
+      case IPlus(e1,e2) => Addition(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
+      case ITimes(e1,e2) => Multiplication(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
 
       // Theory of sets (not really supported anymore ...)
       case IFunApp(`size`, arg) =>
-        lazabs.ast.ASTree.SetSize(rvT(arg.head).stype(SetType(IntegerType())))
+        SetSize(rvT(arg.head).stype(SetType(IntT)))
       case IFunApp(`singleton`, Seq(e)) =>
-        lazabs.ast.ASTree.SetAdd(lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType())),rvT(e).stype(IntegerType()))
+        SetAdd(ScSet(None).stype(SetType(IntT)),rvT(e).stype(IntT))
       case IFunApp(`difference`, Seq(e0,e1)) =>
-        lazabs.ast.ASTree.SetDifference(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
+        SetDifference(rvT(e0).stype(SetType(IntT)),rvT(e1).stype(SetType(IntT)))
       case IFunApp(`union`, Seq(e0,e1)) =>
-        lazabs.ast.ASTree.SetUnion(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
+        SetUnion(rvT(e0).stype(SetType(IntT)),rvT(e1).stype(SetType(IntT)))
       case IFunApp(`intersection`, Seq(e0,e1)) =>
-        lazabs.ast.ASTree.SetIntersect(rvT(e0).stype(SetType(IntegerType())),rvT(e1).stype(SetType(IntegerType())))
+        SetIntersect(rvT(e0).stype(SetType(IntT)),rvT(e1).stype(SetType(IntT)))
       case IConstant(`emptyset`) =>
-        lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType()))
+        ScSet(None).stype(SetType(IntT))
 
       // Multiplication
       case IFunApp(MulTheory.Mul(), Seq(e1, e2)) =>
-        lazabs.ast.ASTree.Multiplication(rvT(e1).stype(IntegerType()),
-                                         rvT(e2).stype(IntegerType()))
+        Multiplication(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
 
       // Booleans
       case ADT.BoolADT.True =>
-        lazabs.ast.ASTree.BoolConst(true)
+        BoolConst(true)
       case ADT.BoolADT.False =>
-        lazabs.ast.ASTree.BoolConst(false)
+        BoolConst(false)
+
+      // Rationals
+      case Rationals.Fraction(IIntLit(e1), IIntLit(e2)) =>
+        RationalConst(e1.bigIntValue, e2.bigIntValue)
+      case IFunApp(Rationals.addition, Seq(e1, e2)) =>
+        Addition(rvT(e1).stype(RatT),
+                 rvT(e2).stype(RatT)).stype(RatT)
+      case IFunApp(Rationals.multiplication, Seq(e1, e2)) =>
+        Multiplication(rvT(e1).stype(RatT),
+                       rvT(e2).stype(RatT)).stype(RatT)
+      case IFunApp(Rationals.division, Seq(e1, e2)) =>
+        Division(rvT(e1).stype(RatT),
+                 rvT(e2).stype(RatT)).stype(RatT)
+      case IFunApp(Rationals.multWithRing, Seq(e1, e2)) =>
+        Multiplication(ToRational(rvT(e1).stype(IntT)).stype(RatT),
+                       rvT(e2).stype(RatT)).stype(RatT)
+      case IFunApp(Rationals.multWithFraction, Seq(e1, e2, e3)) =>
+        Multiplication(
+          Division(ToRational(rvT(e1).stype(IntT)).stype(RatT),
+                   ToRational(rvT(e2).stype(IntT)).stype(RatT)),
+          rvT(e3).stype(RatT)).stype(RatT)
 
       // Unary arrays of integers
       case IFunApp(SimpleArray.Select(), Seq(ar, ind)) =>
-        lazabs.ast.ASTree.ArraySelect(
-          rvT(ar),
-          rvT(ind).stype(IntegerType())).stype(IntegerType())
+        ArraySelect(rvT(ar), rvT(ind).stype(IntT)).stype(IntT)
       case IFunApp(SimpleArray.Store(), Seq(ar, ind, value)) =>
-        lazabs.ast.ASTree.ArrayUpdate(
-          rvT(ar),
-          rvT(ind).stype(IntegerType()),
-          rvT(value).stype(IntegerType())).stype(ArrayType(IntegerType(), IntegerType()))
+        ArrayUpdate(rvT(ar), rvT(ind).stype(IntT),
+                    rvT(value).stype(IntT)).stype(ArrayType(IntT, IntT))
 
       // Unary arrays
       case IFunApp(ExtArray.Select(theory), Seq(ar, ind)) =>
-        lazabs.ast.ASTree.ArraySelect(
+        ArraySelect(
           rvT(ar).stype(sort2Type(theory.sort)),
           rvT(ind)).stype(sort2Type(theory.objSort))
       case IFunApp(ExtArray.Store(theory), Seq(ar, ind, value)) =>
-        lazabs.ast.ASTree.ArrayUpdate(
+        ArrayUpdate(
           rvT(ar).stype(sort2Type(theory.sort)),
           rvT(ind).stype(sort2Type(theory.indexSorts.head)),
           rvT(value).stype(sort2Type(theory.objSort))).stype(sort2Type(theory.sort))
       case IFunApp(ExtArray.Const(theory), Seq(value)) =>
-        lazabs.ast.ASTree.ConstArray(
-          rvT(value)).stype(sort2Type(theory.sort))
+        ConstArray(rvT(value)).stype(sort2Type(theory.sort))
 
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
@@ -434,7 +488,7 @@ class PrincessWrapper {
       case IFunApp(f@ADT.Constructor(adt, _), e) =>
         ADTctor(adt, f.name, e.map(rvT(_)))
       case IFunApp(f@ADT.Selector(adt, _, _), Seq(e)) =>
-        ADTsel(adt, f.name, Seq(rvT(e))).stype(IntegerType())
+        ADTsel(adt, f.name, Seq(rvT(e))).stype(IntT)
       case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
         ADTtest(adt, sortNum, rvT(e))
 
@@ -464,7 +518,7 @@ class PrincessWrapper {
           ModuloArithmetic.ModSort(lower2, upper2)
         UnaryExpression(Int2BV(bits1),
           UnaryExpression(BV2Int(bits2),
-                          rvT(arg)).stype(IntegerType())).stype(BVType(bits1))
+                          rvT(arg)).stype(IntT)).stype(BVType(bits1))
       }
 
       case IFunApp(ModuloArithmetic.mod_cast,
@@ -478,7 +532,7 @@ class PrincessWrapper {
           case BVType(bits2) =>
             UnaryExpression(Int2BV(bits),
               UnaryExpression(BV2Nat(bits2),
-                              argExpr).stype(IntegerType())).stype(BVType(bits))
+                              argExpr).stype(IntT)).stype(BVType(bits))
           case t =>
             throw new Exception("Unhandled type: " + t)
         }
@@ -491,7 +545,7 @@ class PrincessWrapper {
         val argExpr = rvT(arg)
         argExpr.stype match {
           case BVType(_) =>
-            UnaryExpression(BV2Int(bits), argExpr).stype(IntegerType())
+            UnaryExpression(BV2Int(bits), argExpr).stype(IntT)
           case t =>
             throw new Exception("Unhandled type: " + t)
         }
@@ -501,7 +555,7 @@ class PrincessWrapper {
         val sub = rvT(arg)
         sub.stype match {
           case BVType(bits) =>
-            UnaryExpression(BV2Int(bits), sub).stype(IntegerType())
+            UnaryExpression(BV2Int(bits), sub).stype(IntT)
           case t =>
             throw new Exception("Unhandled type: " + t)
         }
@@ -544,15 +598,17 @@ class PrincessWrapper {
         val pattern = """x(\d+)(\w+)""".r
         symMap(cterm) match {
           case pattern(cVersion,n) if (removeVersions) =>
-            lazabs.ast.ASTree.Variable(n,None).stype(sort2Type(sort))
+            Variable(n,None).stype(sort2Type(sort))
           case noVersion@_ =>
-            lazabs.ast.ASTree.Variable(noVersion,None).stype(sort2Type(sort))
+            Variable(noVersion,None).stype(sort2Type(sort))
         }
       }
       case IVariable(index) =>
-        lazabs.ast.ASTree.Variable("_" + index,Some(index)).stype(IntegerType())      
+        Variable("_" + index,Some(index)).stype(IntT)      
       case IIntLit(value) =>
-        lazabs.ast.ASTree.NumericalConst(value.bigIntValue).stype(IntegerType())
+        NumericalConst(value.bigIntValue).stype(IntT)
+      case Rationals.Fraction(IIntLit(num), IIntLit(denom)) =>
+        RationalConst(num.bigIntValue, denom.bigIntValue).stype(RatT)
       case _ =>
         println("Error in conversion from Princess to Eldarica (ITerm): " + t + " subclass of " + t.getClass)
         BoolConst(false)
@@ -564,71 +620,75 @@ class PrincessWrapper {
       // Set constraints (not used currently)
 
       case IIntFormula(IIntRelation.EqZero, IPlus(IFunApp(`difference`, Seq(left, right)), ITimes(IdealInt.MINUS_ONE, `emptyset`))) =>
-        lazabs.ast.ASTree.SetSubset(rvT(left).stype(SetType(IntegerType())),
-          rvT(right).stype(SetType(IntegerType())))
+        SetSubset(rvT(left).stype(SetType(IntT)),
+          rvT(right).stype(SetType(IntT)))
       case IIntFormula(IIntRelation.EqZero, IFunApp(`size`, Seq(e))) =>
-        lazabs.ast.ASTree.Equality(rvT(e).stype(SetType(IntegerType())),lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType())))      
+        Equality(rvT(e).stype(SetType(IntT)),ScSet(None).stype(SetType(IntT)))      
       case IIntFormula(IIntRelation.EqZero, IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, `emptyset`))) =>
-        lazabs.ast.ASTree.Equality(rvT(e1).stype(SetType(IntegerType())),lazabs.ast.ASTree.ScSet(None).stype(SetType(IntegerType())))
+        Equality(rvT(e1).stype(SetType(IntT)),ScSet(None).stype(SetType(IntT)))
       case INot(IIntFormula(IIntRelation.EqZero, IPlus(ap.parser.IIntLit(ap.basetypes.IdealInt.MINUS_ONE), 
           IFunApp(`size`, Seq(IFunApp(`difference`, Seq(IFunApp(`singleton`, Seq(e1)), e2))))))) =>
-        lazabs.ast.ASTree.SetContains(rvT(e2).stype(SetType(IntegerType())),rvT(e1).stype(IntegerType()))
+        SetContains(rvT(e2).stype(SetType(IntT)),rvT(e1).stype(IntT))
       //case IIntFormula(IIntRelation.EqZero, IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2))) =>
-        //lazabs.ast.ASTree.Equality(rvT(e1).stype(SetType(IntegerType())),rvT(e2).stype(SetType(IntegerType())))
+        //Equality(rvT(e1).stype(SetType(IntT)),rvT(e2).stype(SetType(IntT)))
 
       // Equality constraints
 
       case EqZ(e ::: (Sort.Bool | Sort.MultipleValueBool)) =>
-        rvT(e).stype(BooleanType())
+        rvT(e).stype(BoolT)
 
       case EqLit(e ::: (Sort.Bool | Sort.MultipleValueBool),
                  IdealInt.ZERO) =>
-        rvT(e).stype(BooleanType())
+        rvT(e).stype(BoolT)
       case EqLit(e ::: (Sort.Bool | Sort.MultipleValueBool),
                  IdealInt.ONE) =>
-        lazabs.ast.ASTree.Not(rvT(e).stype(BooleanType()))
+        Not(rvT(e).stype(BoolT))
 
       case Eq(e1, e2) =>
-        lazabs.ast.ASTree.Equality(rvT(e1), rvT(e2))
+        Equality(rvT(e1), rvT(e2))
 
       // Inequality constraints
 
       case Geq(e1 : IIntLit, e2) =>
-        lazabs.ast.ASTree.LessThanEqual(rvT(e2).stype(IntegerType()),
-                                        rvT(e1).stype(IntegerType()))
+        LessThanEqual(rvT(e2).stype(IntT), rvT(e1).stype(IntT))
       case Geq(e1, e2) =>
-        lazabs.ast.ASTree.GreaterThanEqual(rvT(e1).stype(IntegerType()),
-                                           rvT(e2).stype(IntegerType()))
+        GreaterThanEqual(rvT(e1).stype(IntT), rvT(e2).stype(IntT))
 
       case IBinFormula(IBinJunctor.And, e1, e2) =>
-        lazabs.ast.ASTree.Conjunction(rvF(e1).stype(BooleanType()),
-                                      rvF(e2).stype(BooleanType()))
+        Conjunction(rvF(e1).stype(BoolT),
+                    rvF(e2).stype(BoolT))
       case IBinFormula(IBinJunctor.Or, e1, e2) =>
-        lazabs.ast.ASTree.Disjunction(rvF(e1).stype(BooleanType()),
-                                      rvF(e2).stype(BooleanType()))
+        Disjunction(rvF(e1).stype(BoolT),
+                    rvF(e2).stype(BoolT))
       case IBinFormula(IBinJunctor.Eqv, e1, e2) =>
-        lazabs.ast.ASTree.Iff(rvF(e1).stype(BooleanType()),
-                              rvF(e2).stype(BooleanType()))
+        Iff(rvF(e1).stype(BoolT),
+            rvF(e2).stype(BoolT))
       
        // EX (varCoeff * _0 = remainder)
       case ISortedQuantified(Quantifier.EX,
                              Sort.Integer, Var0Eq(varCoeff, remainder)) =>
-       lazabs.ast.ASTree.Equality(
-         lazabs.ast.ASTree.Modulo(rvT(shiftVars(remainder, 1, -1)).stype(IntegerType()),
-                                  rvT(varCoeff.abs).stype(IntegerType())),
-         NumericalConst(0)).stype(BooleanType())
+       Equality(
+         Modulo(rvT(shiftVars(remainder, 1, -1)).stype(IntT),
+                                  rvT(varCoeff.abs).stype(IntT)),
+         NumericalConst(0)).stype(BoolT)
       case ISortedQuantified(Quantifier.EX, s, e) =>
-        lazabs.ast.ASTree.Existential(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BooleanType()))
+        Existential(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BoolT))
       case ISortedQuantified(Quantifier.ALL, s, e) =>
-        lazabs.ast.ASTree.Universal(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BooleanType()))
-      case INot(e) => lazabs.ast.ASTree.Not(rvF(e).stype(BooleanType()))
-      case IBoolLit(b) => lazabs.ast.ASTree.BoolConst(b)
+        Universal(BinderVariable("i").stype(sort2Type(s)), rvF(e).stype(BoolT))
+      case INot(e) => Not(rvF(e).stype(BoolT))
+      case IBoolLit(b) => BoolConst(b)
+
+      // Rationals
+      case IAtom(Rationals.lessThan, Seq(e1, e2)) =>
+        LessThan(rvT(e1).stype(RatT), rvT(e2).stype(RatT))
+      case IAtom(Rationals.lessThanOrEqual, Seq(e1, e2)) =>
+        LessThanEqual(rvT(e1).stype(RatT), rvT(e2).stype(RatT))
 
       // Bit-vectors
       case IAtom(pred, Seq(IIntLit(IdealInt(bits)), left, right))
              if pred2BVBinOp contains pred =>
         BinaryExpression(rvT(left), pred2BVBinOp(pred)(bits),
-                         rvT(right)).stype(BooleanType())
+                         rvT(right)).stype(BoolT)
 
       // Heap theory
       case IAtom(pred@Heap.HeapPredExtractor(h), e) =>

@@ -43,6 +43,7 @@ import ap.parser._
 import ap.theories.{Theory, TheoryRegistry, TheoryCollector, ADT, SimpleArray,
                     MulTheory, ModuloArithmetic, ExtArray, Heap, DivZero,
                     IntValueEnumTheory}
+import ap.theories.rationals.Rationals
 import ap.theories.nia.GroebnerMultiplication
 import ap.{SimpleAPI, Signature}
 import SimpleAPI.ProverStatus
@@ -378,6 +379,7 @@ class SMTHornReader protected[parser] (
         case _ : IntValueEnumTheory => false
         case TypeTheory             => false
         case ModuloArithmetic       => false
+        case Rationals              => false
         case _                      => true
       })
     throw new Exception ("Combination of theories is not supported: " +
@@ -388,6 +390,7 @@ class SMTHornReader protected[parser] (
       case _ : SimpleArray => true
       case _ : ExtArray    => true
       case _ : DivZero     => true
+      case ADT.BoolADT     => true
       case TypeTheory      => true
       case _               => false
     }

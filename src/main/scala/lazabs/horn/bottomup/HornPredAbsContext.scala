@@ -193,6 +193,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
        case ap.types.TypeTheory                 => true
        case ap.theories.GroebnerMultiplication  => true
        case ap.theories.ModuloArithmetic        => true
+       case _ : ap.theories.IntValueEnumTheory  => true
        case _ : ap.theories.ADT                 => true
        case _                                   => false
      }) &&

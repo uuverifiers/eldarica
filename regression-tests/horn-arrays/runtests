@@ -40,7 +40,8 @@ done
 
 # Tests with array cloning
 
-TESTS="splitting.smt2 splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2"
+TESTS="splitting.smt2 splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2 \
+       splitting6.smt2"
 
 for name in $TESTS; do
     echo

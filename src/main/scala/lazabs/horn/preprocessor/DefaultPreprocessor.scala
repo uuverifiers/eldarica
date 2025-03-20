@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,9 +52,9 @@ class DefaultPreprocessor extends HornPreprocessor {
 
   def preStages : List[HornPreprocessor] =
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
-    List(new PartialConstraintEvaluator,
+    List(RationalDenomUnifier,
+         new PartialConstraintEvaluator,
          new ConstraintSimplifier,
-         RationalDenomUnifier,
          new ClauseInliner)
 
   def extendingStages : List[HornPreprocessor] =
