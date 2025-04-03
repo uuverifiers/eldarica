@@ -280,13 +280,6 @@ sat
     (define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))
 )
 
-splitting.smt2
-unsat
-
-0: FALSE -> 1
-1: inv(store(const(3), 0, 1), store(const(4), 0, 2), 1, 2) -> 2
-2: inv(store(const(3), 0, 1), store(const(4), 0, 2), 0, 0)
-
 splitting2.smt2
 sat
 (
@@ -319,13 +312,6 @@ sat
     (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (= (select (select A 1) 5) 0) (not (= B true))))
 )
 
-splitting.smt2
-unsat
-
-0: FALSE -> 1
-1: inv(store(const(4), 0, 1), store(const(3), 0, 2), 1, 2) -> 2
-2: inv(store(const(4), 0, 1), store(const(3), 0, 2), 0, 0)
-
 splitting2.smt2
 sat
 (
@@ -351,6 +337,22 @@ sat
 )
 
 splitting6.smt2
+sat
+(
+    (define-fun atom1 () Bool true)
+    (define-fun atom3 () Bool false)
+    (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
+)
+
+splitting.smt2
+sat
+(
+    (define-fun atom1 () Bool true)
+    (define-fun atom3 () Bool false)
+    (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
+)
+
+splitting.smt2
 sat
 (
     (define-fun atom1 () Bool true)
