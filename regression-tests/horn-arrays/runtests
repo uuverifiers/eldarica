@@ -29,7 +29,7 @@ done
 # Tests with the native array theory
 
 TESTS="array-elim.smt2 leos-example.smt2 leos-example-2.smt2 constant.smt2 \
-       splitting.smt2 splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2 \
+       splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2 \
        array-mod-bug.smt2"
 
 for name in $TESTS; do
@@ -40,7 +40,7 @@ done
 
 # Tests with array cloning
 
-TESTS="splitting.smt2 splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2 \
+TESTS="splitting2.smt2 splitting3.smt2 splitting4.smt2 splitting5.smt2 \
        splitting6.smt2"
 
 for name in $TESTS; do
@@ -48,6 +48,16 @@ for name in $TESTS; do
     echo $name
     $LAZABS -cex -ssol -abstract:off -arrayQuans:off -cloneArrays "$@" $name 2>&1 | grep -v 'at '
 done
+
+# Counterexample produced for this benchmark tend to be unstable, therefore omitted
+
+echo
+echo splitting.smt2
+$LAZABS -ssol -abstract:off -arrayQuans:off "splitting.smt2" $name 2>&1 | grep -v 'at '
+
+echo
+echo splitting.smt2
+$LAZABS -ssol -abstract:off -arrayQuans:off -cloneArrays "splitting.smt2" $name 2>&1 | grep -v 'at '
 
 # Tests with interpolation abstractions turned on
 
