@@ -37,7 +37,17 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{HashSet => MHashSet, PriorityQueue}
+import scala.collection.mutable.{HashSet => MHashSet, PriorityQueue,
+                                 HashMap => MHashMap}
+
+object BreadthFirstForwardSymex {
+
+  def fix[T](f : T => T)(t : T) : T = {
+    val next = f(t)
+    if (t == next) t else fix(f)(next)
+  }
+
+}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -54,6 +64,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
+  import BreadthFirstForwardSymex._
 
   val initialTimeoutMs  = 50 // TODO: make this a setting
   val timeoutGrowthRate = 2  // TODO: make this a setting
@@ -86,7 +97,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                       timeoutMS : Long) : Unit = {
     val cost = clauseCost(clause, electrons, timeoutMS) + enqueueCount
 //    println(electrons)
-//    println("enqueuing, cost " + cost)
+    printInfo(f"enqueuing, cost $cost, queue size: ${choicesQueue.size}")
+//    printInfo(f"iteration count: ${iterationNumFor(electrons)}")
     choicesQueue.enqueue((clause, electrons, timeoutMS, -cost))
     enqueueCount = enqueueCount + 1
   }
@@ -100,7 +112,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
    * Map telling how far each of the predicates is away from an
    * assertion clause.
    */
-  private val distToAssertion : Map[Predicate, Int] = {
+  private lazy val distToAssertion : Map[Predicate, Int] = {
     val clauseGraph =
       new Dijkstra.WeightedGraph[Predicate] {
         def successors(p : Predicate) : Iterator[(Predicate, Int)] =
@@ -114,19 +126,92 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   }
 
   /**
+   * Map telling how far each predicate is away from entry clauses.
+   */
+  private lazy val distFromEntry : Map[Predicate, Int] = {
+    val initDist =
+      (for (p <- preds.iterator) yield (p -> Int.MaxValue)).toMap
+
+    def update(dist : Map[Predicate, Int]) : Map[Predicate, Int] = {
+      val dists =
+        for ((nc, _) <- normClauses) yield {
+          (nc.head._1.pred,
+           (Iterator(0) ++ nc.body.iterator.map(_._1.pred).map(dist)).max + 1)
+        }
+      dist ++ dists.groupBy(_._1).mapValues(s => s.map(_._2).min)
+    }
+
+    fix(update)(initDist)
+  }
+
+  private type IterationNum = Map[Predicate, Int]
+
+  private val unitClauseIterationNum = new MHashMap[UnitClause, IterationNum]
+
+  private def max(it1 : IterationNum, it2 : IterationNum) : IterationNum =
+    (it1.keysIterator ++ it2.keysIterator)
+      .map(p => p -> (it1.getOrElse(p, 0) max it2.getOrElse(p, 0)))
+      .toMap
+
+  private def extendIterationNum(num : IterationNum,
+                                 p : Predicate) : IterationNum =
+    num + (p -> (num.getOrElse(p, 0) + 1))
+
+  private def maxIterationNum(num : IterationNum) : Long =
+    (num.iterator.map(_._2) ++ Iterator(0)).max
+
+  private def maxNIterationNum(num : IterationNum, n : Int) : Long =
+    num.toSeq.map(_._2).sortBy(-_).take(n).sum
+
+  private def iterationNumFor(u : UnitClause) : IterationNum =
+    unitClauseIterationNum.get(u) match {
+      case Some(r) => r
+      case None => {
+        val parentNum : IterationNum =
+          unitClauseDB.parentsOption(u) match {
+            case Some((_, parents)) => iterationNumFor(parents)
+            case None               => Map()
+          }
+        val r = extendIterationNum(parentNum, u.rs.pred)
+        unitClauseIterationNum.put(u, r)
+        r
+      }
+    }
+
+  private def iterationNumFor(us : Seq[UnitClause]) : IterationNum =
+    us match {
+      case Seq() => Map()
+      case us    => us.iterator.map(iterationNumFor).reduceLeft(max)
+    }
+
+  /**
    * Determine the cost (negated priority) of elements put in the queue.
    */
   private def clauseCost(clause    : NormClause,
                          electrons : Seq[UnitClause],
-                         timeoutMS : Long) : Long =
+                         timeoutMS : Long) : Long = {
+    val headPred = clause.head._1.pred
+    val increasedTimeout = timeoutMS > initialTimeoutMs
+
+    // Check assertion clauses first
+    (if (headPred == HornClauses.FALSE && !increasedTimeout) -100l else 0l) +
     // Postpone clauses with complicated constraints
     clause.constraint.opCount.toLong +
     // Postpone unit clauses with complicated constraints
     electrons.map(_.constraint.opCount.toLong).sum +
     // Postpone predicates that are far away from assertions
-    distToAssertion.getOrElse(clause.head._1.pred, 1000) * 10 +
+//    distToAssertion.getOrElse(clause.head._1.pred, 1000) * 10 +
+    // Prefer predicates that are far away from entry
+    distFromEntry.getOrElse(clause.head._1.pred, 1000) * -10 +
+    // Penalize the maximum number of repetitions of a predicate
+    maxIterationNum(extendIterationNum(iterationNumFor(electrons),
+                                       headPred)) * 100 +
+    // Penalize the top-3 number of repetitions of predicates
+//    maxNIterationNum(extendIterationNum(iterationNumFor(electrons),
+//                                        headPred), 3) * 1000000 +
     // Postpone checks with big timeout
     timeoutMS / initialTimeoutMs
+  }
 
   private def clauseCostX(clause    : NormClause,
                           electrons : Seq[UnitClause],
