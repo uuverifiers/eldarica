@@ -242,20 +242,30 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       // We introduce lower-bound clauses for the symbols not to be
       // considered in interval analysis
 
+      assert(intervalAnalysisIgnoredSyms.isEmpty)
+
       val additionalClauses =
         for (p <- intervalAnalysisIgnoredSyms)
         yield NormClause(Conjunction.TRUE, List(), (relationSymbols(p), 0))
 
-      val propagator =
-        new IntervalPropagator (rawNormClauses.keys.toIndexedSeq ++
-                                  additionalClauses,
+      val bwdPropResult =
+        new BwdIntervalPropagator(rawNormClauses.keysIterator.toIndexedSeq).result
+        //rawNormClauses.keysIterator.toIndexedSeq.map(c => (c, c))
+
+      val fwdInput =
+        (for ((clause, _) <- bwdPropResult.iterator)
+         yield clause).toIndexedSeq
+      val bwdClauseMap =
+        bwdPropResult.toMap
+      val fwdPropagator =
+        new IntervalPropagator (fwdInput ++ additionalClauses,
                                 sf.reducerSettings)
 
-      for ((nc, oc) <- propagator.result)
+      for ((nc, oc) <- fwdPropagator.result)
         if (!(additionalClauses contains oc))
-          res.put(nc, rawNormClauses(oc))
+          res.put(nc, rawNormClauses(bwdClauseMap(oc)))
 
-      (res.toSeq, propagator.rsBounds)
+      (res.toSeq, fwdPropagator.rsBounds)
     } else {
       val emptyBounds =
         (for (rs <- relationSymbols.valuesIterator)
