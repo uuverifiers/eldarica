@@ -70,7 +70,7 @@ trait HornPredAbsContext[CC] {
     relationSymbolOccurrences mapValues (_.toVector)
   }
 
-  val relationSymbolBounds : Map[RelationSymbol, Conjunction]
+  val relationSymbolFwdBounds, relationSymbolBwdBounds : Map[RelationSymbol, Conjunction]
   val relationSymbolReducers : Map[RelationSymbol, ReduceWithConjunction]
 
   val goalSettings : GoalSettings
@@ -138,7 +138,8 @@ class DelegatingHornPredAbsContext[CC](underlying : HornPredAbsContext[CC])
   val normClauses               = underlying.normClauses
   val relationSymbols           = underlying.relationSymbols
   val relationSymbolOccurrences = underlying.relationSymbolOccurrences
-  val relationSymbolBounds      = underlying.relationSymbolBounds
+  val relationSymbolFwdBounds   = underlying.relationSymbolFwdBounds
+  val relationSymbolBwdBounds   = underlying.relationSymbolBwdBounds
   val relationSymbolReducers    = underlying.relationSymbolReducers
   val goalSettings              = underlying.goalSettings
   val emptyProver               = underlying.emptyProver
@@ -228,7 +229,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
   }
 
   // translate clauses to internal form
-  val (normClauses, relationSymbolBounds) = {
+  val (normClauses, relationSymbolFwdBounds, relationSymbolBwdBounds) = {
     val rawNormClauses = new LinkedHashMap[NormClause, CC]
 
     for (c <- iClauses) {
@@ -242,43 +243,49 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
       // We introduce lower-bound clauses for the symbols not to be
       // considered in interval analysis
 
-      assert(intervalAnalysisIgnoredSyms.isEmpty)
-
       val additionalClauses =
         for (p <- intervalAnalysisIgnoredSyms)
         yield NormClause(Conjunction.TRUE, List(), (relationSymbols(p), 0))
 
-      val bwdPropResult =
-        new BwdIntervalPropagator(rawNormClauses.keysIterator.toIndexedSeq).result
-        //rawNormClauses.keysIterator.toIndexedSeq.map(c => (c, c))
-
       val fwdInput =
-        (for ((clause, _) <- bwdPropResult.iterator)
-         yield clause).toIndexedSeq
-      val bwdClauseMap =
-        bwdPropResult.toMap
+        rawNormClauses.keysIterator.toIndexedSeq ++ additionalClauses
       val fwdPropagator =
-        new IntervalPropagator (fwdInput ++ additionalClauses,
-                                sf.reducerSettings)
+        new IntervalPropagator (fwdInput, sf.reducerSettings)
 
-      for ((nc, oc) <- fwdPropagator.result)
-        if (!(additionalClauses contains oc))
-          res.put(nc, rawNormClauses(bwdClauseMap(oc)))
+      val (bwdResult, bwdBounds) = {
+        val fwdResult = fwdPropagator.result
+        if (intervalAnalysisIgnoredSyms.isEmpty && false) {
+          val bwdProp = new BwdIntervalPropagator(fwdResult.unzip._1.toIndexedSeq)
+          (bwdProp.result, bwdProp.rsBounds)
+        } else {
+          (fwdResult.map(p => (p._1, p._1)), Map[RelationSymbol, Conjunction]())
+        }
+      }
 
-      (res.toSeq, fwdPropagator.rsBounds)
+      val fwdClauseMap = fwdPropagator.result.toMap
+
+      for ((nc, oc) <- bwdResult;
+           oc2 = fwdClauseMap(oc);
+           if (!(additionalClauses contains oc2)))
+        res.put(nc, rawNormClauses(oc2))
+
+      (res.toSeq, fwdPropagator.rsBounds, bwdBounds)
     } else {
-      val emptyBounds =
-        (for (rs <- relationSymbols.valuesIterator)
-         yield (rs -> Conjunction.TRUE)).toMap
-      (rawNormClauses.toSeq, emptyBounds)
+      (rawNormClauses.toSeq,
+       Map[RelationSymbol, Conjunction](),
+       Map[RelationSymbol, Conjunction]())
     }
   }
 
-  val relationSymbolReducers =
+  val relationSymbolReducers = {
+    implicit val order = sf.order
     (for (rs <- relationSymbols.valuesIterator) yield {
-      val bounds = relationSymbolBounds.getOrElse(rs, Conjunction.TRUE)
+      val bounds =
+        relationSymbolFwdBounds.getOrElse(rs, Conjunction.TRUE) &
+        relationSymbolBwdBounds.getOrElse(rs, Conjunction.TRUE)
       (rs, sf reducer (if (bounds.isFalse) Conjunction.TRUE else bounds))
      }).toMap
+  }
 
   println("Unique satisfiable clauses: " + normClauses.size)
 

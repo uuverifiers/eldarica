@@ -405,15 +405,10 @@ class BwdIntervalPropagator(clauses : IndexedSeq[NormClause])
   lazy val rsBounds = propagator.rsBounds
 
   private def augmentClause(clause : NormClause) : NormClause = {
-/*    val extraConstraints =
-      for ((rs, occ) <- clause.body;
-           constr = rsBounds(rs);
-           if !constr.isTrue)
-       yield ConstantSubst(sf.substMap(rs.arguments(0), rs.arguments(occ)),
-                           sf.order)(constr)
-*/
-
     val (headRS, headOcc) = clause.head
+    if (headRS.pred == HornClauses.FALSE)
+      return clause
+
     val headBounds = rsBounds(headRS)
 
     val extraConstraints =
@@ -424,15 +419,14 @@ class BwdIntervalPropagator(clauses : IndexedSeq[NormClause])
                                        headRS.arguments(headOcc)),
                            sf.order)(headBounds))
 
-    if (extraConstraints.isEmpty) {
-      clause
-    } else {
-      val allConstraints = extraConstraints ++ List(clause.constraint)
-      clause.updateConstraint(
-        sf.reduce(Conjunction.conj(allConstraints, sf.order)))
-    }
+    if (extraConstraints.isEmpty)
+      return clause
+
+    val allConstraints = extraConstraints ++ List(clause.constraint)
+    clause.updateConstraint(
+      sf.reduce(Conjunction.conj(allConstraints, sf.order)))
   }
-  println(rsBounds)
+
   lazy val result : Seq[(NormClause, NormClause)] =
     (for (clause <- clauses.iterator;
           newClause = augmentClause(clause);
