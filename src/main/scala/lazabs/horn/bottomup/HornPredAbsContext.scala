@@ -254,7 +254,7 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
 
       val (bwdResult, bwdBounds) = {
         val fwdResult = fwdPropagator.result
-        if (intervalAnalysisIgnoredSyms.isEmpty && false) {
+        if (intervalAnalysisIgnoredSyms.isEmpty) {
           val bwdProp = new BwdIntervalPropagator(fwdResult.unzip._1.toIndexedSeq)
           (bwdProp.result, bwdProp.rsBounds)
         } else {
