@@ -411,16 +411,13 @@ class BwdIntervalPropagator(clauses : IndexedSeq[NormClause])
 
     val headBounds = rsBounds(headRS)
 
-    val extraConstraints =
-      if (headBounds.isTrue)
-        List()
-      else
-        List(ConstantSubst(sf.substMap(headRS.arguments(0),
-                                       headRS.arguments(headOcc)),
-                           sf.order)(headBounds))
-
-    if (extraConstraints.isEmpty)
+    if (headBounds.isTrue)
       return clause
+
+    val extraConstraints =
+      List(ConstantSubst(sf.substMap(headRS.arguments(0),
+                                     headRS.arguments(headOcc)),
+                         sf.order)(headBounds))
 
     val allConstraints = extraConstraints ++ List(clause.constraint)
     clause.updateConstraint(
