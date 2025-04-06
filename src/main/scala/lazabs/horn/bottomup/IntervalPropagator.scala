@@ -402,7 +402,16 @@ class BwdIntervalPropagator(clauses : IndexedSeq[NormClause])
     new IntervalPropagator(bwdClauses, sf.reducerSettings,
                            "Backward constant and interval propagation")
 
-  lazy val rsBounds = propagator.rsBounds
+  lazy val rsBounds = {
+    val bounds = propagator.rsBounds
+    // unreachable predicates have to be mapped to false
+    val unreachableBounds =
+      for (clause <- clauses.iterator;
+           rs <- clause.relationSymbols.iterator;
+           if !(bounds contains rs))
+      yield (rs -> Conjunction.FALSE)
+    bounds ++ unreachableBounds
+  }
 
   private def augmentClause(clause : NormClause) : NormClause = {
     val (headRS, headOcc) = clause.head
