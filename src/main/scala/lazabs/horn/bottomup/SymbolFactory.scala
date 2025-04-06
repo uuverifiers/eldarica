@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@ import ap.Signature
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param,
                       ReducerSettings}
-import ap.terfor.{ConstantTerm, TerForConvenience, TermOrder}
+import ap.terfor.{ConstantTerm, TerForConvenience, TermOrder, Term}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
                                SeqReducerPluginFactory}
 import ap.theories.Theory
@@ -158,7 +158,13 @@ object SymbolFactory {
       addSymbols(res)
       res
     }
-      
+
+    def substMap(from : Seq[ConstantTerm],
+                 to   : Seq[ConstantTerm])
+                      : Map[ConstantTerm, Term] =
+    (for ((oriC, newC) <- from.iterator zip to.iterator)
+     yield (oriC -> l(newC)(order))).toMap
+
     def signature =
       Signature(Set(), Set(), order.orderedConstants, Map(), order, theories)
 

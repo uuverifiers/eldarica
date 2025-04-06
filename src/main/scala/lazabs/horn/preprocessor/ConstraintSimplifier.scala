@@ -676,6 +676,10 @@ class ConstraintSimplifier extends HornPreprocessor {
                 s
             }
 
+          case s @ Eq(IFunApp(ADT.Constructor(adt, ctorNum), args), Const(k))
+            if adt.isEnum(adt.sortOfCtor(ctorNum)) =>
+            adt.ctorIdsPerSort(adt.sortOfCtor(ctorNum)).indexOf(ctorNum) === k
+
           case s => s
         }
     }
