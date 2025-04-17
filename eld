@@ -6,8 +6,8 @@ else
     pathCmd="realpath"
 fi
 
-BASEDIR=`dirname $($pathCmd $0)`
+BASEDIR=`dirname "$($pathCmd $0)"`
 
-. $BASEDIR/eldEnv
+. "$BASEDIR/eldEnv"
 
 exec $LAZABS_CMD lazabs.Main "$@"
