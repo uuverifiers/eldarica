@@ -53,17 +53,16 @@ Initially:                                             4         2
 
 
 Theories: Types, ADT(true, false)
-Unique satisfiable clauses: 3
-   1 clauses with 0 body literals
+Unique satisfiable clauses: 2
    2 clauses with 1 body literals
 
 --------------------------------- Statistics -----------------------------------
-CEGAR iterations:                                      1
-Final number of abstract states:                       1
-Final number of matched abstract states:               1
-Final number of abstract edges:                        2
-Number of generated predicates:                        1
-Average predicate size (# of sub-formulas):            1.00
+CEGAR iterations:                                      0
+Final number of abstract states:                       0
+Final number of matched abstract states:               0
+Final number of abstract edges:                        0
+Number of generated predicates:                        0
+Average predicate size (# of sub-formulas):            0.00
 
 --------------------------------------------------------------------------------
 
@@ -122,15 +121,13 @@ Initially:                                             4         2
 
 Theories: Types, GroebnerMultiplicationValueEnumerator, GroebnerMultiplication, ModuloArithmetic
 State hashing enabled
-Unique satisfiable clauses: 2
-   1 clauses with 0 body literals
-   1 clauses with 1 body literals
+Unique satisfiable clauses: 0
 
 --------------------------------- Statistics -----------------------------------
 CEGAR iterations:                                      0
-Final number of abstract states:                       1
-Final number of matched abstract states:               1
-Final number of abstract edges:                        2
+Final number of abstract states:                       0
+Final number of matched abstract states:               0
+Final number of abstract edges:                        0
 Number of generated predicates:                        0
 Average predicate size (# of sub-formulas):            0.00
 
@@ -207,12 +204,12 @@ array-elim.smt2
 sat
 (
     (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
-    (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (= F 0) (or (or (and (= C E) (= F 1)) (and (= F 1) (not (= B 0)))) (and (= F 1) (not (= D 0)))))))
+    (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (and (<= F 1) (>= F 0)) (or (or (or (not (= B 0)) (not (= D 0))) (not (= F 1))) (= C E)))))
     (define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= F 0) (= A 1)))
-    (define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (and (= C 1) (= F 0)) (and (= F 0) (not (= B 0))))))
-    (define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (= F 0)) (and (= F 0) (not (= B 0)))) (and (= F 0) (not (= D 0))))))
+    (define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (= F 0) (or (not (= B 0)) (= C 1)))))
+    (define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (= F 0) (or (or (not (= B 0)) (not (= D 0))) (= C E)))))
     (define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
-    (define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (or (or (and (= C E) (and (<= F 1) (>= F 0))) (and (not (= B 0)) (and (<= F 1) (>= F 0)))) (and (not (= D 0)) (and (<= F 1) (>= F 0))))))
+    (define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (and (<= F 1) (>= F 0)) (or (or (or (not (= B 0)) (not (= D 0))) (not (= F 0))) (= C E)))))
     (define-fun preds7 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (and (= F 0) (= A 1)) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
     (define-fun preds8 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool true)
 )
@@ -227,13 +224,13 @@ array-elim.smt2
 sat
 (
     (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= A 1)))
-    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
-    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
-    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= A 1)))
-    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= A 1)))
+    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (or (not (= D 1)) (= (select C 0) (select B 0))))))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (not (= D 1)) (= (select C 0) (select B 0))))) (= A 1)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (not (= D 1))))) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (not (= D 1)))))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (or (exists ((var0 Int)) (and (>= var0 1) (and (and (<= var0 1) (>= var0 0)) (not (= var0 1))))) (exists ((var0 Int)) (and (>= var0 1) (and (and (<= var0 1) (>= var0 0)) (= (select C 0) (select B 0)))))) (= A 1)))
+    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (or (not (= D 0)) (= (select C 0) (select B 0))))))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (not (= D 0)) (= (select C 0) (select B 0))))) (= A 1)))
     (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 )
 
@@ -243,10 +240,10 @@ sat
 (
     (define-fun block_3_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool true)
     (define-fun block_4_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (= I G) (= H F)) (= A 0))))
-    (define-fun block_5_return_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (and (and (and (>= J 0) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= I 0)) (<= I 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (or (and (exists ((var0 Bool)) (not (= var0 true))) (>= J I)) (>= (- I J) 1))) (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0))))))
-    (define-fun block_6_for_header_f_31_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (= H F) (= I G)) (and (= A 0) (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= (- G J) 1)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)))))
-    (define-fun block_7_for_body_f_30_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (>= (- G K) 1) (>= K 0)) (>= (- G J) 1)) (>= J 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)))))
-    (define-fun block_8_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (or (not (= C abi_type)) (and (and (and (= I G) (= H F)) (= A 0)) (and (and (and (and (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= K G)) (>= K 0)) (>= (- G J) 1)) (>= J 0)))))
+    (define-fun block_5_return_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (and (and (and (and (>= J 0) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= G 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (or (and (exists ((var0 Bool)) (not (= var0 true))) (>= J G)) (>= (- G J) 1))) (and (exists ((var0 Bool)) (and (and (and (and (and (>= K 0) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= G 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (and (not (= var0 true)) (>= K G))) (not (= var0 true)))) (and (and (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= G 1)) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639934)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)) (or (not (= (msg.sig E) 3017696395)) (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (>= (block.chainid E) 115792089237316195423570985008687907853269984665640564039457584007913129639936) (<= (block.chainid E) (- 1))) (>= (block.coinbase E) 1461501637330902918203684832716283019655932542976)) (<= (block.coinbase E) (- 1))) (>= (block.difficulty E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.difficulty E) (- 1))) (>= (block.gaslimit E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.gaslimit E) (- 1))) (>= (block.number E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.number E) (- 1))) (>= (block.timestamp E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.timestamp E) (- 1))) (<= (bytes_tuple_accessor_length (msg.data E)) 3)) (>= (msg.sender E) 1461501637330902918203684832716283019655932542976)) (<= (msg.sender E) (- 1))) (>= (tx.origin E) 1461501637330902918203684832716283019655932542976)) (<= (tx.origin E) (- 1))) (>= (- G J) 1)))))) (and (and (= A 0) (= H F)) (= G I))))
+    (define-fun block_6_for_header_f_31_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (= H F) (= I G)) (and (= A 0) (and (and (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= G 1)) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639934)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)) (or (not (= (msg.sig E) 3017696395)) (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (>= (block.chainid E) 115792089237316195423570985008687907853269984665640564039457584007913129639936) (<= (block.chainid E) (- 1))) (>= (block.coinbase E) 1461501637330902918203684832716283019655932542976)) (<= (block.coinbase E) (- 1))) (>= (block.difficulty E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.difficulty E) (- 1))) (>= (block.gaslimit E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.gaslimit E) (- 1))) (>= (block.number E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.number E) (- 1))) (>= (block.timestamp E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.timestamp E) (- 1))) (<= (bytes_tuple_accessor_length (msg.data E)) 3)) (>= (msg.sender E) 1461501637330902918203684832716283019655932542976)) (<= (msg.sender E) (- 1))) (>= (tx.origin E) 1461501637330902918203684832716283019655932542976)) (<= (tx.origin E) (- 1))) (>= (- G J) 1)))))))
+    (define-fun block_7_for_body_f_30_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (and (and (and (and (>= K 0) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= G 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= (- G K) 1)) (and (and (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= G 1)) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639934)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)) (or (not (= (msg.sig E) 3017696395)) (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (>= (block.chainid E) 115792089237316195423570985008687907853269984665640564039457584007913129639936) (<= (block.chainid E) (- 1))) (>= (block.coinbase E) 1461501637330902918203684832716283019655932542976)) (<= (block.coinbase E) (- 1))) (>= (block.difficulty E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.difficulty E) (- 1))) (>= (block.gaslimit E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.gaslimit E) (- 1))) (>= (block.number E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.number E) (- 1))) (>= (block.timestamp E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.timestamp E) (- 1))) (<= (bytes_tuple_accessor_length (msg.data E)) 3)) (>= (msg.sender E) 1461501637330902918203684832716283019655932542976)) (<= (msg.sender E) (- 1))) (>= (tx.origin E) 1461501637330902918203684832716283019655932542976)) (<= (tx.origin E) (- 1))) (>= (- G J) 1))))) (and (and (= A 0) (= F H)) (= G I))))
+    (define-fun block_8_f_38_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int) (J Int) (K Int)) Bool (and (and (exists ((var0 Bool)) (and (and (and (and (and (>= K 0) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= G 0)) (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (and (not (= var0 true)) (>= K G))) (not (= var0 true)))) (and (and (and (and (and (and (<= G 115792089237316195423570985008687907853269984665640564039457584007913129639935) (>= G 1)) (<= J 115792089237316195423570985008687907853269984665640564039457584007913129639934)) (>= J 0)) (<= K 115792089237316195423570985008687907853269984665640564039457584007913129639935)) (>= K 0)) (or (not (= (msg.sig E) 3017696395)) (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (>= (block.chainid E) 115792089237316195423570985008687907853269984665640564039457584007913129639936) (<= (block.chainid E) (- 1))) (>= (block.coinbase E) 1461501637330902918203684832716283019655932542976)) (<= (block.coinbase E) (- 1))) (>= (block.difficulty E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.difficulty E) (- 1))) (>= (block.gaslimit E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.gaslimit E) (- 1))) (>= (block.number E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.number E) (- 1))) (>= (block.timestamp E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.timestamp E) (- 1))) (<= (bytes_tuple_accessor_length (msg.data E)) 3)) (>= (msg.sender E) 1461501637330902918203684832716283019655932542976)) (<= (msg.sender E) (- 1))) (>= (tx.origin E) 1461501637330902918203684832716283019655932542976)) (<= (tx.origin E) (- 1))) (>= (- G J) 1))))) (and (and (= A 0) (= F H)) (= G I))))
     (define-fun contract_initializer_C_40_1_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
     (define-fun contract_initializer_after_init_C_40_10_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
     (define-fun contract_initializer_entry_C_40_9_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
@@ -254,7 +251,7 @@ sat
     (define-fun implicit_constructor_entry_C_40_11_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (or (not (= C abi_type)) (and (= G F) (= A 0))))
     (define-fun interface_C_40_0 ((A Int) (B abi_type) (C crypto_type) (D state_type)) Bool true)
     (define-fun nondet_interface_C_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E state_type) (F state_type)) Bool true)
-    (define-fun summary_2_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int)) Bool (and (and (= H F) (= I G)) (= A 0)))
+    (define-fun summary_2_function_f__39_40_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G Int) (H state_type) (I Int)) Bool (and (and (= H F) (= I G)) (or (and (= A 1) (or (not (= (msg.sig E) 3017696395)) (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (>= (tx.origin E) 1461501637330902918203684832716283019655932542976) (<= (tx.origin E) (- 1))) (>= (msg.sender E) 1461501637330902918203684832716283019655932542976)) (<= (msg.sender E) (- 1))) (<= (bytes_tuple_accessor_length (msg.data E)) 3)) (>= (block.timestamp E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.timestamp E) (- 1))) (>= (block.number E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.number E) (- 1))) (>= (block.gaslimit E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.gaslimit E) (- 1))) (>= (block.difficulty E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.difficulty E) (- 1))) (>= (block.coinbase E) 1461501637330902918203684832716283019655932542976)) (<= (block.coinbase E) (- 1))) (>= (block.chainid E) 115792089237316195423570985008687907853269984665640564039457584007913129639936)) (<= (block.chainid E) (- 1))))) (= A 0))))
     (define-fun summary_constructor_C_40_0_0 ((A Int) (B Int) (C abi_type) (D crypto_type) (E tx_type) (F state_type) (G state_type)) Bool (and (= G F) (and (= A 0) (= (balances F) (balances F)))))
 )
 
@@ -280,17 +277,10 @@ sat
     (define-fun inv ((A (Array Int Int))) Bool (forall ((var0 Int)) (>= (select A var0) 5)))
 )
 
-splitting.smt2
-unsat
-
-0: FALSE -> 1
-1: inv(store(const(3), 0, 1), store(const(4), 0, 2), 1, 2) -> 2
-2: inv(store(const(3), 0, 1), store(const(4), 0, 2), 0, 0)
-
 splitting2.smt2
 sat
 (
-    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (or (= C 0) (and (>= C 1) (>= (- (select B 0) (select A 0)) 1))))
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (or (<= C 0) (>= (- (select B 0) (select A 0)) 1))))
 )
 
 splitting3.smt2
@@ -319,17 +309,10 @@ sat
     (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (and (= (select (select A 1) 5) 0) (not (= B true))))
 )
 
-splitting.smt2
-unsat
-
-0: FALSE -> 1
-1: inv(store(const(3), 0, 1), store(const(4), 0, 2), 1, 2) -> 2
-2: inv(store(const(3), 0, 1), store(const(4), 0, 2), 0, 0)
-
 splitting2.smt2
 sat
 (
-    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (or (= C 0) (and (>= C 1) (>= (- (select B 0) (select A 0)) 1))))
+    (define-fun inv ((A (Array Int Int)) (B (Array Int Int)) (C Int)) Bool (and (>= C 0) (or (<= C 0) (>= (- (select B 0) (select A 0)) 1))))
 )
 
 splitting3.smt2
@@ -358,16 +341,32 @@ sat
     (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
 )
 
+splitting.smt2
+sat
+(
+    (define-fun atom1 () Bool true)
+    (define-fun atom3 () Bool false)
+    (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
+)
+
+splitting.smt2
+sat
+(
+    (define-fun atom1 () Bool true)
+    (define-fun atom3 () Bool false)
+    (define-fun pred ((A (Array Int (Array Int Int)))) Bool true)
+)
+
 array-elim.smt2
 sat
 (
     (define-fun preds0 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (= A 1))
-    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))))
-    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (or (= D 0) (and (= D 1) (= (select C 0) (select B 0))))) (= A 1)))
-    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (= D 0))) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
-    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (= D 0)))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (= D 1) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
-    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (= (select C 0) (select B 0)) (= A 1)))
-    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))))
-    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= (select C 0) (select B 0)))) (= A 1)))
+    (define-fun preds1 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (or (not (= D 1)) (= (select C 0) (select B 0))))))
+    (define-fun preds2 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (not (= D 1)) (= (select C 0) (select B 0))))) (= A 1)))
+    (define-fun preds3 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (not (= D 1))))) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (= D 0) (= (select C 0) (select B 0))))))) (= A 1)))
+    (define-fun preds4 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (not (= D 1)))))) (or (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (= D 0))))) (and (= (select C D) 1) (and (= (select B D) 1) (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (= D 0) (= (select C 0) (select B 0))))))))) (= A 1)))
+    (define-fun preds5 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool (and (or (exists ((var0 Int)) (and (>= var0 1) (and (and (<= var0 1) (>= var0 0)) (not (= var0 1))))) (exists ((var0 Int)) (and (>= var0 1) (and (and (<= var0 1) (>= var0 0)) (= (select C 0) (select B 0)))))) (= A 1)))
+    (define-fun preds6 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (= A 1) (and (and (<= D 1) (>= D 0)) (or (not (= D 0)) (= (select C 0) (select B 0))))))
+    (define-fun preds7 ((A Int) (B (Array Int Int)) (C (Array Int Int)) (D Int)) Bool (and (and (<= D 0) (and (and (<= D 1) (>= D 0)) (or (not (= D 0)) (= (select C 0) (select B 0))))) (= A 1)))
     (define-fun preds8 ((A Int) (B (Array Int Int)) (C (Array Int Int))) Bool true)
 )

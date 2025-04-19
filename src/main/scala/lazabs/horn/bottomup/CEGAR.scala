@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -224,10 +224,13 @@ class CEGAR[CC]
     
       res = Left((for ((rs, preds) <- maxAbstractStates.iterator;
                        if (rs.pred != HornClauses.FALSE)) yield {
-        val rawFor = disj(for (AbstractState(_, fors) <- preds.iterator) yield {
-          conj((for (f <- fors.iterator) yield f.rawPred) ++
-               (Iterator single relationSymbolBounds(rs)))
-        })
+        val fwdBound = relationSymbolFwdBounds.getOrElse(rs, Conjunction.TRUE)
+        val bwdBound = relationSymbolBwdBounds.getOrElse(rs, Conjunction.TRUE)
+
+        val rawFor2 = disj(for (AbstractState(_, fors) <- preds.iterator) yield
+                            conj(for (f <- fors.iterator) yield f.rawPred))
+        val rawFor = (bwdBound ==> rawFor2) & fwdBound
+
         val simplified = //!QuantifierElimProver(!rawFor, true, order)
                          PresburgerTools elimQuantifiersWithPreds rawFor
 

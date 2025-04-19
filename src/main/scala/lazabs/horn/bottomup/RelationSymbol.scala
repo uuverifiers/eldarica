@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,16 +70,10 @@ class RelationSymbolPred(val rawPred : Conjunction,
   private val sf = rs.sf
   private val argConsts = rs.arguments.head
 
-  private def substMap(from : Seq[ConstantTerm],
-                       to : Seq[ConstantTerm])
-                     : Map[ConstantTerm, Term] =
-    (for ((oriC, newC) <- from.iterator zip to.iterator)
-     yield (oriC -> l(newC)(sf.order))).toMap
-
   private def instanceStream(f : Conjunction) : Stream[Conjunction] =
     f #:: {
       for (cs <- rs.arguments.tail) yield {
-        ConstantSubst(substMap(argConsts, cs), sf.order)(f)
+        ConstantSubst(sf.substMap(argConsts, cs), sf.order)(f)
       }
     }
 

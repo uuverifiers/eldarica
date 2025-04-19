@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.1",
+    version := "2.2",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scmInfo              := Some(ScmInfo(
@@ -189,10 +189,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.17" % "test",
 //
-//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2024-03-22"
+    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-04-01"
 //
-    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+//    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
+//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //

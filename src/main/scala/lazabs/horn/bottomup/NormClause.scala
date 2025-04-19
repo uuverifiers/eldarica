@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -126,6 +126,8 @@ import scala.collection.mutable.ArrayBuffer
       head._1.arguments(head._2)
     val bodySyms : Seq[Seq[ConstantTerm]] =
       for ((rs, occ) <- body) yield (rs arguments occ)
+    val relationSymbols : Seq[RelationSymbol] =
+      (body ++ List(head)).map(_._1)
     val order = sf.order restrict (
       constraint.constants ++ headSyms ++ bodySyms.flatten)
     val localSymbols : Seq[ConstantTerm] =

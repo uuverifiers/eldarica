@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2021 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,9 @@ import ap.terfor.{ConstantTerm, TermOrder, TerForConvenience,
                   Term, Formula}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
 import ap.terfor.arithconj.ArithConj
+import ap.terfor.preds.Atom
 import ap.PresburgerTools
+import ap.terfor.substitutions.ConstantSubst
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashSet,
                                  HashSet => MHashSet}
@@ -115,8 +117,10 @@ object IntervalPropagator {
 
 }
 
-class IntervalPropagator(clauses : IndexedSeq[NormClause],
-                         reducerSettings : ReducerSettings) {
+class IntervalPropagator(clauses         : IndexedSeq[NormClause],
+                         reducerSettings : ReducerSettings,
+                         name            : String =
+                          "Forward  constant and interval propagation") {
 
   import HornPredAbs._
   import IntervalPropagator._
@@ -187,7 +191,7 @@ class IntervalPropagator(clauses : IndexedSeq[NormClause],
 
   {
     if (lazabs.GlobalParameters.get.log)
-      print("Constant and interval propagation ")
+      print(name + " ")
 
     val rsBoundUpdateNum = new MHashMap[RelationSymbol, Seq[(Int, Int)]] {
       override def default(rs : RelationSymbol) : Seq[(Int, Int)] =
@@ -352,7 +356,7 @@ class IntervalPropagator(clauses : IndexedSeq[NormClause],
   //////////////////////////////////////////////////////////////////////////////
   // Assemble results
 
-  val result : Seq[(NormClause, NormClause)] =
+  lazy val result : Seq[(NormClause, NormClause)] =
     (for ((clause, clauseNum) <- clauses.iterator.zipWithIndex;
           if (!extendedConstraints(clauseNum).isFalse)) yield {
        if (modifiedClauses contains clauseNum) {
@@ -363,10 +367,77 @@ class IntervalPropagator(clauses : IndexedSeq[NormClause],
        }
      }).toList
 
-  val rsBounds : Map[RelationSymbol, Conjunction] =
+  lazy val rsBounds : Map[RelationSymbol, Conjunction] =
     clausesWithHead transform {
       case (rs, _) =>
         reduce(Conjunction.conj(extractIntervals(rs, 0, rs.sf.order), rs.sf.order))
     }
+
+}
+
+class BwdIntervalPropagator(clauses : IndexedSeq[NormClause])
+                           (implicit sf : SymbolFactory) {
+  private val FalseRS = RelationSymbol(HornClauses.FALSE)
+
+  private val bwdTransitionClauses =
+    for (clause@NormClause(constraint, body, head) <- clauses;
+         if head._1.pred != HornClauses.FALSE && !body.isEmpty;
+         bodyLit <- body)
+    yield NormClause(constraint, List(head), bodyLit)
+
+  private val bwdEntryClauses =
+    for (clause@NormClause(constraint, body, head) <- clauses;
+         if head._1.pred == HornClauses.FALSE;
+         bodyLit <- body)
+    yield NormClause(constraint, List(), bodyLit)
+
+  private val bwdExitClauses =
+    for (clause@NormClause(constraint, body, head) <- clauses;
+         if head._1.pred != HornClauses.FALSE && body.isEmpty)
+    yield NormClause(constraint, List(head), (FalseRS, 0))
+
+  private val bwdClauses = bwdTransitionClauses ++ bwdEntryClauses ++ bwdExitClauses
+  
+  private val propagator =
+    new IntervalPropagator(bwdClauses, sf.reducerSettings,
+                           "Backward constant and interval propagation")
+
+  lazy val rsBounds = {
+    val bounds = propagator.rsBounds
+    // unreachable predicates have to be mapped to false
+    val unreachableBounds =
+      for (clause <- clauses.iterator;
+           rs <- clause.relationSymbols.iterator;
+           if !(bounds contains rs))
+      yield (rs -> Conjunction.FALSE)
+    bounds ++ unreachableBounds
+  }
+
+  private def augmentClause(clause : NormClause) : NormClause = {
+    val (headRS, headOcc) = clause.head
+    if (headRS.pred == HornClauses.FALSE)
+      return clause
+
+    val headBounds = rsBounds(headRS)
+
+    if (headBounds.isTrue)
+      return clause
+
+    val extraConstraints =
+      List(ConstantSubst(sf.substMap(headRS.arguments(0),
+                                     headRS.arguments(headOcc)),
+                         sf.order)(headBounds))
+
+    val allConstraints = extraConstraints ++ List(clause.constraint)
+    clause.updateConstraint(
+      sf.reduce(Conjunction.conj(allConstraints, sf.order)))
+  }
+
+  lazy val result : Seq[(NormClause, NormClause)] =
+    (for (clause <- clauses.iterator;
+          newClause = augmentClause(clause);
+          if !newClause.constraint.isFalse) yield {
+         (newClause, clause)
+       }).toList
 
 }
