@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.1",
+    version := "2.2",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scmInfo              := Some(ScmInfo(
