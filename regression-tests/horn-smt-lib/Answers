@@ -391,3 +391,9 @@ unsat
 0: FALSE -> 1
 1: q(false) -> 2
 2: p(true)
+
+divzero-int.smt2
+unsat
+
+0: FALSE -> 1
+1: invariant(1, 2)

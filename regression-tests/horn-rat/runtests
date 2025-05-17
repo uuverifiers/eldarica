@@ -4,7 +4,8 @@ LAZABS=../../eld
 
 TESTS="converging.smt2 \
        converging-unsat.smt2 \
-       preproc-exception.smt2"
+       preproc-exception.smt2 \
+       divzero.smt2"
 
 for name in $TESTS; do
     echo
