@@ -556,6 +556,8 @@ class PrincessWrapper {
         sub.stype match {
           case BVType(bits) =>
             UnaryExpression(BV2Int(bits), sub).stype(IntT)
+          case IntegerType() =>
+            sub
           case t =>
             throw new Exception("Unhandled type: " + t)
         }

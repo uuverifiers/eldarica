@@ -178,6 +178,9 @@ lazy val root = (project in file(".")).
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
 //
     libraryDependencies +=
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.2.0",
+//
+    libraryDependencies +=
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
@@ -189,10 +192,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.14" % "test",
 //
-    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-04-01"
+//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-04-01"
 //
-//    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //
