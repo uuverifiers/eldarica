@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -67,8 +67,9 @@ object HornWrapper {
 
   def verifySolution(fullSol : HornPreprocessor.Solution,
                      unsimplifiedClauses : Seq[Clause]) : Unit = {
-          // verify correctness of the solution
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+    // verify correctness of the solution
+    if (lazabs.Main.assertions || GlobalParameters.get.verifySolCEX)
+      assert(SimpleAPI.withProver { p =>
             import p._
             unsimplifiedClauses forall { case clause@Clause(head, body, constraint) => scope {
                 addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
@@ -110,8 +111,9 @@ object HornWrapper {
 
   def verifyCEX(fullCEX : HornPreprocessor.CounterExample,
                 unsimplifiedClauses : Seq[Clause]) : Unit = {
-          // verify correctness of the counterexample
-          if (lazabs.Main.assertions) assert(SimpleAPI.withProver { p =>
+    // verify correctness of the counterexample
+    if (lazabs.Main.assertions || GlobalParameters.get.verifySolCEX)
+      assert(SimpleAPI.withProver { p =>
             import p._
             fullCEX.head._1.pred == HornClauses.FALSE &&
             (fullCEX.subdagIterator forall {

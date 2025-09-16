@@ -21,7 +21,8 @@ TESTS="mccarthy91.nts.smt2 \
        extract.smt2 \
        solution-verifier-bug.smt2 \
        illformed.smt2 \
-       boolean.smt2"
+       boolean.smt2 \
+       divzero-int.smt2"
 
 for name in $TESTS; do
     echo

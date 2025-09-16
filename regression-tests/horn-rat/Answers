@@ -18,6 +18,12 @@ unsat
 0: false -> 1
 1: (Inv (/ 0 1) (/ 0 1) (/ 0 1) 0)
 
+divzero.smt2
+unsat
+
+0: false -> 1
+1: (invariant (/ 1 1))
+
 monniaux-loop3.smt2
 Warning: ignoring get-model
 sat

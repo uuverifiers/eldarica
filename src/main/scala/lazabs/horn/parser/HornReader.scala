@@ -218,12 +218,19 @@ object HornReader {
         case _                 => false
       }
 
+    object DivZeroApp {
+      def unapply(t : ITerm) : Option[ITerm] =
+        t match {
+          case IFunApp(f, Seq(s)) if isDivZeroFunction(f) => Some(s)
+          case _ => None
+        }
+    }
+
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
-      case IFunApp(f, Seq(t)) if isDivZeroFunction(f) => {
-        val sort = Sort sortOf t
+      case ITermITE(_, DivZeroApp(s), t) => {
         println("Warning: eliminating div-zero function")
-        sort.eps(false)
+        t
       }
       case _ =>
         t update subres

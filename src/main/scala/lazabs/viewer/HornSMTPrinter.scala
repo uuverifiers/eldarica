@@ -178,9 +178,23 @@ object HornSMTPrinter {
         "(/ " + printNum(num) + " " + printNum(denom) + ")"
       case BoolConst(v) => quoteIdentifier(v.toString)
 
-      case BVconst(bits, v) => "(_ bv" + v + " " + bits + ")"
-      case Int2BitVec(bits, e) => "((_ int2bv " + bits + ") " + printExp(e) +")"
-      case UnaryExpression(op : BVneg, e) => "(" + op.st + " " + printExp(e) + ")"
+      // TODO: handle all bit-vector operators
+      case BVconst(bits, v) =>
+        "(_ bv" + v + " " + bits + ")"
+      case Int2BitVec(bits, e) =>
+        "((_ int2bv " + bits + ") " + printExp(e) +")"
+      case UnaryExpression(op : BVneg, e) =>
+        "(" + op.st + " " + printExp(e) + ")"
+      case UnaryExpression(BVextract(upper, lower), e) =>
+        f"((_ extract $upper $lower) " + printExp(e) + ")"
+      case BinaryExpression(e1, BVconcat(_, _), e2) =>
+        "(concat " + printExp(e1) + " " + printExp(e2) + ")"
+      case BinaryExpression(e1, BVadd(_), e2) =>
+        "(bvadd " + printExp(e1) + " " + printExp(e2) + ")"
+      case BinaryExpression(e1, BVsub(_), e2) =>
+        "(bvsub " + printExp(e1) + " " + printExp(e2) + ")"
+      case BinaryExpression(e1, BVmul(_), e2) =>
+        "(bvmul " + printExp(e1) + " " + printExp(e2) + ")"
 
       case _ =>
         throw new Exception("Don't know how to print expression " + e)

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2023 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -108,7 +108,7 @@ object Solve {
 
             lazy val cex = _cex()
 
-            if (lazabs.GlobalParameters.get.assertions) {
+            if (lazabs.GlobalParameters.get.needFullCEX) {
               // make sure that the full counterexample is computed
               cex
             }
@@ -132,7 +132,7 @@ object Solve {
 
             lazy val solution = _solution()
 
-            if (lazabs.GlobalParameters.get.assertions) {
+            if (lazabs.GlobalParameters.get.needFullSolution) {
               // make sure that the full solution is computed
               solution
             }

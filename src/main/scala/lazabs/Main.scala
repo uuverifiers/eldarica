@@ -139,13 +139,16 @@ class GlobalParameters extends Cloneable {
   var simplifiedCEX = false;
   var cexInSMT = false;
   var assertions = false
+  var verifySolCEX = false
   var verifyInterpolants = false
   var niaFairSplitting = false // refers to ap.parameters.Param.NonLinearSplitting
   var minePredicates = false
   var timeoutChecker : () => Unit = () => ()
 
-  def needFullSolution = assertions || displaySolutionProlog || displaySolutionSMT
-  def needFullCEX = assertions || plainCEX || !pngNo
+  def needFullSolution =
+    assertions || displaySolutionProlog || displaySolutionSMT || verifySolCEX
+  def needFullCEX =
+    assertions || plainCEX || !pngNo || verifySolCEX
 
   def setLogLevel(level : Int) : Unit = level match {
     case x if x <= 0 => { // no logging
@@ -230,6 +233,7 @@ class GlobalParameters extends Cloneable {
     that.cexInSMT = this.cexInSMT
     that.simplifiedCEX = this.simplifiedCEX
     that.assertions = this.assertions
+    that.verifySolCEX = this.verifySolCEX
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
   }
@@ -515,20 +519,19 @@ object Main {
       case "-cexSimplified" :: rest => simplifiedCEX = true; arguments(rest)
       case "-assert" :: rest => GlobalParameters.get.assertions = true; arguments(rest)
       case "-verifyInterpolants" :: rest => verifyInterpolants = true; arguments(rest)
+      case "-verifySolutions" :: rest => verifySolCEX = true; arguments(rest)
       case "-h" :: rest => println(greeting + "\n\nUsage: eld [options] file\n\n" +
           "General options:\n" +
           " -h                Show this information\n" +
           " -in               Read from standard input (defaults to Horn SMT format)\n" +
-          " -assert           Enable assertions in Eldarica\n" +
+          " -assert           Enable debugging assertions. This implies -verifySolutions\n" +
+          " -verifySolutions  Generate and verify (but do not output) models and proofs\n" +
           " -log:n            Display progress based on verbosity level n (0 <= n <= 3)\n" +
           "                     1: Statistics only\n" +
           "                     2: Invariants included\n" +
           "                     3: Includes counterexamples\n" +
           " -statistics       Equivalent to -log:1; displays statistics only\n" +
           " -log              Equivalent to -log:2; displays progress and invariants\n" +
-          " -logPreds:<preds> Log only predicates containing the specified substrings,\n" +
-          "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
-          "                     predicate with 'p1' or 'p2' in its name\n" +
           " -t:time           Set timeout (in seconds)\n" +
           " -cex              Show textual counterexamples\n" +
           " -scex             Show textual counterexamples in SMT-LIB format\n" +
@@ -557,6 +560,9 @@ object Main {
           " -postHints:f      Read hints for processed clauses from a file\n" +
           " -pHints           Print initial predicates and abstraction templates\n" +
           " -pPredicates:f    Output predicates computed by CEGAR to a file\n" +
+          " -logPreds:<preds> Log only predicates containing the specified substrings,\n" +
+          "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
+          "                     predicate with 'p1' or 'p2' in its name\n" +
           " -sym              Use symbolic execution with the default engine (bfs)\n" +
           " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
           "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
