@@ -555,7 +555,7 @@ class PrincessWrapper {
         val sub = rvT(arg)
         sub.stype match {
           case BVType(bits) =>
-            UnaryExpression(BV2Int(bits), sub).stype(IntT)
+            UnaryExpression(BV2Nat(bits), sub).stype(IntT)
           case IntegerType() =>
             sub
           case t =>

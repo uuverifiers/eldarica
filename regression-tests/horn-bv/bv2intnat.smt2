@@ -14,8 +14,8 @@
 (assert
   (forall
     ((x Int) (y Int))
-    (=> (bar x y) (= ((_ int2bv 1) x) (_ bv1 1))
-                  (= ((_ nat2bv 1) y) (_ bv1 1)))))
+    (=> (bar x y) (and (= ((_ int2bv 1) x) (_ bv1 1))
+                       (= ((_ nat2bv 1) y) (_ bv1 1))))))
 (assert
   (forall
     ((x Int) (y Int))
