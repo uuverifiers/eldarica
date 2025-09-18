@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,6 +65,18 @@ class BooleanClauseSplitter extends HornPreprocessor {
   private var symbolCounter = 0
   private val tempPredicates = new MHashSet[Predicate]
   private val clauseBackMapping = new MHashMap[Clause, (Clause, Tree[Int])]
+
+  private def newPred(constants : Seq[ConstantTerm]) = {
+    val intPred =
+      MonoSortedPredicate("intPred" + symbolCounter,
+                          constants map (Sort sortOf _))
+    symbolCounter = symbolCounter + 1
+    tempPredicates += intPred
+    intPred
+  }
+
+  private def newAtom(constants : Seq[ConstantTerm]) =
+    IAtom(newPred(constants), constants)
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
@@ -145,13 +157,7 @@ class BooleanClauseSplitter extends HornPreprocessor {
         val interfaceConstants =
           (SymbolCollector constantsSorted (constraint2 & headAtom)) filter leftConsts
 
-        val intPred =
-          MonoSortedPredicate("intPred" + symbolCounter,
-                              interfaceConstants map (Sort sortOf _))
-        symbolCounter = symbolCounter + 1
-        tempPredicates += intPred
-
-        val intLit = IAtom(intPred, interfaceConstants)
+        val intLit = newAtom(interfaceConstants)
 
         val (newClauses1, preds1) = 
           splitWithIntPred(Clause(intLit, body, constraint1),
@@ -280,4 +286,62 @@ class BooleanClauseSplitter extends HornPreprocessor {
       false
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Another version of splitting, currently not used.
+   */
+  private def splitRecursively(clause : Clause) : Seq[Clause] = {
+    val Clause(head, body, constraint) = clause
+    val constants = clause.constantsSorted
+
+    def splitFurther(f : IFormula) =
+      f match {
+        case _ : IBinFormula => true
+        case _ => false
+      }
+
+    val resClauses = new ArrayBuffer[Clause]
+
+    def splitRec(head       : IAtom,
+                 body       : List[IAtom],
+                 constraint : IFormula) : Unit =
+      constraint match {
+        case IBinFormula(IBinJunctor.Or, _, _) => {
+          val disjuncts = LineariseVisitor(constraint, IBinJunctor.Or)
+          for (d <- disjuncts)
+            splitRec(head, body, d)
+        }
+        case _ => {
+          val conjuncts = LineariseVisitor(constraint, IBinJunctor.And)
+          val (toSplit, other) = conjuncts partition (splitFurther _)
+
+          if (toSplit.isEmpty) {
+            resClauses += Clause(head, body, constraint)
+          } else {
+            val otherConstrPart = and(other)
+            val constrParts = toSplit ++ List(otherConstrPart)
+            val intPreds = List(head) ++
+                           (for (_ <- 1 until constrParts.size)
+                            yield newAtom(constants))
+
+            var curBody = body
+            for ((constrPart, head) <- (constrParts zip intPreds).reverse) {
+              if (constrPart == otherConstrPart)
+                resClauses += Clause(head, curBody, constrPart)
+              else
+                splitRec(head, curBody, constrPart)
+              curBody = List(head)
+            }
+          }
+        }
+      }
+
+    splitRec(head, body, Transform2NNF(constraint))
+
+    if (resClauses.size == 1)
+      List(clause)
+    else
+      resClauses.toSeq
+  }
 }

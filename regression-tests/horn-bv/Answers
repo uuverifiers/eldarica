@@ -187,6 +187,10 @@ bv2intnat.smt2
 Warning: ignoring get-model
 sat
 
+bv2intnat2.smt2
+Warning: ignoring get-model
+sat
+
 bitwise6.smt2
 unsat
 
