@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2020-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -155,6 +155,9 @@ object UniqueConstructorExpander {
                 case Eq(IFunApp(ADT.Constructor(adt, ind), _),
                         IConstant(c)) =>
                   addConstValue(c, adt, ind)
+                case Eq(IFunApp(ADT.Updator(adt, ind, _), _),
+                        IConstant(c)) =>
+                  addConstValue(c, adt, ind)
                 case Eq(IFunApp(ADT.CtorId(adt, sortInd), Seq(IConstant(c))),
                         Const(IdealInt(perSortId))) =>
                   addConstValue(c, adt, adt.ctorIdsPerSort(sortInd)(perSortId))
@@ -219,5 +222,23 @@ class UniqueConstructorExpander extends ArgumentExpander {
     }
 
   def isExpandableSort(s : Sort) : Boolean = s.isInstanceOf[ADT.ADTProxySort]
+
+  override def postprocessSolution(p : Predicate, f : IFormula) : IFormula =
+    ctorElements.get(p) match {
+      case Some(Some(value)) => {
+        val sorts = predArgumentSorts(p)
+        val ctorConstraints =
+          for (((Some(ctorInd), argInd), sort) <-
+                 value.zipWithIndex.zip(sorts);
+               adtSort = sort.asInstanceOf[ADT.ADTProxySort];
+               adt = adtSort.adtTheory;
+               if adt.ctorIdsPerSort(adtSort.sortNum).size > 1) yield {
+            adt.hasCtor(v(argInd), ctorInd)
+          }
+        f &&& and(ctorConstraints)
+      }
+      case _ =>
+        f
+    }
 
 }

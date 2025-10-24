@@ -99,6 +99,18 @@ sat
     (define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (or (not (= B a)) (and (= D C) (= A 0))))
 )
 
+ctor-expansion1.smt2
+sat
+(
+    (define-fun p ((A list_tp)) Bool (is-empty_list A))
+)
+
+ctor-expansion2.smt2
+sat
+(
+    (define-fun p ((A list_tp)) Bool (and (and (= (hd A) 0) (is-empty_list (tail A))) (is-list A)))
+)
+
 de-brujin-bug.smt2
 sat
 (

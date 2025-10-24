@@ -740,8 +740,6 @@ class ConstraintSimplifier extends HornPreprocessor {
     var body      = oriBody
     var conjuncts = flattenConstraint(LiteralEvaluator(constraint))
 
-    if (conjuncts exists (_.isFalse))
-      throw InconsistencyException
     val containsFunctions =
       !ContainsSymbol.isPresburger(constraint)
 
@@ -751,6 +749,9 @@ class ConstraintSimplifier extends HornPreprocessor {
     var cont    = true
     while (cont) {
       cont = false
+
+      if (conjuncts exists (_.isFalse))
+        throw InconsistencyException
 
       for ((newBody, newConjuncts, newPersistentEqs) <-
              inlineEquations(headSyms, body, conjuncts, persistentEqs)) {
