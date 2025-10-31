@@ -30,8 +30,10 @@
 package lazabs.ast
 
 import lazabs.types._
-import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
 
+import ap.theories.{ADT, Heap, Theory, TheoryCollector, TheoryRegistry}
+import ap.parser.IFunction
+import ap.parser.IExpression.{Predicate => PPredicate}
 
 object ASTree {
   sealed abstract class ASTree extends ScalaType
@@ -105,12 +107,12 @@ object ASTree {
                      v: Expression) extends Expression
 
   // Heap theory
-  case class HeapFun(heap: Heap, name: String,
+  case class HeapFun(heap: Heap, fun : IFunction,
                      exprList: Seq[Expression]) extends Expression
-  case class HeapPred(heap: Heap, name: String,
-                     exprList: Seq[Expression]) extends Expression
-  // Bit-vectors
+  case class HeapPred(heap: Heap, pred: PPredicate,
+                      exprList: Seq[Expression]) extends Expression
 
+  // Bit-vectors
   case class BVconst(bits: Int, num : BigInt) extends Expression
 
   case class BVconcat(bits1 : Int, bits2 : Int)

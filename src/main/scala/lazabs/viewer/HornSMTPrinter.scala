@@ -63,8 +63,12 @@ object HornSMTPrinter {
     case BooleanType() => "Bool"
     case BVType(n) => "(_ BitVec " + n + ")"
     case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
-    case HeapType(s) => s.name
-    case HeapAddressType(heap) => heap.AddressSort.name
+    case HeapType(h) => SMTLineariser.sort2SMTString(h.HeapSort)
+    case HeapAddressType(h) => SMTLineariser.sort2SMTString(h.AddressSort)
+    case HeapAddressRangeType(h) => SMTLineariser.sort2SMTString(h.AddressRangeSort)
+    case HeapAllocResType(h) => SMTLineariser.sort2SMTString(h.AllocResSort)
+    case HeapBatchAllocResType(h) => SMTLineariser.sort2SMTString(h.BatchAllocResSort)
+    case HeapAdtType(h, s) => SMTLineariser.sort2SMTString(s)
     case _ => "Int"
   }
   
@@ -151,13 +155,15 @@ object HornSMTPrinter {
         "(store " + printExp(ar) + " " + printExp(ind) + " " + printExp(value) + ")"
       case ConstArray(value) =>
         "((as const " + type2String(e.stype) + ") " + printExp(value) + ")"
-      case HeapFun(heap, name, exprList) =>
+      // TODO: use correct function names
+      case HeapFun(heap, fun, exprList) =>
         if (exprList.isEmpty)
-          quoteIdentifier(name)
+          quoteIdentifier(fun.name)
         else
-          "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
-      case HeapPred(heap, name, exprList) =>
-        "(" + quoteIdentifier(name) + " " + exprList.map(printExp).mkString(" ") + ")"
+          "(" + quoteIdentifier(fun.name) + " " + exprList.map(printExp).mkString(" ") + ")"
+      // TODO: use correct function names
+      case HeapPred(heap, pred, exprList) =>
+        "(" + quoteIdentifier(pred.name) + " " + exprList.map(printExp).mkString(" ") + ")"
       case Not(e) => "(not " + printExp(e) + ")"
       case Minus(e) => "(- " + printExp(e) + ")"
       case v@Variable(name,None) => varMap.get(name) match {

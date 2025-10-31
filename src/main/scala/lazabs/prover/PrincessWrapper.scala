@@ -38,8 +38,8 @@ import ap.parser._
 import ap.parser.IExpression._
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
-import ap.theories.Heap.{AddressSort, HeapSort}
 import ap.theories._
+import ap.theories.heaps.Heap
 import ap.theories.nia.GroebnerMultiplication
 import ap.theories.rationals.Rationals
 import ap.types.MonoSortedIFunction
@@ -102,8 +102,12 @@ object PrincessWrapper {
     case BVType(n)                => ModuloArithmetic.UnsignedBVSort(n)
     case ArrayType(index, obj)    => ExtArray(List(toNormalBool(type2Sort(index))),
                                               toNormalBool(type2Sort(obj))).sort
-    case HeapType(s)              => s
-    case HeapAddressType(hs)      => hs.AddressSort
+    case HeapType(h)              => h.HeapSort
+    case HeapAddressType(h)       => h.AddressSort
+    case HeapAddressRangeType(h)  => h.AddressRangeSort
+    case HeapAllocResType(h)      => h.AllocResSort
+    case HeapBatchAllocResType(h) => h.BatchAllocResSort
+    case HeapAdtType(h, s)        => s
     case _ =>
       throw new Exception("Unhandled type: " + t)
   }
@@ -124,6 +128,16 @@ object PrincessWrapper {
       RatT
     case Sort.Bool | Sort.MultipleValueBool =>
       BoolT
+    case s@Heap.HeapRelatedSort(h) => {
+      s match {
+        case h.HeapSort          => HeapType(h)
+        case h.AddressSort       => HeapAddressType(h)
+        case h.AddressRangeSort  => HeapAddressRangeType(h)
+        case h.AllocResSort      => HeapAllocResType(h)
+        case h.BatchAllocResSort => HeapBatchAllocResType(h)
+        case s if h.userHeapSorts.contains(s) => HeapAdtType(h, s)
+      }
+    }
     case s : ADT.ADTProxySort =>
       AdtType(s) // ??? s.adtTheory is the ADT
     case ModuloArithmetic.UnsignedBVSort(n) =>
@@ -132,10 +146,6 @@ object PrincessWrapper {
       ArrayType(IntT, IntT)
     case ExtArray.ArraySort(theory) if theory.indexSorts.size == 1 =>
       ArrayType(sort2Type(theory.indexSorts.head), sort2Type(theory.objSort))
-    case s : HeapSort =>
-      HeapType(s)
-    case s : AddressSort =>
-      HeapAddressType(s.heapTheory)
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
@@ -289,13 +299,12 @@ class PrincessWrapper {
         adt.termSize(sortNum)(f2pterm(v))
 
       // Heap theory
-      case HeapFun(heap, name, exprList) =>
-        val Some(fun) = heap.functions.find(_.name == name)
+      
+      case HeapFun(heap, fun, exprList) =>
         val termArgs = exprList.map(f2pterm(_))
         fun(termArgs : _*)
 
-      case HeapPred(heap, name, exprList) =>
-        val Some(pred) = heap.predicates.find(_.name == name)
+      case HeapPred(heap, pred, exprList) =>
         val termArgs = exprList.map(f2pterm(_))
         pred(termArgs : _*)
 
@@ -482,6 +491,11 @@ class PrincessWrapper {
       case IFunApp(ExtArray.Const(theory), Seq(value)) =>
         ConstArray(rvT(value)).stype(sort2Type(theory.sort))
 
+      // Theory of heap
+      case IFunApp(f@Heap.HeapRelatedFunction(h), e) ::: s => {
+        HeapFun(h, f, e.map(rvT(_)))
+      }
+
       // General ADTs
       case IFunApp(ADT.TermSize(adt, sortNum), Seq(e)) =>
         ADTsize(adt, sortNum, rvT(e))
@@ -491,10 +505,6 @@ class PrincessWrapper {
         ADTsel(adt, f.name, Seq(rvT(e))).stype(IntT)
       case IFunApp(f@ADT.CtorId(adt, sortNum), Seq(e)) =>
         ADTtest(adt, sortNum, rvT(e))
-
-      // Theory of heap
-      case IFunApp(f@Heap.HeapFunExtractor(h), e) =>
-        HeapFun(h, f.name, e.map(rvT(_)))
 
       // Bit-vectors
 
@@ -680,6 +690,10 @@ class PrincessWrapper {
       case INot(e) => Not(rvF(e).stype(BoolT))
       case IBoolLit(b) => BoolConst(b)
 
+      // Heap theory
+      case IAtom(pred@Heap.HeapRelatedPredicate(h), e) =>
+        HeapPred(h, pred, e.map(rvT(_)))
+
       // Rationals
       case IAtom(Rationals.lessThan, Seq(e1, e2)) =>
         LessThan(rvT(e1).stype(RatT), rvT(e2).stype(RatT))
@@ -692,9 +706,6 @@ class PrincessWrapper {
         BinaryExpression(rvT(left), pred2BVBinOp(pred)(bits),
                          rvT(right)).stype(BoolT)
 
-      // Heap theory
-      case IAtom(pred@Heap.HeapPredExtractor(h), e) =>
-        HeapPred(h, pred.name, e.map(rvT(_)))
       case _ =>
         println("Error in conversion from Princess to Eldarica (IFormula): " + t + " subclass of " + t.getClass)
         BoolConst(false)

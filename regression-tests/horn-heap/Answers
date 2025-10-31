@@ -55,9 +55,9 @@ motivating-example.smt2
 sat
 (
     (define-fun I1 ((A Heap)) Bool (= emptyHeap A))
-    (define-fun I2 ((A Heap) (B Addr)) Bool true)
-    (define-fun I3 ((A Heap) (B Addr)) Bool (exists ((var0 Heap)) (exists ((var1 Addr)) (= (AllocResHeap A B) (alloc var0 (O_Cons (Cons (IntList 1) 42 var1)))))))
-    (define-fun I4 ((A Heap) (B Addr)) Bool (exists ((var0 Heap)) (and (exists ((var1 Addr)) (exists ((var2 Int)) (exists ((var3 IntList)) (and (= (write var0 B (O_Cons (Cons var3 (+ 1 var2) var1))) A) (= (read var0 B) (O_Cons (Cons var3 var2 var1))))))) (exists ((var1 Heap)) (exists ((var2 Addr)) (= (AllocResHeap var0 B) (alloc var1 (O_Cons (Cons (IntList 1) 42 var2)))))))))
+    (define-fun I2 ((A Heap) (B Addr)) Bool (and (= (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) A) (= (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))) B)))
+    (define-fun I3 ((A Heap) (B Addr)) Bool (and (= (newHeap (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) A) (= (newAddr (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) B)))
+    (define-fun I4 ((A Heap) (B Addr)) Bool (and (exists ((var0 Addr)) (exists ((var1 Int)) (exists ((var2 IntList)) (and (= (write (newHeap (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) (newAddr (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) (O_Cons (Cons var2 (+ 1 var1) var0))) A) (= (read (newHeap (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) (newAddr (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0)))))))))) (O_Cons (Cons var2 var1 var0))))))) (= (newAddr (alloc (newHeap (alloc emptyHeap (O_Nil (Nil (IntList 0))))) (O_Cons (Cons (IntList 1) 42 (newAddr (alloc emptyHeap (O_Nil (Nil (IntList 0))))))))) B)))
 )
 
 swap-2.smt2
