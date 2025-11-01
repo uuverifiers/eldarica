@@ -123,10 +123,10 @@ object HornPrinter {
           varMap += (name -> newIndex)
           getAlphabeticChar(newIndex)
       }
-      case HeapFun(heap, name, exprList) =>
-        name + "(" + exprList.map(printExp).mkString(", ") + ")"
-      case HeapPred(heap, name, exprList) =>
-        name + "(" + exprList.map(printExp).mkString(", ") + ")"
+      case HeapFun(heap, fun, exprList) =>
+        fun.name + "(" + exprList.map(printExp).mkString(", ") + ")"
+      case HeapPred(heap, pred, exprList) =>
+        pred.name + "(" + exprList.map(printExp).mkString(", ") + ")"
       // TODO: ??
       case Variable(_,Some(index)) => 
         if (index < vars.size)

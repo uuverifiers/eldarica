@@ -261,8 +261,12 @@ class SMTHornReader protected[parser] (
   }
 
   private val reader = new BufferedReader(inputStream)
-  private val settings = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(
-                   ParserSettings.DEFAULT, true)
+  private val settings = {
+    var s = ParserSettings.DEFAULT
+    s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, true)
+    s = Param.HEAP_THEORY.set(s, lazabs.GlobalParameters.get.heapTheory)
+    s
+  }
 
   private val (oriF, _, oriSignature) =
     (new SMTParser2InputAbsy(new Environment, settings, null) {

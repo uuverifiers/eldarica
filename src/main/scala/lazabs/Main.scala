@@ -46,6 +46,7 @@ import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.concurrency.CCReader
 
 import ap.util.Debug
+import ap.parameters.Param
 
 object GlobalParameters {
   object InputFormat extends Enumeration {
@@ -142,6 +143,7 @@ class GlobalParameters extends Cloneable {
   var verifySolCEX = false
   var verifyInterpolants = false
   var niaFairSplitting = false // refers to ap.parameters.Param.NonLinearSplitting
+  var heapTheory : Param.HeapTheory.Value = Param.HeapTheory.Native
   var minePredicates = false
   var timeoutChecker : () => Unit = () => ()
 
@@ -236,6 +238,7 @@ class GlobalParameters extends Cloneable {
     that.verifySolCEX = this.verifySolCEX
     that.verifyInterpolants = this.verifyInterpolants
     that.timeoutChecker = this.timeoutChecker
+    that.heapTheory = this.heapTheory
   }
 
   override def clone : GlobalParameters = {
@@ -478,6 +481,15 @@ object Main {
           arrayQuantification = None
         else
           arrayQuantification = Some(arrayQuans.drop(12).toInt)
+        arguments(rest)
+
+      case heapSolver :: rest if (heapSolver.startsWith("-heapSolver:")) =>
+        heapSolver match {
+          case "-heapSolver:native" =>
+            heapTheory = Param.HeapTheory.Native
+          case "-heapSolver:array" =>
+            heapTheory = Param.HeapTheory.Array
+        }
         arguments(rest)
 
       case "-cloneArrays" :: rest => arrayCloning = true; arguments(rest)
