@@ -146,6 +146,8 @@ object PrincessWrapper {
       ArrayType(IntT, IntT)
     case ExtArray.ArraySort(theory) if theory.indexSorts.size == 1 =>
       ArrayType(sort2Type(theory.indexSorts.head), sort2Type(theory.objSort))
+    case Sort.Interval(_, _) =>
+      IntT
     case _ =>
       throw new Exception("Unhandled sort: " + s)
   }
