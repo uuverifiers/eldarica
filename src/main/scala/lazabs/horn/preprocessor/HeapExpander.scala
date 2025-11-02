@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2025 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,9 +31,7 @@ package lazabs.horn.preprocessor
 
 import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
-import ap.theories.Heap
-import ap.theories.Heap._
-//import lazabs.horn.Heap._
+import ap.theories.heaps.NativeHeap
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornClauses
@@ -58,7 +56,7 @@ object HeapExpander {
      */
     def expand(pred : Predicate,
                argNum : Int,
-               sort : HeapSort)
+               sort : NativeHeap.HeapSort)
              : Option[Seq[(ITerm, Sort, String)]]
   }
 
@@ -66,7 +64,8 @@ object HeapExpander {
 
 ////////////////////////////////////////////////////////////////////////////////
 class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
-                          writes : ArrayBuffer[IFunApp], theory : Heap)
+                          writes : ArrayBuffer[IFunApp],
+                          theory : NativeHeap)
   extends CollectingVisitor[Int, Unit] {
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
     t match {
@@ -84,13 +83,14 @@ class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
  * TODO: make this as subclass of the ArgumentExpander
  */
 class HeapExpander(val name : String,
-                  expansion : HeapExpander.Expansion) extends HornPreprocessor {
+                   expansion : HeapExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
+  import NativeHeap._
 
   override def isApplicable(clauses : Clauses,
                             frozenPredicates : Set[Predicate]) : Boolean =
     (HornClauses allPredicates clauses) exists {
-      p =>
+      p => 
         !(frozenPredicates contains p) &&
         (predArgumentSorts(p) exists (_.isInstanceOf[HeapSort]))
     }
@@ -216,10 +216,10 @@ class HeapExpander(val name : String,
 
         /*todo: refactor to get rid of below stupid part*/
         import scala.collection.mutable.{HashSet => MHashSet}
-        val theory : Heap = newTerms.head._1.asInstanceOf[IFunApp].fun.
+        val theory : NativeHeap = newTerms.head._1.asInstanceOf[IFunApp].fun.
           asInstanceOf[MonoSortedIFunction].argSorts.head.asInstanceOf[HeapSort].heapTheory
 
-        def collectHeapModifications(theory : Heap, t : IExpression) :
+        def collectHeapModifications(theory : NativeHeap, t : IExpression) :
         (ArrayBuffer[IFunApp], ArrayBuffer[IFunApp]) = {
           val allocs = new ArrayBuffer[IFunApp]
           val writes = new ArrayBuffer[IFunApp]
@@ -330,6 +330,7 @@ class HeapExpander(val name : String,
 object HeapSizeArgumentExtender {
 
   import HeapExpander._
+  import NativeHeap._
 
   /**
    * Preprocessor that adds explicit size arguments for each predicate

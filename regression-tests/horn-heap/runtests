@@ -16,10 +16,17 @@ TESTS="invalid-access.smt2 \
        typecastSafe-001.smt2 \
        opassign-struct.smt2 \
        typecastUnsafe-001.smt2 \
-       simple-arith.smt2"
+       simple-arith.smt2 \
+       simple-list-1.smt2"
 
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -cex -ssol -abstract:off "$@" $name 2>&1 | grep -v 'at '
+    $LAZABS -cex -ssol -abstract:off -heapSolver:native "$@" $name 2>&1 | grep -v 'at '
+done
+
+for name in $TESTS; do
+    echo
+    echo $name
+    $LAZABS -cex -ssol -abstract:off -heapSolver:array "$@" $name 2>&1 | grep -v 'at '
 done
