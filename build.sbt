@@ -94,8 +94,9 @@ lazy val parserGen = Seq(
           val cup =  parserDir / "Parser.cup"
           val hornCup =  hornParserDir / "HornParser.cup"
 
-          val jflexLib = "./tools/JFlex.jar"
-          val cupLib = "./tools/java-cup-11a.jar"
+          val toolsDir = base / "tools"
+          val jflexLib = toolsDir / "JFlex.jar"
+          val cupLib = toolsDir / "java-cup-11a.jar"
 
           val cache = FileFunction.cached(cacheDir,
                                           inStyle = FilesInfo.lastModified,
@@ -104,14 +105,14 @@ lazy val parserGen = Seq(
               "java -jar " + jflexLib + " -d " +
               hornParserOutputDir + " --nobak " + hornFlex).!
             scala.sys.process.Process(
-              "java -cp ./tools/ -jar " + cupLib + " -destdir " +
+              "java -jar " + cupLib + " -destdir " +
               hornParserOutputDir + " -parser Parser -symbols Symbols " +
               hornCup).!
             scala.sys.process.Process(
               "java -jar " + jflexLib + " -d " + parserOutputDir +
               " --nobak " + flex).!
             scala.sys.process.Process(
-              "java -cp ./tools/ -jar " + cupLib + " -destdir " +
+              "java -jar " + cupLib + " -destdir " +
               parserOutputDir + " -parser Parser -symbols Symbols " + cup).!
             Set(lexerFile,
                 parserFile,
