@@ -31,7 +31,8 @@ package lazabs.horn.preprocessor
 
 import ap.parser.IExpression.{Predicate, Sort, and}
 import ap.parser._
-import ap.theories.heaps.NativeHeap
+import ap.theories.heaps.Heap.HeapRelatedFunction
+import ap.theories.heaps.{ArrayHeap, Heap, NativeHeap}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import lazabs.horn.abstractions.VerificationHints
 import lazabs.horn.bottomup.HornClauses
@@ -43,36 +44,42 @@ import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap
 
 object HeapExpander {
 
+  case class ArgumentExpansion(
+    term : ITerm, sort : Sort, name : String, theory : NativeHeap)
+
   /**
    * Interface for expanding heap operations with their sizes (num. allocations)
    */
   trait Expansion {
 
     /**
-     * Decide if an ADT sort should be expanded. In this case,
+     * Decide if a heap sort should be expanded. In this case,
      * the method returns a list of new terms and their sorts
      * to be added as. The new terms can contain the variable <code>_0</code>
      * which has to be substituted with the actual argument.
      */
-    def expand(pred : Predicate,
+    def expand(pred   : Predicate,
                argNum : Int,
-               sort : NativeHeap.HeapSort)
-             : Option[Seq[(ITerm, Sort, String)]]
+               theory : NativeHeap) : Option[Seq[ArgumentExpansion]]
   }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
-                          writes : ArrayBuffer[IFunApp],
-                          theory : NativeHeap)
+class HeapModifyExtractor(allocs : ArrayBuffer[(IFunApp, NativeHeap)],
+                          writes : ArrayBuffer[(IFunApp, NativeHeap)])
   extends CollectingVisitor[Int, Unit] {
-  def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
+  def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit = {
     t match {
-      case f@IFunApp(theory.alloc, _) => allocs += f
-      case f@IFunApp(theory.write, _) => writes += f
+      case funApp@IFunApp(f@HeapRelatedFunction(theory), _)
+        if theory.isInstanceOf[NativeHeap] && f == theory.alloc =>
+        allocs += ((funApp, theory.asInstanceOf[NativeHeap]))
+      case funApp@IFunApp(f@HeapRelatedFunction(theory), _)
+        if theory.isInstanceOf[NativeHeap] &&  f == theory.write =>
+        writes += ((funApp, theory.asInstanceOf[NativeHeap]))
       case _ => // nothing
     }
+  }
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -85,6 +92,7 @@ class HeapModifyExtractor(allocs : ArrayBuffer[IFunApp],
 class HeapExpander(val name : String,
                    expansion : HeapExpander.Expansion) extends HornPreprocessor {
   import HornPreprocessor._
+  import HeapExpander._
   import NativeHeap._
 
   override def isApplicable(clauses : Clauses,
@@ -92,7 +100,11 @@ class HeapExpander(val name : String,
     (HornClauses allPredicates clauses) exists {
       p => 
         !(frozenPredicates contains p) &&
-        (predArgumentSorts(p) exists (_.isInstanceOf[HeapSort]))
+        (predArgumentSorts(p) exists {
+          case s@Heap.HeapRelatedSort(heap) =>
+           heap.isInstanceOf[NativeHeap] && s == heap.HeapSort
+          case _ => false
+        })
     }
 
   def process(clauses : Clauses, hints : VerificationHints,
@@ -102,19 +114,16 @@ class HeapExpander(val name : String,
       HornClauses allPredicates clauses
     val newPreds =
       new MHashMap[Predicate,
-                   (Predicate,                         // new predicate
-                    Seq[Option[Seq[(ITerm, Sort, String)]]], // additional arguments
-                    Map[Int, Int])]                    // argument mapping,
-                                                       //   needed for
-                                                       //   VerifHintElement
-                                                       //      .shiftArguments
+        (Predicate,                           // new predicate
+          Seq[Option[Seq[ArgumentExpansion]]],// additional arguments
+          Map[Int, Int])]                     // argument mapping, needed for
+                                              // VerifHintElement.shiftArguments
 
     val predBackMapping =
       new MHashMap[Predicate,
-                   (Predicate,                         // old predicate
-                    List[ITerm],                       // solution substitution
-                    Seq[ITerm])]                       // argument list for
-                                                       //   counterexamples
+                   (Predicate,   // old predicate
+                    List[ITerm], // solution substitution
+                    Seq[ITerm])] // argument list for counterexamples
 
     //
     // First search for predicates with arguments that should be expanded
@@ -123,7 +132,7 @@ class HeapExpander(val name : String,
     for (pred <- predicates; if !(frozenPredicates contains pred)) {
       val oldSorts   = predArgumentSorts(pred)
       val newSorts   = new ArrayBuffer[Sort]
-      val addedArgs  = new ArrayBuffer[Option[Seq[(ITerm, Sort, String)]]]
+      val addedArgs  = new ArrayBuffer[Option[Seq[ArgumentExpansion]]]
       val argMapping = new MHashMap[Int, Int]
       val solSubst   = new ArrayBuffer[ITerm]
       val cexArgs    = new ArrayBuffer[ITerm]
@@ -139,17 +148,20 @@ class HeapExpander(val name : String,
         //println(clauses)
 
         sort match {
-          case sort : HeapSort =>
-            for (newArguments <-
-                   expansion.expand(pred, argNum,
-                                    sort.asInstanceOf[HeapSort])) {
-              val (addArgs, addSorts, _) = newArguments.unzip3
-              newSorts ++= addSorts
-              addedArgs(addedArgs.size - 1) = Some(newArguments)
-              val subst = (List(solSubst.last), 1)
-              for (t <- addArgs)
-                solSubst += VariableSubstVisitor(t, subst)
-              changed = true
+          case sort@Heap.HeapRelatedSort(theory) if sort == theory.HeapSort =>
+            theory match {
+              case native : NativeHeap =>
+                for (newArguments <- expansion.expand(pred, argNum, native)) {
+                  val addArgs = newArguments.map(_.term)
+                  val addSorts = newArguments.map(_.sort)
+                  newSorts ++= addSorts
+                  addedArgs(addedArgs.size - 1) = Some(newArguments)
+                  val subst = (List(solSubst.last), 1)
+                  for (t <- addArgs)
+                    solSubst += VariableSubstVisitor(t, subst)
+                  changed = true
+                }
+              case _ =>
             }
           case _ => // nothing
         }
@@ -194,7 +206,7 @@ class HeapExpander(val name : String,
                 newArgs += t
                 for (newArgSpecs <- maybeArgs) {
                   val subst = (List(t), 1)
-                  for ((s, sort, name) <- newArgSpecs) {
+                  for (ArgumentExpansion(s, sort, name, _) <- newArgSpecs) {
                     val instArg =
                       VariableSubstVisitor(s, subst)
                     newArgs +=
@@ -214,30 +226,26 @@ class HeapExpander(val name : String,
         val newHead = rewriteAtom(head)
         val newBody = for (a <- body) yield rewriteAtom(a)
 
-        /*todo: refactor to get rid of below stupid part*/
-        import scala.collection.mutable.{HashSet => MHashSet}
-        val theory : NativeHeap = newTerms.head._1.asInstanceOf[IFunApp].fun.
-          asInstanceOf[MonoSortedIFunction].argSorts.head.asInstanceOf[HeapSort].heapTheory
-
-        def collectHeapModifications(theory : NativeHeap, t : IExpression) :
-        (ArrayBuffer[IFunApp], ArrayBuffer[IFunApp]) = {
-          val allocs = new ArrayBuffer[IFunApp]
-          val writes = new ArrayBuffer[IFunApp]
-          val c = new HeapModifyExtractor(allocs, writes, theory)
+        def collectHeapModifications(t : IExpression)
+        : (ArrayBuffer[(IFunApp, NativeHeap)],
+          ArrayBuffer[(IFunApp, NativeHeap)]) = {
+          val allocs = new ArrayBuffer[(IFunApp, NativeHeap)]
+          val writes = new ArrayBuffer[(IFunApp, NativeHeap)]
+          val c = new HeapModifyExtractor(allocs, writes)
           c.visitWithoutResult (t, 0)
           (allocs, writes)
         }
 
-        val (allocs, writes) = collectHeapModifications(theory, constraint)
+        val (allocs, writes) = collectHeapModifications(constraint)
         import IExpression._
         val constraintsFromAllocs : IFormula =
-          (for (alloc <- allocs) yield {
+          (for ((alloc, theory) <- allocs) yield {
             val h = alloc.args(0)
             val o = alloc.args(1)
             theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + 1
           }).fold(i(true))((f1, f2) => Conj(f1, f2))
         val constraintsFromWrites : IFormula =
-          (for (write <- writes) yield {
+          (for ((write, theory) <- writes) yield {
             val h = write.args(0)
             val p = write.args(1)
             val o = write.args(2)
@@ -339,13 +347,11 @@ object HeapSizeArgumentExtender {
   class SizeArgumentAdder extends Expansion {
     import IExpression._
 
-    def expand(pred : Predicate,
+    def expand(pred   : Predicate,
                argNum : Int,
-               sort : HeapSort)
-             : Option[Seq[(ITerm, Sort, String)]] = {
-      val sizefun = sort.heapTheory.counter
-      Some(List((sizefun(v(0)), Sort.Nat, "heap_size")))
-    }
+               theory : NativeHeap) : Option[Seq[ArgumentExpansion]] =
+      Some(List(
+        ArgumentExpansion(theory.counter(v(0)), Sort.Nat, "heap_size", theory)))
   }
 }
 
