@@ -206,7 +206,7 @@ sat
     (define-fun preds0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (= A 1))
     (define-fun preds1 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (and (<= F 1) (>= F 0)) (or (or (or (not (= B 0)) (not (= D 0))) (not (= F 1))) (= C E)))))
     (define-fun preds2 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= F 0) (= A 1)))
-    (define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (= F 0) (or (not (= B 0)) (= C 1)))))
+    (define-fun preds3 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (= F 0) (or (or (not (= B 0)) (not (= D 0))) (= C 1)))))
     (define-fun preds4 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (= F 0) (or (or (not (= B 0)) (not (= D 0))) (= C E)))))
     (define-fun preds5 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 1) (or (or (not (= D 0)) (not (= B 0))) (= E C))))
     (define-fun preds6 ((A Int) (B Int) (C Int) (D Int) (E Int) (F Int)) Bool (and (= A 1) (and (and (<= F 1) (>= F 0)) (or (or (or (not (= B 0)) (not (= D 0))) (not (= F 0))) (= C E)))))

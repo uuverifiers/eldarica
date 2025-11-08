@@ -21,12 +21,12 @@ TESTS="invalid-access.smt2 \
 
 for name in $TESTS; do
     echo
-    echo $name
+    echo "$name (native heap)"
     $LAZABS -cex -ssol -abstract:off -heapSolver:native "$@" $name 2>&1 | grep -v 'at '
 done
 
 for name in $TESTS; do
     echo
-    echo $name
+    echo "$name (array heap)"
     $LAZABS -cex -ssol -abstract:off -heapSolver:array "$@" $name 2>&1 | grep -v 'at '
 done
