@@ -60,6 +60,7 @@ class DefaultPreprocessor extends HornPreprocessor {
   def extendingStages : List[HornPreprocessor] =
     if (GlobalParameters.get.expandADTArguments)
       List(new NativeHeapSizeArgumentExtender,
+           new ArrayHeapExpander,
            new SizeArgumentExtender,
            new CtorTypeExtender)
     else
