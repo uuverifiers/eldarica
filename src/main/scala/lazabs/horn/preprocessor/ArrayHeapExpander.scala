@@ -66,3 +66,55 @@ class ArrayHeapExpander extends ArgumentExpander {
     }
 
 }
+
+object ArrayHeapConstraintExpander extends HornPreprocessor {
+
+  import IExpression._
+  import HornPreprocessor._
+
+  val name : String = "expanding heap constraints"
+  
+  override def isApplicable(clauses : Clauses,
+                            frozenPredicates : Set[Predicate]) : Boolean =
+    frozenPredicates.isEmpty &&
+    (clauses exists { clause =>
+       clause.theories exists { _.isInstanceOf[ArrayHeap] } })
+
+  def process(clauses : Clauses, hints : VerificationHints,
+              frozenPredicates : Set[Predicate])
+             : (Clauses, VerificationHints, BackTranslator) = {
+
+    val clausePairs =
+      for (clause <- clauses) yield {
+        val heaps = clause.theories.filter(_.isInstanceOf[ArrayHeap])
+        val Clause(head, body, constraint) = clause
+        val constraint2 =
+          ~heaps.foldLeft(~constraint) { case (c, h) => h.iPreprocess(c, null)._1 }
+        val constraint3 =
+          or(for (INamedPart(name, f) <- PartExtractor(constraint2)) yield f)
+
+//        println(s"before: $constraint")
+//        println(s"after: $constraint3")
+
+        val newClause =
+          Clause(head, body, constraint3)
+        clause -> newClause
+      }
+
+    val clauseBackMapping =
+      (for ((a, b) <- clausePairs.iterator) yield (b, a)).toMap
+
+    val backTranslator = new BackTranslator {
+      def translate(solution : Solution) = solution
+
+      def translate(cex : CounterExample) =
+        for (p <- cex) yield {
+          val (atom, clause) = p
+          (atom, clauseBackMapping(clause))
+        }
+    }
+
+    (clausePairs.unzip._2, hints, backTranslator)
+  }
+
+}
