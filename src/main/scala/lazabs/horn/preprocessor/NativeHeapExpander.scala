@@ -42,7 +42,7 @@ import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap}
 
 
-object HeapExpander {
+object NativeHeapExpander {
 
   case class ArgumentExpansion(
     term : ITerm, sort : Sort, name : String, theory : NativeHeap)
@@ -89,10 +89,11 @@ class HeapModifyExtractor(allocs : ArrayBuffer[(IFunApp, NativeHeap)],
  * 
  * TODO: make this as subclass of the ArgumentExpander
  */
-class HeapExpander(val name : String,
-                   expansion : HeapExpander.Expansion) extends HornPreprocessor {
+class NativeHeapExpander(val name : String,
+                         expansion : NativeHeapExpander.Expansion)
+      extends HornPreprocessor {
   import HornPreprocessor._
-  import HeapExpander._
+  import NativeHeapExpander._
   import NativeHeap._
 
   override def isApplicable(clauses : Clauses,
@@ -335,9 +336,9 @@ class HeapExpander(val name : String,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-object HeapSizeArgumentExtender {
+object NativeHeapSizeArgumentExtender {
 
-  import HeapExpander._
+  import NativeHeapExpander._
   import NativeHeap._
 
   /**
@@ -359,8 +360,9 @@ object HeapSizeArgumentExtender {
  * Preprocessor that adds explicit size arguments for each predicate
  * argument for a recursive ADT
  */
-class HeapSizeArgumentExtender
-      extends HeapExpander("adding heap size arguments",
-                          new HeapSizeArgumentExtender.SizeArgumentAdder) {
+class NativeHeapSizeArgumentExtender
+      extends NativeHeapExpander(
+        "adding heap size arguments",
+        new NativeHeapSizeArgumentExtender.SizeArgumentAdder) {
 
 }

@@ -65,6 +65,8 @@ import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
 
 object HornWrapper {
 
+  val verificationTimeout = 5000
+
   def verifySolution(fullSol : HornPreprocessor.Solution,
                      unsimplifiedClauses : Seq[Clause]) : Unit = {
     // verify correctness of the solution
@@ -84,25 +86,33 @@ object HornWrapper {
                     // nothing
                 }
 
-                !! (constraint)
-                for (IAtom(pred, args) <- body)
-                  !! (subst(fullSol(pred), args.toList, 0))
-                ?? (if (head.pred == HornClauses.FALSE)
-                      i(false)
-                    else
-                      subst(fullSol(head.pred), head.args.toList, 0))
-                ??? match {
-                  case ProverStatus.Valid => true // ok
-                  case ProverStatus.Invalid => {
-                    Console.err.println("Verification of clause failed, clause is not satisfied:")
-                    Console.err.println(clause.toPrologString)
-                    Console.err.println("Countermodel: " + partialModel)
-                    false
+                try { withTimeout(verificationTimeout) {
+                  !! (constraint)
+                  for (IAtom(pred, args) <- body)
+                    !! (subst(fullSol(pred), args.toList, 0))
+                  ?? (if (head.pred == HornClauses.FALSE)
+                        i(false)
+                      else
+                        subst(fullSol(head.pred), head.args.toList, 0))
+                  ??? match {
+                    case ProverStatus.Valid => true // ok
+                    case ProverStatus.Invalid => {
+                      Console.err.println("Verification of clause failed, clause is not satisfied:")
+                      Console.err.println(clause.toPrologString)
+                      Console.err.println("Countermodel: " + partialModel)
+                      false
+                    }
+                    case s => {
+                      Console.err.println("Warning: Verification of clause was not possible:")
+                      Console.err.println(clause.toPrologString)
+                      Console.err.println("Checker said: " + s)
+                      true
+                    }
                   }
-                  case s => {
-                    Console.err.println("Warning: Verification of clause was not possible:")
+                }} catch {
+                  case SimpleAPI.TimeoutException => {
+                    Console.err.println("Warning: Timeout while verifying clause:")
                     Console.err.println(clause.toPrologString)
-                    Console.err.println("Checker said: " + s)
                     true
                   }
                 }

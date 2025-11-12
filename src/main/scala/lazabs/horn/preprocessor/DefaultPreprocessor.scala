@@ -53,13 +53,15 @@ class DefaultPreprocessor extends HornPreprocessor {
   def preStages : List[HornPreprocessor] =
     (if (GlobalParameters.get.slicing) List(ReachabilityChecker) else List()) ++
     List(RationalDenomUnifier,
+         // ArrayHeapConstraintExpander,
          new PartialConstraintEvaluator,
          new ConstraintSimplifier,
          new ClauseInliner)
 
   def extendingStages : List[HornPreprocessor] =
     if (GlobalParameters.get.expandADTArguments)
-      List(new HeapSizeArgumentExtender,
+      List(new NativeHeapSizeArgumentExtender,
+           new ArrayHeapExpander,
            new SizeArgumentExtender,
            new CtorTypeExtender)
     else

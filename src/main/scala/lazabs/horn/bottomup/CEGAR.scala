@@ -175,7 +175,7 @@ class CEGAR[CC]
         } catch {
           case Counterexample(from, clause) => {
             if (postponedExpansionCount > nextToProcess.size)
-              throw new Exception("Predicate generation failed")
+              throw HornPredAbs.PredicateGenerationFailedException
 
             val clauseDag = extractCounterexample(from, clause)
             iterationNum = iterationNum + 1
