@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,10 +29,11 @@
 
 package lazabs.horn.preprocessor
 
-import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.{HornClauses, HornPredAbs}
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
+import lazabs.horn.predgen.Interpolators
 import HornClauses._
-import lazabs.horn.Util.{Dag, DagNode, DagEmpty}
+import lazabs.horn.Util.{Dag, DagNode, DagEmpty, NullStream}
 
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -79,10 +80,74 @@ class ClauseInliner extends HornPreprocessor {
 
       //////////////////////////////////////////////////////////////////////////
 
-      // TODO: this should really use interpolation, not QE to compute
-      // solutions
+      def translate(solution : Solution) =
+        lazabs.GlobalParameters.get.solutionReconstruction match {
+          case lazabs.GlobalParameters.SolutionReconstruction.WP =>
+            translateWP(solution)
+          case lazabs.GlobalParameters.SolutionReconstruction.CEGAR =>
+            translateCEGAR(solution)          
+        }
 
-      def translate(solution : Solution) = {
+      /**
+       * Reconstruct the complete solution by running the CEGAR engine again
+       * to find the values of the remaining predicates.
+       */
+      def translateCEGAR(solution : Solution) = {
+        val definedPredicates : Set[Predicate] =
+          solution.keySet + HornClauses.FALSE
+
+        if (inlinedClauses.forall { case (p, _) => solution.contains(p) }) {
+          solution
+        } else {
+          val definingClauses =
+            (for ((_, d) <- backMapping.iterator; Some(clause) <- d.iterator)
+              yield clause).toList.distinct
+            
+          def substitutePredicate(f : IFormula) : IFormula = f match {
+            case IAtom(p, args) if solution.contains(p) =>
+              subst(solution(p), args.toList, 0)
+            case _ =>
+              f
+          }
+
+          val substClauses =
+            for (clause@Clause(head, body, constraint) <- definingClauses;
+                  if !clause.predicates.subsetOf(definedPredicates)) yield {
+              val newHead = substitutePredicate(head)
+              val newBody = body.map(substitutePredicate _)
+              newHead :- ((newBody :+ constraint) : _*)
+            }
+
+          def fallback = {
+            if (lazabs.GlobalParameters.get.log)
+              println("Warning: solution reconstruction using CEGAR failed, "+
+                      "falling back to WP")
+            translateWP(solution)
+          }
+
+          val tempParams = lazabs.GlobalParameters.get.clone
+
+          try {
+            val cegarResult =
+              Console.withErr(NullStream) { Console.withOut(NullStream) {
+                lazabs.GlobalParameters.withValue(tempParams) {
+                  val predAbs = new HornPredAbs(substClauses)
+                  predAbs.result
+                }}}
+            cegarResult match {
+                case Left(additionalSol) => solution ++ additionalSol
+              case _ => fallback
+            }
+          } catch {
+            case HornPredAbs.PredicateGenerationFailedException => fallback
+          }
+        }
+      }
+
+      /**
+       * Reconstruct the complete solution by weakest preconditions.
+       */
+      def translateWP(solution : Solution) = {
         val clauseTheories = HornClauses.allTheories(clauses)
 
         // theory-specific simplification of solutions

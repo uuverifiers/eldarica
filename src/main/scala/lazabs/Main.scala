@@ -64,6 +64,10 @@ object GlobalParameters {
     val BreadthFirstForward, DepthFirstForward, None = Value
   }
 
+  object SolutionReconstruction extends Enumeration {
+    val WP, CEGAR = Value
+  }
+
   val parameters =
     new scala.util.DynamicVariable[GlobalParameters] (new GlobalParameters)
 
@@ -101,6 +105,7 @@ class GlobalParameters extends Cloneable {
   var splitClauses : Int = 1
   var displaySolutionProlog = false
   var displaySolutionSMT = false
+  var solutionReconstruction = GlobalParameters.SolutionReconstruction.WP
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
   var templateBasedInterpolation = true
@@ -200,6 +205,7 @@ class GlobalParameters extends Cloneable {
     that.splitClauses = this.splitClauses
     that.displaySolutionProlog = this.displaySolutionProlog
     that.displaySolutionSMT = this.displaySolutionSMT
+    that.solutionReconstruction = this.solutionReconstruction
     that.format = this.format
     that.didIncompleteTransformation = this.didIncompleteTransformation
     that.templateBasedInterpolation = this.templateBasedInterpolation
@@ -372,6 +378,13 @@ object Main {
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)
       case "-ssol" :: rest => displaySolutionSMT = true; arguments(rest)
+
+      case "-solutionReconstruction:wp" :: rest =>
+        solutionReconstruction = GlobalParameters.SolutionReconstruction.WP;
+        arguments(rest)
+      case "-solutionReconstruction:cegar" :: rest =>
+        solutionReconstruction = GlobalParameters.SolutionReconstruction.CEGAR;
+        arguments(rest)
 
       case "-in" :: rest => setInputToSTDIN; arguments(rest)
 
