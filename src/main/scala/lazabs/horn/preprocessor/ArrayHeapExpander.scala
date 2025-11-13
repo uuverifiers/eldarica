@@ -53,6 +53,7 @@ class ArrayHeapExpander extends ArgumentExpander {
   def expand(pred : Predicate, argNum : Int, sort : Sort)
            : Option[(Seq[(ITerm, Sort, String)], Option[ITerm])] = {
     val HeapRelatedSort(heap : ArrayHeap) = sort
+    assert(sort == heap.HeapSort)
     val ctor = heap.heapPair
     val sels = List(heap.heapContents, heap.heapSize)
     Some((for (f <- sels) yield (f(v(0)), f.resSort, f.name),
@@ -64,6 +65,21 @@ class ArrayHeapExpander extends ArgumentExpander {
       case HeapRelatedSort(heap : ArrayHeap) if s == heap.HeapSort => true
       case _ => false
     }
+
+  override def postprocessCEXAtom(atom : IAtom) : IAtom = {
+    val sorts = predArgumentSorts(atom.pred)
+    val newArgs =
+      for ((a, s) <- atom.args zip sorts) yield s match {
+        case HeapRelatedSort(heap : ArrayHeap) if s == heap.HeapSort =>
+          a match {
+            case IFunApp(heap.heapPair, _) =>
+              heap.HeapSort.translateArrayTerm(a)
+            case _ => a
+          }
+        case _ => a
+      }
+    IAtom(atom.pred, newArgs)
+  }
 
 }
 
