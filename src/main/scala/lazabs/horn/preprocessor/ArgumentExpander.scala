@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2019-2025 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,6 +86,11 @@ abstract class ArgumentExpander extends HornPreprocessor {
    * Optionally, apply a postprocessor to solution formulas.
    */
   def postprocessSolution(p : Predicate, f : IFormula) : IFormula = f
+
+  /**
+   * Optionally, apply a postprocessor to counterexample atoms.
+   */
+  def postprocessCEXAtom(atom : IAtom) : IAtom = atom
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
@@ -284,7 +289,8 @@ abstract class ArgumentExpander extends HornPreprocessor {
                   val subst   = (args.toList, 0)
                   val oldArgs = for (p <- oldArgsTemplates)
                                 yield VariableSubstVisitor(p, subst)
-                  (IAtom(newPred, oldArgs), newClause)
+                  val atom    = IAtom(newPred, oldArgs)
+                  (postprocessCEXAtom(atom), newClause)
                 }
                 case None =>
                   (a, newClause)

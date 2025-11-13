@@ -17,7 +17,8 @@ TESTS="invalid-access.smt2 \
        opassign-struct.smt2 \
        typecastUnsafe-001.smt2 \
        simple-arith.smt2 \
-       simple-list-1.smt2"
+       simple-list-1.smt2 \
+       alloc-cex.smt2"
 
 for name in $TESTS; do
     echo
@@ -39,7 +40,8 @@ TESTS="invalid-access.smt2 \
        typecastSafe-001.smt2 \
        typecastUnsafe-001.smt2 \
        simple-arith.smt2 \
-       simple-list-1.smt2"
+       simple-list-1.smt2 \
+       alloc-cex.smt2"
 
 for name in $TESTS; do
     echo
