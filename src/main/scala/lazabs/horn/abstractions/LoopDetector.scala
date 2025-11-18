@@ -596,7 +596,7 @@ class LinCombDomain extends AbstractDomain {
 
   type Element = Option[Seq[Option[LinearCombination]]]
 
-  private implicit val order = TermOrder.EMPTY
+  private implicit val order : TermOrder = TermOrder.EMPTY
 
   import TerForConvenience._
 
