@@ -174,6 +174,7 @@ lazy val root = (project in file(".")).
     }}).value,
 //
     assembly / test := None,
+    Test / parallelExecution := false,
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
