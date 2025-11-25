@@ -33,8 +33,8 @@ sat
 (
     (define-fun sp0 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (<= A 1) (>= A 0)) (>= C 0)) (>= E 0)))
     (define-fun sp1 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (<= A 1) (>= A 0)) (>= B 0)) (>= C 0)) (>= E 0)))
-    (define-fun sp2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (and (>= E 0) (>= (- C B) 2)) (>= C 0)) (>= B 0)) (<= A 1)) (>= A 0)))
-    (define-fun sp3 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 0) (and (>= E 0) (>= C 0))))
+    (define-fun sp2 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (and (and (and (<= A 1) (>= A 0)) (>= B 0)) (>= C 2)) (>= E 0)))
+    (define-fun sp3 ((A Int) (B Int) (C Int) (D Int) (E Int)) Bool (and (= A 0) (and (>= C 0) (>= E 0))))
 )
 
 init.cleaned.smt2
