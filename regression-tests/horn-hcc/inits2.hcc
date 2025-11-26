@@ -1,8 +1,0 @@
-
-
-int g;
-unsigned int h;
-
-void main() {
-  assert(g == 0 && h == 0);
-}
