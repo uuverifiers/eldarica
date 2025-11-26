@@ -186,9 +186,6 @@ lazy val root = (project in file(".")).
       "org.antlr" % "antlr" % "3.3",
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
-//
-    libraryDependencies +=
       "org.scalactic" %% "scalactic" % "3.2.14",
 //
     libraryDependencies +=

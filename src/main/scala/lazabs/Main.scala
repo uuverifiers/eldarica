@@ -52,7 +52,7 @@ object GlobalParameters {
   object InputFormat extends Enumeration {
     val //Scala,
         Nts,
-        Prolog, SMTHorn, //UppaalOG, UppaalRG, UppaalRelational, Bip,
+        Prolog, SMTHorn,
         ConcurrentC, AutoDetect = Value
   }
 
@@ -392,10 +392,6 @@ object Main {
       case "-conc" :: rest => format = InputFormat.ConcurrentC; arguments(rest)
       case "-hin" :: rest => format = InputFormat.Prolog; arguments(rest)
       case "-hsmt" :: rest => format = InputFormat.SMTHorn; arguments(rest)
-//      case "-uppog" :: rest => format = InputFormat.UppaalOG; arguments(rest)
-//      case "-upprg" :: rest => format = InputFormat.UppaalRG; arguments(rest)
-//      case "-upprel" :: rest => format = InputFormat.UppaalRelational; arguments(rest)
-//      case "-bip" :: rest =>  format = InputFormat.Bip; arguments(rest)
 
       case "-abstract" :: rest => templateBasedInterpolation = true; arguments(rest)
       case "-abstractPO" :: rest => {
@@ -608,10 +604,6 @@ object Main {
           " -hsmt             Expect input in Horn SMT-LIB format\n" +
           " -ints             Expect input in integer NTS format\n" +
           " -conc             Expect input in C/C++/TA format\n" +
-//          " -bip\t\tExpect input in BIP format\n" +
-//          " -uppog\t\tExpect UPPAAL file using Owicki-Gries encoding\n" +
-//          " -upprg\t\tExpect UPPAAL file using Rely-Guarantee encoding\n" +
-//          " -upprel\tExpect UPPAAL file using Relational Encoding\n"
           "\n" +
           "C/C++/TA front-end:\n" +
           " -arithMode:t      Integer semantics: math (default), ilp32, lp64, llp64\n" +
@@ -663,12 +655,6 @@ object Main {
           // then also choose -horn by default
           horn = true         
         } 
-//        else if (fileName endsWith ".scala")
-//          format = InputFormat.Scala
-//        else if (fileName endsWith ".bip")
-//          format = InputFormat.Bip
-//        else if (fileName endsWith ".xml")
-//          format = InputFormat.UppaalOG
         else if ((fileName endsWith ".hcc") ||
                  (fileName endsWith ".c") ||
                  (fileName endsWith ".cc") ||
@@ -680,9 +666,7 @@ object Main {
     }
 
     format match {
-      case InputFormat.Prolog | InputFormat.SMTHorn //| InputFormat.Bip |
-           //InputFormat.UppaalOG | InputFormat.UppaalRG |
-           //InputFormat.UppaalRelational 
+      case InputFormat.Prolog | InputFormat.SMTHorn
       =>
         // those formats can only be handled in Horn mode
         horn = true
@@ -692,19 +676,6 @@ object Main {
     
     if (horn) {
       
-/*      format match {
-        case InputFormat.Bip =>
-          // BIP mode
-//          lazabs.bip.HornBip.apply(fileName)
-          return
-        case InputFormat.UppaalRelational =>
-          // uses iterative relational encoding to solve the system 
-          lazabs.upp.Relational.apply(fileName, log)
-          return
-        case _ =>
-          // nothing
-      }*/
-
       val (clauseSet, absMap) = try { format match {
         case InputFormat.Prolog =>
           (lazabs.horn.parser.HornReader.apply(in), None)
@@ -712,11 +683,6 @@ object Main {
           (lazabs.horn.parser.HornReader.fromSMT(in), None)
         case InputFormat.Nts =>
           (NtsHorn(NtsWrapper(in)), None)
-/*        case InputFormat.UppaalOG =>
-          lazabs.upp.OwickiGries(fileName, templateBasedInterpolation)
-        case InputFormat.UppaalRG =>
-          lazabs.upp.RelyGuarantee(fileName, templateBasedInterpolation)
-*/
       }
       } catch {
         case t@(TimeoutException | StoppedException) => {
@@ -741,11 +707,6 @@ object Main {
         val solution = lazabs.horn.parser.HornReader.apply(solStream)
         return
       }
-
-/*      val uppflag = format match {
-        case InputFormat.UppaalOG | InputFormat.UppaalRG => true
-        case _ => false
-      }*/
 
       try {
         lazabs.horn.Solve(clauseSet, absMap, global, disjunctive,
