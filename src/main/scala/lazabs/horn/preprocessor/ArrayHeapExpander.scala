@@ -81,6 +81,18 @@ class ArrayHeapExpander extends ArgumentExpander {
     IAtom(atom.pred, newArgs)
   }
 
+/*
+  Not clear yet this has any effect.
+
+  override def postprocessSolution(p : Predicate, f : IFormula) : IFormula = {
+    // after un-expanding arguments, further simplification of a solution
+    // might be possible
+    val heaps =
+      (for (HeapRelatedSort(heap : ArrayHeap) <- predArgumentSorts(p))
+       yield heap).distinct
+    heaps.foldLeft(f) { case (f, h) => h.iPostprocess(f, null) }
+  }
+*/
 }
 
 object ArrayHeapConstraintExpander extends HornPreprocessor {

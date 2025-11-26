@@ -99,10 +99,14 @@ class ClauseInliner extends HornPreprocessor {
         if (inlinedClauses.forall { case (p, _) => solution.contains(p) }) {
           solution
         } else {
+          val definingClauses1 =
+            for ((_, d) <- backMapping.iterator;
+                 Some(clause) <- d.iterator) yield clause
+          val definingClauses2 =
+            for ((_, c) <- inlinedClauses.iterator) yield c
           val definingClauses =
-            (for ((_, d) <- backMapping.iterator; Some(clause) <- d.iterator)
-              yield clause).toList.distinct
-            
+            (definingClauses1 ++ definingClauses2).toVector.distinct
+
           def substitutePredicate(f : IFormula) : IFormula = f match {
             case IAtom(p, args) if solution.contains(p) =>
               subst(solution(p), args.toList, 0)

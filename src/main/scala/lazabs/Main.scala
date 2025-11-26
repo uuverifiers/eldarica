@@ -105,7 +105,7 @@ class GlobalParameters extends Cloneable {
   var splitClauses : Int = 1
   var displaySolutionProlog = false
   var displaySolutionSMT = false
-  var solutionReconstruction = GlobalParameters.SolutionReconstruction.WP
+  var solutionReconstruction = GlobalParameters.SolutionReconstruction.CEGAR
   var format = GlobalParameters.InputFormat.AutoDetect
   var didIncompleteTransformation = false
   var templateBasedInterpolation = true

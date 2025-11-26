@@ -192,10 +192,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.17" % "test",
 //
-    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
+//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
 //
-//    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-//    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 
 )
 //

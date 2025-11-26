@@ -67,7 +67,7 @@ unsat
 testers.smt2
 sat
 (
-    (define-fun p1 ((A XS)) Bool (is-XS_cons A))
+    (define-fun p1 ((A XS)) Bool (not (is-XS_empty A)))
 )
 
 tuple.smt2
@@ -96,7 +96,7 @@ sat
 adt-bug.smt2
 sat
 (
-    (define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (or (not (= B a)) (and (= D C) (= A 0))))
+    (define-fun pred1 ((A Int) (B abi_type) (C f_type) (D f_type)) Bool (and (and (= A 0) (= B a)) (= C D)))
 )
 
 ctor-expansion1.smt2
@@ -114,8 +114,8 @@ sat
 de-brujin-bug.smt2
 sat
 (
-    (define-fun mmin ((A f)) Bool (= (h 0 g) A))
-    (define-fun n ((A f)) Bool (and (>= (_size A) 1) (or (not (is-h A)) (not (= (_size A) 2)))))
+    (define-fun mmin ((A f)) Bool (= (_size A) 2))
+    (define-fun n ((A f)) Bool (not (= (_size A) 2)))
     (define-fun p ((A f) (B d1) (C f)) Bool (and (and (and (>= (_size A) 1) (>= (_size B) 1)) (>= (_size C) 1)) (or (or (or (or (or (not (is-h A)) (not (= (_size A) 2))) (not (is-e B))) (not (= (_size B) 1))) (not (is-g C))) (not (= (_size C) 1)))))
 )
 
