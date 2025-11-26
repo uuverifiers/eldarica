@@ -126,16 +126,6 @@ lazy val parserGen = Seq(
         }.taskValue
 )
 
-lazy val ccParser = (project in file("cc-parser")).
-  settings(commonSettings: _*).
-  settings(parserSettings: _*).
-  settings(
-    name := "Eldarica-CC-parser",
-    Compile / packageBin := baseDirectory.value / "cc-parser.jar",
-    Compile / unmanagedJars += baseDirectory.value / "cc-parser.jar"
-  ).
-  disablePlugins(AssemblyPlugin)
-
 lazy val tplspecParser = (project in file("template-parser")).
   settings(commonSettings: _*).
   settings(parserSettings: _*).
@@ -149,8 +139,8 @@ lazy val tplspecParser = (project in file("template-parser")).
 // Actual project
 
 lazy val root = (project in file(".")).
-    aggregate(ccParser, tplspecParser).
-    dependsOn(ccParser, tplspecParser).
+    aggregate(tplspecParser).
+    dependsOn(tplspecParser).
     settings(parserGen: _*).
     settings(commonSettings: _*).
 //
@@ -182,9 +172,6 @@ lazy val root = (project in file(".")).
 //
     libraryDependencies +=
       "org.antlr" % "antlr" % "3.3",
-//
-    libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-xml" % "1.3.1",
 //
     libraryDependencies +=
       "org.scalactic" %% "scalactic" % "3.2.17",

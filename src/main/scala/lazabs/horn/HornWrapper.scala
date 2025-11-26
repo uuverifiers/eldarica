@@ -56,7 +56,6 @@ import lazabs.horn.abstractions.{AbsLattice, AbsReader, LoopDetector,
                                  VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
 import StaticAbstractionBuilder.AbstractionType
-import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.symex.{BreadthFirstForwardSymex, DepthFirstForwardSymex, Symex}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,

@@ -31,7 +31,6 @@ package lazabs.horn.abstractions
 
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.concurrency.ReaderMain
 import lazabs.horn.bottomup.HornPredAbs.predArgumentSorts
 
 import ap.basetypes.IdealInt
