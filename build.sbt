@@ -184,7 +184,9 @@ lazy val root = (project in file(".")).
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
-
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
+    excludeDependencies ++= Seq(
+      // exclude java-cup from dependencies
+      ExclusionRule("net.sf.squirrel-sql.thirdparty-non-maven", "java-cup"))
 )
 //
