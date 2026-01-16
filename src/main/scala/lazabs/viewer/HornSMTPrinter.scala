@@ -65,9 +65,9 @@ object HornSMTPrinter {
     case ArrayType(index, obj) => "(Array " + type2String(index) + " " + type2String(obj) + ")"
     case HeapType(h) => SMTLineariser.sort2SMTString(h.HeapSort)
     case HeapAddressType(h) => SMTLineariser.sort2SMTString(h.AddressSort)
-    case HeapAddressRangeType(h) => SMTLineariser.sort2SMTString(h.AddressRangeSort)
-    case HeapAllocResType(h) => SMTLineariser.sort2SMTString(h.AllocResSort)
-    case HeapBatchAllocResType(h) => SMTLineariser.sort2SMTString(h.BatchAllocResSort)
+    case HeapAddressRangeType(h) => SMTLineariser.sort2SMTString(h.RangeSort)
+    case HeapAllocResType(h) => SMTLineariser.sort2SMTString(h.HeapAddressPairSort)
+    case HeapBatchAllocResType(h) => SMTLineariser.sort2SMTString(h.HeapRangePairSort)
     case HeapAdtType(h, s) => SMTLineariser.sort2SMTString(s)
     case _ => "Int"
   }

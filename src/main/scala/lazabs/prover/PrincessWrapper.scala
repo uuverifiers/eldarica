@@ -104,9 +104,9 @@ object PrincessWrapper {
                                               toNormalBool(type2Sort(obj))).sort
     case HeapType(h)              => h.HeapSort
     case HeapAddressType(h)       => h.AddressSort
-    case HeapAddressRangeType(h)  => h.AddressRangeSort
-    case HeapAllocResType(h)      => h.AllocResSort
-    case HeapBatchAllocResType(h) => h.BatchAllocResSort
+    case HeapAddressRangeType(h)  => h.RangeSort
+    case HeapAllocResType(h)      => h.HeapAddressPairSort
+    case HeapBatchAllocResType(h) => h.HeapRangePairSort
     case HeapAdtType(h, s)        => s
     case _ =>
       throw new Exception("Unhandled type: " + t)
@@ -130,11 +130,11 @@ object PrincessWrapper {
       BoolT
     case s@Heap.HeapRelatedSort(h) => {
       s match {
-        case h.HeapSort          => HeapType(h)
-        case h.AddressSort       => HeapAddressType(h)
-        case h.AddressRangeSort  => HeapAddressRangeType(h)
-        case h.AllocResSort      => HeapAllocResType(h)
-        case h.BatchAllocResSort => HeapBatchAllocResType(h)
+        case h.HeapSort            => HeapType(h)
+        case h.AddressSort         => HeapAddressType(h)
+        case h.RangeSort           => HeapAddressRangeType(h)
+        case h.HeapAddressPairSort => HeapAllocResType(h)
+        case h.HeapRangePairSort   => HeapBatchAllocResType(h)
         case s if h.userHeapSorts.contains(s) => HeapAdtType(h, s)
       }
     }

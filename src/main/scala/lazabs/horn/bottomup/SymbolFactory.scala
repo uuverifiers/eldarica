@@ -177,5 +177,5 @@ object SymbolFactory {
                              clausifyPreprocSettings)
 
     def preprocess(f : Conjunction) : Conjunction =
-      if (theories.isEmpty) f else !Theory.preprocess(!f, theories, order)
+      if (theories.isEmpty) f else !Theory.preprocess(!f, theories, signature)
   }
