@@ -108,6 +108,24 @@ object ArrayHeapConstraintExpander extends HornPreprocessor {
     (clauses exists { clause =>
        clause.theories exists { _.isInstanceOf[ArrayHeap] } })
 
+  object ExpandingVisitor extends CollectingVisitor[Unit, IExpression] {
+    import Heap.HeapRelatedFunction
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      t.update(subres) match {
+        case g@Eq(IFunApp(f@HeapRelatedFunction(heap : ArrayHeap), _),
+                  SimpleTerm(s))
+            if f == heap.alloc => {
+          println(g)
+          g
+        }
+        case g => {
+          println(g)
+          g
+        }
+      }
+  }
+
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
@@ -116,6 +134,9 @@ object ArrayHeapConstraintExpander extends HornPreprocessor {
       for (clause <- clauses) yield {
         val heaps = clause.theories.filter(_.isInstanceOf[ArrayHeap])
         val Clause(head, body, constraint) = clause
+
+        ExpandingVisitor.visit(constraint, ())
+
         val constraint2 =
           ~heaps.foldLeft(~constraint) { case (c, h) => h.iPreprocess(c, null)._1 }
         val constraint3 =

@@ -243,14 +243,15 @@ class NativeHeapExpander(val name : String,
           (for ((alloc, theory) <- allocs) yield {
             val h = alloc.args(0)
             val o = alloc.args(1)
-            theory.counter(theory.allocHeap(h, o)) === theory.counter(h) + 1
+            theory.heapSize(theory.heapAddrPair_1(theory.alloc(h, o))) ===
+            theory.heapSize(h) + 1
           }).fold(i(true))((f1, f2) => Conj(f1, f2))
         val constraintsFromWrites : IFormula =
           (for ((write, theory) <- writes) yield {
             val h = write.args(0)
             val p = write.args(1)
             val o = write.args(2)
-            theory.counter(h) === theory.counter(theory.write(h, p, o))
+            theory.heapSize(h) === theory.heapSize(theory.write(h, p, o))
           }).fold(i(true))((f1, f2) => Conj(f1, f2))
 
         val sizeChangeConstraint = constraintsFromAllocs &&& constraintsFromWrites
@@ -352,7 +353,7 @@ object NativeHeapSizeArgumentExtender {
                argNum : Int,
                theory : NativeHeap) : Option[Seq[ArgumentExpansion]] =
       Some(List(
-        ArgumentExpansion(theory.counter(v(0)), Sort.Nat, "heap_size", theory)))
+        ArgumentExpansion(theory.heapSize(v(0)), Sort.Nat, "heap_size", theory)))
   }
 }
 
