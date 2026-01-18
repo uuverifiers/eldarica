@@ -50,7 +50,7 @@ palindrome.nts.horn
 SOLVABLE
 main_q0(A,B,C,D,E,F) :- true.
 main_q1(A,B,C,D,E,F) :- ((E >= F), (F >= 0)).
-main_q2(A,B,C,D,E,F) :- ((((D >= 1), (E >= 0)), (F >= 0)), ((((-2 * D) + (E - F)) >= -3); ((D = 1), (E = F)))).
+main_q2(A,B,C,D,E,F) :- ((((((-2 * D) + (E - F)) >= -3), (D >= 1)), (E >= 0)), (F >= 0)).
 main_qf :- true.
 palindrome_q0(A,B,C,D,E,F,G,H) :- (((((E = A), (F = B)), (G = C)), (H = D)), ((B >= 0), (C >= 0))).
 palindrome_q1(A,B,C,D,E,F,G,H) :- ((((A = E), (B = F)), (C = G)), (((B - C) >= 1), (C >= 0))).

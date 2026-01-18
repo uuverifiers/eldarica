@@ -2,26 +2,6 @@
 
 LAZABS=../../eld
 
-TESTS="nonlinear2.hcc \
-       ../horn-hcc/loop1.hcc \
-       ../horn-hcc/loop2.hcc \
-       bitwise1.hcc \
-       bitwise2.hcc"
-
-for name in $TESTS; do
-    echo
-    echo $name
-    $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
-done
-
-echo
-echo MonadicInv.hcc
-$LAZABS -arithMode:ilp32 "$@" MonadicInv.hcc 2>&1
-
-echo
-echo bitwise3.hcc
-$LAZABS -arithMode:ilp32 "$@" bitwise3.hcc 2>&1
-
 TESTS="inconclusive.smt2 \
        loop.smt2 \
        loop2.smt2 \
@@ -35,15 +15,14 @@ TESTS="inconclusive.smt2 \
        sign-extend.smt2 \
        bv2intnat.smt2 \
        bv2intnat2.smt2 \
-       bitwise6.smt2"
-
-#       test0.correct.pierre_bv8.smt2 \
-#       test0.correct.pierre_bv32.smt2 \
+       bitwise6.smt2 \
+       test0.correct.pierre_bv8.smt2 \
+       test0.correct.pierre_bv32.smt2"
 
 for name in $TESTS; do
     echo
     echo $name
-    $LAZABS -cex -abstract:off -arithMode:ilp32 "$@" $name 2>&1 | grep -v 'at '
+    $LAZABS -cex -abstract:off "$@" $name 2>&1 | grep -v 'at '
 done
 
 TESTS="int2bv.smt2"

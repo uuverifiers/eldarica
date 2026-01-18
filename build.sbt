@@ -96,7 +96,7 @@ lazy val parserGen = Seq(
 
           val toolsDir = base / "tools"
           val jflexLib = toolsDir / "JFlex.jar"
-          val cupLib = toolsDir / "java-cup-11a.jar"
+          val cupLib = toolsDir / "java-cup-0.11b.jar"
 
           val cache = FileFunction.cached(cacheDir,
                                           inStyle = FilesInfo.lastModified,
@@ -165,7 +165,7 @@ lazy val root = (project in file(".")).
     Test / parallelExecution := false,
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+      "com.github.vbmacher" % "java-cup-runtime" % "11b-20160615-2",
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0",
@@ -182,9 +182,6 @@ lazy val root = (project in file(".")).
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
-    excludeDependencies ++= Seq(
-      // exclude java-cup from dependencies
-      ExclusionRule("net.sf.squirrel-sql.thirdparty-non-maven", "java-cup"))
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
 )
 //
