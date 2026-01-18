@@ -1,91 +1,4 @@
 
-nonlinear2.hcc
-Warning: no definition of function "nondet" available
-UNSAFE
-
----------------------------------------------------------------
-Init:
-    main4(1000000.\as[signed bv[32]], 1.\as[signed bv[32]])    
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-    main4(1000000.\as[signed bv[32]], 2.\as[signed bv[32]])    
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-    main4(2000000.\as[signed bv[32]], 3.\as[signed bv[32]])    
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-    main4(6000000.\as[signed bv[32]], 4.\as[signed bv[32]])    
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-   main4(24000000.\as[signed bv[32]], 5.\as[signed bv[32]])    
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-   main4(120000000.\as[signed bv[32]], 6.\as[signed bv[32]])   
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-   main4(720000000.\as[signed bv[32]], 7.\as[signed bv[32]])   
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-   main4(745032704.\as[signed bv[32]], 8.\as[signed bv[32]])   
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-  main4(1665294336.\as[signed bv[32]], 9.\as[signed bv[32]])   
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
-  main4(2102747136.\as[signed bv[32]], 10.\as[signed bv[32]])  
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
- main4((-447365120).\as[signed bv[32]], 11.\as[signed bv[32]]) 
----------------------------------------------------------------
-                               |                               
-                               |                               
-                               V                               
- main5((-447365120).\as[signed bv[32]], 11.\as[signed bv[32]]) 
----------------------------------------------------------------
-Final:
- main5((-447365120).\as[signed bv[32]], 11.\as[signed bv[32]]) 
----------------------------------------------------------------
-
-../horn-hcc/loop1.hcc
-Warning: entry function "main" not found
-SAFE
-
-../horn-hcc/loop2.hcc
-Warning: entry function "main" not found
-SAFE
-
-bitwise1.hcc
-SAFE
-
-bitwise2.hcc
-SAFE
-
-MonadicInv.hcc
-SAFE
-
-bitwise3.hcc
-SAFE
-
 inconclusive.smt2
 Warning: arrays over finite domains are not fully supported yet
 Warning: ignoring get-model
@@ -197,6 +110,12 @@ unsat
 0: FALSE -> 1
 1: q(mod_cast(0, 4294967295, 2)) -> 2
 2: p(mod_cast(0, 4294967295, 4294967283))
+
+test0.correct.pierre_bv8.smt2
+sat
+
+test0.correct.pierre_bv32.smt2
+sat
 
 int2bv.smt2
 unsat
