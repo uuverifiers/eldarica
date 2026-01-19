@@ -228,3 +228,8 @@ sat
 (
     (define-fun |inv:0| ((A Int) (B Int)) Bool (and (and (>= (* 2 A) B) (<= A 1001)) (>= B 0)))
 )
+SOLVABLE
+inv1(A,B,C,D) :- ((A =< 100), (C =< 111)).
+inv2(A,B,C,D) :- (((A =< 100), (D =< 101)), (D >= 91)).
+post(A,B) :- ((((A =< 111), (B =< 101)), (B >= 91)), ((A >= 102); (B =< 91))).
+pre(A) :- (A =< 111).
