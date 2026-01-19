@@ -1,0 +1,38 @@
+% { pre(X) }
+% if (X > 100) {
+%   { pre(X) && X > 100 }
+
+post(X, R) :- pre(X), X > 100, R=X-10.
+
+%   { post(X, X - 10) }
+%   R = X - 10
+%   { post(X, R) }
+% } else {
+%   { pre(X) && X <= 100 }
+
+inv1(X, R, X', T) :- pre(X), X =< 100, X' = X + 11.
+
+%   { inv1(X, R, X + 11, T) }
+%   S = X + 11;
+%   { inv1(X, R, S, T) }
+
+pre(S) :- inv1(X, R, S, T).
+
+%   T = M(S);
+
+inv2(X, R, S, Z) :- inv1(X, R, S, T), post(S, Z).
+
+%   { inv2(X, R, S, T) }
+
+pre(T) :- inv2(X, R, S, T).
+
+%   R = M(T)
+
+post(X, Z) :- inv2(X, R, S, T), post(T, Z).
+
+%   { post(X, R) }
+% }
+% { post(X, R) }
+
+pre(X) :- X =< 100.
+false :- post(X, R), X =< 100, \+(R = 91).

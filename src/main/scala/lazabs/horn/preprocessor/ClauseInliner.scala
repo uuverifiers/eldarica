@@ -130,6 +130,8 @@ class ClauseInliner extends HornPreprocessor {
           }
 
           val tempParams = lazabs.GlobalParameters.get.clone
+          tempParams.portfolio = lazabs.GlobalParameters.Portfolio.None
+          tempParams.timeoutChecker = () => ()
 
           try {
             val cegarResult =
@@ -144,6 +146,10 @@ class ClauseInliner extends HornPreprocessor {
             }
           } catch {
             case HornPredAbs.PredicateGenerationFailedException => fallback
+            case lazabs.Main.TimeoutException | lazabs.Main.StoppedException => {
+              Console.err.println("timeout during solution reconstruction")
+              fallback
+            }
           }
         }
       }

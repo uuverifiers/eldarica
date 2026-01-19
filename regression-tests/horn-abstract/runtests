@@ -29,3 +29,5 @@ $LAZABS -abstract -ssol -pngNo "$@" -hints:initial-preds.tpl reve.smt2 2>&1 | gr
 $LAZABS -abstract -ssol -pngNo "$@" -hints:templates.tpl templates.smt2 2>&1 | grep -v "^Elapsed Time"
 
 $LAZABS -abstract:manual -postHints:quotes.smt2.tpl -ssol -pngNo "$@" quotes.smt2 2>&1 | grep -v "^Elapsed Time"
+
+$LAZABS -sol -abstractPO -pngNo "$@" mccarthy91.horn 2>&1 | grep -v "^Elapsed Time"
