@@ -10,7 +10,6 @@ TESTS="invalid-access.smt2 \
        swap-1.smt2 \
        motivating-example.smt2 \
        swap-2.smt2 \
-       mutually-referential-structs.smt2 \
        swap-3.smt2 \
        mutually-referential-structs-unsafe.smt2 \
        typecastSafe-001.smt2 \
@@ -20,10 +19,19 @@ TESTS="invalid-access.smt2 \
        simple-list-1.smt2 \
        alloc-cex.smt2"
 
+# below tests are very slow when using -solutionReconstruction:cegar + -heapSolver:native
+TESTS_WP_SOL_RECONSTRUCTION="mutually-referential-structs.smt2"
+
 for name in $TESTS; do
     echo
     echo "$name, native heap"
     $LAZABS -cex -ssol -abstract:off -heapSolver:native "$@" $name 2>&1 | grep -v 'at '
+done
+
+for name in $TESTS_WP_SOL_RECONSTRUCTION; do
+    echo
+    echo "$name, native heap"
+    $LAZABS -cex -ssol -abstract:off -heapSolver:native -solutionReconstruction:wp "$@" $name 2>&1 | grep -v 'at '
 done
 
 TESTS="invalid-access.smt2 \
