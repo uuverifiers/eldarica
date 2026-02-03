@@ -7,7 +7,11 @@ else
 fi
 
 BASEDIR=`dirname "$($pathCmd $0)"`
+NATIVE=$BASEDIR/target/native-image/Eldarica
 
-. "$BASEDIR/eldEnv"
-
-exec $LAZABS_CMD lazabs.Main "$@"
+if [ -f $NATIVE ]; then
+    exec $NATIVE "$@"
+else
+    ."$BASEDIR/eldEnv"
+    exec $LAZABS_CMD lazabs.Main "$@"
+fi

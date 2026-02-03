@@ -1,0 +1,81 @@
+{
+  "reflection": [
+    {
+      "type": "ap.basetypes.IdealInt[]"
+    },
+    {
+      "type": "ap.parser.IFormula[]"
+    },
+    {
+      "type": "ap.parser.ITerm[]"
+    },
+    {
+      "type": "ap.terfor.ConstantTerm[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Conjunction[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Quantifier$ALL$[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Quantifier$EX$[]"
+    },
+    {
+      "type": "ap.terfor.linearcombination.LinearCombination[]"
+    },
+    {
+      "type": "ap.terfor.preds.Atom[]"
+    },
+    {
+      "type": "ap.terfor.preds.Predicate[]"
+    },
+    {
+      "type": "ap.theories.strings.SeqStringTheoryBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "lazabs.horn.bottomup.AbstractState[]"
+    },
+    {
+      "type": "scala.Function1[]"
+    },
+    {
+      "type": "scala.Option[]"
+    },
+    {
+      "type": "scala.Tuple2[]"
+    },
+    {
+      "type": "scala.Tuple3[]"
+    },
+    {
+      "type": "scala.Tuple4[]"
+    },
+    {
+      "type": "scala.collection.Seq[]"
+    },
+    {
+      "type": "scala.collection.immutable.List[]"
+    },
+    {
+      "type": "sun.text.resources.cldr.FormatData"
+    },
+    {
+      "type": "sun.text.resources.cldr.FormatData_en"
+    },
+    {
+      "type": "sun.text.resources.cldr.FormatData_en_US"
+    }
+  ],
+  "resources": [
+    {
+      "glob": "library.properties"
+    }
+  ]
+}
