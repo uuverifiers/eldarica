@@ -1,5 +1,5 @@
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  defObj
  ((HeapObject 0)) (
   (
@@ -14,17 +14,17 @@
 (declare-fun I3 (Heap Addr) Bool)
 (declare-fun I4 (Heap Addr) Bool)
 
-(assert (I1 emptyHeap))
+(assert (I1 (as heap.empty Heap)))
 
 (assert (forall ((h Heap)) (=>
             (I1 h)
-            (I2 (newHeap (alloc h (O_Int 0)))
-                (newAddr (alloc h (O_Int 0)))
+            (I2 (heap.heapAddrPair_1 (heap.alloc h (O_Int 0)))
+                (heap.heapAddrPair_2 (heap.alloc h (O_Int 0)))
                 ))))
 (assert (forall ((h Heap)) (=>
             (I1 h)
-            (I3 (newHeap (alloc h (O_Int 1)))
-                (newAddr (alloc h (O_Int 1)))
+            (I3 (heap.heapAddrPair_1 (heap.alloc h (O_Int 1)))
+                (heap.heapAddrPair_2 (heap.alloc h (O_Int 1)))
                 ))))
 
 (assert (forall ((h Heap) (a Addr)) (=>
@@ -35,5 +35,5 @@
             (I4 h a))))
 
 (assert (forall ((h Heap) (a Addr)) (=>
-            (and (I4 h a) (>= (getInt (read h a)) 0)) false)))
+            (and (I4 h a) (>= (getInt (heap.read h a)) 0)) false)))
 

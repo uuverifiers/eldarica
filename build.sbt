@@ -139,6 +139,7 @@ lazy val tplspecParser = (project in file("template-parser")).
 // Actual project
 
 lazy val root = (project in file(".")).
+    enablePlugins(NativeImagePlugin).
     aggregate(tplspecParser).
     dependsOn(tplspecParser).
     settings(parserGen: _*).
@@ -182,6 +183,17 @@ lazy val root = (project in file(".")).
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT"
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
+//
+    nativeImageInstalled := true,
+    // point to your GraalVM (recommended via env var)
+    //nativeImageGraalHome := file(sys.env("GRAALVM_HOME")).toPath,
+
+    nativeImageOptions ++= Seq(
+      "--no-fallback",
+      "-H:+ReportExceptionStackTraces"
+    ),
+
+    nativeImageAgentMerge := true
 )
 //

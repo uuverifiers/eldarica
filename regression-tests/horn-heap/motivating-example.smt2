@@ -1,6 +1,7 @@
 (declare-heap
  Heap
  Addr
+ Range
  Object
  O_Empty                                   ; the default Object
  ((Object 0) (IntList 0) (Cons 0) (Nil 0))
@@ -16,29 +17,29 @@
 (declare-fun I3 (Heap Addr) Bool)          ; <h,l>
 (declare-fun I4 (Heap Addr) Bool)          ; <h,l>
 
-(assert (I1 emptyHeap))
+(assert (I1 (as heap.empty Heap)))
 (assert (forall ((h Heap) (h1 Heap) (p1 Addr))
   (=> (and (I1 h)
-         (= h1 (newHeap (alloc h (O_Nil (Nil (IntList 0))))))
-         (= p1 (newAddr (alloc h (O_Nil (Nil (IntList 0))))))
+         (= h1 (heap.heapAddrPair_1 (heap.alloc h (O_Nil (Nil (IntList 0))))))
+         (= p1 (heap.heapAddrPair_2 (heap.alloc h (O_Nil (Nil (IntList 0))))))
              )
      (I2 h1 p1))))
 (assert (forall ((h Heap) (h1 Heap) (p Addr) (p1 Addr))
   (=> (and (I2 h p)
-           (= h1 (newHeap (alloc h (O_Cons (Cons (IntList 1) 42 p)))))
-           (= p1 (newAddr (alloc h (O_Cons (Cons (IntList 1) 42 p)))))
+           (= h1 (heap.heapAddrPair_1 (heap.alloc h (O_Cons (Cons (IntList 1) 42 p)))))
+           (= p1 (heap.heapAddrPair_2 (heap.alloc h (O_Cons (Cons (IntList 1) 42 p)))))
            )
       (I3 h1 p1))))
 (assert (forall ((h Heap) (h1 Heap) (l Addr) (head Int) (tail Addr)
                  (prn IntList))
-  (=> (and (I3 h l) (= h1 (write h l (O_Cons (Cons prn (+ 1 head) tail))))
-           (= (O_Cons (Cons prn head tail)) (read h l))) (I4 h1 l))))
+  (=> (and (I3 h l) (= h1 (heap.write h l (O_Cons (Cons prn (+ 1 head) tail))))
+           (= (O_Cons (Cons prn head tail)) (heap.read h l))) (I4 h1 l))))
 (assert (forall ((h Heap) (l Addr) (prn IntList))
-  (=> (and (I3 h l) (= (O_Nil (Nil prn)) (read h l))) false)))
+  (=> (and (I3 h l) (= (O_Nil (Nil prn)) (heap.read h l))) false)))
 (assert (forall ((h Heap) (l Addr) (head Int) (tail Addr) (prn IntList))
-  (=> (and (I4 h l) (= (O_Cons (Cons prn head tail)) (read h l))
+  (=> (and (I4 h l) (= (O_Cons (Cons prn head tail)) (heap.read h l))
            (not (= head 43))) false)))
 (assert (forall ((h Heap) (l Addr))
-  (=> (and (I4 h l) (not (is-O_Cons (read h l)))) false)))
+  (=> (and (I4 h l) (not (is-O_Cons (heap.read h l)))) false)))
 (assert (forall ((h Heap) (l Addr))
-  (=> (and (I4 h l) (not (valid h l))) false)))
+  (=> (and (I4 h l) (not (heap.valid h l))) false)))
