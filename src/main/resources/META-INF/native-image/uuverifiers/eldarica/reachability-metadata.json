@@ -40,6 +40,18 @@
       ]
     },
     {
+      "type": "ap.types.Sort[]"
+    },
+    {
+      "type": "java.util.HashSet",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "lazabs.horn.bottomup.AbstractState[]"
     },
     {
