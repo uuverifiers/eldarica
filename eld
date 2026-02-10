@@ -12,6 +12,6 @@ NATIVE=$BASEDIR/target/native-image/Eldarica
 if [ -f $NATIVE ]; then
     exec $NATIVE "$@"
 else
-    ."$BASEDIR/eldEnv"
+    . "$BASEDIR/eldEnv"
     exec $LAZABS_CMD lazabs.Main "$@"
 fi
