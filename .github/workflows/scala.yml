@@ -22,7 +22,7 @@ jobs:
     - name: Set up sbt
       uses: sbt/setup-sbt@v1
     - name: Build
-      run: sbt assembly
+      run: sbt nativeImage
     - name: UnitTests
       run: sbt test
     - name: Test
