@@ -56,8 +56,8 @@ sat
 (
     (define-fun I1 ((A Heap)) Bool (= (heap.size A) 0))
     (define-fun I2 ((A Heap) (B Addr)) Bool (and (>= B 1) (= (heap.size A) 1)))
-    (define-fun I3 ((A Heap) (B Addr)) Bool (and (and (= B (heap.addr 2)) (= (heap.size A) 2)) (and (exists ((var0 Heap)) (and (= (heap.size var0) 1) (exists ((var1 Object)) (and (= (allocHeap var0 var1) A) (= (Object_ctor var1) 0))))) (exists ((var0 Heap)) (and (= (heap.size var0) 1) (exists ((var1 Object)) (and (= (allocHeap var0 var1) A) (= (hd (getCons var1)) 42))))))))
-    (define-fun I4 ((A Heap) (B Addr)) Bool (and (>= B 1) (and (= (Object_ctor (heap.read A B)) 0) (= (hd (getCons (heap.read A B))) 43))))
+    (define-fun I3 ((A Heap) (B Addr)) Bool (and (and (= B (heap.addr 2)) (= (heap.size A) 2)) (and (and (>= (heap.size A) 2) (exists ((var0 Heap)) (and (= (heap.size var0) 1) (exists ((var1 Object)) (and (= (allocHeap var0 var1) A) (= (Object_ctor var1) 0)))))) (exists ((var0 Heap)) (and (= (heap.size var0) 1) (exists ((var1 Object)) (and (= (allocHeap var0 var1) A) (= (hd (getCons var1)) 42))))))))
+    (define-fun I4 ((A Heap) (B Addr)) Bool (and (>= B 1) (and (and (>= (heap.size A) B) (= (Object_ctor (heap.read A B)) 0)) (= (hd (getCons (heap.read A B))) 43))))
 )
 
 swap-2.smt2, native heap
