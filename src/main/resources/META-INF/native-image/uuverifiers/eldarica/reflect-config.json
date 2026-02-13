@@ -1,0 +1,64 @@
+[
+  {
+    "name": "[Lap.parser.IFormula;"
+  },
+  {
+    "name": "[Lap.parser.ITerm;"
+  },
+  {
+    "name": "[Lap.terfor.conjunctions.Conjunction;"
+  },
+  {
+    "name": "[Lap.terfor.conjunctions.Quantifier$ALL$;"
+  },
+  {
+    "name": "[Lap.terfor.conjunctions.Quantifier$EX$;"
+  },
+  {
+    "name": "[Lap.terfor.linearcombination.LinearCombination;"
+  },
+  {
+    "name": "[Lap.terfor.preds.Atom;"
+  },
+  {
+    "name": "[Lscala.Function1;"
+  },
+  {
+    "name": "[Lscala.Option;"
+  },
+  {
+    "name": "[Lscala.Tuple2;"
+  },
+  {
+    "name": "[Lscala.Tuple3;"
+  },
+  {
+    "name": "ap.theories.strings.SeqStringTheoryBuilder",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.HashSet",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "java.util.HashMap",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "java.util.ArrayList",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name": "java.util.LinkedHashSet",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true
+  }
+]

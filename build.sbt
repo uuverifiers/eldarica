@@ -186,14 +186,23 @@ lazy val root = (project in file(".")).
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
+
+    // needed by flata for native-image
+    resolvers += "XypronRelease" at "https://www.xypron.de/repository",
+    libraryDependencies += "org.gnu.glpk" % "glpk-java" % "1.12.0",
 //
-    nativeImageInstalled := true,
+    // nativeImageInstalled := true,
     // point to your GraalVM (recommended via env var)
     //nativeImageGraalHome := file(sys.env("GRAALVM_HOME")).toPath,
 
     nativeImageOptions ++= Seq(
       "--no-fallback",
-      "-H:+ReportExceptionStackTraces"
+      "-H:+ReportExceptionStackTraces",
+      "--allow-incomplete-classpath",
+      "--initialize-at-run-time=org.gnu.glpk.glp_prob",
+      "--initialize-at-run-time=ap.basetypes.BigComplex$",
+      "--initialize-at-build-time=verimag.flata.presburger.Relation",
+      "--initialize-at-build-time=nts.parser.VarTable"
     ),
 
     nativeImageAgentMerge := true
