@@ -109,7 +109,7 @@ class GlobalParameters extends Cloneable {
   var templateBasedInterpolation = true
   var templateBasedInterpolationType : AbstractionType.Value =
     AbstractionType.RelationalEqs2
-  var templateBasedInterpolationTimeout = 2000
+  var templateBasedInterpolationTimeout = 500
   var portfolio = GlobalParameters.Portfolio.None
   var templateBasedInterpolationPrint = false
   var cegarHintsFile : String = ""

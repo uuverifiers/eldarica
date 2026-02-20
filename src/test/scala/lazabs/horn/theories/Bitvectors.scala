@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017-2020 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2017-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,58 +27,67 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package lazabs.horn.tests
+package lazabs.horn.theories
 
 import lazabs.horn.bottomup._
 import ap.parser._
 import ap.theories._
 import ap.types.MonoSortedPredicate
+import lazabs.horn.HornWrapper
 
-object MainBV extends App {
+import lazabs.horn.CHCResultMatchers
+import org.scalatest.freespec.AnyFreeSpec
+
+class BVTests
+    extends AnyFreeSpec
+    with CHCResultMatchers {
+
   import HornClauses._
   import IExpression._
   import ModuloArithmetic._
 
-  ap.util.Debug enableAllAssertions true
-  lazabs.GlobalParameters.get.setLogLevel(1)
-  lazabs.GlobalParameters.get.assertions = true
+  "Solving clauses over bitvectors" - {
+    ap.util.Debug enableAllAssertions true
+    lazabs.GlobalParameters.get.assertions = true
 
-  val Seq(i1, i2) =
-    for (n <- 1 to 2) yield MonoSortedPredicate("i" + n, List(UnsignedBVSort(8)))
- 
-  val x = UnsignedBVSort(8) newConstant "x"
+    val Seq(i1, i2) =
+      for (n <- 1 to 2) yield MonoSortedPredicate("i" + n, List(UnsignedBVSort(8)))
 
-  val clauses = List(
-    i1(0)                  :- true,
-    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(x, bv(8, 100))),
-    i1(bvadd(x, bv(8, 2))) :- i2(x),
-    bvult(x, bv(8, 200))   :- i1(x)
-  )
+    val x = UnsignedBVSort(8) newConstant "x"
 
-  println
-  println(clauses mkString "\n")
+    "Clauses 1" - {
+      val clauses = List(
+        i1(0)                  :- true,
+        i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(x, bv(8, 100))),
+        i1(bvadd(x, bv(8, 2))) :- i2(x),
+        bvult(x, bv(8, 200))   :- i1(x)
+      )
 
-  println
-  println("Solving ...")
+//      println
+//      println(clauses mkString "\n")
+//
+//      println
+//      println("Solving ...")
 
-  println(SimpleWrapper.solve(clauses, debuggingOutput = true))
+      SimpleWrapper.solve(clauses) should beSat
+    }
 
-  //
+    "Clauses 2" - {
+      val clauses2 = List(
+        i1(100)                :- true,
+        i2(bvadd(x, bv(8, 3))) :- (i1(x), bvult(x, bv(8, 50))),
+        i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(bv(8, 70), x)),
+        i1(bvadd(x, bv(8, 2))) :- i2(x),
+        (x =/= 75)             :- i1(x)
+      )
 
-  val clauses2 = List(
-    i1(100)                :- true,
-    i2(bvadd(x, bv(8, 3))) :- (i1(x), bvult(x, bv(8, 50))),
-    i2(bvadd(x, bv(8, 1))) :- (i1(x), bvult(bv(8, 70), x)),
-    i1(bvadd(x, bv(8, 2))) :- i2(x),
-    (x =/= 75)             :- i1(x)
-  )
+//      println
+//      println(clauses2 mkString "\n")
+//
+//      println
+//      println("Solving ...")
 
-  println
-  println(clauses mkString "\n")
-
-  println
-  println("Solving ...")
-
-  println(SimpleWrapper.solve(clauses2, debuggingOutput = true,
-                              useTemplates = true))
+      SimpleWrapper.solve(clauses2, useTemplates = true) should beSat
+    }
+  }
 }
