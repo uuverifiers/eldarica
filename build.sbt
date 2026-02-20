@@ -48,7 +48,7 @@ lazy val commonSettings = Seq(
                             ),
     description          := "Eldarica is an SMT solver for systems of Constrained Horn Clauses (CHC).",
     scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.20"),
+    crossScalaVersions := Seq("2.11.12", "2.12.21"),
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/compilation/public_html/maven/" )) )
@@ -161,7 +161,7 @@ lazy val root = (project in file(".")).
            "-encoding", "UTF-8"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.20" => "-opt:_"
+      case "2.12.21" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
@@ -186,23 +186,14 @@ lazy val root = (project in file(".")).
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
     libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
-
-    // needed by flata for native-image
-    resolvers += "XypronRelease" at "https://www.xypron.de/repository",
-    libraryDependencies += "org.gnu.glpk" % "glpk-java" % "1.12.0",
 //
-    // nativeImageInstalled := true,
+    nativeImageInstalled := true,
     // point to your GraalVM (recommended via env var)
     //nativeImageGraalHome := file(sys.env("GRAALVM_HOME")).toPath,
 
     nativeImageOptions ++= Seq(
       "--no-fallback",
-      "-H:+ReportExceptionStackTraces",
-      "--allow-incomplete-classpath",
-      "--initialize-at-run-time=org.gnu.glpk.glp_prob",
-      "--initialize-at-run-time=ap.basetypes.BigComplex$",
-      "--initialize-at-build-time=verimag.flata.presburger.Relation",
-      "--initialize-at-build-time=nts.parser.VarTable"
+      "-H:+ReportExceptionStackTraces"
     ),
 
     nativeImageAgentMerge := true

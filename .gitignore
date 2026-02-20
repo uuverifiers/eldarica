@@ -10,3 +10,10 @@ target/
 metals.sbt
 *.class
 *.log
+
+# tests
+regression-tests/*/Output*
+regression-tests/yices
+
+# other
+.idea
