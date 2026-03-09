@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2026 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -379,7 +379,6 @@ class PrincessWrapper {
       case BVlshr(bits)=> Some((ModuloArithmetic.bv_lshr, bits))
       case BVashr(bits)=> Some((ModuloArithmetic.bv_ashr, bits))
       case BVxor(bits) => Some((ModuloArithmetic.bv_xor, bits))
-      case BVxnor(bits)=> Some((ModuloArithmetic.bv_xnor, bits))
       case BVcomp(bits)=> Some((ModuloArithmetic.bv_comp, bits))
       case _           => None
     }
@@ -730,8 +729,7 @@ class PrincessWrapper {
       ModuloArithmetic.bv_shl -> ((bits:Int) => (BVshl(bits), BVType(bits))),
       ModuloArithmetic.bv_lshr-> ((bits:Int) => (BVlshr(bits), BVType(bits))),
       ModuloArithmetic.bv_ashr-> ((bits:Int) => (BVashr(bits), BVType(bits))),
-      ModuloArithmetic.bv_xor -> ((bits:Int) => (BVxor(bits), BVType(bits))),
-      ModuloArithmetic.bv_xnor-> ((bits:Int) => (BVxnor(bits), BVType(bits)))
+      ModuloArithmetic.bv_xor -> ((bits:Int) => (BVxor(bits), BVType(bits)))
     )
 
   private val pred2BVBinOp : Map[IExpression.Predicate, Int => BinaryOperator] =

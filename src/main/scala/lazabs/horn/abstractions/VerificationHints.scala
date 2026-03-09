@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -171,6 +171,9 @@ object VerificationHints {
                                 newP <- newPreds(p).iterator)
                            yield (newP, hints)).toMap)
 
+    /**
+     * Replace some of the predicates with other predicates.
+     */
     def renamePredicates(mapping : Map[Predicate, Predicate]) = {
       if (isEmpty || mapping.isEmpty)
         this
@@ -179,6 +182,27 @@ object VerificationHints {
                                 newP = mapping.getOrElse(p, p))
                            yield (newP, hints)).toMap)
     }
+
+    /**
+     * Replace some of the predicates with other predicates, changing also the
+     * position of arguments: the argument with index <code>i</code> of a
+     * predicate <code>p</code> is replaced with
+     * <code>i + mapping(p)._2(i)</code>.
+     */
+    def renameAndShift(mapping : Map[Predicate, (Predicate, Map[Int, Int])]) =
+      if (isEmpty || mapping.isEmpty)
+        this
+      else
+        VerificationHints((for ((p, hints) <- predicateHints.iterator) yield {
+                              mapping.get(p) match {
+                                case Some((newP, m)) => {
+                                  val newHints = hints.flatMap(_.shiftArguments(m))
+                                  p -> newHints
+                                }
+                                case None =>
+                                  p -> hints
+                              }
+                           }).toMap)
 
     def addPredicateHints(
           hints : Map[IExpression.Predicate, Seq[VerifHintElement]]) =
