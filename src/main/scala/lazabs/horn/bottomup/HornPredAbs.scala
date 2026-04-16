@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -120,7 +120,10 @@ class HornPredAbs[CC]
 
   lazabs.GlobalParameters.get.setupApUtilDebug
   
-  val context : HornPredAbsContext[CC] = new HornPredAbsContextImpl(iClauses)
+  val context : HornPredAbsContext[CC] =
+    new HornPredAbsContextImpl(
+      iClauses,
+      intervalAnalysis = lazabs.GlobalParameters.get.intervals)
   import context._
 
   val predStore = new PredicateStore(context)
