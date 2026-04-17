@@ -59,7 +59,7 @@ object EquationInliner {
   class ConstantCounter extends CollectingVisitor[Int, Unit] {
     val occurrences = new MHashMap[ConstantTerm, Int]
 
-    def apply(f : IExpression, inc : Int) : Unit = visit(f, inc)
+    def apply(f : IExpression, inc : Int) : Unit = visitWithoutResult(f, inc)
 
     def postVisit(f : IExpression, inc : Int, subres : Seq[Unit]) : Unit =
       f match {
