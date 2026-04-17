@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,7 +74,8 @@ class DefaultPreprocessor extends HornPreprocessor {
     (GlobalParameters.get.finiteDomainPredBound match {
        case n if n <= 0 => List()
        case n           => List(new FiniteDomainPredicates (n))
-     })
+     }) ++
+    List(new EquationInliner)
 
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
