@@ -45,7 +45,7 @@ object EquationInliner {
   object InlineableEquation {
     def unapply(f : IFormula) : Option[(ITerm, ConstantTerm)] = f match {
       case Eq(t, s@IConstant(c)) =>
-        if (!SymbolCollector.constants(t)(c) && // TODO
+        if (ContainsSymbol.freeFromConstants(t, Set(c)) &&
             Sort.sortOf(t) == Sort.sortOf(s)) {
           Some((t, c))
         } else {
@@ -59,7 +59,7 @@ object EquationInliner {
   class ConstantCounter extends CollectingVisitor[Int, Unit] {
     val occurrences = new MHashMap[ConstantTerm, Int]
 
-    def apply(f : IExpression, inc : Int) : Unit = visit(f, inc)
+    def apply(f : IExpression, inc : Int) : Unit = visitWithoutResult(f, inc)
 
     def postVisit(f : IExpression, inc : Int, subres : Seq[Unit]) : Unit =
       f match {
@@ -130,7 +130,7 @@ class EquationInliner extends HornPreprocessor {
         case e@InlineableEquation(t, c)
             if constCounter.occurrences(c) <= 2 &&
                !blockedConstants(c) && !blockedConstants2(c) &&
-               Seqs.disjoint(equations.keySet, SymbolCollector.constants(t)) => { // TODO
+               ContainsSymbol.freeFromConstants(t, equations.keySet.toSet) => {
           equations.put(c, t)
           blockedConstants2 ++= SymbolCollector.constants(e)
           false
