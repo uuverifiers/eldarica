@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2026 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -381,17 +381,18 @@ class SMTHornReader protected[parser] (
     }
 
   if (signature.theories exists {
-        case _ : SimpleArray        => false
-        case _ : ExtArray           => false
-        case _ : Heap               => false
-        case _ : ADT                => false
-        case _ : MulTheory          => false
-        case _ : DivZero            => false
-        case _ : IntValueEnumTheory => false
-        case TypeTheory             => false
-        case ModuloArithmetic       => false
-        case Rationals              => false
-        case _                      => true
+        case _ : SimpleArray                                  => false
+        case _ : ExtArray                                     => false
+        case _ : Heap                                         => false
+        case _ : ADT                                          => false
+        case _ : MulTheory                                    => false
+        case _ : DivZero                                      => false
+        case _ : IntValueEnumTheory                           => false
+        case TypeTheory                                       => false
+        case ModuloArithmetic                                 => false
+        case t if ModuloArithmetic.dependencies.exists(_==t)  => false
+        case Rationals                                        => false
+        case _                                                => true
       })
     throw new Exception ("Combination of theories is not supported: " +
                            signature.theories.mkString(", "))
