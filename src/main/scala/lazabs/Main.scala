@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
+ * Copyright (c) 2011-2026 Hossein Hojjat, Filip Konecny, Philipp Ruemmer,
  * Pavle Subotic, Gambhir Sankalp. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -330,7 +330,7 @@ object Main {
   
 
   val greeting =
-    "Eldarica v2.2.1\n(C) Copyright 2012-2025 Hossein Hojjat and Philipp Ruemmer"
+    "Eldarica v2.3pre\n(C) Copyright 2012-2026 Hossein Hojjat and Philipp Ruemmer"
 
   def doMain(args: Array[String],
              stoppingCond : => Boolean) : Unit = try {
@@ -574,7 +574,7 @@ object Main {
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
           " -abstract:t       Interp. abstraction: off, manual, term, oct,\n" +
           "                     relEqs, relIneqs, relEqs2 (default), relIneqs2\n" +
-          " -abstractTO:t     Timeout (s) for abstraction search (default: 2.0)\n" +
+          " -abstractTO:t     Timeout (s) for abstraction search (default: 0.5s)\n" +
           " -abstractPO       Run with and w/o interpolation abstraction in parallel\n" +
           " -portfolio        Run different standard configurations in parallel\n" +
           " -splitClauses:n   Aggressiveness when splitting disjunctions in clauses\n" +
