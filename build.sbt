@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Eldarica",
     organization := "uuverifiers",
-    version := "2.2.1",
+    version := "2.3pre",
     homepage := Some(url("https://github.com/uuverifiers/eldarica")),
     licenses := Seq("BSD License 2.0" -> url("https://github.com/uuverifiers/eldarica/blob/master/LICENSE")),
     scmInfo              := Some(ScmInfo(
@@ -137,6 +137,11 @@ lazy val tplspecParser = (project in file("template-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
+def staticNativeImage: Boolean =
+  sys.env
+    .get("ELDARICA_STATIC_NATIVE_IMAGE")
+    .exists(_.equalsIgnoreCase("true"))
+
 // Actual project
 
 lazy val root = (project in file(".")).
@@ -185,7 +190,7 @@ lazy val root = (project in file(".")).
 //    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2025-11-17"
 //
     resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
+    libraryDependencies += "uuverifiers" %% "princess" % "2026-04-22",
 //
     nativeImageInstalled := true,
     // point to your GraalVM (recommended via env var)
@@ -193,8 +198,9 @@ lazy val root = (project in file(".")).
 
     nativeImageOptions ++= Seq(
       "--no-fallback",
-      "-H:+ReportExceptionStackTraces"
-    ),
+      "-H:+ReportExceptionStackTraces",
+      "-R:StackSize=20m"
+    ) ++ Seq("--static", "--libc=musl").filter(x => staticNativeImage),
 
     nativeImageAgentMerge := true
 )
