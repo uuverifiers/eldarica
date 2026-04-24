@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -167,6 +167,8 @@ object SymbolSplitter extends HornPreprocessor {
               case Some((oldPred, fixedArgs)) => {
                 val bits =
                   concreteArgsPerPred(oldPred)
+                val sorts =
+                  predArgumentSorts(oldPred).toIndexedSeq
 
                 var offset = -1
                 val subst =
@@ -175,14 +177,14 @@ object SymbolSplitter extends HornPreprocessor {
                       offset = offset + 1
                       fixedArgs(offset)
                     } else {
-                      v(ind)
+                      v(ind, sorts(ind))
                     }
 
                 val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
                 val newSol =
                   and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
-                      yield solutionEquation(ind, arg)) &&& simpSol
+                      yield solutionEquation(ind, sorts(ind), arg)) &&& simpSol
                 aggregatedFormulas.put(
                   oldPred,
                   aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)
@@ -230,14 +232,15 @@ object SymbolSplitter extends HornPreprocessor {
   //////////////////////////////////////////////////////////////////////////////
 
   protected[preprocessor] def solutionEquation(argNum : Int,
+                                               argSort : Sort,
                                                t : ITerm) : IFormula =
     t match {
       // don't introduce a simple equation in case of
       // False, this would be too strong
       case Sort.MultipleValueBool.False =>
-        (v(argNum) =/= Sort.MultipleValueBool.True)
+        (v(argNum, argSort) =/= Sort.MultipleValueBool.True)
       case arg =>
-        (v(argNum) === arg)
+        (v(argNum, argSort) === arg)
     }
 
   //////////////////////////////////////////////////////////////////////////////

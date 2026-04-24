@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2022 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@ package lazabs.horn.preprocessor
 import lazabs.horn.bottomup.HornClauses
 
 import ap.parser._
+import IExpression.Predicate
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -49,7 +50,8 @@ object PropagatingPreprocessor {
 
     /** Augment a solution constraint by the information expressed in an
      *  abstract value */
-    def augmentSolution(sol : IFormula, value : Element) : IFormula
+    def augmentSolution(pred : Predicate,
+                        sol : IFormula, value : Element) : IFormula
   }
 
 }
@@ -122,7 +124,7 @@ class PropagatingPreprocessor(
           def translate(solution : Solution) =
             solution transform {
               case (pred, sol) =>
-                domain.augmentSolution(sol, abstractValues(pred))
+                domain.augmentSolution(pred, sol, abstractValues(pred))
             }
           
           def translate(cex : CounterExample) =
