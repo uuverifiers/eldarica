@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -132,18 +132,22 @@ object SimplePropagators {
         }
       }
     
-    def augmentSolution(sol : IFormula, value : Element) : IFormula =
+    def augmentSolution(pred : Predicate,
+                        sol : IFormula, value : Element) : IFormula =
       value match {
         case None =>
           sol
         case Some(constantArgs) => {
+          val sorts =
+            predArgumentSorts(pred).toIndexedSeq
           val subst =
-            (for ((arg, ind) <- constantArgs.iterator.zipWithIndex)
-             yield (arg getOrElse v(ind))).toList
+            (for (((arg, sort), ind) <-
+                    (constantArgs.iterator zip sorts.iterator).zipWithIndex)
+             yield (arg getOrElse v(ind, sort))).toList
           val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
           and(for ((Some(t), ind) <- constantArgs.iterator.zipWithIndex)
-              yield SymbolSplitter.solutionEquation(ind, t)) &&&
+              yield SymbolSplitter.solutionEquation(ind, sorts(ind), t)) &&&
           simpSol
         }
       }
@@ -347,21 +351,26 @@ object SimplePropagators {
         }
       }
 
-    def augmentSolution(sol : IFormula, value : Element) : IFormula =
+    def augmentSolution(pred : Predicate,
+                        sol : IFormula, value : Element) : IFormula =
       value match {
         case None =>
           sol
         case Some(partitioning) => {
+          val sorts =
+            predArgumentSorts(pred).toIndexedSeq
           val subst =
-            (for (ind <- 0 until partitioning.arity)
-             yield v(partitioning(ind))).toList
+            (for (ind <- 0 until partitioning.arity) yield {
+              val target = partitioning(ind)
+              v(target, sorts(target)) 
+             }).toList
           val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
           and(
             for (ind <- (0 until partitioning.arity).iterator;
                  parent = partitioning(ind);
                  if parent != ind)
-            yield (v(ind) === v(parent))) &&&
+            yield (v(ind, sorts(ind)) === v(parent, sorts(parent)))) &&&
           simpSol
         }
       }

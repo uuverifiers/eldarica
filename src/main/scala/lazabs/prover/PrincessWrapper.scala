@@ -338,7 +338,7 @@ class PrincessWrapper {
       case UnaryExpression(Int2BV(bits), arg) =>
         ModuloArithmetic.cast2UnsignedBV(bits, f2pterm(arg))
 
-      case Variable(vname,Some(i)) => IVariable(i)
+      case ex@Variable(vname,Some(i)) => ISortedVariable(i, type2Sort(ex.stype))
       case NumericalConst(e) => IIntLit(ap.basetypes.IdealInt(e.bigInteger))
       case RationalConst(num, denom) =>
         Rationals.Fraction(IIntLit(ap.basetypes.IdealInt(num.bigInteger)),
@@ -616,8 +616,8 @@ class PrincessWrapper {
             Variable(noVersion,None).stype(sort2Type(sort))
         }
       }
-      case IVariable(index) =>
-        Variable("_" + index,Some(index)).stype(IntT)      
+      case IVariable(index) ::: sort =>
+        Variable("_" + index,Some(index)).stype(sort2Type(sort))
       case IIntLit(value) =>
         NumericalConst(value.bigIntValue).stype(IntT)
       case Rationals.Fraction(IIntLit(num), IIntLit(denom)) =>

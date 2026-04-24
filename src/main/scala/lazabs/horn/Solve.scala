@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2026 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -152,25 +152,35 @@ object Solve {
               // models in SMTLineariser. But will change the syntax a bit
               // and require tests to be updated
 
-                val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
-                val builder = new StringBuilder
-                for((pred,sol) <- sortedSol) yield {
-                  val cl = HornClause(RelVar(pred.name,
-                  (0 until pred.arity).zip(HornPredAbs.predArgumentSorts(pred).map(
-                      lazabs.prover.PrincessWrapper.sort2Type(_))).map(p =>
-                        Parameter("_" + p._1,p._2)
-                  ).toList),
-                      List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
-                                   Map[ap.terfor.ConstantTerm,String]().empty,false))))
-                  builder.append("\n    ")
-                  builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
-                }
-                println(s"(${builder.toString}\n)")
+              val eldSol = translatePri2EldSolution(solution)
+
+              val builder = new StringBuilder
+              for (cl <- eldSol) {
+                builder.append("\n    ")
+                builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
+              }
+
+              println(s"(${builder.toString}\n)")
             }
           }
         }
       }    
   }
+
+  private def translatePri2EldSolution(sol : Map[IExpression.Predicate, IFormula])
+                                           : Seq[HornClause] =
+    for((pred, sol) <- sol.toSeq.sortWith(_._1.name < _._1.name)) yield {
+      val relVar =
+        RelVar(pred.name,
+               (0 until pred.arity).zip(HornPredAbs.predArgumentSorts(pred).map(
+                  lazabs.prover.PrincessWrapper.sort2Type(_))).map(p =>
+                    Parameter("_" + p._1, p._2)).toList)
+      val cl =
+        HornClause(relVar,
+          List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
+                        Map[ap.terfor.ConstantTerm,String]().empty,false))))
+      cl
+    }
 
   def dagPrettyPrint(cex : Dag[IFormula]) =
     if (lazabs.GlobalParameters.get.cexInSMT) {
