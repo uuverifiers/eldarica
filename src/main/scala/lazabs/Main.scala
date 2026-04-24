@@ -60,7 +60,7 @@ object GlobalParameters {
   }
 
   object SymexEngine extends Enumeration {
-    val BreadthFirstForward, DepthFirstForward, None = Value
+    val BreadthFirstForward, DepthFirstForward, SLD, None = Value
   }
 
   object SolutionReconstruction extends Enumeration {
@@ -360,6 +360,7 @@ object Main {
           symexEngine = symexOpt.drop("-sym:".length) match {
             case "dfs" => GlobalParameters.SymexEngine.DepthFirstForward
             case "bfs" => GlobalParameters.SymexEngine.BreadthFirstForward
+            case "sld" => GlobalParameters.SymexEngine.SLD
             case _ =>
               println("Unknown argument for -sym:, defaulting to bfs.")
               GlobalParameters.SymexEngine.BreadthFirstForward
@@ -566,8 +567,9 @@ object Main {
           "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
           "                     predicate with 'p1' or 'p2' in its name\n" +
           " -sym              Use symbolic execution with the default engine (bfs)\n" +
-          " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
-          "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
+          " -sym:x            Use symbolic execution where x : {dfs, bfs, sld}\n" +
+          "                     {dfs: depth-first forward, bfs: breadth-first forward,\n" +
+          "                      sld: SLD backward resolution}\n" +
           " -symDepth:n       Set a max depth for symbolic execution (underapproximate)\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +

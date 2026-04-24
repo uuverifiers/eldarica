@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -305,7 +305,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   def handleFalseConstraint(nucleus:   NormClause,
                             electrons: Seq[UnitClause]): Unit
 
-  private def buildSolution(): Solution = {
+  protected def buildSolution(): Solution = {
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
       yield {
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
@@ -397,7 +397,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
   }
 
-  private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
+  protected def checkFeasibility(constraint : Conjunction) : ProverStatus.Value = {
     prover.scope {
       prover.addAssertionPreproc(constraint)
       prover.???
