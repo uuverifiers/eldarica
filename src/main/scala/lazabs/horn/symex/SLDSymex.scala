@@ -77,13 +77,12 @@ class SLDSymex[CC](clauses  : Iterable[CC],
       val status = checkFeasibility(g.constraint)
       if (status == ProverStatus.Valid || status == ProverStatus.Sat)
         isUnsat = Some(g)
-    } else { // still have atoms
-      // generate one choice per (atom, matching clause) pair
-      for (atomIdx <- g.atoms.indices) {
-        val rules = clausesWithRelationInHead(g.atoms(atomIdx).rs)
-        for (nc <- rules)
-          choicesQueue.enqueue((g, atomIdx, nc))
-      }
+    } else {
+      // TODO: experiment with different selection strategies
+      //       currently picking the first atom in the body of the goal
+      val rules = clausesWithRelationInHead(g.atoms.head.rs)
+      for (nc <- rules)
+        choicesQueue.enqueue((g, 0, nc))
     }
   }
 
