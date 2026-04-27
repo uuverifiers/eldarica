@@ -59,7 +59,7 @@ class SLDSymex[CC](clauses  : Iterable[CC],
   printInfo("Starting SLD symbolic execution...\n")
 
   private val choicesQueue = new MQueue[(GoalClause, Int, NormClause)]
-  private val goalClauseDB = new GoalClauseDB
+  val goalClauseDB = new GoalClauseDB
 
   private var isUnsat : Option[GoalClause] = None
 
@@ -68,7 +68,8 @@ class SLDSymex[CC](clauses  : Iterable[CC],
   for ((nc, _) <- normClauses if nc.head._1.pred == HornClauses.FALSE)
     handleNewGoalClause(GoalClause.fromAssertion(nc))
 
-  private def handleNewGoalClause(g : GoalClause) : Unit = {
+  private def handleNewGoalClause(g0 : GoalClause) : Unit = {
+    val g = g0.eliminateDuplicateAtoms
     if (g.constraint.isFalse) return
     if (!goalClauseDB.add(g)) return
 
@@ -119,7 +120,7 @@ class SLDSymex[CC](clauses  : Iterable[CC],
 
       // resolve and handle the resulting goal clause
       val newGoal =
-        goal.resolveAtom(atomIdx, nc, simplifyConstraint)(symex_sf)
+        goal.resolveAtom(atomIdx, nc, simplifyConstraint)
       val depthOk = maxDepth match {
         case Some(d) => newGoal.depth <= d
         case None    => true

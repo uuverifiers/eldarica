@@ -28,6 +28,8 @@
  */
 package lazabs.horn.symex
 
+import ap.SimpleAPI
+import ap.api.SimpleAPI.ProverStatus
 import ap.parser.IExpression.ConstantTerm
 import ap.terfor.Term
 import ap.terfor.conjunctions.Conjunction
@@ -48,11 +50,7 @@ case class GoalAtom(rs : RelationSymbol, occ : Int) {
 }
 
 /**
- * A (possibly non-unit) goal clause: head = FALSE, body = atoms,
- * with a shared constraint. Always in normalized form (canonical
- * occurrences, fresh residuals).
- *
- * Use the companion object factory methods to create instances.
+ * A (possibly non-unit) goal clause
  *
  * @param origin        the assertion clause that started this chain
  * @param parent        the goal clause before the last resolution step
@@ -66,7 +64,9 @@ class GoalClause private (
     val origin         : NormClause,
     val parent         : Option[GoalClause] = None,
     val parentClause   : Option[NormClause] = None,
-    val parentAtomIdx  : Int                = -1) {
+    val parentAtomIdx  : Int                = -1)(
+    implicit val sf : SymexSymbolFactory,
+             val p  : SimpleAPI) {
 
   override def equals(obj : Any) : Boolean = obj match {
     case that : GoalClause =>
@@ -81,13 +81,11 @@ class GoalClause private (
 
   /**
    * Resolve atom at `atomIdx` against clause `nc`.
-   * @return a new goal clause.
-   * @param simplify constraint simplifier to use
    */
   def resolveAtom(atomIdx  : Int,
                   nc       : NormClause,
-                  simplify : (Conjunction, Set[Term], Boolean) => Conjunction)(
-      implicit sf : SymexSymbolFactory) : GoalClause = {
+                  simplify : (Conjunction, Set[Term], Boolean)
+                               => Conjunction) : GoalClause = {
     val atom      = atoms(atomIdx)
     var remaining = atoms.take(atomIdx) ++ atoms.drop(atomIdx + 1)
     var c         = constraint
@@ -126,10 +124,12 @@ class GoalClause private (
       c = ConstantSubst(moveSubst, sf.order)(c)
 
     // align resolved atom with clause head
-    c = ConstantSubst((atom.vars zip nc.headSyms).toMap, sf.order)(c)
+    c = ConstantSubst(
+      (atom.vars zip nc.headSyms).toMap, sf.order)(c)
 
     // conjoin with clause constraint, collect body atoms
-    val combined = Conjunction.conj(Seq(c, nc.constraint), sf.order)
+    val combined = Conjunction.conj(
+      Seq(c, nc.constraint), sf.order)
     val newBodyAtoms = nc.body.map { case (rs, occ) =>
       GoalAtom(rs, occ)
     }
@@ -137,12 +137,59 @@ class GoalClause private (
 
     // eliminate variables not in any remaining atom
     val remainingVars = newAtoms.flatMap(_.vars).toSet
-    val eliminable = (combined.constants -- remainingVars)
+    val eliminable    = (combined.constants -- remainingVars)
                           .map(_.asInstanceOf[Term])
-    val simplified = simplify(combined, eliminable, true)
+    val simplified    = simplify(combined, eliminable, true)
 
     GoalClause(newAtoms, simplified, depth + 1,
                origin, Some(this), Some(nc), atomIdx)
+  }
+
+  /**
+   * Eliminate duplicate atoms (factoring): for each pair of
+   * same-predicate atoms, unify their variables (subst = j -> i)
+   * and drop one. The factored clause C1 can replace C2 (this)
+   * iff C1 subsumes C2:
+   *   (1) H1 (subst.) = H2  -- trivially true (both FALSE)
+   *   (2) B1 (subst.) <= B2 -- by construction (one fewer atom)
+   *   (3) c2 |= c1 (subst.) -- checked: c2 & !c1(subst.) unsat
+   * Recurses until no more duplicates can be removed.
+   */
+  def eliminateDuplicateAtoms : GoalClause = {
+    val grouped = atoms.zipWithIndex.groupBy(_._1.rs)
+
+    val factored = grouped.valuesIterator.filter(_.size > 1)
+      .flatMap { group =>
+        group.combinations(2).map { case Seq((_, i), (_, j)) =>
+          val subst  = (atoms(j).vars zip atoms(i).vars).toMap
+          val fAtoms = atoms.take(j) ++ atoms.drop(j + 1)
+          val fC     = ConstantSubst(subst, sf.order)(constraint)
+          GoalClause(fAtoms, fC, depth, origin,
+                     parent, parentClause, parentAtomIdx)
+        }
+      }.find(factoredSubsumes)
+
+    factored match {
+      case Some(g) => g.eliminateDuplicateAtoms
+      case None    => this
+    }
+  }
+
+  // checks if the factored goal clause subsumes this one.
+  // (1) and (2) above are trivially satisfied, so only check (3) from above.
+  // (assumes the substitution happened in the factored clause)
+  private def factoredSubsumes(factored : GoalClause) : Boolean = {
+    val test = Conjunction.conj(
+      Seq(constraint, factored.constraint.negate), sf.order)
+    if (test.isFalse) return true
+    try p.withTimeout(50) {
+      p.scope {
+        p.addAssertionPreproc(test)
+        p.??? == ProverStatus.Unsat
+      }
+    } catch {
+      case SimpleAPI.TimeoutException => false
+    }
   }
 }
 
@@ -175,7 +222,8 @@ object GoalClause {
             parent         : Option[GoalClause] = None,
             parentClause   : Option[NormClause] = None,
             parentAtomIdx  : Int                = -1)(
-      implicit sf : SymexSymbolFactory) : GoalClause =
+      implicit sf : SymexSymbolFactory,
+               p  : SimpleAPI) : GoalClause =
     normalize(atoms, constraint, depth, origin,
               parent, parentClause, parentAtomIdx)
 
@@ -183,7 +231,8 @@ object GoalClause {
    * Create an initial goal clause from an assertion (head = FALSE).
    */
   def fromAssertion(nc : NormClause)(
-      implicit sf : SymexSymbolFactory) : GoalClause = {
+      implicit sf : SymexSymbolFactory,
+               p  : SimpleAPI) : GoalClause = {
     val atoms = nc.body.map { case (rs, occ) =>
       GoalAtom(rs, occ)
     }.toList
@@ -192,13 +241,6 @@ object GoalClause {
 
   // ------------------------------------------------------------------
 
-  /**
-   * Normalize a goal clause to canonical form:
-   *  (1) assign sequential occurrences 0, 1, ... per predicate,
-   *      skipping any occ whose argument variables already appear
-   *      as residuals in the constraint
-   *  (2) freshen remaining residual constants
-   */
   private def normalize(
       atoms         : List[GoalAtom],
       constraint    : Conjunction,
@@ -207,7 +249,8 @@ object GoalClause {
       parent        : Option[GoalClause],
       parentClause  : Option[NormClause],
       parentAtomIdx : Int)(
-      implicit sf : SymexSymbolFactory) : GoalClause = {
+      implicit sf : SymexSymbolFactory,
+               p  : SimpleAPI) : GoalClause = {
 
     if (atoms.isEmpty)
       return new GoalClause(atoms, constraint, depth, origin,

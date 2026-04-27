@@ -267,6 +267,41 @@ class SLDSymexUnitTests extends AnyFreeSpec with CHCResultMatchers {
           } should beUnsat
         }
       }
+
+      "Duplicate atom elimination" - {
+        "eliminates when duplicate" in {
+          // p(x), p(y) with x = y should reduce to p(x)
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val x = createConstant("x")
+            val y = createConstant("y")
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 0),
+              false :- (p(x), p(y), x === y)
+            )
+            val symex = new SLDSymex[Clause](clauses)
+            symex.solve()
+            assert(symex.goalClauseDB.allGoals.exists(
+              _.atoms.size == 1),
+              "duplicate atom elimination should produce " +
+                "a single-atom goal")
+          }
+        }
+
+        "preserves when not duplicate (unsat)" in {
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val x = createConstant("x")
+            val y = createConstant("y")
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 3),
+              p(x) :- (x === 7),
+              false :- (p(x), p(y), x =/= y)
+            )
+            new SLDSymex[Clause](clauses).solve()
+          } should beUnsat
+        }
+      }
     }
   }
 }
