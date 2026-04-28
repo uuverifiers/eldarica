@@ -117,5 +117,14 @@ sat
 test0.correct.pierre_bv32.smt2
 sat
 
+constants.smt2
+sat
+(
+    (define-fun I1 ((A (_ BitVec 32))) Bool (= A (_ bv10 32)))
+    (define-fun I2 ((A (_ BitVec 32))) Bool (= A (_ bv10 32)))
+    (define-fun I3 ((A (_ BitVec 32))) Bool (= A (_ bv10 32)))
+    (define-fun I4 ((A (_ BitVec 32))) Bool (= A (_ bv10 32)))
+)
+
 int2bv.smt2
 unsat

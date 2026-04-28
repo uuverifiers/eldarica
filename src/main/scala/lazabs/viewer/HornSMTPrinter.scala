@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
+ * Copyright (c) 2011-2026 Hossein Hojjat, Filip Konecny, Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -192,7 +192,11 @@ object HornSMTPrinter {
       case UnaryExpression(op : BVneg, e) =>
         "(" + op.st + " " + printExp(e) + ")"
       case UnaryExpression(BVextract(upper, lower), e) =>
-        f"((_ extract $upper $lower) " + printExp(e) + ")"
+        f"((_ extract $upper $lower) ${printExp(e)})"
+      case UnaryExpression(BV2Nat(bits), e) =>
+        "(ubv_to_int " + printExp(e) + ")"
+      case UnaryExpression(BV2Int(bits), e) =>
+        "(sbv_to_int " + printExp(e) + ")"
       case BinaryExpression(e1, BVconcat(_, _), e2) =>
         "(concat " + printExp(e1) + " " + printExp(e2) + ")"
       case BinaryExpression(e1, BVadd(_), e2) =>

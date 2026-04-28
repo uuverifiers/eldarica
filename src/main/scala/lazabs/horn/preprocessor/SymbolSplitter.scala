@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2018-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@ import ap.types.MonoSortedPredicate
 import ap.types.Sort
 import IExpression._
 import ap.util.Seqs
+import ap.theories.ModuloArithmetic
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -167,6 +168,8 @@ object SymbolSplitter extends HornPreprocessor {
               case Some((oldPred, fixedArgs)) => {
                 val bits =
                   concreteArgsPerPred(oldPred)
+                val sorts =
+                  predArgumentSorts(oldPred).toIndexedSeq
 
                 var offset = -1
                 val subst =
@@ -175,14 +178,14 @@ object SymbolSplitter extends HornPreprocessor {
                       offset = offset + 1
                       fixedArgs(offset)
                     } else {
-                      v(ind)
+                      v(ind, sorts(ind))
                     }
 
                 val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
                 val newSol =
                   and(for ((ind, arg) <- bits.iterator zip fixedArgs.iterator)
-                      yield solutionEquation(ind, arg)) &&& simpSol
+                      yield solutionEquation(ind, sorts(ind), arg)) &&& simpSol
                 aggregatedFormulas.put(
                   oldPred,
                   aggregatedFormulas.getOrElse(oldPred, i(false)) ||| newSol)
@@ -229,15 +232,30 @@ object SymbolSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  import ModuloArithmetic.{mod_cast, evalModCast, ModSort}
+
   protected[preprocessor] def solutionEquation(argNum : Int,
+                                               argSort : Sort,
                                                t : ITerm) : IFormula =
-    t match {
+    (t, argSort) match {
       // don't introduce a simple equation in case of
       // False, this would be too strong
-      case Sort.MultipleValueBool.False =>
-        (v(argNum) =/= Sort.MultipleValueBool.True)
-      case arg =>
-        (v(argNum) === arg)
+      case (Sort.MultipleValueBool.False, Sort.MultipleValueBool) =>
+        (v(argNum, argSort) =/= Sort.MultipleValueBool.True)
+      case (Const(value), ModSort(lower, upper)) =>
+        (v(argNum, argSort) === mod_cast(lower, upper, value))
+      case (t, argSort) =>
+        (v(argNum, argSort) === t)
+    }
+
+  protected[preprocessor] def toCtorTerm(arg : ITerm, sort : Sort) : ITerm =
+    (arg, sort) match {
+      case (IIntLit(value), ModSort(lower, upper)) => {
+        assert(evalModCast(lower, upper, value) == value)
+        mod_cast(lower, upper, value)
+      }
+      case (t, _) =>
+        t
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -271,6 +289,8 @@ object SymbolSplitter extends HornPreprocessor {
     object ConcreteTerm {
       def unapply(t : ITerm) : Option[ITerm] = t match {
         case t : IIntLit                  => Some(t)
+        case IFunApp(`mod_cast`, Seq(Const(l), Const(u), Const(v)))
+                                          => Some(IIntLit(evalModCast(l, u, v)))
         case IConstant(c)                 => constValue get c
         case True | False                 => Some(t)
         case _                            => None

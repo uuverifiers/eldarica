@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2025 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2020-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -233,7 +233,7 @@ class UniqueConstructorExpander extends ArgumentExpander {
                adtSort = sort.asInstanceOf[ADT.ADTProxySort];
                adt = adtSort.adtTheory;
                if adt.ctorIdsPerSort(adtSort.sortNum).size > 1) yield {
-            adt.hasCtor(v(argInd), ctorInd)
+            adt.hasCtor(v(argInd, sort), ctorInd)
           }
         f &&& and(ctorConstraints)
       }

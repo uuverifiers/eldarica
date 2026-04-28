@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -359,16 +359,18 @@ class PredicateStore[CC]
       case Seq(c) if c.isFalse =>
         List(IBoolLit(false))
       case cs => {
+        val sorts =
+          HornPredAbs.predArgumentSorts(p)
         val consts =
-          for (s <- HornPredAbs.predArgumentSorts(p)) yield (s newConstant "X")
+          for (s <- sorts) yield (s newConstant "X")
         val order =
           sf.order extend consts.reverse
         val subst =
           VariableSubst(0, consts, order)
         // TODO: switch to sorted variables at this point
         val backSubst =
-          (for ((c, n) <- consts.iterator.zipWithIndex)
-           yield (c -> IVariable(n))).toMap
+          (for (((c, n), sort) <- consts.iterator.zipWithIndex zip sorts.iterator)
+           yield (c -> ISortedVariable(n, sort))).toMap
 
         for (c <- cs) yield {
           val raw = sf.postprocessing(subst(c),
