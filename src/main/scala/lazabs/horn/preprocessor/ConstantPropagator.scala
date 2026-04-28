@@ -143,7 +143,12 @@ object SimplePropagators {
           val subst =
             (for (((arg, sort), ind) <-
                     (constantArgs.iterator zip sorts.iterator).zipWithIndex)
-             yield (arg getOrElse v(ind, sort))).toList
+             yield {
+               arg match {
+                case Some(c) => SymbolSplitter.toCtorTerm(c, sort)
+                case None => v(ind, sort)
+               }
+             }).toList
           val simpSol = SimplifyingVariableSubstVisitor(sol, (subst, 0))
 
           and(for ((Some(t), ind) <- constantArgs.iterator.zipWithIndex)

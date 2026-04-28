@@ -40,6 +40,7 @@ import ap.types.MonoSortedPredicate
 import ap.types.Sort
 import IExpression._
 import ap.util.Seqs
+import ap.theories.ModuloArithmetic
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
@@ -231,16 +232,30 @@ object SymbolSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  import ModuloArithmetic.{mod_cast, evalModCast, ModSort}
+
   protected[preprocessor] def solutionEquation(argNum : Int,
                                                argSort : Sort,
                                                t : ITerm) : IFormula =
-    t match {
+    (t, argSort) match {
       // don't introduce a simple equation in case of
       // False, this would be too strong
-      case Sort.MultipleValueBool.False =>
+      case (Sort.MultipleValueBool.False, Sort.MultipleValueBool) =>
         (v(argNum, argSort) =/= Sort.MultipleValueBool.True)
-      case arg =>
-        (v(argNum, argSort) === arg)
+      case (Const(value), ModSort(lower, upper)) =>
+        (v(argNum, argSort) === mod_cast(lower, upper, value))
+      case (t, argSort) =>
+        (v(argNum, argSort) === t)
+    }
+
+  protected[preprocessor] def toCtorTerm(arg : ITerm, sort : Sort) : ITerm =
+    (arg, sort) match {
+      case (IIntLit(value), ModSort(lower, upper)) => {
+        assert(evalModCast(lower, upper, value) == value)
+        mod_cast(lower, upper, value)
+      }
+      case (t, _) =>
+        t
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -274,6 +289,8 @@ object SymbolSplitter extends HornPreprocessor {
     object ConcreteTerm {
       def unapply(t : ITerm) : Option[ITerm] = t match {
         case t : IIntLit                  => Some(t)
+        case IFunApp(`mod_cast`, Seq(Const(l), Const(u), Const(v)))
+                                          => Some(IIntLit(evalModCast(l, u, v)))
         case IConstant(c)                 => constValue get c
         case True | False                 => Some(t)
         case _                            => None
