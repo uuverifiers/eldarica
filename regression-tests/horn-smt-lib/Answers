@@ -353,9 +353,6 @@ unsat
 13: inv_main2(1)
 
 extract.smt2
-Warning: type clash during inference: bv[4] vs int
-Warning: type clash during inference: bv[4] vs int
-Warning: type clash during inference: bv[4] vs int
 unsat
 
 0: FALSE -> 1
