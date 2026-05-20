@@ -47,7 +47,7 @@ lazy val commonSettings = Seq(
                               )
                             ),
     description          := "Eldarica is an SMT solver for systems of Constrained Horn Clauses (CHC).",
-    scalaVersion := "2.13.17",
+    scalaVersion := "2.13.18",
     run / fork := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/home/compilation/public_html/maven/" )) )
@@ -164,7 +164,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls",
            "-encoding", "UTF-8"),
     scalacOptions += (scalaVersion map { sv => sv match {
-      case "2.13.17" => "-opt:_"
+      case "2.13.18" => "-opt:_"
     }}).value,
 //
     assembly / test := None,
