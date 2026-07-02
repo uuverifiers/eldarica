@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2024-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,8 @@ import ap.SimpleAPI
 import ap.parser._
 
 import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.abstractions.VerificationHints
+import lazabs.horn.abstractions.StaticAbstractionBuilder.AbstractionType
 
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -42,6 +44,10 @@ class HornAPITests extends AnyFreeSpec {
   import IExpression._
 
   val CEGAROpt = new HornAPI.CEGAROptions {
+    override val enableAssertions = true
+    override val useTemplates = true
+  }
+  val TemplateCEGAROpt = new HornAPI.TemplateCEGAROptions {
     override val enableAssertions = true
   }
   val SymExOpt = new HornAPI.SymexOptions {
@@ -116,6 +122,44 @@ class HornAPITests extends AnyFreeSpec {
           val res3 = api.isSat(clauses)
           assert(!res3)
         }
+      }
+    }
+  }
+
+  "Unbounded tests" - {
+
+    "Safe" - {
+      SimpleAPI.withProver(enableAssert = true) { p =>
+        import p._
+      
+        val p0 = createRelation("p0", List(Sort.Integer, Sort.Integer))
+        val x  = createConstant("x")
+        val y  = createConstant("y")
+
+        val clauses: Seq[Clause] = List(
+          p0(x, x) :- (x >= 0 & x <= 100),
+          p0(x+1, y+2) :- (p0(x, y), x < 1000),
+          (y <= 3000) :- p0(x, y)
+        )
+
+        val TemplateCEGAROpt2 = new HornAPI.TemplateCEGAROptions {
+          override val enableAssertions = true
+          // only use manually defined hints
+          override val abstractionType = AbstractionType.Empty
+          override val verificationHints =
+            VerificationHints(Map(p0 ->
+              List(VerificationHints.VerifHintTplEqTerm(v(0)*2 - v(1), 1),
+                   VerificationHints.VerifHintTplEqTerm(v(0), 10),
+                   VerificationHints.VerifHintTplEqTerm(v(1), 10))))
+        }
+
+        val api = new HornAPI(TemplateCEGAROpt2)
+        val res = api.solveLazily(clauses)
+        assert(res.isLeft)
+        val res2 = api.solve(clauses)
+        assert(res2.isLeft)
+        val res3 = api.isSat(clauses)
+        assert(res3)
       }
     }
   }

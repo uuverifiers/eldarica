@@ -150,6 +150,8 @@ object VerificationHints {
 
     val predicateHints : Map[IExpression.Predicate, Seq[VerifHintElement]]
 
+    override def toString = s"VerificationHints($predicateHints)"
+
     def isEmpty = predicateHints.isEmpty
 
     def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {

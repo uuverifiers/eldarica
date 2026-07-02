@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2023-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,10 @@
 package lazabs.horn.predgen
 
 import lazabs.GlobalParameters
-import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder}
+import lazabs.horn.abstractions.{AbstractionRecord, StaticAbstractionBuilder,
+                                 VerificationHints, EmptyVerificationHints}
 import AbstractionRecord.AbstractionMap
+import StaticAbstractionBuilder.AbstractionType
 import lazabs.horn.bottomup.HornClauses
 
 /**
@@ -70,15 +72,34 @@ object Interpolators {
                        clauses : Seq[HornClauses.Clause])
                                : PredicateGenerator =
     if (params.templateBasedInterpolation) {
-      val abstractionBuilder =
-        new StaticAbstractionBuilder(
-          clauses, params.templateBasedInterpolationType)
-      val abstractionMap =
-        abstractionBuilder.abstractionRecords
-      new TemplateInterpolator(abstractionMap,
-                               params.templateBasedInterpolationTimeout)
+      constructTemplatePredGen(clauses,
+                               params.templateBasedInterpolationTimeout,
+                               params.templateBasedInterpolationType,
+                               EmptyVerificationHints)
     } else {
       DagInterpolator
     }
+
+  /**
+   * Construct a predicate generator 
+   */
+  def constructTemplatePredGen(clauses              : Seq[HornClauses.Clause],
+                               interpolationTimeout : Int,
+                               autoAbstractionType  : AbstractionType.Value,
+                               hints                : VerificationHints)
+                                                    : PredicateGenerator = {
+    val abstractionBuilder =
+      new StaticAbstractionBuilder(clauses, autoAbstractionType)
+    val hintsAbstraction : AbstractionMap =
+      if (hints.isEmpty)
+        Map()
+      else
+        abstractionBuilder.loopDetector hints2AbstractionRecord hints
+    val autoAbstractionMap =
+      abstractionBuilder.abstractionRecords
+    val fullAbstractionMap =
+      AbstractionRecord.mergeMaps(hintsAbstraction, autoAbstractionMap)
+    new TemplateInterpolator(fullAbstractionMap, interpolationTimeout)
+  }
 
 }

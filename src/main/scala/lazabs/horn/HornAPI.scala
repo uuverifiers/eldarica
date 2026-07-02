@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2024-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,12 +32,17 @@ package lazabs.horn
 import ap.parser.{IFormula, IAtom}
 import ap.terfor.preds.Predicate
 
-import lazabs.GlobalParameters
+import lazabs.{GlobalParameters, ParallelComputation}
 import lazabs.horn.Util._
-import lazabs.horn.abstractions.EmptyVerificationHints
+import lazabs.horn.abstractions.{EmptyVerificationHints, VerificationHints,
+                                 StaticAbstractionBuilder}
+import lazabs.horn.predgen.Interpolators
 import lazabs.horn.bottomup.{HornClauses, SimpleWrapper}
 import lazabs.horn.preprocessor.DefaultPreprocessor
+import lazabs.horn.bottomup._
 import lazabs.horn.symex._
+
+import StaticAbstractionBuilder.AbstractionType
 
 /**
  * Simplified API for calling the different Horn clause back-ends.
@@ -69,9 +74,28 @@ object HornAPI {
    * the CEGAR backend.
    */
   class CEGAROptions extends Options {
+    val useTemplates  : Boolean = false
+    val useAbstractPO : Boolean = false
+  }
+
+  /**
+   * CEGAR options with additional initial predicates.
+   */
+  class InitPredCEGAROptions extends CEGAROptions {
     val initialPredicates : Map[Predicate, Seq[IFormula]] = Map()
-    val useTemplates      : Boolean                       = false
-    val useAbstractPO     : Boolean                       = false
+  }
+
+  /**
+   * CEGAR options with additional, more general verification hints.
+   */
+  class TemplateCEGAROptions extends CEGAROptions {
+    override val useTemplates = true
+    val abstractionType : AbstractionType.Value =
+      AbstractionType.RelationalEqs2
+    val verificationHints : VerificationHints =
+      EmptyVerificationHints
+    val templateBasedInterpolationTimeout : Int =
+      500
   }
 
   sealed trait SymexStrategy
@@ -127,40 +151,93 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
       GlobalParameters.get.setLogLevel(2)
 
       options match {
-        case options : CEGAROptions =>
+        case options : TemplateCEGAROptions =>
+          solveLazilyTemplates(clauses, options)
+        case options : InitPredCEGAROptions =>
           SimpleWrapper.solveLazily(
             clauses           = clauses,
             initialPredicates = options.initialPredicates,
             useTemplates      = options.useTemplates,
             debuggingOutput   = options.debuggingOutput,
             useAbstractPO     = options.useAbstractPO)
+        case options : CEGAROptions =>
+          SimpleWrapper.solveLazily(
+            clauses           = clauses,
+            initialPredicates = Map(),
+            useTemplates      = options.useTemplates,
+            debuggingOutput   = options.debuggingOutput,
+            useAbstractPO     = options.useAbstractPO)
         case options : SymexOptions =>
-          val errOutput = if (options.debuggingOutput) Console.err else NullStream
-          Console.withErr(errOutput) { Console.withOut(Console.err) {
-            val (newClauses, _, backTranslator) = {
-              val preprocessor = new DefaultPreprocessor
-              preprocessor.process(clauses.toSeq, EmptyVerificationHints)
-            }
-
-            val symex = options.strategy match {
-              case SymexStrategy.BreadthFirstForward =>
-                new BreadthFirstForwardSymex[HornClauses.Clause](newClauses, options.maxDepth)
-              case SymexStrategy.DepthFirstForward   =>
-                new DepthFirstForwardSymex[HornClauses.Clause](newClauses)
-            }
-            symex.printInfo = options.debuggingOutput
-
-            val result = symex.solve()
-            symex.shutdown
-
-            result match {
-              case Left(x) => Left(() => backTranslator translate x)
-              case Right(x) => Right(() => backTranslator translate x)
-            }
-          }
-          }
+          solveLazilySymex(clauses, options)
       }
     }
+
+  private def solveLazilyTemplates(clauses : Iterable[HornClauses.Clause],
+                                   options : TemplateCEGAROptions) = {
+    import options._
+    val errOutput = if (options.debuggingOutput) Console.err else NullStream
+    Console.withErr(errOutput) { Console.withOut(Console.err) {
+      GlobalParameters.get.templateBasedInterpolation = true
+      GlobalParameters.get.portfolio =
+        if (useAbstractPO)
+          GlobalParameters.Portfolio.Template
+        else
+          GlobalParameters.Portfolio.None
+        var (newClauses, allHints, backTranslator) = {
+          val preprocessor = new DefaultPreprocessor
+          preprocessor.process(clauses.toSeq, verificationHints)
+        }
+      val params =
+        if (useAbstractPO)
+          GlobalParameters.get.withAndWOTemplates
+        else
+          List()
+
+      ParallelComputation(params) {
+        val interpolator =
+          Interpolators.constructTemplatePredGen(
+            newClauses,
+            templateBasedInterpolationTimeout,
+            abstractionType,
+            allHints)
+        val predAbs =
+          new HornPredAbs(newClauses, allHints.toInitialPredicates,
+                          interpolator)
+        predAbs.result match {
+          case Left(x) => Left(() => backTranslator translate x)
+          case Right(x) => Right(() => backTranslator translate x)
+        }
+      }
+    }}
+  }
+
+  private def solveLazilySymex(clauses : Iterable[HornClauses.Clause],
+                               options : SymexOptions) = {
+    val errOutput = if (options.debuggingOutput) Console.err else NullStream
+    Console.withErr(errOutput) { Console.withOut(Console.err) {
+      val (newClauses, _, backTranslator) = {
+        val preprocessor = new DefaultPreprocessor
+        preprocessor.process(clauses.toSeq, EmptyVerificationHints)
+      }
+
+      val symex = options.strategy match {
+        case SymexStrategy.BreadthFirstForward =>
+          new BreadthFirstForwardSymex[HornClauses.Clause](newClauses, options.maxDepth)
+        case SymexStrategy.DepthFirstForward   =>
+          new DepthFirstForwardSymex[HornClauses.Clause](newClauses)
+      }
+      symex.printInfo = options.debuggingOutput
+
+      val result = symex.solve()
+      symex.shutdown
+
+      result match {
+        case Left(x) => Left(() => backTranslator translate x)
+        case Right(x) => Right(() => backTranslator translate x)
+      }
+    }
+    }
+  }
 
   /**
    * Solve the given set of clauses.
