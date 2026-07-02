@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2019 Philipp Ruemmer and Pavle Subotic.
+ * Copyright (c) 2011-2026 Philipp Ruemmer and Pavle Subotic.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,8 @@ import scala.collection.mutable.{HashMap => MHashMap}
   }
 
   abstract class AbstractionRecord {
+    override def toString = s"AbstractionRecord($loopBody, $lattice)"
+
     val loopBody : Set[Predicate]
     val lattice : AbsLattice
     // how often does a predicate have to occur in a counterexample before
