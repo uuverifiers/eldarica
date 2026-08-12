@@ -1,0 +1,27 @@
+#!/bin/sh
+
+LAZABS=../../eld
+
+# Test 1: Non-linear TEMPLATE hint on a linear problem — should solve fine
+echo
+echo "linear-with-nonlinear-hint.smt2 (template term (* x x))"
+$LAZABS -abstract -ssol -pngNo "$@" -hints:linear-with-nonlinear-hint.tpl linear-with-nonlinear-hint.smt2 2>&1 | grep -v "^Elapsed Time"
+
+# Test 2: Non-linear TEMPLATE hint on problem requiring non-linear invariant
+echo
+echo "nonlinear-required.smt2 (template predicate (= y (* x x)))"
+$LAZABS -abstract -ssol -pngNo "$@" -hints:nonlinear-required.tpl nonlinear-required.smt2 2>&1 | grep -v "^Elapsed Time"
+
+# Test 3: Non-linear initial-predicates — previously aborted with "key not found: mul/3"
+# because theories occurring only in hint formulas were never registered with the
+# SymbolFactory. This checks that such a hint is accepted; note that the resulting
+# invariant here is linear, so this is a regression test for the abort, not evidence
+# that the non-linear predicate was used (test 2 above covers that).
+echo
+echo "nonlinear-initial-preds.smt2 (initial-predicates with non-linear (* x x))"
+$LAZABS -abstract -ssol -pngNo "$@" -hints:nonlinear-initial-preds.tpl nonlinear-initial-preds.smt2 2>&1 | grep -v "^Elapsed Time"
+
+# Test 4: Array hints with select/store in initial-predicates
+echo
+echo "array-with-hint.smt2 (initial-predicates with select/store)"
+$LAZABS -ssol -pngNo "$@" -hints:array-with-hint.tpl array-with-hint.smt2 2>&1 | grep -v "^Elapsed Time"
