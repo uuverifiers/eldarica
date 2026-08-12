@@ -56,6 +56,8 @@ predicate generation. For the option <code>-stac</code> to work, it is currently
 
 The option <code>-sym</code> can be used to switch to the symbolic execution engine of Eldarica, which will then be applied instead of CEGAR.
 
+The options <code>-pPredicates:f</code> and <code>-pClauseStatus:f</code> write CEGAR diagnostic output to files. <code>-pPredicates:f</code> writes the predicates discovered per relation symbol; output is emitted on SAT, UNSAT, and TIMEOUT, so intermediate predicates from an unfinished run can be inspected. The output is in <code>initial-predicates</code> hint format and can be fed back via <code>-hints:f</code>. <code>-pClauseStatus:f</code> writes which Horn clauses are established (<code>SATISFIED</code>) or not yet covered (<code>UNPROVEN</code>) in the abstract reachability graph. Note that <code>UNPROVEN</code> means the clause has no covering abstract edge — it does not imply a counterexample exists. On a successfully solved SAT instance all clauses report <code>SATISFIED</code>, including the goal clause (<code>FALSE :- body</code>), which confirms the safety property holds.
+
 Papers
 ------
 

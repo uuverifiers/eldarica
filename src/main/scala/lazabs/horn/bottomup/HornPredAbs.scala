@@ -101,6 +101,28 @@ object HornPredAbs {
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Diagnostic state exposed for timeout recovery. When CEGAR is interrupted
+   * by TimeoutException mid-constructor, the partially-built analysis state
+   * (predicate store, abstract edges, normalized clauses) is accessible here
+   * so that callers can dump intermediate results before re-throwing.
+   */
+  case class DiagnosticState(
+    predStore   : PredicateStore[_],
+    cegar       : CEGAR[_],
+    context     : HornPredAbsContext[_]
+  )
+
+  /**
+   * Thread-local holder for the most recent diagnostic state.
+   * Uses DynamicVariable (like GlobalParameters.parameters) to ensure
+   * concurrent CEGAR instances in ParallelComputation do not interfere.
+   */
+  val currentDiagnosticState =
+    new scala.util.DynamicVariable[Option[DiagnosticState]](None)
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

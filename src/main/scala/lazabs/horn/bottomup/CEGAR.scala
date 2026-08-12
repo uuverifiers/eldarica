@@ -121,6 +121,11 @@ class CEGAR[CC <% HornClauses.ConstraintClause]
 
   val cegarStartTime = System.currentTimeMillis
 
+  // Register diagnostic state so callers can access partial predicates and
+  // abstract edges on timeout recovery. Must be done before the main loop.
+  HornPredAbs.currentDiagnosticState.value =
+    Some(HornPredAbs.DiagnosticState(predStore, this, context))
+
   val rawResult : Either[Map[Predicate, Conjunction], Dag[(IAtom, CC)]] =
     /* SimpleAPI.withProver(enableAssert = lazabs.Main.assertions) { p =>
         inferenceAPIProver = p */ {
