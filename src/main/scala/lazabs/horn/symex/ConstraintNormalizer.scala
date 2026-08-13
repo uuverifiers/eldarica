@@ -148,12 +148,20 @@ object ConstraintNormalizer {
       case None => false // nothing to define
     }
 
+    def litKey(lit : Atom) : LitKey = {
+      val args = for (linearComb <- lit.init) yield {
+        val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
+          yield (symPosition(sym), coeff)).toList.sortBy(_._1)
+        ArgKey(sortedTerms, linearComb.constant)
+      }
+      LitKey(lit.pred, args.toList)
+    }
+
     var done = false
     while(!done) {
       val readyToDefineLits = theoryLits filter canDefine
       if (readyToDefineLits nonEmpty) { // some lits ready
-        val lit = readyToDefineLits.head // TODO: to be fixed,
-                                         //       select smallest by key!
+        val lit = readyToDefineLits.minBy(litKey)
         placeSym(resultSymbol(lit).get, Some(lit))
       } else { // no lits ready to define a result symbol
         val unplacedSyms = allTheoryLitSyms filterNot symPosition.contains
@@ -206,7 +214,7 @@ object ConstraintNormalizer {
 
   // a literal: pred name, pred arity, args
   private[symex]
-  implicit object LitKeyOrdering extends Ordering[LitKey] {
+  implicit val LitKeyOrdering : Ordering[LitKey] = new Ordering[LitKey] {
     def compare(a : LitKey, b : LitKey) : Int = Seqs.lexCombineInts(
       a.pred.name compareTo b.pred.name,
       a.pred.arity compareTo b.pred.arity,
