@@ -79,6 +79,16 @@ private[symex] case class ArgKey(terms : Seq[(Int, IdealInt)], constant : IdealI
 //               (p_0_0 is result, so not in args)
 private[symex] case class LitKey(pred : Predicate, args : Seq[ArgKey])
 
+// A usage of a symbol in a theory literal. This is used as fallback for
+// symbols that no theory literal defines. The sorted usage list is then used instead.
+// E.g., for undefinable symbols a and b
+// usages of a: f(0, a, x), f(42, a, y)
+// usages of b: f(0, b, x), f(3,  b, z)
+// for a: argIndex: 1, (f(0, ?, ?), f(42, ?, ?))
+// for b: argIndex: 1, (f(0, ?, ?), f( 3, ?, ?))
+// 3 < 42 so b will be placed first. ? represent unplaced syms.
+private[symex] case class UsageKey(argIndex : Int, lit : LitKey)
+
 /**
  * Normalizes constraints so that they can be checked for structural
  * equivalence. For instance for cheap hash lookups, subsumption checks etc.
@@ -157,6 +167,22 @@ object ConstraintNormalizer {
       LitKey(lit.pred, args.toList)
     }
 
+    val UnplacedPos = Int.MaxValue
+    // also includes result (lit instead of lit.init, and allows unplaced syms)
+    def litKeyFull(lit : Atom) : LitKey = {
+      val args = for (linearComb <- lit) yield {
+        val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
+          yield (symPosition.getOrElse(sym, UnplacedPos), coeff)).toList.sortBy(_._1)
+        ArgKey(sortedTerms, linearComb.constant)
+      }
+      LitKey(lit.pred, args.toList)
+    }
+
+    def signatureOf(sym : ConstantTerm) : Seq[UsageKey] =
+      (for (lit <- theoryLits ; (arg, id) <- lit.zipWithIndex
+           if arg.constants contains sym)
+        yield UsageKey(id, litKeyFull(lit))).toList.sorted
+
     var done = false
     while(!done) {
       val readyToDefineLits = theoryLits filter canDefine
@@ -171,9 +197,9 @@ object ConstraintNormalizer {
           // symbols that are not "resultSymbols" will never be defined
           // so they get their positions here.
           val undefinableSyms = unplacedSyms filterNot definableSyms
-          val definableButStuck = // e.g., f(a,b) and g(b,a).
+          val candidates = // e.g., f(a,b) and g(b,a).
             if(undefinableSyms nonEmpty) undefinableSyms else unplacedSyms
-          throw new UnsupportedOperationException("not yet implemented") // implement a tie-breaker.
+          placeSym(candidates.minBy(signatureOf)(signatureOrdering), None)
         }
       }
     }
@@ -220,5 +246,23 @@ object ConstraintNormalizer {
       a.pred.arity compareTo b.pred.arity,
       Seqs.lexCompare(a.args.iterator, b.args.iterator)
     )
+  }
+
+  // a usage: pred name, arity, arg index and the lit args
+  private implicit val usageKeyOrdering : Ordering[UsageKey] =
+    new Ordering[UsageKey] {
+      def compare(a : UsageKey, b : UsageKey) : Int = Seqs.lexCombineInts(
+        a.lit.pred.name compareTo b.lit.pred.name,
+        a.lit.pred.arity compareTo b.lit.pred.arity,
+        a.argIndex compareTo b.argIndex,
+        Seqs.lexCompare(a.lit.args.iterator, b.lit.args.iterator)
+      )
+    }
+
+  // a symbol's sorted usages
+  private[symex]
+  val signatureOrdering : Ordering[Seq[UsageKey]] = new Ordering[Seq[UsageKey]] {
+    def compare(a : Seq[UsageKey], b : Seq[UsageKey]) : Int =
+      Seqs.lexCompare(a.iterator, b.iterator)
   }
 }
