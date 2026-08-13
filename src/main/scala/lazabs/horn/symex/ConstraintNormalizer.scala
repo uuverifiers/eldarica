@@ -1,0 +1,173 @@
+/**
+ * Copyright (c) 2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package lazabs.horn.symex
+
+import ap.terfor.ConstantTerm
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination.SingleTerm
+import ap.terfor.preds.Atom
+import lazabs.horn.bottomup.RelationSymbol
+
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
+/**
+ * Result type of [[ConstraintNormalizer.normalize]]
+ * @param constraint         : the normalized constraint
+ * @param definingTheoryLits : definingTheoryLits[i] is the theory literal that
+ *                             defines local symbol number i (may not exist).
+ *                             e.g., the BV literal
+ *                             bv_extract(0,0, p_0_0, p_c_0_i) is at index i,
+ *                             because it defines p_c_0_i (result arg)
+ */
+case class NormalizedConstraint(constraint         : Conjunction,
+                                definingTheoryLits : IndexedSeq[Option[Atom]])
+
+/**
+ * Intermediate, same info as [[NormalizedConstraint]] but before rebuilding
+ * the constraint.
+ * e.g., localSymbol      s = [              x,                 y,   z ]
+ *       definingTheoryLits = [Some(fun(..., x)), Some(fun(..., y)), None]
+ *       where fun is some theory function, and z is not the res of any
+ */
+private[symex]
+case class CanonicalSymbolOrder(localSymbols       : IndexedSeq[ConstantTerm],
+                                definingTheoryLits : IndexedSeq[Option[Atom]])
+
+/**
+ * Normalizes constraints so that they can be checked for structural
+ * equivalence. For instance for cheap hash lookups, subsumption checks etc.
+ * E.g., bv_extract(0,0,a,b) and bv_extract(0,0,a,c), after
+ * normalization b and c get the same symbol.
+ * - Every symbol gets a canonical position 0, 1, ... computed from the
+ *   structure of the constraint.
+ * - Every symbol is renamed using that position, e.g.,
+ *   local symbols: p_c_0_0, p_c_0_1 etc.
+ */
+object ConstraintNormalizer {
+
+  /**
+   * Takes the atoms and constraint of a clause, returns the normalized
+   * constraint.
+   */
+  def normalize(atoms      : Seq[(RelationSymbol, Int)],
+                constraint : Conjunction)
+               (implicit sf : SymexSymbolFactory) : NormalizedConstraint = {
+    val simpConstraint = simplify(constraint)
+    val symbolOrder    = canonicalSymbolOrder(atoms, simpConstraint)
+    rebuild(atoms, simpConstraint, symbolOrder)
+  }
+
+  // Applies some simplification passes before normalization
+  private[symex]
+  def simplify(constraint : Conjunction) : Conjunction = {
+    // TODO
+    // merge duplicate atoms
+    // others?
+    constraint
+  }
+
+  // Computes the canonical order of every symbol occurring in the constraint
+  // and the atoms. Pred args get the first positions, then smallest literal
+  // whose args all have positions but not its result defines its result symbol
+  // (i.e., that result symbol gets the next position). If some symbols
+  // remain (may be that no literal defines them), they are positioned at
+  // the end.
+  private[symex]
+  def canonicalSymbolOrder(atoms      : Seq[(RelationSymbol, Int)],
+                           constraint : Conjunction) : CanonicalSymbolOrder = {
+    val theoryLits = constraint.predConj.positiveLits
+    val allTheoryLitSyms = theoryLits.flatMap(_.constants).toSet
+    val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
+
+    val position = new MHashMap[ConstantTerm, Int]
+    // init position with pred args
+    for ((rs, occ) <- atoms; sym <- rs.arguments(occ))
+      position.getOrElseUpdate(sym, position.size)
+
+    val localSymbols = new ArrayBuffer[ConstantTerm]
+    val definingTheoryLits = new ArrayBuffer[Option[Atom]]
+
+    def placeSym(sym : ConstantTerm, definingLit : Option[Atom]) : Unit = {
+      position(sym) = position.size
+      localSymbols += sym
+      definingTheoryLits += definingLit
+    }
+
+    // can this theory literal define its result? i.e., are all its
+    // input syms (syms except the last one) already defined?
+    def canDefine(lit : Atom) : Boolean = resultSymbol(lit) match {
+      case Some(sym) => // this lit may be able to define sym
+        !(position contains sym) && // sym not yet defined
+        lit.init.forall(_.constants forall position.contains) // all else defined
+      case None => false // nothing to define
+    }
+
+    var done = false
+    while(!done) {
+      val readyToDefineLits = theoryLits filter canDefine
+      if (readyToDefineLits nonEmpty) { // some lits ready
+        val lit = readyToDefineLits.head // TODO: to be fixed,
+                                         //       select smallest by key!
+        placeSym(resultSymbol(lit).get, Some(lit))
+      } else { // no lits ready to define a result symbol
+        val unplacedSyms = allTheoryLitSyms filterNot position.contains
+        if (unplacedSyms isEmpty) {
+          done = true
+        } else {
+          // symbols that are not "resultSymbols" will never be defined
+          // so they get their positions here.
+          val undefinableSyms = unplacedSyms filterNot definableSyms
+          val definableButStuck = // e.g., f(a,b) and g(b,a).
+            if(undefinableSyms nonEmpty) undefinableSyms else unplacedSyms
+          throw new UnsupportedOperationException("not yet implemented") // implement a tie-breaker.
+        }
+      }
+    }
+    CanonicalSymbolOrder(localSymbols, definingTheoryLits)
+  }
+
+  private[symex]
+  def resultSymbol(a : Atom) : Option[ConstantTerm] = {
+    a.last match {
+      case SingleTerm(c : ConstantTerm) => Some(c)
+      case _ => None
+    }
+  }
+
+  // Rename symbols in atoms and constraint to canonical ones
+  private[symex]
+  def rebuild(atoms       : Seq[(RelationSymbol, Int)],
+              constraint  : Conjunction,
+              symbolOrder : CanonicalSymbolOrder)
+             (implicit sf : SymexSymbolFactory) : NormalizedConstraint = {
+    ???
+  }
+
+}
