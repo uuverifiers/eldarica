@@ -29,10 +29,12 @@
 
 package lazabs.horn.symex
 
+import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination.SingleTerm
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, Predicate}
+import ap.util.Seqs
 import lazabs.horn.bottomup.RelationSymbol
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -59,6 +61,23 @@ case class NormalizedConstraint(constraint         : Conjunction,
 private[symex]
 case class CanonicalSymbolOrder(localSymbols       : IndexedSeq[ConstantTerm],
                                 definingTheoryLits : IndexedSeq[Option[Atom]])
+
+// An arg of a theory literal, where symbols are replaced with canonical pos.
+// E.g., arg: 2*x + y + 5 with x at pos 4, y at 1
+//       terms = Seq((1,1), (4,2))
+//                   pos 1 (y) coeff = 1, pos 4 (x) coeff = 2
+//       constant = 5
+private[symex] case class ArgKey(terms : Seq[(Int, IdealInt)], constant : IdealInt)
+
+// A theory literal and its ArgKeys.
+// e.g., bv_extract(7, 1, p_0_0, x) with p_0_0 at pos 0
+//       pred = bv_extract
+//       args = ( ArgKey(Nil, constant = 7,
+//                ...,
+//                ArgKey(Seq((0, 1)), 0))
+//               )
+//               (p_0_0 is result, so not in args)
+private[symex] case class LitKey(pred : Predicate, args : Seq[ArgKey])
 
 /**
  * Normalizes constraints so that they can be checked for structural
@@ -106,16 +125,16 @@ object ConstraintNormalizer {
     val allTheoryLitSyms = theoryLits.flatMap(_.constants).toSet
     val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
 
-    val position = new MHashMap[ConstantTerm, Int]
+    val symPosition = new MHashMap[ConstantTerm, Int]
     // init position with pred args
     for ((rs, occ) <- atoms; sym <- rs.arguments(occ))
-      position.getOrElseUpdate(sym, position.size)
+      symPosition.getOrElseUpdate(sym, symPosition.size)
 
     val localSymbols = new ArrayBuffer[ConstantTerm]
     val definingTheoryLits = new ArrayBuffer[Option[Atom]]
 
     def placeSym(sym : ConstantTerm, definingLit : Option[Atom]) : Unit = {
-      position(sym) = position.size
+      symPosition(sym) = symPosition.size
       localSymbols += sym
       definingTheoryLits += definingLit
     }
@@ -124,8 +143,8 @@ object ConstraintNormalizer {
     // input syms (syms except the last one) already defined?
     def canDefine(lit : Atom) : Boolean = resultSymbol(lit) match {
       case Some(sym) => // this lit may be able to define sym
-        !(position contains sym) && // sym not yet defined
-        lit.init.forall(_.constants forall position.contains) // all else defined
+        !(symPosition contains sym) && // sym not yet defined
+        lit.init.forall(_.constants forall symPosition.contains) // all else defined
       case None => false // nothing to define
     }
 
@@ -137,7 +156,7 @@ object ConstraintNormalizer {
                                          //       select smallest by key!
         placeSym(resultSymbol(lit).get, Some(lit))
       } else { // no lits ready to define a result symbol
-        val unplacedSyms = allTheoryLitSyms filterNot position.contains
+        val unplacedSyms = allTheoryLitSyms filterNot symPosition.contains
         if (unplacedSyms isEmpty) {
           done = true
         } else {
@@ -170,4 +189,28 @@ object ConstraintNormalizer {
     ???
   }
 
+  // ORDERINGS
+  // term of an arg, lexical ordering with canonical pos first, then coefficient
+  private implicit val termOrdering : Ordering[(Int, IdealInt)] =
+    new Ordering[(Int, IdealInt)] {
+      def compare(a : (Int, IdealInt), b : (Int, IdealInt)) : Int =
+        Seqs.lexCombineInts(a._1 compare b._1, a._2 compare b._2)
+    }
+
+  // one arg: terms first, constant last
+  private implicit val argKeyOrdering : Ordering[ArgKey] = new Ordering[ArgKey] {
+    def compare(a : ArgKey, b : ArgKey) : Int = Seqs.lexCombineInts(
+      Seqs.lexCompare(a.terms.iterator, b.terms.iterator),
+      a.constant compare b.constant)
+  }
+
+  // a literal: pred name, pred arity, args
+  private[symex]
+  implicit object LitKeyOrdering extends Ordering[LitKey] {
+    def compare(a : LitKey, b : LitKey) : Int = Seqs.lexCombineInts(
+      a.pred.name compareTo b.pred.name,
+      a.pred.arity compareTo b.pred.arity,
+      Seqs.lexCompare(a.args.iterator, b.args.iterator)
+    )
+  }
 }
