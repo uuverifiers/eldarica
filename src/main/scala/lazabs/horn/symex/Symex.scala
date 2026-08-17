@@ -291,6 +291,9 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             "Cannot hyper-resolve clauses: " + other.toString)
       }
     }
+    if (lazabs.GlobalParameters.get.log)
+      println(
+        s"rejected duplicate cucs: ${unitClauseDB.rejectedDuplicateCUCCount}")
     result
   }
 
