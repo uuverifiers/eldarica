@@ -131,6 +131,7 @@ class GlobalParameters extends Cloneable {
   var log = false
   var logCEX = false
   var logStat = false
+  var logSymexDerivations = false
   var logPredicates : Set[String] = Set()
   var printHornSimplified = false
   var printHornSimplifiedSMT = false
@@ -159,21 +160,25 @@ class GlobalParameters extends Cloneable {
       log = false
       logStat = false
       logCEX = false
+      logSymexDerivations = false
     }
     case 1 => { // statistics only
       log = false
       logStat = true
       logCEX = false
+      logSymexDerivations = false
     }
     case 2 => { // full logging
       log = true
       logStat = true
       logCEX = false
+      logSymexDerivations = false
     }
     case x if x >= 3 => { // full logging + detailed counterexamples
-      log = true
+      log = true            // + symex derivation steps
       logStat = true
       logCEX = true
+      logSymexDerivations = true
     }
   }
 
@@ -228,6 +233,7 @@ class GlobalParameters extends Cloneable {
     that.log = this.log
     that.logCEX = this.logCEX
     that.logStat = this.logStat
+    that.logSymexDerivations = this.logSymexDerivations
     that.printHornSimplified = this.printHornSimplified
     that.printHornSimplifiedSMT = this.printHornSimplifiedSMT
     that.dotSpec = this.dotSpec

@@ -56,7 +56,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   import Symex._
 
   var printInfo = false
-  def printInfo(s : String, newLine : Boolean = true) : Unit = {
+  def printInfo(s : => String, newLine : Boolean = true) : Unit = {
     if (printInfo)
       print(s + (if (newLine) "\n" else ""))
   }
