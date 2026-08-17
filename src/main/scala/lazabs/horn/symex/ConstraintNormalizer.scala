@@ -44,7 +44,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
  * Result type of [[ConstraintNormalizer.normalize]]
  * @param constraint         : the normalized constraint
  * @param definingTheoryLits : definingTheoryLits[i] is the theory literal that
- *                             defines local symbol number i (may not exist).
+ *                             defines i'th place symbol (may not exist).
  *                             e.g., the BV literal
  *                             bv_extract(0,0, p_0_0, p_c_0_i) is at index i,
  *                             because it defines p_c_0_i (result arg)
@@ -179,6 +179,24 @@ object ConstraintNormalizer {
     val allSyms = constraint.constants
     val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
 
+    val arithRows = Seq((constraint.arithConj.positiveEqs, 0),
+                        (constraint.arithConj.negativeEqs, 1),
+                        (constraint.arithConj.inEqs, 2))
+
+    val termToUsageSite : Map[ConstantTerm, (Seq[(String, Int, Int)], Seq[Int])] = {
+      val theorySites = new MHashMap[ConstantTerm, ArrayBuffer[(String, Int, Int)]]
+      for (lit <- theoryLits; (arg, id) <- lit.zipWithIndex; sym <- arg.constants)
+        theorySites.getOrElseUpdate(sym, new ArrayBuffer) +=
+          ((lit.pred.name, lit.pred.arity, id))
+      val arithSites = new MHashMap[ConstantTerm, ArrayBuffer[Int]]
+      for ((lcs, kind) <- arithRows; lc <- lcs; sym <- lc.constants)
+        arithSites.getOrElseUpdate(sym, new ArrayBuffer) += kind
+      (theorySites.keySet ++ arithSites.keySet).iterator.map(sym => sym ->
+          (theorySites.get(sym).map(_.toList.sorted).getOrElse(Nil),
+            arithSites.get(sym).map(_.toList.sorted).getOrElse(Nil))).toMap
+        .withDefaultValue((Nil, Nil))
+    }
+
     val symPosition = new MHashMap[ConstantTerm, Int]
     // init position with fixed symbols
     for (sym <- fixedSyms)
@@ -228,11 +246,31 @@ object ConstraintNormalizer {
                                if arg.constants contains sym)
         yield UsageKey(id, litKeyFull(lit))).toList.sorted
       val arithUsages =
-        (for ((lcs, kind) <- Seq((constraint.arithConj.positiveEqs, 0),
-                                 (constraint.arithConj.negativeEqs, 1),
-                                 (constraint.arithConj.inEqs, 2));
-          lc <- lcs if lc.constants contains sym) yield (kind, argKeyOf(lc))).toList.sorted
+        (for ((lcs, kind) <- arithRows; lc <- lcs if lc.constants contains sym)
+          yield (kind, argKeyOf(lc))).toList.sorted
       (theoryUsages, arithUsages)
+    }
+
+    // Batch version of signatureOf to compute each literal's key once
+    def signaturesOf(syms : Set[ConstantTerm])
+    : Map[ConstantTerm, (Seq[UsageKey], Seq[(Int, ArgKey)])] = {
+      val theoryUsages = new MHashMap[ConstantTerm, ArrayBuffer[UsageKey]]
+      for (lit <- theoryLits) {
+        lazy val key = litKeyFull(lit)
+        for ((arg, id) <- lit.zipWithIndex; sym <- arg.constants
+             if syms contains sym)
+          theoryUsages.getOrElseUpdate(sym, new ArrayBuffer) +=
+            UsageKey(id, key)
+      }
+      val arithUsages = new MHashMap[ConstantTerm, ArrayBuffer[(Int, ArgKey)]]
+      for ((lcs, kind) <- arithRows; lc <- lcs) {
+        lazy val key = argKeyOf(lc)
+        for (sym <- lc.constants if syms contains sym)
+          arithUsages.getOrElseUpdate(sym, new ArrayBuffer) += ((kind, key))
+      }
+      (for (sym <- syms.iterator)
+        yield sym -> (theoryUsages.get(sym).map(_.toList.sorted).getOrElse(Nil),
+          arithUsages.get(sym).map(_.toList.sorted).getOrElse(Nil))).toMap
     }
 
     var done = false
@@ -251,7 +289,22 @@ object ConstraintNormalizer {
           val undefinableSyms = unplacedSyms filterNot definableSyms
           val candidates = // e.g., f(a,b) and g(b,a).
             if(undefinableSyms nonEmpty) undefinableSyms else unplacedSyms
-          placeSym(candidates.minBy(signatureOf)(signatureOrdering), None)
+          if (candidates.size == 1)
+            placeSym(candidates.head, None)
+          else {
+            val minSites = candidates.minBy(termToUsageSite)(usageSitesOrdering)
+            val siteTied = candidates.filter(c =>
+              usageSitesOrdering.compare(termToUsageSite(c),
+                termToUsageSite(minSites)) == 0)
+            if (siteTied.size == 1)
+              placeSym(siteTied.head, None)
+            else {
+              val signatures = signaturesOf(siteTied)
+              Debug.assertInt(AC, siteTied forall (
+                sym => signatures(sym) == signatureOf(sym)))
+              placeSym(siteTied.minBy(signatures)(signatureOrdering), None)
+            }
+          }
         }
       }
     }
@@ -282,7 +335,7 @@ object ConstraintNormalizer {
       (replacements.toSet intersect untouched).isEmpty
     })
     val subst = ConstantSubst(
-      (symbolOrder.localSymbols zip replacements).toMap, order)
+      (symbolOrder.localSymbols.reverse zip replacements).toMap, order)
     val newConstraint = subst(constraint)
     Debug.assertPost(AC, newConstraint.constants.size == constraint.constants.size)
     val definingLits = for (maybeLit <- symbolOrder.definingTheoryLits)
@@ -345,4 +398,23 @@ object ConstraintNormalizer {
         Seqs.lexCompare(a._2.iterator, b._2.iterator)
       )
   }
+
+  private implicit val usageSiteOrdering : Ordering[(String, Int, Int)] =
+    new Ordering[(String, Int, Int)] {
+      def compare(a : (String, Int, Int), b : (String, Int, Int)) : Int =
+        Seqs.lexCombineInts(a._1 compareTo b._1,
+                            a._2 compare b._2,
+                            a._3 compare b._3)
+    }
+
+  private[symex]
+  val usageSitesOrdering : Ordering[(Seq[(String, Int, Int)], Seq[Int])] =
+    new Ordering[(Seq[(String, Int, Int)], Seq[Int])] {
+      def compare(a : (Seq[(String, Int, Int)], Seq[Int]),
+                  b : (Seq[(String, Int, Int)], Seq[Int])) : Int =
+        Seqs.lexCombineInts(
+          Seqs.lexCompare(a._1.iterator, b._1.iterator),
+          Seqs.lexCompare(a._2.iterator, b._2.iterator))
+    }
+
 }
