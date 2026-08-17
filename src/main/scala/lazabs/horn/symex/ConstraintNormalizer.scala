@@ -36,7 +36,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.linearcombination.LinearCombination.SingleTerm
 import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.substitutions.ConstantSubst
-import ap.util.Seqs
+import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -102,6 +102,8 @@ private[symex] case class UsageKey(argIndex : Int, lit : LitKey)
  */
 object ConstraintNormalizer {
 
+  private object AC extends Debug.ASSERTION_CATEGORY
+
   /**
    *  Normalizes a constraint with theory literals using its structure.
    * @param fixedSyms   Fixed symbols tha tthe normalizer does not touch.
@@ -117,13 +119,9 @@ object ConstraintNormalizer {
                 constraint : Conjunction,
                 newSyms    : Int => (Seq[ConstantTerm], TermOrder))
   : NormalizedConstraint = {
-    if (constraint.predConj.positiveLits isEmpty) {
-      NormalizedConstraint(constraint, IndexedSeq())
-    } else {
-      val simpConstraint = simplify(constraint)
-      val symbolOrder    = canonicalSymbolOrder(fixedSyms, simpConstraint)
-      rebuild(simpConstraint, symbolOrder, newSyms)
-    }
+    val simpConstraint = simplify(constraint)
+    val symbolOrder    = canonicalSymbolOrder(fixedSyms, simpConstraint)
+    rebuild(simpConstraint, symbolOrder, newSyms)
   }
 
   // Some(c): merged; c may also be false if contradiction detected
@@ -178,7 +176,7 @@ object ConstraintNormalizer {
   def canonicalSymbolOrder(fixedSyms  : Seq[ConstantTerm],
                            constraint : Conjunction) : CanonicalSymbolOrder = {
     val theoryLits = constraint.predConj.positiveLits
-    val allTheoryLitSyms = theoryLits.flatMap(_.constants).toSet
+    val allSyms = constraint.constants
     val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
 
     val symPosition = new MHashMap[ConstantTerm, Int]
@@ -214,20 +212,28 @@ object ConstraintNormalizer {
     }
 
     val UnplacedPos = Int.MaxValue
-    // also includes result (lit instead of lit.init, and allows unplaced syms)
-    def litKeyFull(lit : Atom) : LitKey = {
-      val args = for (linearComb <- lit) yield {
-        val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
-          yield (symPosition.getOrElse(sym, UnplacedPos), coeff)).toList.sortBy(_._1)
-        ArgKey(sortedTerms, linearComb.constant)
-      }
-      LitKey(lit.pred, args.toList)
+
+    def argKeyOf(linearComb : LinearCombination) : ArgKey = {
+      val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
+        yield (symPosition.getOrElse(sym, UnplacedPos),
+          coeff)).toList.sortBy(_._1)
+      ArgKey(sortedTerms, linearComb.constant)
     }
 
-    def signatureOf(sym : ConstantTerm) : Seq[UsageKey] =
-      (for (lit <- theoryLits ; (arg, id) <- lit.zipWithIndex
-           if arg.constants contains sym)
+    // also includes result (lit instead of lit.init, and allows unplaced syms)
+    def litKeyFull(lit : Atom) : LitKey = LitKey(lit.pred, lit.map(argKeyOf))
+
+    def signatureOf(sym : ConstantTerm) : (Seq[UsageKey], Seq[(Int, ArgKey)]) = {
+      val theoryUsages = (for (lit <- theoryLits; (arg, id) <- lit.zipWithIndex
+                               if arg.constants contains sym)
         yield UsageKey(id, litKeyFull(lit))).toList.sorted
+      val arithUsages =
+        (for ((lcs, kind) <- Seq((constraint.arithConj.positiveEqs, 0),
+                                 (constraint.arithConj.negativeEqs, 1),
+                                 (constraint.arithConj.inEqs, 2));
+          lc <- lcs if lc.constants contains sym) yield (kind, argKeyOf(lc))).toList.sorted
+      (theoryUsages, arithUsages)
+    }
 
     var done = false
     while(!done) {
@@ -236,7 +242,7 @@ object ConstraintNormalizer {
         val lit = readyToDefineLits.minBy(litKey)
         placeSym(resultSymbol(lit).get, Some(lit))
       } else { // no lits ready to define a result symbol
-        val unplacedSyms = allTheoryLitSyms filterNot symPosition.contains
+        val unplacedSyms = allSyms filterNot symPosition.contains
         if (unplacedSyms isEmpty) {
           done = true
         } else {
@@ -249,9 +255,8 @@ object ConstraintNormalizer {
         }
       }
     }
-    for (sym <- constraint.constants.toSeq.sortBy(_.name)
-         if !(symPosition contains sym))
-      placeSym(sym, None)
+    Debug.assertPost(AC, constraint.constants forall symPosition.contains)
+    Debug.assertPost(AC, localSymbols.size == definingTheoryLits.size)
     CanonicalSymbolOrder(localSymbols, definingTheoryLits)
   }
 
@@ -270,9 +275,16 @@ object ConstraintNormalizer {
               newSyms     : Int => (Seq[ConstantTerm], TermOrder))
   : NormalizedConstraint = {
     val (replacements, order) = newSyms(symbolOrder.localSymbols.size)
+    Debug.assertPre(AC, replacements.size == symbolOrder.localSymbols.size)
+    Debug.assertPre(AC, replacements.toSet.size == replacements.size)
+    Debug.assertPre(AC, {
+      val untouched = constraint.constants -- symbolOrder.localSymbols
+      (replacements.toSet intersect untouched).isEmpty
+    })
     val subst = ConstantSubst(
       (symbolOrder.localSymbols zip replacements).toMap, order)
     val newConstraint = subst(constraint)
+    Debug.assertPost(AC, newConstraint.constants.size == constraint.constants.size)
     val definingLits = for (maybeLit <- symbolOrder.definingTheoryLits)
       yield maybeLit.map(lit => Atom(lit.pred,
         for(linearComb <- lit) yield subst(linearComb), order))
@@ -315,10 +327,22 @@ object ConstraintNormalizer {
       )
     }
 
+  private implicit val arithUsageOrdering : Ordering[(Int, ArgKey)] =
+    new Ordering[(Int, ArgKey)] {
+      def compare(a : (Int, ArgKey), b : (Int, ArgKey)) : Int =
+        Seqs.lexCombineInts(a._1 compare b._1,
+          argKeyOrdering.compare(a._2, b._2))
+    }
+
   // a symbol's sorted usages
   private[symex]
-  val signatureOrdering : Ordering[Seq[UsageKey]] = new Ordering[Seq[UsageKey]] {
-    def compare(a : Seq[UsageKey], b : Seq[UsageKey]) : Int =
-      Seqs.lexCompare(a.iterator, b.iterator)
+  val signatureOrdering : Ordering[(Seq[UsageKey], Seq[(Int, ArgKey)])] =
+    new Ordering[(Seq[UsageKey], Seq[(Int, ArgKey)])] {
+    def compare(a : (Seq[UsageKey], Seq[(Int, ArgKey)]),
+                b : (Seq[UsageKey], Seq[(Int, ArgKey)])) : Int =
+      Seqs.lexCombineInts(
+        Seqs.lexCompare(a._1.iterator, b._1.iterator),
+        Seqs.lexCompare(a._2.iterator, b._2.iterator)
+      )
   }
 }
