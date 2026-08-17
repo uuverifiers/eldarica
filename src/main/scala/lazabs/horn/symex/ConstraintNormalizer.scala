@@ -249,6 +249,9 @@ object ConstraintNormalizer {
         }
       }
     }
+    for (sym <- constraint.constants.toSeq.sortBy(_.name)
+         if !(symPosition contains sym))
+      placeSym(sym, None)
     CanonicalSymbolOrder(localSymbols, definingTheoryLits)
   }
 
@@ -261,8 +264,6 @@ object ConstraintNormalizer {
   }
 
   // Rename symbols in atoms and constraint to canonical ones
-  // TODO: symbols that appear only in the arith part (non-theory) is never
-  //       placed. This doesn't make the result wrong, but may be improved.
   private[symex]
   def rebuild(constraint  : Conjunction,
               symbolOrder : CanonicalSymbolOrder,
