@@ -38,10 +38,10 @@ import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
  * be first applied to the constraint before attempting simplification.
  */
 trait ConstraintSimplifier {
-  def simplifyConstraint(constraint:                 Conjunction,
-                         localSymbols:               Set[Term],
-                         reduceBeforeSimplification: Boolean)(
-      implicit symex_sf:                             SymexSymbolFactory): Conjunction
+  def simplifyConstraint(constraint                 : Conjunction,
+                         localSymbols               : Set[Term],
+                         reduceBeforeSimplification : Boolean)
+           (implicit symex_sf : SymexSymbolFactory) : Conjunction
 }
 
 /**
@@ -49,32 +49,35 @@ trait ConstraintSimplifier {
  */
 trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
-  class LocalSymbolEliminator(constraint:   Conjunction,
-                              localSymbols: Set[Term],
-                              order:        TermOrder)
+  class LocalSymbolEliminator(constraint   : Conjunction,
+                              localSymbols : Set[Term],
+                              order        : TermOrder)
       extends ConjunctEliminator(constraint, localSymbols, Set(), order) {
 
-    override protected def nonUniversalElimination(f: Conjunction) = {}
+    var divJudgements : List[Conjunction] = List()
+
+    override protected def nonUniversalElimination(f : Conjunction) = {}
 
     // todo: check if this eliminates function applications
     //   e.g., unused select and stores
 
-    protected def universalElimination(m: ModelElement): Unit = {}
+    protected def universalElimination(m : ModelElement): Unit = {}
 
-    override protected def addDivisibility(f: Conjunction) = {}
+    override protected def addDivisibility(f : Conjunction) =
+      divJudgements = f :: divJudgements
 
-    override protected def isEliminationCandidate(t: Term): Boolean =
+    override protected def isEliminationCandidate(t : Term) : Boolean =
       localSymbols contains t
 
     override protected def eliminationCandidates(
-        constraint: Conjunction): Iterator[Term] = localSymbols.iterator
+        constraint: Conjunction) : Iterator[Term] = localSymbols.iterator
 
   }
 
-  override def simplifyConstraint(constraint:                 Conjunction,
-                                  localSymbols:               Set[Term],
-                                  reduceBeforeSimplification: Boolean)(
-      implicit symex_sf:                                      SymexSymbolFactory): Conjunction = {
+  override def simplifyConstraint(constraint                 : Conjunction,
+                                  localSymbols               : Set[Term],
+                                  reduceBeforeSimplification : Boolean)
+                    (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
     val reducedConstraint =
       if (reduceBeforeSimplification)
         symex_sf.reducer(Conjunction.TRUE)(constraint)
@@ -85,10 +88,14 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
        * If the constraint is a conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
        */
-      new LocalSymbolEliminator(reducedConstraint,
-                                localSymbols,
-                                symex_sf.order)
-        .eliminate(ComputationLogger.NonLogger)
+      val eliminator  = new LocalSymbolEliminator(
+        reducedConstraint, localSymbols, symex_sf.order)
+      val eliminated  = eliminator.eliminate(ComputationLogger.NonLogger)
+      if (eliminator.divJudgements isEmpty)
+        eliminated
+      else
+        Conjunction.conj(
+          eliminated :: eliminator.divJudgements.map(_.negate), symex_sf.order)
     } else {
       /**
        * If there are disjunctions, then try another method of
@@ -105,11 +112,14 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       val reducedQuanF : Conjunction =
         symex_sf.reducer(Conjunction.TRUE).apply(quanF)
 
-      // eliminate any remaining quantifiers by re-introducing local symbols
-      assert(sortedLocalSymbols.size >= reducedQuanF.quans.size)
+      // re-introduce local symbols only for the outermost exists
+      val exBlockSize =
+        reducedQuanF.quans.reverse.takeWhile(
+          _ == ap.terfor.conjunctions.Quantifier.EX).size
+      val numToInstantiate = exBlockSize min sortedLocalSymbols.size
 
-      reducedQuanF.instantiate(sortedLocalSymbols take reducedQuanF.quans.size)(
-                               reducedQuanF.order)
+      reducedQuanF.instantiate(
+        sortedLocalSymbols take numToInstantiate)(reducedQuanF.order)
     }
   }
 }
