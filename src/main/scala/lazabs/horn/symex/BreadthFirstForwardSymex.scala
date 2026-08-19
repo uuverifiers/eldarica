@@ -45,7 +45,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    maxDepth : Option[Int] = None)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
     extends Symex(clauses)
-    with SimpleSubsumptionChecker
+    with EntailmentSubsumptionChecker
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._

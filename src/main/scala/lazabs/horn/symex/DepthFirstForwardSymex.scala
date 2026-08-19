@@ -40,7 +40,7 @@ import scala.collection.mutable.{Queue => MQueue, Stack => MStack}
 class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
     extends Symex(clauses)
-    with SimpleSubsumptionChecker
+    with NoSubsumptionChecker
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
