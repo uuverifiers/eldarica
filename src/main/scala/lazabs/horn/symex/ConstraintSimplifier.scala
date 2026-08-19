@@ -28,9 +28,12 @@
  */
 package lazabs.horn.symex
 
+import ap.basetypes.IdealInt
 import ap.terfor.{ComputationLogger, ConstantTerm, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.substitutions.ConstantSubst
 
 /**
  * Takes a constraint and a set of local symbols that can safely be eliminated.
@@ -74,6 +77,38 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
   }
 
+  private def inlineLocalEquations(constraint   : Conjunction,
+                                   localSymbols : Set[Term],
+                                   order        : TermOrder) : Conjunction = {
+    // the first equation defining a local symbol with coefficient 1 or -1
+    def findDefinedLocal(conj : Conjunction)
+        : Option[(IdealInt, ConstantTerm, LinearCombination)] = {
+      val candidates =
+        for (lc <- conj.arithConj.positiveEqs.iterator;
+             (coeff, c : ConstantTerm) <- lc.pairIterator
+               if coeff.isUnit && (localSymbols contains c))
+          yield (coeff, c, lc)
+      if (candidates.hasNext) Some(candidates.next()) else None
+    }
+
+    var conj = constraint
+    var next = findDefinedLocal(conj)
+    while (next.isDefined) {
+      val (coeff, c, lc) = next.get
+      // -coeff * lc + c = -coeff * (coeff*c + t) + c
+      //                 = -(coeff^2)*c - coeff*t + c (coeff^2 is 1)
+      //                 = -c - coeff*t + c
+      //                 = -coeff * t
+      val replacement =
+        LinearCombination.sum(-coeff, lc,
+                              IdealInt.ONE, LinearCombination(c, order),
+                              order)
+      conj = ConstantSubst(c, replacement, order)(conj)
+      next = findDefinedLocal(conj)
+    }
+    conj
+  }
+
   override def simplifyConstraint(constraint                 : Conjunction,
                                   localSymbols               : Set[Term],
                                   reduceBeforeSimplification : Boolean)
@@ -88,8 +123,10 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
        * If the constraint is a conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
        */
-      val eliminator  = new LocalSymbolEliminator(
+      val inlined = inlineLocalEquations(
         reducedConstraint, localSymbols, symex_sf.order)
+      val eliminator  = new LocalSymbolEliminator(
+        inlined, localSymbols, symex_sf.order)
       val eliminated  = eliminator.eliminate(ComputationLogger.NonLogger)
       if (eliminator.divJudgements isEmpty)
         eliminated
