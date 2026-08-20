@@ -57,6 +57,10 @@ trait EntailmentSubsumptionChecker extends SubsumptionChecker {
   self : Symex[_] =>
   private val enabled = lazabs.GlobalParameters.get.symexUseSubsumption
 
+  private val capEnabled = lazabs.GlobalParameters.get.symexUseSubsumptionCap
+  private val newestToCheck = 32 // use this many cucs that were last derived
+  private val oldestToCheck = 8  // use this many oldest cucs
+
   // counters for the log summary
   private var candidatePairs   = 0L
   private var duplicateSkips   = 0L
@@ -77,7 +81,13 @@ trait EntailmentSubsumptionChecker extends SubsumptionChecker {
       false
     } else unitClauseDB.inferred(cuc.rs) match {
       case Some(stored) =>
-        val subsumed = stored.reverseIterator exists { old => // start from last cuc
+        val candidates =
+          if (!capEnabled || stored.size <= newestToCheck + oldestToCheck)
+            stored.reverseIterator // below the limit / no cap
+          else // use the limit
+            stored.reverseIterator.take(newestToCheck) ++
+              stored.iterator.take(oldestToCheck)
+        val subsumed = candidates exists { old =>
           candidatePairs += 1
           if (old.isPositive != cuc.isPositive) // polarity must match
             false
