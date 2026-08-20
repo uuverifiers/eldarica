@@ -114,4 +114,59 @@ class ConstraintSimplifierTests
       assert(res.predConj.positiveLits.head(2) == l(x))
     }
   }
+
+  "Locals constrained only by bounds and disequalities are dropped" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val x = sf.genConstant("x")
+      val c = sf.genConstant("c")
+      implicit val order = sf.order
+
+      // e.g., x >= 1 & 0 <= c <= 3 & c != x 
+      // the range is 4, one disequality forbids at most 1, c can be dropped
+      val constraint = conj(l(x) >= 1,
+                            l(c) >= 0, l(c) <= 3,
+                            l(c) =/= l(x))
+      val res = simplifyConstraint(constraint,
+                                   Set(c : ap.terfor.Term),
+                                   reduceBeforeSimplification = false)
+
+      assert(!(res.constants contains c))
+
+      def statusForX(value : Int) : ProverStatus.Value = p.scope {
+        p.addAssertion(res)
+        p.addAssertion(l(x) === value)
+        p.???
+      }
+      assert(statusForX(1) == ProverStatus.Sat)
+      assert(statusForX(0) == ProverStatus.Unsat)
+    }
+  }
+
+  "Bounded locals with too many disequalities are kept" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val x = sf.genConstant("x")
+      val c = sf.genConstant("c")
+      implicit val order = sf.order
+
+      // e.g., x >= 1 & 0 <= c <= 1 & c != x & c != x - 1
+      // for x = 1 two disequalities cover the whole range, no drop
+      val constraint = conj(l(x) >= 1,
+                            l(c) >= 0, l(c) <= 1,
+                            l(c) =/= l(x),
+                            l(c) =/= l(x) - 1)
+      val res = simplifyConstraint(constraint,
+                                   Set(c : ap.terfor.Term),
+                                   reduceBeforeSimplification = false)
+
+      def statusForX(value : Int) : ProverStatus.Value = p.scope {
+        p.addAssertion(res)
+        p.addAssertion(l(x) === value)
+        p.???
+      }
+      assert(statusForX(1) == ProverStatus.Unsat)
+      assert(statusForX(2) == ProverStatus.Sat)
+    }
+  }
 }

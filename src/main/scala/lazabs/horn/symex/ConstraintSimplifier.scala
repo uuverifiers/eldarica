@@ -32,6 +32,8 @@ import ap.basetypes.IdealInt
 import ap.terfor.{ComputationLogger, ConstantTerm, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
+import ap.terfor.equations.NegEquationConj
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.substitutions.ConstantSubst
 
@@ -91,22 +93,90 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       if (candidates.hasNext) Some(candidates.next()) else None
     }
 
-    var conj = constraint
-    var next = findDefinedLocal(conj)
-    while (next.isDefined) {
-      val (coeff, c, lc) = next.get
-      // -coeff * lc + c = -coeff * (coeff*c + t) + c
-      //                 = -(coeff^2)*c - coeff*t + c (coeff^2 is 1)
-      //                 = -c - coeff*t + c
-      //                 = -coeff * t
-      val replacement =
-        LinearCombination.sum(-coeff, lc,
-                              IdealInt.ONE, LinearCombination(c, order),
-                              order)
-      conj = ConstantSubst(c, replacement, order)(conj)
-      next = findDefinedLocal(conj)
+    @annotation.tailrec
+    def inlineAll(conj : Conjunction) : Conjunction =
+      findDefinedLocal(conj) match {
+        case Some((coeff, c, lc)) =>
+          // lc is coeff * c + t = 0 with coeff being 1 or -1, so
+          // c = -t / coeff = -coeff * t, which equals -coeff * lc + c
+          val replacement =
+            LinearCombination.sum(-coeff, lc,
+                                  IdealInt.ONE, LinearCombination(c, order),
+                                  order)
+          inlineAll(ConstantSubst(c, replacement, order)(conj))
+        case None => conj
+      }
+
+    inlineAll(constraint)
+  }
+
+  /**
+   * Drop local symbols whose occurrences are only inequalities with
+   * constant bounds and disequalities
+   * e.g.,
+   * x >= 1 & 0 <= c <= 3 & c != x
+   * the range is 4, one disequality forbids at most 1, c can be dropped
+   *
+   * x >= 1 & 0 <= c <= 1 & c != x & c != x - 1
+   * for x = 1 two disequalities cover the whole range, no drop
+   */
+  private def dropRangeConstrainedLocals(constraint   : Conjunction,
+                                         localSymbols : Set[Term],
+                                         order        : TermOrder) : Conjunction = {
+
+    def droppable(conj : Conjunction, c : ConstantTerm) : Boolean = {
+      val arith    = conj.arithConj
+      val bounds   = arith.inEqs filter (_.constants contains c)
+      val diseqs   = arith.negativeEqs filter (_.constants contains c)
+
+      val occursElsewhere =
+        (arith.positiveEqs.constants contains c) ||
+        (conj.predConj.constants contains c) ||
+        (conj.negatedConjs.constants contains c)
+
+      // every inequality on c must mention only c with coeff 1 or -1
+      // nothing on c may contain bound variables
+      val boundsAreClean = bounds forall (lc =>
+        lc.constants == Set(c) && (lc get c).isUnit && lc.variables.isEmpty)
+      val diseqsAreClean = diseqs forall (_.variables.isEmpty)
+
+      // each inequality is coeff * c + offset >= 0
+      def rangeExceeds(count : Int) : Boolean = {
+        val lower = (bounds collect {
+          case lc if (lc get c).isOne =>
+            -lc.constant }) reduceOption (_ max _)
+        val upper = (bounds collect {
+          case lc if (lc get c).isMinusOne =>
+            lc.constant }) reduceOption (_ min _)
+        (lower, upper) match {
+          case (Some(lo), Some(hi)) =>
+            hi - lo + IdealInt.ONE > IdealInt(count)
+          case _ =>
+            true // unbounded on one side
+        }
+      }
+      !occursElsewhere && boundsAreClean && diseqsAreClean &&
+        rangeExceeds(diseqs.size)
     }
-    conj
+
+    def dropConstraintsOn(conj : Conjunction, c : ConstantTerm) : Conjunction =
+      conj.updateInEqs(InEqConj(
+            conj.arithConj.inEqs.iterator filterNot (_.constants contains c),
+            order))(order)
+          .updateNegativeEqs(NegEquationConj(
+            conj.arithConj.negativeEqs.iterator filterNot (_.constants contains c),
+            order))(order)
+
+    val localConstants = localSymbols collect { case c : ConstantTerm => c }
+
+    // repeat until nothing more can be dropped
+    @annotation.tailrec
+    def dropAll(conj : Conjunction) : Conjunction = localConstants find (c =>
+      (conj.constants contains c) && droppable(conj, c)) match {
+      case Some(c) => dropAll(dropConstraintsOn(conj, c))
+      case None    => conj
+    }
+    dropAll(constraint)
   }
 
   override def simplifyConstraint(constraint                 : Conjunction,
@@ -125,8 +195,10 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
        */
       val inlined = inlineLocalEquations(
         reducedConstraint, localSymbols, symex_sf.order)
-      val eliminator  = new LocalSymbolEliminator(
+      val dropped = dropRangeConstrainedLocals(
         inlined, localSymbols, symex_sf.order)
+      val eliminator  = new LocalSymbolEliminator(
+        dropped, localSymbols, symex_sf.order)
       val eliminated  = eliminator.eliminate(ComputationLogger.NonLogger)
       if (eliminator.divJudgements isEmpty)
         eliminated
