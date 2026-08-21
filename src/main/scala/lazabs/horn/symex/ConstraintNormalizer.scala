@@ -105,7 +105,7 @@ object ConstraintNormalizer {
   private object AC extends Debug.ASSERTION_CATEGORY
 
   /**
-   *  Normalizes a constraint with theory literals using its structure.
+   * Normalizes a constraint with theory literals using its structure.
    * @param fixedSyms   Fixed symbols tha tthe normalizer does not touch.
    *                    e.g., pred args etc.
    * @param constraint  The constraint to be normalized
@@ -119,51 +119,8 @@ object ConstraintNormalizer {
                 constraint : Conjunction,
                 newSyms    : Int => (Seq[ConstantTerm], TermOrder))
   : NormalizedConstraint = {
-    val simpConstraint = simplify(constraint)
-    val symbolOrder    = canonicalSymbolOrder(fixedSyms, simpConstraint)
-    rebuild(simpConstraint, symbolOrder, newSyms)
-  }
-
-  // Some(c): merged; c may also be false if contradiction detected
-  // None : nothing to merge
-  private def mergeDuplicateLiterals(constraint : Conjunction)
-  : Option[Conjunction] = {
-    // lits with same args applied to same funs
-    val equalResultGroups =
-      constraint.predConj.positiveLits.groupBy(lit => (lit.pred, lit.init))
-        .values.filter(_.size > 1) // must be more than 1 lit for equality
-        .map(_.map(_.last)) // keep only the las arg (res)
-
-    def isContradiction(results : Seq[LinearCombination]) : Boolean =
-      results.filter(_.isConstant) // const results
-        .map(_.constant).distinct.size > 1 // but more than one distinct val
-
-    if (equalResultGroups exists isContradiction) // args same but res is constant and different
-      return Some(Conjunction.FALSE)
-
-    val replacements : Map[ConstantTerm, Term] =
-      (for(results <- equalResultGroups.iterator;
-           groupValue = results.find(_.isConstant).getOrElse(results.head);
-           SingleTerm(sym : ConstantTerm) <- results.iterator
-           if !(groupValue.constants contains sym))
-        yield sym -> (groupValue : Term)).toMap
-    if (replacements.isEmpty) None
-    else Some(ConstantSubst(replacements, constraint.order)(constraint))
-  }
-
-  // Applies some simplification passes before normalization
-  private[symex]
-  def simplify(constraint : Conjunction) : Conjunction = {
-    var cur = constraint
-    var done = false
-    while(!done) {
-      mergeDuplicateLiterals(cur) match {
-        case Some(next) => cur = next
-        case None       => done = true
-      }
-      // TODO others simplifications?
-    }
-    cur
+    val symbolOrder = canonicalSymbolOrder(fixedSyms, constraint)
+    rebuild(constraint, symbolOrder, newSyms)
   }
 
   // Computes the canonical order of every symbol occurring in the constraint.
