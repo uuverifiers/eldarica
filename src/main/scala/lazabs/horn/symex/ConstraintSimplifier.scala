@@ -32,7 +32,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.{ComputationLogger, ConstantTerm, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
-import ap.terfor.equations.NegEquationConj
+import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Atom, Predicate}
@@ -77,9 +77,12 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     override protected def isEliminationCandidate(t : Term) : Boolean =
       localSymbols contains t
 
-    override protected def eliminationCandidates(
-        constraint: Conjunction) : Iterator[Term] = localSymbols.iterator
+    // sorted so that elimination is deterministic
+    private val sortedCandidates =
+      order.sort(localSymbols collect { case c : ConstantTerm => c })
 
+    override protected def eliminationCandidates(constraint : Conjunction)
+    : Iterator[Term] = sortedCandidates.iterator
   }
 
   // c used anywhere outside argument position pos of atom a
@@ -97,19 +100,21 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     (conj.predConj.negativeLits exists (_.constants contains c))
 
   // the constant bounds of c, when every inequality on c mentions only
-  // c with coeff 1 or -1 and contains no bound variables; None otherwise
+  // c with coeff 1 or -1 and contains no bound variables. None otherwise
   // each inequality is coeff * c + offset >= 0
   private def constantBoundsOf(conj : Conjunction, c : ConstantTerm)
       : Option[(Option[IdealInt], Option[IdealInt])] = {
     val bounds = conj.arithConj.inEqs filter (_.constants contains c)
     val clean = bounds forall (lc =>
-      lc.constants == Set(c) && (lc get c).isUnit && lc.variables.isEmpty)
+      lc.constants == Set(c) &&  // only c is mentioned
+        (lc get c).isUnit &&     // c is unit
+        lc.variables.isEmpty)    // no bound vars
     if (!clean) None
-    else Some((
-      (bounds collect {
-        case lc if (lc get c).isOne => -lc.constant }) reduceOption (_ max _),
-      (bounds collect {
-        case lc if (lc get c).isMinusOne => lc.constant }) reduceOption (_ min _)))
+    else {
+      val lowers = bounds collect { case lc if (lc get c).isOne => -lc.constant }
+      val uppers = bounds collect { case lc if (lc get c).isMinusOne => lc.constant }
+      Some((lowers reduceOption (_ max _), uppers reduceOption (_ min _))) // greatest lower and least upper bound
+    }
   }
 
   // remove every equ, ineq, diseq and atom containing c and add the given ineqs
@@ -126,6 +131,212 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
           conj.arithConj.negativeEqs.iterator filterNot (_.constants contains c),
           order))(order)
         .updatePredConj(remainingLits)(order)
+  }
+
+  // the symbol of a linear combination that is exactly a single symbol with
+  // coeff 1. None for anything else
+  private def singleSymbol(lc : LinearCombination) : Option[ConstantTerm] =
+    if (lc.size == 1 && (lc getCoeff 0).isOne)
+      lc getTerm 0 match {
+        case c : ConstantTerm => Some(c)
+        case _ => None
+      }
+    else None
+
+  // bounds implied by ineqs that mention only c
+  // ignores if another symbol is mentioned / coeff not unit / under quan
+  private def impliedBounds(conj : Conjunction, c : ConstantTerm)
+  : (Option[IdealInt], Option[IdealInt]) = {
+    val single = conj.arithConj.inEqs filter (lc =>
+      lc.constants == Set(c) &&  // only c is mentioned
+        (lc get c).isUnit &&     // c is unit
+        lc.variables.isEmpty)    // no bound vars
+    val lowers = single collect { case lc if (lc get c).isOne => -lc.constant }
+    val uppers = single collect { case lc if (lc get c).isMinusOne => lc.constant }
+    (lowers reduceOption (_ max _), uppers reduceOption (_ min _)) // greatest lower and least upper bound
+  }
+
+  // checks that x has no bits above bit
+  // i.e., x is within [0, 2^(bit+1) - 1]
+  private def hasNoBitsAbove(conj : Conjunction,
+                             x    : ConstantTerm,
+                             bit  : Int) : Boolean = {
+    val (lo, hi) = impliedBounds(conj, x)
+    (lo exists (_.signum >= 0)) &&
+    (hi exists (_ <= IdealInt.pow2MinusOne(bit + 1)))
+  }
+
+  /**
+   * Merge atoms of a functional predicate applied to the same arguments,
+   * e.g., p(x, r1) & p(x, r2)  -->  p(x, r1) & r1 = r2
+   */
+  private def mergeDuplicateFunctionAtoms(constraint    : Conjunction,
+                                          functionPreds : Set[Predicate],
+                                          order         : TermOrder)
+  : Conjunction = {
+    val duplicateGroups =
+      (constraint.predConj.positiveLits filter (functionPreds contains _.pred))
+        .groupBy(a => (a.pred, a.init)).values.filter(_.size > 1).toList
+    if (duplicateGroups.isEmpty) constraint
+    else {
+      val duplicates = (duplicateGroups.iterator flatMap (_.tail)).toSet
+      val resultEqs =
+        for (g <- duplicateGroups; a <- g.tail)
+          yield LinearCombination.sum(IdealInt.ONE, g.head.last,
+            IdealInt.MINUS_ONE, a.last, order)
+      val (_, remainingLits) =
+        constraint.predConj partition (duplicates contains)
+      Conjunction.conj(
+        List(
+          constraint.updatePredConj(remainingLits)(order),
+          EquationConj(resultEqs.iterator, order)),
+        order)
+    }
+  }
+
+  /**
+   * Replace an extract with a constant result by the interval it denotes
+   * when the extractee has no bits above the slice.
+   * e.g., for 0 <= x <= 255
+   * x[7:4] = 3  -->  48 <= x <= 63     (3*16 <= x < 4*16, bits 3..0 free)
+   * x[7:4] = 0  -->  0 <= x <= 15      (tighter bound, can make the next slice replaceable)
+   */
+  private def linearizeConstantSlices(constraint : Conjunction,
+                                      order      : TermOrder) : Conjunction = {
+
+    // the first extract x[hi:lo] = k where hi, lo and k are concrete
+    // and x is a single symbol with no bits above hi
+    def findConstantSlice(conj : Conjunction) : Option[(Atom, ConstantTerm)] = {
+      val candidates =
+        for (a <- conj.predConj.positiveLits.iterator;
+             if a.pred == ModuloArithmetic._bv_extract;
+             if a(0).isConstant && a(1).isConstant && a.last.isConstant;
+             x <- singleSymbol(a(2)).iterator;
+             if hasNoBitsAbove(conj, x, a(0).constant.intValueSafe))
+          yield (a, x)
+      if (candidates.hasNext) Some(candidates.next()) else None
+    }
+
+    // replace x[hi:lo] = k by the interval
+    // k*2^lo <= x <= k*2^lo + 2^lo - 1
+    // a k that does not fit in hi-lo+1 is a shortcut false
+    def replaceOne(conj : Conjunction, a : Atom,
+                   x : ConstantTerm) : Conjunction = {
+      val hi = a(0).constant.intValueSafe
+      val lo = a(1).constant.intValueSafe
+      val k  = a.last.constant
+      val kFitsSlice =
+        k.signum >= 0 && k <= IdealInt.pow2MinusOne(hi - lo + 1)
+      if (!kFitsSlice)
+        Conjunction.FALSE
+      else {
+        val lower = k * IdealInt.pow2(lo)
+        val upper = lower + IdealInt.pow2MinusOne(lo)
+        val xMinusLower =           // x - lower >= 0
+          LinearCombination.sum(IdealInt.ONE, LinearCombination(x, order),
+                                IdealInt.ONE, LinearCombination(-lower), order)
+        val upperMinusX =           // upper - x >= 0
+          LinearCombination.sum(IdealInt.MINUS_ONE, LinearCombination(x, order),
+                                IdealInt.ONE, LinearCombination(upper), order)
+        val (_, remainingLits) = conj.predConj partition (_ eq a)
+        Conjunction.conj(
+          List(conj.updatePredConj(remainingLits)(order),
+               InEqConj(Iterator(xMinusLower, upperMinusX), order)),
+          order)
+      }
+    }
+
+    @annotation.tailrec
+    def replaceAll(conj : Conjunction) : Conjunction =
+      findConstantSlice(conj) match {
+        case Some((a, x)) => replaceAll(replaceOne(conj, a, x))
+        case None         => conj
+      }
+
+    replaceAll(constraint)
+  }
+
+  /**
+   * Replace a complete set of extracts over one symbol by a linear eq.
+   * e.g., for 0 <= x <= 255
+   * x[7:1] = a & x[0:0] = b  -->  x = 2*a + b & 127 >= a >= 0 & 1 >= b >= 0
+   */
+  private def recomposeExtracts(constraint : Conjunction,
+                                order      : TermOrder) : Conjunction = {
+
+    // one extract slice x[hi:lo] = sliceValue
+    case class Slice(hi : Int, lo : Int, atom : Atom)
+
+    // slices covering bits T..0 with every bit in exactly one slice
+    // among such covers the one reaching the highest T wins
+    // e.g., from x[7:4], x[3:0], x[5:2] the cover is x[7:4], x[3:0]
+    def coveringSlices(slices : Seq[Slice]) : Option[List[Slice]] = {
+      // covers(hi) is a cover of the bits hi..0
+      // a slice with lo = 0 starts a cover. other slices extend a
+      // cover that ends right below them
+      var covers = Map[Int, List[Slice]]()
+      for (s <- slices sortBy (_.lo)) {
+        val extendsSomeCover = s.lo == 0 || (covers contains (s.lo - 1))
+        if (extendsSomeCover && !(covers contains s.hi))
+          covers = covers + (s.hi -> (s :: covers.getOrElse(s.lo - 1, Nil)))
+      }
+      if (covers.isEmpty) None
+      else Some(covers(covers.keysIterator.max))
+    }
+
+    // the first extractee x whose slices contain a cover of bits
+    // T..0 where x has no bits above T. only the largest cover is tried.
+    def findRecomposable(conj : Conjunction)
+        : Option[(ConstantTerm, List[Slice])] = {
+      val extractAtoms = conj.predConj.positiveLits filter (a =>
+        a.pred == ModuloArithmetic._bv_extract &&
+          a(0).isConstant && a(1).isConstant)
+      def slicesOf(x : ConstantTerm) : Seq[Slice] =
+        for (a <- extractAtoms; if singleSymbol(a(2)) contains x)
+          yield Slice(a(0).constant.intValueSafe,
+                      a(1).constant.intValueSafe, a)
+      val extractees = (extractAtoms flatMap (a => singleSymbol(a(2)))).distinct
+      val candidates =
+        for (x <- extractees.iterator;
+             cover <- coveringSlices(slicesOf(x)).iterator;
+             if hasNoBitsAbove(conj, x, cover.head.hi))
+          yield (x, cover)
+      if (candidates.hasNext) Some(candidates.next()) else None
+    }
+
+    // replace the cover's atoms by x = sum of 2^lo * sliceValue and
+    // the bounds 0 <= sliceValue <= 2^(hi-lo+1) - 1 for every sliceValue
+    // the extractee's own bounds stay untouched
+    def recompose(conj  : Conjunction,
+                  x     : ConstantTerm,
+                  cover : List[Slice]) : Conjunction = {
+      val weightedSliceValues = cover map (s => (-IdealInt.pow2(s.lo), s.atom.last))
+      val eq = LinearCombination.sum(
+        (IdealInt.ONE, LinearCombination(x, order)) :: weightedSliceValues, order)
+      val sliceValueBounds = cover flatMap { s =>
+        val widthMax = LinearCombination(IdealInt.pow2MinusOne(s.hi - s.lo + 1))
+        List(s.atom.last,           // sliceValue >= 0
+             LinearCombination.sum( // 2^width - 1 - sliceValue >= 0
+               IdealInt.MINUS_ONE, s.atom.last,
+               IdealInt.ONE, widthMax, order))
+      }
+      val coverAtoms = cover map (_.atom)
+      val (_, remainingLits) = conj.predConj partition (coverAtoms contains _)
+      Conjunction.conj(
+        List(conj.updatePredConj(remainingLits)(order),
+             EquationConj(eq, order),
+             InEqConj(sliceValueBounds.iterator, order)),
+        order)
+    }
+
+    @annotation.tailrec
+    def recomposeAll(conj : Conjunction) : Conjunction =
+      findRecomposable(conj) match {
+        case Some((x, cover)) => recomposeAll(recompose(conj, x, cover))
+        case None             => conj
+      }
+
+    recomposeAll(constraint)
   }
 
   private def inlineLocalEquations(constraint   : Conjunction,
@@ -191,7 +402,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       })
     }
 
-    val localConstants = localSymbols collect { case c : ConstantTerm => c }
+    val localConstants =
+      order.sort(localSymbols collect { case c : ConstantTerm => c })
 
     // repeat until nothing more can be dropped
     @annotation.tailrec
@@ -211,15 +423,6 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                                       localSymbols  : Set[Term],
                                       functionPreds : Set[Predicate],
                                       order         : TermOrder) : Conjunction = {
-
-    // the last argument must exactly be one symbol with coeff 1
-    def resultSymbol(a : Atom) : Option[ConstantTerm] =
-      if (a.last.size == 1 && (a.last getCoeff 0).isOne)
-        a.last getTerm 0 match {
-          case c : ConstantTerm => Some(c)
-          case _ => None
-        }
-      else None
 
     def sortRange(s : Sort) : (Option[IdealInt], Option[IdealInt]) = s match {
       case ModuloArithmetic.ModSort(lower, upper) => (Some(lower), Some(upper))
@@ -252,7 +455,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     def findDroppable(conj : Conjunction) : Option[(Atom, ConstantTerm)] =
       (for (a <- conj.predConj.positiveLits.iterator
               if functionPreds contains a.pred;
-            c <- resultSymbol(a).iterator
+            c <- singleSymbol(a.last).iterator
               if (localSymbols contains c) && canDrop(conj, a, c))
          yield (a, c)).toStream.headOption
 
@@ -354,6 +557,28 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     dropAll(constraint)
   }
 
+  private def runStages(constraint   : Conjunction,
+                        localSymbols : Set[Term],
+                        order        : TermOrder) : Conjunction = {
+    val stages : List[Conjunction => Conjunction] = List(
+      mergeDuplicateFunctionAtoms(_,
+        ModuloArithmetic.functionalPredicates, order),
+      linearizeConstantSlices(_, order),
+      recomposeExtracts(_, order),
+      inlineLocalEquations(_, localSymbols, order),
+      dropRangeConstrainedLocals(_, localSymbols, order),
+      dropUnusedFunctionAtoms(_, localSymbols,
+        ModuloArithmetic.functionalPredicates, order),
+      dropFreeArgumentCasts(_, localSymbols, order))
+
+    @annotation.tailrec
+    def run(conj : Conjunction) : Conjunction = {
+      val next = stages.foldLeft(conj)((c, stage) => stage(c))
+      if (next eq conj) conj else run(next)
+    }
+    run(constraint)
+  }
+
   override def simplifyConstraint(constraint                 : Conjunction,
                                   localSymbols               : Set[Term],
                                   reduceBeforeSimplification : Boolean)
@@ -368,21 +593,10 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
        * If the constraint is a conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
        */
-      val stages : List[Conjunction => Conjunction] = List(
-        inlineLocalEquations(_, localSymbols, symex_sf.order),
-        dropRangeConstrainedLocals(_, localSymbols, symex_sf.order),
-        dropUnusedFunctionAtoms(_, localSymbols,
-          ModuloArithmetic.functionalPredicates, symex_sf.order),
-        dropFreeArgumentCasts(_, localSymbols, symex_sf.order))
-
-      @annotation.tailrec
-      def runStages(conj : Conjunction) : Conjunction = {
-        val next = stages.foldLeft(conj)((c, stage) => stage(c))
-        if (next eq conj) conj else runStages(next)
-      }
-      val dropped = runStages(reducedConstraint)
+      val simplified =
+        runStages(reducedConstraint, localSymbols, symex_sf.order)
       val eliminator  = new LocalSymbolEliminator(
-        dropped, localSymbols, symex_sf.order)
+        simplified, localSymbols, symex_sf.order)
       val eliminated  = eliminator.eliminate(ComputationLogger.NonLogger)
       if (eliminator.divJudgements isEmpty)
         eliminated
@@ -390,16 +604,18 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         Conjunction.conj(
           eliminated :: eliminator.divJudgements.map(_.negate), symex_sf.order)
     } else {
-      /**
-       * If there are disjunctions, then try another method of
-       * simplification.
-       */
+       // If there are disjunctions, then try another simp method
+      val base =
+        if (lazabs.GlobalParameters.get.symexSimplifyDisjunctive)
+          runStages(reducedConstraint, localSymbols, symex_sf.order)
+        else constraint
+
       // quantify local symbols
       val sortedLocalSymbols =
         symex_sf.order.sort(localSymbols.map(_.asInstanceOf[ConstantTerm]))
       val quanF = Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
                                        sortedLocalSymbols,
-                                       constraint, constraint.order)
+                                       base, base.order)
 
       // try to eliminate the quantified vars
       val reducedQuanF : Conjunction =
@@ -411,8 +627,15 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
           _ == ap.terfor.conjunctions.Quantifier.EX).size
       val numToInstantiate = exBlockSize min sortedLocalSymbols.size
 
-      reducedQuanF.instantiate(
+      val instantiated = reducedQuanF.instantiate(
         sortedLocalSymbols take numToInstantiate)(reducedQuanF.order)
+
+      if (lazabs.GlobalParameters.get.symexSimplifyDisjunctive &&
+          instantiated.negatedConjs.isEmpty)
+        simplifyConstraint(instantiated, localSymbols,
+                           reduceBeforeSimplification = false)
+      else
+        instantiated
     }
   }
 }

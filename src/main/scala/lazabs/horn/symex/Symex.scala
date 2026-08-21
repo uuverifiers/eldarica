@@ -34,6 +34,7 @@ import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor._
+import ap.util.Debug
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
@@ -45,6 +46,7 @@ import lazabs.horn.preprocessor.HornPreprocessor.Solution
 import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
 object Symex {
+  private[symex] object AC extends ap.util.Debug.ASSERTION_CATEGORY
   class SymexException(msg: String) extends Exception(msg)
 }
 
@@ -140,7 +142,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val cuc = toUnitClause(normClause)
           (cuc, (cuc, normClause))
         }).unzip
-    (facts, factToNormClause.toMap)
+    (facts.distinct, factToNormClause.toMap)
   }
 
   val (goals: Seq[UnitClause], goalToNormClause: Map[UnitClause, NormClause]) = {
@@ -210,7 +212,12 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     var result: Either[Solution, Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
-    facts.foreach(fact => touched += factToNormClause(fact))
+    // do not use facts below, use normClauses
+    // two facts can simplify to be the same
+    for ((normClause, _) <- normClauses)
+      if (normClause.body.isEmpty &&
+          normClause.head._1.pred != HornClauses.FALSE)
+        touched += normClause
 
     // start traversal
     var ind = 0
@@ -453,9 +460,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (differentOccArgsToRewrite zip rs
         .arguments(0)).toMap
 
+    // sorted to keep the renaming independent of set iteration order
     val otherConstantsToRewrite =
-      constraint.constants -- (differentOccArgsToRewrite ++
-        rs.arguments(headOccInConstraint))
+      symex_sf.order.sort(
+        constraint.constants -- (differentOccArgsToRewrite ++
+          rs.arguments(headOccInConstraint)))
     val constantSubstMap: Map[ConstantTerm, ConstantTerm] =
       (otherConstantsToRewrite zip symex_sf
         .localSymbolsForPred(pred = rs.pred,
@@ -465,7 +474,22 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     val predLocalConstraint =
       ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
         constraint)
-    new UnitClause(rs, predLocalConstraint, isPositive)
+    // resolving the disjunctions of a constraint can enable further
+    // simplification. simplify again so that the stored constraint
+    // is fully simplified
+    val storedConstraint =
+      simplifyConstraint(predLocalConstraint,
+                         (predLocalConstraint.constants --
+                            rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
+                         reduceBeforeSimplification = true)
+    // with disjunctive simplification enabled, a stored constraint
+    // carries at most one atom per function application
+    Debug.assertPost(Symex.AC,
+      !lazabs.GlobalParameters.get.symexSimplifyDisjunctive || {
+        val lits = storedConstraint.predConj.positiveLits
+        lits.map(a => (a.pred, a.init)).distinct.size == lits.size
+      })
+    new UnitClause(rs, storedConstraint, isPositive)
   }
 
   private def toUnitClause(normClause: NormClause): UnitClause = {
