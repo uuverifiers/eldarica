@@ -605,10 +605,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
           eliminated :: eliminator.divJudgements.map(_.negate), symex_sf.order)
     } else {
        // If there are disjunctions, then try another simp method
-      val base =
-        if (lazabs.GlobalParameters.get.symexSimplifyDisjunctive)
-          runStages(reducedConstraint, localSymbols, symex_sf.order)
-        else constraint
+      val base = runStages(reducedConstraint, localSymbols, symex_sf.order)
 
       // quantify local symbols
       val sortedLocalSymbols =
@@ -630,8 +627,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       val instantiated = reducedQuanF.instantiate(
         sortedLocalSymbols take numToInstantiate)(reducedQuanF.order)
 
-      if (lazabs.GlobalParameters.get.symexSimplifyDisjunctive &&
-          instantiated.negatedConjs.isEmpty)
+      if (instantiated.negatedConjs.isEmpty)
         simplifyConstraint(instantiated, localSymbols,
                            reduceBeforeSimplification = false)
       else

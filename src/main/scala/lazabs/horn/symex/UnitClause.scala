@@ -34,7 +34,6 @@ import ap.parser.PrincessLineariser
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
 import ap.terfor.substitutions.ConstantSubst
-import lazabs.GlobalParameters
 import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.Util.toStream
 import lazabs.horn.symex.Symex.SymexException
@@ -54,10 +53,8 @@ class UnitClause(val rs            : RelationSymbol,
                  val isPositive    : Boolean)(implicit sf: SymexSymbolFactory) {
 
   private val normalized =
-    if (GlobalParameters.get.symexNormalizeConstraints)
-      ConstraintNormalizer.normalize(rs.arguments(0), rawConstraint,
-        n => (sf.localSymbolsForPred(rs.pred, n, 0), sf.order))
-    else NormalizedConstraint(rawConstraint, IndexedSeq())
+    ConstraintNormalizer.normalize(rs.arguments(0), rawConstraint,
+      n => (sf.localSymbolsForPred(rs.pred, n, 0), sf.order))
 
   val constraint : Conjunction = normalized.constraint
   val definingTheoryLits : IndexedSeq[Option[Atom]] =

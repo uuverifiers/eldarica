@@ -26,14 +26,6 @@ class SubsumptionCheckerTests
     finally params.timeoutChecker = old
   }
 
-  private def withSubsumption[A](comp : => A) : A = {
-    val params = lazabs.GlobalParameters.get
-    val old    = params.symexUseSubsumption
-    params.symexUseSubsumption = true
-    try comp
-    finally params.symexUseSubsumption = old
-  }
-
   "Entailed states are dropped and the search terminates" in {
     // p(x) holds for x >= 0, 1, 2, ...
     // each new state entails the previous one, so with subsumption the
@@ -49,10 +41,8 @@ class SubsumptionCheckerTests
           pr(x + 1) :- pr(x),
           (x >= 0) :- pr(x)
         )
-        withSubsumption {
-          withTestTimeout(10000) {
-            new BreadthFirstForwardSymex(clauses).solve()
-          }
+        withTestTimeout(10000) {
+          new BreadthFirstForwardSymex(clauses).solve()
         }
       } should beSat
     }

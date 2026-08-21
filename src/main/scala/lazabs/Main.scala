@@ -98,10 +98,6 @@ class GlobalParameters extends Cloneable {
   var horn = false
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
-  var symexNormalizeConstraints : Boolean = false
-  var symexUseSubsumption : Boolean = false
-  var symexUseSubsumptionCap : Boolean = false
-  var symexSimplifyDisjunctive : Boolean = false
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -206,10 +202,6 @@ class GlobalParameters extends Cloneable {
     that.global = this.global
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
-    that.symexNormalizeConstraints = this.symexNormalizeConstraints
-    that.symexUseSubsumption = this.symexUseSubsumption
-    that.symexUseSubsumptionCap = this.symexUseSubsumptionCap
-    that.symexSimplifyDisjunctive = this.symexSimplifyDisjunctive
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
     that.displaySolutionProlog = this.displaySolutionProlog
@@ -383,10 +375,6 @@ object Main {
       case symexDepthOpt :: rest if (symexDepthOpt.startsWith("-symDepth:")) =>
         symexMaxDepth = Some(symexDepthOpt.drop("-symDepth:".length).toInt)
         arguments(rest)
-      case "-symNorm" :: rest => symexNormalizeConstraints = true; arguments(rest)
-      case "-symSubs" :: rest => symexUseSubsumption = true; arguments(rest)
-      case "-symSubsCap" :: rest => symexUseSubsumptionCap = true; arguments(rest)
-      case "-symSimpDisj" :: rest => symexSimplifyDisjunctive = true; arguments(rest)
       case "-glb" :: rest => global = true; arguments(rest)
       case "-disj" :: rest => disjunctive = true; arguments(rest)
       case "-sol" :: rest => displaySolutionProlog = true; arguments(rest)

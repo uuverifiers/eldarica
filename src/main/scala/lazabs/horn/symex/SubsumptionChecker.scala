@@ -55,9 +55,7 @@ trait NoSubsumptionChecker extends SubsumptionChecker {
 
 trait EntailmentSubsumptionChecker extends SubsumptionChecker {
   self : Symex[_] =>
-  private val enabled = lazabs.GlobalParameters.get.symexUseSubsumption
 
-  private val capEnabled = lazabs.GlobalParameters.get.symexUseSubsumptionCap
   private val newestToCheck = 32 // use this many cucs that were last derived
   private val oldestToCheck = 8  // use this many oldest cucs
 
@@ -68,22 +66,19 @@ trait EntailmentSubsumptionChecker extends SubsumptionChecker {
   private var statesSubsumed   = 0L
 
   override def subsumptionStats : Option[String] =
-    if (!enabled) None
-    else Some(s"subsumption: $candidatePairs candidate pairs, " +
-              s"$duplicateSkips duplicate skips, " +
-              s"$entailmentChecks entailment checks, " +
-              s"$statesSubsumed states subsumed")
+    Some(s"subsumption: $candidatePairs candidate pairs, " +
+         s"$duplicateSkips duplicate skips, " +
+         s"$entailmentChecks entailment checks, " +
+         s"$statesSubsumed states subsumed")
 
   override def checkForwardSubsumption(cuc          : UnitClause,
                                        unitClauseDB : UnitClauseDB)
   : Boolean = {
-    if (!enabled) {
-      false
-    } else unitClauseDB.inferred(cuc.rs) match {
+    unitClauseDB.inferred(cuc.rs) match {
       case Some(stored) =>
         val candidates =
-          if (!capEnabled || stored.size <= newestToCheck + oldestToCheck)
-            stored.reverseIterator // below the limit / no cap
+          if (stored.size <= newestToCheck + oldestToCheck)
+            stored.reverseIterator // below the limit
           else // use the limit
             stored.reverseIterator.take(newestToCheck) ++
               stored.iterator.take(oldestToCheck)

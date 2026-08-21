@@ -482,13 +482,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
                          (predLocalConstraint.constants --
                             rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
                          reduceBeforeSimplification = true)
-    // with disjunctive simplification enabled, a stored constraint
-    // carries at most one atom per function application
-    Debug.assertPost(Symex.AC,
-      !lazabs.GlobalParameters.get.symexSimplifyDisjunctive || {
-        val lits = storedConstraint.predConj.positiveLits
-        lits.map(a => (a.pred, a.init)).distinct.size == lits.size
-      })
+    // a stored constraint carries at most one atom per function application
+    Debug.assertPost(Symex.AC, {
+      val lits = storedConstraint.predConj.positiveLits
+      lits.map(a => (a.pred, a.init)).distinct.size == lits.size
+    })
     new UnitClause(rs, storedConstraint, isPositive)
   }
 
