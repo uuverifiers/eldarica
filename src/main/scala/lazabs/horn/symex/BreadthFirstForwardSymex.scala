@@ -29,10 +29,14 @@
 package lazabs.horn.symex
 
 import ap.util.Combinatorics
+import ap.parser.IAtom
+import lazabs.horn.Util.Dag
+import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.NormClause
+import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{Queue => MQueue}
+import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -50,6 +54,9 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   import Symex._
 
+  val initialTimeoutMs  : Long = 2000
+  val timeoutGrowthRate : Long = 2
+
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
   // Explore the state graph (the derived unit clauses) breadth-first. At
@@ -61,7 +68,12 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   // than a single state, if other states we use are in the queue, we remove
   // from those states' queue the path that we are about to take.
 
-  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause])]
+  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
+
+  private def enqueue(clause    : NormClause,
+                      electrons : Seq[UnitClause],
+                      timeoutMs : Long) : Unit =
+    choicesQueue enqueue ((clause, electrons, timeoutMs))
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
@@ -71,15 +83,15 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     handleNewUnitClause(fact)
   }
 
-  final override def getClausesForResolution
-    : Option[(NormClause, Seq[UnitClause])] = {
+  private def getClausesForResolution
+    : Option[(NormClause, Seq[UnitClause], Long)] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
       None
     else {
       maxDepth match {
         case None => Some(choicesQueue.dequeue)
         case Some(depth) =>
-          var res : Option[(NormClause, Seq[UnitClause])] = None
+          var res : Option[(NormClause, Seq[UnitClause], Long)] = None
           var continue = true
           do {
             val candidate = choicesQueue.dequeue()
@@ -96,6 +108,119 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
       }
     }
   }
+
+  override def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
+    var result: Either[Solution, Dag[(IAtom, CC)]] = null
+
+    val touched = new MHashSet[NormClause]
+    // do not use facts below, use normClauses
+    // two facts can simplify to be the same
+    for ((normClause, _) <- normClauses)
+      if (normClause.body.isEmpty &&
+          normClause.head._1.pred != HornClauses.FALSE)
+        touched += normClause
+
+    // start traversal
+    var ind = 0
+    while (result == null) {
+      lazabs.GlobalParameters.get.timeoutChecker()
+      ind += 1
+      printInfo(ind + ".", false)
+      getClausesForResolution match {
+        case Some((nucleus, electrons, timeoutMs)) => {
+          touched += nucleus
+          val newElectron = hyperResolve(nucleus, electrons)
+          printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
+          printInfo("  =\n\t" + newElectron)
+          val proverStatus =
+            checkFeasibility(newElectron.constraint, Some(timeoutMs))
+          val satisfiable = isSatisfiable(proverStatus)
+          if (satisfiable.isEmpty) {
+            // the check gets another turn later with more time, so the
+            // rest of the search goes first
+            val longerTimeout = timeoutMs * timeoutGrowthRate
+            printInfo("\n  (Check said " + proverStatus + ", postponed with " +
+                      longerTimeout + " ms.)")
+            enqueue(nucleus, electrons, longerTimeout)
+          } else if (hasContradiction(newElectron, proverStatus) contains true) { // false :- true
+            unitClauseDB.add(newElectron, (nucleus, electrons))
+            result = Right(buildCounterExample(newElectron))
+          } else if (satisfiable contains false) {
+            printInfo("")
+            handleFalseConstraint(nucleus, electrons)
+          } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
+            printInfo("subsumed by existing unit clauses.")
+            handleForwardSubsumption(nucleus, electrons)
+          } else {
+            val backSubsumed =
+              checkBackwardSubsumption(newElectron, unitClauseDB)
+            if (backSubsumed nonEmpty) {
+              printInfo(
+                "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
+                newLine = false)
+              handleBackwardSubsumption(backSubsumed)
+            }
+            if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
+              printInfo("\n  (Added to database.)\n")
+              handleNewUnitClause(newElectron)
+            } else {
+              printInfo("\n  (Derived clause already exists in the database.)")
+              handleForwardSubsumption(nucleus, electrons)
+            }
+          }
+        }
+        case None => // nothing left to explore, the clauses are SAT.
+          printInfo("\t(Search space exhausted.)\n")
+
+          // Untouched clauses can be either those which were unreachable,
+          // or corner cases such as a single assertion which did not need
+          // symbolic execution.
+          // The only case we need to handle is assertions without body literals,
+          // because assertions with uninterpreted body literals are always
+          // solveable by interpreting the body literals as false.
+
+          val untouchedClauses =
+            (normClauses.map(_._1).toSet -- touched).filter(_.body.isEmpty)
+          assert(untouchedClauses.forall(clause =>
+            clause.head._1.pred == HornClauses.FALSE))
+          if (untouchedClauses nonEmpty) {
+            printInfo("\t(Dangling assertions detected, checking those too.)")
+            for (clause <- untouchedClauses if result == null) {
+              val cuc = // for the purpose of checking feasibility
+                if (clause.body.isEmpty) {
+                  new UnitClause(RelationSymbol(HornClauses.FALSE),
+                                 clause.constraint,
+                                 false)
+                } else toUnitClause(clause)
+              unitClauseDB.add(cuc, (clause, Nil))
+              val proverStatus =
+                checkFeasibility(cuc.constraint, timeoutMs = None)
+              if (hasContradiction(cuc, proverStatus) getOrElse (
+                    throw new SymexException(
+                      "Constraint could not be checked, the checker said " +
+                        proverStatus))) {
+                result = Right(buildCounterExample(cuc))
+              }
+            }
+            if (result == null) { // none of the assertions failed, so this is SAT
+              result = Left(buildSolution())
+            }
+          } else {
+            result = Left(buildSolution())
+          }
+        case other =>
+          throw new SymexException(
+            "Cannot hyper-resolve clauses: " + other.toString)
+      }
+    }
+    if (lazabs.GlobalParameters.get.log) {
+      println(
+        s"rejected duplicate cucs: ${unitClauseDB.rejectedDuplicateCUCCount}")
+      subsumptionStats foreach println
+    }
+    result
+  }
+
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
     val possibleChoices = clausesWithRelationInBody(electron.rs)
@@ -114,7 +239,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         } else unitClauseDB.inferred(rs).getOrElse(Seq())
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList))
-        choicesQueue enqueue ((nucleus, choice))
+        enqueue(nucleus, choice, initialTimeoutMs)
     }
 
   }
