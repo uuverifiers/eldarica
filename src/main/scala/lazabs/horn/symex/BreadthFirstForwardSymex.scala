@@ -28,8 +28,10 @@
  */
 package lazabs.horn.symex
 
+import ap.api.SimpleAPI.ProverStatus
 import ap.util.Combinatorics
 import ap.parser.IAtom
+import lazabs.GlobalParameters
 import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -56,6 +58,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   val initialTimeoutMs  : Long = 2000
   val timeoutGrowthRate : Long = 2
+  val cheapTimeoutMs    : Long = 5
 
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
@@ -109,6 +112,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     }
   }
 
+  private def stateChecks = lazabs.GlobalParameters.get.symexStateChecks
+
   override def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
     var result: Either[Solution, Dag[(IAtom, CC)]] = null
 
@@ -132,8 +137,26 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
-          val proverStatus =
-            checkFeasibility(newElectron.constraint, Some(timeoutMs))
+          val isGoal =
+            (newElectron.rs.pred == HornClauses.FALSE) ||
+              (!newElectron.isPositive)
+          val checkTimeout =
+            if (isGoal) Some(timeoutMs)
+            else stateChecks match {
+              case GlobalParameters.SymexStateChecks.Full  => Some(timeoutMs)
+              case GlobalParameters.SymexStateChecks.Cheap =>
+                // use a cheap timeout for the first feasibility check
+                if (timeoutMs == initialTimeoutMs) Some(cheapTimeoutMs)
+                else Some(timeoutMs)
+              case GlobalParameters.SymexStateChecks.None  => scala.None
+            }
+          val proverStatus = checkTimeout match {
+            case Some(millis) =>
+              checkFeasibility(newElectron.constraint, Some(millis))
+            case scala.None =>
+              if (newElectron.constraint.isFalse) ProverStatus.Unsat
+              else ProverStatus.Sat
+          }
           val satisfiable = isSatisfiable(proverStatus)
           if (satisfiable.isEmpty) {
             // the check gets another turn later with more time, so the

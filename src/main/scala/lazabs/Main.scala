@@ -59,6 +59,10 @@ object GlobalParameters {
     val None, Template, General = Value
   }
 
+  object SymexStateChecks extends Enumeration {
+    val Full, Cheap, None = Value
+  }
+
   object SymexEngine extends Enumeration {
     val BreadthFirstForward, DepthFirstForward, None = Value
   }
@@ -98,6 +102,7 @@ class GlobalParameters extends Cloneable {
   var horn = false
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
+  var symexStateChecks = GlobalParameters.SymexStateChecks.Cheap
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -202,6 +207,7 @@ class GlobalParameters extends Cloneable {
     that.global = this.global
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
+    that.symexStateChecks = this.symexStateChecks
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
     that.displaySolutionProlog = this.displaySolutionProlog
@@ -363,6 +369,16 @@ object Main {
       case "-sym" :: rest =>
         symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
         arguments(rest)
+      case opt :: rest if (opt startsWith "-symStateChecks:") =>
+          symexStateChecks = opt.drop("-symStateChecks:".length) match {
+            case "full"  => GlobalParameters.SymexStateChecks.Full
+            case "cheap" => GlobalParameters.SymexStateChecks.Cheap
+            case "none"  => GlobalParameters.SymexStateChecks.None
+            case _ =>
+              println("Unknown argument for -symStateChecks:, using cheap.")
+              GlobalParameters.SymexStateChecks.Cheap
+          }
+          arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
           symexEngine = symexOpt.drop("-sym:".length) match {
             case "dfs" => GlobalParameters.SymexEngine.DepthFirstForward
@@ -576,6 +592,9 @@ object Main {
           " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
           "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
           " -symDepth:n       Set a max depth for symbolic execution (underapproximate)\n" +
+          " -symStateChecks:x How newly derived non-goal states are checked in\n" + 
+          "                   symbolic execution (bfs only)\n" +
+          "                     {full: long t/o, cheap: short t/o, none: not checked}\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +
