@@ -559,7 +559,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
   private def runStages(constraint   : Conjunction,
                         localSymbols : Set[Term],
-                        order        : TermOrder) : Conjunction = {
+                        order        : TermOrder)
+             (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
     val stages : List[Conjunction => Conjunction] = List(
       mergeDuplicateFunctionAtoms(_,
         ModuloArithmetic.functionalPredicates, order),
@@ -573,7 +574,10 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
     @annotation.tailrec
     def run(conj : Conjunction) : Conjunction = {
-      val next = stages.foldLeft(conj)((c, stage) => stage(c))
+      val staged = stages.foldLeft(conj)((c, stage) => stage(c))
+      // alternate between running the reducer, which applies dditional
+      // simplification rules
+      val next   = symex_sf.reducer(Conjunction.TRUE)(staged)
       if (next eq conj) conj else run(next)
     }
     run(constraint)
