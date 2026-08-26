@@ -564,8 +564,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     val stages : List[Conjunction => Conjunction] = List(
       mergeDuplicateFunctionAtoms(_,
         ModuloArithmetic.functionalPredicates, order),
+      recomposeExtracts(_, order), // run before linearizeConstantSlices
       linearizeConstantSlices(_, order),
-      recomposeExtracts(_, order),
       inlineLocalEquations(_, localSymbols, order),
       dropRangeConstrainedLocals(_, localSymbols, order),
       dropUnusedFunctionAtoms(_, localSymbols,
