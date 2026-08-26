@@ -59,23 +59,51 @@ trait EntailmentSubsumptionChecker extends SubsumptionChecker {
   private val newestToCheck = 32 // use this many cucs that were last derived
   private val oldestToCheck = 8  // use this many oldest cucs
 
-  // counters for the log summary
+  private val collectStats     = lazabs.GlobalParameters.get.log
+  private var subsumptionNanos = 0L
+
+  protected def subsumptionTimeNanos : Long = subsumptionNanos
+
+  // logging
   private var candidatePairs   = 0L
   private var duplicateSkips   = 0L
   private var entailmentChecks = 0L
   private var statesSubsumed   = 0L
+  private var calls            = 0L
+  private var truncatedCalls   = 0L
+  private var storedSizeSum    = 0L
 
   override def subsumptionStats : Option[String] =
     Some(s"subsumption: $candidatePairs candidate pairs, " +
          s"$duplicateSkips duplicate skips, " +
          s"$entailmentChecks entailment checks, " +
-         s"$statesSubsumed states subsumed")
+         s"$statesSubsumed states subsumed" +
+         (if (calls > 0)
+            s"\nsubsumption window: $calls calls, $truncatedCalls truncated " +
+            s"at ${newestToCheck + oldestToCheck}, " +
+            s"average stored states per call ${storedSizeSum / calls}"
+          else ""))
 
   override def checkForwardSubsumption(cuc          : UnitClause,
                                        unitClauseDB : UnitClauseDB)
+  : Boolean =
+    if (!collectStats)
+      checkForwardSubsumptionImpl(cuc, unitClauseDB)
+    else {
+      val start = System.nanoTime
+      try checkForwardSubsumptionImpl(cuc, unitClauseDB)
+      finally subsumptionNanos += System.nanoTime - start
+    }
+
+  private def checkForwardSubsumptionImpl(cuc          : UnitClause,
+                                          unitClauseDB : UnitClauseDB)
   : Boolean = {
     unitClauseDB.inferred(cuc.rs) match {
       case Some(stored) =>
+        calls += 1
+        storedSizeSum += stored.size
+        if (stored.size > newestToCheck + oldestToCheck)
+          truncatedCalls += 1
         val candidates =
           if (stored.size <= newestToCheck + oldestToCheck)
             stored.reverseIterator // below the limit

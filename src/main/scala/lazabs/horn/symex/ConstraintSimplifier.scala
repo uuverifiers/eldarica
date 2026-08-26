@@ -50,12 +50,28 @@ trait ConstraintSimplifier {
                          localSymbols               : Set[Term],
                          reduceBeforeSimplification : Boolean)
            (implicit symex_sf : SymexSymbolFactory) : Conjunction
+
+  def simplifierStats : Option[String] = None
 }
 
 /**
  * An implementation of ConstraintSimplifier based on ConjunctEliminator.
  */
 trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
+
+  // logging
+  private val collectStats  = lazabs.GlobalParameters.get.log
+  private val stageFires    = collection.mutable.LinkedHashMap[String, Long]()
+  private var stageRounds   = 0L
+  private var simplifyNanos = 0L
+  private var inSimplify    = false
+
+  protected def simplifierTimeNanos : Long = simplifyNanos
+
+  override def simplifierStats : Option[String] =
+    if (!collectStats) None
+    else Some(s"simplifier: $stageRounds rounds: " +
+              (stageFires map { case (name, n) => s"$name $n" } mkString ", "))
 
   class LocalSymbolEliminator(constraint   : Conjunction,
                               localSymbols : Set[Term],
@@ -533,21 +549,29 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                         localSymbols : Set[Term],
                         order        : TermOrder)
              (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
-    val stages : List[Conjunction => Conjunction] = List(
-      recomposeExtracts(_, order), // run before linearizeConstantSlices
-      linearizeConstantSlices(_, order),
-      inlineLocalEquations(_, localSymbols, order),
-      dropRangeConstrainedLocals(_, localSymbols, order),
-      dropUnusedFunctionAtoms(_, localSymbols,
-        ModuloArithmetic.functionalPredicates, order),
-      dropFreeArgumentCasts(_, localSymbols, order))
+    val stages : List[(String, Conjunction => Conjunction)] = List(
+      ("recompose",  recomposeExtracts(_, order)), // before linearize
+      ("linearize",  linearizeConstantSlices(_, order)),
+      ("inline",     inlineLocalEquations(_, localSymbols, order)),
+      ("dropRange",  dropRangeConstrainedLocals(_, localSymbols, order)),
+      ("dropUnused", dropUnusedFunctionAtoms(_, localSymbols,
+                       ModuloArithmetic.functionalPredicates, order)),
+      ("dropCasts",  dropFreeArgumentCasts(_, localSymbols, order)))
+
+    if (collectStats)
+      for ((name, _) <- stages) stageFires.getOrElseUpdate(name, 0L)
 
     @annotation.tailrec
     def run(conj : Conjunction) : Conjunction = {
-      val staged = stages.foldLeft(conj)((c, stage) => stage(c))
-      // alternate between running the reducer, which applies dditional
+      val staged = stages.foldLeft(conj) { case (c, (name, stage)) =>
+        val r = stage(c)
+        if (collectStats && !(r eq c)) stageFires(name) += 1
+        r
+      }
+      // alternate between running the reducer, which applies additional
       // simplification rules
-      val next   = symex_sf.reducer(Conjunction.TRUE)(staged)
+      val next = symex_sf.reducer(Conjunction.TRUE)(staged)
+      if (collectStats) stageRounds += 1
       if (next eq conj) conj else run(next)
     }
     run(constraint)
@@ -556,6 +580,24 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   override def simplifyConstraint(constraint                 : Conjunction,
                                   localSymbols               : Set[Term],
                                   reduceBeforeSimplification : Boolean)
+                    (implicit symex_sf : SymexSymbolFactory) : Conjunction =
+    if (!collectStats || inSimplify)
+      simplifyConstraintImpl(constraint, localSymbols,
+                             reduceBeforeSimplification)
+    else {
+      inSimplify = true
+      val start = System.nanoTime
+      try simplifyConstraintImpl(constraint, localSymbols,
+                                 reduceBeforeSimplification)
+      finally {
+        inSimplify = false
+        simplifyNanos += System.nanoTime - start
+      }
+    }
+
+  private def simplifyConstraintImpl(constraint                 : Conjunction,
+                                     localSymbols               : Set[Term],
+                                     reduceBeforeSimplification : Boolean)
                     (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
     val reducedConstraint =
       if (reduceBeforeSimplification)
