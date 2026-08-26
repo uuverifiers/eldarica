@@ -167,34 +167,6 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   }
 
   /**
-   * Merge atoms of a functional predicate applied to the same arguments,
-   * e.g., p(x, r1) & p(x, r2)  -->  p(x, r1) & r1 = r2
-   */
-  private def mergeDuplicateFunctionAtoms(constraint    : Conjunction,
-                                          functionPreds : Set[Predicate],
-                                          order         : TermOrder)
-  : Conjunction = {
-    val duplicateGroups =
-      (constraint.predConj.positiveLits filter (functionPreds contains _.pred))
-        .groupBy(a => (a.pred, a.init)).values.filter(_.size > 1).toList
-    if (duplicateGroups.isEmpty) constraint
-    else {
-      val duplicates = (duplicateGroups.iterator flatMap (_.tail)).toSet
-      val resultEqs =
-        for (g <- duplicateGroups; a <- g.tail)
-          yield LinearCombination.sum(IdealInt.ONE, g.head.last,
-            IdealInt.MINUS_ONE, a.last, order)
-      val (_, remainingLits) =
-        constraint.predConj partition (duplicates contains)
-      Conjunction.conj(
-        List(
-          constraint.updatePredConj(remainingLits)(order),
-          EquationConj(resultEqs.iterator, order)),
-        order)
-    }
-  }
-
-  /**
    * Replace an extract with a constant result by the interval it denotes
    * when the extractee has no bits above the slice.
    * e.g., for 0 <= x <= 255
@@ -562,8 +534,6 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                         order        : TermOrder)
              (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
     val stages : List[Conjunction => Conjunction] = List(
-      mergeDuplicateFunctionAtoms(_,
-        ModuloArithmetic.functionalPredicates, order),
       recomposeExtracts(_, order), // run before linearizeConstantSlices
       linearizeConstantSlices(_, order),
       inlineLocalEquations(_, localSymbols, order),
