@@ -137,7 +137,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
       }
   }
 
-  def addIPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit =
+  def addIPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit = {
     for ((p, preds) <- preds) {
       val rs = relationSymbols(p)
       for (f <- preds) {
@@ -147,6 +147,7 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
         addRelationSymbolPred(pred)
       }
     }
+  }
 
   private def elimQuansIfNecessary(c : Conjunction,
                                    positive : Boolean) : Conjunction =

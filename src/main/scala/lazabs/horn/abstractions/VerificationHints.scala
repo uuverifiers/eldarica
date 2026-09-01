@@ -30,6 +30,7 @@
 package lazabs.horn.abstractions
 
 import ap.parser._
+import ap.theories.{Theory, TheoryCollector}
 import IExpression._
 
 import scala.collection.{Set => GSet}
@@ -153,6 +154,23 @@ object VerificationHints {
     override def toString = s"VerificationHints($predicateHints)"
 
     def isEmpty = predicateHints.isEmpty
+
+    /** Theories referenced by initial predicates and interpolation templates. */
+    def theories : Seq[Theory] = {
+      val coll = new TheoryCollector
+      for ((_, hints) <- predicateHints;
+           hint <- hints)
+        hint match {
+          case VerifHintInitPred(f)             => coll(f)
+          case VerifHintTplPred(f, _)           => coll(f)
+          case VerifHintTplPredPosNeg(f, _)     => coll(f)
+          case VerifHintTplEqTerm(t, _)         => coll(t)
+          case VerifHintTplInEqTerm(t, _)       => coll(t)
+          case VerifHintTplInEqTermPosNeg(t, _) => coll(t)
+          case VerifHintTplIterationThreshold(_) =>
+        }
+      coll.theories
+    }
 
     def filterPredicates(remainingPreds : GSet[IExpression.Predicate]) = {
       val remHints = predicateHints filterKeys remainingPreds

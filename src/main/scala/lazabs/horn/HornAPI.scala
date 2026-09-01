@@ -202,7 +202,8 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
             allHints)
         val predAbs =
           new HornPredAbs(newClauses, allHints.toInitialPredicates,
-                          interpolator)
+                          interpolator,
+                          additionalTheories = allHints.theories)
         predAbs.result match {
           case Left(x) => Left(() => backTranslator translate x)
           case Right(x) => Right(() => backTranslator translate x)

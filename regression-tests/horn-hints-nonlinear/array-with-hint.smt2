@@ -1,0 +1,10 @@
+; Simple array problem: store 42 then verify via select
+(set-logic HORN)
+(declare-fun inv ((Array Int Int) Int) Bool)
+(assert (forall ((a (Array Int Int)) (x Int))
+  (=> (and (= a (store ((as const (Array Int Int)) 0) 0 42)) (= x 42))
+      (inv a x))))
+(assert (forall ((a (Array Int Int)) (x Int))
+  (=> (and (inv a x) (not (= (select a 0) x)))
+      false)))
+(check-sat)

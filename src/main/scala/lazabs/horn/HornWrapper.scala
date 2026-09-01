@@ -60,6 +60,7 @@ import lazabs.horn.symex.{BreadthFirstForwardSymex, DepthFirstForwardSymex, Syme
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashMap}
+import scala.util.control.NonFatal
 
 
 object HornWrapper {
@@ -523,6 +524,87 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Dump predicates from the predicate store on timeout. Converts the raw
+   * predicates accumulated during CEGAR into VerificationHints format and
+   * writes them using AbsReader.printHints.
+   */
+  private def dumpPredicatesOnTimeout(
+    predStore : PredicateStore[_],
+    context   : HornPredAbsContext[_]
+  ) : Unit = {
+    GlobalParameters.get.predicateOutputFile match {
+      case "" => // nothing
+      case filename =>
+        val predicates = VerificationHints(
+          (for ((rs, preds) <- predStore.predicates.iterator;
+                if preds.nonEmpty) yield {
+            val iFormulas = predStore.convertToInputAbsy(
+              rs.pred, preds.map(_.rawPred).toSeq)
+            val hints = for (f <- iFormulas)
+                        yield VerificationHints.VerifHintInitPred(f)
+            rs.pred -> hints
+          }).toMap)
+
+        if (!predicates.isEmpty) {
+          val output = new java.io.FileOutputStream(filename)
+          Console.withOut(output) {
+            AbsReader.printHints(predicates)
+          }
+          output.close()
+        }
+    }
+  }
+
+  /**
+   * Dump clause status (SATISFIED/UNPROVEN) for each normalized clause.
+   * A clause is SATISFIED if it appears among the abstract edges, UNPROVEN
+   * otherwise (not necessarily violated — it may simply be unexplored).
+   * When allSatisfied is true (successful completion), all clauses are
+   * reported as SATISFIED since the Horn clause system was verified.
+   *
+   * Note on goal clauses: a clause with head FALSE (i.e., FALSE :- body)
+   * is the safety property. It is reported SATISFIED on success because
+   * CEGAR proved that no concrete trace reaches the goal body — the
+   * property holds. UNPROVEN means the goal was not yet reached/refuted
+   * during partial exploration (timeout), NOT that it is violated.
+   */
+  private def dumpClauseStatus(
+    cegar        : CEGAR[_],
+    context      : HornPredAbsContext[_],
+    allSatisfied : Boolean = false
+  ) : Unit = {
+    GlobalParameters.get.clauseStatusOutputFile match {
+      case "" => // nothing
+      case filename =>
+        val satisfiedClauses =
+          cegar.abstractEdges.map(_.clause).toSet
+        val output = new java.io.FileOutputStream(filename)
+        Console.withOut(output) {
+          println("(clause-status")
+          for (((nc, _), idx) <- context.normClauses.zipWithIndex) {
+            val status =
+              if (allSatisfied || (satisfiedClauses contains nc))
+                "SATISFIED"
+              else
+                "UNPROVEN"
+            val head = nc.head._1.name +
+              "(" + nc.head._1.arguments(nc.head._2).mkString(", ") + ")"
+            val body =
+              if (nc.body.isEmpty) "true"
+              else (for ((rs, occ) <- nc.body)
+                    yield rs.name + "(" + rs.arguments(occ).mkString(", ") + ")"
+                   ).mkString(", ")
+            println(s"  (clause $idx $status $head :- $body)")
+          }
+          println(")")
+        }
+        output.close()
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   val result : Either[() => Map[Predicate, IFormula], () => Dag[IAtom]] = {
     val counterexampleMethod =
       if (disjunctive)
@@ -542,15 +624,47 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
             "----------------------------------- CEGAR " +
             "--------------------------------------")
 
-          val predAbs =
+          val predAbs = try {
             new HornPredAbs(simplifiedClauses,
                             simpHints.toInitialPredicates, predGenerator,
-                            counterexampleMethod)
+                            counterexampleMethod,
+                            additionalTheories = simpHints.theories)
+          } catch {
+            case t @ (TimeoutException | StoppedException) =>
+              // Dump diagnostics from the partially-built CEGAR state
+              // before re-throwing. Only dump on genuine timeout, not when
+              // stopped by ParallelComputation (another thread won — its
+              // successful dump already wrote the files). Each dump is
+              // wrapped individually: an I/O failure must never prevent
+              // the original timeout from propagating (C2).
+              if (t == TimeoutException) {
+                for (diagState <- HornPredAbs.currentDiagnosticState.value) {
+                  try {
+                    dumpPredicatesOnTimeout(diagState.predStore, diagState.context)
+                  } catch {
+                    case NonFatal(e) =>
+                      Console.err.println(
+                        "Warning: failed to write predicate file on timeout: " +
+                        e.getMessage)
+                  }
+                  try {
+                    dumpClauseStatus(diagState.cegar, diagState.context)
+                  } catch {
+                    case NonFatal(e) =>
+                      Console.err.println(
+                        "Warning: failed to write clause status file on timeout: " +
+                        e.getMessage)
+                  }
+                }
+              }
+              HornPredAbs.currentDiagnosticState.value = None
+              throw t
+          }
 
           GlobalParameters.get.predicateOutputFile match {
             case "" =>
             // nothing
-            case filename => {
+            case filename => try {
               val predicates =
                 VerificationHints(
                   for ((p, preds) <- predAbs.relevantPredicates) yield {
@@ -566,8 +680,32 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
               Console.withOut(output){
                 AbsReader.printHints(predicates)
               }
+            } catch {
+              case NonFatal(e) =>
+                Console.err.println(
+                  "Warning: failed to write predicate file: " + e.getMessage)
             }
           }
+
+          // Dump clause status on completion. For SAT (Left), all clauses are
+          // satisfied since CEGAR proved the Horn clause system. For UNSAT
+          // (Right/counterexample), report actual status based on abstract edges.
+          try {
+            predAbs.rawResult match {
+              case Left(_) =>
+                dumpClauseStatus(predAbs.cegar, predAbs.context, allSatisfied = true)
+              case Right(_) =>
+                dumpClauseStatus(predAbs.cegar, predAbs.context, allSatisfied = false)
+            }
+          } catch {
+            case NonFatal(e) =>
+              Console.err.println(
+                "Warning: failed to write clause status file: " + e.getMessage)
+          }
+
+          // Clear thread-local diagnostic state to prevent leakage between
+          // sequential runs in a long-lived JVM (e.g., ServerMain).
+          HornPredAbs.currentDiagnosticState.value = None
 
           predAbs
         }
