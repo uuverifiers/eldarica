@@ -20,6 +20,14 @@ sat
     (define-fun inv ((A Int)) Bool (>= A 0))
 )
 
+linear-chc-nonlinear-solution.smt2 (verified non-linear initial predicates)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun FUN ((A Int) (B Int)) Bool (and (and (>= A 0) (>= B 0)) (= (+ (* A A) (+ A (* (- 2) B))) 0)))
+    (define-fun SAD ((A Int) (B Int)) Bool (or (<= A (- 1)) (>= (- (+ A (* 2 B)) (* A A)) 4)))
+)
+
 array-with-hint.smt2 (initial-predicates with select/store)
 ---------------------------- Loading CEGAR hints -------------------------------
 sat

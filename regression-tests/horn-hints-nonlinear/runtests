@@ -21,7 +21,14 @@ echo
 echo "nonlinear-initial-preds.smt2 (initial-predicates with non-linear (* x x))"
 $LAZABS -abstract -ssol -pngNo "$@" -hints:nonlinear-initial-preds.tpl nonlinear-initial-preds.smt2 2>&1 | grep -v "^Elapsed Time"
 
-# Test 4: Array hints with select/store in initial-predicates
+# Test 4: A linear CHC system with a non-linear inductive solution supplied as
+# initial predicates. Before hint theories were registered during context
+# construction, the predicates parsed but CEGAR diverged on linear refinements.
+echo
+echo "linear-chc-nonlinear-solution.smt2 (verified non-linear initial predicates)"
+$LAZABS -ssol -pngNo "$@" -hints:linear-chc-nonlinear-solution.tpl linear-chc-nonlinear-solution.smt2 2>&1 | grep -v "^Elapsed Time"
+
+# Test 5: Array hints with select/store in initial-predicates
 echo
 echo "array-with-hint.smt2 (initial-predicates with select/store)"
 $LAZABS -ssol -pngNo "$@" -hints:array-with-hint.tpl array-with-hint.smt2 2>&1 | grep -v "^Elapsed Time"

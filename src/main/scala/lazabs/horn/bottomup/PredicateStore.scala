@@ -138,18 +138,6 @@ class PredicateStore[CC <% HornClauses.ConstraintClause]
   }
 
   def addIPredicates(preds : Map[Predicate, Seq[IFormula]]) : Unit = {
-    // Ensure that any theories referenced by the predicate formulas
-    // (e.g., GroebnerMultiplication for non-linear hints) are registered
-    // with the SymbolFactory before translation to internal form.
-    // Without this, formulas containing theory functions like mul/3 would
-    // fail with "key not found" during FunctionEncoder translation.
-    val coll = new ap.theories.TheoryCollector
-    for ((_, fs) <- preds; f <- fs)
-      coll(f)
-    for (t <- coll.theories)
-      if (!(theories contains t))
-        sf.addTheory(t)
-
     for ((p, preds) <- preds) {
       val rs = relationSymbols(p)
       for (f <- preds) {

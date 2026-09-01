@@ -166,7 +166,8 @@ object HornPredAbsContextImpl {
 class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
                             (iClauses : Iterable[CC],
                              intervalAnalysis : Boolean = true,
-                             intervalAnalysisIgnoredSyms : Set[Predicate] = Set())
+                             intervalAnalysisIgnoredSyms : Set[Predicate] = Set(),
+                             additionalTheories : Iterable[Theory] = List())
       extends HornPredAbsContext[CC] {
 
   import HornPredAbs._
@@ -180,6 +181,8 @@ class HornPredAbsContextImpl[CC <% HornClauses.ConstraintClause]
     coll addTheory TypeTheory
     for (c <- iClauses)
       c collectTheories coll
+    for (t <- additionalTheories)
+      coll addTheory t
     coll.theories
   }
 

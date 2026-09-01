@@ -627,7 +627,8 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
           val predAbs = try {
             new HornPredAbs(simplifiedClauses,
                             simpHints.toInitialPredicates, predGenerator,
-                            counterexampleMethod)
+                            counterexampleMethod,
+                            additionalTheories = simpHints.theories)
           } catch {
             case t @ (TimeoutException | StoppedException) =>
               // Dump diagnostics from the partially-built CEGAR state

@@ -82,27 +82,6 @@ object SymbolFactory {
       functionEnc addTheory t
     }
 
-    /**
-     * Register an additional theory with this symbol factory. This is
-     * needed when initial-predicate hints reference theory functions
-     * (e.g., GroebnerMultiplication.mul) that do not appear in the
-     * clauses themselves. Without registration, the FunctionEncoder
-     * will fail with "key not found" when translating such formulas.
-     *
-     * Note: this method updates the term order and function encoder but
-     * does NOT update `functionalPreds` or `reducerSettings`, which are
-     * computed once from the constructor's theories. This is safe for
-     * theories like GroebnerMultiplication whose symbols are plain
-     * functions (not functional predicates), but would be incorrect for
-     * theories that contribute functional predicates or reducer plugins
-     * (e.g., ADTs, ExtArray). Such theories must be passed at
-     * construction time.
-     */
-    def addTheory(t : Theory) : Unit = {
-      orderVar = t extend orderVar
-      functionEnc addTheory t
-    }
-
     def order : TermOrder = {
       if (!constantsToAdd.isEmpty) {
         orderVar = orderVar extend constantsToAdd

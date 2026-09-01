@@ -137,5 +137,58 @@ class NonLinearInitialPredsTest extends AnyFreeSpec with Matchers {
       // Should return sat (Left)
       result shouldBe a[Left[_, _]]
     }
+
+    "should prove a linear CHC system from a non-linear inductive solution" in withGlobalParams {
+      val fun = MonoSortedPredicate("FUN", Seq(Sort.Integer, Sort.Integer))
+      val sad = MonoSortedPredicate("SAD", Seq(Sort.Integer, Sort.Integer))
+
+      val av = IConstant(Sort.Integer newConstant "a")
+      val bv = IConstant(Sort.Integer newConstant "b")
+      val cv = IConstant(Sort.Integer newConstant "c")
+      val dv = IConstant(Sort.Integer newConstant "d")
+
+      val clauses = List(
+        Clause(IAtom(fun, Seq(av, bv)), List(),
+               IExpression.Eq(av, 0) & IExpression.Eq(bv, 0)),
+        Clause(IAtom(fun, Seq(cv, dv)), List(IAtom(fun, Seq(av, bv))),
+               IExpression.Eq(cv, av + 1) & IExpression.Eq(dv, bv + cv)),
+        Clause(IAtom(sad, Seq(cv, dv)), List(IAtom(fun, Seq(av, bv))),
+               IExpression.Eq(cv, av) & (av > 0) & IExpression.Eq(dv, bv + 1)),
+        Clause(IAtom(sad, Seq(cv, dv)), List(IAtom(sad, Seq(av, bv))),
+               IExpression.Eq(cv, av - 1) & (bv > 0) & IExpression.Eq(dv, bv - cv)),
+        Clause(SimpleWrapper.FALSEAtom, List(IAtom(sad, Seq(bv, av))),
+               (av <= 0) & (bv >= 0))
+      )
+
+      val v0 = ISortedVariable(0, Sort.Integer)
+      val v1 = ISortedVariable(1, Sort.Integer)
+      val square = IFunApp(GroebnerMultiplication.mul, Seq(v0, v0))
+      val funInvariant =
+        IExpression.Eq(v1 * 2, square + v0) & (v0 >= 0)
+      val sadInvariant =
+        v1 * 2 + v0 - square >= 4
+
+      val initialPredicates = Map(
+        fun.asInstanceOf[ap.terfor.preds.Predicate] -> Seq(funInvariant),
+        sad.asInstanceOf[ap.terfor.preds.Predicate] -> Seq(sadInvariant))
+
+      // The broken late-registration path diverged here; keep the regression
+      // bounded so that a recurrence fails rather than hanging the test suite.
+      val deadline = System.currentTimeMillis + 10000
+      GlobalParameters.get.timeoutChecker = () =>
+        if (System.currentTimeMillis > deadline)
+          throw lazabs.Main.TimeoutException
+
+      val result = Console.withOut(NullStream) {
+        Console.withErr(NullStream) {
+          SimpleWrapper.solve(clauses,
+                              initialPredicates = initialPredicates,
+                              useTemplates = false,
+                              debuggingOutput = false)
+        }
+      }
+
+      result shouldBe a[Left[_, _]]
+    }
   }
 }

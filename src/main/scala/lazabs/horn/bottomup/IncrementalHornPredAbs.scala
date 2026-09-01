@@ -30,6 +30,7 @@
 package lazabs.horn.bottomup
 
 import ap.parser._
+import ap.theories.TheoryCollector
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 
@@ -61,12 +62,21 @@ class IncrementalHornPredAbs
      else
        NullStream
 
+  private val initialPredicateTheories = {
+    val coll = new TheoryCollector
+    for ((_, predicates) <- initialPredicates;
+         predicate <- predicates)
+      coll(predicate)
+    coll.theories
+  }
+
   val baseContext : HornPredAbsContext[CC] =
     Console.withOut(outStream) {
       new HornPredAbsContextImpl(
         iClauses,
         intervalAnalysis = lazabs.GlobalParameters.get.intervals,
-        intervalAnalysisIgnoredSyms = substitutableSyms)
+        intervalAnalysisIgnoredSyms = substitutableSyms,
+        additionalTheories = initialPredicateTheories)
     }
 
   /**
