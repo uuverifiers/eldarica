@@ -617,7 +617,14 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
     // same settings
     val currentParams = GlobalParameters.get.clone
 
-    val (result, maybePredAbs) = {
+    val simplifiedInitialPredicates = simpHints.toInitialPredicates
+    val initialSolution = SimpleWrapper.validatedInitialSolution(
+      simplifiedClauses, simplifiedInitialPredicates)
+
+    val (result, maybePredAbs) = initialSolution match {
+      case Some(solution) =>
+        (Left(solution), None)
+      case None => {
         val predAbs = Console.withOut(outStream){
           println
           println(
@@ -626,7 +633,7 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
 
           val predAbs = try {
             new HornPredAbs(simplifiedClauses,
-                            simpHints.toInitialPredicates, predGenerator,
+                            simplifiedInitialPredicates, predGenerator,
                             counterexampleMethod,
                             additionalTheories = simpHints.theories)
           } catch {
@@ -710,6 +717,7 @@ class CEGARHornWrapper(unsimplifiedClauses   : Seq[Clause],
           predAbs
         }
         (predAbs.result, Some(predAbs))
+      }
     }
 
     result match {

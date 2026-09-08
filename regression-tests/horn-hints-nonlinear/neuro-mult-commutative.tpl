@@ -1,0 +1,8 @@
+(initial-predicates main@tailrecurse.i ((v0 Int) (v1 Int) (v2 Int) (v3 Int))
+  (and (= v2 (* v0 (- v1 v3))) (>= v3 0) (>= v0 0)))
+(initial-predicates main@tailrecurse.i5 ((v0 Int) (v1 Int) (v2 Int) (v3 Int) (v4 Int))
+  (and (= v3 (* v2 (- v1 v4))) (>= v4 0) (= v0 (* v1 v2))))
+(initial-predicates main@tailrecurse.outer.i ((v0 Int) (v1 Int) (v2 Int) (v3 Int))
+  (and (= v2 (* v0 (- v1 v3))) (>= v3 0) (>= v0 0)))
+(initial-predicates main@tailrecurse.outer.i3 ((v0 Int) (v1 Int) (v2 Int) (v3 Int) (v4 Int))
+  (and (= v3 (* v2 (- v1 v4))) (>= v4 0) (= v0 (* v1 v2))))

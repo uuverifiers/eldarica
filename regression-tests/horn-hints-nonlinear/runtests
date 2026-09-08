@@ -21,9 +21,9 @@ echo
 echo "nonlinear-initial-preds.smt2 (initial-predicates with non-linear (* x x))"
 $LAZABS -abstract -ssol -pngNo "$@" -hints:nonlinear-initial-preds.tpl nonlinear-initial-preds.smt2 2>&1 | grep -v "^Elapsed Time"
 
-# Test 4: A linear CHC system with a non-linear inductive solution supplied as
-# initial predicates. Before hint theories were registered during context
-# construction, the predicates parsed but CEGAR diverged on linear refinements.
+# Test 4: A linear CHC system with a verified non-linear solution supplied as
+# initial predicates. This checks that theories are registered before validation
+# and that a complete non-linear assignment is accepted without CEGAR divergence.
 echo
 echo "linear-chc-nonlinear-solution.smt2 (verified non-linear initial predicates)"
 $LAZABS -ssol -pngNo "$@" -hints:linear-chc-nonlinear-solution.tpl linear-chc-nonlinear-solution.smt2 2>&1 | grep -v "^Elapsed Time"
@@ -32,3 +32,27 @@ $LAZABS -ssol -pngNo "$@" -hints:linear-chc-nonlinear-solution.tpl linear-chc-no
 echo
 echo "array-with-hint.smt2 (initial-predicates with select/store)"
 $LAZABS -ssol -pngNo "$@" -hints:array-with-hint.tpl array-with-hint.smt2 2>&1 | grep -v "^Elapsed Time"
+
+# Tests 6-10: Exact CHCs and Princess-verified invariants from neuro-report.md.
+# Each complete invariant is sufficient to establish safety. These used to time
+# out because slicing could discard hints that referenced eliminated arguments,
+# and CEGAR could stall while re-deriving a preserved non-linear invariant.
+echo
+echo "neuro-019-horn.smt2 (verified compound non-linear invariant)"
+$LAZABS -t:10 -pngNo "$@" -hints:neuro-019-horn.tpl neuro-019-horn.smt2 2>&1 | grep -v -e "^Elapsed Time" -e "^Warning: ignoring exit"
+
+echo
+echo "neuro-019b-horn.smt2 (verified compound non-linear invariant)"
+$LAZABS -t:10 -pngNo "$@" -hints:neuro-019b-horn.tpl neuro-019b-horn.smt2 2>&1 | grep -v -e "^Elapsed Time" -e "^Warning: ignoring exit"
+
+echo
+echo "neuro-mult-commutative.smt2 (verified affine-product invariants)"
+$LAZABS -t:10 -pngNo "$@" -hints:neuro-mult-commutative.tpl neuro-mult-commutative.smt2 2>&1 | grep -v -e "^Elapsed Time" -e "^Warning: ignoring exit"
+
+echo
+echo "neuro-square-twice.smt2 (verified guarded non-linear invariants)"
+$LAZABS -t:10 -pngNo "$@" -hints:neuro-square-twice.tpl neuro-square-twice.smt2 2>&1 | grep -v -e "^Elapsed Time" -e "^Warning: ignoring exit"
+
+echo
+echo "neuro-square-twice-weaved.smt2 (verified nested non-linear invariants)"
+$LAZABS -t:10 -pngNo "$@" -hints:neuro-square-twice-weaved.tpl neuro-square-twice-weaved.smt2 2>&1 | grep -v -e "^Elapsed Time" -e "^Warning: ignoring exit"

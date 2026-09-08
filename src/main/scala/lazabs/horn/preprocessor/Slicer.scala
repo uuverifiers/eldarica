@@ -59,8 +59,14 @@ object Slicer extends HornPreprocessor {
   def process(clauses : Clauses, hints : VerificationHints,
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
+    // Hints are expressed over the original predicate arguments. Removing one
+    // of those arguments can make a complete initial predicate impossible to
+    // shift, causing the whole hint to be silently dropped. Keep hinted
+    // predicates intact; users supplying hints explicitly opt out of this
+    // argument-elimination optimisation for those predicates.
+    val hintedPredicates = hints.predicateHints.keySet
     val usedArgs =
-      determineUsedArguments(clauses, frozenPredicates)
+      determineUsedArguments(clauses, frozenPredicates ++ hintedPredicates)
     val (newClauses, clauseMapping, predMapping) =
       elimArguments(clauses, usedArgs)
     val predBackMapping =
