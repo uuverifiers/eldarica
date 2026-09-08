@@ -115,6 +115,7 @@ class GlobalParameters extends Cloneable {
   var cegarHintsFile : String = ""
   var cegarPostHintsFile : String = ""
   var predicateOutputFile : String = ""
+  var clauseStatusOutputFile : String = ""
   var finiteDomainPredBound : Int = 0
   var arrayRemoval = false
   var arrayQuantification : Option[Int] = None
@@ -211,6 +212,7 @@ class GlobalParameters extends Cloneable {
     that.cegarHintsFile = this.cegarHintsFile
     that.cegarPostHintsFile = this.cegarPostHintsFile
     that.predicateOutputFile = this.predicateOutputFile
+    that.clauseStatusOutputFile = this.clauseStatusOutputFile
     that.finiteDomainPredBound = this.finiteDomainPredBound
     that.arrayRemoval = this.arrayRemoval
     that.expandADTArguments = this.expandADTArguments
@@ -453,6 +455,11 @@ object Main {
         arguments(rest)
       }
 
+      case tFile :: rest if (tFile.startsWith("-pClauseStatus:")) => {
+        clauseStatusOutputFile = tFile drop 15
+        arguments(rest)
+      }
+
       case "-pHints" :: rest => templateBasedInterpolationPrint = true; arguments(rest)
 
       case "-minePredicates" :: rest => minePredicates = true; arguments(rest)
@@ -562,6 +569,11 @@ object Main {
           " -postHints:f      Read hints for processed clauses from a file\n" +
           " -pHints           Print initial predicates and abstraction templates\n" +
           " -pPredicates:f    Output predicates computed by CEGAR to a file\n" +
+          "                     (emitted on SAT, UNSAT, and TIMEOUT; output is in\n" +
+          "                     initial-predicates format, reusable via -hints:)\n" +
+          " -pClauseStatus:f  Output clause status (SATISFIED/UNPROVEN) to a file\n" +
+          "                     (emitted on SAT, UNSAT, and TIMEOUT; UNPROVEN means\n" +
+          "                     not yet covered, not necessarily violated)\n" +
           " -logPreds:<preds> Log only predicates containing the specified substrings,\n" +
           "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
           "                     predicate with 'p1' or 'p2' in its name\n" +

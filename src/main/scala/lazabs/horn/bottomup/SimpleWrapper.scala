@@ -35,6 +35,8 @@ import lazabs.horn.abstractions.InitPredicateVerificationHints
 
 import ap.parser._
 import ap.terfor.preds.Predicate
+import ap.SimpleAPI
+import ap.SimpleAPI.ProverStatus
 import lazabs.horn.Util._
 import lazabs.horn.predgen.Interpolators
 
@@ -43,6 +45,73 @@ import lazabs.horn.predgen.Interpolators
  * call Eldarica from Java or Scala applications.
  */
 object SimpleWrapper {
+
+  /**
+   * Check whether the conjunction of the supplied initial predicates already
+   * forms a complete solution. The fast path is attempted only when every
+   * relation symbol has at least one supplied predicate. A candidate is
+   * returned only when Princess definitively proves every clause valid;
+   * timeouts and unknown results fall back to normal CEGAR.
+   */
+  private[horn] def validatedInitialSolution(
+      clauses : Seq[HornClauses.Clause],
+      initialPredicates : Map[Predicate, Seq[IFormula]],
+      timeoutMS : Int = 3000) : Option[Map[Predicate, IFormula]] = {
+    val clausePredicates = HornClauses.allPredicates(clauses)
+    if (initialPredicates.isEmpty ||
+        !(clausePredicates forall { pred =>
+            initialPredicates.get(pred).exists(_.nonEmpty)
+          }))
+      return None
+
+    import IExpression._
+
+    val assignment =
+      (for (pred <- clausePredicates) yield
+        pred -> and(initialPredicates(pred))).toMap
+    val deadline = System.currentTimeMillis + timeoutMS
+
+    val valid = SimpleAPI.withProver { prover =>
+      import prover._
+
+      clauses forall { clause =>
+        GlobalParameters.get.timeoutChecker()
+        scope {
+          addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
+          for (constant <- clause.constants)
+            (Sort sortOf constant) match {
+              case Sort.MultipleValueBool =>
+                !! (constant >= 0 & constant <= 1)
+              case _ =>
+            }
+
+          val remaining = deadline - System.currentTimeMillis
+          if (remaining <= 0) {
+            false
+          } else {
+            try {
+              withTimeout(remaining.toInt) {
+                !! (clause.constraint)
+                for (IAtom(pred, args) <- clause.body)
+                  !! (subst(assignment(pred), args.toList, 0))
+                ?? (if (clause.head.pred == HornClauses.FALSE)
+                      i(false)
+                    else
+                      subst(assignment(clause.head.pred),
+                            clause.head.args.toList, 0))
+                ??? == ProverStatus.Valid
+              }
+            } catch {
+              case SimpleAPI.TimeoutException => false
+            }
+          }
+        }
+      }
+    }
+
+    if (valid) Some(assignment) else None
+  }
+
 
   /**
    * Solve the given set of clauses, but construct a full solution or a
@@ -79,17 +148,24 @@ object SimpleWrapper {
         else
           List()
 
-      ParallelComputation(params) {
-        val interpolator =
-          Interpolators.constructPredGen(GlobalParameters.get, newClauses)
-        val predAbs =
-          new HornPredAbs(newClauses, allHints.toInitialPredicates,
-                          interpolator)
+      val simplifiedInitialPredicates = allHints.toInitialPredicates
 
-        predAbs.result match {
-          case Left(x) => Left(() => backTranslator translate x)
-          case Right(x) => Right(() => backTranslator translate x)
-        }
+      validatedInitialSolution(newClauses, simplifiedInitialPredicates) match {
+        case Some(solution) =>
+          Left(() => backTranslator translate solution)
+        case None =>
+          ParallelComputation(params) {
+            val interpolator =
+              Interpolators.constructPredGen(GlobalParameters.get, newClauses)
+            val predAbs =
+              new HornPredAbs(newClauses, simplifiedInitialPredicates,
+                              interpolator)
+
+            predAbs.result match {
+              case Left(x) => Left(() => backTranslator translate x)
+              case Right(x) => Right(() => backTranslator translate x)
+            }
+          }
       }}}
   }
 
