@@ -108,6 +108,9 @@ sat
     (define-fun pl24 ((A (Array Int (Array Int Int))) (B Bool)) Bool (not (= B true)))
 )
 
+quantifiers.smt2
+(error "Clauses with quantifiers in constraints cannot be handled")
+
 splitting2.smt2
 sat
 (

@@ -73,6 +73,10 @@ object HornPredAbs {
   object PredicateGenerationFailedException
          extends Exception("Predicate generation failed")
 
+  object ClauseWithQuantifiersException
+         extends IllegalArgumentException(
+            "Clauses with quantifiers in constraints cannot be handled")
+
   //////////////////////////////////////////////////////////////////////////////
 
   implicit def normClause2ConstraintClause(nc : NormClause): ConstraintClause = {
