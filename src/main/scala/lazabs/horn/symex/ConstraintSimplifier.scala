@@ -54,14 +54,14 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                               order:        TermOrder)
       extends ConjunctEliminator(constraint, localSymbols, Set(), order) {
 
-    override protected def nonUniversalElimination(f: Conjunction) = {}
+    override protected def nonUniversalElimination(f: Conjunction): Unit = {}
 
     // todo: check if this eliminates function applications
     //   e.g., unused select and stores
 
     protected def universalElimination(m: ModelElement): Unit = {}
 
-    override protected def addDivisibility(f: Conjunction) = {}
+    override protected def addDivisibility(f: Conjunction): Unit = {}
 
     override protected def isEliminationCandidate(t: Term): Boolean =
       localSymbols contains t
@@ -80,7 +80,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    if (constraint.negatedConjs.isEmpty) {
+    if (constraint.negatedConjs.isEmpty ||
+        constraint.negatedConjs.forall(x => x.quans.head != ap.terfor.conjunctions.Quantifier.ALL)) {
       /**
        * If the constraint is a conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
@@ -91,8 +92,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         .eliminate(ComputationLogger.NonLogger)
     } else {
       /**
-       * If there are disjunctions, then try another method of
-       * simplification.
+       * If there are disjunctions (negated universal quantifiers),
+       * then try another method of simplification.
        */
       // quantify local symbols
       val sortedLocalSymbols =
