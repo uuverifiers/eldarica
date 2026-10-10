@@ -1,0 +1,56 @@
+
+linear-with-nonlinear-hint.smt2 (template term (* x x))
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun inv ((A Int)) Bool (>= A 0))
+)
+
+nonlinear-required.smt2 (template predicate (= y (* x x)))
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun inv ((A Int) (B Int)) Bool (and (and (>= A 1) (>= B 1)) (= (* A A) B)))
+)
+
+nonlinear-initial-preds.smt2 (initial-predicates with non-linear (* x x))
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun inv ((A Int)) Bool (>= A 0))
+)
+
+linear-chc-nonlinear-solution.smt2 (verified non-linear initial predicates)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun FUN ((A Int) (B Int)) Bool (and (= (* 2 B) (+ (* A A) A)) (>= A 0)))
+    (define-fun SAD ((A Int) (B Int)) Bool (>= (- (+ (* 2 B) A) (* A A)) 4))
+)
+
+array-with-hint.smt2 (initial-predicates with select/store)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+(
+    (define-fun inv ((A (Array Int Int)) (B Int)) Bool (and (= B 42) (= (select A 0) 42)))
+)
+
+neuro-019-horn.smt2 (verified compound non-linear invariant)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+
+neuro-019b-horn.smt2 (verified compound non-linear invariant)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+
+neuro-mult-commutative.smt2 (verified affine-product invariants)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+
+neuro-square-twice.smt2 (verified guarded non-linear invariants)
+---------------------------- Loading CEGAR hints -------------------------------
+sat
+
+neuro-square-twice-weaved.smt2 (verified nested non-linear invariants)
+---------------------------- Loading CEGAR hints -------------------------------
+sat

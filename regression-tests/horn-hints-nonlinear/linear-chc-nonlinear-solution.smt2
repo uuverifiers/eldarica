@@ -1,0 +1,20 @@
+; Regression for hint-only non-linear theory initialization.
+; The clauses are linear, but the supplied inductive solution uses x*x.
+(set-logic HORN)
+(declare-fun FUN (Int Int) Bool)
+(declare-fun SAD (Int Int) Bool)
+
+(assert (forall ((a Int) (b Int))
+  (=> (and (= a 0) (= b 0)) (FUN a b))))
+(assert (forall ((a Int) (b Int) (c Int) (d Int))
+  (=> (and (FUN a b) (= c (+ a 1)) (= d (+ b c)))
+      (FUN c d))))
+(assert (forall ((a Int) (b Int) (c Int) (d Int))
+  (=> (and (FUN a b) (= c a) (> a 0) (= d (+ b 1)))
+      (SAD c d))))
+(assert (forall ((a Int) (b Int) (c Int) (d Int))
+  (=> (and (SAD a b) (= c (- a 1)) (> b 0) (= d (- b c)))
+      (SAD c d))))
+(assert (forall ((a Int) (b Int))
+  (=> (and (SAD b a) (<= a 0) (>= b 0)) false)))
+(check-sat)

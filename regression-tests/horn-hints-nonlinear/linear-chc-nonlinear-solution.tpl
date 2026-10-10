@@ -1,0 +1,5 @@
+(initial-predicates FUN ((v0 Int) (v1 Int))
+  (= (* 2 v1) (+ (* v0 v0) v0))
+  (>= v0 0))
+(initial-predicates SAD ((v0 Int) (v1 Int))
+  (>= (- (+ (* 2 v1) v0) (* v0 v0)) 4))
