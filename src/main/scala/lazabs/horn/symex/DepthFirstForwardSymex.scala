@@ -49,6 +49,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
+  import FeasibilityCheckResult._
 
   printInfo("Starting depth-first forward symbolic execution (DFS)...\n")
 
@@ -116,15 +117,15 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
           val newElectron = hyperResolve(nucleus, electrons)
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
-          val proverStatus =
+          val checkResult =
             checkFeasibility(newElectron.constraint, timeoutMs = None)
-          if (hasContradiction(newElectron, proverStatus) getOrElse (
+          if (hasContradiction(newElectron, checkResult) getOrElse (
                 throw new SymexException(
                   "Constraint could not be checked, the checker said " +
-                    proverStatus))) { // false :- true
+                    checkResult))) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
             result = Right(buildCounterExample(newElectron))
-          } else if (isSatisfiable(proverStatus) contains false) {
+          } else if (checkResult == Infeasible) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
           } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
@@ -172,12 +173,12 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
                                  false)
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
-              val proverStatus =
+              val checkResult =
                 checkFeasibility(cuc.constraint, timeoutMs = None)
-              if (hasContradiction(cuc, proverStatus) getOrElse (
+              if (hasContradiction(cuc, checkResult) getOrElse (
                     throw new SymexException(
                       "Constraint could not be checked, the checker said " +
-                        proverStatus))) {
+                        checkResult))) {
                 result = Right(buildCounterExample(cuc))
               }
             }

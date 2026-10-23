@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2024 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2024-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -604,9 +604,9 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    if (constraint.negatedConjs.isEmpty) {
+    if (isQuantifierFreeConjunction(constraint)) {
       /**
-       * If the constraint is a conjunction, we can use the
+       * If the constraint is a quantifier-free conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.
        */
       val simplified =
@@ -643,11 +643,14 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       val instantiated = reducedQuanF.instantiate(
         sortedLocalSymbols take numToInstantiate)(reducedQuanF.order)
 
-      if (instantiated.negatedConjs.isEmpty)
+      if (isQuantifierFreeConjunction(instantiated))
         simplifyConstraint(instantiated, localSymbols,
                            reduceBeforeSimplification = false)
       else
         instantiated
     }
   }
+
+  private def isQuantifierFreeConjunction(c : Conjunction) : Boolean =
+    c.negatedConjs.isEmpty && c.quans.isEmpty
 }

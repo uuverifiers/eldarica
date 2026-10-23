@@ -591,7 +591,8 @@ object Main {
           " -sym              Use symbolic execution with the default engine (bfs)\n" +
           " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
           "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
-          " -symDepth:n       Set a max depth for symbolic execution (underapproximate)\n" +
+          " -symDepth:n       Set a max depth for symbolic execution; if the search\n" +
+          "                     is cut at that depth, the answer is unknown\n" +
           " -symStateChecks:x How newly derived non-goal states are checked in\n" + 
           "                   symbolic execution (bfs only)\n" +
           "                     {full: long t/o, cheap: short t/o, none: not checked}\n" +

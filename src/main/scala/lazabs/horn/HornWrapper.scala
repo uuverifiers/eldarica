@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat and Philipp Ruemmer.
+ * Copyright (c) 2011-2026 Hossein Hojjat and Philipp Ruemmer.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -640,7 +640,18 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
           "--------------------------------------")
 
       symex.printInfo = lazabs.GlobalParameters.get.logSymexDerivations
-      symex.solve()
+      try {
+        symex.solve()
+      } catch {
+        case e : Symex.InconclusiveException =>
+          val fullCandidate =
+            if (GlobalParameters.get.needFullSolution)
+              for (sol <- e.candidateSolution)
+              yield preprocBackTranslator translate sol
+            else
+              None
+          throw new Symex.InconclusiveException(fullCandidate)
+      }
     }
 
     Console.withOut(outStream){

@@ -36,6 +36,7 @@ import bottomup._
 import bottomup.RelationSymbol
 import abstractions.AbsLattice
 import Util.Dag
+import symex.Symex
 
 import ap.parser._
 
@@ -45,7 +46,7 @@ object Solve {
             global: Boolean, 
             disjunctive : Boolean, 
             drawRTree: Boolean, 
-            lbe: Boolean) = {
+            lbe: Boolean) : Unit = {
 
     val log = lazabs.GlobalParameters.get.log
 
@@ -88,6 +89,14 @@ object Solve {
             println("unknown")
             printTime
             throw t
+          }
+          case e : Symex.InconclusiveException => {
+            println("unknown")
+            printTime
+            for (candidate <- e.candidateSolution)
+              printSolution(candidate, Some(
+                "candidate solution up to the depth bound, not a model"))
+            return
           }
         }
 
@@ -137,35 +146,42 @@ object Solve {
               solution
             }
 
-            if (lazabs.GlobalParameters.get.displaySolutionProlog) {
-                val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
-                for((pred,sol) <- sortedSol) {
-                  val cl = HornClause(RelVar(pred.name,
-                             (0 until pred.arity).map(p =>
-                                      Parameter("_" + p,lazabs.types.IntegerType())).toList),
-                      List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
-                                   Map[ap.terfor.ConstantTerm,String]().empty,false))))
-                  println(lazabs.viewer.HornPrinter.print(cl))
-                }
-            } else if (lazabs.GlobalParameters.get.displaySolutionSMT) {
-              // TODO: this should probably just use the function for printing
-              // models in SMTLineariser. But will change the syntax a bit
-              // and require tests to be updated
-
-              val eldSol = translatePri2EldSolution(solution)
-
-              val builder = new StringBuilder
-              for (cl <- eldSol) {
-                builder.append("\n    ")
-                builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
-              }
-
-              println(s"(${builder.toString}\n)")
-            }
+            printSolution(solution, commentLine = None)
           }
         }
       }    
   }
+
+  private def printSolution(solution    : => Map[IExpression.Predicate,
+                                                 IFormula],
+                            commentLine : Option[String]) : Unit =
+    if (lazabs.GlobalParameters.get.displaySolutionProlog) {
+        for (line <- commentLine) println("% " + line)
+        val sortedSol = solution.toArray.sortWith(_._1.name < _._1.name)
+        for((pred,sol) <- sortedSol) {
+          val cl = HornClause(RelVar(pred.name,
+                     (0 until pred.arity).map(p =>
+                              Parameter("_" + p,lazabs.types.IntegerType())).toList),
+              List(Interp(lazabs.prover.PrincessWrapper.formula2Eldarica(sol,
+                           Map[ap.terfor.ConstantTerm,String]().empty,false))))
+          println(lazabs.viewer.HornPrinter.print(cl))
+        }
+    } else if (lazabs.GlobalParameters.get.displaySolutionSMT) {
+      for (line <- commentLine) println("; " + line)
+      // TODO: this should probably just use the function for printing
+      // models in SMTLineariser. But will change the syntax a bit
+      // and require tests to be updated
+
+      val eldSol = translatePri2EldSolution(solution)
+
+      val builder = new StringBuilder
+      for (cl <- eldSol) {
+        builder.append("\n    ")
+        builder.append(lazabs.viewer.HornSMTPrinter.printFull(cl, true))
+      }
+
+      println(s"(${builder.toString}\n)")
+    }
 
   private def translatePri2EldSolution(sol : Map[IExpression.Predicate, IFormula])
                                            : Seq[HornClause] =

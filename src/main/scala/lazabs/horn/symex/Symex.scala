@@ -44,6 +44,23 @@ import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 object Symex {
   private[symex] object AC extends ap.util.Debug.ASSERTION_CATEGORY
   class SymexException(msg: String) extends Exception(msg)
+
+  /**
+   * The search ended without a verdict (for example a bounded depth
+   * is reached). A candidate solution need not be a model of the clauses
+   * (e.g., it is the model up to some depth).
+   */
+  class InconclusiveException(val candidateSolution : Option[Solution])
+      extends SymexException("search ended without a verdict")
+
+  sealed abstract class FeasibilityCheckResult
+  object FeasibilityCheckResult {
+    case object Feasible      extends FeasibilityCheckResult
+    case object Infeasible    extends FeasibilityCheckResult
+    case object BudgetExpired extends FeasibilityCheckResult
+    case class  ProverGaveUp(status : ProverStatus.Value)
+        extends FeasibilityCheckResult
+  }
 }
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
@@ -137,30 +154,37 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   private[symex] def checkFeasibility(constraint : Conjunction,
                                       timeoutMs  : Option[Long])
-    : ProverStatus.Value = {
+    : FeasibilityCheckResult = {
+    import FeasibilityCheckResult._
     if (constraint.isTrue) {
-      ProverStatus.Sat
+      Feasible
     } else if (constraint.isFalse) {
-      ProverStatus.Unsat
+      Infeasible
     } else prover.scope {
       prover.addAssertionPreproc(constraint)
       timeoutMs match {
         case Some(millis) =>
           prover.checkSat(block = false)
           prover.getStatus(millis) match {
-            case ProverStatus.Running => prover.stop
-            case status               => status
+            case ProverStatus.Running =>
+              toFeasibilityCheckResult(prover.stop) match {
+                case ProverGaveUp(_) => BudgetExpired
+                case decided         => decided
+              }
+            case status => toFeasibilityCheckResult(status)
           }
-        case None => prover.???
+        case None => toFeasibilityCheckResult(prover.???)
       }
     }
   }
 
-  private[symex] def isSatisfiable(proverStatus: ProverStatus.Value)
-    : Option[Boolean] =
-    proverStatus match {
-      case ProverStatus.Valid | ProverStatus.Sat     => Some(true)
-      case ProverStatus.Invalid | ProverStatus.Unsat => Some(false)
-      case _                                         => None
+  private def toFeasibilityCheckResult(status : ProverStatus.Value)
+    : FeasibilityCheckResult = {
+    import FeasibilityCheckResult._
+    status match {
+      case ProverStatus.Valid | ProverStatus.Sat     => Feasible
+      case ProverStatus.Invalid | ProverStatus.Unsat => Infeasible
+      case _                                         => ProverGaveUp(status)
     }
+  }
 }

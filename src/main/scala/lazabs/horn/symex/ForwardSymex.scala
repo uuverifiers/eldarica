@@ -39,6 +39,7 @@ import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
+import Symex.FeasibilityCheckResult
 
 import collection.mutable.{HashMap => MHashMap}
 
@@ -219,11 +220,15 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
 
   // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
   // None if prover cannot decide
-  private[symex] def hasContradiction(cuc:          UnitClause,
-                                      proverStatus: ProverStatus.Value)
+  private[symex] def hasContradiction(cuc         : UnitClause,
+                                      checkResult : FeasibilityCheckResult)
     : Option[Boolean] =
     if ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive))
-      isSatisfiable(proverStatus)
+      checkResult match {
+        case FeasibilityCheckResult.Feasible   => Some(true)
+        case FeasibilityCheckResult.Infeasible => Some(false)
+        case _                                 => None
+      }
     else
       Some(false)
 

@@ -1,12 +1,15 @@
 package lazabs.horn.symex
 
 import ap.parser.IExpression.Sort
-import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.{HornClauses, NormClause}
 import lazabs.horn.CHCResultMatchers
 import ap.api.SimpleAPI
+import ap.api.SimpleAPI.ProverStatus
 import ap.parser._
+import ap.terfor.conjunctions.Conjunction
 import IExpression._
 import HornClauses._
+import Symex.{FeasibilityCheckResult, InconclusiveException}
 import ap.theories.ExtArray
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -14,6 +17,34 @@ import org.scalatest.freespec.AnyFreeSpec
 class BreadthFirstForwardSymexUnitTests
     extends AnyFreeSpec
     with CHCResultMatchers {
+
+  class GivingUpSymex(clauses : Seq[Clause], givingUp : Set[Clause])
+      extends BreadthFirstForwardSymex[Clause](clauses) {
+    private var resolvedClause : Option[Clause] = None
+    private var checks = 0
+
+    override protected def hyperResolve(nucleus   : NormClause,
+                                        electrons : Seq[UnitClause])
+        : UnitClause = {
+      resolvedClause = Some(normClauseToCC(nucleus))
+      super.hyperResolve(nucleus, electrons)
+    }
+
+    override private[symex] def checkFeasibility(constraint : Conjunction,
+                                                 timeoutMs  : Option[Long])
+        : FeasibilityCheckResult = {
+      checks += 1
+      assert(checks <= 100, "the search does not end")
+      val clause = resolvedClause
+      resolvedClause = None
+      clause match {
+        case Some(c) if givingUp contains c =>
+          FeasibilityCheckResult.ProverGaveUp(ProverStatus.OutOfMemory)
+        case _ =>
+          super.checkFeasibility(constraint, timeoutMs)
+      }
+    }
+  }
 
   SimpleAPI.withProver { p =>
     import p._
@@ -162,7 +193,7 @@ class BreadthFirstForwardSymexUnitTests
           }
         }
         "Unbounded loops with depth" - {
-          "Safe (underapproximate / unsound)" in {
+          "Unsafe beyond the bound (unknown, candidate solution)" in {
             scope{
               val p0 = createRelation("p0", List(Sort.Integer))
               val x  = createConstant("x")
@@ -174,8 +205,15 @@ class BreadthFirstForwardSymexUnitTests
                 )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(10))
-              symex.solve()
-            } should beSat
+              val e = the [InconclusiveException] thrownBy symex.solve()
+
+              val candidate = e.candidateSolution.get(p0)
+              def candidateHolds(value : Int) : Boolean = scope {
+                !! (subst(candidate, List(i(value)), 0))
+                ??? == ProverStatus.Sat
+              }
+              assert(candidateHolds(9) && !candidateHolds(10))
+            }
           }
           "Unsafe" in {
             scope{
@@ -191,6 +229,39 @@ class BreadthFirstForwardSymexUnitTests
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(25))
               symex.solve()
             } should beUnsat
+          }
+        }
+      }
+      "Undecided checks" - {
+        "State given up above a counterexample (unsat)" in {
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val q = createRelation("q", List(Sort.Integer))
+            val x = createConstant("x")
+
+            val givenUpState : Clause = q(x) :- p(x)
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 0),
+              givenUpState,
+              false :- q(x)
+            )
+            val symex = new GivingUpSymex(clauses, Set(givenUpState))
+            symex.solve()
+          } should beUnsat
+        }
+        "Goal given up, no other refutation (unknown)" in {
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val x = createConstant("x")
+
+            val givenUpGoal : Clause = false :- (p(x), x >= 0)
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 0),
+              givenUpGoal
+            )
+            val symex = new GivingUpSymex(clauses, Set(givenUpGoal))
+            val e = the [InconclusiveException] thrownBy symex.solve()
+            e.candidateSolution shouldBe empty
           }
         }
       }

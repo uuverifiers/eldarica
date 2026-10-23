@@ -28,7 +28,6 @@
  */
 package lazabs.horn.symex
 
-import ap.api.SimpleAPI.ProverStatus
 import ap.util.Combinatorics
 import ap.parser.IAtom
 import lazabs.GlobalParameters
@@ -44,8 +43,8 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
  * Implements a breadth-first forward symbolic execution using Symex.
  * @param maxDepth : Search will stop after deriving this many unit clauses
  *                   for a given predicate. Note that setting this value to
- *                   something other than None will yield an under-approximate
- *                   solution but will always terminate (like BMC).
+ *                   something other than None will always terminate (like
+ *                   BMC), and a search cut by the bound ends inconclusive.
  */
 class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    maxDepth : Option[Int] = None)(
@@ -55,6 +54,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
+  import FeasibilityCheckResult._
 
   val initialTimeoutMs  : Long = 2000
   val timeoutGrowthRate : Long = 2
@@ -86,6 +86,9 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     handleNewUnitClause(fact)
   }
 
+  private var undecidedGoals     = 0L
+  private var depthPrunedChoices = 0L
+
   private def getClausesForResolution
     : Option[(NormClause, Seq[UnitClause], Long)] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
@@ -101,7 +104,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             val rs        = candidate._1.head._1
             unitClauseDB.inferred(rs) match {
               case Some(cucs) if cucs.length >= depth =>
-              // this is not a good candidate, continue
+                // this is not a good candidate, continue
+                depthPrunedChoices += 1
               case _ => // this is a good candidate, return
                 continue = false
                 res = Some(candidate)
@@ -120,6 +124,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   private var checksFeasible   = 0L
   private var checksInfeasible = 0L
   private var checksPostponed  = 0L
+  private var uncheckedStates  = 0L
   private var checkNanos       = 0L
   private var resolutionNanos  = 0L
 
@@ -167,34 +172,37 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                 case GlobalParameters.SymexStateChecks.None  => scala.None
               }
             val checkStart = if (collectStats) System.nanoTime else 0L
-            val proverStatus = checkTimeout match {
+            val checkResult = checkTimeout match {
               case Some(millis) =>
                 checkFeasibility(newElectron.constraint, Some(millis))
               case scala.None =>
-                if (newElectron.constraint.isFalse) ProverStatus.Unsat
-                else ProverStatus.Sat
+                if (newElectron.constraint.isFalse) Infeasible else Feasible
             }
             if (collectStats) checkNanos += System.nanoTime - checkStart
-            val satisfiable = isSatisfiable(proverStatus)
             statesDerived += 1
-            satisfiable match {
-              case Some(true)  => checksFeasible   += 1
-              case Some(false) => checksInfeasible += 1
-              case None        => checksPostponed  += 1
+            checkResult match {
+              case Feasible                  => checksFeasible   += 1
+              case Infeasible                => checksInfeasible += 1
+              case BudgetExpired             => checksPostponed  += 1
+              case ProverGaveUp(_) if isGoal => undecidedGoals   += 1
+              case ProverGaveUp(_)           => uncheckedStates  += 1
             }
-            if (satisfiable.isEmpty) {
+            if (checkResult == BudgetExpired) {
               // the check gets another turn later with more time, so the
               // rest of the search goes first
               val longerTimeout = timeoutMs * timeoutGrowthRate
-              printInfo("\n  (Check said " + proverStatus + ", postponed with " +
+              printInfo("\n  (Check budget expired, postponed with " +
                         longerTimeout + " ms.)")
               enqueue(nucleus, electrons, longerTimeout)
-            } else if (hasContradiction(newElectron, proverStatus) contains true) { // false :- true
+            } else if (isGoal && checkResult == Feasible) {
               unitClauseDB.add(newElectron, (nucleus, electrons))
               result = Right(buildCounterExample(newElectron))
-            } else if (satisfiable contains false) {
+            } else if (checkResult == Infeasible) {
               printInfo("")
               handleFalseConstraint(nucleus, electrons)
+            } else if (isGoal) {
+              printInfo("\n  (Check said " + checkResult +
+                        ", goal left undecided.)")
             } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
               printInfo("subsumed by existing unit clauses.")
               handleForwardSubsumption(nucleus, electrons)
@@ -216,7 +224,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               }
             }
           }
-          case None => // nothing left to explore, the clauses are SAT.
+          case None => // nothing left to explore
             printInfo("\t(Search space exhausted.)\n")
 
             // Untouched clauses can be either those which were unreachable,
@@ -240,20 +248,18 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    false)
                   } else toUnitClause(clause)
                 unitClauseDB.add(cuc, (clause, Nil))
-                val proverStatus =
-                  checkFeasibility(cuc.constraint, timeoutMs = None)
-                if (hasContradiction(cuc, proverStatus) getOrElse (
-                      throw new SymexException(
-                        "Constraint could not be checked, the checker said " +
-                          proverStatus))) {
-                  result = Right(buildCounterExample(cuc))
+                checkFeasibility(cuc.constraint, timeoutMs = None) match {
+                  case Feasible   =>
+                    result = Right(buildCounterExample(cuc))
+                  case Infeasible =>
+                  case _          => undecidedGoals += 1
                 }
               }
-              if (result == null) { // none of the assertions failed, so this is SAT
-                result = Left(buildSolution())
+              if (result == null) { // none of the assertions failed
+                result = resultOfExhaustedSearch
               }
             } else {
-              result = Left(buildSolution())
+              result = resultOfExhaustedSearch
             }
           case other =>
             throw new SymexException(
@@ -269,6 +275,10 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                 s"${checksFeasible + checksInfeasible + checksPostponed} " +
                 s"($checksFeasible feasible, $checksInfeasible infeasible, " +
                 s"$checksPostponed postponed)")
+        println(s"checks given up: ${uncheckedStates + undecidedGoals} " +
+                s"($uncheckedStates unchecked states, " +
+                s"$undecidedGoals undecided goals)")
+        println(s"depth bound: $depthPrunedChoices choices pruned")
         println(s"duplicate states rejected: " +
                 s"${unitClauseDB.rejectedDuplicateCUCCount}")
         subsumptionStats foreach println
@@ -287,6 +297,14 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     }
   }
 
+
+  private def resultOfExhaustedSearch : Either[Solution, Dag[(IAtom, CC)]] =
+    if (undecidedGoals > 0)
+      throw new InconclusiveException(candidateSolution = None)
+    else if (depthPrunedChoices > 0)
+      throw new InconclusiveException(Some(buildSolution()))
+    else
+      Left(buildSolution())
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
     val possibleChoices = clausesWithRelationInBody(electron.rs)
