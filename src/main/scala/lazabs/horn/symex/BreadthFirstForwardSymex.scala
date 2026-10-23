@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,7 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
 class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    maxDepth : Option[Int] = None)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
-    extends Symex(clauses)
+    extends ForwardSymex(clauses)
     with EntailmentSubsumptionChecker
     with ConstraintSimplifierUsingConjunctEliminator {
 
