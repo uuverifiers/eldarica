@@ -38,25 +38,99 @@ trait SubsumptionChecker {
       cuc:          UnitClause,
       unitClauseDB: UnitClauseDB
   ): Set[UnitClause]
+
+  def subsumptionStats : Option[String] = None
 }
 
-trait SimpleSubsumptionChecker extends SubsumptionChecker {
+trait NoSubsumptionChecker extends SubsumptionChecker {
 
-  import Symex._
-
-  override def checkForwardSubsumption(cuc:          UnitClause,
-                                       unitClauseDB: UnitClauseDB): Boolean = {
-    false
-  }
+  override def checkForwardSubsumption(cuc          : UnitClause,
+                                       unitClauseDB : UnitClauseDB) = false
 
   override def checkBackwardSubsumption(
-      cuc:          UnitClause,
-      unitClauseDB: UnitClauseDB
-  ): Set[UnitClause] = {
-    //unitClauseDB
-    //  .inferredCUCsForPred(cuc.pred)
-    //  .filter(existingCuc => cuc subsumes existingCuc)
-    //  .toSet
-    Set()
+      cuc          : UnitClause,
+      unitClauseDB : UnitClauseDB
+  ) : Set[UnitClause] =  Set()
+}
+
+trait EntailmentSubsumptionChecker extends SubsumptionChecker {
+  self : Symex[_] =>
+
+  private val newestToCheck = 32 // use this many cucs that were last derived
+  private val oldestToCheck = 8  // use this many oldest cucs
+
+  private val collectStats     = lazabs.GlobalParameters.get.log
+  private var subsumptionNanos = 0L
+
+  protected def subsumptionTimeNanos : Long = subsumptionNanos
+
+  // logging
+  private var candidatePairs   = 0L
+  private var duplicateSkips   = 0L
+  private var entailmentChecks = 0L
+  private var statesSubsumed   = 0L
+  private var calls            = 0L
+  private var truncatedCalls   = 0L
+  private var storedSizeSum    = 0L
+
+  override def subsumptionStats : Option[String] =
+    Some(s"subsumption: $candidatePairs candidate pairs, " +
+         s"$duplicateSkips duplicate skips, " +
+         s"$entailmentChecks entailment checks, " +
+         s"$statesSubsumed states subsumed" +
+         (if (calls > 0)
+            s"\nsubsumption window: $calls calls, $truncatedCalls truncated " +
+            s"at ${newestToCheck + oldestToCheck}, " +
+            s"average stored states per call ${storedSizeSum / calls}"
+          else ""))
+
+  override def checkForwardSubsumption(cuc          : UnitClause,
+                                       unitClauseDB : UnitClauseDB)
+  : Boolean =
+    if (!collectStats)
+      checkForwardSubsumptionImpl(cuc, unitClauseDB)
+    else {
+      val start = System.nanoTime
+      try checkForwardSubsumptionImpl(cuc, unitClauseDB)
+      finally subsumptionNanos += System.nanoTime - start
+    }
+
+  private def checkForwardSubsumptionImpl(cuc          : UnitClause,
+                                          unitClauseDB : UnitClauseDB)
+  : Boolean = {
+    unitClauseDB.inferred(cuc.rs) match {
+      case Some(stored) =>
+        calls += 1
+        storedSizeSum += stored.size
+        if (stored.size > newestToCheck + oldestToCheck)
+          truncatedCalls += 1
+        val candidates =
+          if (stored.size <= newestToCheck + oldestToCheck)
+            stored.reverseIterator // below the limit
+          else // use the limit
+            stored.reverseIterator.take(newestToCheck) ++
+              stored.iterator.take(oldestToCheck)
+        val subsumed = candidates exists { old =>
+          candidatePairs += 1
+          if (old.isPositive != cuc.isPositive) // polarity must match
+            false
+          else if (old.constraint == cuc.constraint) {
+            // ignore syntactic equality, this should be checked
+            // separately for cheaper
+            duplicateSkips += 1
+            false
+          } else {
+            entailmentChecks += 1
+            symex_sf.reducer(cuc.constraint)(old.constraint).isTrue
+          }
+        }
+        if (subsumed) statesSubsumed += 1
+        subsumed
+      case None => false
+    }
   }
+
+  override def checkBackwardSubsumption(cuc          : UnitClause,
+                                        unitClauseDB : UnitClauseDB)
+  : Set[UnitClause] = Set()
 }

@@ -55,6 +55,8 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
 
   private var cucs: collection.immutable.Vector[UnitClause] = Vector()
 
+  var rejectedDuplicateCUCCount = 0
+
   private var cucParents
     : collection.immutable.Vector[(UnitClause, (NormClause, Seq[UnitClause]))] =
     Vector()
@@ -147,6 +149,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   def add(clause:  UnitClause,
           parents: (NormClause, Seq[UnitClause])): Boolean = {
     if (cucs contains clause) {
+      rejectedDuplicateCUCCount += 1
       false
     } else {
       cucs = cucs :+ clause

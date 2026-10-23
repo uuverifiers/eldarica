@@ -34,6 +34,7 @@ import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.terfor._
+import ap.util.Debug
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.substitutions.ConstantSubst
 import ap.theories.{Theory, TheoryCollector}
@@ -45,6 +46,7 @@ import lazabs.horn.preprocessor.HornPreprocessor.Solution
 import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
 object Symex {
+  private[symex] object AC extends ap.util.Debug.ASSERTION_CATEGORY
   class SymexException(msg: String) extends Exception(msg)
 }
 
@@ -56,7 +58,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   import Symex._
 
   var printInfo = false
-  def printInfo(s : String, newLine : Boolean = true) : Unit = {
+  def printInfo(s : => String, newLine : Boolean = true) : Unit = {
     if (printInfo)
       print(s + (if (newLine) "\n" else ""))
   }
@@ -140,7 +142,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
           val cuc = toUnitClause(normClause)
           (cuc, (cuc, normClause))
         }).unzip
-    (facts, factToNormClause.toMap)
+    (facts.distinct, factToNormClause.toMap)
   }
 
   val (goals: Seq[UnitClause], goalToNormClause: Map[UnitClause, NormClause]) = {
@@ -155,20 +157,13 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   }
 
   /**
-   * Returns optionally a nucleus and electrons that can be hyper-resolved into
-   * another electron. The sequence indices i of returned electrons correspond
-   * to atoms at nucleus.body(i). Returns None if the search space is exhausted.
-   */
-  def getClausesForResolution: Option[(NormClause, Seq[UnitClause])]
-
-  /**
    * Applies hyper-resolution using nucleus and electrons and returns the
    * resulting unit clause.
    * @note This implementation only infers positive CUCs.
    * @note "FALSE :- constraint" is considered a unit clause.
    * @todo Move out of this class.
    */
-  private def hyperResolve(nucleus:   NormClause,
+  protected def hyperResolve(nucleus:   NormClause,
                            electrons: Seq[UnitClause]): UnitClause = {
 
     assert(electrons.length == nucleus.body.length)
@@ -206,93 +201,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val unitClauseDB = new UnitClauseDB(relationSymbols.values.toSet)
 
-  def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
-    var result: Either[Solution, Dag[(IAtom, CC)]] = null
-
-    val touched = new MHashSet[NormClause]
-    facts.foreach(fact => touched += factToNormClause(fact))
-
-    // start traversal
-    var ind = 0
-    while (result == null) {
-      lazabs.GlobalParameters.get.timeoutChecker()
-      ind += 1
-      printInfo(ind + ".", false)
-      getClausesForResolution match {
-        case Some((nucleus, electrons)) => {
-          touched += nucleus
-          val newElectron = hyperResolve(nucleus, electrons)
-          printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
-          printInfo("  =\n\t" + newElectron)
-          val proverStatus = checkFeasibility(newElectron.constraint)
-          if (hasContradiction(newElectron, proverStatus)) { // false :- true
-            unitClauseDB.add(newElectron, (nucleus, electrons))
-            result = Right(buildCounterExample(newElectron))
-          } else if (constraintIsFalse(newElectron, proverStatus)) {
-            printInfo("")
-            handleFalseConstraint(nucleus, electrons)
-          } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
-            printInfo("subsumed by existing unit clauses.")
-            handleForwardSubsumption(nucleus, electrons)
-          } else {
-            val backSubsumed =
-              checkBackwardSubsumption(newElectron, unitClauseDB)
-            if (backSubsumed nonEmpty) {
-              printInfo(
-                "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
-                newLine = false)
-              handleBackwardSubsumption(backSubsumed)
-            }
-            if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
-              printInfo("\n  (Added to database.)\n")
-              handleNewUnitClause(newElectron)
-            } else {
-              printInfo("\n  (Derived clause already exists in the database.)")
-              handleForwardSubsumption(nucleus, electrons)
-            }
-          }
-        }
-        case None => // nothing left to explore, the clauses are SAT.
-          printInfo("\t(Search space exhausted.)\n")
-
-          // Untouched clauses can be either those which were unreachable,
-          // or corner cases such as a single assertion which did not need
-          // symbolic execution.
-          // The only case we need to handle is assertions without body literals,
-          // because assertions with uninterpreted body literals are always
-          // solveable by interpreting the body literals as false.
-
-          val untouchedClauses =
-            (normClauses.map(_._1).toSet -- touched).filter(_.body.isEmpty)
-          assert(untouchedClauses.forall(clause =>
-            clause.head._1.pred == HornClauses.FALSE))
-          if (untouchedClauses nonEmpty) {
-            printInfo("\t(Dangling assertions detected, checking those too.)")
-            for (clause <- untouchedClauses if result == null) {
-              val cuc = // for the purpose of checking feasibility
-                if (clause.body.isEmpty) {
-                  new UnitClause(RelationSymbol(HornClauses.FALSE),
-                                 clause.constraint,
-                                 false)
-                } else toUnitClause(clause)
-              unitClauseDB.add(cuc, (clause, Nil))
-              if (hasContradiction(cuc, checkFeasibility(cuc.constraint))) {
-                result = Right(buildCounterExample(cuc))
-              }
-            }
-            if (result == null) { // none of the assertions failed, so this is SAT
-              result = Left(buildSolution())
-            }
-          } else {
-            result = Left(buildSolution())
-          }
-        case other =>
-          throw new SymexException(
-            "Cannot hyper-resolve clauses: " + other.toString)
-      }
-    }
-    result
-  }
+  def solve(): Either[Solution, Dag[(IAtom, CC)]]
 
   // methods handling derivation of useless clauses (merge?)
   def handleForwardSubsumption(nucleus:   NormClause,
@@ -305,7 +214,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   def handleFalseConstraint(nucleus:   NormClause,
                             electrons: Seq[UnitClause]): Unit
 
-  private def buildSolution(): Solution = {
+  protected def buildSolution(): Solution = {
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
       yield {
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
@@ -345,7 +254,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
    * Returns a counterexample DAG given the last derived unit clause as root,
    * i.e., FALSE :- TRUE.
    */
-  private def buildCounterExample(root: UnitClause): Dag[(IAtom, CC)] = {
+  protected def buildCounterExample(root: UnitClause): Dag[(IAtom, CC)] = {
     def computeAtoms(headAtom: IAtom, cuc: UnitClause): Dag[(IAtom, CC)] = {
       unitClauseDB.parentsOption(cuc) match {
         case None =>
@@ -397,44 +306,44 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
   }
 
-  private def checkFeasibility(constraint: Conjunction): ProverStatus.Value = {
-    prover.scope {
+  private[symex] def checkFeasibility(constraint : Conjunction,
+                                      timeoutMs  : Option[Long])
+    : ProverStatus.Value = {
+    if (constraint.isTrue) {
+      ProverStatus.Sat
+    } else if (constraint.isFalse) {
+      ProverStatus.Unsat
+    } else prover.scope {
       prover.addAssertionPreproc(constraint)
-      prover.???
+      timeoutMs match {
+        case Some(millis) =>
+          prover.checkSat(block = false)
+          prover.getStatus(millis) match {
+            case ProverStatus.Running => prover.stop
+            case status               => status
+          }
+        case None => prover.???
+      }
     }
   }
+
+  private[symex] def isSatisfiable(proverStatus: ProverStatus.Value)
+    : Option[Boolean] =
+    proverStatus match {
+      case ProverStatus.Valid | ProverStatus.Sat     => Some(true)
+      case ProverStatus.Invalid | ProverStatus.Unsat => Some(false)
+      case _                                         => None
+    }
 
   // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
-  private def hasContradiction(cuc:          UnitClause,
-                               proverStatus: ProverStatus.Value): Boolean = {
-    ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive)) &&
-    (proverStatus match { // check if cuc constraint is satisfiable
-      case ProverStatus.Valid | ProverStatus.Sat     => true
-      case ProverStatus.Invalid | ProverStatus.Unsat => false
-      case s => {
-        Console.err.println(
-          "Constraint could not be checked during symbolic execution")
-        Console.err.println(cuc)
-        Console.err.println("Checker said: " + s)
-        true
-      }
-    })
-  }
-
-  private def constraintIsFalse(cuc:          UnitClause,
-                                proverStatus: ProverStatus.Value): Boolean = {
-    proverStatus match { // check if cuc constraint is satisfiable
-      case ProverStatus.Valid | ProverStatus.Sat     => false // ok
-      case ProverStatus.Invalid | ProverStatus.Unsat => true
-      case s => {
-        Console.err.println(
-          "Constraint could not be checked during symbolic execution")
-        Console.err.println(cuc)
-        Console.err.println("Checker said: " + s)
-        false
-      }
-    }
-  }
+  // None if prover cannot decide
+  private[symex] def hasContradiction(cuc:          UnitClause,
+                                      proverStatus: ProverStatus.Value)
+    : Option[Boolean] =
+    if ((cuc.rs.pred == HornClauses.FALSE) || (!cuc.isPositive))
+      isSatisfiable(proverStatus)
+    else
+      Some(false)
 
   private def newUnitClause(rs:                  RelationSymbol,
                             constraint:          Conjunction,
@@ -448,9 +357,11 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       (differentOccArgsToRewrite zip rs
         .arguments(0)).toMap
 
+    // sorted to keep the renaming independent of set iteration order
     val otherConstantsToRewrite =
-      constraint.constants -- (differentOccArgsToRewrite ++
-        rs.arguments(headOccInConstraint))
+      symex_sf.order.sort(
+        constraint.constants -- (differentOccArgsToRewrite ++
+          rs.arguments(headOccInConstraint)))
     val constantSubstMap: Map[ConstantTerm, ConstantTerm] =
       (otherConstantsToRewrite zip symex_sf
         .localSymbolsForPred(pred = rs.pred,
@@ -460,10 +371,23 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     val predLocalConstraint =
       ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
         constraint)
-    new UnitClause(rs, predLocalConstraint, isPositive)
+    // resolving the disjunctions of a constraint can enable further
+    // simplification. simplify again so that the stored constraint
+    // is fully simplified
+    val storedConstraint =
+      simplifyConstraint(predLocalConstraint,
+                         (predLocalConstraint.constants --
+                            rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
+                         reduceBeforeSimplification = true)
+    // a stored constraint carries at most one atom per function application
+    Debug.assertPost(Symex.AC, {
+      val lits = storedConstraint.predConj.positiveLits
+      lits.map(a => (a.pred, a.init)).distinct.size == lits.size
+    })
+    new UnitClause(rs, storedConstraint, isPositive)
   }
 
-  private def toUnitClause(normClause: NormClause): UnitClause = {
+  protected def toUnitClause(normClause: NormClause): UnitClause = {
     normClausesConvertedToUnitClauses get normClause match {
       case Some(unitClause) => unitClause
       case None =>

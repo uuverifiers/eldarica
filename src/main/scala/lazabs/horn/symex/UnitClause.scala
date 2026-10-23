@@ -32,6 +32,7 @@ import ap.DialogUtil
 import ap.parser.IExpression.{ConstantTerm, Sort}
 import ap.parser.PrincessLineariser
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Atom
 import ap.terfor.substitutions.ConstantSubst
 import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.Util.toStream
@@ -47,9 +48,18 @@ import lazabs.horn.symex.Symex.SymexException
  * @param sf         : symbol factory
  */
 //noinspection MatchToPartialFunction
-class UnitClause(val rs:         RelationSymbol,
-                 val constraint: Conjunction,
-                 val isPositive: Boolean)(implicit sf: SymexSymbolFactory) {
+class UnitClause(val rs            : RelationSymbol,
+                 val rawConstraint : Conjunction,
+                 val isPositive    : Boolean)(implicit sf: SymexSymbolFactory) {
+
+  private val normalized =
+    ConstraintNormalizer.normalize(rs.arguments(0), rawConstraint,
+      n => (sf.localSymbolsForPred(rs.pred, n, 0), sf.order))
+
+  val constraint : Conjunction = normalized.constraint
+  val definingTheoryLits : IndexedSeq[Option[Atom]] =
+    normalized.definingTheoryLits
+
   // override equals
   //def subsumes(that: UnitClause): Boolean = {
   //  this.pred == that.pred &&
@@ -81,6 +91,8 @@ class UnitClause(val rs:         RelationSymbol,
       case _ => false
     }
   }
+
+  override def hashCode : Int = (rs, isPositive, constraint).hashCode
 
   val constraintAtOcc: Stream[Conjunction] = toStream { occ =>
     occ match {
