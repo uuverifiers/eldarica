@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2025 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2016-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,10 @@ import IExpression._
 import ap.util.{Seqs, Timeout}
 import ap.types.MonoSortedPredicate
 
+import ap.terfor.conjunctions.Conjunction
+import ap.util.Debug
+import ap.api.PartialModel
+
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  LinkedHashSet, ArrayBuffer}
 
@@ -50,6 +54,27 @@ object BooleanClauseSplitter {
 
   private val SPLITTING_TO = 3000
   private val GLOBAL_SPLITTING_TO = 30000
+
+}
+
+object PresburgerTools2 {
+  import PresburgerTools._
+
+  /**
+   * Turn a formula into DNF, assuming that the constants
+   * <code>eliminatedConsts</code> are implicitly existentially quantified and
+   * can be eliminated or renamed arbitrarily.
+   */
+  def toDNFQE(formula          : Conjunction,
+              eliminatedConsts : Seq[ConstantTerm]) : Conjunction = {
+    val order = formula.order
+    if (isQFPresburger(formula)) {
+      val f = Conjunction.quantify(Quantifier.EX, eliminatedConsts, formula, order)
+      ap.proof.ConstraintSimplifier.LEMMA_SIMPLIFIER(f, order)
+    } else {
+      formula
+    }
+  }
 
 }
 
@@ -82,12 +107,19 @@ class BooleanClauseSplitter extends HornPreprocessor {
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
 
+    ap.util.Timer.reset
+
     val newClauses = SimpleAPI.withProver { p =>
       for (clause <- clauses;
-           newClause <- cleverSplit(clause)(p)) yield {
+           newClause <- cleverSplit(clause)(p)
+//           newClause <- fullDNF(clause)(p)
+//           newClause <- qeSplit(clause)(p)
+           ) yield {
         newClause
       }
     }
+
+    println(ap.util.Timer)
 
     val translator =
       ClauseShortener.BTranslator.withIndexes(tempPredicates.toSet,
@@ -98,6 +130,49 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
     (newClauses, hints, translator)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def qeSplit(clause : Clause)
+                     (implicit p : SimpleAPI) : Seq[Clause] =
+    if (needsSplittingPos(clause.constraint)) {
+//      println(s"Clause: $clause")
+      val Clause(headAtom, body, constraint) = clause
+
+      p.scope {
+        import p._
+        val allConsts = SymbolCollector constantsSorted constraint
+        val atomConsts = SymbolCollector.constants(headAtom & and(body))
+        val elimConsts = allConsts.filterNot(atomConsts)
+
+        println(s"Constants only in constraint: $elimConsts")
+
+/*
+        println("mbDNF:")
+        val mbDisjuncts =
+          ap.util.Timer.measure("mbQEDNF") {DNFConverter2.mbQEDNF(constraint, elimConsts)}
+        println(s"disjuncts: ${mbDisjuncts.size}")
+        for (d <- mbDisjuncts)
+          println(d)
+*/
+
+        addConstantsRaw(allConsts)
+        val constraintConj = asConjunction(constraint)
+
+        val dnf = ap.util.Timer.measure("toDNFQE") { PresburgerTools2.toDNFQE(constraintConj, elimConsts) }
+//        println(s"DNF: $dnf")
+
+        val res = (for (d <- PresburgerTools.enumDisjuncts(dnf)) yield {
+//           println(d)
+           Clause(headAtom, body, asIFormula(d))
+         }).toIndexedSeq
+        println("Disjuncts: " + res.size)
+        res
+      }
+
+    } else {
+      List(clause)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -175,6 +250,7 @@ class BooleanClauseSplitter extends HornPreprocessor {
       } else {
         Timeout.withChecker(GlobalParameters.get.timeoutChecker) {
           val newClauses = fullDNF(clause, false)
+//          val newClauses = qeSplit(clause)
           for (it <- indexTree) {
             for (newClause <- newClauses)
               clauseBackMapping.put(newClause, (initialClause, it))
@@ -249,10 +325,19 @@ class BooleanClauseSplitter extends HornPreprocessor {
           Timeout.raise
       }
 
+      println(s"${clause.head} :- ${clause.body}")
+      println(SizeVisitor(clause.constraint))
+  //    println(clause.constraint)
+
+      if (SizeVisitor(clause.constraint) < 1000)
+        return List(clause)
+
       Timeout.catchTimeout {
-        Timeout.withChecker(checker _) { fullDNF(clause) }
+//        Timeout.withChecker(checker _) { fullDNF(clause) }
+        Timeout.withChecker(checker _) { qeSplit(clause) }
       } {
         case _ => {
+          println("Timeout, using intermediate predicates")
           val indexTree =
             Tree(-1, (for (n <- 0 until clause.body.size) yield Leaf(n)).toList)
           splitWithIntPred(clause, clause, Some(indexTree))._1

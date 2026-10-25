@@ -279,6 +279,17 @@ class PrincessWrapper {
           case _ =>
             f2pterm(e1) === f2pterm(e2)
         }
+
+      case Iff(e1, e2) =>
+        f2pformula(e1) <=> f2pformula(e2)
+      case IfThenElse(cond, e1, e2) =>
+        e1.stype match {
+          case BooleanType() =>
+            IFormulaITE(f2pformula(cond), f2pformula(e1), f2pformula(e2))
+          case _ =>
+            ITermITE(f2pformula(cond), f2pterm(e1), f2pterm(e2))
+        }
+
       case s@Variable(vname,None) =>
         symbolMap.getOrElseUpdate(vname, {
           type2Sort(s.stype) newConstant vname
@@ -419,6 +430,8 @@ class PrincessWrapper {
                        symMap : Map[ConstantTerm, String],
                        removeVersions: Boolean): Expression = {
     import Sort.:::
+    val Var0Eq = SymbolEquation(IVariable(0))
+
     def rvT(t: ITerm): Expression = t match {
       case IPlus(e1, ITimes(ap.basetypes.IdealInt.MINUS_ONE, e2)) =>
         Subtraction(rvT(e1).stype(IntT), rvT(e2).stype(IntT)).stype(IntT)
@@ -450,6 +463,10 @@ class PrincessWrapper {
         BoolConst(true)
       case ADT.BoolADT.False =>
         BoolConst(false)
+
+      // Conditional expressions
+      case ITermITE(cond, e1, e2) =>
+        IfThenElse(rvF(cond).stype(BoolT), rvT(e1), rvT(e2))
 
       // Rationals
       case Rationals.Fraction(IIntLit(e1), IIntLit(e2)) =>
@@ -627,7 +644,6 @@ class PrincessWrapper {
         BoolConst(false)
     }
     
-    val Var0Eq = SymbolEquation(IVariable(0))
     def rvF(t: IFormula): Expression = t match {
 
       // Set constraints (not used currently)
@@ -677,6 +693,10 @@ class PrincessWrapper {
         Iff(rvF(e1).stype(BoolT),
             rvF(e2).stype(BoolT))
       
+      case IFormulaITE(cond, f1, f2) =>
+        IfThenElse(rvF(cond).stype(BoolT),
+                   rvF(f1).stype(BoolT), rvF(f2).stype(BoolT))
+
        // EX (varCoeff * _0 = remainder)
       case ISortedQuantified(Quantifier.EX,
                              Sort.Integer, Var0Eq(varCoeff, remainder)) =>

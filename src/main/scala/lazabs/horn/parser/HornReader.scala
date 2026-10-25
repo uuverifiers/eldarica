@@ -103,10 +103,6 @@ object HornReader {
         ShortCutResult(List((t, false)))
       case IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) =>
         KeepArg
-      case IBinFormula(IBinJunctor.Eqv, f1, f2) => {
-        assert(false)
-        KeepArg
-      }
       case f : IQuantified =>
         // quantified formulas are handled later, we just keep them at
         // this point
@@ -458,7 +454,7 @@ class SMTHornReader protected[parser] (
                           Param.TriggerStrategyOptions.AllMaximal))
         processedClause_aux
       } else {
-        EquivExpander(PartialEvaluator(clause))
+        PartialEvaluator(clause)
       }
 
     // transformation to prenex normal form

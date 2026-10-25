@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2026 Hossein Hojjat, Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -88,6 +88,9 @@ object HornPrinter {
       }
       case Conjunction(e1, e2) => "(" + printExp(e1) + ", " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(" + printExp(e1) + "; " + printExp(e2) + ")"
+
+      case IfThenElse(cond, e1, e2) =>
+        "if_then_else(" + printExp(cond) + ", " + printExp(e1) + ", " + printExp(e2) + ")"
 
       // special handling of the tester predicates of ADTs
       case e@Equality(NumericalConst(num), ADTtest(adt, sortNum, expr)) =>

@@ -120,6 +120,10 @@ object HornSMTPrinter {
       }
       case Conjunction(e1, e2) => "(and " + printExp(e1) + " " + printExp(e2) + ")"
       case Disjunction(e1, e2) => "(or " + printExp(e1) + " " + printExp(e2) + ")"
+      case Iff(e1, e2) => "(= " + printExp(e1) + " " + printExp(e2) + ")"
+
+      case IfThenElse(cond, e1, e2) =>
+        "(ite " + printExp(cond) + " " + printExp(e1) + " " + printExp(e2) + ")"
 
       // special handling of the tester predicates of ADTs
       case e@Equality(NumericalConst(num), ADTtest(adt, sortNum, expr)) =>
