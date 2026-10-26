@@ -33,10 +33,13 @@ import ap.basetypes.IdealInt
 import ap.terfor.{ConstantTerm, Term, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.linearcombination.LinearCombination.SingleTerm
+import ap.terfor.linearcombination.LinearCombination.{SingleTerm,
+                                                     TwoTermsWithOffset}
 import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.util.{Debug, Seqs}
+
+import java.util.Arrays
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -80,16 +83,6 @@ private[symex] case class ArgKey(terms : Seq[(Int, IdealInt)], constant : IdealI
 //               (p_0_0 is result, so not in args)
 private[symex] case class LitKey(pred : Predicate, args : Seq[ArgKey])
 
-// A usage of a symbol in a theory literal. This is used as fallback for
-// symbols that no theory literal defines. The sorted usage list is then used instead.
-// E.g., for undefinable symbols a and b
-// usages of a: f(0, a, x), f(42, a, y)
-// usages of b: f(0, b, x), f(3,  b, z)
-// for a: argIndex: 1, (f(0, ?, ?), f(42, ?, ?))
-// for b: argIndex: 1, (f(0, ?, ?), f( 3, ?, ?))
-// 3 < 42 so b will be placed first. ? represent unplaced syms.
-private[symex] case class UsageKey(argIndex : Int, lit : LitKey)
-
 /**
  * Normalizes constraints so that they can be checked for structural
  * equivalence. For instance for cheap hash lookups, subsumption checks etc.
@@ -126,9 +119,10 @@ object ConstraintNormalizer {
   // Computes the canonical order of every symbol occurring in the constraint.
   // `fixedSyms` get the first positions, then smallest literal
   // whose args all have positions but not its result defines its result symbol
-  // (i.e., that result symbol gets the next position). If some symbols
-  // remain (may be that no literal defines them), they are positioned at
-  // the end.
+  // (i.e., that result symbol gets the next position). If no literal can
+  // define a symbol, the remaining symbol (undefinable ones first) with the
+  // smallest colour in a colour refinement of the constraint gets the next
+  // position.
   private[symex]
   def canonicalSymbolOrder(fixedSyms  : Seq[ConstantTerm],
                            constraint : Conjunction) : CanonicalSymbolOrder = {
@@ -136,23 +130,13 @@ object ConstraintNormalizer {
     val allSyms = constraint.constants
     val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
 
-    val arithRows = Seq((constraint.arithConj.positiveEqs, 0),
-                        (constraint.arithConj.negativeEqs, 1),
-                        (constraint.arithConj.inEqs, 2))
-
-    val termToUsageSite : Map[ConstantTerm, (Seq[(String, Int, Int)], Seq[Int])] = {
-      val theorySites = new MHashMap[ConstantTerm, ArrayBuffer[(String, Int, Int)]]
-      for (lit <- theoryLits; (arg, id) <- lit.zipWithIndex; sym <- arg.constants)
-        theorySites.getOrElseUpdate(sym, new ArrayBuffer) +=
-          ((lit.pred.name, lit.pred.arity, id))
-      val arithSites = new MHashMap[ConstantTerm, ArrayBuffer[Int]]
-      for ((lcs, kind) <- arithRows; lc <- lcs; sym <- lc.constants)
-        arithSites.getOrElseUpdate(sym, new ArrayBuffer) += kind
-      (theorySites.keySet ++ arithSites.keySet).iterator.map(sym => sym ->
-          (theorySites.get(sym).map(_.toList.sorted).getOrElse(Nil),
-            arithSites.get(sym).map(_.toList.sorted).getOrElse(Nil))).toMap
-        .withDefaultValue((Nil, Nil))
+    // used only at stalls with several candidates
+    lazy val colouring = {
+      val colouring = new GraphColouring(new ConstraintGraph(constraint))
+      fixedSyms foreach colouring.individualise
+      colouring
     }
+    var individualisedLocalCount = 0
 
     val symPosition = new MHashMap[ConstantTerm, Int]
     // init position with fixed symbols
@@ -186,50 +170,6 @@ object ConstraintNormalizer {
       LitKey(lit.pred, args.toList)
     }
 
-    val UnplacedPos = Int.MaxValue
-
-    def argKeyOf(linearComb : LinearCombination) : ArgKey = {
-      val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
-        yield (symPosition.getOrElse(sym, UnplacedPos),
-          coeff)).toList.sortBy(_._1)
-      ArgKey(sortedTerms, linearComb.constant)
-    }
-
-    // also includes result (lit instead of lit.init, and allows unplaced syms)
-    def litKeyFull(lit : Atom) : LitKey = LitKey(lit.pred, lit.map(argKeyOf))
-
-    def signatureOf(sym : ConstantTerm) : (Seq[UsageKey], Seq[(Int, ArgKey)]) = {
-      val theoryUsages = (for (lit <- theoryLits; (arg, id) <- lit.zipWithIndex
-                               if arg.constants contains sym)
-        yield UsageKey(id, litKeyFull(lit))).toList.sorted
-      val arithUsages =
-        (for ((lcs, kind) <- arithRows; lc <- lcs if lc.constants contains sym)
-          yield (kind, argKeyOf(lc))).toList.sorted
-      (theoryUsages, arithUsages)
-    }
-
-    // Batch version of signatureOf to compute each literal's key once
-    def signaturesOf(syms : Set[ConstantTerm])
-    : Map[ConstantTerm, (Seq[UsageKey], Seq[(Int, ArgKey)])] = {
-      val theoryUsages = new MHashMap[ConstantTerm, ArrayBuffer[UsageKey]]
-      for (lit <- theoryLits) {
-        lazy val key = litKeyFull(lit)
-        for ((arg, id) <- lit.zipWithIndex; sym <- arg.constants
-             if syms contains sym)
-          theoryUsages.getOrElseUpdate(sym, new ArrayBuffer) +=
-            UsageKey(id, key)
-      }
-      val arithUsages = new MHashMap[ConstantTerm, ArrayBuffer[(Int, ArgKey)]]
-      for ((lcs, kind) <- arithRows; lc <- lcs) {
-        lazy val key = argKeyOf(lc)
-        for (sym <- lc.constants if syms contains sym)
-          arithUsages.getOrElseUpdate(sym, new ArrayBuffer) += ((kind, key))
-      }
-      (for (sym <- syms.iterator)
-        yield sym -> (theoryUsages.get(sym).map(_.toList.sorted).getOrElse(Nil),
-          arithUsages.get(sym).map(_.toList.sorted).getOrElse(Nil))).toMap
-    }
-
     var done = false
     while(!done) {
       val readyToDefineLits = theoryLits filter canDefine
@@ -249,18 +189,21 @@ object ConstraintNormalizer {
           if (candidates.size == 1)
             placeSym(candidates.head, None)
           else {
-            val minSites = candidates.minBy(termToUsageSite)(usageSitesOrdering)
-            val siteTied = candidates.filter(c =>
-              usageSitesOrdering.compare(termToUsageSite(c),
-                termToUsageSite(minSites)) == 0)
-            if (siteTied.size == 1)
-              placeSym(siteTied.head, None)
-            else {
-              val signatures = signaturesOf(siteTied)
-              Debug.assertInt(AC, siteTied forall (
-                sym => signatures(sym) == signatureOf(sym)))
-              placeSym(siteTied.minBy(signatures)(signatureOrdering), None)
-            }
+            // the colouring of the last stall is reused: with the syms
+            // placed since then individualised, it is refined to the same
+            // colour classes as a colouring started afresh
+            for (sym <- localSymbols drop individualisedLocalCount)
+              colouring.individualise(sym)
+            individualisedLocalCount = localSymbols.size
+            colouring.refine()
+            // remaining ties are broken by the term order: deterministic,
+            // but canonical only if the tied syms are interchangeable and
+            // their conjuncts do not depend on how equations are reduced
+            val colourThenTermOrdering = Ordering.Tuple2(
+              Ordering.Int, constraint.order.constOrdering)
+            placeSym(candidates.minBy(
+                       sym => (colouring.colourOf(sym), sym))(
+                       colourThenTermOrdering), None)
           }
         }
       }
@@ -326,52 +269,307 @@ object ConstraintNormalizer {
     )
   }
 
-  // a usage: pred name, arity, arg index and the lit args
-  private implicit val usageKeyOrdering : Ordering[UsageKey] =
-    new Ordering[UsageKey] {
-      def compare(a : UsageKey, b : UsageKey) : Int = Seqs.lexCombineInts(
-        a.lit.pred.name compareTo b.lit.pred.name,
-        a.lit.pred.arity compareTo b.lit.pred.arity,
-        a.argIndex compareTo b.argIndex,
-        Seqs.lexCompare(a.lit.args.iterator, b.lit.args.iterator)
-      )
-    }
+}
 
-  private implicit val arithUsageOrdering : Ordering[(Int, ArgKey)] =
-    new Ordering[(Int, ArgKey)] {
-      def compare(a : (Int, ArgKey), b : (Int, ArgKey)) : Int =
-        Seqs.lexCombineInts(a._1 compare b._1,
-          argKeyOrdering.compare(a._2, b._2))
-    }
+// The constraint as a graph for colour refinement, by which the symbols that
+// no literal defines are ordered. The vertices are the symbols, the
+// conjuncts, the equality classes and the negated conjunctions; each
+// conjunct is joined by an edge to each vertex in it, labelled with the role
+// of the vertex there.
+// E.g., for undefinable symbols a and b in
+//   mod_cast(0, 255, a, c), mod_cast(0, 255, b, d), c <= 10, d <= 20
+// the casts of a and b look alike, but c is in c <= 10 and d in d <= 20,
+// 10 < 20, so a is given the smaller colour and placed first.
+private class ConstraintGraph(constraint : Conjunction) {
+  import ConstraintGraph._
+  import VertexKind._
 
-  // a symbol's sorted usages
-  private[symex]
-  val signatureOrdering : Ordering[(Seq[UsageKey], Seq[(Int, ArgKey)])] =
-    new Ordering[(Seq[UsageKey], Seq[(Int, ArgKey)])] {
-    def compare(a : (Seq[UsageKey], Seq[(Int, ArgKey)]),
-                b : (Seq[UsageKey], Seq[(Int, ArgKey)])) : Int =
-      Seqs.lexCombineInts(
-        Seqs.lexCompare(a._1.iterator, b._1.iterator),
-        Seqs.lexCompare(a._2.iterator, b._2.iterator)
-      )
+  val vertexOfSymbol : Map[ConstantTerm, Int] =
+    constraint.constants.toSeq.zipWithIndex.toMap
+
+  private val vertexLabels =
+    ArrayBuffer.fill(vertexOfSymbol.size)(VertexLabel(Symbol, None, Nil))
+  private val edgesOfVertex =
+    ArrayBuffer.fill(vertexOfSymbol.size)(new ArrayBuffer[Edge])
+  addConjunction(constraint, enclosingConjunction = None)
+
+  val vertexCount : Int = vertexLabels.size
+  val vertexLabelRank : Array[Int] = ranksOf(vertexLabels)
+  // the edges of vertex v are edgeStart(v) until edgeStart(v + 1)
+  val edgeStart : Array[Int] = edgesOfVertex.scanLeft(0)(_ + _.size).toArray
+  val edgeNeighbour : Array[Int] =
+    edgesOfVertex.flatten.map(_.neighbour).toArray
+  val edgeLabelRank : Array[Int] = ranksOf(edgesOfVertex.flatten.map(_.label))
+
+  private def addVertex(label : VertexLabel) : Int = {
+    vertexLabels += label
+    edgesOfVertex += new ArrayBuffer[Edge]
+    vertexLabels.size - 1
   }
 
-  private implicit val usageSiteOrdering : Ordering[(String, Int, Int)] =
-    new Ordering[(String, Int, Int)] {
-      def compare(a : (String, Int, Int), b : (String, Int, Int)) : Int =
-        Seqs.lexCombineInts(a._1 compareTo b._1,
-                            a._2 compare b._2,
-                            a._3 compare b._3)
+  private def addEdge(conjunct : Int, vertex : Int,
+                      label    : EdgeLabel) : Unit = {
+    edgesOfVertex(conjunct) += Edge(vertex, label)
+    edgesOfVertex(vertex) += Edge(conjunct, label)
+  }
+
+  // the ends are labelled differently, so that a negated conjunction is told
+  // apart from the one it is nested in
+  private def addNestingLink(vertex : Int, conjunction : Int) : Unit = {
+    edgesOfVertex(vertex) += Edge(conjunction, EnclosingConjunction)
+    edgesOfVertex(conjunction) += Edge(vertex, NestedVertex)
+  }
+
+  private def addConjunction(conj                 : Conjunction,
+                             enclosingConjunction : Option[Int]) : Unit = {
+    def nest(vertex : Int) : Unit =
+      for (conjunction <- enclosingConjunction)
+        addNestingLink(vertex, conjunction)
+    for (lit <- conj.predConj.positiveLits)
+      nest(addConjunct(PositiveLiteral, Some(lit.pred), lit))
+    for (lit <- conj.predConj.negativeLits)
+      nest(addConjunct(NegativeLiteral, Some(lit.pred), lit))
+    addEquations(conj.arithConj.positiveEqs) foreach nest
+    // the stored sign depends on the term order, so both signs are given
+    for (lhs <- conj.arithConj.negativeEqs; signedLhs <- Seq(lhs, -lhs))
+      nest(addConjunct(Disequation, None, List(signedLhs)))
+    for (inEq <- conj.arithConj.inEqs)
+      nest(addConjunct(Inequality, None, List(inEq)))
+    for (negatedConj <- conj.negatedConjs) {
+      val conjunction = addVertex(VertexLabel(NegatedConjunction, None, Nil))
+      nest(conjunction)
+      addConjunction(negatedConj, Some(conjunction))
+    }
+  }
+
+  // Equations are stored row-reduced along the term order: an equality
+  // class of difference equations as a star around its member that is
+  // smallest in the term order, the only member left in the other
+  // equations. So each class is a vertex joined to its members at their
+  // offsets, and the other equations are joined to the classes instead of
+  // these members. The stored sign depends on the term order too, so both
+  // signs are given.
+  private def addEquations(equations : Seq[LinearCombination]) : Seq[Int] = {
+    val (differences, otherEquations) =
+      equations partition (DifferenceEquation.unapply(_).isDefined)
+    val stars = (for (DifferenceEquation(member, pivot, offset) <- differences)
+                   yield (pivot, (member, offset))).groupBy(_._1)
+    val classMembership = new MHashMap[ConstantTerm, ClassMembership]
+    val classVertices = for ((pivot, star) <- stars.toList) yield {
+      val classVertex = addVertex(VertexLabel(EqualityClass, None, Nil))
+      val offsetsAbovePivot = (pivot, IdealInt.ZERO) +: star.map(_._2)
+      val smallestOffset = offsetsAbovePivot.map(_._2).min
+      for ((member, offsetAbovePivot) <- offsetsAbovePivot) {
+        val offset = offsetAbovePivot - smallestOffset
+        addEdge(classVertex, vertexOfSymbol(member), ClassOffset(offset))
+        classMembership(member) = ClassMembership(classVertex, offset)
+      }
+      classVertex
+    }
+    classVertices ++
+      (for (lhs <- otherEquations; signedLhs <- Seq(lhs, -lhs))
+         yield addConjunct(Equation, None, List(signedLhs), classMembership))
+  }
+
+  // a member of one of the given classes is replaced by its class, with the
+  // constant shifted by the offset of the member
+  private def addConjunct(
+      kind            : VertexKind.Value,
+      pred            : Option[Predicate],
+      args            : Seq[LinearCombination],
+      classMembership : collection.Map[ConstantTerm, ClassMembership] = Map())
+  : Int = {
+    def offsetOf(sym : ConstantTerm) =
+      classMembership.get(sym).fold(IdealInt.ZERO)(_.offset)
+    val conjunct = addVertex(VertexLabel(
+      kind, pred,
+      for (arg <- args) yield arg.constant + IdealInt.sum(
+        for ((coeff, sym : ConstantTerm) <- arg)
+          yield coeff * offsetOf(sym))))
+    for ((arg, argIndex) <- args.zipWithIndex;
+         (coeff, sym : ConstantTerm) <- arg)
+      addEdge(conjunct,
+              classMembership.get(sym).fold(vertexOfSymbol(sym))(_.classVertex),
+              ArgumentTerm(argIndex, coeff))
+    conjunct
+  }
+
+}
+
+private object ConstraintGraph {
+
+  // The label of a vertex is its kind and, for a conjunct, everything about
+  // the conjunct except its symbols: the predicate of a literal and the
+  // constant of each argument. E.g., mod_cast(0, 255, 2*a + 1, c) has the
+  // label (PositiveLiteral, mod_cast, (0, 255, 1, 0)), and x - y + 3 >= 0
+  // the label (Inequality, none, (3)).
+  case class VertexLabel(kind      : VertexKind.Value,
+                         pred      : Option[Predicate],
+                         constants : Seq[IdealInt])
+
+  object VertexKind extends Enumeration {
+    val Symbol, EqualityClass, NegatedConjunction, PositiveLiteral,
+        NegativeLiteral, Equation, Disequation, Inequality = Value
+  }
+
+  sealed trait EdgeLabel
+  case class ArgumentTerm(argIndex : Int, coeff : IdealInt) extends EdgeLabel
+  case class ClassOffset(offset : IdealInt) extends EdgeLabel
+  case object EnclosingConjunction extends EdgeLabel
+  case object NestedVertex extends EdgeLabel
+
+  case class Edge(neighbour : Int, label : EdgeLabel)
+
+  case class ClassMembership(classVertex : Int, offset : IdealInt)
+
+  // member - pivot - offset = 0, with the member above the pivot in the term
+  // order
+  object DifferenceEquation {
+    def unapply(lhs : LinearCombination)
+    : Option[(ConstantTerm, ConstantTerm, IdealInt)] = lhs match {
+      case TwoTermsWithOffset(IdealInt.ONE, member : ConstantTerm,
+                              IdealInt.MINUS_ONE, pivot : ConstantTerm,
+                              constant) => Some((member, pivot, -constant))
+      case _ => None
+    }
+  }
+
+  // the number of smaller values for each value, counting equal ones once
+  def ranksOf[A](values : IndexedSeq[A])(implicit ordering : Ordering[A])
+  : Array[Int] = {
+    val sortedIndices = values.indices sortBy values
+    val ranks = new Array[Int](values.size)
+    for (i <- 1 until sortedIndices.size) {
+      val (previous, next) = (sortedIndices(i - 1), sortedIndices(i))
+      ranks(next) = ranks(previous) +
+        (if (ordering.lt(values(previous), values(next))) 1 else 0)
+    }
+    ranks
+  }
+
+  implicit val vertexLabelOrdering : Ordering[VertexLabel] =
+    new Ordering[VertexLabel] {
+      private val predOrdering = Ordering.Option(
+        Ordering.by((pred : Predicate) => (pred.name, pred.arity)))
+      def compare(a : VertexLabel, b : VertexLabel) : Int =
+        Seqs.lexCombineInts(
+          a.kind compare b.kind,
+          predOrdering.compare(a.pred, b.pred),
+          Seqs.lexCompare(a.constants.iterator, b.constants.iterator))
     }
 
-  private[symex]
-  val usageSitesOrdering : Ordering[(Seq[(String, Int, Int)], Seq[Int])] =
-    new Ordering[(Seq[(String, Int, Int)], Seq[Int])] {
-      def compare(a : (Seq[(String, Int, Int)], Seq[Int]),
-                  b : (Seq[(String, Int, Int)], Seq[Int])) : Int =
-        Seqs.lexCombineInts(
-          Seqs.lexCompare(a._1.iterator, b._1.iterator),
-          Seqs.lexCompare(a._2.iterator, b._2.iterator))
+  implicit val edgeLabelOrdering : Ordering[EdgeLabel] =
+    Ordering.by[EdgeLabel, (Int, Int, IdealInt)] {
+      case ArgumentTerm(argIndex, coeff) => (0, argIndex, coeff)
+      case ClassOffset(offset)           => (1, 0, offset)
+      case EnclosingConjunction          => (2, 0, IdealInt.ZERO)
+      case NestedVertex                  => (3, 0, IdealInt.ZERO)
     }
+
+}
+
+// The colour of a vertex is the number of vertices with a smaller colour, so
+// in verticesByColour each colour class starts at the index of its colour.
+private class GraphColouring(graph : ConstraintGraph) {
+  import graph._
+
+  private val colour = new Array[Int](vertexCount)
+  private val verticesByColour : Array[Integer] =
+    Array.tabulate(vertexCount)(Int.box)
+  // the sorted (edge label, neighbour colour) pairs of a vertex, at the
+  // indices of its edges
+  private val signature = new Array[Long](edgeNeighbour.length)
+
+  sortAndColour(0, vertexCount,
+                Ordering.by((vertex : Integer) => vertexLabelRank(vertex)))
+
+  def colourOf(sym : ConstantTerm) : Int = colour(vertexOfSymbol(sym))
+
+  // the vertex of sym is given the first colour of its colour class, the
+  // rest of the class the next colour
+  def individualise(sym : ConstantTerm) : Unit =
+    for (vertex <- vertexOfSymbol get sym) {
+      val start = colour(vertex)
+      val end = colourClassEnd(start)
+      if (end - start > 1) {
+        val index =
+          (start until end).find(verticesByColour(_).intValue == vertex).get
+        val boxedVertex = verticesByColour(index)
+        verticesByColour(index) = verticesByColour(start)
+        verticesByColour(start) = boxedVertex
+        for (i <- start + 1 until end)
+          colour(verticesByColour(i)) = start + 1
+      }
+    }
+
+  def refine() : Unit = {
+    var split = true
+    while (split) {
+      forEachSharedColour { (start, end) =>
+        for (i <- start until end) computeSignature(verticesByColour(i))
+      }
+      split = false
+      forEachSharedColour { (start, end) =>
+        if (sortAndColour(start, end, bySignature)) split = true
+      }
+    }
+  }
+
+  private def colourClassEnd(start : Int) : Int = {
+    var end = start + 1
+    while (end < vertexCount && colour(verticesByColour(end)) == start)
+      end += 1
+    end
+  }
+
+  private def forEachSharedColour(f : (Int, Int) => Unit) : Unit = {
+    var start = 0
+    while (start < vertexCount) {
+      val end = colourClassEnd(start)
+      if (end - start > 1)
+        f(start, end)
+      start = end
+    }
+  }
+
+  private def computeSignature(vertex : Int) : Unit = {
+    for (edge <- edgeStart(vertex) until edgeStart(vertex + 1))
+      signature(edge) =
+        (edgeLabelRank(edge).toLong << 32) | colour(edgeNeighbour(edge))
+    Arrays.sort(signature, edgeStart(vertex), edgeStart(vertex + 1))
+  }
+
+  private val bySignature : Ordering[Integer] = new Ordering[Integer] {
+    def compare(a : Integer, b : Integer) : Int = compareSignatures(a, b)
+  }
+
+  private def compareSignatures(a : Int, b : Int) : Int = {
+    val aEnd = edgeStart(a + 1)
+    val bEnd = edgeStart(b + 1)
+    var i = edgeStart(a)
+    var j = edgeStart(b)
+    while (i < aEnd && j < bEnd && signature(i) == signature(j)) {
+      i += 1
+      j += 1
+    }
+    if (i < aEnd && j < bEnd) signature(i) compare signature(j)
+    else (aEnd - i) compare (bEnd - j)
+  }
+
+  // verticesByColour(start until end) is sorted, and each vertex is given
+  // the index of the first one equal to it; true if not all are equal
+  private def sortAndColour(start    : Int,
+                            end      : Int,
+                            ordering : Ordering[Integer]) : Boolean = {
+    Arrays.sort(verticesByColour, start, end, ordering)
+    colour(verticesByColour(start)) = start
+    for (i <- start + 1 until end)
+      colour(verticesByColour(i)) =
+        if (ordering.equiv(verticesByColour(i - 1), verticesByColour(i)))
+          colour(verticesByColour(i - 1))
+        else
+          i
+    colour(verticesByColour(end - 1)) != start
+  }
 
 }
