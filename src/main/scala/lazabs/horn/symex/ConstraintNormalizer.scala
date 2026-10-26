@@ -38,6 +38,7 @@ import ap.terfor.linearcombination.LinearCombination.{SingleTerm,
 import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.util.{Debug, Seqs}
+import lazabs.horn.bottomup.RelationSymbol
 
 import java.util.Arrays
 
@@ -114,6 +115,80 @@ object ConstraintNormalizer {
   : NormalizedConstraint = {
     val symbolOrder = canonicalSymbolOrder(fixedSyms, constraint)
     rebuild(constraint, symbolOrder, newSyms)
+  }
+
+  /**
+   * Normalizes a goal, so that goals that differ only in the order and the
+   * occurrences of their atoms and in the names of their locals get one
+   * normal form.
+   * E.g., with xi the argument of P at occurrence i, both
+   *   false :- P(x1), P(x0), x0 = 1 & x1 = 2 and
+   *   false :- P(x0), P(x1), x1 = 1 & x0 = 2
+   * become false :- P(x0), P(x1), x0 = 1 & x1 = 2: in the ConstraintGraph of
+   * the goal, the atom whose argument is 1 is given the smaller colour and so
+   * occurrence 0.
+   */
+  def normalizeGoal(goal    : GoalClause,
+                    newSyms : Int => (Seq[ConstantTerm], TermOrder))
+  : GoalClause = {
+    Debug.assertPre(AC, goal.atoms.distinct.size == goal.atoms.size)
+    val orderedAtoms = canonicalAtomOrder(goal)
+    val nextOccurrence = new MHashMap[RelationSymbol, Int]
+    val renumberedAtoms = for ((rs, _) <- orderedAtoms) yield {
+      val occ = nextOccurrence.getOrElse(rs, 0)
+      nextOccurrence(rs) = occ + 1
+      (rs, occ)
+    }
+    def argumentsOf(atoms : Seq[(RelationSymbol, Int)]) : Seq[ConstantTerm] =
+      for ((rs, occ) <- atoms; arg <- rs.arguments(occ)) yield arg
+    val oldArguments = argumentsOf(orderedAtoms)
+    // forced before the order is taken from newSyms, so that it has them
+    val newArguments = argumentsOf(renumberedAtoms)
+    val locals = goal.constraint.constants -- oldArguments
+    val (pool, order) = newSyms(locals.size)
+    // the locals are moved onto the pool too, so that none of them is
+    // captured by the renumbering
+    val renumberedConstraint = ConstantSubst(
+      ((oldArguments zip newArguments) ++ (order.sort(locals) zip pool)).toMap,
+      order)(goal.constraint)
+    val normalized = normalize(newArguments, renumberedConstraint, newSyms)
+    GoalClause(renumberedAtoms, normalized.constraint)
+  }
+
+  private def canonicalAtomOrder(goal : GoalClause)
+  : Seq[(RelationSymbol, Int)] = {
+    val atoms = goal.atoms.toIndexedSeq
+    val predicateRepeats = atoms.map(_._1).distinct.size < atoms.size
+    if (predicateRepeats) {
+      val colouring = new GraphColouring(new ConstraintGraph(
+        goal.constraint,
+        for ((rs, occ) <- atoms) yield (rs.pred, rs.arguments(occ))))
+      colouring.refine()
+      val byPredicateColourOccurrence = Ordering.Tuple3(
+        ConstraintGraph.predicateOrdering, Ordering.Int, Ordering.Int)
+      val unplacedAtoms = ArrayBuffer(atoms.indices : _*)
+      val placedAtoms = new ArrayBuffer[Int]
+      while (unplacedAtoms.nonEmpty) {
+        // ties are broken by occurrence: deterministic, but canonical only if
+        // the tied atoms are interchangeable
+        val atom = unplacedAtoms.minBy { i =>
+          val (rs, occ) = atoms(i)
+          (rs.pred, colouring.colourOfAtom(i), occ)
+        }(byPredicateColourOccurrence)
+        unplacedAtoms -= atom
+        placedAtoms += atom
+        // as symbols at stalls, a tied atom is individualised, so that the
+        // rest are ordered relative to it
+        val colour = colouring.colourOfAtom(atom)
+        if (unplacedAtoms exists (colouring.colourOfAtom(_) == colour)) {
+          colouring.individualiseAtom(atom)
+          colouring.refine()
+        }
+      }
+      placedAtoms map atoms
+    } else {
+      atoms.sortBy(_._1.pred)(ConstraintGraph.predicateOrdering)
+    }
   }
 
   // Computes the canonical order of every symbol occurring in the constraint.
@@ -275,23 +350,33 @@ object ConstraintNormalizer {
 // no literal defines are ordered. The vertices are the symbols, the
 // conjuncts, the equality classes and the negated conjunctions; each
 // conjunct is joined by an edge to each vertex in it, labelled with the role
-// of the vertex there.
+// of the vertex there. The atoms of a goal, ordered by their colours too,
+// are vertices joined to their arguments, labelled with the argument index.
 // E.g., for undefinable symbols a and b in
 //   mod_cast(0, 255, a, c), mod_cast(0, 255, b, d), c <= 10, d <= 20
 // the casts of a and b look alike, but c is in c <= 10 and d in d <= 20,
 // 10 < 20, so a is given the smaller colour and placed first.
-private class ConstraintGraph(constraint : Conjunction) {
+private class ConstraintGraph(
+    constraint : Conjunction,
+    atoms      : Seq[(Predicate, Seq[ConstantTerm])] = Nil) {
   import ConstraintGraph._
   import VertexKind._
 
   val vertexOfSymbol : Map[ConstantTerm, Int] =
-    constraint.constants.toSeq.zipWithIndex.toMap
+    (constraint.constants ++ atoms.flatMap(_._2)).toSeq.zipWithIndex.toMap
 
   private val vertexLabels =
     ArrayBuffer.fill(vertexOfSymbol.size)(VertexLabel(Symbol, None, Nil))
   private val edgesOfVertex =
     ArrayBuffer.fill(vertexOfSymbol.size)(new ArrayBuffer[Edge])
   addConjunction(constraint, enclosingConjunction = None)
+  val vertexOfAtom : IndexedSeq[Int] =
+    for ((pred, args) <- atoms.toIndexedSeq) yield {
+      val atom = addVertex(VertexLabel(BodyAtom, Some(pred), Nil))
+      for ((arg, argIndex) <- args.zipWithIndex)
+        addEdge(atom, vertexOfSymbol(arg), ArgumentTerm(argIndex, IdealInt.ONE))
+      atom
+    }
 
   val vertexCount : Int = vertexLabels.size
   val vertexLabelRank : Array[Int] = ranksOf(vertexLabels)
@@ -409,7 +494,7 @@ private object ConstraintGraph {
 
   object VertexKind extends Enumeration {
     val Symbol, EqualityClass, NegatedConjunction, PositiveLiteral,
-        NegativeLiteral, Equation, Disequation, Inequality = Value
+        NegativeLiteral, Equation, Disequation, Inequality, BodyAtom = Value
   }
 
   sealed trait EdgeLabel
@@ -447,10 +532,12 @@ private object ConstraintGraph {
     ranks
   }
 
+  val predicateOrdering : Ordering[Predicate] =
+    Ordering.by((pred : Predicate) => (pred.name, pred.arity))
+
   implicit val vertexLabelOrdering : Ordering[VertexLabel] =
     new Ordering[VertexLabel] {
-      private val predOrdering = Ordering.Option(
-        Ordering.by((pred : Predicate) => (pred.name, pred.arity)))
+      private val predOrdering = Ordering.Option(predicateOrdering)
       def compare(a : VertexLabel, b : VertexLabel) : Int =
         Seqs.lexCombineInts(
           a.kind compare b.kind,
@@ -485,22 +572,29 @@ private class GraphColouring(graph : ConstraintGraph) {
 
   def colourOf(sym : ConstantTerm) : Int = colour(vertexOfSymbol(sym))
 
-  // the vertex of sym is given the first colour of its colour class, the
-  // rest of the class the next colour
+  def colourOfAtom(atomIndex : Int) : Int = colour(vertexOfAtom(atomIndex))
+
   def individualise(sym : ConstantTerm) : Unit =
-    for (vertex <- vertexOfSymbol get sym) {
-      val start = colour(vertex)
-      val end = colourClassEnd(start)
-      if (end - start > 1) {
-        val index =
-          (start until end).find(verticesByColour(_).intValue == vertex).get
-        val boxedVertex = verticesByColour(index)
-        verticesByColour(index) = verticesByColour(start)
-        verticesByColour(start) = boxedVertex
-        for (i <- start + 1 until end)
-          colour(verticesByColour(i)) = start + 1
-      }
+    vertexOfSymbol get sym foreach individualiseVertex
+
+  def individualiseAtom(atomIndex : Int) : Unit =
+    individualiseVertex(vertexOfAtom(atomIndex))
+
+  // the vertex is given the first colour of its colour class, the rest of the
+  // class the next colour
+  private def individualiseVertex(vertex : Int) : Unit = {
+    val start = colour(vertex)
+    val end = colourClassEnd(start)
+    if (end - start > 1) {
+      val index =
+        (start until end).find(verticesByColour(_).intValue == vertex).get
+      val boxedVertex = verticesByColour(index)
+      verticesByColour(index) = verticesByColour(start)
+      verticesByColour(start) = boxedVertex
+      for (i <- start + 1 until end)
+        colour(verticesByColour(i)) = start + 1
     }
+  }
 
   def refine() : Unit = {
     var split = true

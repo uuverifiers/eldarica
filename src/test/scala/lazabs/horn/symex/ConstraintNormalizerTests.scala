@@ -3,9 +3,10 @@ package lazabs.horn.symex
 import ap.api.SimpleAPI
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.theories.bitvectors.ModuloArithmetic
+import lazabs.horn.bottomup.RelationSymbol
 import org.scalatest.freespec.AnyFreeSpec
 
 class ConstraintNormalizerTests extends AnyFreeSpec {
@@ -20,6 +21,11 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
                        (implicit sf : SymexSymbolFactory) : Conjunction =
     ConstraintNormalizer.normalize(fixedSyms, constraint,
                                    n => (pool take n, sf.order)).constraint
+
+  private def normalizeGoal(goal : GoalClause,
+                            pool : Seq[ConstantTerm])
+                           (implicit sf : SymexSymbolFactory) : GoalClause =
+    ConstraintNormalizer.normalizeGoal(goal, n => (pool take n, sf.order))
 
   "Locals with swapped coefficients get the same normal form" in {
     SimpleAPI.withProver { p =>
@@ -88,6 +94,108 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
         }
         assert(normalForms.toSet.size == 1, constraint)
       }
+    }
+  }
+
+  "Goal normal forms do not depend on the order and occurrences of atoms" in {
+    SimpleAPI.withProver { p =>
+      val theories = List(ModuloArithmetic)
+      p.addTheories(theories)
+      implicit val sf = new SymexSymbolFactory(theories, p)
+      val P = RelationSymbol(new Predicate("P", 1))
+      val Q = RelationSymbol(new Predicate("Q", 1))
+      val Seq(x0, x1) = for (occ <- 0 to 1) yield P.arguments(occ).head
+      val y = Q.arguments(0).head
+      val Seq(a, b, c) = for (name <- Seq("a", "b", "c"))
+        yield sf.genConstant(name)
+      val pool = for (i <- 0 until 3) yield sf.genConstant("n" + i)
+      implicit val order = sf.order
+
+      val example = GoalClause(Seq((P, 0), (P, 1)),
+                               conj(l(x0) === 1, l(x1) === 2))
+      // the atoms of P differ only through the locals b and c
+      val theoryLocals = GoalClause(
+        Seq((P, 0), (P, 1), (Q, 0)),
+        conj(Atom(ModuloArithmetic._mod_cast,
+                  List(l(0), l(255), l(x0) + l(a), l(b)), order),
+             Atom(ModuloArithmetic._mod_cast,
+                  List(l(0), l(255), l(x1) + l(a), l(c)), order),
+             l(b) <= 10, l(c) <= 20, l(y) >= l(a)))
+      val distinctPredicates = GoalClause(Seq((P, 0), (Q, 0)),
+                                          conj(l(x0) + l(a) >= l(y)))
+
+      def normalForms(goal : GoalClause, locals : Seq[ConstantTerm]) =
+        for (occsOfP     <- (0 to 2).combinations(2).flatMap(_.permutations);
+             atomOrder   <- goal.atoms.indices.permutations;
+             localsOrder <- locals.permutations) yield {
+          // symbols created in the order of the permutation follow it in the
+          // term order
+          val occRenaming = for (occ <- 0 to 1)
+            yield P.arguments(occ).head -> P.arguments(occsOfP(occ)).head
+          val localRenaming = for (sym <- localsOrder)
+            yield sym -> sf.genConstant(sym.name + "'")
+          val atoms = for ((rs, occ) <- goal.atoms)
+            yield if (rs == P) (rs, occsOfP(occ)) else (rs, occ)
+          val constraint = ConstantSubst((occRenaming ++ localRenaming).toMap,
+                                         sf.order)(goal.constraint)
+          normalizeGoal(GoalClause(atomOrder map atoms, constraint), pool)
+        }
+
+      assert(normalForms(example, Nil).toSet == Set(example))
+      assert(normalForms(theoryLocals, Seq(a, b, c)).toSet.size == 1)
+      assert(normalForms(distinctPredicates, Seq(a)).toSet.size == 1)
+    }
+  }
+
+  "Goals whose atoms form a cycle get one normal form" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val P = RelationSymbol(new Predicate("P", 1))
+      val xs = for (occ <- 0 to 3) yield P.arguments(occ).head
+      implicit val order = sf.order
+
+      // all four atoms look alike until one of them is placed
+      val cycle =
+        conj(for (i <- 0 to 3) yield l(xs(i)) + l(xs((i + 1) % 4)) <= 10)
+      val normalForms = for (occs <- (0 to 3).permutations) yield {
+        val renaming = for (i <- 0 to 3) yield xs(i) -> xs(occs(i))
+        val constraint = ConstantSubst(renaming.toMap, sf.order)(cycle)
+        normalizeGoal(GoalClause(for (occ <- occs) yield (P, occ), constraint),
+                      Nil)
+      }
+      assert(normalForms.toSet.size == 1)
+    }
+  }
+
+  "Renumbered atoms do not capture locals" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val P = RelationSymbol(new Predicate("P", 1))
+      val Seq(x0, x1) = for (occ <- 0 to 1) yield P.arguments(occ).head
+      val a = sf.genConstant("a")
+      val pool = Seq(sf.genConstant("n0"))
+      implicit val order = sf.order
+
+      // x0 is a local that P(x1) is renumbered onto
+      val argumentAsLocal = GoalClause(Seq((P, 1)), conj(l(x0) > l(x1)))
+      val freshLocal = GoalClause(Seq((P, 1)), conj(l(a) > l(x1)))
+      assert(normalizeGoal(argumentAsLocal, pool) ==
+               normalizeGoal(freshLocal, pool))
+    }
+  }
+
+  "Goals that constrain one atom or two get different normal forms" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val P = RelationSymbol(new Predicate("P", 2))
+      val Seq(Seq(x0, y0), Seq(x1, y1)) =
+        for (occ <- 0 to 1) yield P.arguments(occ)
+      implicit val order = sf.order
+
+      val atoms = Seq((P, 0), (P, 1))
+      val oneAtom = GoalClause(atoms, conj(l(x0) === 1, l(y0) === 2))
+      val twoAtoms = GoalClause(atoms, conj(l(x0) === 1, l(y1) === 2))
+      assert(normalizeGoal(oneAtom, Nil) != normalizeGoal(twoAtoms, Nil))
     }
   }
 
