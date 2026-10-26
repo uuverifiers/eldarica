@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,6 @@ import ap.DialogUtil
 import ap.parser.IExpression.{ConstantTerm, Sort}
 import ap.parser.PrincessLineariser
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.preds.Atom
 import ap.terfor.substitutions.ConstantSubst
 import lazabs.horn.bottomup.RelationSymbol
 import lazabs.horn.Util.toStream
@@ -48,17 +47,9 @@ import lazabs.horn.symex.Symex.SymexException
  * @param sf         : symbol factory
  */
 //noinspection MatchToPartialFunction
-class UnitClause(val rs            : RelationSymbol,
-                 val rawConstraint : Conjunction,
-                 val isPositive    : Boolean)(implicit sf: SymexSymbolFactory) {
-
-  private val normalized =
-    ConstraintNormalizer.normalize(rs.arguments(0), rawConstraint,
-      n => (sf.localSymbolsForPred(rs.pred, n, 0), sf.order))
-
-  val constraint : Conjunction = normalized.constraint
-  val definingTheoryLits : IndexedSeq[Option[Atom]] =
-    normalized.definingTheoryLits
+class UnitClause(val rs         : RelationSymbol,
+                 val constraint : Conjunction,
+                 val isPositive : Boolean)(implicit sf: SymexSymbolFactory) {
 
   // override equals
   //def subsumes(that: UnitClause): Boolean = {

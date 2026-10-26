@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,12 +54,12 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   preds.foreach(pred => inferredCUCsForPred += ((pred, Vector())))
 
   private var cucs: collection.immutable.Vector[UnitClause] = Vector()
+  private val cucSet = new MHashSet[UnitClause]
 
   var rejectedDuplicateCUCCount = 0
 
-  private var cucParents
-    : collection.immutable.Vector[(UnitClause, (NormClause, Seq[UnitClause]))] =
-    Vector()
+  private val cucParents =
+    new MHashMap[UnitClause, (NormClause, Seq[UnitClause])]
 
   private case class FrameInfo(numCUCs:                Int,
                                numInferredCUCsForPred: Map[RelationSymbol, Int])
@@ -83,10 +83,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * @return optionally, the parents for the child unit clause
    */
   def parentsOption(child: UnitClause): Option[(NormClause, Seq[UnitClause])] =
-    cucParents find (_._1 == child) match {
-      case Some((_, parents)) => Some(parents)
-      case None               => None
-    }
+    cucParents get child
 
   def inferred(rel: RelationSymbol): Option[Vector[UnitClause]] =
     inferredCUCsForPred get rel
@@ -96,7 +93,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * returns: the latest number of frames
    */
   def push(): Int = {
-    assert(cucs.length == cucParents.length)
+    assert(cucs.length == cucParents.size)
     // assertion or remove
     frameStack push
       FrameInfo(
@@ -116,6 +113,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   def pop(): Int = {
     val frameInfo = frameStack.pop()
     val dropCount = cucs.size - frameInfo.numCUCs
+    cucSet --= cucs.takeRight(dropCount)
     cucs = cucs.dropRight(dropCount)
     //cucParents = cucParents.dropRight(dropCount)
     //inferredCUCsForPred.foreach {
@@ -138,6 +136,16 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   }
 
   /**
+   * Returns true if the clause already exists in the database.
+   */
+  def isDuplicate(clause: UnitClause): Boolean = {
+    val duplicate = cucSet contains clause
+    if (duplicate)
+      rejectedDuplicateCUCCount += 1
+    duplicate
+  }
+
+  /**
    * Add a clause to the database. Returns true if inserted, false if unit
    * clause already exists in the database.
    * @param clause Clause to be inserted.
@@ -148,12 +156,15 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    */
   def add(clause:  UnitClause,
           parents: (NormClause, Seq[UnitClause])): Boolean = {
-    if (cucs contains clause) {
-      rejectedDuplicateCUCCount += 1
+    if (isDuplicate(clause)) {
       false
     } else {
       cucs = cucs :+ clause
-      cucParents = cucParents :+ ((clause, parents))
+      cucSet += clause
+      // a clause added again after a pop keeps its first parents, which are
+      // older than it, so the derivations stay acyclic
+      if (!(cucParents contains clause))
+        cucParents(clause) = parents
       inferredCUCsForPred(clause.rs) = inferredCUCsForPred(clause.rs) :+ clause
       true
     }

@@ -50,7 +50,6 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    maxDepth : Option[Int] = None)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
     extends ForwardSymex(clauses)
-    with EntailmentSubsumptionChecker
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
@@ -72,6 +71,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   // from those states' queue the path that we are about to take.
 
   private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
+
+  private val subsumptionChecker = new SubsumptionChecker[UnitClause](subsumes)
 
   private def enqueue(clause    : NormClause,
                       electrons : Seq[UnitClause],
@@ -203,25 +204,18 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             } else if (isGoal) {
               printInfo("\n  (Check said " + checkResult +
                         ", goal left undecided.)")
-            } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
+            } else if (unitClauseDB isDuplicate newElectron) {
+              printInfo("\n  (Derived clause already exists in the database.)")
+              handleForwardSubsumption(nucleus, electrons)
+            } else if (subsumptionChecker.isSubsumed(
+                         newElectron,
+                         unitClauseDB.inferred(newElectron.rs).get)) {
               printInfo("subsumed by existing unit clauses.")
               handleForwardSubsumption(nucleus, electrons)
             } else {
-              val backSubsumed =
-                checkBackwardSubsumption(newElectron, unitClauseDB)
-              if (backSubsumed nonEmpty) {
-                printInfo(
-                  "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
-                  newLine = false)
-                handleBackwardSubsumption(backSubsumed)
-              }
-              if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
-                printInfo("\n  (Added to database.)\n")
-                handleNewUnitClause(newElectron)
-              } else {
-                printInfo("\n  (Derived clause already exists in the database.)")
-                handleForwardSubsumption(nucleus, electrons)
-              }
+              unitClauseDB.add(newElectron, (nucleus, electrons))
+              printInfo("\n  (Added to database.)\n")
+              handleNewUnitClause(newElectron)
             }
           }
           case None => // nothing left to explore
@@ -281,12 +275,12 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         println(s"depth bound: $depthPrunedChoices choices pruned")
         println(s"duplicate states rejected: " +
                 s"${unitClauseDB.rejectedDuplicateCUCCount}")
-        subsumptionStats foreach println
+        println(subsumptionChecker.stats)
         simplifierStats foreach println
         val solveMs = (System.nanoTime - solveStart) / 1000000
         val checkMs = checkNanos / 1000000
         val simpMs  = simplifierTimeNanos / 1000000
-        val subsMs  = subsumptionTimeNanos / 1000000
+        val subsMs  = subsumptionChecker.timeNanos / 1000000
         val resMs   = resolutionNanos / 1000000
         val otherMs =
           0L max (solveMs - checkMs - simpMs - subsMs - resMs)
@@ -330,10 +324,6 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   override def handleForwardSubsumption(nucleus:   NormClause,
                                         electrons: Seq[UnitClause]): Unit = {}
-
-  override def handleBackwardSubsumption(subsumed: Set[UnitClause]): Unit = {
-    // todo: future work
-  }
 
   override def handleFalseConstraint(nucleus:   NormClause,
                                      electrons: Seq[UnitClause]): Unit = {}

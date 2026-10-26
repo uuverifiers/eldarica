@@ -49,8 +49,7 @@ import collection.mutable.{HashMap => MHashMap}
  */
 abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
     implicit clause2ConstraintClause : CC => ConstraintClause)
-    extends Symex(iClauses)
-    with SubsumptionChecker {
+    extends Symex(iClauses) {
 
   private val normClausesConvertedToUnitClauses =
     new MHashMap[NormClause, UnitClause]
@@ -126,12 +125,15 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
   def handleForwardSubsumption(nucleus:   NormClause,
                                electrons: Seq[UnitClause]): Unit
 
-  def handleBackwardSubsumption(subsumed: Set[UnitClause]): Unit
-
   def handleNewUnitClause(clause: UnitClause): Unit
 
   def handleFalseConstraint(nucleus:   NormClause,
                             electrons: Seq[UnitClause]): Unit
+
+  // whether stored subsumes clause, both of the same relation symbol
+  protected def subsumes(stored : UnitClause, clause : UnitClause) : Boolean =
+    stored.isPositive == clause.isPositive && // polarity must match
+      symex_sf.reducer(clause.constraint)(stored.constraint).isTrue
 
   protected def buildSolution(): Solution = {
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
@@ -271,7 +273,10 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
       val lits = storedConstraint.predConj.positiveLits
       lits.map(a => (a.pred, a.init)).distinct.size == lits.size
     })
-    new UnitClause(rs, storedConstraint, isPositive)
+    val normalized =
+      ConstraintNormalizer.normalize(rs.arguments(0), storedConstraint,
+        n => (symex_sf.localSymbolsForPred(rs.pred, n, 0), symex_sf.order))
+    new UnitClause(rs, normalized.constraint, isPositive)
   }
 
   protected def toUnitClause(normClause: NormClause): UnitClause = {

@@ -45,7 +45,6 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue,
 class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
     extends ForwardSymex(clauses)
-    with NoSubsumptionChecker
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
@@ -128,25 +127,12 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
           } else if (checkResult == Infeasible) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
-          } else if (checkForwardSubsumption(newElectron, unitClauseDB)) {
-            printInfo("subsumed by existing unit clauses.")
-            handleForwardSubsumption(nucleus, electrons)
+          } else if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
+            printInfo("\n  (Added to database.)\n")
+            handleNewUnitClause(newElectron)
           } else {
-            val backSubsumed =
-              checkBackwardSubsumption(newElectron, unitClauseDB)
-            if (backSubsumed nonEmpty) {
-              printInfo(
-                "subsumes " + backSubsumed.size + " existing unit clause(s)_...",
-                newLine = false)
-              handleBackwardSubsumption(backSubsumed)
-            }
-            if (unitClauseDB.add(newElectron, (nucleus, electrons))) {
-              printInfo("\n  (Added to database.)\n")
-              handleNewUnitClause(newElectron)
-            } else {
-              printInfo("\n  (Derived clause already exists in the database.)")
-              handleForwardSubsumption(nucleus, electrons)
-            }
+            printInfo("\n  (Derived clause already exists in the database.)")
+            handleForwardSubsumption(nucleus, electrons)
           }
         }
         case None => // nothing left to explore, the clauses are SAT.
@@ -196,7 +182,6 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     if (lazabs.GlobalParameters.get.log) {
       println(
         s"rejected duplicate cucs: ${unitClauseDB.rejectedDuplicateCUCCount}")
-      subsumptionStats foreach println
     }
     result
   }
@@ -223,10 +208,6 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
                                         electrons: Seq[UnitClause]): Unit = {
     printInfo("  (DFS: handling forward subsumption.)\n")
     backtrack()
-  }
-
-  override def handleBackwardSubsumption(subsumed: Set[UnitClause]): Unit = {
-    //
   }
 
   override def handleFalseConstraint(nucleus:   NormClause,
