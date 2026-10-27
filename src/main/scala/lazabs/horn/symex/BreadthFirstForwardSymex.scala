@@ -128,6 +128,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
   private var uncheckedStates  = 0L
   private var checkNanos       = 0L
   private var resolutionNanos  = 0L
+  private var statesWithUnconnectedConjunctsDropped = 0L
 
   override def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
     val solveStart = System.nanoTime
@@ -177,7 +178,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               case Some(millis) =>
                 checkFeasibility(newElectron.constraint, Some(millis))
               case scala.None =>
-                if (newElectron.constraint.isFalse) Infeasible else Feasible
+                if (newElectron.constraint.isFalse) Infeasible else Skipped
             }
             if (collectStats) checkNanos += System.nanoTime - checkStart
             statesDerived += 1
@@ -187,7 +188,13 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               case BudgetExpired             => checksPostponed  += 1
               case ProverGaveUp(_) if isGoal => undecidedGoals   += 1
               case ProverGaveUp(_)           => uncheckedStates  += 1
+              case Skipped                   =>
             }
+            val storedElectron =
+              if (isGoal) newElectron
+              else withoutConjunctsUnconnectedToArgs(newElectron, checkResult)
+            if (!(storedElectron eq newElectron))
+              statesWithUnconnectedConjunctsDropped += 1
             if (checkResult == BudgetExpired) {
               // the check gets another turn later with more time, so the
               // rest of the search goes first
@@ -204,18 +211,18 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             } else if (isGoal) {
               printInfo("\n  (Check said " + checkResult +
                         ", goal left undecided.)")
-            } else if (unitClauseDB isDuplicate newElectron) {
+            } else if (unitClauseDB isDuplicate storedElectron) {
               printInfo("\n  (Derived clause already exists in the database.)")
               handleForwardSubsumption(nucleus, electrons)
             } else if (subsumptionChecker.isSubsumed(
-                         newElectron,
-                         unitClauseDB.inferred(newElectron.rs).get)) {
+                         storedElectron,
+                         unitClauseDB.inferred(storedElectron.rs).get)) {
               printInfo("subsumed by existing unit clauses.")
               handleForwardSubsumption(nucleus, electrons)
             } else {
-              unitClauseDB.add(newElectron, (nucleus, electrons))
+              unitClauseDB.add(storedElectron, (nucleus, electrons))
               printInfo("\n  (Added to database.)\n")
-              handleNewUnitClause(newElectron)
+              handleNewUnitClause(storedElectron)
             }
           }
           case None => // nothing left to explore
@@ -276,6 +283,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         println(s"duplicate states rejected: " +
                 s"${unitClauseDB.rejectedDuplicateCUCCount}")
         println(subsumptionChecker.stats)
+        println(s"unconnected conjuncts: dropped from " +
+                s"$statesWithUnconnectedConjunctsDropped states")
         simplifierStats foreach println
         val solveMs = (System.nanoTime - solveStart) / 1000000
         val checkMs = checkNanos / 1000000

@@ -9,6 +9,8 @@ import ap.theories.bitvectors.ModuloArithmetic
 import lazabs.horn.bottomup.RelationSymbol
 import org.scalatest.freespec.AnyFreeSpec
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 class ConstraintNormalizerTests extends AnyFreeSpec {
 
   ap.util.Debug.enableAllAssertions(true)
@@ -20,7 +22,38 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
                         pool       : Seq[ConstantTerm])
                        (implicit sf : SymexSymbolFactory) : Conjunction =
     ConstraintNormalizer.normalize(fixedSyms, constraint,
-                                   n => (pool take n, sf.order)).constraint
+                                   n => (pool take n, sf.order))
+
+  // a definition gets its symbol when first named, as in the symbol factory
+  private def definedSymbols(implicit sf : SymexSymbolFactory)
+  : DefinitionName => ConstantTerm = {
+    val symbols = new MHashMap[DefinitionName, ConstantTerm]
+    name => symbols.getOrElseUpdate(name, sf.genConstant("d" + symbols.size))
+  }
+
+  private def normalizeWithDefinitions(
+      fixedSyms     : Seq[ConstantTerm],
+      constraint    : Conjunction,
+      pool          : Seq[ConstantTerm],
+      definedSymbol : DefinitionName => ConstantTerm)
+     (implicit sf : SymexSymbolFactory) : Conjunction =
+    ConstraintNormalizer.normalize(fixedSyms, constraint,
+                                   n => (pool take n, sf.order),
+                                   Some(definedSymbol))
+
+  // whether the normal form of smaller is part of that of larger
+  private def keepsNames(fixedSyms : Seq[ConstantTerm],
+                         smaller   : Conjunction,
+                         larger    : Conjunction,
+                         pool      : Seq[ConstantTerm])
+                        (implicit sf : SymexSymbolFactory) : Boolean = {
+    val definedSymbol = definedSymbols
+    val Seq(smallerForm, largerForm) =
+      for (constraint <- Seq(smaller, larger))
+        yield normalizeWithDefinitions(fixedSyms, constraint, pool,
+                                       definedSymbol)
+    smallerForm.iterator.toSet subsetOf largerForm.iterator.toSet
+  }
 
   private def normalizeGoal(goal : GoalClause,
                             pool : Seq[ConstantTerm])
@@ -84,13 +117,16 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
       val disjuncts = conj(disj(l(b) > 0, l(h) > 0), disj(l(c) > 0, l(h) > 1))
 
       for (constraint <- Seq(linear, castAndExtract, disjunction, partners,
-                             equalityClass, disjuncts)) {
+                             equalityClass, disjuncts);
+           definedSymbol <- Seq(None, Some(definedSymbols))) {
         val normalForms = for (permutation <- locals.permutations) yield {
           // symbols created in the order of the permutation follow it in the
           // term order
           val renaming = (for (sym <- permutation)
             yield sym -> sf.genConstant(sym.name + "'")).toMap
-          normalize(Seq(h), ConstantSubst(renaming, sf.order)(constraint), pool)
+          ConstraintNormalizer.normalize(
+            Seq(h), ConstantSubst(renaming, sf.order)(constraint),
+            n => (pool take n, sf.order), definedSymbol)
         }
         assert(normalForms.toSet.size == 1, constraint)
       }
@@ -196,6 +232,60 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
       val oneAtom = GoalClause(atoms, conj(l(x0) === 1, l(y0) === 2))
       val twoAtoms = GoalClause(atoms, conj(l(x0) === 1, l(y1) === 2))
       assert(normalizeGoal(oneAtom, Nil) != normalizeGoal(twoAtoms, Nil))
+    }
+  }
+
+  "Locals defined by equations keep their names when locals are added" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val Seq(x, y, c, d) =
+        for (name <- Seq("x", "y", "c", "d")) yield sf.genConstant(name)
+      val pool = for (i <- 0 until 2) yield sf.genConstant("n" + i)
+      implicit val order = sf.order
+
+      val smaller = conj(l(c) * 2 === l(x), l(c) >= l(y))
+      val larger  = conj(smaller, l(d) * 3 === l(y) + 1, l(d) >= l(x))
+      assert(keepsNames(Seq(x, y), smaller, larger, pool))
+    }
+  }
+
+  "Locals that are operands keep their names when locals are added" in {
+    SimpleAPI.withProver { p =>
+      val theories = List(ModuloArithmetic)
+      p.addTheories(theories)
+      implicit val sf = new SymexSymbolFactory(theories, p)
+      val Seq(x, y, c, d) =
+        for (name <- Seq("x", "y", "c", "d")) yield sf.genConstant(name)
+      val pool = for (i <- 0 until 2) yield sf.genConstant("n" + i)
+      implicit val order = sf.order
+
+      def lowByte(sym : ConstantTerm, byte : ConstantTerm) =
+        Atom(ModuloArithmetic._bv_extract,
+             List(l(7), l(0), l(sym), l(byte)), order)
+      val smaller = conj(lowByte(c, x), l(c) <= 1000)
+      val larger  = conj(smaller, lowByte(d, y), l(d) <= 500)
+      assert(keepsNames(Seq(x, y), smaller, larger, pool))
+    }
+  }
+
+  "Locals with equal definitions keep distinct names" in {
+    SimpleAPI.withProver { p =>
+      val theories = List(ModuloArithmetic)
+      p.addTheories(theories)
+      implicit val sf = new SymexSymbolFactory(theories, p)
+      val Seq(x, c, d) =
+        for (name <- Seq("x", "c", "d")) yield sf.genConstant(name)
+      val pool = for (i <- 0 until 2) yield sf.genConstant("n" + i)
+      implicit val order = sf.order
+
+      def lowByte(sym : ConstantTerm) =
+        Atom(ModuloArithmetic._bv_extract,
+             List(l(7), l(0), l(sym), l(x)), order)
+      val constraint =
+        conj(lowByte(c), lowByte(d), l(c) <= 100, l(d) >= 300)
+      val normalForm =
+        normalizeWithDefinitions(Seq(x), constraint, pool, definedSymbols)
+      assert(normalForm.constants.size == constraint.constants.size)
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,6 +53,40 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
 
   private val existingTerms = new MHashMap[(Predicate, Int), Seq[ConstantTerm]]
 
+  private val maxOccurrence = new MHashMap[Predicate, Int]
+
+  // the versions at all occurrences of each local symbol, by its version at
+  // occurrence 0
+  private val occurrenceVersions =
+    new MHashMap[ConstantTerm, Seq[ConstantTerm]]
+
+  private val definedSymbols =
+    new MHashMap[Predicate, MHashMap[DefinitionName, ConstantTerm]]
+
+  // E.g., p_c_1_4 is the local symbol 4 of pool c of p at occurrence 1
+  private def newLocalSymbol(pred     : Predicate,
+                             pool     : String,
+                             symbolId : Int) : ConstantTerm = {
+    val versions = for (occ <- 0 to maxOccurrence(pred)) yield {
+      val newSymbol =
+        new ConstantTerm(s"${pred.name}_${pool}_${occ}_$symbolId")
+      addSymbol(newSymbol)
+      newSymbol
+    }
+    occurrenceVersions(versions.head) = versions
+    versions.head
+  }
+
+  def atOccurrence(local : ConstantTerm, occ : Int) : ConstantTerm =
+    occurrenceVersions(local)(occ)
+
+  // the local symbol of pred with this name in every state of pred
+  def definedSymbolForPred(pred : Predicate,
+                           name : DefinitionName) : ConstantTerm = {
+    val symbols = definedSymbols.getOrElseUpdate(pred, new MHashMap)
+    symbols.getOrElseUpdate(name, newLocalSymbol(pred, "d", symbols.size))
+  }
+
   /**
    * This method must be called to initialize the symbol factory after the
    * occurrence count of predicates are known.
@@ -63,27 +97,22 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
     // todo: this is a workaround for the previous stream implementation
     //  for some reason the stream version caused non-termination in
     //  one test case (BFS Fibonacci) - Scala bug?
-    def f(pred: Predicate, maxOcc: Int)(symbolId: Int): Seq[ConstantTerm] = {
+    def f(pred: Predicate)(symbolId: Int): Seq[ConstantTerm] = {
       if (existingTerms contains (pred, symbolId))
         existingTerms((pred, symbolId))
       else {
-        // create a version of this variable for each occurrence
-        val terms = for (occ <- 0 to maxOcc) yield {
-          val newSymbol =
-            new ConstantTerm(s"${pred.name}_c_${occ}_$symbolId")
-          addSymbol(newSymbol)
-          newSymbol
-        }
+        val terms = occurrenceVersions(newLocalSymbol(pred, "c", symbolId))
         existingTerms += (((pred, symbolId), terms))
         terms
       }
     }
     localSymbolsForPredicate =
-      (for ((pred, maxOcc) <- predicatesAndMaxOccurrences)
-        yield (pred, f(pred, maxOcc) _)).toMap
+      (for ((pred, _) <- predicatesAndMaxOccurrences)
+        yield (pred, f(pred) _)).toMap
 
-    for ((pred, _) <- predicatesAndMaxOccurrences) {
+    for ((pred, maxOcc) <- predicatesAndMaxOccurrences) {
       lastLocalSymbolIdForPredicate += ((pred, 0))
+      maxOccurrence(pred) = maxOcc
     }
   }
 

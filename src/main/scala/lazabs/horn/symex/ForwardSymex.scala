@@ -273,10 +273,26 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
       val lits = storedConstraint.predConj.positiveLits
       lits.map(a => (a.pred, a.init)).distinct.size == lits.size
     })
+    normalizedUnitClause(rs, storedConstraint, isPositive)
+  }
+
+  private def normalizedUnitClause(rs         : RelationSymbol,
+                                   constraint : Conjunction,
+                                   isPositive : Boolean) : UnitClause = {
     val normalized =
-      ConstraintNormalizer.normalize(rs.arguments(0), storedConstraint,
-        n => (symex_sf.localSymbolsForPred(rs.pred, n, 0), symex_sf.order))
-    new UnitClause(rs, normalized.constraint, isPositive)
+      ConstraintNormalizer.normalize(rs.arguments(0), constraint,
+        n => (symex_sf.localSymbolsForPred(rs.pred, n, 0), symex_sf.order),
+        Some(symex_sf.definedSymbolForPred(rs.pred, _)))
+    new UnitClause(rs, normalized, isPositive)
+  }
+
+  protected def withoutConjunctsUnconnectedToArgs(
+      clause      : UnitClause,
+      checkResult : FeasibilityCheckResult) : UnitClause = {
+    val constraint = withoutConjunctsUnconnectedToArgs(
+      clause.constraint, clause.rs.arguments(0).toSet, checkResult)
+    if (constraint eq clause.constraint) clause
+    else normalizedUnitClause(clause.rs, constraint, clause.isPositive)
   }
 
   protected def toUnitClause(normClause: NormClause): UnitClause = {

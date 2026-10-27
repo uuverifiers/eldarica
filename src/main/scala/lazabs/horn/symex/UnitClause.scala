@@ -89,12 +89,9 @@ class UnitClause(val rs         : RelationSymbol,
     occ match {
       case 0 => constraint
       case i if i > 0 =>
-        val localConstants: Seq[ConstantTerm] = sf.order.sort(
-          constraint.constants) diff rs.arguments(0)
-        val newConstants: Seq[ConstantTerm] =
-          sf.localSymbolsForPred(rs.pred, localConstants.size, occ)
         val constantReplacements: Map[ConstantTerm, ConstantTerm] =
-          (localConstants zip newConstants).toMap
+          (for (local <- constraint.constants -- rs.arguments(0))
+             yield (local, sf.atOccurrence(local, occ))).toMap
         val argReplacements = rs.arguments(0) zip rs.arguments(occ)
         ConstantSubst(constantReplacements ++ argReplacements, sf.order)(
           constraint)

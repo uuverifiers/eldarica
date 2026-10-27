@@ -31,6 +31,7 @@ package lazabs.horn.symex
 import ap.api.SimpleAPI.ProverStatus
 import ap.SimpleAPI
 import ap.parser._
+import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
 import ap.theories.{Theory, TheoryCollector}
@@ -60,6 +61,7 @@ object Symex {
     case object BudgetExpired extends FeasibilityCheckResult
     case class  ProverGaveUp(status : ProverStatus.Value)
         extends FeasibilityCheckResult
+    case object Skipped       extends FeasibilityCheckResult
   }
 }
 
@@ -187,4 +189,37 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       case _                                         => ProverGaveUp(status)
     }
   }
+
+  /**
+   * If `checkResult` is Feasible, the constraint without the conjuncts that
+   * share no symbol with `args`, directly or through other conjuncts;
+   * otherwise the constraint itself. In a feasible constraint, such
+   * conjuncts can be satisfied independently of the rest, so dropping them
+   * keeps the solutions over `args`.
+   * E.g., x = 0 & c[0:0] = 1 & c <= 9 with args x becomes x = 0.
+   */
+  protected def withoutConjunctsUnconnectedToArgs(
+      constraint  : Conjunction,
+      args        : Set[ConstantTerm],
+      checkResult : FeasibilityCheckResult) : Conjunction =
+    if (checkResult != FeasibilityCheckResult.Feasible ||
+        !constraint.quans.isEmpty || (constraint.constants subsetOf args))
+      constraint
+    else {
+      val conjuncts = constraint.iterator.toList
+      var connected = args
+      var growing = true
+      while (growing) {
+        growing = false
+        for (conjunct <- conjuncts
+             if (conjunct.constants exists connected) &&
+                !(conjunct.constants subsetOf connected)) {
+          connected = connected ++ conjunct.constants
+          growing = true
+        }
+      }
+      if (constraint.constants subsetOf connected) constraint
+      else Conjunction.conj(conjuncts filter (_.constants subsetOf connected),
+                            constraint.order)
+    }
 }

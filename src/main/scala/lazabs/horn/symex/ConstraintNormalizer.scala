@@ -30,8 +30,9 @@
 package lazabs.horn.symex
 
 import ap.basetypes.IdealInt
-import ap.terfor.{ConstantTerm, Term, TermOrder}
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.{ConstantTerm, TermOrder}
+import ap.terfor.TerForConvenience._
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.linearcombination.LinearCombination.{SingleTerm,
                                                      TwoTermsWithOffset}
@@ -42,57 +43,59 @@ import lazabs.horn.bottomup.RelationSymbol
 
 import java.util.Arrays
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet}
 
 /**
- * Result type of [[ConstraintNormalizer.normalize]]
- * @param constraint         : the normalized constraint
- * @param definingTheoryLits : definingTheoryLits[i] is the theory literal that
- *                             defines i'th place symbol (may not exist).
- *                             e.g., the BV literal
- *                             bv_extract(0,0, p_0_0, p_c_0_i) is at index i,
- *                             because it defines p_c_0_i (result arg)
+ * How a symbol in a [[DefinitionKey]] is given: a fixed symbol by its index,
+ * a local by its definition or, without one, by its rank, and the local
+ * named by the key as SelfToken.
  */
-case class NormalizedConstraint(constraint         : Conjunction,
-                                definingTheoryLits : IndexedSeq[Option[Atom]])
+sealed trait NameToken
+case class FixedToken(index : Int) extends NameToken
+case class DefinedToken(name : DefinitionName) extends NameToken
+case class RankedToken(rank : Int) extends NameToken
+case object SelfToken extends NameToken
+
+// a linear combination with its symbols given by their tokens
+case class TokenTerm(terms : Seq[(NameToken, IdealInt)], constant : IdealInt)
+
+object DefinitionKind extends Enumeration {
+  val Result, Equation, Operand = Value
+}
 
 /**
- * Intermediate, same info as [[NormalizedConstraint]] but before rebuilding
- * the constraint.
- * e.g., localSymbol      s = [              x,                 y,   z ]
- *       definingTheoryLits = [Some(fun(..., x)), Some(fun(..., y)), None]
- *       where fun is some theory function, and z is not the res of any
+ * A literal or equation by which a local is named, with its symbols by their
+ * tokens: a literal whose result the local is, an equation, or a literal
+ * with the local among its operands.
+ * E.g., c is named by (Result, bv_extract, (3, 0, x)) in
+ * bv_extract(3, 0, x, c), by (Equation, (2 self - x)) in 2c - x = 0, and by
+ * (Operand, bv_extract, (31, 0, self, x)) in bv_extract(31, 0, c, x).
  */
-private[symex]
-case class CanonicalSymbolOrder(localSymbols       : IndexedSeq[ConstantTerm],
-                                definingTheoryLits : IndexedSeq[Option[Atom]])
+case class DefinitionKey(kind : DefinitionKind.Value,
+                         pred : Option[Predicate],
+                         args : Seq[TokenTerm])
 
-// An arg of a theory literal, where symbols are replaced with canonical pos.
-// E.g., arg: 2*x + y + 5 with x at pos 4, y at 1
-//       terms = Seq((1,1), (4,2))
-//                   pos 1 (y) coeff = 1, pos 4 (x) coeff = 2
-//       constant = 5
-private[symex] case class ArgKey(terms : Seq[(Int, IdealInt)], constant : IdealInt)
-
-// A theory literal and its ArgKeys.
-// e.g., bv_extract(7, 1, p_0_0, x) with p_0_0 at pos 0
-//       pred = bv_extract
-//       args = ( ArgKey(Nil, constant = 7,
-//                ...,
-//                ArgKey(Seq((0, 1)), 0))
-//               )
-//               (p_0_0 is result, so not in args)
-private[symex] case class LitKey(pred : Predicate, args : Seq[ArgKey])
+/**
+ * A key and how many locals of the same constraint it named before, since
+ * a literal need not determine its operands.
+ * E.g., c and d in bv_extract(31, 0, c, x) & bv_extract(31, 0, d, x) get
+ * the instances 0 and 1 of one key.
+ */
+case class DefinitionName(key : DefinitionKey, instance : Int)
 
 /**
  * Normalizes constraints so that they can be checked for structural
  * equivalence. For instance for cheap hash lookups, subsumption checks etc.
  * E.g., bv_extract(0,0,a,b) and bv_extract(0,0,a,c), after
  * normalization b and c get the same symbol.
- * - Every symbol gets a canonical position 0, 1, ... computed from the
- *   structure of the constraint.
- * - Every symbol is renamed using that position, e.g.,
- *   local symbols: p_c_0_0, p_c_0_1 etc.
+ * - A local named by a literal or equation gets the symbol of that
+ *   [[DefinitionName]], the same in every constraint, so that it is named
+ *   alike in a constraint with more conjuncts. In every other literal or
+ *   equation by which it can be named, it gets that one's symbol, equated
+ *   to its own.
+ * - The other locals are ranked by the structure of the constraint and get
+ *   symbols by rank, e.g., p_c_0_0, p_c_0_1 etc.
  */
 object ConstraintNormalizer {
 
@@ -100,21 +103,97 @@ object ConstraintNormalizer {
 
   /**
    * Normalizes a constraint with theory literals using its structure.
-   * @param fixedSyms   Fixed symbols tha tthe normalizer does not touch.
-   *                    e.g., pred args etc.
-   * @param constraint  The constraint to be normalized
-   * @param newSyms     A generator for new names. E.g., if constraint has
-   *                    n symbols to rename, names will be generated by
-   *                    newSyms(n)(0), newSyms(n)(1) etc., based on the order
-   *                    of their canonical positions.
-   * @return            The normalized constraint.
+   * @param fixedSyms     Fixed symbols tha tthe normalizer does not touch.
+   *                      e.g., pred args etc.
+   * @param constraint    The constraint to be normalized
+   * @param newSyms       A generator for new names. E.g., if constraint has
+   *                      n symbols to rename, names will be generated by
+   *                      newSyms(n)(0), newSyms(n)(1) etc., based on the
+   *                      order of their canonical positions.
+   * @param definedSymbol The symbol of a definition name. Without it, every
+   *                      local gets a name from newSyms.
+   * @return              The normalized constraint.
    */
-  def normalize(fixedSyms  : Seq[ConstantTerm],
-                constraint : Conjunction,
-                newSyms    : Int => (Seq[ConstantTerm], TermOrder))
-  : NormalizedConstraint = {
-    val symbolOrder = canonicalSymbolOrder(fixedSyms, constraint)
-    rebuild(constraint, symbolOrder, newSyms)
+  def normalize(fixedSyms     : Seq[ConstantTerm],
+                constraint    : Conjunction,
+                newSyms       : Int => (Seq[ConstantTerm], TermOrder),
+                definedSymbol : Option[DefinitionName => ConstantTerm] = None)
+  : Conjunction =
+    if (constraint.constants subsetOf fixedSyms.toSet) {
+      ConstantSubst(Map(), newSyms(0)._2)(constraint)
+    } else {
+      val naming = new LocalNaming(fixedSyms, constraint)
+      definedSymbol match {
+        case None =>
+          renameByPositions(constraint, naming, newSyms)
+        case Some(symbolOf) =>
+          renameByDefinitions(fixedSyms, constraint, naming, newSyms, symbolOf)
+      }
+    }
+
+  private def renameByPositions(
+      constraint : Conjunction,
+      naming     : LocalNaming,
+      newSyms    : Int => (Seq[ConstantTerm], TermOrder)) : Conjunction = {
+    val (names, order) = newSyms(naming.placedLocals.size)
+    // the last placed local gets the first name
+    ConstantSubst((naming.placedLocals.reverse zip names).toMap, order)(
+      constraint)
+  }
+
+  private def renameByDefinitions(
+      fixedSyms  : Seq[ConstantTerm],
+      constraint : Conjunction,
+      naming     : LocalNaming,
+      newSyms    : Int => (Seq[ConstantTerm], TermOrder),
+      symbolOf   : DefinitionName => ConstantTerm) : Conjunction = {
+    val definedNames =
+      for ((local, DefinedToken(name)) <- naming.localTokens)
+        yield (local, symbolOf(name))
+    val furtherDefinitionSymbols =
+      for (further <- naming.furtherDefinitions)
+        yield (further, symbolOf(further.name))
+    // taken after the defined symbols are made, so that it has them
+    val (rankedNames, order) = newSyms(naming.rankedCount)
+    val nameOf = definedNames.toMap ++
+      (for ((local, RankedToken(rank)) <- naming.localTokens)
+         yield (local, rankedNames(naming.rankedCount - 1 - rank)))
+    Debug.assertInt(AC, {
+      val names = nameOf.values.toSeq ++ furtherDefinitionSymbols.map(_._2)
+      names.distinct.size == names.size && !(names exists fixedSyms.contains)
+    })
+    if (furtherDefinitionSymbols.isEmpty) {
+      ConstantSubst(nameOf, order)(constraint)
+    } else {
+      implicit val o : TermOrder = order
+      val furtherSymbolOf =
+        (for ((further, sym) <- furtherDefinitionSymbols)
+           yield (further.conjunct, (further.local, sym))).toMap
+      def definingConjunctOf(conjunct : Conjunction)
+      : Option[DefiningConjunct] =
+        if (!conjunct.isLiteral) None
+        else if (conjunct.predConj.positiveLits.size == 1)
+          Some(DefiningLiteral(conjunct.predConj.positiveLits.head))
+        else if (conjunct.arithConj.positiveEqs.size == 1)
+          Some(DefiningEquation(conjunct.arithConj.positiveEqs.head))
+        else None
+      val renamedConjuncts =
+        for (conjunct <- constraint.iterator.toList) yield {
+          val renaming =
+            definingConjunctOf(conjunct) flatMap furtherSymbolOf.get match {
+              case Some((local, sym)) => nameOf + (local -> sym)
+              case None               => nameOf
+            }
+          ConstantSubst(renaming, order)(conjunct)
+        }
+      val equations =
+        for ((further, sym) <- furtherDefinitionSymbols)
+          yield l(sym) === l(nameOf(further.local))
+      // reduced by its equations, as the stored constraints are, so that the
+      // reducer can use it as an assumption
+      ReduceWithConjunction(Conjunction.TRUE, order)(
+        Conjunction.conj(renamedConjuncts ++ equations, order))
+    }
   }
 
   /**
@@ -151,8 +230,8 @@ object ConstraintNormalizer {
     val renumberedConstraint = ConstantSubst(
       ((oldArguments zip newArguments) ++ (order.sort(locals) zip pool)).toMap,
       order)(goal.constraint)
-    val normalized = normalize(newArguments, renumberedConstraint, newSyms)
-    GoalClause(renumberedAtoms, normalized.constraint)
+    GoalClause(renumberedAtoms,
+               normalize(newArguments, renumberedConstraint, newSyms))
   }
 
   private def canonicalAtomOrder(goal : GoalClause)
@@ -177,7 +256,7 @@ object ConstraintNormalizer {
         }(byPredicateColourOccurrence)
         unplacedAtoms -= atom
         placedAtoms += atom
-        // as symbols at stalls, a tied atom is individualised, so that the
+        // like a tied symbol, a tied atom is individualised, so that the
         // rest are ordered relative to it
         val colour = colouring.colourOfAtom(atom)
         if (unplacedAtoms exists (colouring.colourOfAtom(_) == colour)) {
@@ -191,101 +270,228 @@ object ConstraintNormalizer {
     }
   }
 
-  // Computes the canonical order of every symbol occurring in the constraint.
-  // `fixedSyms` get the first positions, then smallest literal
-  // whose args all have positions but not its result defines its result symbol
-  // (i.e., that result symbol gets the next position). If no literal can
-  // define a symbol, the remaining symbol (undefinable ones first) with the
-  // smallest colour in a colour refinement of the constraint gets the next
-  // position.
-  private[symex]
-  def canonicalSymbolOrder(fixedSyms  : Seq[ConstantTerm],
-                           constraint : Conjunction) : CanonicalSymbolOrder = {
-    val theoryLits = constraint.predConj.positiveLits
-    val allSyms = constraint.constants
-    val definableSyms = theoryLits.flatMap(l => resultSymbol(l)).toSet
+  // A positive literal or an equation with locals, by which the last of its
+  // symbols to be named is named. Difference equations are not defining
+  // conjuncts: their members are named through their classes.
+  private sealed trait DefiningConjunct {
+    val symbols : Set[ConstantTerm]
+  }
+  private case class DefiningLiteral(atom : Atom) extends DefiningConjunct {
+    val symbols = atom.constants
+  }
+  private case class DefiningEquation(lhs : LinearCombination)
+      extends DefiningConjunct {
+    val symbols = lhs.constants
+  }
 
-    // used only at stalls with several candidates
-    lazy val colouring = {
+  private case class FurtherDefinition(conjunct : DefiningConjunct,
+                                       local    : ConstantTerm,
+                                       name     : DefinitionName)
+
+  /**
+   * The naming of the locals of a constraint, one at a time: of the defining
+   * conjuncts whose other symbols are named, the one with the smallest key
+   * names its local; without one, the next local is chosen by colour
+   * refinement and ranked. A local with further defining conjuncts gets the
+   * name of each further definition in its conjunct.
+   * E.g., in bv_extract(3, 0, x, c) & bv_extract(7, 4, y, c), c is named by
+   * (Result, bv_extract, (3, 0, x)), and in the second literal by
+   * (Result, bv_extract, (7, 4, y)).
+   */
+  private class LocalNaming(fixedSyms  : Seq[ConstantTerm],
+                            constraint : Conjunction) {
+    import DefinitionKind._
+    import ConstraintGraph.DifferenceEquation
+
+    private val tokenOf = new MHashMap[ConstantTerm, NameToken]
+    for ((sym, index) <- fixedSyms.zipWithIndex)
+      tokenOf(sym) = FixedToken(index)
+
+    val placedLocals = new ArrayBuffer[ConstantTerm]
+    var rankedCount = 0
+
+    def localTokens : Seq[(ConstantTerm, NameToken)] =
+      for (local <- placedLocals) yield (local, tokenOf(local))
+
+    private val instanceCounts = new MHashMap[DefinitionKey, Int]
+    private def nextName(key : DefinitionKey) : DefinitionName = {
+      val instance = instanceCounts.getOrElse(key, 0)
+      instanceCounts(key) = instance + 1
+      DefinitionName(key, instance)
+    }
+
+    private def canDefineLocal(conjunct : DefiningConjunct) : Boolean =
+      conjunct.symbols.size > 1 && !(conjunct.symbols subsetOf tokenOf.keySet)
+
+    // Equations are stored row-reduced along the term order: an equality
+    // class of difference equations as a star of members around a pivot, at
+    // offsets above it. Which member is the pivot depends on the names, so
+    // once a member is named, the others are named relative to it.
+    // E.g., with x fixed, c - x = 0 and d - x - 1 = 0 name c and d by
+    // (Equation, (self - x)) and (Equation, (self - x - 1)).
+    private val classOf : Map[ConstantTerm, (ConstantTerm, IdealInt)] = {
+      val members =
+        for (DifferenceEquation(member, pivot, offset) <-
+               constraint.arithConj.positiveEqs.toList)
+          yield (member, (pivot, offset))
+      val pivots =
+        for ((_, (pivot, _)) <- members) yield (pivot, (pivot, IdealInt.ZERO))
+      (pivots ++ members).toMap
+    }
+    private val membersOfClass : Map[ConstantTerm, Seq[ConstantTerm]] =
+      classOf.keys.toSeq.groupBy(classOf(_)._1)
+    private val classesWithNamedMember = new MHashSet[ConstantTerm]
+
+    // the members of the class of sym, named relative to sym
+    private def classMembersNamedBy(sym : ConstantTerm)
+    : Seq[(DefinitionKey, ConstantTerm, Option[DefiningConjunct])] =
+      classOf get sym match {
+        case Some((pivot, offset)) if classesWithNamedMember add pivot =>
+          for (member <- membersOfClass(pivot) if !(tokenOf contains member))
+            yield (DefinitionKey(Equation, None, List(TokenTerm(
+                     List((tokenOf(sym), IdealInt.MINUS_ONE),
+                          (SelfToken, IdealInt.ONE))
+                       .sorted(tokenCoeffOrdering),
+                     offset - classOf(member)._2))),
+                   member, None)
+        case _ =>
+          Nil
+      }
+
+    private def keyOf(conjunct : DefiningConjunct,
+                      local    : ConstantTerm) : DefinitionKey = {
+      def tokenTerm(lc : LinearCombination) = TokenTerm(
+        (for ((coeff, sym : ConstantTerm) <- lc.toList)
+           yield (if (sym == local) SelfToken else tokenOf(sym), coeff))
+          .sorted(tokenCoeffOrdering),
+        lc.constant)
+      conjunct match {
+        case DefiningLiteral(atom) =>
+          if (resultSymbol(atom) == Some(local) &&
+              !(atom.init exists (_.constants contains local)))
+            DefinitionKey(Result, Some(atom.pred), atom.init map tokenTerm)
+          else
+            DefinitionKey(Operand, Some(atom.pred), atom map tokenTerm)
+        case DefiningEquation(lhs) =>
+          DefinitionKey(Equation, None,
+                        List(tokenTerm(if (lhs.get(local).signum < 0) -lhs
+                                       else lhs)))
+      }
+    }
+
+    // used only when no definition is ready, and for ties
+    private lazy val colouring = {
       val colouring = new GraphColouring(new ConstraintGraph(constraint))
       fixedSyms foreach colouring.individualise
       colouring
     }
-    var individualisedLocalCount = 0
+    private var individualisedLocalCount = 0
 
-    val symPosition = new MHashMap[ConstantTerm, Int]
-    // init position with fixed symbols
-    for (sym <- fixedSyms)
-      symPosition.getOrElseUpdate(sym, symPosition.size)
-
-    val localSymbols = new ArrayBuffer[ConstantTerm]
-    val definingTheoryLits = new ArrayBuffer[Option[Atom]]
-
-    def placeSym(sym : ConstantTerm, definingLit : Option[Atom]) : Unit = {
-      symPosition(sym) = symPosition.size
-      localSymbols += sym
-      definingTheoryLits += definingLit
+    private def pickByColour(candidates : Seq[ConstantTerm]) : ConstantTerm = {
+      // the colouring of the previous pick is reused: with the syms
+      // placed since then individualised, it is refined to the same
+      // colour classes as a colouring started afresh
+      for (sym <- placedLocals drop individualisedLocalCount)
+        colouring.individualise(sym)
+      individualisedLocalCount = placedLocals.size
+      colouring.refine()
+      // remaining ties are broken by the term order: deterministic,
+      // but canonical only if the tied syms are interchangeable and
+      // their conjuncts do not depend on how equations are reduced
+      val colourThenTermOrdering = Ordering.Tuple2(
+        Ordering.Int, constraint.order.constOrdering)
+      candidates.minBy(sym => (colouring.colourOf(sym), sym))(
+        colourThenTermOrdering)
     }
 
-    // can this theory literal define its result? i.e., are all its
-    // input syms (syms except the last one) already defined?
-    def canDefine(lit : Atom) : Boolean = resultSymbol(lit) match {
-      case Some(sym) => // this lit may be able to define sym
-        !(symPosition contains sym) && // sym not yet defined
-        lit.init.forall(_.constants forall symPosition.contains) // all else defined
-      case None => false // nothing to define
+    private val readyDefinitions =
+      new ArrayBuffer[(DefinitionKey, ConstantTerm, Option[DefiningConjunct])]
+
+    private def place(local : ConstantTerm, token : NameToken) : Unit = {
+      tokenOf(local) = token
+      placedLocals += local
+      readyDefinitions ++= classMembersNamedBy(local)
     }
 
-    def litKey(lit : Atom) : LitKey = {
-      val args = for (linearComb <- lit.init) yield {
-        val sortedTerms = (for ((coeff, sym : ConstantTerm) <- linearComb)
-          yield (symPosition(sym), coeff)).toList.sortBy(_._1)
-        ArgKey(sortedTerms, linearComb.constant)
-      }
-      LitKey(lit.pred, args.toList)
-    }
+    // fixed symbols are named first, by their index
+    for (sym <- fixedSyms) readyDefinitions ++= classMembersNamedBy(sym)
+
+    private val unnamedFurtherDefinitions =
+      new ArrayBuffer[(DefinitionKey, ConstantTerm, DefiningConjunct)]
+
+    // only without quantifiers, as keys do not express bound variables
+    private var waitingConjuncts : Seq[DefiningConjunct] =
+      if (constraint.quans.isEmpty)
+        (constraint.predConj.positiveLits.map(DefiningLiteral) ++
+         (for (lhs <- constraint.arithConj.positiveEqs
+               if DifferenceEquation.unapply(lhs).isEmpty)
+            yield DefiningEquation(lhs))) filter canDefineLocal
+      else
+        Nil
+    private val locals = constraint.constants -- fixedSyms
+    private val definableSyms =
+      constraint.predConj.positiveLits.flatMap(resultSymbol).toSet
+
+    private def unnamedSymbolsOf(conjunct : DefiningConjunct)
+    : Set[ConstantTerm] =
+      conjunct.symbols filterNot tokenOf.contains
 
     var done = false
-    while(!done) {
-      val readyToDefineLits = theoryLits filter canDefine
-      if (readyToDefineLits nonEmpty) { // some lits ready
-        val lit = readyToDefineLits.minBy(litKey)
-        placeSym(resultSymbol(lit).get, Some(lit))
-      } else { // no lits ready to define a result symbol
-        val unplacedSyms = allSyms filterNot symPosition.contains
-        if (unplacedSyms isEmpty) {
+    while (!done) {
+      val (nowReady, stillWaiting) =
+        waitingConjuncts partition (unnamedSymbolsOf(_).size == 1)
+      waitingConjuncts = stillWaiting
+      for (conjunct <- nowReady) {
+        val local = unnamedSymbolsOf(conjunct).head
+        readyDefinitions += ((keyOf(conjunct, local), local, Some(conjunct)))
+      }
+      if (readyDefinitions.nonEmpty) {
+        val smallestKey =
+          readyDefinitions.map(_._1).min(definitionKeyOrdering)
+        val tiedLocals =
+          readyDefinitions.filter(_._1 == smallestKey).map(_._2).distinct
+        val local =
+          if (tiedLocals.size == 1) tiedLocals.head
+          else pickByColour(tiedLocals)
+        val namingConjunct = readyDefinitions.find(
+          r => r._1 == smallestKey && r._2 == local).get._3
+        val (definitionsOfLocal, otherDefinitions) =
+          readyDefinitions partition (_._2 == local)
+        readyDefinitions.clear()
+        readyDefinitions ++= otherDefinitions
+        place(local, DefinedToken(nextName(smallestKey)))
+        // the members of a class are named through it only once, so it
+        // yields no further definitions
+        unnamedFurtherDefinitions ++=
+          (for ((key, _, Some(conjunct)) <- definitionsOfLocal
+                if !(namingConjunct exists (_ eq conjunct)))
+             yield (key, local, conjunct))
+      } else {
+        val unplacedSyms = locals filterNot tokenOf.contains
+        if (unplacedSyms.isEmpty) {
           done = true
         } else {
           // symbols that are not "resultSymbols" will never be defined
           // so they get their positions here.
           val undefinableSyms = unplacedSyms filterNot definableSyms
           val candidates = // e.g., f(a,b) and g(b,a).
-            if(undefinableSyms nonEmpty) undefinableSyms else unplacedSyms
-          if (candidates.size == 1)
-            placeSym(candidates.head, None)
-          else {
-            // the colouring of the last stall is reused: with the syms
-            // placed since then individualised, it is refined to the same
-            // colour classes as a colouring started afresh
-            for (sym <- localSymbols drop individualisedLocalCount)
-              colouring.individualise(sym)
-            individualisedLocalCount = localSymbols.size
-            colouring.refine()
-            // remaining ties are broken by the term order: deterministic,
-            // but canonical only if the tied syms are interchangeable and
-            // their conjuncts do not depend on how equations are reduced
-            val colourThenTermOrdering = Ordering.Tuple2(
-              Ordering.Int, constraint.order.constOrdering)
-            placeSym(candidates.minBy(
-                       sym => (colouring.colourOf(sym), sym))(
-                       colourThenTermOrdering), None)
-          }
+            if (undefinableSyms.nonEmpty) undefinableSyms else unplacedSyms
+          val local =
+            if (candidates.size == 1) candidates.head
+            else pickByColour(candidates.toSeq)
+          place(local, RankedToken(rankedCount))
+          rankedCount += 1
         }
       }
     }
-    Debug.assertPost(AC, constraint.constants forall symPosition.contains)
-    Debug.assertPost(AC, localSymbols.size == definingTheoryLits.size)
-    CanonicalSymbolOrder(localSymbols, definingTheoryLits)
+    Debug.assertPost(AC, constraint.constants forall tokenOf.contains)
+
+    private val byKeyThenLocal =
+      Ordering.Tuple2(definitionKeyOrdering, nameTokenOrdering)
+    val furtherDefinitions : Seq[FurtherDefinition] =
+      for ((key, local, conjunct) <- unnamedFurtherDefinitions.sortBy(
+             r => (r._1, tokenOf(r._2)))(byKeyThenLocal))
+        yield FurtherDefinition(conjunct, local, nextName(key))
   }
 
   private[symex]
@@ -296,53 +502,53 @@ object ConstraintNormalizer {
     }
   }
 
-  // Rename symbols in atoms and constraint to canonical ones
-  private[symex]
-  def rebuild(constraint  : Conjunction,
-              symbolOrder : CanonicalSymbolOrder,
-              newSyms     : Int => (Seq[ConstantTerm], TermOrder))
-  : NormalizedConstraint = {
-    val (replacements, order) = newSyms(symbolOrder.localSymbols.size)
-    Debug.assertPre(AC, replacements.size == symbolOrder.localSymbols.size)
-    Debug.assertPre(AC, replacements.toSet.size == replacements.size)
-    Debug.assertPre(AC, {
-      val untouched = constraint.constants -- symbolOrder.localSymbols
-      (replacements.toSet intersect untouched).isEmpty
-    })
-    val subst = ConstantSubst(
-      (symbolOrder.localSymbols.reverse zip replacements).toMap, order)
-    val newConstraint = subst(constraint)
-    Debug.assertPost(AC, newConstraint.constants.size == constraint.constants.size)
-    val definingLits = for (maybeLit <- symbolOrder.definingTheoryLits)
-      yield maybeLit.map(lit => Atom(lit.pred,
-        for(linearComb <- lit) yield subst(linearComb), order))
-    NormalizedConstraint(newConstraint, definingLits)
-  }
-
   // ORDERINGS
-  // term of an arg, lexical ordering with canonical pos first, then coefficient
-  private implicit val termOrdering : Ordering[(Int, IdealInt)] =
-    new Ordering[(Int, IdealInt)] {
-      def compare(a : (Int, IdealInt), b : (Int, IdealInt)) : Int =
-        Seqs.lexCombineInts(a._1 compare b._1, a._2 compare b._2)
+  private val idealIntOrdering : Ordering[IdealInt] =
+    Ordering.fromLessThan(_ < _)
+
+  private lazy val nameTokenOrdering : Ordering[NameToken] =
+    new Ordering[NameToken] {
+      private def kindRank(token : NameToken) : Int = token match {
+        case _ : FixedToken   => 0
+        case _ : DefinedToken => 1
+        case _ : RankedToken  => 2
+        case SelfToken        => 3
+      }
+      def compare(a : NameToken, b : NameToken) : Int = (a, b) match {
+        case (FixedToken(i), FixedToken(j))     => i compare j
+        case (DefinedToken(m), DefinedToken(n)) =>
+          definitionNameOrdering.compare(m, n)
+        case (RankedToken(i), RankedToken(j))   => i compare j
+        case _ => kindRank(a) compare kindRank(b)
+      }
     }
 
-  // one arg: terms first, constant last
-  private implicit val argKeyOrdering : Ordering[ArgKey] = new Ordering[ArgKey] {
-    def compare(a : ArgKey, b : ArgKey) : Int = Seqs.lexCombineInts(
-      Seqs.lexCompare(a.terms.iterator, b.terms.iterator),
-      a.constant compare b.constant)
-  }
+  private lazy val tokenCoeffOrdering : Ordering[(NameToken, IdealInt)] =
+    Ordering.Tuple2(nameTokenOrdering, idealIntOrdering)
 
-  // a literal: pred name, pred arity, args
-  private[symex]
-  implicit val LitKeyOrdering : Ordering[LitKey] = new Ordering[LitKey] {
-    def compare(a : LitKey, b : LitKey) : Int = Seqs.lexCombineInts(
-      a.pred.name compareTo b.pred.name,
-      a.pred.arity compareTo b.pred.arity,
-      Seqs.lexCompare(a.args.iterator, b.args.iterator)
-    )
-  }
+  // terms first, constant last
+  private lazy val tokenTermOrdering : Ordering[TokenTerm] =
+    new Ordering[TokenTerm] {
+      def compare(a : TokenTerm, b : TokenTerm) : Int = Seqs.lexCombineInts(
+        Seqs.lexCompare(a.terms.iterator, b.terms.iterator)(tokenCoeffOrdering),
+        a.constant compare b.constant)
+    }
+
+  // kind, predicate, arguments
+  private lazy val definitionKeyOrdering : Ordering[DefinitionKey] =
+    new Ordering[DefinitionKey] {
+      private val predOrdering =
+        Ordering.Option(ConstraintGraph.predicateOrdering)
+      def compare(a : DefinitionKey, b : DefinitionKey) : Int =
+        Seqs.lexCombineInts(
+          a.kind compare b.kind,
+          predOrdering.compare(a.pred, b.pred),
+          Seqs.lexCompare(a.args.iterator, b.args.iterator)(tokenTermOrdering))
+    }
+
+  private lazy val definitionNameOrdering : Ordering[DefinitionName] =
+    Ordering.by((name : DefinitionName) => (name.key, name.instance))(
+      Ordering.Tuple2(definitionKeyOrdering, Ordering.Int))
 
 }
 

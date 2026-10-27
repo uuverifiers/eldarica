@@ -1,6 +1,7 @@
 package lazabs.horn.symex
 
 import ap.parser.IExpression.Sort
+import lazabs.GlobalParameters
 import lazabs.horn.bottomup.{HornClauses, NormClause}
 import lazabs.horn.CHCResultMatchers
 import ap.api.SimpleAPI
@@ -263,6 +264,27 @@ class BreadthFirstForwardSymexUnitTests
             val e = the [InconclusiveException] thrownBy symex.solve()
             e.candidateSolution shouldBe empty
           }
+        }
+        "Unchecked state keeps its unconnected conjuncts (sat)" in {
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val q = createRelation("q", List(Sort.Integer))
+            val x = createConstant("x")
+            val c = createConstant("c")
+            val d = createConstant("d")
+
+            // c * d = 1 has no solution with c, d >= 2
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 0 & mult(c, d) === 1 & c >= 2 & d >= 2),
+              q(x) :- p(x),
+              false :- q(x)
+            )
+            val params = GlobalParameters.get.clone
+            params.symexStateChecks = GlobalParameters.SymexStateChecks.None
+            GlobalParameters.withValue(params) {
+              new BreadthFirstForwardSymex[Clause](clauses).solve()
+            }
+          } should beSat
         }
       }
       "Corner cases" - {
