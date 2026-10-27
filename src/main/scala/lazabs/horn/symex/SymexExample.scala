@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022-2023 Zafer Esen, Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2022-2026 Zafer Esen, Philipp Ruemmer. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -697,11 +697,12 @@ object BFSWithDepth1 extends App {
 }
 
 object Util {
-  def printRes(res: Either[Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
+  def printRes(
+      res: Either[() => Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
     res match {
       case Left(sln) =>
         println("\nSAT\n\nSolution")
-        sln.foreach {
+        sln().foreach {
           case (pred, formula) => println(pred + ": " + formula)
         }
       case Right(cex) =>

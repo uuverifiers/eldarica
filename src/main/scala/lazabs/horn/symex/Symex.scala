@@ -33,7 +33,7 @@ import ap.SimpleAPI
 import ap.parser._
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.theories.{Theory, TheoryCollector}
 import lazabs.horn.bottomup.{NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -51,7 +51,8 @@ object Symex {
    * is reached). A candidate solution need not be a model of the clauses
    * (e.g., it is the model up to some depth).
    */
-  class InconclusiveException(val candidateSolution : Option[Solution])
+  class InconclusiveException(
+      val candidateSolution : Option[() => Solution])
       extends SymexException("search ended without a verdict")
 
   sealed abstract class FeasibilityCheckResult
@@ -145,13 +146,77 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // this must be done before we can use the symbol factory during resolution
   symex_sf.initialize(predicatesAndMaxOccurrences.toSet)
 
-  def solve(): Either[Solution, Dag[(IAtom, CC)]]
+  def solve(): Either[() => Solution, Dag[(IAtom, CC)]]
 
   /**
    * Shut-down the engine.
    */
   def shutdown: Unit = {
     prover.shutDown
+  }
+
+  val statistics = new SymexStatistics
+
+  val initialTimeoutMs  : Long = 2000
+  val timeoutGrowthRate : Long = 2
+  val cheapTimeoutMs    : Long = 5
+
+  private val collectCheckTimes = lazabs.GlobalParameters.get.log
+
+  /**
+   * Checks the constraint within timeoutMs and counts the result. If the
+   * constraint does not end the search when feasible, -symStateChecks
+   * decides how it is checked.
+   */
+  protected def checkFeasibilityWithinBudget(
+      constraint           : Conjunction,
+      endsSearchIfFeasible : Boolean,
+      timeoutMs            : Long) : FeasibilityCheckResult = {
+    import FeasibilityCheckResult._
+    import lazabs.GlobalParameters.SymexStateChecks
+    val checkTimeout =
+      if (endsSearchIfFeasible) Some(timeoutMs)
+      else lazabs.GlobalParameters.get.symexStateChecks match {
+        case SymexStateChecks.Full  => Some(timeoutMs)
+        case SymexStateChecks.Cheap =>
+          // use a cheap timeout for the first feasibility check
+          if (timeoutMs == initialTimeoutMs) Some(cheapTimeoutMs)
+          else Some(timeoutMs)
+        case SymexStateChecks.None  => None
+      }
+    val checkStart = if (collectCheckTimes) System.nanoTime else 0L
+    val checkResult = checkTimeout match {
+      case Some(millis) => checkFeasibility(constraint, Some(millis))
+      case None => if (constraint.isFalse) Infeasible else Skipped
+    }
+    if (collectCheckTimes)
+      statistics.checkNanos += System.nanoTime - checkStart
+    statistics.countCheck(checkResult, endsSearchIfFeasible)
+    checkResult
+  }
+
+  /**
+   * The disjunction of the constraints over the arguments of rs at
+   * occurrence 0, with their other symbols existentially quantified.
+   */
+  protected def projectionOntoArguments(rs          : RelationSymbol,
+                                        constraints : Seq[Conjunction])
+  : Conjunction = {
+    val disjunction = Conjunction.disj(constraints, symex_sf.order)
+    val constants = (disjunction.constants -- rs.arguments(0)).toSeq
+    symex_sf.reducer(Conjunction.TRUE)(
+      Conjunction.quantify(Quantifier.EX, symex_sf.order.sort(constants),
+                           disjunction, symex_sf.order))
+  }
+
+  // a constraint over the arguments of rs at occurrence 0 as a solution
+  protected def solutionFormula(rs         : RelationSymbol,
+                                constraint : Conjunction) : IFormula = {
+    val argSubst: Map[ConstantTerm, ITerm] =
+      (for ((arg, i) <- rs.arguments(0) zipWithIndex)
+        yield
+          (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
+    ConstantSubstVisitor(prover.asIFormula(constraint), argSubst)
   }
 
   private[symex] def checkFeasibility(constraint : Conjunction,

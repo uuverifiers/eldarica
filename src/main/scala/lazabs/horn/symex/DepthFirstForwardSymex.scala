@@ -93,8 +93,8 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     }
   }
 
-  override def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
-    var result: Either[Solution, Dag[(IAtom, CC)]] = null
+  override def solve(): Either[() => Solution, Dag[(IAtom, CC)]] = {
+    var result: Either[() => Solution, Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     // do not use facts below, use normClauses
@@ -169,10 +169,10 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
               }
             }
             if (result == null) { // none of the assertions failed, so this is SAT
-              result = Left(buildSolution())
+              result = Left(buildSolution _)
             }
           } else {
-            result = Left(buildSolution())
+            result = Left(buildSolution _)
           }
         case other =>
           throw new SymexException(

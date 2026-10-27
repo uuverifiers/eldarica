@@ -30,7 +30,6 @@ package lazabs.horn.symex
 
 import ap.util.Combinatorics
 import ap.parser.IAtom
-import lazabs.GlobalParameters
 import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -54,10 +53,6 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   import Symex._
   import FeasibilityCheckResult._
-
-  val initialTimeoutMs  : Long = 2000
-  val timeoutGrowthRate : Long = 2
-  val cheapTimeoutMs    : Long = 5
 
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
@@ -87,9 +82,6 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     handleNewUnitClause(fact)
   }
 
-  private var undecidedGoals     = 0L
-  private var depthPrunedChoices = 0L
-
   private def getClausesForResolution
     : Option[(NormClause, Seq[UnitClause], Long)] = {
     if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
@@ -106,7 +98,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             unitClauseDB.inferred(rs) match {
               case Some(cucs) if cucs.length >= depth =>
                 // this is not a good candidate, continue
-                depthPrunedChoices += 1
+                statistics.depthPrunedChoices += 1
               case _ => // this is a good candidate, return
                 continue = false
                 res = Some(candidate)
@@ -117,22 +109,11 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     }
   }
 
-  private def stateChecks = lazabs.GlobalParameters.get.symexStateChecks
+  private val collectStats = lazabs.GlobalParameters.get.log
 
-  // logging
-  private val collectStats     = lazabs.GlobalParameters.get.log
-  private var statesDerived    = 0L
-  private var checksFeasible   = 0L
-  private var checksInfeasible = 0L
-  private var checksPostponed  = 0L
-  private var uncheckedStates  = 0L
-  private var checkNanos       = 0L
-  private var resolutionNanos  = 0L
-  private var statesWithUnconnectedConjunctsDropped = 0L
-
-  override def solve(): Either[Solution, Dag[(IAtom, CC)]] = {
+  override def solve(): Either[() => Solution, Dag[(IAtom, CC)]] = {
     val solveStart = System.nanoTime
-    var result: Either[Solution, Dag[(IAtom, CC)]] = null
+    var result: Either[() => Solution, Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     // do not use facts below, use normClauses
@@ -156,45 +137,22 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             val simplifyBefore  = if (collectStats) simplifierTimeNanos else 0L
             val newElectron = hyperResolve(nucleus, electrons)
             if (collectStats)
-              resolutionNanos += (System.nanoTime - resolutionStart) -
-                                 (simplifierTimeNanos - simplifyBefore)
+              statistics.resolutionNanos +=
+                (System.nanoTime - resolutionStart) -
+                (simplifierTimeNanos - simplifyBefore)
             printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
             printInfo("  =\n\t" + newElectron)
             val isGoal =
               (newElectron.rs.pred == HornClauses.FALSE) ||
                 (!newElectron.isPositive)
-            val checkTimeout =
-              if (isGoal) Some(timeoutMs)
-              else stateChecks match {
-                case GlobalParameters.SymexStateChecks.Full  => Some(timeoutMs)
-                case GlobalParameters.SymexStateChecks.Cheap =>
-                  // use a cheap timeout for the first feasibility check
-                  if (timeoutMs == initialTimeoutMs) Some(cheapTimeoutMs)
-                  else Some(timeoutMs)
-                case GlobalParameters.SymexStateChecks.None  => scala.None
-              }
-            val checkStart = if (collectStats) System.nanoTime else 0L
-            val checkResult = checkTimeout match {
-              case Some(millis) =>
-                checkFeasibility(newElectron.constraint, Some(millis))
-              case scala.None =>
-                if (newElectron.constraint.isFalse) Infeasible else Skipped
-            }
-            if (collectStats) checkNanos += System.nanoTime - checkStart
-            statesDerived += 1
-            checkResult match {
-              case Feasible                  => checksFeasible   += 1
-              case Infeasible                => checksInfeasible += 1
-              case BudgetExpired             => checksPostponed  += 1
-              case ProverGaveUp(_) if isGoal => undecidedGoals   += 1
-              case ProverGaveUp(_)           => uncheckedStates  += 1
-              case Skipped                   =>
-            }
+            val checkResult = checkFeasibilityWithinBudget(
+              newElectron.constraint, isGoal, timeoutMs)
+            statistics.statesDerived += 1
             val storedElectron =
               if (isGoal) newElectron
               else withoutConjunctsUnconnectedToArgs(newElectron, checkResult)
             if (!(storedElectron eq newElectron))
-              statesWithUnconnectedConjunctsDropped += 1
+              statistics.statesWithUnconnectedConjunctsDropped += 1
             if (checkResult == BudgetExpired) {
               // the check gets another turn later with more time, so the
               // rest of the search goes first
@@ -253,7 +211,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                   case Feasible   =>
                     result = Right(buildCounterExample(cuc))
                   case Infeasible =>
-                  case _          => undecidedGoals += 1
+                  case _          => statistics.undecidedGoals += 1
                 }
               }
               if (result == null) { // none of the assertions failed
@@ -269,45 +227,23 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
       }
       result
     } finally {
-      if (lazabs.GlobalParameters.get.log) {
-        println(s"states: $statesDerived derived by resolution, " +
-                s"${unitClauseDB.size} added to the database")
-        println(s"checks: " +
-                s"${checksFeasible + checksInfeasible + checksPostponed} " +
-                s"($checksFeasible feasible, $checksInfeasible infeasible, " +
-                s"$checksPostponed postponed)")
-        println(s"checks given up: ${uncheckedStates + undecidedGoals} " +
-                s"($uncheckedStates unchecked states, " +
-                s"$undecidedGoals undecided goals)")
-        println(s"depth bound: $depthPrunedChoices choices pruned")
-        println(s"duplicate states rejected: " +
-                s"${unitClauseDB.rejectedDuplicateCUCCount}")
-        println(subsumptionChecker.stats)
-        println(s"unconnected conjuncts: dropped from " +
-                s"$statesWithUnconnectedConjunctsDropped states")
-        simplifierStats foreach println
-        val solveMs = (System.nanoTime - solveStart) / 1000000
-        val checkMs = checkNanos / 1000000
-        val simpMs  = simplifierTimeNanos / 1000000
-        val subsMs  = subsumptionChecker.timeNanos / 1000000
-        val resMs   = resolutionNanos / 1000000
-        val otherMs =
-          0L max (solveMs - checkMs - simpMs - subsMs - resMs)
-        println(s"time (ms): $solveMs solve ($checkMs checks, " +
-                s"$simpMs simplification, $resMs resolution, " +
-                s"$subsMs subsumption, $otherMs other)")
-      }
+      if (collectStats)
+        statistics.printStatistics(
+          unitClauseDB.size, unitClauseDB.rejectedDuplicateCUCCount,
+          subsumptionChecker, simplifierStats, simplifierTimeNanos,
+          System.nanoTime - solveStart)
     }
   }
 
 
-  private def resultOfExhaustedSearch : Either[Solution, Dag[(IAtom, CC)]] =
-    if (undecidedGoals > 0)
+  private def resultOfExhaustedSearch
+    : Either[() => Solution, Dag[(IAtom, CC)]] =
+    if (statistics.undecidedGoals > 0)
       throw new InconclusiveException(candidateSolution = None)
-    else if (depthPrunedChoices > 0)
-      throw new InconclusiveException(Some(buildSolution()))
+    else if (statistics.depthPrunedChoices > 0)
+      throw new InconclusiveException(Some(buildSolution _))
     else
-      Left(buildSolution())
+      Left(buildSolution _)
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
     val possibleChoices = clausesWithRelationInBody(electron.rs)

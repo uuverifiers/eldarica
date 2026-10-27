@@ -94,7 +94,7 @@ object Solve {
             println("unknown")
             printTime
             for (candidate <- e.candidateSolution)
-              printSolution(candidate, Some(
+              printSolution(candidate(), Some(
                 "candidate solution up to the depth bound, not a model"))
             return
           }

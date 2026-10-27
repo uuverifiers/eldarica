@@ -646,8 +646,10 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
         case e : Symex.InconclusiveException =>
           val fullCandidate =
             if (GlobalParameters.get.needFullSolution)
-              for (sol <- e.candidateSolution)
-              yield preprocBackTranslator translate sol
+              for (sol <- e.candidateSolution) yield {
+                val fullSol = preprocBackTranslator translate sol()
+                () => fullSol
+              }
             else
               None
           throw new Symex.InconclusiveException(fullCandidate)
@@ -663,12 +665,12 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
         def solFun() =
           GlobalParameters.withValue(currentParams) {
             if (GlobalParameters.get.needFullSolution) {
-              val fullSol = preprocBackTranslator translate res
+              val fullSol = preprocBackTranslator translate res()
               HornWrapper.verifySolution(fullSol, unsimplifiedClauses)
               fullSol
             } else {
               // only keep relation symbols that were also part of the orginal problem
-              res filterKeys allPredicates(unsimplifiedClauses)
+              res() filterKeys allPredicates(unsimplifiedClauses)
             }
           }
 

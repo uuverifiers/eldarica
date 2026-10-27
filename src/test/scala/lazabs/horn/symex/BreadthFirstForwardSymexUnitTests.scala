@@ -208,7 +208,7 @@ class BreadthFirstForwardSymexUnitTests
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(10))
               val e = the [InconclusiveException] thrownBy symex.solve()
 
-              val candidate = e.candidateSolution.get(p0)
+              val candidate = e.candidateSolution.get()(p0)
               def candidateHolds(value : Int) : Boolean = scope {
                 !! (subst(candidate, List(i(value)), 0))
                 ??? == ProverStatus.Sat

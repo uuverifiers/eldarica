@@ -229,9 +229,10 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
       symex.printInfo = options.debuggingOutput
 
       val result = symex.solve()
+      val solution = for (buildSolution <- result.left) yield buildSolution()
       symex.shutdown
 
-      result match {
+      solution match {
         case Left(x) => Left(() => backTranslator translate x)
         case Right(x) => Right(() => backTranslator translate x)
       }

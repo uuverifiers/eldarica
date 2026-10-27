@@ -139,28 +139,12 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
       yield {
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
-        val predDisj =
-          Conjunction.disj(predCucs.map(_.constraint), symex_sf.order)
-
-        val constants = (predDisj.constants -- rs.arguments(0)).toSeq
-        val predSolution = symex_sf.reducer(Conjunction.TRUE)(
-          Conjunction.quantify(ap.terfor.conjunctions.Quantifier.EX,
-                               symex_sf.order.sort(constants),
-                               predDisj,
-                               symex_sf.order)
-        )
-
-        val argSubst: Map[ConstantTerm, ITerm] =
-          (for ((arg, i) <- rs.arguments(0) zipWithIndex)
-            yield
-              (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
+        val predSolution =
+          projectionOntoArguments(rs, predCucs.map(_.constraint))
 
         // todo: try to simplify after quantification
 
-        val backtranslatedPredSolution =
-          ConstantSubstVisitor(prover.asIFormula(predSolution), argSubst)
-
-        (pred, backtranslatedPredSolution)
+        (pred, solutionFormula(rs, predSolution))
       }
   }
 
