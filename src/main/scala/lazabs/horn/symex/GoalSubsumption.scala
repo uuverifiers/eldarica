@@ -33,6 +33,9 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.substitutions.ConstantSubst
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 
+import scala.collection.immutable.BitSet
+import scala.collection.mutable.{BitSet => MBitSet}
+
 /**
  * Subsumption of goals in normal form. Stored subsumes goal if its atoms
  * map to different atoms of goal with the same relation symbols such that
@@ -77,9 +80,10 @@ object GoalSubsumption {
       stored.conjunctsByLastAtom.getOrElse(lastAtom, Nil) forall
         (impliedByGoal(_, renaming))
 
-    def mapsAtomsFrom(storedIndex : Int,
-                      atomMap     : Vector[Int],
-                      renaming    : Map[ConstantTerm, ConstantTerm])
+    def mapsAtomsFrom(storedIndex     : Int,
+                      atomMap         : Vector[Int],
+                      mappedGoalAtoms : BitSet,
+                      renaming        : Map[ConstantTerm, ConstantTerm])
     : Boolean =
       if (storedIndex == stored.atoms.size) {
         stored.conjunctsByLastAtom.get(storedIndex) forall { localConjuncts =>
@@ -88,23 +92,20 @@ object GoalSubsumption {
         }
       } else {
         val (rs, storedOcc) = stored.atoms(storedIndex)
-        // the maps through an earlier unmapped interchangeable atom are the
-        // same up to swapping the two
-        def triedBefore(goalIndex : Int) =
-          (0 until goalIndex) exists { other =>
-            goal.firstInterchangeableAtom(other) ==
-              goal.firstInterchangeableAtom(goalIndex) &&
-            !(atomMap contains other)
-          }
+        // the maps through unmapped interchangeable atoms are the same up
+        // to swapping them, so only the first unmapped one is tried
+        val triedFirstInterchangeableAtoms = new MBitSet
         goal.atoms.indices exists { goalIndex =>
           val (goalRs, goalOcc) = goal.atoms(goalIndex)
-          goalRs == rs && !(atomMap contains goalIndex) &&
-          !triedBefore(goalIndex) && {
+          goalRs == rs && !(mappedGoalAtoms contains goalIndex) &&
+          (triedFirstInterchangeableAtoms add
+             goal.firstInterchangeableAtom(goalIndex)) && {
             lazabs.GlobalParameters.get.timeoutChecker()
             val extended = renaming ++
               (rs.arguments(storedOcc) zip rs.arguments(goalOcc))
             argConjunctsChecked(storedIndex, extended) &&
-              mapsAtomsFrom(storedIndex + 1, atomMap :+ goalIndex, extended)
+              mapsAtomsFrom(storedIndex + 1, atomMap :+ goalIndex,
+                            mappedGoalAtoms + goalIndex, extended)
           }
         }
       }
@@ -112,7 +113,7 @@ object GoalSubsumption {
     (stored.atomCounts forall { case (rs, n) =>
        goal.atomCounts.getOrElse(rs, 0) >= n }) &&
       argConjunctsChecked(-1, Map()) &&
-      mapsAtomsFrom(0, Vector(), Map())
+      mapsAtomsFrom(0, Vector(), BitSet(), Map())
   }
 
   /**

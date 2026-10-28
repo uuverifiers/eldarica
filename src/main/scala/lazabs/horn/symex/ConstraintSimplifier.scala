@@ -330,30 +330,38 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   private def inlineLocalEquations(constraint   : Conjunction,
                                    localSymbols : Set[Term],
                                    order        : TermOrder) : Conjunction = {
-    // the first equation defining a local symbol with coefficient 1 or -1
-    def findDefinedLocal(conj : Conjunction)
-        : Option[(IdealInt, ConstantTerm, LinearCombination)] = {
-      val candidates =
-        for (lc <- conj.arithConj.positiveEqs.iterator;
-             (coeff, c : ConstantTerm) <- lc.pairIterator
-               if coeff.isUnit && (localSymbols contains c))
-          yield (coeff, c, lc)
-      if (candidates.hasNext) Some(candidates.next()) else None
-    }
+    // the definitions of local symbols by equations with coefficient 1 or
+    // -1 in one pass over the equations, each definition applied to the
+    // later equations and to the earlier definitions
+    def definitionsOf(conj : Conjunction)
+        : Map[ConstantTerm, LinearCombination] =
+      (Map[ConstantTerm, LinearCombination]() /:
+         conj.arithConj.positiveEqs) { (definitions, eq) =>
+        val lc = ConstantSubst(definitions, order)(eq)
+        lc.pairIterator collectFirst {
+          case (coeff, c : ConstantTerm)
+              if coeff.isUnit && (localSymbols contains c) => (coeff, c)
+        } match {
+          case Some((coeff, c)) =>
+            // lc is coeff * c + t = 0 with coeff being 1 or -1, so
+            // c = -t / coeff = -coeff * t, which equals -coeff * lc + c
+            val replacement =
+              LinearCombination.sum(-coeff, lc,
+                                    IdealInt.ONE, LinearCombination(c, order),
+                                    order)
+            val subst = ConstantSubst(c, replacement, order)
+            (definitions map { case (d, t) => (d, subst(t)) }) +
+              (c -> replacement)
+          case None => definitions
+        }
+      }
 
     @annotation.tailrec
-    def inlineAll(conj : Conjunction) : Conjunction =
-      findDefinedLocal(conj) match {
-        case Some((coeff, c, lc)) =>
-          // lc is coeff * c + t = 0 with coeff being 1 or -1, so
-          // c = -t / coeff = -coeff * t, which equals -coeff * lc + c
-          val replacement =
-            LinearCombination.sum(-coeff, lc,
-                                  IdealInt.ONE, LinearCombination(c, order),
-                                  order)
-          inlineAll(ConstantSubst(c, replacement, order)(conj))
-        case None => conj
-      }
+    def inlineAll(conj : Conjunction) : Conjunction = {
+      val definitions = definitionsOf(conj)
+      if (definitions.isEmpty) conj
+      else inlineAll(ConstantSubst(definitions, order)(conj))
+    }
 
     inlineAll(constraint)
   }
