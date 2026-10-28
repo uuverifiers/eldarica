@@ -32,7 +32,7 @@ class BreadthFirstForwardSymexUnitTests
     }
 
     override private[symex] def checkFeasibility(constraint : Conjunction,
-                                                 timeoutMs  : Option[Long])
+                                                 budgetMs   : Option[Long])
         : FeasibilityCheckResult = {
       checks += 1
       assert(checks <= 100, "the search does not end")
@@ -40,9 +40,9 @@ class BreadthFirstForwardSymexUnitTests
       resolvedClause = None
       clause match {
         case Some(c) if givingUp contains c =>
-          FeasibilityCheckResult.ProverGaveUp(ProverStatus.OutOfMemory)
+          FeasibilityCheckResult.Undecided(ProverStatus.OutOfMemory)
         case _ =>
-          super.checkFeasibility(constraint, timeoutMs)
+          super.checkFeasibility(constraint, budgetMs)
       }
     }
   }
@@ -234,7 +234,7 @@ class BreadthFirstForwardSymexUnitTests
         }
       }
       "Undecided checks" - {
-        "State given up above a counterexample (unsat)" in {
+        "Undecided state above a counterexample (unsat)" in {
           scope {
             val p = createRelation("p", List(Sort.Integer))
             val q = createRelation("q", List(Sort.Integer))
@@ -250,7 +250,7 @@ class BreadthFirstForwardSymexUnitTests
             symex.solve()
           } should beUnsat
         }
-        "Goal given up, no other refutation (unknown)" in {
+        "Undecided empty goal, no other refutation (unknown)" in {
           scope {
             val p = createRelation("p", List(Sort.Integer))
             val x = createConstant("x")

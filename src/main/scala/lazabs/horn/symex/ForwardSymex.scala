@@ -140,7 +140,7 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
       yield {
         val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
         val predSolution =
-          projectionOntoArguments(rs, predCucs.map(_.constraint))
+          disjunctionOverArgs(rs, predCucs.map(_.constraint))
 
         // todo: try to simplify after quantification
 

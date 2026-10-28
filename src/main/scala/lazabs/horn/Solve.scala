@@ -95,7 +95,8 @@ object Solve {
             printTime
             for (candidate <- e.candidateSolution)
               printSolution(candidate(), Some(
-                "candidate solution up to the depth bound, not a model"))
+                "candidate solution up to the depth bound, " +
+                "need not satisfy the clauses"))
             return
           }
         }

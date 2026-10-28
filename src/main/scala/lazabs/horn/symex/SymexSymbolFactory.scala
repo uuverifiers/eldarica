@@ -61,7 +61,7 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
     new MHashMap[ConstantTerm, Seq[ConstantTerm]]
 
   private val definedSymbols =
-    new MHashMap[Predicate, MHashMap[DefinitionName, ConstantTerm]]
+    new MHashMap[Predicate, MHashMap[DefinitionId, ConstantTerm]]
 
   // E.g., p_c_1_4 is the local symbol 4 of pool c of p at occurrence 1
   private def newLocalSymbol(pred     : Predicate,
@@ -80,11 +80,11 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
   def atOccurrence(local : ConstantTerm, occ : Int) : ConstantTerm =
     occurrenceVersions(local)(occ)
 
-  // the local symbol of pred with this name in every state of pred
+  // the local symbol of pred for this definition id in every state of pred
   def definedSymbolForPred(pred : Predicate,
-                           name : DefinitionName) : ConstantTerm = {
+                           id   : DefinitionId) : ConstantTerm = {
     val symbols = definedSymbols.getOrElseUpdate(pred, new MHashMap)
-    symbols.getOrElseUpdate(name, newLocalSymbol(pred, "d", symbols.size))
+    symbols.getOrElseUpdate(id, newLocalSymbol(pred, "d", symbols.size))
   }
 
   /**

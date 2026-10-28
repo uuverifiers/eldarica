@@ -56,7 +56,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   private var cucs: collection.immutable.Vector[UnitClause] = Vector()
   private val cucSet = new MHashSet[UnitClause]
 
-  var rejectedDuplicateCUCCount = 0
+  var rejectedDuplicateCount = 0
 
   private val cucParents =
     new MHashMap[UnitClause, (NormClause, Seq[UnitClause])]
@@ -141,7 +141,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
   def isDuplicate(clause: UnitClause): Boolean = {
     val duplicate = cucSet contains clause
     if (duplicate)
-      rejectedDuplicateCUCCount += 1
+      rejectedDuplicateCount += 1
     duplicate
   }
 

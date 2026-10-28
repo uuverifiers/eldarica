@@ -79,9 +79,9 @@ class SubsumptionChecker[C](subsumes : (C, C) => Boolean) {
       else // use the limit
         stored.reverseIterator.take(newestToCheck) ++
           stored.iterator.take(oldestToCheck)
-    val subsumed = candidates exists { old =>
+    val subsumed = candidates exists { storedClause =>
       candidatePairs += 1
-      subsumes(old, clause)
+      subsumes(storedClause, clause)
     }
     if (subsumed) statesSubsumed += 1
     subsumed

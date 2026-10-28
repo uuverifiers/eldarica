@@ -80,7 +80,7 @@ class SubsumptionCheckerTests
     }
   }
 
-  "Locals defined by literals keep their names in larger states" in {
+  "Locals defined by literals keep their symbols in larger states" in {
     // the local of y[7:4] in the second state is ordered after that of x[7:4]
     SimpleAPI.withProver { p =>
       import p._
@@ -98,7 +98,7 @@ class SubsumptionCheckerTests
     }
   }
 
-  "A local with a second definition keeps the name of the first" in {
+  "A local with a second definition keeps the symbol of the first" in {
     // in the second state, y[3:0] defines the local of x[7:4] too, and the
     // local of z[7:4] is ordered after it
     SimpleAPI.withProver { p =>

@@ -31,20 +31,20 @@ package lazabs.horn.symex
 import Symex.FeasibilityCheckResult
 
 /**
- * The search statistics: counters for the verdict and the -symStats output.
+ * The search statistics: counters for the verdict and the -log output.
  */
 class SymexStatistics {
   import FeasibilityCheckResult._
 
-  var statesDerived      = 0L
-  var checksFeasible     = 0L
-  var checksInfeasible   = 0L
-  var checksPostponed    = 0L
-  var uncheckedStates    = 0L
-  var undecidedGoals     = 0L
-  var depthPrunedChoices = 0L
-  var checkNanos         = 0L
-  var resolutionNanos    = 0L
+  var statesDerived       = 0L
+  var checksFeasible      = 0L
+  var checksInfeasible    = 0L
+  var checksPostponed     = 0L
+  var undecidedStates     = 0L
+  var undecidedEmptyGoals = 0L
+  var depthPrunedChoices  = 0L
+  var checkNanos          = 0L
+  var resolutionNanos     = 0L
   var statesWithUnconnectedConjunctsDropped = 0L
 
   def countCheck(checkResult          : FeasibilityCheckResult,
@@ -53,9 +53,9 @@ class SymexStatistics {
       case Feasible        => checksFeasible   += 1
       case Infeasible      => checksInfeasible += 1
       case BudgetExpired   => checksPostponed  += 1
-      case ProverGaveUp(_) =>
-        if (endsSearchIfFeasible) undecidedGoals += 1
-        else uncheckedStates += 1
+      case Undecided(_)    =>
+        if (endsSearchIfFeasible) undecidedEmptyGoals += 1
+        else undecidedStates += 1
       case Skipped         =>
     }
 
@@ -71,9 +71,8 @@ class SymexStatistics {
             s"${checksFeasible + checksInfeasible + checksPostponed} " +
             s"($checksFeasible feasible, $checksInfeasible infeasible, " +
             s"$checksPostponed postponed)")
-    println(s"checks given up: ${uncheckedStates + undecidedGoals} " +
-            s"($uncheckedStates unchecked states, " +
-            s"$undecidedGoals undecided goals)")
+    println(s"undecided checks: ${undecidedStates + undecidedEmptyGoals} " +
+            s"($undecidedStates states, $undecidedEmptyGoals empty goals)")
     println(s"depth bound: $depthPrunedChoices choices pruned")
     println(s"duplicate states rejected: $duplicatesRejected")
     println(subsumptionChecker.stats)

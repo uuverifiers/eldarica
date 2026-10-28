@@ -71,8 +71,8 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   private def enqueue(clause    : NormClause,
                       electrons : Seq[UnitClause],
-                      timeoutMs : Long) : Unit =
-    choicesQueue enqueue ((clause, electrons, timeoutMs))
+                      budgetMs  : Long) : Unit =
+    choicesQueue enqueue ((clause, electrons, budgetMs))
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
@@ -131,7 +131,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         ind += 1
         printInfo(ind + ".", false)
         getClausesForResolution match {
-          case Some((nucleus, electrons, timeoutMs)) => {
+          case Some((nucleus, electrons, budgetMs)) => {
             touched += nucleus
             val resolutionStart = if (collectStats) System.nanoTime else 0L
             val simplifyBefore  = if (collectStats) simplifierTimeNanos else 0L
@@ -146,7 +146,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               (newElectron.rs.pred == HornClauses.FALSE) ||
                 (!newElectron.isPositive)
             val checkResult = checkFeasibilityWithinBudget(
-              newElectron.constraint, isGoal, timeoutMs)
+              newElectron.constraint, isGoal, budgetMs)
             statistics.statesDerived += 1
             val storedElectron =
               if (isGoal) newElectron
@@ -156,10 +156,10 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
             if (checkResult == BudgetExpired) {
               // the check gets another turn later with more time, so the
               // rest of the search goes first
-              val longerTimeout = timeoutMs * timeoutGrowthRate
+              val longerBudgetMs = budgetMs * budgetGrowthRate
               printInfo("\n  (Check budget expired, postponed with " +
-                        longerTimeout + " ms.)")
-              enqueue(nucleus, electrons, longerTimeout)
+                        longerBudgetMs + " ms.)")
+              enqueue(nucleus, electrons, longerBudgetMs)
             } else if (isGoal && checkResult == Feasible) {
               unitClauseDB.add(newElectron, (nucleus, electrons))
               result = Right(buildCounterExample(newElectron))
@@ -168,7 +168,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               handleFalseConstraint(nucleus, electrons)
             } else if (isGoal) {
               printInfo("\n  (Check said " + checkResult +
-                        ", goal left undecided.)")
+                        ", empty goal left undecided.)")
             } else if (unitClauseDB isDuplicate storedElectron) {
               printInfo("\n  (Derived clause already exists in the database.)")
               handleForwardSubsumption(nucleus, electrons)
@@ -207,11 +207,11 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                                    false)
                   } else toUnitClause(clause)
                 unitClauseDB.add(cuc, (clause, Nil))
-                checkFeasibility(cuc.constraint, timeoutMs = None) match {
+                checkFeasibility(cuc.constraint, budgetMs = None) match {
                   case Feasible   =>
                     result = Right(buildCounterExample(cuc))
                   case Infeasible =>
-                  case _          => statistics.undecidedGoals += 1
+                  case _          => statistics.undecidedEmptyGoals += 1
                 }
               }
               if (result == null) { // none of the assertions failed
@@ -229,7 +229,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
     } finally {
       if (collectStats)
         statistics.printStatistics(
-          unitClauseDB.size, unitClauseDB.rejectedDuplicateCUCCount,
+          unitClauseDB.size, unitClauseDB.rejectedDuplicateCount,
           subsumptionChecker, simplifierStats, simplifierTimeNanos,
           System.nanoTime - solveStart)
     }
@@ -238,7 +238,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   private def resultOfExhaustedSearch
     : Either[() => Solution, Dag[(IAtom, CC)]] =
-    if (statistics.undecidedGoals > 0)
+    if (statistics.undecidedEmptyGoals > 0)
       throw new InconclusiveException(candidateSolution = None)
     else if (statistics.depthPrunedChoices > 0)
       throw new InconclusiveException(Some(buildSolution _))
@@ -262,7 +262,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
         } else unitClauseDB.inferred(rs).getOrElse(Seq())
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList))
-        enqueue(nucleus, choice, initialTimeoutMs)
+        enqueue(nucleus, choice, initialBudgetMs)
     }
 
   }

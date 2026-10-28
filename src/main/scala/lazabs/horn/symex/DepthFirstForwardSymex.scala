@@ -117,7 +117,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
           printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
           printInfo("  =\n\t" + newElectron)
           val checkResult =
-            checkFeasibility(newElectron.constraint, timeoutMs = None)
+            checkFeasibility(newElectron.constraint, budgetMs = None)
           if (hasContradiction(newElectron, checkResult) getOrElse (
                 throw new SymexException(
                   "Constraint could not be checked, the checker said " +
@@ -160,7 +160,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
                 } else toUnitClause(clause)
               unitClauseDB.add(cuc, (clause, Nil))
               val checkResult =
-                checkFeasibility(cuc.constraint, timeoutMs = None)
+                checkFeasibility(cuc.constraint, budgetMs = None)
               if (hasContradiction(cuc, checkResult) getOrElse (
                     throw new SymexException(
                       "Constraint could not be checked, the checker said " +
@@ -181,7 +181,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     }
     if (lazabs.GlobalParameters.get.log) {
       println(
-        s"rejected duplicate cucs: ${unitClauseDB.rejectedDuplicateCUCCount}")
+        s"rejected duplicate cucs: ${unitClauseDB.rejectedDuplicateCount}")
     }
     result
   }
