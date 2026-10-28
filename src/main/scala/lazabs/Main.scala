@@ -64,7 +64,11 @@ object GlobalParameters {
   }
 
   object SymexEngine extends Enumeration {
-    val BreadthFirstForward, DepthFirstForward, None = Value
+    val BreadthFirstForward, DepthFirstForward, SLD, None = Value
+  }
+
+  object SLDAtomSelection extends Enumeration {
+    val Newest, Oldest = Value
   }
 
   object SolutionReconstruction extends Enumeration {
@@ -103,6 +107,7 @@ class GlobalParameters extends Cloneable {
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
   var symexStateChecks = GlobalParameters.SymexStateChecks.Cheap
+  var sldAtomSelection = GlobalParameters.SLDAtomSelection.Newest
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -208,6 +213,7 @@ class GlobalParameters extends Cloneable {
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
     that.symexStateChecks = this.symexStateChecks
+    that.sldAtomSelection = this.sldAtomSelection
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
     that.displaySolutionProlog = this.displaySolutionProlog
@@ -379,10 +385,20 @@ object Main {
               GlobalParameters.SymexStateChecks.Cheap
           }
           arguments(rest)
+      case opt :: rest if (opt startsWith "-sldAtomSelect:") =>
+          sldAtomSelection = opt.drop("-sldAtomSelect:".length) match {
+            case "newest" => GlobalParameters.SLDAtomSelection.Newest
+            case "oldest" => GlobalParameters.SLDAtomSelection.Oldest
+            case _ =>
+              println("Unknown argument for -sldAtomSelect:, using newest.")
+              GlobalParameters.SLDAtomSelection.Newest
+          }
+          arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
           symexEngine = symexOpt.drop("-sym:".length) match {
             case "dfs" => GlobalParameters.SymexEngine.DepthFirstForward
             case "bfs" => GlobalParameters.SymexEngine.BreadthFirstForward
+            case "sld" => GlobalParameters.SymexEngine.SLD
             case _ =>
               println("Unknown argument for -sym:, defaulting to bfs.")
               GlobalParameters.SymexEngine.BreadthFirstForward
@@ -589,13 +605,18 @@ object Main {
           "                     separated by commas. E.g., -logPreds=p1,p2 logs any\n" +
           "                     predicate with 'p1' or 'p2' in its name\n" +
           " -sym              Use symbolic execution with the default engine (bfs)\n" +
-          " -sym:x            Use symbolic execution where x : {dfs, bfs}\n" +
-          "                     {dfs: depth-first forward, bfs: breadth-first forward}\n" +
+          " -sym:x            Use symbolic execution where x : {dfs, bfs, sld}\n" +
+          "                     {dfs: depth-first forward, bfs: breadth-first forward,\n" +
+          "                      sld: backward by SLD resolution}\n" +
           " -symDepth:n       Set a max depth for symbolic execution; if the search\n" +
           "                     is cut at that depth, the answer is unknown\n" +
           " -symStateChecks:x How newly derived non-goal states are checked in\n" + 
-          "                   symbolic execution (bfs only)\n" +
+          "                   symbolic execution (bfs and sld)\n" +
           "                     {full: long t/o, cheap: short t/o, none: not checked}\n" +
+          " -sldAtomSelect:x  Atom resolved next in a goal by -sym:sld\n" +
+          "                     {newest: added last as in Prolog (default),\n" +
+          "                      oldest: added first; atoms added by one\n" +
+          "                      resolution step go in body order}\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +

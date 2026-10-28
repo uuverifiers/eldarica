@@ -31,9 +31,10 @@ package lazabs.horn.symex
 /**
  * Forward subsumption of a new clause by the stored clauses with its key
  * (passed oldest first), scanning only a window of them: the newest and
- * the oldest ones. `subsumes(stored, clause)` is the test for one pair.
+ * the oldest ones. `subsumptionTestFor(clause)` tests whether a stored
+ * clause subsumes clause.
  */
-class SubsumptionChecker[C](subsumes : (C, C) => Boolean) {
+class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean) {
 
   private val newestToCheck = 32 // use this many clauses that were last derived
   private val oldestToCheck = 8  // use this many oldest clauses
@@ -79,9 +80,10 @@ class SubsumptionChecker[C](subsumes : (C, C) => Boolean) {
       else // use the limit
         stored.reverseIterator.take(newestToCheck) ++
           stored.iterator.take(oldestToCheck)
+    val subsumesClause = subsumptionTestFor(clause)
     val subsumed = candidates exists { storedClause =>
       candidatePairs += 1
-      subsumes(storedClause, clause)
+      subsumesClause(storedClause)
     }
     if (subsumed) statesSubsumed += 1
     subsumed

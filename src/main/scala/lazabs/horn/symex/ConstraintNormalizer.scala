@@ -197,6 +197,8 @@ object ConstraintNormalizer {
   /**
    * Normalizes a goal. Goals that differ only in the order and occurrences
    * of their atoms and in the symbols of their locals get one normal form.
+   * Also returns the position in goal of each atom of the normal form, which
+   * is used in SLD to replay derivations and to select atoms.
    * E.g. with xi the argument of P at occurrence i both
    *   false :- P(x1), P(x0), x0 = 1 & x1 = 2
    *   false :- P(x0), P(x1), x1 = 1 & x0 = 2
@@ -204,11 +206,14 @@ object ConstraintNormalizer {
    * because in the ConstraintGraph the atom whose argument is 1 gets the
    * smaller colour and so occurrence 0.
    */
-  def normalizeGoal(goal    : GoalClause,
-                    newSyms : Int => (Seq[ConstantTerm], TermOrder))
-  : GoalClause = {
+  def normalizeGoal(
+      goal       : GoalClause,
+      newSyms    : Int => (Seq[ConstantTerm], TermOrder),
+      definedSym : Option[DefinitionId => ConstantTerm] = None)
+  : (GoalClause, Seq[Int]) = {
     Debug.assertPre(AC, goal.atoms.distinct.size == goal.atoms.size)
-    val orderedAtoms = canonicalAtomOrder(goal)
+    val atomOrder = canonicalAtomOrder(goal)
+    val orderedAtoms = atomOrder map goal.atoms
     val nextOccurrence = new MHashMap[RelationSymbol, Int]
     val renumberedAtoms = for ((rs, _) <- orderedAtoms) yield {
       val occ = nextOccurrence.getOrElse(rs, 0)
@@ -227,12 +232,37 @@ object ConstraintNormalizer {
     val renumberedConstraint = ConstantSubst(
       ((oldArgs zip newArgs) ++ (order.sort(locals) zip pool)).toMap,
       order)(goal.constraint)
-    GoalClause(renumberedAtoms,
-               normalize(newArgs, renumberedConstraint, newSyms))
+    (GoalClause(renumberedAtoms,
+                normalize(newArgs, renumberedConstraint, newSyms,
+                          definedSym)),
+     atomOrder)
   }
 
-  private def canonicalAtomOrder(goal : GoalClause)
-  : Seq[(RelationSymbol, Int)] = {
+  /**
+   * The definition id of a local after the arguments are reordered. The
+   * one at index i moves to newIndex(i). Used in goal subsumption to rename
+   * the locals of the stored goal along an atom map.
+   * E.g. (Equation, (self - x0)) becomes (Equation, (self - x2)) when x0
+   * moves to index 2.
+   */
+  def withArgsReordered(id       : DefinitionId,
+                        newIndex : Int => Int) : DefinitionId = {
+    def reordered(token : SymToken) : SymToken = token match {
+      case ArgToken(index)     => ArgToken(newIndex(index))
+      case DefinedToken(other) =>
+        DefinedToken(withArgsReordered(other, newIndex))
+      case _                   => token
+    }
+    def reorderedTerm(term : TokenTerm) = TokenTerm(
+      (for ((token, coeff) <- term.terms) yield (reordered(token), coeff))
+        .sorted(tokenCoeffOrdering),
+      term.constant)
+    DefinitionId(id.key.copy(args = id.key.args map reorderedTerm),
+                 id.instance)
+  }
+
+  // the indices of the atoms of the goal in their canonical order
+  private def canonicalAtomOrder(goal : GoalClause) : Seq[Int] = {
     val atoms = goal.atoms.toIndexedSeq
     val predicateRepeats = atoms.map(_._1).distinct.size < atoms.size
     if (predicateRepeats) {
@@ -261,9 +291,9 @@ object ConstraintNormalizer {
           colouring.refine()
         }
       }
-      placedAtoms map atoms
+      placedAtoms
     } else {
-      atoms.sortBy(_._1.pred)(ConstraintGraph.predicateOrdering)
+      atoms.indices.sortBy(atoms(_)._1.pred)(ConstraintGraph.predicateOrdering)
     }
   }
 

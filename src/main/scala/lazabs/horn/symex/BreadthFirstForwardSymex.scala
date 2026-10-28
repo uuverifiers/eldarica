@@ -67,7 +67,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
 
-  private val subsumptionChecker = new SubsumptionChecker[UnitClause](subsumes)
+  private val subsumptionChecker = new SubsumptionChecker[UnitClause](subsumptionTestFor)
 
   private def enqueue(clause    : NormClause,
                       electrons : Seq[UnitClause],

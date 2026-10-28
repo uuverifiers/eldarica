@@ -57,7 +57,7 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
   private def normalizeGoal(goal : GoalClause,
                             pool : Seq[ConstantTerm])
                            (implicit sf : SymexSymbolFactory) : GoalClause =
-    ConstraintNormalizer.normalizeGoal(goal, n => (pool take n, sf.order))
+    ConstraintNormalizer.normalizeGoal(goal, n => (pool take n, sf.order))._1
 
   "Locals with swapped coefficients get the same normal form" in {
     SimpleAPI.withProver { p =>

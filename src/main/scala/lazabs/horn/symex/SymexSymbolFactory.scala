@@ -63,6 +63,8 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
   private val definedSymbols =
     new MHashMap[Predicate, MHashMap[DefinitionId, ConstantTerm]]
 
+  private val definitionIds = new MHashMap[ConstantTerm, DefinitionId]
+
   // E.g., p_c_1_4 is the local symbol 4 of pool c of p at occurrence 1
   private def newLocalSymbol(pred     : Predicate,
                              pool     : String,
@@ -84,8 +86,22 @@ class SymexSymbolFactory(theories: Seq[Theory], prover: SimpleAPI)
   def definedSymbolForPred(pred : Predicate,
                            id   : DefinitionId) : ConstantTerm = {
     val symbols = definedSymbols.getOrElseUpdate(pred, new MHashMap)
-    symbols.getOrElseUpdate(id, newLocalSymbol(pred, "d", symbols.size))
+    symbols.getOrElseUpdate(id, {
+      val symbol = newLocalSymbol(pred, "d", symbols.size)
+      definitionIds(symbol) = id
+      symbol
+    })
   }
+
+  // Used in goal subsumption. If none, no goal
+  // has a local with this definition to rename to.
+  def existingDefinedSymbolForPred(pred : Predicate,
+                                   id   : DefinitionId)
+  : Option[ConstantTerm] =
+    definedSymbols get pred flatMap (_ get id)
+
+  def definitionIdOf(symbol : ConstantTerm) : Option[DefinitionId] =
+    definitionIds get symbol
 
   /**
    * This method must be called to initialize the symbol factory after the

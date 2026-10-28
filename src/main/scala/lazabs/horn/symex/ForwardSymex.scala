@@ -130,10 +130,13 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
   def handleFalseConstraint(nucleus:   NormClause,
                             electrons: Seq[UnitClause]): Unit
 
-  // whether stored subsumes clause, both of the same relation symbol
-  protected def subsumes(stored : UnitClause, clause : UnitClause) : Boolean =
-    stored.isPositive == clause.isPositive && // polarity must match
-      symex_sf.reducer(clause.constraint)(stored.constraint).isTrue
+  // whether a stored clause subsumes clause, both of the same relation symbol
+  protected def subsumptionTestFor(clause : UnitClause)
+  : UnitClause => Boolean = {
+    lazy val reduce = symex_sf.reducer(clause.constraint)
+    stored => stored.isPositive == clause.isPositive && // polarity must match
+      reduce(stored.constraint).isTrue
+  }
 
   protected def buildSolution(): Solution = {
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
