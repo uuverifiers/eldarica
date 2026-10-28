@@ -80,6 +80,23 @@ class SubsumptionCheckerTests
     }
   }
 
+  "States subsumed by the union of two stored states are dropped" in {
+    SimpleAPI.withProver { p =>
+      import p._
+      scope {
+        val pr = createRelation("p", List(Sort.Integer, Sort.Integer))
+        val x  = createConstant("x")
+        val y  = createConstant("y")
+
+        solveWithDepth(List(
+          pr(x, y) :- (x <= 2 & y === 0),
+          pr(x, y) :- (x >= 3 & y === 0),
+          pr(x + 1, y) :- pr(x, y),
+          false :- (pr(x, y), y >= 1)), depth = 3)
+      } should beSat
+    }
+  }
+
   "Locals defined by literals keep their symbols in larger states" in {
     // the local of y[7:4] in the second state is ordered after that of x[7:4]
     SimpleAPI.withProver { p =>

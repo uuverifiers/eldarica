@@ -32,9 +32,12 @@ package lazabs.horn.symex
  * Forward subsumption of a new clause by the stored clauses with its key
  * (passed oldest first), scanning only a window of them: the newest and
  * the oldest ones. `subsumptionTestFor(clause)` tests whether a stored
- * clause subsumes clause.
+ * clause subsumes clause; for a clause with a single atom,
+ * `unionSubsumption` tests this instead and also whether several stored
+ * clauses do together.
  */
-class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean) {
+class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean,
+                            unionSubsumption   : UnionSubsumption[C]) {
 
   private val newestToCheck = 32 // use this many clauses that were last derived
   private val oldestToCheck = 8  // use this many oldest clauses
@@ -58,7 +61,8 @@ class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean) {
        s"\nsubsumption window: $calls calls, $truncatedCalls truncated " +
        s"at ${newestToCheck + oldestToCheck}, " +
        s"average stored states per call ${storedSizeSum / calls}"
-     else "")
+     else "") +
+    "\n" + unionSubsumption.stats
 
   def isSubsumed(clause : C, stored : IndexedSeq[C]) : Boolean =
     if (!collectStats)
@@ -80,11 +84,15 @@ class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean) {
       else // use the limit
         stored.reverseIterator.take(newestToCheck) ++
           stored.iterator.take(oldestToCheck)
-    val subsumesClause = subsumptionTestFor(clause)
-    val subsumed = candidates exists { storedClause =>
+    val countedCandidates = candidates map { storedClause =>
       candidatePairs += 1
-      subsumesClause(storedClause)
+      storedClause
     }
+    val subsumed =
+      if (unionSubsumption appliesTo clause)
+        unionSubsumption.isSubsumed(clause, countedCandidates)
+      else
+        countedCandidates exists subsumptionTestFor(clause)
     if (subsumed) statesSubsumed += 1
     subsumed
   }

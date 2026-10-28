@@ -96,8 +96,10 @@ class SLDSymex[CC](clauses       : Iterable[CC],
 
   private val resolutionChoices  = new MQueue[ResolutionChoice]
   private val goalClauseDB       = new GoalClauseDB
-  private val subsumptionChecker =
-    new SubsumptionChecker[GoalClause](GoalSubsumption.subsumptionTestFor(_))
+  private val subsumptionChecker = new SubsumptionChecker[GoalClause](
+    GoalSubsumption.subsumptionTestFor(_),
+    new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
+                         checkFeasibility))
 
   private val collectStats = lazabs.GlobalParameters.get.log
   private var atomsDroppedByFactoring = 0L

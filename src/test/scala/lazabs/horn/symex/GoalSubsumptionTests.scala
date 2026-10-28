@@ -3,6 +3,7 @@ package lazabs.horn.symex
 import ap.api.SimpleAPI
 import ap.terfor.preds.Predicate
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
+import Symex.FeasibilityCheckResult
 import org.scalatest.freespec.AnyFreeSpec
 
 class GoalSubsumptionTests extends AnyFreeSpec {
@@ -79,6 +80,30 @@ class GoalSubsumptionTests extends AnyFreeSpec {
                               conj(l(x0) === l(1), l(x1) === l(1)))
       val goal = GoalClause(Seq((pRs, 0)), conj(l(x0) === l(1)))
       assert(!subsumes(stored, goal))
+    }
+  }
+
+  "After n fruitless union tests the next 2^n - 1 goals are not tested" in {
+    SimpleAPI.withProver { p =>
+      val (sf, pRs, _) = goalSymbols(p)
+      implicit val symbolFactory = sf
+      val Seq(x0) = pRs.arguments(0)
+      implicit val order = sf.order
+
+      val checkResults = Iterator(FeasibilityCheckResult.Feasible,
+                                  FeasibilityCheckResult.Infeasible,
+                                  FeasibilityCheckResult.Feasible)
+      var checks = 0
+      val unionSubsumption = new UnionSubsumption[GoalClause](
+        GoalSubsumption.singleAtomConstraint,
+        (_, _) => { checks += 1; checkResults.next })
+      val stored = GoalClause(Seq((pRs, 0)), conj(l(x0) >= l(3)))
+      val goal   = GoalClause(Seq((pRs, 0)), conj(l(x0) >= l(2)))
+      val checksAfterEachGoal = for (_ <- 1 to 5) yield {
+        unionSubsumption.isSubsumed(goal, Iterator(stored))
+        checks
+      }
+      assert(checksAfterEachGoal == Seq(1, 1, 2, 3, 3))
     }
   }
 }

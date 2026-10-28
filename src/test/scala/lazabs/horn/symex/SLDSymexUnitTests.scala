@@ -86,6 +86,22 @@ class SLDSymexUnitTests
           assert(holds(candidate, 10) && !holds(candidate, 11))
         }
       }
+      "Goal union subsumed by two stored goals (sat)" in {
+        scope {
+          val pr = createRelation("p", List(Sort.Integer, Sort.Integer))
+          val Seq(x, y) = for (name <- Seq("x", "y")) yield createConstant(name)
+
+          // resolving the first goal gives false :- p(x, y), x >= 2 & y >= 1,
+          // which only the two goals together subsume
+          val clauses : Seq[Clause] = List(
+            pr(x, y) :- (y === 0),
+            pr(x + 1, y) :- pr(x, y),
+            false :- (pr(x, y), x >= 3 & y >= 1),
+            false :- (pr(x, y), x <= 2 & y >= 1)
+          )
+          new SLDSymex[Clause](clauses, maxDepth = Some(5)).solve()
+        } should beSat
+      }
     }
 
     "Non-linear clauses" - {

@@ -31,7 +31,7 @@ package lazabs.horn.symex
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.substitutions.ConstantSubst
-import lazabs.horn.bottomup.HornClauses
+import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 
 /**
  * Subsumption of goals in normal form. Stored subsumes goal if its atoms
@@ -56,6 +56,12 @@ object GoalSubsumption {
     lazy val reduce = symex_sf.reducer(goal.constraint)
     stored => subsumes(stored, goal, reduce)
   }
+
+  // for union subsumption
+  def singleAtomConstraint(goal : GoalClause)
+  : Option[(RelationSymbol, Conjunction)] =
+    if (goal.atoms.size == 1) Some((goal.atoms.head._1, goal.constraint))
+    else None
 
   private def subsumes(stored : GoalClause,
                        goal   : GoalClause,

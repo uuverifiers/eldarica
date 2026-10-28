@@ -138,6 +138,10 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
       reduce(stored.constraint).isTrue
   }
 
+  protected def singleAtomConstraint(clause : UnitClause)
+  : Option[(RelationSymbol, Conjunction)] =
+    if (clause.isPositive) Some((clause.rs, clause.constraint)) else None
+
   protected def buildSolution(): Solution = {
     for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
       yield {
