@@ -108,10 +108,10 @@ class UnionSubsumption[C](
                                 disjunction : Seq[Conjunction]) : Boolean = {
     tests += 1
     val budgetMs = budgetMsOf.getOrElse(rs, initialBudgetMs)
-    val uncovered = Conjunction.conj(
+    val outsideUnion = Conjunction.conj(
       constraint +: disjunction.map(_.negate), symex_sf.order)
     val start = if (collectStats) System.nanoTime else 0L
-    val checkResult = checkFeasibility(uncovered, Some(budgetMs))
+    val checkResult = checkFeasibility(outsideUnion, Some(budgetMs))
     if (collectStats)
       proverNanos += System.nanoTime - start
     if (checkResult == BudgetExpired) {

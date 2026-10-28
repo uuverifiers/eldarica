@@ -38,7 +38,7 @@ import scala.collection.mutable.{ArrayBuffer => MArrayBuffer,
  * The goals of a backward search and their derivations. The goals are
  * listed oldest first by the relation symbol of their first atom.
  */
-class GoalClauseDB {
+class GoalClauseDB(keepDerivations : Boolean) {
   private val derivations = new MLinkedHashMap[GoalClause, GoalDerivation]
   private val goalsWithFirstAtom =
     new MHashMap[RelationSymbol, MArrayBuffer[GoalClause]]
@@ -62,7 +62,8 @@ class GoalClauseDB {
   }
 
   def add(goal : GoalClause, derivation : GoalDerivation) : Unit = {
-    derivations(goal) = derivation
+    derivations(goal) =
+      if (keepDerivations) derivation else DerivationNotKept(derivation.depth)
     goalsWithFirstAtom.getOrElseUpdate(goal.atoms.head._1,
                                        new MArrayBuffer) += goal
   }

@@ -45,7 +45,7 @@ import scala.collection.mutable.{
  * Class to keep track of CUCs
  * Also keeps track of execution paths, i.e., clauses used to generate a CUC.
  */
-class UnitClauseDB(preds: Set[RelationSymbol]) {
+class UnitClauseDB(preds: Set[RelationSymbol], keepParents : Boolean) {
   // for each predicate, keep an ordered set of inferred unit clauses
   // caution: the code in pop below will break if this map is made mutable and
   //           the predicates change over time!
@@ -93,7 +93,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
    * returns: the latest number of frames
    */
   def push(): Int = {
-    assert(cucs.length == cucParents.size)
+    assert(!keepParents || cucs.length == cucParents.size)
     // assertion or remove
     frameStack push
       FrameInfo(
@@ -163,7 +163,7 @@ class UnitClauseDB(preds: Set[RelationSymbol]) {
       cucSet += clause
       // a clause added again after a pop keeps its first parents, which are
       // older than it, so the derivations stay acyclic
-      if (!(cucParents contains clause))
+      if (keepParents && !(cucParents contains clause))
         cucParents(clause) = parents
       inferredCUCsForPred(clause.rs) = inferredCUCsForPred(clause.rs) :+ clause
       true

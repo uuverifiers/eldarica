@@ -3,14 +3,15 @@ package lazabs.horn.symex
 import ap.parser.IExpression.Sort
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.{HornClauses, NormClause}
-import lazabs.horn.CHCResultMatchers
+import lazabs.horn.{CHCResultMatchers, HornWrapper}
 import ap.api.SimpleAPI
 import ap.api.SimpleAPI.ProverStatus
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import IExpression._
 import HornClauses._
-import Symex.{FeasibilityCheckResult, InconclusiveException}
+import Symex.{FeasibilityCheckResult, InconclusiveException,
+              SymexException}
 import ap.theories.ExtArray
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -233,6 +234,71 @@ class BreadthFirstForwardSymexUnitTests
           }
         }
       }
+      "Counterexamples" - {
+        "Valid counterexample (unsat)" in {
+          scope {
+            val p0 = createRelation("p0", List(Sort.Integer))
+            val x  = createConstant("x")
+
+            val clauses : Seq[Clause] = List(
+              p0(0) :- true,
+              p0(x + 1) :- p0(x),
+              false :- (p0(x), x >= 2)
+            )
+            val result =
+              new BreadthFirstForwardSymex[Clause](clauses).solve()
+            result should beUnsat
+            val cex = result.right.get()
+            assert(cex.iterator.map(_._1).toList ==
+                     List(IAtom(FALSE, Nil), p0(2), p0(1), p0(0)))
+            val params = GlobalParameters.get.clone
+            params.verifySolCEX = true
+            GlobalParameters.withValue(params) {
+              HornWrapper.verifyCEX(cex, clauses)
+            }
+          }
+        }
+        "Derivations not kept: no counterexample (unsat)" in {
+          scope {
+            val p0 = createRelation("p0", List(Sort.Integer))
+            val x  = createConstant("x")
+
+            val clauses : Seq[Clause] = List(
+              p0(0) :- true,
+              p0(x + 1) :- p0(x),
+              false :- (p0(x), x >= 2)
+            )
+            val result = new BreadthFirstForwardSymex[Clause](
+              clauses, keepDerivations = false).solve()
+            result should beUnsat
+            the [SymexException] thrownBy result.right.get()
+          }
+        }
+      }
+
+      "Timeouts" - {
+        "A check that does not end is stopped when the run times out" in {
+          scope {
+            val Seq(x, y, z) =
+              for (name <- Seq("x", "y", "z")) yield createConstant(name)
+
+            val clauses : Seq[Clause] = List(
+              false :- (x ** x ** x + y ** y ** y === z ** z ** z &
+                          x > 0 & y > 0 & z > 0)
+            )
+            val symex = new BreadthFirstForwardSymex[Clause](clauses)
+            val params = GlobalParameters.get.clone
+            params.timeoutChecker = () => throw lazabs.Main.TimeoutException
+            GlobalParameters.withValue(params) {
+              the [Exception] thrownBy symex.checkFeasibility(
+                symex.normClauses.head._1.constraint, budgetMs = None
+              ) shouldBe lazabs.Main.TimeoutException
+            }
+            symex.shutdown
+          }
+        }
+      }
+
       "Undecided checks" - {
         "Undecided state above a counterexample (unsat)" in {
           scope {

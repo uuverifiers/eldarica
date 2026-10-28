@@ -174,9 +174,25 @@ class SLDSymexUnitTests
             val params = GlobalParameters.get.clone
             params.verifySolCEX = true
             GlobalParameters.withValue(params) {
-              HornWrapper.verifyCEX(result.right.get, clauses)
+              HornWrapper.verifyCEX(result.right.get(), clauses)
             }
           }
+        }
+      }
+      "Derivations not kept: no counterexample (unsat)" in {
+        scope {
+          val pr = createRelation("p", List(Sort.Integer))
+          val x  = createConstant("x")
+
+          val clauses : Seq[Clause] = List(
+            pr(x) :- (x === 0),
+            pr(x + 1) :- pr(x),
+            false :- (pr(x), x >= 2)
+          )
+          val result =
+            new SLDSymex[Clause](clauses, keepDerivations = false).solve()
+          result should beUnsat
+          the [SymexException] thrownBy result.right.get()
         }
       }
     }

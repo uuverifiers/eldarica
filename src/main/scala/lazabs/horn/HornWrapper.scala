@@ -139,11 +139,21 @@ object HornWrapper {
                  // semantic check: are clause constraints satisfied?
                  scope {
                    addConstants(clause.constants.toSeq.sortWith(_.name < _.name))
-                   !! (state.args === head.args)
-                   for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
-                     !! (dag(c)._1.args === args)
-                   !! (constraint)
-                   ??? == ProverStatus.Sat
+                   try { withTimeout(verificationTimeout) {
+                     !! (state.args === head.args)
+                     for ((c, IAtom(_, args)) <- children.iterator zip body.iterator)
+                       !! (dag(c)._1.args === args)
+                     !! (constraint)
+                     ??? == ProverStatus.Sat
+                   }} catch {
+                     case SimpleAPI.TimeoutException => {
+                       Console.err.println(
+                         "Warning: Timeout while verifying counterexample " +
+                         "at clause:")
+                       Console.err.println(clause.toPrologString)
+                       true
+                     }
+                   }
                  }
              })
           })
@@ -370,14 +380,19 @@ class HornWrapper(constraints  : Seq[HornClause],
 
   private def getSymex(clauses : Seq[Clause]) : Option[Symex[Clause]] = {
     val symexDepth = GlobalParameters.get.symexMaxDepth
+    val keepDerivations =
+      GlobalParameters.get.needFullCEX || GlobalParameters.get.simplifiedCEX
     GlobalParameters.get.symexEngine match {
       case GlobalParameters.SymexEngine.DepthFirstForward   =>
-        Some(new DepthFirstForwardSymex[Clause](clauses)) // todo: add depth
+        Some(new DepthFirstForwardSymex[Clause](
+               clauses, keepDerivations)) // todo: add depth
       case GlobalParameters.SymexEngine.BreadthFirstForward =>
-        Some(new BreadthFirstForwardSymex[Clause](clauses, symexDepth))
+        Some(new BreadthFirstForwardSymex[Clause](
+               clauses, symexDepth, keepDerivations))
       case GlobalParameters.SymexEngine.SLD                 =>
         Some(new SLDSymex[Clause](clauses, symexDepth,
-                                  GlobalParameters.get.sldAtomSelection))
+                                  GlobalParameters.get.sldAtomSelection,
+                                  keepDerivations))
       case GlobalParameters.SymexEngine.None                => None
     }
   }
@@ -681,7 +696,9 @@ class SymexHornWrapper(unsimplifiedClauses   : Seq[Clause],
         Left(solFun _)
       }
         
-      case Right(cex) => {
+      case Right(_cex) => {
+        lazy val cex = _cex()
+
         if (GlobalParameters.get.simplifiedCEX) {
           println
           cex.map(_._1).prettyPrint

@@ -28,7 +28,6 @@
  */
 package lazabs.horn.symex
 
-import ap.api.SimpleAPI.ProverStatus
 import ap.parser.IAtom
 import ap.parser.IExpression.i
 import ap.terfor.{ConstantTerm, Term}
@@ -50,11 +49,14 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
  *                        resolved further. A search cut by the bound is
  *                        inconclusive.
  * @param atomSelection : Which atom of a goal is resolved, see AtomOrigin.
+ * @param keepDerivations : Keep the derivations of the stored goals, which
+ *                          are needed to build counterexamples.
  */
-class SLDSymex[CC](clauses       : Iterable[CC],
-                   maxDepth      : Option[Int] = None,
-                   atomSelection : SLDAtomSelection.Value =
-                     SLDAtomSelection.Newest)(
+class SLDSymex[CC](clauses         : Iterable[CC],
+                   maxDepth        : Option[Int] = None,
+                   atomSelection   : SLDAtomSelection.Value =
+                     SLDAtomSelection.Newest,
+                   keepDerivations : Boolean = true)(
     implicit clause2ConstraintClause : CC => ConstraintClause)
     extends Symex(clauses)
     with ConstraintSimplifierUsingConjunctEliminator {
@@ -95,7 +97,7 @@ class SLDSymex[CC](clauses       : Iterable[CC],
                                       budgetMs    : Long)
 
   private val resolutionChoices  = new MQueue[ResolutionChoice]
-  private val goalClauseDB       = new GoalClauseDB
+  private val goalClauseDB       = new GoalClauseDB(keepDerivations)
   private val subsumptionChecker = new SubsumptionChecker[GoalClause](
     GoalSubsumption.subsumptionTestFor(_),
     new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
@@ -104,9 +106,9 @@ class SLDSymex[CC](clauses       : Iterable[CC],
   private val collectStats = lazabs.GlobalParameters.get.log
   private var atomsDroppedByFactoring = 0L
 
-  override def solve() : Either[() => Solution, Dag[(IAtom, CC)]] = {
+  override def solve() : Either[() => Solution, () => Dag[(IAtom, CC)]] = {
     val solveStart = System.nanoTime
-    var result : Either[() => Solution, Dag[(IAtom, CC)]] = null
+    var result : Either[() => Solution, () => Dag[(IAtom, CC)]] = null
     try {
       for ((inputGoal, _) <- normClauses
            if inputGoal.head._1.pred == HornClauses.FALSE &&
@@ -150,7 +152,7 @@ class SLDSymex[CC](clauses       : Iterable[CC],
           case Infeasible =>
             printInfo("  (Infeasible.)")
           case Feasible if endsSearchIfFeasible =>
-            result = Right(buildCounterExample(derivation))
+            result = Right(() => buildCounterExample(derivation))
           case _ if endsSearchIfFeasible =>
             printInfo("  (Check said " + checkResult +
                       ", empty goal left undecided.)")
@@ -178,7 +180,8 @@ class SLDSymex[CC](clauses       : Iterable[CC],
                 inputGoal.body.isEmpty)
           checkFeasibility(inputGoal.constraint, budgetMs = None) match {
             case Feasible   =>
-              result = Right(buildCounterExample(FromInputGoal(inputGoal)))
+              result = Right(() =>
+                buildCounterExample(FromInputGoal(inputGoal)))
             case Infeasible =>
             case _          => statistics.undecidedEmptyGoals += 1
           }
@@ -198,7 +201,7 @@ class SLDSymex[CC](clauses       : Iterable[CC],
   }
 
   private def resultOfExhaustedSearch
-    : Either[() => Solution, Dag[(IAtom, CC)]] =
+    : Either[() => Solution, () => Dag[(IAtom, CC)]] =
     if (statistics.undecidedEmptyGoals > 0)
       throw new InconclusiveException(candidateSolution = None)
     else if (statistics.depthPrunedChoices > 0)
@@ -375,7 +378,7 @@ class SLDSymex[CC](clauses       : Iterable[CC],
     @tailrec def stepsUpTo(step  : GoalDerivation,
                            later : List[GoalDerivation])
       : List[GoalDerivation] = step match {
-      case FromInputGoal(_)         => step :: later
+      case FromInputGoal(_) | DerivationNotKept(_) => step :: later
       case Resolution(parent, _, _) => stepsUpTo(parent, step :: later)
       case Factoring(parent, _, _)  => stepsUpTo(parent, step :: later)
       case Normalization(parent, _) => stepsUpTo(parent, step :: later)
@@ -416,14 +419,13 @@ class SLDSymex[CC](clauses       : Iterable[CC],
           frontier = frontier.patch(droppedIndex, Nil, 1)
         case Normalization(_, atomOrder) =>
           frontier = atomOrder.map(frontier).toVector
+        case DerivationNotKept(_) =>
+          throw new SymexException(
+            "counterexample construction needs the derivations, " +
+            "which were not kept")
       }
-      val status = ???
-      assert(status == ProverStatus.Sat)
-      withCompleteModel { model =>
-        for (node <- nodes) yield
-          IAtom(node.clause.head._1.pred,
-                node.headArgs.map(arg => model.evalToTerm(arg)))
-      }
+      groundAtomsInModel(
+        for (node <- nodes) yield (node.clause.head._1.pred, node.headArgs))
     }
 
     val nodeIndex = nodes.zipWithIndex.toMap

@@ -141,3 +141,6 @@ case class Normalization(parent    : GoalDerivation,
                          atomOrder : Seq[Int]) extends GoalDerivation {
   val depth = parent.depth
 }
+
+// stored in place of a derivation when derivations are not kept
+case class DerivationNotKept(depth : Int) extends GoalDerivation

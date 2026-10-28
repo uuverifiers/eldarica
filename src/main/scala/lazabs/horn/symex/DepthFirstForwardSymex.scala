@@ -41,10 +41,12 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue,
 
 /**
  * Implements a depth-first forward symbolic execution using Symex.
+ * @param keepDerivations : See [[ForwardSymex]].
  */
-class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
+class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
+                                 keepDerivations : Boolean = true)(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
-    extends ForwardSymex(clauses)
+    extends ForwardSymex(clauses, keepDerivations)
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
@@ -93,8 +95,8 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
     }
   }
 
-  override def solve(): Either[() => Solution, Dag[(IAtom, CC)]] = {
-    var result: Either[() => Solution, Dag[(IAtom, CC)]] = null
+  override def solve(): Either[() => Solution, () => Dag[(IAtom, CC)]] = {
+    var result: Either[() => Solution, () => Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     // do not use facts below, use normClauses
@@ -123,7 +125,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
                   "Constraint could not be checked, the checker said " +
                     checkResult))) { // false :- true
             unitClauseDB.add(newElectron, (nucleus, electrons))
-            result = Right(buildCounterExample(newElectron))
+            result = Right(() => buildCounterExample(newElectron))
           } else if (checkResult == Infeasible) {
             printInfo("")
             handleFalseConstraint(nucleus, electrons)
@@ -165,7 +167,7 @@ class DepthFirstForwardSymex[CC](clauses: Iterable[CC])(
                     throw new SymexException(
                       "Constraint could not be checked, the checker said " +
                         checkResult))) {
-                result = Right(buildCounterExample(cuc))
+                result = Right(() => buildCounterExample(cuc))
               }
             }
             if (result == null) { // none of the assertions failed, so this is SAT

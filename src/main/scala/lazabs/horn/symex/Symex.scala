@@ -146,7 +146,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // this must be done before we can use the symbol factory during resolution
   symex_sf.initialize(predicatesAndMaxOccurrences.toSet)
 
-  def solve(): Either[() => Solution, Dag[(IAtom, CC)]]
+  def solve(): Either[() => Solution, () => Dag[(IAtom, CC)]]
 
   /**
    * Shut-down the engine.
@@ -229,21 +229,70 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       Infeasible
     } else prover.scope {
       prover.addAssertionPreproc(constraint)
-      budgetMs match {
-        case Some(millis) =>
-          prover.checkSat(block = false)
-          prover.getStatus(millis) match {
-            case ProverStatus.Running =>
-              toFeasibilityCheckResult(prover.stop) match {
-                case Undecided(_) => BudgetExpired
-                case decided      => decided
-              }
-            case status => toFeasibilityCheckResult(status)
+      prover.checkSat(block = false)
+      proverStatusWithin(budgetMs) match {
+        case ProverStatus.Running =>
+          toFeasibilityCheckResult(prover.stop) match {
+            case Undecided(_) => BudgetExpired
+            case decided      => decided
           }
-        case None => toFeasibilityCheckResult(prover.???)
+        case status => toFeasibilityCheckResult(status)
       }
     }
   }
+
+  private val proverPollIntervalMs = 100L
+
+  /**
+   * Waits for the result of `checkSat(block = false)`, Running if the
+   * budget runs out first. The timeout checker is called between polls, so
+   * that the run can time out or be stopped during a long check.
+   */
+  private def proverStatusWithin(budgetMs : Option[Long])
+    : ProverStatus.Value = {
+    val deadline = budgetMs map (System.currentTimeMillis + _)
+    def nextPollMs = deadline match {
+      case Some(time) => (time - System.currentTimeMillis) min
+                           proverPollIntervalMs
+      case None       => proverPollIntervalMs
+    }
+    var status = prover.getStatus(nextPollMs)
+    while (status == ProverStatus.Running && nextPollMs > 0) {
+      try {
+        lazabs.GlobalParameters.get.timeoutChecker()
+      } catch {
+        case e : Exception =>
+          prover.stop
+          throw e
+      }
+      status = prover.getStatus(nextPollMs)
+    }
+    status
+  }
+
+  /**
+   * The atoms with their arguments evaluated in a model of the asserted
+   * constraints. Used to build counterexamples, where the constraints
+   * describe the derivation of a feasible empty goal and are therefore
+   * satisfiable.
+   */
+  protected def groundAtomsInModel(
+      atoms : Seq[(Predicate, Seq[ConstantTerm])]) : Seq[IAtom] =
+    if (atoms forall (_._2.isEmpty)) {
+      for ((pred, _) <- atoms) yield IAtom(pred, Nil)
+    } else {
+      prover.checkSat(block = false)
+      proverStatusWithin(budgetMs = None) match {
+        case ProverStatus.Sat =>
+          prover.withCompleteModel { model =>
+            for ((pred, args) <- atoms) yield
+              IAtom(pred, args map (arg => model.evalToTerm(IConstant(arg))))
+          }
+        case status =>
+          throw new SymexException(
+            "counterexample construction failed, the prover said " + status)
+      }
+    }
 
   private def toFeasibilityCheckResult(status : ProverStatus.Value)
     : FeasibilityCheckResult = {

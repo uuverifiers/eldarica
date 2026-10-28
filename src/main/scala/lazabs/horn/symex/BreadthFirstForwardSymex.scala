@@ -44,11 +44,13 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
  *                   for a given predicate. Note that setting this value to
  *                   something other than None will always terminate (like
  *                   BMC), and a search cut by the bound ends inconclusive.
+ * @param keepDerivations : See [[ForwardSymex]].
  */
-class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
-                                   maxDepth : Option[Int] = None)(
+class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
+                                   maxDepth        : Option[Int] = None,
+                                   keepDerivations : Boolean = true)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
-    extends ForwardSymex(clauses)
+    extends ForwardSymex(clauses, keepDerivations)
     with ConstraintSimplifierUsingConjunctEliminator {
 
   import Symex._
@@ -113,9 +115,9 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
   private val collectStats = lazabs.GlobalParameters.get.log
 
-  override def solve(): Either[() => Solution, Dag[(IAtom, CC)]] = {
+  override def solve(): Either[() => Solution, () => Dag[(IAtom, CC)]] = {
     val solveStart = System.nanoTime
-    var result: Either[() => Solution, Dag[(IAtom, CC)]] = null
+    var result: Either[() => Solution, () => Dag[(IAtom, CC)]] = null
 
     val touched = new MHashSet[NormClause]
     // do not use facts below, use normClauses
@@ -164,7 +166,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
               enqueue(nucleus, electrons, longerBudgetMs)
             } else if (isGoal && checkResult == Feasible) {
               unitClauseDB.add(newElectron, (nucleus, electrons))
-              result = Right(buildCounterExample(newElectron))
+              result = Right(() => buildCounterExample(newElectron))
             } else if (checkResult == Infeasible) {
               printInfo("")
               handleFalseConstraint(nucleus, electrons)
@@ -211,7 +213,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
                 unitClauseDB.add(cuc, (clause, Nil))
                 checkFeasibility(cuc.constraint, budgetMs = None) match {
                   case Feasible   =>
-                    result = Right(buildCounterExample(cuc))
+                    result = Right(() => buildCounterExample(cuc))
                   case Infeasible =>
                   case _          => statistics.undecidedEmptyGoals += 1
                 }
@@ -239,7 +241,7 @@ class BreadthFirstForwardSymex[CC](clauses  : Iterable[CC],
 
 
   private def resultOfExhaustedSearch
-    : Either[() => Solution, Dag[(IAtom, CC)]] =
+    : Either[() => Solution, () => Dag[(IAtom, CC)]] =
     if (statistics.undecidedEmptyGoals > 0)
       throw new InconclusiveException(candidateSolution = None)
     else if (statistics.depthPrunedChoices > 0)

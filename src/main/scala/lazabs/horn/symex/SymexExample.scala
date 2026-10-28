@@ -697,8 +697,8 @@ object BFSWithDepth1 extends App {
 }
 
 object Util {
-  def printRes(
-      res: Either[() => Map[Predicate, IFormula], Dag[(IAtom, Clause)]]) = {
+  def printRes(res: Either[() => Map[Predicate, IFormula],
+                           () => Dag[(IAtom, Clause)]]) = {
     res match {
       case Left(sln) =>
         println("\nSAT\n\nSolution")
@@ -707,7 +707,7 @@ object Util {
         }
       case Right(cex) =>
         println("\nUNSAT\n\nCounterexample")
-        cex.prettyPrint
+        cex().prettyPrint
     }
   }
 }

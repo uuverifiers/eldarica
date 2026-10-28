@@ -28,7 +28,6 @@
  */
 package lazabs.horn.symex
 
-import ap.api.SimpleAPI.ProverStatus
 import ap.parser.IExpression.ConstantTerm
 import ap.parser._
 import ap.terfor._
@@ -39,15 +38,18 @@ import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
-import Symex.FeasibilityCheckResult
+import Symex.{FeasibilityCheckResult, SymexException}
 
 import collection.mutable.{HashMap => MHashMap}
 
 /**
  * Base class of the forward engines: unit hyper-resolution from the facts
  * towards FALSE, with the derived unit clauses kept in a [[UnitClauseDB]].
+ * @param keepDerivations : Keep the parents of the derived unit clauses,
+ *                          which are needed to build counterexamples.
  */
-abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
+abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
+                                keepDerivations : Boolean)(
     implicit clause2ConstraintClause : CC => ConstraintClause)
     extends Symex(iClauses) {
 
@@ -119,7 +121,8 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
                   headOccInConstraint = nucleus.head._2)
   }
 
-  val unitClauseDB = new UnitClauseDB(relationSymbols.values.toSet)
+  val unitClauseDB =
+    new UnitClauseDB(relationSymbols.values.toSet, keepDerivations)
 
   // methods handling derivation of useless clauses (merge?)
   def handleForwardSubsumption(nucleus:   NormClause,
@@ -163,7 +166,9 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
     def computeAtoms(headAtom: IAtom, cuc: UnitClause): Dag[(IAtom, CC)] = {
       unitClauseDB.parentsOption(cuc) match {
         case None =>
-          DagEmpty
+          throw new SymexException(
+            "counterexample construction needs the derivations, " +
+            "which were not kept")
         case Some((nucleus, electrons)) =>
           // try to get ground literals for parent electrons
           import prover._
@@ -172,14 +177,9 @@ abstract class ForwardSymex[CC](iClauses : Iterable[CC])(
             !!(headAtom.args === nucleus.headSyms)
             for ((electron, occ) <- electrons zip nucleus.body.map(_._2))
               !!(asIFormula(electron.constraintAtOcc(occ)))
-            val pRes = ???
-            assert(pRes == ProverStatus.Sat)
-            withCompleteModel { comp =>
+            groundAtomsInModel(
               for ((rs, occ) <- nucleus.body)
-                yield
-                  IAtom(rs.pred,
-                        rs.arguments(occ).map(arg => comp.evalToTerm(arg)))
-            }
+                yield (rs.pred, rs.arguments(occ)))
           }
           val subDags: Seq[Dag[(IAtom, CC)]] = {
             for ((electron, atom) <- electrons zip childrenAtoms)

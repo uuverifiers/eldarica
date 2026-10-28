@@ -198,7 +198,7 @@ object ConstraintNormalizer {
    * Normalizes a goal. Goals that differ only in the order and occurrences
    * of their atoms and in the symbols of their locals get one normal form.
    * Also returns the position in goal of each atom of the normal form, which
-   * is used in SLD to replay derivations and to select atoms.
+   * is used in SLD to build counterexamples and to select atoms.
    * E.g. with xi the argument of P at occurrence i both
    *   false :- P(x1), P(x0), x0 = 1 & x1 = 2
    *   false :- P(x0), P(x1), x1 = 1 & x0 = 2
