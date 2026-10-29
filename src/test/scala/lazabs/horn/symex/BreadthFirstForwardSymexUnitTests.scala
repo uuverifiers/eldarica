@@ -353,6 +353,24 @@ class BreadthFirstForwardSymexUnitTests
           } should beSat
         }
       }
+      "Choice order" - {
+        "Under guided order, the assertion is resolved first " +
+        "(unsat in one step)" in {
+          scope {
+            val p = createRelation("p", List(Sort.Integer))
+            val x = createConstant("x")
+
+            val clauses : Seq[Clause] = List(
+              p(x) :- (x === 0),
+              p(x + 1) :- p(x),
+              false :- (p(x), x === 0)
+            )
+            val symex = new BreadthFirstForwardSymex[Clause](clauses)
+            symex.solve() should beUnsat
+            symex.statistics.statesDerived shouldBe 1
+          }
+        }
+      }
       "Corner cases" - {
         "Single fact (no assertion)" - {
           "Safe" in {

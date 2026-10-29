@@ -32,16 +32,16 @@ import ap.parser.IAtom
 import ap.parser.IExpression.i
 import ap.terfor.{ConstantTerm, Term}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Predicate
 import ap.terfor.substitutions.ConstantSubst
-import lazabs.GlobalParameters.SLDAtomSelection
+import lazabs.GlobalParameters.{SLDAtomSelection, SymexChoiceOrder}
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
 import scala.annotation.tailrec
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 Queue => MQueue}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 /**
  * Backward symbolic execution by SLD resolution from goals to facts.
@@ -51,12 +51,15 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
  * @param atomSelection : Which atom of a goal is resolved, see AtomOrigin.
  * @param keepDerivations : Keep the derivations of the stored goals, which
  *                          are needed to build counterexamples.
+ * @param choiceOrder   : See [[ResolutionChoiceQueue]].
  */
 class SLDSymex[CC](clauses         : Iterable[CC],
                    maxDepth        : Option[Int] = None,
                    atomSelection   : SLDAtomSelection.Value =
                      SLDAtomSelection.Newest,
-                   keepDerivations : Boolean = true)(
+                   keepDerivations : Boolean = true,
+                   choiceOrder     : SymexChoiceOrder.Value =
+                     SymexChoiceOrder.Guided)(
     implicit clause2ConstraintClause : CC => ConstraintClause)
     extends Symex(clauses)
     with ConstraintSimplifierUsingConjunctEliminator {
@@ -90,13 +93,15 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       Ordering.by((origin : AtomOrigin) => (origin.depth, origin.bodyIndex))
   }
 
-  private case class ResolutionChoice(goal        : GoalClause,
-                                      atomOrigins : Seq[AtomOrigin],
-                                      atomIndex   : Int,
-                                      clause      : NormClause,
-                                      budgetMs    : Long)
+  private case class ResolutionChoice(goal             : GoalClause,
+                                      goalUnfoldCounts : UnfoldCounts,
+                                      atomOrigins      : Seq[AtomOrigin],
+                                      atomIndex        : Int,
+                                      clause           : NormClause,
+                                      budgetMs         : Long)
 
-  private val resolutionChoices  = new MQueue[ResolutionChoice]
+  private val resolutionChoices  =
+    new ResolutionChoiceQueue[ResolutionChoice](choiceOrder)
   private val goalClauseDB       = new GoalClauseDB(keepDerivations)
   private val subsumptionChecker = new SubsumptionChecker[GoalClause](
     GoalSubsumption.subsumptionTestFor(_),
@@ -105,6 +110,42 @@ class SLDSymex[CC](clauses         : Iterable[CC],
 
   private val collectStats = lazabs.GlobalParameters.get.log
   private var atomsDroppedByFactoring = 0L
+
+  private def enqueue(choice : ResolutionChoice) : Unit =
+    resolutionChoices.enqueue(choice, guidedCost(choice))
+
+  private def guidedCost(choice : ResolutionChoice) : Long = {
+    val resolvedPred = choice.clause.head._1.pred
+    ResolutionChoiceQueue.guidedCost(
+      endsSearchIfFeasible =
+        choice.goal.atoms.size == 1 && choice.clause.body.isEmpty,
+      constraintSize =
+        choice.goal.constraint.opCount + choice.clause.constraint.opCount,
+      largestUnfoldCount =
+        choice.goalUnfoldCounts.largestAfterUnfolding(resolvedPred),
+      distanceFromStart = distanceFromInputGoals(resolvedPred))
+  }
+
+  /**
+   * The least number of resolution steps from an input goal to a goal with
+   * an atom of each predicate, 0 for the predicate false of the input
+   * goals.
+   */
+  private lazy val distanceFromInputGoals : Map[Predicate, Int] = {
+    var distance = Map[Predicate, Int](HornClauses.FALSE -> 0)
+    var changed = true
+    while (changed) {
+      changed = false
+      for ((clause, _) <- normClauses;
+           headDistance <- distance get clause.head._1.pred;
+           (bodyRs, _) <- clause.body
+           if distance get bodyRs.pred forall (headDistance + 1 < _)) {
+        distance += (bodyRs.pred -> (headDistance + 1))
+        changed = true
+      }
+    }
+    distance
+  }
 
   override def solve() : Either[() => Solution, () => Dag[(IAtom, CC)]] = {
     val solveStart = System.nanoTime
@@ -116,7 +157,8 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         val (goal, atomOrder) = normalizedGoal(
           simplified(GoalClause(inputGoal.body, inputGoal.constraint)))
         handleNewGoalClause(
-          goal, Normalization(FromInputGoal(inputGoal), atomOrder),
+          goal, UnfoldCounts.none,
+          Normalization(FromInputGoal(inputGoal), atomOrder),
           atomOrder.map(AtomOrigin(0, _)))
       }
 
@@ -124,8 +166,9 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       while (result == null && resolutionChoices.nonEmpty) {
         lazabs.GlobalParameters.get.timeoutChecker()
         ind += 1
-        val ResolutionChoice(goal, atomOrigins, atomIndex, clause, budgetMs) =
-          resolutionChoices.dequeue
+        val choice = resolutionChoices.dequeue()
+        val ResolutionChoice(goal, goalUnfoldCounts, atomOrigins, atomIndex,
+                             clause, budgetMs) = choice
         val resolutionStart = if (collectStats) System.nanoTime else 0L
         val simplifyBefore  = if (collectStats) simplifierTimeNanos else 0L
         val newGoal = resolve(goal, atomIndex, clause)
@@ -147,8 +190,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
             val longerBudgetMs = budgetMs * budgetGrowthRate
             printInfo("  (Check budget expired, postponed with " +
                       longerBudgetMs + " ms.)")
-            resolutionChoices enqueue ResolutionChoice(
-              goal, atomOrigins, atomIndex, clause, longerBudgetMs)
+            enqueue(choice.copy(budgetMs = longerBudgetMs))
           case Infeasible =>
             printInfo("  (Infeasible.)")
           case Feasible if endsSearchIfFeasible =>
@@ -166,9 +208,11 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                 clause.body.indices.map(AtomOrigin(derivation.depth, _))
             val (normalized, atomOrder) =
               normalizedGoal(GoalClause(newGoal.atoms, constraint))
-            handleNewGoalClause(normalized,
-                                Normalization(derivation, atomOrder),
-                                atomOrder.map(newAtomOrigins))
+            handleNewGoalClause(
+              normalized,
+              goalUnfoldCounts.afterUnfolding(clause.head._1.pred),
+              Normalization(derivation, atomOrder),
+              atomOrder.map(newAtomOrigins))
         }
       }
 
@@ -209,9 +253,10 @@ class SLDSymex[CC](clauses         : Iterable[CC],
     else
       Left(buildSolution _)
 
-  private def handleNewGoalClause(goal        : GoalClause,
-                                  derivation  : GoalDerivation,
-                                  atomOrigins : Seq[AtomOrigin]) : Unit = {
+  private def handleNewGoalClause(goal         : GoalClause,
+                                  unfoldCounts : UnfoldCounts,
+                                  derivation   : GoalDerivation,
+                                  atomOrigins  : Seq[AtomOrigin]) : Unit = {
     lazy val (factoredGoal, factoredDerivation, factoredAtomOrigins) =
       factored(goal, derivation, atomOrigins)
     if ((goalClauseDB isDuplicate goal) ||
@@ -231,9 +276,9 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         statistics.depthPrunedChoices += clauses.size
       else
         for (clause <- clauses)
-          resolutionChoices enqueue ResolutionChoice(
-            factoredGoal, factoredAtomOrigins, atomIndex, clause,
-            initialBudgetMs)
+          enqueue(ResolutionChoice(factoredGoal, unfoldCounts,
+                                   factoredAtomOrigins, atomIndex, clause,
+                                   initialBudgetMs))
     }
   }
 

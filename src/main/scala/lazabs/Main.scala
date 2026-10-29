@@ -63,6 +63,10 @@ object GlobalParameters {
     val Full, Cheap, None = Value
   }
 
+  object SymexChoiceOrder extends Enumeration {
+    val Guided, FirstInFirstOut = Value
+  }
+
   object SymexEngine extends Enumeration {
     val BreadthFirstForward, DepthFirstForward, SLD, None = Value
   }
@@ -107,6 +111,7 @@ class GlobalParameters extends Cloneable {
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
   var symexStateChecks = GlobalParameters.SymexStateChecks.Full
+  var symexChoiceOrder = GlobalParameters.SymexChoiceOrder.Guided
   var sldAtomSelection = GlobalParameters.SLDAtomSelection.Newest
   var global = false
   var disjunctive = false
@@ -213,6 +218,7 @@ class GlobalParameters extends Cloneable {
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
     that.symexStateChecks = this.symexStateChecks
+    that.symexChoiceOrder = this.symexChoiceOrder
     that.sldAtomSelection = this.sldAtomSelection
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
@@ -383,6 +389,15 @@ object Main {
             case _ =>
               println("Unknown argument for -symStateChecks:, using full.")
               GlobalParameters.SymexStateChecks.Full
+          }
+          arguments(rest)
+      case opt :: rest if (opt startsWith "-symChoiceOrder:") =>
+          symexChoiceOrder = opt.drop("-symChoiceOrder:".length) match {
+            case "guided" => GlobalParameters.SymexChoiceOrder.Guided
+            case "fifo"   => GlobalParameters.SymexChoiceOrder.FirstInFirstOut
+            case _ =>
+              println("Unknown argument for -symChoiceOrder:, using guided.")
+              GlobalParameters.SymexChoiceOrder.Guided
           }
           arguments(rest)
       case opt :: rest if (opt startsWith "-sldAtomSelect:") =>
@@ -614,6 +629,10 @@ object Main {
           "                   symbolic execution (bfs and sld)\n" +
           "                     {full: long t/o (default), cheap: short t/o,\n" +
           "                      none: not checked}\n" +
+          " -symChoiceOrder:x Order in which resolution choices are taken in\n" +
+          "                   symbolic execution (bfs and sld)\n" +
+          "                     {guided: cheapest first by estimated cost (default),\n" +
+          "                      fifo: first in, first out}\n" +
           " -sldAtomSelect:x  Atom resolved next in a goal by -sym:sld\n" +
           "                     {newest: added last as in Prolog (default),\n" +
           "                      oldest: added first; atoms added by one\n" +

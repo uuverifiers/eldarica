@@ -30,13 +30,15 @@ package lazabs.horn.symex
 
 import ap.util.Combinatorics
 import ap.parser.IAtom
+import ap.terfor.preds.Predicate
+import lazabs.GlobalParameters.SymexChoiceOrder
 import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.NormClause
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -45,10 +47,13 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue}
  *                   something other than None will always terminate (like
  *                   BMC), and a search cut by the bound ends inconclusive.
  * @param keepDerivations : See [[ForwardSymex]].
+ * @param choiceOrder : See [[ResolutionChoiceQueue]].
  */
 class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
                                    maxDepth        : Option[Int] = None,
-                                   keepDerivations : Boolean = true)(
+                                   keepDerivations : Boolean = true,
+                                   choiceOrder     : SymexChoiceOrder.Value =
+                                     SymexChoiceOrder.Guided)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
     extends ForwardSymex(clauses, keepDerivations)
     with ConstraintSimplifierUsingConjunctEliminator {
@@ -58,7 +63,8 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
-  // Explore the state graph (the derived unit clauses) breadth-first. At
+  // Explore the state graph (the derived unit clauses) breadth-first, or
+  // cheapest choice first under guided choice order. At
   // each depth there can be multiple choices for execution from a state
   // (the clauses to resolve with). Hence, we have a queue of states to resolve
   // with, and for each state a queue of branches to explore.
@@ -67,22 +73,65 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
   // than a single state, if other states we use are in the queue, we remove
   // from those states' queue the path that we are about to take.
 
-  private val choicesQueue = new MQueue[(NormClause, Seq[UnitClause], Long)]
+  private val choicesQueue =
+    new ResolutionChoiceQueue[(NormClause, Seq[UnitClause], Long)](
+      choiceOrder)
 
   private val subsumptionChecker = new SubsumptionChecker[UnitClause](
     subsumptionTestFor,
     new UnionSubsumption(singleAtomConstraint, checkFeasibility))
 
+  private val unfoldCountsOf = new MHashMap[UnitClause, UnfoldCounts]
+
   private def enqueue(clause    : NormClause,
                       electrons : Seq[UnitClause],
                       budgetMs  : Long) : Unit =
-    choicesQueue enqueue ((clause, electrons, budgetMs))
+    choicesQueue.enqueue((clause, electrons, budgetMs),
+                         guidedCost(clause, electrons))
+
+  private def guidedCost(nucleus   : NormClause,
+                         electrons : Seq[UnitClause]) : Long = {
+    val headPred = nucleus.head._1.pred
+    ResolutionChoiceQueue.guidedCost(
+      endsSearchIfFeasible = headPred == HornClauses.FALSE,
+      constraintSize =
+        nucleus.constraint.opCount + electrons.map(_.constraint.opCount).sum,
+      largestUnfoldCount =
+        electrons.map(unfoldCountsOf(_).largestAfterUnfolding(headPred)).max,
+      distanceFromStart = heightFromFacts(headPred))
+  }
+
+  /**
+   * The least height of a derivation of each predicate from the facts, 1
+   * for the predicate of a fact.
+   */
+  private lazy val heightFromFacts : Map[Predicate, Int] = {
+    var height = Map[Predicate, Int]()
+    var changed = true
+    while (changed) {
+      changed = false
+      for ((clause, _) <- normClauses) {
+        val bodyHeights = clause.body map (atom => height get atom._1.pred)
+        val headPred = clause.head._1.pred
+        if (bodyHeights forall (_.isDefined)) {
+          val headHeight = (0 +: bodyHeights.map(_.get)).max + 1
+          if (height get headPred forall (headHeight < _)) {
+            height += (headPred -> headHeight)
+            changed = true
+          }
+        }
+      }
+    }
+    height
+  }
+
   /*
    * Initialize the search by adding the facts (the initial states).
    * Each fact corresponds to a source in the search DAG.
    */
   for (fact <- facts) {
     unitClauseDB add (fact, parents = (factToNormClause(fact), Nil))
+    unfoldCountsOf(fact) = UnfoldCounts.none.afterUnfolding(fact.rs.pred)
     handleNewUnitClause(fact)
   }
 
@@ -92,7 +141,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       None
     else {
       maxDepth match {
-        case None => Some(choicesQueue.dequeue)
+        case None => Some(choicesQueue.dequeue())
         case Some(depth) =>
           var res : Option[(NormClause, Seq[UnitClause], Long)] = None
           var continue = true
@@ -183,6 +232,9 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
               handleForwardSubsumption(nucleus, electrons)
             } else {
               unitClauseDB.add(storedElectron, (nucleus, electrons))
+              unfoldCountsOf(storedElectron) =
+                electrons.map(unfoldCountsOf).reduce(_ join _)
+                  .afterUnfolding(storedElectron.rs.pred)
               printInfo("\n  (Added to database.)\n")
               handleNewUnitClause(storedElectron)
             }

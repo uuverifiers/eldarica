@@ -382,17 +382,18 @@ class HornWrapper(constraints  : Seq[HornClause],
     val symexDepth = GlobalParameters.get.symexMaxDepth
     val keepDerivations =
       GlobalParameters.get.needFullCEX || GlobalParameters.get.simplifiedCEX
+    val choiceOrder = GlobalParameters.get.symexChoiceOrder
     GlobalParameters.get.symexEngine match {
       case GlobalParameters.SymexEngine.DepthFirstForward   =>
         Some(new DepthFirstForwardSymex[Clause](
                clauses, keepDerivations)) // todo: add depth
       case GlobalParameters.SymexEngine.BreadthFirstForward =>
         Some(new BreadthFirstForwardSymex[Clause](
-               clauses, symexDepth, keepDerivations))
+               clauses, symexDepth, keepDerivations, choiceOrder))
       case GlobalParameters.SymexEngine.SLD                 =>
         Some(new SLDSymex[Clause](clauses, symexDepth,
                                   GlobalParameters.get.sldAtomSelection,
-                                  keepDerivations))
+                                  keepDerivations, choiceOrder))
       case GlobalParameters.SymexEngine.None                => None
     }
   }
