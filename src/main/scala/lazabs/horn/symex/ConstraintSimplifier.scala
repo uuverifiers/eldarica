@@ -29,7 +29,7 @@
 package lazabs.horn.symex
 
 import ap.basetypes.IdealInt
-import ap.terfor.{ComputationLogger, ConstantTerm, Term, TermOrder}
+import ap.terfor.{ComputationLogger, ConstantTerm, OneTerm, Term, TermOrder}
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{ConjunctEliminator, Conjunction}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -39,6 +39,8 @@ import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.theories.bitvectors.ModuloArithmetic
 import ap.types.{Sort, SortedPredicate}
+
+import scala.collection.immutable.BitSet
 
 /**
  * Takes a constraint and a set of local symbols that can safely be eliminated.
@@ -367,6 +369,110 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   }
 
   /**
+   * Drop inequalities implied by a nonnegative combination of two other inequalities.
+   * E.g.,
+   * -2a - 2b - c - 10 >= 0 & -c + 9999 >= 0 & -a - b - c + 9996 >= 0
+   * half the sum of the first two is -a - b - c + 4994 >= 0, which
+   * implies the third
+   */
+  private def dropImpliedInEqs(constraint : Conjunction,
+                               order      : TermOrder) : Conjunction = {
+    val inEqs   = constraint.arithConj.inEqs.toIndexedSeq
+    val implied = if (inEqs.size < 3) BitSet() else impliedInEqs(inEqs, order)
+    if (implied.isEmpty) constraint
+    else constraint.updateInEqs(InEqConj(
+      inEqs.indices.iterator filterNot implied map inEqs, order))(order)
+  }
+
+  // the indices of the inequalities to drop; only inequalities not
+  // dropped yet serve as premises, so the kept ones imply the dropped ones
+  private def impliedInEqs(inEqs : IndexedSeq[LinearCombination],
+                           order : TermOrder) : collection.Set[Int] = {
+    import collection.mutable
+
+    def termsOf(lc : LinearCombination) : Iterator[Term] =
+      lc.termIterator filterNot (_ == OneTerm)
+    def linearPart(lc : LinearCombination) : LinearCombination =
+      lc + (-lc.constant)
+
+    val terms     = (inEqs.iterator flatMap termsOf).toVector.distinct
+    val termIndex = terms.zipWithIndex.toMap
+    val supports  = inEqs map (lc => BitSet() ++ (termsOf(lc) map termIndex))
+    val occurrences = Array.fill(terms.size)(mutable.BitSet())
+    for (i <- inEqs.indices; t <- supports(i)) occurrences(t) += i
+    lazy val withLinearPart : Map[LinearCombination, Int] =
+      (inEqs.indices map (i => (linearPart(inEqs(i)), i))).toMap
+
+    // a combination that cancels a term c of a and b is their
+    // Fourier-Motzkin inference on c, so these pairs are found by looking
+    // up the inferences
+    val inferencePremises = mutable.Map[Int, List[(Int, Int)]]()
+    for (t <- terms.indices) {
+      val c = terms(t)
+      val (positive, negative) =
+        occurrences(t).toVector partition (i => (inEqs(i) get c).signum > 0)
+      for (a <- positive; b <- negative) {
+        val inference =
+          LinearCombination.sum(-(inEqs(b) get c), inEqs(a),
+                                inEqs(a) get c, inEqs(b), order)
+        if (!inference.isConstant) {
+          val primitive = inference.makePrimitive
+          for (j <- withLinearPart get linearPart(primitive))
+            if (primitive.constant <= inEqs(j).constant)
+              inferencePremises(j) =
+                (a, b) :: inferencePremises.getOrElse(j, Nil)
+        }
+      }
+    }
+
+    // u and v solve u * a + v * b = det * j on the leading term x of a and
+    // a term y, by Cramer's rule; the other terms are compared after
+    // dividing the combination by det
+    def impliedBy(j : LinearCombination,
+                  a : LinearCombination,
+                  b : LinearCombination) : Boolean = {
+      val x = a.leadingTerm
+      val dets = (termsOf(a) ++ termsOf(b)) map (y =>
+        (y, (a get x) * (b get y) - (a get y) * (b get x)))
+      dets find (!_._2.isZero) exists { case (y, det) =>
+        val sign = IdealInt(det.signum)
+        val u = ((j get x) * (b get y) - (j get y) * (b get x)) * sign
+        val v = ((a get x) * (j get y) - (a get y) * (j get x)) * sign
+        u.signum >= 0 && v.signum >= 0 && !(u.isZero && v.isZero) && {
+          val combination =
+            LinearCombination.sum(u, a, v, b, order).makePrimitive
+          (j constantDiff combination) exists (_.signum >= 0)
+        }
+      }
+    }
+
+    val dropped = mutable.BitSet()
+
+    // a combination that cancels no term has premises with terms of j only
+    def impliedByCombination(j : Int) : Boolean = {
+      val candidates = mutable.BitSet()
+      for (t <- supports(j)) candidates |= occurrences(t)
+      val premises = candidates.toVector filter (i =>
+        i != j && !dropped(i) && (supports(i) subsetOf supports(j)))
+      premises.indices exists (p =>
+        (p + 1 until premises.size) exists { q =>
+          val (a, b) = (premises(p), premises(q))
+          (supports(a) | supports(b)) == supports(j) &&
+          impliedBy(inEqs(j), inEqs(a), inEqs(b))
+        })
+    }
+
+    for (j <- inEqs.indices) {
+      val implied =
+        (inferencePremises.getOrElse(j, Nil) exists {
+           case (a, b) => !dropped(a) && !dropped(b) }) ||
+        impliedByCombination(j)
+      if (implied) dropped += j
+    }
+    dropped
+  }
+
+  /**
    * Drop local symbols whose occurrences are only inequalities with
    * constant bounds and disequalities
    * e.g.,
@@ -553,6 +659,17 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     dropAll(constraint)
   }
 
+  private def runStage(name  : String,
+                       stage : Conjunction => Conjunction,
+                       conj  : Conjunction) : Conjunction = {
+    val result = stage(conj)
+    if (collectStats) {
+      val fires = stageFires.getOrElseUpdate(name, 0L)
+      if (!(result eq conj)) stageFires(name) = fires + 1
+    }
+    result
+  }
+
   private def runStages(constraint   : Conjunction,
                         localSymbols : Set[Term],
                         order        : TermOrder)
@@ -566,15 +683,10 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
                        ModuloArithmetic.functionalPredicates, order)),
       ("dropCasts",  dropFreeArgumentCasts(_, localSymbols, order)))
 
-    if (collectStats)
-      for ((name, _) <- stages) stageFires.getOrElseUpdate(name, 0L)
-
     @annotation.tailrec
     def run(conj : Conjunction) : Conjunction = {
       val staged = stages.foldLeft(conj) { case (c, (name, stage)) =>
-        val r = stage(c)
-        if (collectStats && !(r eq c)) stageFires(name) += 1
-        r
+        runStage(name, stage, c)
       }
       // alternate between running the reducer, which applies additional
       // simplification rules
@@ -622,11 +734,13 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
       val eliminator  = new LocalSymbolEliminator(
         simplified, localSymbols, symex_sf.order)
       val eliminated  = eliminator.eliminate(ComputationLogger.NonLogger)
-      if (eliminator.divJudgements isEmpty)
+      val eliminatedWithDivJudgements = if (eliminator.divJudgements isEmpty)
         eliminated
       else
         Conjunction.conj(
           eliminated :: eliminator.divJudgements.map(_.negate), symex_sf.order)
+      runStage("dropImplied", dropImpliedInEqs(_, symex_sf.order),
+               eliminatedWithDivJudgements)
     } else {
        // If there are disjunctions, then try another simp method
       val base = runStages(reducedConstraint, localSymbols, symex_sf.order)
@@ -655,7 +769,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         simplifyConstraint(instantiated, localSymbols,
                            reduceBeforeSimplification = false)
       else
-        instantiated
+        runStage("dropImplied", dropImpliedInEqs(_, instantiated.order),
+                 instantiated)
     }
   }
 

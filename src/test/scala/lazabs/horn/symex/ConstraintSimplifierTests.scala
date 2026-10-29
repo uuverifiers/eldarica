@@ -169,4 +169,54 @@ class ConstraintSimplifierTests
       assert(statusForX(2) == ProverStatus.Sat)
     }
   }
+
+  "Inequalities implied by a combination of two others are dropped" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val a = sf.genConstant("a")
+      val b = sf.genConstant("b")
+      val c = sf.genConstant("c")
+      implicit val order = sf.order
+
+      val constraint = conj(l(a) * 2 + l(b) * 2 + l(c) <= -10,
+                            l(c) <= 9999,
+                            l(a) + l(b) + l(c) <= 9996)
+      val res = simplifyConstraint(constraint, Set(),
+                                   reduceBeforeSimplification = false)
+
+      assert(res == conj(l(a) * 2 + l(b) * 2 + l(c) <= -10, l(c) <= 9999))
+    }
+  }
+
+  "Inequalities implied by a Fourier-Motzkin inference are dropped" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val c = sf.genConstant("c")
+      val x = sf.genConstant("x")
+      implicit val order = sf.order
+
+      val constraint = conj(l(x) >= l(c), l(c) >= 3, l(x) >= 1)
+      val res = simplifyConstraint(constraint, Set(),
+                                   reduceBeforeSimplification = false)
+
+      assert(res == conj(l(x) >= l(c), l(c) >= 3))
+    }
+  }
+
+  "Implied inequalities are dropped from constraints with disjunctions" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val c = sf.genConstant("c")
+      val x = sf.genConstant("x")
+      val y = sf.genConstant("y")
+      implicit val order = sf.order
+
+      val yIsZeroOrOne = disj(l(y) === 0, l(y) === 1)
+      val constraint = conj(l(x) >= l(c), l(c) >= 3, l(x) >= 1, yIsZeroOrOne)
+      val res = simplifyConstraint(constraint, Set(),
+                                   reduceBeforeSimplification = false)
+
+      assert(res == conj(l(x) >= l(c), l(c) >= 3, yIsZeroOrOne))
+    }
+  }
 }

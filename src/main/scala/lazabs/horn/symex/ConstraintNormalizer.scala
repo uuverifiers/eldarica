@@ -93,7 +93,9 @@ case class DefinitionId(key : DefinitionKey, instance : Int)
  *   [[DefinitionId]], the same in every constraint, so that it keeps its
  *   symbol in a constraint with more conjuncts. In every other literal or
  *   equation by which it can be defined, it gets that one's symbol, equated
- *   to its own.
+ *   to its own. A local defined by an equation in which its coefficient a
+ *   is not 1 or -1 gets the symbol minus a shift, chosen so that the
+ *   constant of the equation lies in [0, |a|).
  * - The other locals are ranked by the structure of the constraint and get
  *   symbols by rank, e.g., p_c_0_0, p_c_0_1 etc.
  */
@@ -160,13 +162,19 @@ object ConstraintNormalizer {
       val syms = symOf.values.toSeq ++ furtherDefinitionSyms.map(_._2)
       syms.distinct.size == syms.size && !(syms exists args.contains)
     })
+    def shifted(sym : ConstantTerm, shift : IdealInt) : LinearCombination =
+      LinearCombination(sym, order) + (-shift)
+    val termOf =
+      for ((local, sym) <- symOf)
+        yield (local, shifted(sym, placement.shiftOf(local)))
     if (furtherDefinitionSyms.isEmpty) {
-      ConstantSubst(symOf, order)(constraint)
+      ConstantSubst(termOf, order)(constraint)
     } else {
       implicit val o : TermOrder = order
-      val furtherSymOf =
+      val furtherTermOf =
         (for ((further, sym) <- furtherDefinitionSyms)
-           yield (further.conjunct, (further.local, sym))).toMap
+           yield (further.conjunct,
+                  (further.local, shifted(sym, further.shift)))).toMap
       def definingConjunctOf(conjunct : Conjunction)
       : Option[DefiningConjunct] =
         if (!conjunct.isLiteral) None
@@ -178,15 +186,15 @@ object ConstraintNormalizer {
       val renamedConjuncts =
         for (conjunct <- constraint.iterator.toList) yield {
           val renaming =
-            definingConjunctOf(conjunct) flatMap furtherSymOf.get match {
-              case Some((local, sym)) => symOf + (local -> sym)
-              case None               => symOf
+            definingConjunctOf(conjunct) flatMap furtherTermOf.get match {
+              case Some((local, term)) => termOf + (local -> term)
+              case None                => termOf
             }
           ConstantSubst(renaming, order)(conjunct)
         }
       val equations =
         for ((further, sym) <- furtherDefinitionSyms)
-          yield l(sym) === l(symOf(further.local))
+          yield shifted(sym, further.shift) === termOf(further.local)
       // reduced by its equations, as the stored constraints are, so that the
       // reducer can use it as an assumption
       ReduceWithConjunction(Conjunction.TRUE, order)(
@@ -313,7 +321,8 @@ object ConstraintNormalizer {
 
   private case class FurtherDefinition(conjunct : DefiningConjunct,
                                        local    : ConstantTerm,
-                                       id       : DefinitionId)
+                                       id       : DefinitionId,
+                                       shift    : IdealInt)
 
   /**
    * The placement of the locals of a constraint, one at a time: of the
@@ -324,6 +333,14 @@ object ConstraintNormalizer {
    * E.g., in bv_extract(3, 0, x, c) & bv_extract(7, 4, y, c), c is defined
    * by (Result, bv_extract, (3, 0, x)), and in the second literal by
    * (Result, bv_extract, (7, 4, y)).
+   * A local defined by an equation in which its coefficient a is not 1 or
+   * -1 is renamed to its symbol minus a shift, chosen so that the constant
+   * of the equation lies in [0, |a|). The meaning is kept, as the locals
+   * are existentially quantified, and equations that differ in the
+   * constant by a multiple of a get one key. In keys, the constants after
+   * the shifts of the placed locals are used.
+   * E.g., d in 2d + x + 3 = 0 is renamed to s - 1 for its symbol s, giving
+   * 2s + x + 1 = 0, the same as for 2d + x + 1 = 0.
    */
   private class LocalPlacement(args       : Seq[ConstantTerm],
                                constraint : Conjunction) {
@@ -336,6 +353,31 @@ object ConstraintNormalizer {
 
     val placedLocals = new ArrayBuffer[ConstantTerm]
     var rankedCount = 0
+
+    private val shifts = new MHashMap[ConstantTerm, IdealInt]
+    def shiftOf(sym : ConstantTerm) : IdealInt =
+      shifts.getOrElse(sym, IdealInt.ZERO)
+
+    // the constant of lc after the shifts of its symbols other than local
+    private def constantWithOthersShifted(lc    : LinearCombination,
+                                          local : ConstantTerm) : IdealInt =
+      (lc.constant /: lc.pairIterator) {
+        case (constant, (coeff, sym : ConstantTerm)) if sym != local =>
+          constant - coeff * shiftOf(sym)
+        case (constant, _) => constant
+      }
+
+    private def shiftFor(conjunct : DefiningConjunct,
+                         local    : ConstantTerm) : IdealInt =
+      conjunct match {
+        case DefiningEquation(lhs) =>
+          val coeff = lhs.get(local).abs
+          if (coeff.isOne) IdealInt.ZERO
+          else constantWithOthersShifted(
+                 if (lhs.get(local).signum < 0) -lhs else lhs, local) / coeff
+        case _ : DefiningLiteral =>
+          IdealInt.ZERO
+      }
 
     def localTokens : Seq[(ConstantTerm, SymToken)] =
       for (local <- placedLocals) yield (local, tokenOf(local))
@@ -379,7 +421,7 @@ object ConstraintNormalizer {
                      List((tokenOf(sym), IdealInt.MINUS_ONE),
                           (SelfToken, IdealInt.ONE))
                        .sorted(tokenCoeffOrdering),
-                     offset - classOf(member)._2))),
+                     offset - classOf(member)._2 + shiftOf(sym)))),
                    member, None)
         case _ =>
           Nil
@@ -387,11 +429,12 @@ object ConstraintNormalizer {
 
     private def keyOf(conjunct : DefiningConjunct,
                       local    : ConstantTerm) : DefinitionKey = {
+      val shift = shiftFor(conjunct, local)
       def tokenTerm(lc : LinearCombination) = TokenTerm(
         (for ((coeff, sym : ConstantTerm) <- lc.toList)
            yield (if (sym == local) SelfToken else tokenOf(sym), coeff))
           .sorted(tokenCoeffOrdering),
-        lc.constant)
+        constantWithOthersShifted(lc, local) - lc.get(local) * shift)
       conjunct match {
         case DefiningLiteral(atom) =>
           if (resultSym(atom) == Some(local) &&
@@ -486,6 +529,8 @@ object ConstraintNormalizer {
           readyDefinitions partition (_._2 == local)
         readyDefinitions.clear()
         readyDefinitions ++= otherDefinitions
+        for (conjunct <- definingConjunct)
+          shifts(local) = shiftFor(conjunct, local)
         place(local, DefinedToken(nextId(smallestKey)))
         // the members of a class are defined through it only once, so it
         // yields no further definitions
@@ -518,7 +563,8 @@ object ConstraintNormalizer {
     val furtherDefinitions : Seq[FurtherDefinition] =
       for ((key, local, conjunct) <- pendingFurtherDefinitions.sortBy(
              r => (r._1, tokenOf(r._2)))(byKeyThenLocal))
-        yield FurtherDefinition(conjunct, local, nextId(key))
+        yield FurtherDefinition(conjunct, local, nextId(key),
+                                shiftFor(conjunct, local))
   }
 
   private[symex]

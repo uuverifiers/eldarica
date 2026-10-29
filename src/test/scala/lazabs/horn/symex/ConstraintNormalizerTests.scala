@@ -248,6 +248,23 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
     }
   }
 
+  "Equations whose constants differ by a multiple of the coefficient of " +
+  "their local get one normal form" in {
+    SimpleAPI.withProver { p =>
+      implicit val sf = new SymexSymbolFactory(Nil, p)
+      val Seq(x, d) = for (name <- Seq("x", "d")) yield sf.genConstant(name)
+      implicit val order = sf.order
+
+      // both say that x is odd
+      val definedSym = definedSyms
+      val Seq(first, second) =
+        for (constant <- Seq(1, 3))
+          yield normalizeWithDefinitions(
+                  Seq(x), l(d) * 2 + l(x) + constant === 0, Nil, definedSym)
+      assert(first == second)
+    }
+  }
+
   "Locals that are operands keep their symbols when locals are added" in {
     SimpleAPI.withProver { p =>
       val theories = List(ModuloArithmetic)

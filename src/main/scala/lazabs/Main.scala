@@ -106,7 +106,7 @@ class GlobalParameters extends Cloneable {
   var horn = false
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
-  var symexStateChecks = GlobalParameters.SymexStateChecks.Cheap
+  var symexStateChecks = GlobalParameters.SymexStateChecks.Full
   var sldAtomSelection = GlobalParameters.SLDAtomSelection.Newest
   var global = false
   var disjunctive = false
@@ -381,8 +381,8 @@ object Main {
             case "cheap" => GlobalParameters.SymexStateChecks.Cheap
             case "none"  => GlobalParameters.SymexStateChecks.None
             case _ =>
-              println("Unknown argument for -symStateChecks:, using cheap.")
-              GlobalParameters.SymexStateChecks.Cheap
+              println("Unknown argument for -symStateChecks:, using full.")
+              GlobalParameters.SymexStateChecks.Full
           }
           arguments(rest)
       case opt :: rest if (opt startsWith "-sldAtomSelect:") =>
@@ -612,7 +612,8 @@ object Main {
           "                     is cut at that depth, the answer is unknown\n" +
           " -symStateChecks:x How newly derived non-goal states are checked in\n" + 
           "                   symbolic execution (bfs and sld)\n" +
-          "                     {full: long t/o, cheap: short t/o, none: not checked}\n" +
+          "                     {full: long t/o (default), cheap: short t/o,\n" +
+          "                      none: not checked}\n" +
           " -sldAtomSelect:x  Atom resolved next in a goal by -sym:sld\n" +
           "                     {newest: added last as in Prolog (default),\n" +
           "                      oldest: added first; atoms added by one\n" +
