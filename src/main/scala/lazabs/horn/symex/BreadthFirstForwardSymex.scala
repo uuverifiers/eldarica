@@ -92,13 +92,17 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
   private def guidedCost(nucleus   : NormClause,
                          electrons : Seq[UnitClause]) : Long = {
     val headPred = nucleus.head._1.pred
+    // earlier unfoldings of the head predicate on the derivation
+    val coveringAncestorCount =
+      electrons.map(unfoldCountsOf(_) countOf headPred).max
     ResolutionChoiceQueue.guidedCost(
       endsSearchIfFeasible = headPred == HornClauses.FALSE,
       constraintSize =
         nucleus.constraint.opCount + electrons.map(_.constraint.opCount).sum,
       largestUnfoldCount =
         electrons.map(unfoldCountsOf(_).largestAfterUnfolding(headPred)).max,
-      distanceFromStart = heightFromFacts(headPred))
+      distanceFromStart = heightFromFacts(headPred)) +
+      10000L * coveringAncestorCount
   }
 
   /**

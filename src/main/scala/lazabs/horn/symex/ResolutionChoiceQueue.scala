@@ -92,6 +92,8 @@ class UnfoldCounts private (private val counts : Map[Predicate, Int],
     new UnfoldCounts(counts + (pred -> count), largest max count)
   }
 
+  def countOf(pred : Predicate) : Int = counts.getOrElse(pred, 0)
+
   def largestAfterUnfolding(pred : Predicate) : Int =
     largest max (counts.getOrElse(pred, 0) + 1)
 

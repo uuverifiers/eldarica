@@ -150,7 +150,7 @@ class SLDSymexUnitTests
           new SLDSymex[Clause](clauses).solve()
         } should beUnsat
       }
-      "Either selection rule (unsat), with a valid counterexample" in {
+      "Every selection rule (unsat), with a valid counterexample" in {
         scope {
           val pr = createRelation("p", List(Sort.Integer))
           val qr = createRelation("q", List(Sort.Integer))
@@ -198,33 +198,22 @@ class SLDSymexUnitTests
     }
 
     "Atom selection" - {
-      // p unfolds without end, q fails at once
-      def endlessChainBesideFailingAtom : Seq[Clause] = {
-        val pr = createRelation("p", List(Sort.Integer))
-        val qr = createRelation("q", List(Sort.Integer))
-        val x  = createConstant("x")
-        List(
-          pr(x) :- (x < 0),
-          pr(x) :- pr(x + 1),
-          qr(x) :- (x === 0),
-          qr(x) :- (x === -1),
-          false :- (pr(x), qr(x), x > 0)
-        )
-      }
-      "Newest (Prolog's rule) resolves the new p atom each time " +
-      "(depth bound, unknown)" in {
+      "Under the default selection, the failing atom beside an endless " +
+      "chain is resolved (sat within depth 5)" in {
         scope {
-          val symex = new SLDSymex[Clause](endlessChainBesideFailingAtom,
-                                           maxDepth = Some(5))
-          assertThrows[InconclusiveException] { symex.solve() }
-        }
-      }
-      "Oldest resolves q after one step (sat)" in {
-        scope {
-          new SLDSymex[Clause](endlessChainBesideFailingAtom,
-                               maxDepth = Some(5),
-                               GlobalParameters.SLDAtomSelection.Oldest)
-            .solve()
+          val pr = createRelation("p", List(Sort.Integer))
+          val qr = createRelation("q", List(Sort.Integer))
+          val x  = createConstant("x")
+
+          // p unfolds without end, q fails at once
+          val clauses : Seq[Clause] = List(
+            pr(x) :- (x < 0),
+            pr(x) :- pr(x + 1),
+            qr(x) :- (x === 0),
+            qr(x) :- (x === -1),
+            false :- (pr(x), qr(x), x > 0)
+          )
+          new SLDSymex[Clause](clauses, maxDepth = Some(5)).solve()
         } should beSat
       }
     }

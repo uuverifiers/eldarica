@@ -72,7 +72,7 @@ object GlobalParameters {
   }
 
   object SLDAtomSelection extends Enumeration {
-    val Newest, Oldest = Value
+    val FewestCoveringAncestors, Newest, Oldest = Value
   }
 
   object SolutionReconstruction extends Enumeration {
@@ -112,7 +112,8 @@ class GlobalParameters extends Cloneable {
   var symexMaxDepth : Option[Int] = None
   var symexStateChecks = GlobalParameters.SymexStateChecks.Full
   var symexChoiceOrder = GlobalParameters.SymexChoiceOrder.Guided
-  var sldAtomSelection = GlobalParameters.SLDAtomSelection.Newest
+  var sldAtomSelection =
+    GlobalParameters.SLDAtomSelection.FewestCoveringAncestors
   var global = false
   var disjunctive = false
   var splitClauses : Int = 1
@@ -402,11 +403,13 @@ object Main {
           arguments(rest)
       case opt :: rest if (opt startsWith "-sldAtomSelect:") =>
           sldAtomSelection = opt.drop("-sldAtomSelect:".length) match {
+            case "ancestors" =>
+              GlobalParameters.SLDAtomSelection.FewestCoveringAncestors
             case "newest" => GlobalParameters.SLDAtomSelection.Newest
             case "oldest" => GlobalParameters.SLDAtomSelection.Oldest
             case _ =>
-              println("Unknown argument for -sldAtomSelect:, using newest.")
-              GlobalParameters.SLDAtomSelection.Newest
+              println("Unknown argument for -sldAtomSelect:, using ancestors.")
+              GlobalParameters.SLDAtomSelection.FewestCoveringAncestors
           }
           arguments(rest)
       case symexOpt :: rest if (symexOpt.startsWith("-sym:")) =>
@@ -634,7 +637,9 @@ object Main {
           "                     {guided: cheapest first by estimated cost (default),\n" +
           "                      fifo: first in, first out}\n" +
           " -sldAtomSelect:x  Atom resolved next in a goal by -sym:sld\n" +
-          "                     {newest: added last as in Prolog (default),\n" +
+          "                     {ancestors: fewest ancestors with the same\n" +
+          "                      predicate, then newest (default),\n" +
+          "                      newest: added last as in Prolog,\n" +
           "                      oldest: added first; atoms added by one\n" +
           "                      resolution step go in body order}\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +

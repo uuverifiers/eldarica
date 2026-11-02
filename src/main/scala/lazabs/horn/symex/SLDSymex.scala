@@ -56,7 +56,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 class SLDSymex[CC](clauses         : Iterable[CC],
                    maxDepth        : Option[Int] = None,
                    atomSelection   : SLDAtomSelection.Value =
-                     SLDAtomSelection.Newest,
+                     SLDAtomSelection.FewestCoveringAncestors,
                    keepDerivations : Boolean = true,
                    choiceOrder     : SymexChoiceOrder.Value =
                      SymexChoiceOrder.Guided)(
@@ -72,8 +72,13 @@ class SLDSymex[CC](clauses         : Iterable[CC],
   /**
    * The atom first appears in the goal after `depth`
    * resolution steps, copied from `bodyIndex` of a body.
+   * Its ancestors are the selected atoms whose clause bodies introduced it 
+   * or one of its ancestors, counted per predicate
    */
-  private case class AtomOrigin(depth : Int, bodyIndex : Int)
+  private case class AtomOrigin(depth                 : Int,
+                                bodyIndex             : Int,
+                                ancestorUnfoldCounts  : UnfoldCounts,
+                                coveringAncestorCount : Int)
 
   /**
    * E.g., resolving P in 
@@ -84,9 +89,17 @@ class SLDSymex[CC](clauses         : Iterable[CC],
    * with origins Q: (0, 1), R: (1, 0) and S: (1, 1);
    * R, S added by the first resolution step (depth = 1), positions 0 and 1 of
    * the body (R(x), S(x)), Q comes from the goal (depth = 0), position 1.
-   * R is selected under Newest, Q under Oldest.
+   * R is selected under Newest and FewestCoveringAncestors, Q under Oldest.
+   * Under FewestCoveringAncestors, the atoms with the fewest covering
+   * ancestors come first, in the order of Newest. E.g., resolving P in
+   * false :- P(x), Q(x) with P(x) :- P(x + 1) gives
+   * false :- Q(x), P(x + 1), where Q is selected: the new P atom has the
+   * resolved one as a covering ancestor.
    */
   private val selectionOrder : Ordering[AtomOrigin] = atomSelection match {
+    case SLDAtomSelection.FewestCoveringAncestors =>
+      Ordering.by((origin : AtomOrigin) =>
+        (origin.coveringAncestorCount, -origin.depth, origin.bodyIndex))
     case SLDAtomSelection.Newest =>
       Ordering.by((origin : AtomOrigin) => (-origin.depth, origin.bodyIndex))
     case SLDAtomSelection.Oldest =>
@@ -159,7 +172,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         handleNewGoalClause(
           goal, UnfoldCounts.none,
           Normalization(FromInputGoal(inputGoal), atomOrder),
-          atomOrder.map(AtomOrigin(0, _)))
+          atomOrder.map(AtomOrigin(0, _, UnfoldCounts.none, 0)))
       }
 
       var ind = 0
@@ -203,9 +216,15 @@ class SLDSymex[CC](clauses         : Iterable[CC],
               newGoal.constraint, newGoal.args.toSet, checkResult)
             if (!(constraint eq newGoal.constraint))
               statistics.statesWithUnconnectedConjunctsDropped += 1
+            val bodyAncestorUnfoldCounts =
+              atomOrigins(atomIndex).ancestorUnfoldCounts.afterUnfolding(
+                clause.head._1.pred)
             val newAtomOrigins =
               atomOrigins.patch(atomIndex, Nil, 1) ++
-                clause.body.indices.map(AtomOrigin(derivation.depth, _))
+                (for (((bodyRs, _), bodyIndex) <- clause.body.zipWithIndex)
+                 yield AtomOrigin(
+                   derivation.depth, bodyIndex, bodyAncestorUnfoldCounts,
+                   bodyAncestorUnfoldCounts countOf bodyRs.pred))
             val (normalized, atomOrder) =
               normalizedGoal(GoalClause(newGoal.atoms, constraint))
             handleNewGoalClause(
