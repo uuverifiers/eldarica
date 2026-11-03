@@ -3,7 +3,7 @@ package lazabs.horn.symex
 import ap.parser.IExpression.Sort
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.{HornClauses, NormClause}
-import lazabs.horn.{CHCResultMatchers, HornWrapper}
+import lazabs.horn.CHCResultMatchers
 import ap.api.SimpleAPI
 import ap.api.SimpleAPI.ProverStatus
 import ap.parser._
@@ -18,7 +18,8 @@ import org.scalatest.freespec.AnyFreeSpec
 // todo: add non-linear test cases
 class BreadthFirstForwardSymexUnitTests
     extends AnyFreeSpec
-    with CHCResultMatchers {
+    with CHCResultMatchers
+    with SymexResultVerification {
 
   class GivingUpSymex(clauses : Seq[Clause], givingUp : Set[Clause])
       extends BreadthFirstForwardSymex[Clause](clauses) {
@@ -70,7 +71,7 @@ class BreadthFirstForwardSymexUnitTests
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
           "Unsafe 1" in {
@@ -91,7 +92,7 @@ class BreadthFirstForwardSymexUnitTests
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
 
@@ -114,7 +115,7 @@ class BreadthFirstForwardSymexUnitTests
 
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
 
@@ -143,7 +144,7 @@ class BreadthFirstForwardSymexUnitTests
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
           "Unsafe" in {
@@ -169,7 +170,7 @@ class BreadthFirstForwardSymexUnitTests
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
 
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -190,7 +191,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -229,7 +230,7 @@ class BreadthFirstForwardSymexUnitTests
                 )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses, Some(25))
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -246,16 +247,10 @@ class BreadthFirstForwardSymexUnitTests
               false :- (p0(x), x >= 2)
             )
             val result =
-              new BreadthFirstForwardSymex[Clause](clauses).solve()
+              solveAndVerify(new BreadthFirstForwardSymex[Clause](clauses))
             result should beUnsat
-            val cex = result.right.get()
-            assert(cex.iterator.map(_._1).toList ==
+            assert(result.right.get().iterator.map(_._1).toList ==
                      List(IAtom(FALSE, Nil), p0(2), p0(1), p0(0)))
-            val params = GlobalParameters.get.clone
-            params.verifySolCEX = true
-            GlobalParameters.withValue(params) {
-              HornWrapper.verifyCEX(cex, clauses)
-            }
           }
         }
         "Derivations not kept: no counterexample (unsat)" in {
@@ -313,7 +308,7 @@ class BreadthFirstForwardSymexUnitTests
               false :- q(x)
             )
             val symex = new GivingUpSymex(clauses, Set(givenUpState))
-            symex.solve()
+            solveAndVerify(symex)
           } should beUnsat
         }
         "Undecided empty goal, no other refutation (unknown)" in {
@@ -348,7 +343,7 @@ class BreadthFirstForwardSymexUnitTests
             val params = GlobalParameters.get.clone
             params.symexStateChecks = GlobalParameters.SymexStateChecks.None
             GlobalParameters.withValue(params) {
-              new BreadthFirstForwardSymex[Clause](clauses).solve()
+              solveAndVerify(new BreadthFirstForwardSymex[Clause](clauses))
             }
           } should beSat
         }
@@ -366,7 +361,7 @@ class BreadthFirstForwardSymexUnitTests
               false :- (p(x), x === 0)
             )
             val symex = new BreadthFirstForwardSymex[Clause](clauses)
-            symex.solve() should beUnsat
+            solveAndVerify(symex) should beUnsat
             symex.statistics.statesDerived shouldBe 1
           }
         }
@@ -384,7 +379,7 @@ class BreadthFirstForwardSymexUnitTests
 
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
         }
@@ -400,7 +395,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
           "Unsafe" in {
@@ -414,7 +409,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -432,7 +427,7 @@ class BreadthFirstForwardSymexUnitTests
 
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
         }
@@ -449,7 +444,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
           "Unsafe (swapped facts)" in {
@@ -464,7 +459,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -479,7 +474,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
           "Safe 2" in {
@@ -492,7 +487,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beSat
           }
         }
@@ -506,7 +501,7 @@ class BreadthFirstForwardSymexUnitTests
               )
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }
@@ -575,7 +570,7 @@ class BreadthFirstForwardSymexUnitTests
 
               val symex =
                 new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
-              symex.solve()
+              solveAndVerify(symex)
             } should beUnsat
           }
         }

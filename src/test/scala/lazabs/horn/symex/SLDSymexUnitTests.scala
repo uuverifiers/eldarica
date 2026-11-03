@@ -6,7 +6,7 @@ import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
-import lazabs.horn.{CHCResultMatchers, HornWrapper}
+import lazabs.horn.CHCResultMatchers
 import IExpression._
 import HornClauses._
 import Symex.{FeasibilityCheckResult, InconclusiveException, SymexException}
@@ -14,7 +14,8 @@ import org.scalatest.freespec.AnyFreeSpec
 
 class SLDSymexUnitTests
     extends AnyFreeSpec
-    with CHCResultMatchers {
+    with CHCResultMatchers
+    with SymexResultVerification {
 
   ap.util.Debug.enableAllAssertions(true)
 
@@ -50,7 +51,7 @@ class SLDSymexUnitTests
             pr(x + 1) :- pr(x),
             false :- (pr(x), x < 0)
           )
-          val result = new SLDSymex[Clause](clauses).solve()
+          val result = solveAndVerify(new SLDSymex[Clause](clauses))
           result should beSat
           val solution = result.left.get()(pr)
           assert(holds(solution, 0) && holds(solution, 7) &&
@@ -67,7 +68,7 @@ class SLDSymexUnitTests
             pr(x + 1) :- pr(x),
             false :- (pr(x), x > 5)
           )
-          new SLDSymex[Clause](clauses).solve()
+          solveAndVerify(new SLDSymex[Clause](clauses))
         } should beUnsat
       }
       "Depth bound (unknown), with a candidate solution" in {
@@ -99,7 +100,7 @@ class SLDSymexUnitTests
             false :- (pr(x, y), x >= 3 & y >= 1),
             false :- (pr(x, y), x <= 2 & y >= 1)
           )
-          new SLDSymex[Clause](clauses, maxDepth = Some(5)).solve()
+          solveAndVerify(new SLDSymex[Clause](clauses, maxDepth = Some(5)))
         } should beSat
       }
     }
@@ -132,7 +133,7 @@ class SLDSymexUnitTests
             pr(x) :- (x >= 0),
             false :- (pr(x), pr(y), x === y & x < 0)
           )
-          val result = new SLDSymex[Clause](clauses).solve()
+          val result = solveAndVerify(new SLDSymex[Clause](clauses))
           result should beSat
           val solution = result.left.get()(pr)
           assert(holds(solution, 0) && !holds(solution, -1))
@@ -147,7 +148,7 @@ class SLDSymexUnitTests
             pr(x) :- (x >= 0),
             false :- (pr(x), pr(y), x === y & x > 5)
           )
-          new SLDSymex[Clause](clauses).solve()
+          solveAndVerify(new SLDSymex[Clause](clauses))
         } should beUnsat
       }
       "Every selection rule (unsat), with a valid counterexample" in {
@@ -168,15 +169,9 @@ class SLDSymexUnitTests
             qr(x + y) :- (pr(x), rr(y)),
             false :- (qr(x), sr(z), x + z === 3)
           )
-          for (selection <- GlobalParameters.SLDAtomSelection.values) {
-            val result = new SLDSymex[Clause](clauses, None, selection).solve()
-            result should beUnsat
-            val params = GlobalParameters.get.clone
-            params.verifySolCEX = true
-            GlobalParameters.withValue(params) {
-              HornWrapper.verifyCEX(result.right.get(), clauses)
-            }
-          }
+          for (selection <- GlobalParameters.SLDAtomSelection.values)
+            solveAndVerify(
+              new SLDSymex[Clause](clauses, None, selection)) should beUnsat
         }
       }
       "Derivations not kept: no counterexample (unsat)" in {
@@ -231,7 +226,7 @@ class SLDSymexUnitTests
             false :- (pr(x), x === 0)
           )
           val symex = new SLDSymex[Clause](clauses)
-          symex.solve() should beUnsat
+          solveAndVerify(symex) should beUnsat
           symex.statistics.statesDerived shouldBe 1
         }
       }
