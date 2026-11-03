@@ -40,7 +40,7 @@ import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 import Symex.{FeasibilityCheckResult, SymexException}
 
-import collection.mutable.{HashMap => MHashMap}
+import collection.mutable.{ArrayBuffer, ArrayStack, HashMap => MHashMap}
 
 /**
  * Base class of the forward engines: unit hyper-resolution from the facts
@@ -163,52 +163,48 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
    * i.e., FALSE :- TRUE.
    */
   protected def buildCounterExample(root: UnitClause): Dag[(IAtom, CC)] = {
-    def computeAtoms(headAtom: IAtom, cuc: UnitClause): Dag[(IAtom, CC)] = {
-      unitClauseDB.parentsOption(cuc) match {
-        case None =>
-          throw new SymexException(
-            "counterexample construction needs the derivations, " +
-            "which were not kept")
-        case Some((nucleus, electrons)) =>
-          // try to get ground literals for parent electrons
-          import prover._
-          val childrenAtoms = scope {
-            !!(asIFormula(nucleus.constraint))
-            !!(headAtom.args === nucleus.headSyms)
-            for ((electron, occ) <- electrons zip nucleus.body.map(_._2))
-              !!(asIFormula(electron.constraintAtOcc(occ)))
-            groundAtomsInModel(
-              for ((rs, occ) <- nucleus.body)
-                yield (rs.pred, rs.arguments(occ)))
-          }
-          val subDags: Seq[Dag[(IAtom, CC)]] = {
-            for ((electron, atom) <- electrons zip childrenAtoms)
-              yield computeAtoms(atom, electron)
-          }
-
-          val nextDag: Dag[(IAtom, CC)] =
-            if (subDags isEmpty) DagEmpty
-            else {
-              var next: Dag[(IAtom, CC)] = DagEmpty
-              for (subDag <- subDags.reverse if !subDag.isEmpty) {
-                next = DagNode(subDag.head, Nil, next)
-              }
-              next
-            }
-
-          val dummyChildren = electrons.indices.map(_ + 1).toList
-          val dag: Dag[(IAtom, CC)] =
-            DagNode((headAtom, normClauseToCC(nucleus)), dummyChildren, nextDag)
-          val resDag = dag
-            .substitute((dummyChildren zip subDags).toMap)
-            .elimUnconnectedNodes
-            .collapseNodes
-          resDag
-        // substitute the subdags into the dag
-        // todo: review, this seems to be inefficient?
+    class CexNode(val headAtom : IAtom,
+                  val nucleus  : NormClause,
+                  val children : Array[Int])
+    val nodes = new ArrayBuffer[CexNode]
+    // unit clauses to visit, with their ground head atoms and the node and
+    // body slot they are a child of, in depth-first pre-order
+    val unvisited = new ArrayStack[(IAtom, UnitClause, Option[(CexNode, Int)])]
+    unvisited push ((IAtom(HornClauses.FALSE, Nil), root, None))
+    while (unvisited.nonEmpty) {
+      val (headAtom, cuc, parentSlot) = unvisited.pop
+      for ((parent, slot) <- parentSlot)
+        parent.children(slot) = nodes.size
+      val (nucleus, electrons) = unitClauseDB.parentsOption(cuc) getOrElse {
+        throw new SymexException(
+          "counterexample construction needs the derivations, " +
+          "which were not kept")
       }
+      // try to get ground literals for parent electrons
+      import prover._
+      val electronAtoms = scope {
+        !!(asIFormula(nucleus.constraint))
+        !!(headAtom.args === nucleus.headSyms)
+        for ((electron, occ) <- electrons zip nucleus.body.map(_._2))
+          !!(asIFormula(electron.constraintAtOcc(occ)))
+        groundAtomsInModel(
+          for ((rs, occ) <- nucleus.body)
+            yield (rs.pred, rs.arguments(occ)))
+      }
+      val node = new CexNode(headAtom, nucleus, new Array(electrons.size))
+      nodes += node
+      for (slot <- electrons.indices.reverse)
+        unvisited push ((electronAtoms(slot), electrons(slot),
+                         Some((node, slot))))
     }
-    computeAtoms(IAtom(HornClauses.FALSE, Nil), root)
+
+    var dag : Dag[(IAtom, CC)] = DagEmpty
+    for (index <- nodes.indices.reverse) {
+      val node = nodes(index)
+      dag = DagNode((node.headAtom, normClauseToCC(node.nucleus)),
+                    node.children.map(_ - index).toList, dag)
+    }
+    dag.collapseNodes
   }
 
   // true if cuc = "FALSE :- c" and c is satisfiable, false otherwise.
