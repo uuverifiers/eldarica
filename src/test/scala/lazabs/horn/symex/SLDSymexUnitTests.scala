@@ -4,6 +4,7 @@ import ap.api.SimpleAPI
 import ap.api.SimpleAPI.ProverStatus
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
+import ap.theories.ModuloArithmetic.{UnsignedBVSort, extract}
 import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.CHCResultMatchers
@@ -102,6 +103,24 @@ class SLDSymexUnitTests
           )
           solveAndVerify(new SLDSymex[Clause](clauses, maxDepth = Some(5)))
         } should beSat
+      }
+      "Goal over bit-vector extracts (sat), " +
+      "with a quantifier-free solution" in {
+        scope {
+          val pr =
+            createRelation("p", List(UnsignedBVSort(8), UnsignedBVSort(8)))
+          val Seq(x, y) =
+            for (name <- Seq("x", "y"))
+            yield createConstant(name, UnsignedBVSort(8))
+
+          val clauses : Seq[Clause] = List(
+            pr(x, y) :- (x === y),
+            false :- (pr(x, y), extract(3, 0, x) =/= extract(3, 0, y))
+          )
+          val result = solveAndVerify(new SLDSymex[Clause](clauses))
+          result should beSat
+          QuantifierCountVisitor(result.left.get()(pr)) shouldBe 0
+        }
       }
     }
 

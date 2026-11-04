@@ -420,10 +420,12 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       }
     val constraintsOfRs =
       constraintsOfAtoms groupBy (_._1) mapValues (_ map (_._2))
-    for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
-      yield (pred,
-             solutionFormula(rs, disjunctionOverArgs(
-               rs, constraintsOfRs.getOrElse(rs, Nil)).negate))
+    prover.withTimeout(quantifierEliminationTimeout) {
+      for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
+        yield (pred,
+               solutionFormula(rs, !disjunctionOverArgs(
+                 rs, constraintsOfRs.getOrElse(rs, Nil))))
+    }
   }
 
   private class CexNode(val clause     : NormClause,

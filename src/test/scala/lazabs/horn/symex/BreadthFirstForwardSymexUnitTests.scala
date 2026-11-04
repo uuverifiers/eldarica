@@ -13,6 +13,7 @@ import HornClauses._
 import Symex.{FeasibilityCheckResult, InconclusiveException,
               SymexException}
 import ap.theories.ExtArray
+import ap.theories.ModuloArithmetic.{UnsignedBVSort, extract}
 import org.scalatest.freespec.AnyFreeSpec
 
 // todo: add non-linear test cases
@@ -267,6 +268,27 @@ class BreadthFirstForwardSymexUnitTests
               clauses, keepDerivations = false).solve()
             result should beUnsat
             the [SymexException] thrownBy result.right.get()
+          }
+        }
+      }
+      "Solutions" - {
+        "State over bit-vector extracts (sat), " +
+        "with a quantifier-free solution" in {
+          scope {
+            val p0 = createRelation(
+              "p0", List(UnsignedBVSort(8), UnsignedBVSort(8)))
+            val Seq(x, y) =
+              for (name <- Seq("x", "y"))
+              yield createConstant(name, UnsignedBVSort(8))
+
+            val clauses : Seq[Clause] = List(
+              p0(x, y) :- (extract(3, 0, x) === extract(3, 0, y)),
+              false :- (p0(x, y), extract(3, 0, x) =/= extract(3, 0, y))
+            )
+            val result =
+              solveAndVerify(new BreadthFirstForwardSymex[Clause](clauses))
+            result should beSat
+            QuantifierCountVisitor(result.left.get()(p0)) shouldBe 0
           }
         }
       }

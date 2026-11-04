@@ -145,18 +145,16 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
   : Option[(RelationSymbol, Conjunction)] =
     if (clause.isPositive) Some((clause.rs, clause.constraint)) else None
 
-  protected def buildSolution(): Solution = {
-    for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
-      yield {
-        val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
-        val predSolution =
-          disjunctionOverArgs(rs, predCucs.map(_.constraint))
-
-        // todo: try to simplify after quantification
-
-        (pred, solutionFormula(rs, predSolution))
-      }
-  }
+  protected def buildSolution(): Solution =
+    prover.withTimeout(quantifierEliminationTimeout) {
+      for ((pred, rs) <- relationSymbols if pred != HornClauses.FALSE)
+        yield {
+          val predCucs = unitClauseDB.inferred(rs).getOrElse(Nil)
+          val predSolution =
+            disjunctionOverArgs(rs, predCucs.map(_.constraint))
+          (pred, solutionFormula(rs, predSolution))
+        }
+    }
 
   /**
    * Returns a counterexample DAG given the last derived unit clause as root,

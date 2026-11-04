@@ -195,28 +195,46 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     checkResult
   }
 
+  val quantifierEliminationTimeout = 5000
+
   /**
    * The disjunction of the constraints over the arguments of rs at
    * occurrence 0, with their other symbols existentially quantified.
+   * Tries to eliminate quantifiers where possible with a timeout.
    */
   protected def disjunctionOverArgs(rs          : RelationSymbol,
                                     constraints : Seq[Conjunction])
-  : Conjunction = {
-    val disjunction = Conjunction.disj(constraints, symex_sf.order)
-    val constants = (disjunction.constants -- rs.arguments(0)).toSeq
-    symex_sf.reducer(Conjunction.TRUE)(
-      Conjunction.quantify(Quantifier.EX, symex_sf.order.sort(constants),
-                           disjunction, symex_sf.order))
-  }
+  : IFormula =
+    IExpression.or(for (constraint <- constraints) yield {
+      val locals =
+        symex_sf.order.sort(constraint.constants -- rs.arguments(0))
+      val projection = symex_sf.reducer(Conjunction.TRUE)(
+        Conjunction.quantify(Quantifier.EX, locals, constraint,
+                             symex_sf.order))
+      withoutQuantifiers(prover.asIFormula(projection))
+    })
 
-  // a constraint over the arguments of rs at occurrence 0 as a solution
-  protected def solutionFormula(rs         : RelationSymbol,
-                                constraint : Conjunction) : IFormula = {
+  private def withoutQuantifiers(formula : IFormula) : IFormula =
+    if (QuantifierCountVisitor(formula) == 0) {
+      formula
+    } else {
+      val simplified = (new Simplifier)(formula)
+      if (QuantifierCountVisitor(simplified) == 0) simplified
+      else try {
+        prover.simplify(simplified)
+      } catch {
+        case SimpleAPI.TimeoutException => simplified
+      }
+    }
+
+  // a formula over the arguments of rs at occurrence 0 as a solution
+  protected def solutionFormula(rs      : RelationSymbol,
+                                formula : IFormula) : IFormula = {
     val argSubst: Map[ConstantTerm, ITerm] =
       (for ((arg, i) <- rs.arguments(0) zipWithIndex)
         yield
           (arg, ap.parser.IExpression.v(i))).toMap // symex_sf.genConstant("_" + i)
-    ConstantSubstVisitor(prover.asIFormula(constraint), argSubst)
+    ConstantSubstVisitor(formula, argSubst)
   }
 
   private[symex] def checkFeasibility(constraint : Conjunction,
