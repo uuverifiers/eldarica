@@ -275,10 +275,14 @@ object ConstraintNormalizer {
     // a swap can change how equations reduce so compare after reduction
     val reduce = ReduceWithConjunction(Conjunction.TRUE, constraint.order)
     lazy val reducedConstraint = reduce(constraint)
+    // a swap of atoms of different colours nearly always changes the
+    // constraint, so it is not tried
+    lazy val colouring = refinedColouring(goal)
     def interchangeable(first : Int, second : Int) : Boolean = {
       val (rs, firstOcc) = atoms(first)
       val (secondRs, secondOcc) = atoms(second)
-      rs == secondRs && {
+      rs == secondRs &&
+      colouring.colourOfAtom(first) == colouring.colourOfAtom(second) && {
         val swap = (rs.arguments(firstOcc) zip rs.arguments(secondOcc)) ++
                    (rs.arguments(secondOcc) zip rs.arguments(firstOcc))
         reduce(ConstantSubst(swap.toMap, constraint.order)(constraint)) ==
@@ -293,15 +297,20 @@ object ConstraintNormalizer {
     firsts
   }
 
+  private def refinedColouring(goal : GoalClause) : GraphColouring = {
+    val colouring = new GraphColouring(new ConstraintGraph(
+      goal.constraint,
+      for ((rs, occ) <- goal.atoms) yield (rs.pred, rs.arguments(occ))))
+    colouring.refine()
+    colouring
+  }
+
   // the indices of the atoms of the goal in their canonical order
   private def canonicalAtomOrder(goal : GoalClause) : Seq[Int] = {
     val atoms = goal.atoms.toIndexedSeq
     val predicateRepeats = atoms.map(_._1).distinct.size < atoms.size
     if (predicateRepeats) {
-      val colouring = new GraphColouring(new ConstraintGraph(
-        goal.constraint,
-        for ((rs, occ) <- atoms) yield (rs.pred, rs.arguments(occ))))
-      colouring.refine()
+      val colouring = refinedColouring(goal)
       val byPredicateColourOccurrence = Ordering.Tuple3(
         ConstraintGraph.predicateOrdering, Ordering.Int, Ordering.Int)
       val unplacedAtoms = ArrayBuffer(atoms.indices : _*)

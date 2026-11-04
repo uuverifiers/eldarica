@@ -75,7 +75,8 @@ case class GoalClause(atoms      : Seq[(RelationSymbol, Int)],
   /**
    * For each atom, the first atom it can be swapped with such that swapping
    * the arguments of the two does not change the constraint. Used in goal
-   * subsumption to skip atom maps that equal a tried one up to such swaps.
+   * subsumption and factoring to skip atom maps and factorings that equal a
+   * tried one up to such swaps.
    * E.g. in false :- P(x0), P(x1), P(x2), x0 + x1 > 0 & x2 = 1
    * the first atoms are 0, 0 and 2 (i.e., x0 and x1 can be swapped,
    * but not x2 with the others, so last one is itself at ind 2).

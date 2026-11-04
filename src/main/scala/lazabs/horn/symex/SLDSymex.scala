@@ -41,7 +41,8 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
 import scala.annotation.tailrec
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet}
 
 /**
  * Backward symbolic execution by SLD resolution from goals to facts.
@@ -122,6 +123,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                          checkFeasibility))
 
   private val collectStats = lazabs.GlobalParameters.get.log
+  private var factoringTests          = 0L
   private var atomsDroppedByFactoring = 0L
 
   private def enqueue(choice : ResolutionChoice) : Unit =
@@ -254,7 +256,8 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       result
     } finally {
       if (collectStats) {
-        println(s"factoring: $atomsDroppedByFactoring atoms dropped")
+        println(s"factoring: $factoringTests tests, " +
+                s"$atomsDroppedByFactoring atoms dropped")
         statistics.printStatistics(
           goalClauseDB.size, goalClauseDB.rejectedDuplicateCount,
           subsumptionChecker, simplifierStats, simplifierTimeNanos,
@@ -366,18 +369,26 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       (rs.arguments(atoms(droppedIndex)._2) zip rs.arguments(keptOcc)).toMap
     }
 
-    def impliedAfter(unification : Map[ConstantTerm, ConstantTerm]) =
+    def impliedAfter(unification : Map[ConstantTerm, ConstantTerm]) = {
+      factoringTests += 1
       goal.conjuncts forall { conjunct =>
         !(conjunct.constants exists unification.contains) ||
           reduce(ConstantSubst(unification, symex_sf.order)(conjunct)).isTrue
       }
+    }
+    // the factorings of atoms interchangeable with a tested pair are the same
+    // up to swapping them, so only the first such pair is tested
+    val testedFirstInterchangeableAtoms = new MHashSet[(Int, Int)]
     val factorings =
       for (first <- atoms.indices.iterator;
            second <- (first + 1) until atoms.size
            if atoms(first)._1 == atoms(second)._1;
            (keptIndex, droppedIndex) <- Iterator((first, second),
                                                  (second, first))
-           if impliedAfter(unification(keptIndex, droppedIndex)))
+           if testedFirstInterchangeableAtoms.add(
+                (goal.firstInterchangeableAtom(keptIndex),
+                 goal.firstInterchangeableAtom(droppedIndex))) &&
+              impliedAfter(unification(keptIndex, droppedIndex)))
         yield (keptIndex, droppedIndex)
     if (factorings.hasNext) {
       val (keptIndex, droppedIndex) = factorings.next
