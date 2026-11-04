@@ -41,6 +41,8 @@ class SymexStatistics {
   var undecidedStates     = 0L
   var undecidedEmptyGoals = 0L
   var depthPrunedChoices  = 0L
+  var checksDecidedWithoutProver = 0L
+  var choicesPrunedWithoutProver = 0L
   var checkNanos          = 0L
   var resolutionNanos     = 0L
   var statesWithUnconnectedConjunctsDropped = 0L
@@ -71,6 +73,8 @@ class SymexStatistics {
             s"$checksPostponed postponed)")
     println(s"undecided checks: ${undecidedStates + undecidedEmptyGoals} " +
             s"($undecidedStates states, $undecidedEmptyGoals empty goals)")
+    println(s"without the prover: $checksDecidedWithoutProver checks " +
+            s"decided, $choicesPrunedWithoutProver choices pruned")
     println(s"depth bound: $depthPrunedChoices choices pruned")
     println(s"duplicate states rejected: $duplicatesRejected")
     println(subsumptionChecker.stats)

@@ -291,13 +291,17 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         factoredAtomOrigins.indices.minBy(factoredAtomOrigins)(selectionOrder)
       val clauses =
         clausesWithRelationInHead(factoredGoal.atoms(atomIndex)._1)
-      if (maxDepth exists (factoredDerivation.depth >= _))
+      if (maxDepth exists (factoredDerivation.depth >= _)) {
         statistics.depthPrunedChoices += clauses.size
-      else
-        for (clause <- clauses)
+      } else {
+        val (rs, occ) = factoredGoal.atoms(atomIndex)
+        val selectedAtom = (factoredGoal.constraint, rs.arguments(occ))
+        for (clause <- clauses
+             if !isInfeasibleChoiceOnHead(clause, selectedAtom))
           enqueue(ResolutionChoice(factoredGoal, unfoldCounts,
                                    factoredAtomOrigins, atomIndex, clause,
                                    initialBudgetMs))
+      }
     }
   }
 

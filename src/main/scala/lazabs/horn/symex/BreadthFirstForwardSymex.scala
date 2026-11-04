@@ -321,7 +321,11 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
           else Seq(electron)
         } else unitClauseDB.inferred(rs).getOrElse(Seq())
       }
-      for (choice <- Combinatorics.cartesianProduct(els.toList))
+      for (choice <- Combinatorics.cartesianProduct(els.toList)
+           if !isInfeasibleChoiceOnBody(
+                 nucleus,
+                 choice map (electron =>
+                   (electron.constraint, electron.rs.arguments(0)))))
         enqueue(nucleus, choice, initialBudgetMs)
     }
 

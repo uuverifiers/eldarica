@@ -30,7 +30,15 @@ package lazabs.horn.symex
 
 import ap.SimpleAPI
 import ap.api.SimpleAPI.ProverStatus
+import ap.basetypes.IdealInt
+import ap.terfor.{ConstantTerm, OneTerm, TerForConvenience}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination
+import ap.theories.bitvectors.ModuloArithmetic.ModSort
+import ap.types.{Sort, SortedConstantTerm}
+import lazabs.horn.bottomup.NormClause
+
+import scala.collection.mutable.{HashMap => MHashMap}
 
 sealed abstract class FeasibilityCheckResult
 object FeasibilityCheckResult {
@@ -43,10 +51,14 @@ object FeasibilityCheckResult {
 }
 
 /**
- * Feasibility checks of constraints by the prover, within a budget.
+ * Feasibility checks of constraints: decided without a prover call where
+ * possible, otherwise by the prover within a budget.
  */
 trait FeasibilityChecker {
+  import FeasibilityChecker.ImpliedBounds
+
   val prover     : SimpleAPI
+  val symex_sf   : SymexSymbolFactory
   val statistics : SymexStatistics
 
   val initialBudgetMs  : Long = 2000
@@ -95,18 +107,69 @@ trait FeasibilityChecker {
       Feasible
     } else if (constraint.isFalse) {
       Infeasible
-    } else prover.scope {
-      prover.addAssertionPreproc(constraint)
-      prover.checkSat(block = false)
-      proverStatusWithin(budgetMs) match {
-        case ProverStatus.Running =>
-          toFeasibilityCheckResult(prover.stop) match {
-            case Undecided(_) => BudgetExpired
-            case decided      => decided
-          }
-        case status => toFeasibilityCheckResult(status)
+    } else decidedWithoutProver(constraint) match {
+      case Some(result) =>
+        statistics.checksDecidedWithoutProver += 1
+        result
+      case None => prover.scope {
+        prover.addAssertionPreproc(constraint)
+        prover.checkSat(block = false)
+        proverStatusWithin(budgetMs) match {
+          case ProverStatus.Running =>
+            toFeasibilityCheckResult(prover.stop) match {
+              case Undecided(_) => BudgetExpired
+              case decided      => decided
+            }
+          case status => toFeasibilityCheckResult(status)
+        }
       }
     }
+  }
+
+  private def decidedWithoutProver(constraint : Conjunction)
+    : Option[FeasibilityCheckResult] =
+    if (isTrueAtGuessedPoint(constraint)) Some(FeasibilityCheckResult.Feasible)
+    else None
+
+  private val bodyBoundsOf = new MHashMap[NormClause, Seq[ImpliedBounds]]
+  private val headBoundsOf = new MHashMap[NormClause, ImpliedBounds]
+
+  /**
+   * True if the constraint of the resolvent of a resolution choice is false,
+   * for instance due to disjoint bounds.
+   * E.g., goal atom p(x) with x >= 6 and clause p(y) :- y <= 5.
+   * A state atom is given as a constraint and the arguments of the atom in it. 
+   * The state atoms are resolved with the body atoms of the clause, in order, 
+   * or with its head.
+   */
+  protected def isInfeasibleChoiceOnBody(
+      clause     : NormClause,
+      stateAtoms : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean =
+    isInfeasibleChoice(
+      bodyBoundsOf.getOrElseUpdate(
+        clause,
+        for (syms <- clause.bodySyms)
+          yield ImpliedBounds(clause.constraint, syms)),
+      stateAtoms)
+
+  protected def isInfeasibleChoiceOnHead(
+      clause    : NormClause,
+      stateAtom : (Conjunction, Seq[ConstantTerm])) : Boolean =
+    isInfeasibleChoice(
+      Seq(headBoundsOf.getOrElseUpdate(
+            clause, ImpliedBounds(clause.constraint, clause.headSyms))),
+      Seq(stateAtom))
+
+  private def isInfeasibleChoice(
+      clauseAtomBounds : Seq[ImpliedBounds],
+      stateAtoms       : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean = {
+    val isInfeasible = (clauseAtomBounds zip stateAtoms) exists {
+      case (bounds, (constraint, args)) =>
+        bounds disjointFrom ImpliedBounds(constraint, args)
+    }
+    if (isInfeasible)
+      statistics.choicesPrunedWithoutProver += 1
+    isInfeasible
   }
 
   private val proverPollIntervalMs = 100L
@@ -145,6 +208,110 @@ trait FeasibilityChecker {
       case ProverStatus.Valid | ProverStatus.Sat     => Feasible
       case ProverStatus.Invalid | ProverStatus.Unsat => Infeasible
       case _                                         => Undecided(status)
+    }
+  }
+
+  /**
+   * True if the constraint is already true at a guessed point. 
+   * The guess is done by setting each constant to an implied bound, 
+   * then the leading constant of each equation is solved for by back-substitution.
+   * E.g., for x = y + 1 & y >= 3 & z <= x with x leading: y = 3, z = 0 and x = 4.
+   */
+  private def isTrueAtGuessedPoint(constraint : Conjunction) : Boolean = {
+    val constants = constraint.constants.toIndexedSeq
+    val ranges = constants map (c => sortRange(SortedConstantTerm sortOf c))
+    if (ranges exists (_.isEmpty)) {
+      false
+    } else {
+      val bounds = ImpliedBounds(constraint, constants)
+      val point = new MHashMap[ConstantTerm, IdealInt]
+      for (i <- constants.indices)
+        point(constants(i)) = clamp(
+          bounds.lower(i) orElse bounds.upper(i) getOrElse IdealInt.ZERO,
+          ranges(i).get)
+      val eqsInOrder = constraint.arithConj.positiveEqs.toSeq.sortWith {
+        (a, b) => constraint.order.compare(a.leadingTerm, b.leadingTerm) < 0
+      }
+      for (lc <- eqsInOrder) lc.leadingTerm match {
+        case lead : ConstantTerm =>
+          val rest = lc.pairSeq.foldLeft(IdealInt.ZERO) {
+            case (sum, (_, `lead`))              => sum
+            case (sum, (coeff, OneTerm))         => sum + coeff
+            case (sum, (coeff, c : ConstantTerm)) => sum + coeff * point(c)
+            case (sum, _)                        => sum
+          }
+          if ((rest % lc.leadingCoeff).isZero)
+            point(lead) = -(rest / lc.leadingCoeff)
+        case _ =>
+      }
+      val inSorts = constants.indices forall { i =>
+        point(constants(i)) == clamp(point(constants(i)), ranges(i).get)
+      }
+      inSorts && isTrueAt(point, constraint)
+    }
+  }
+
+  private def isTrueAt(point      : collection.Map[ConstantTerm, IdealInt],
+                       constraint : Conjunction) : Boolean = {
+    import TerForConvenience._
+    implicit val order = symex_sf.order
+    val pointEqs = Conjunction.conj(
+      for ((c, value) <- point.toSeq) yield c === value, order)
+    symex_sf.reducer(pointEqs)(constraint).isTrue
+  }
+
+  private def sortRange(sort : Sort)
+      : Option[(Option[IdealInt], Option[IdealInt])] = sort match {
+    case Sort.Integer | Sort.MultipleValueBool => Some((None, None))
+    case Sort.Nat              => Some((Some(IdealInt.ZERO), None))
+    case Sort.Interval(lo, hi) => Some((lo, hi))
+    case ModSort(lo, hi)       => Some((Some(lo), Some(hi)))
+    case Sort.Bool             =>
+      Some((Some(IdealInt.ZERO), Some(IdealInt.ONE)))
+    case _                     => None
+  }
+
+  private def clamp(value : IdealInt,
+                    range : (Option[IdealInt], Option[IdealInt])) : IdealInt = {
+    val floored = range._1.map(_ max value) getOrElse value
+    range._2.map(_ min floored) getOrElse floored
+  }
+}
+
+object FeasibilityChecker {
+  /**
+   * Lower and upper bounds of symbols, as read off the equations and
+   * inequalities of a constraint without a prover call.
+   * E.g., for x >= 2 & x <= 7 & x + y >= 0 over x, y, the bounds of x are
+   * 2 and 7, and y has none.
+   */
+  private class ImpliedBounds private (
+      val lower : IndexedSeq[Option[IdealInt]],
+      val upper : IndexedSeq[Option[IdealInt]]) {
+    // no value lies within both at some position
+    def disjointFrom(that : ImpliedBounds) : Boolean =
+      lower.indices exists { i =>
+        lower(i).exists(l => that.upper(i).exists(l > _)) ||
+          that.lower(i).exists(l => upper(i).exists(l > _))
+      }
+  }
+
+  private object ImpliedBounds {
+    def apply(constraint : Conjunction,
+              symbols    : Seq[ConstantTerm]) : ImpliedBounds = {
+      val definingEqs = constraint.arithConj.positiveEqs.toMap
+      val inEqs = constraint.arithConj.inEqs
+      val bounds = for (c <- symbols.toIndexedSeq) yield
+        if (!(constraint.constants contains c)) {
+          (None, None)
+        } else definingEqs get c match {
+          case Some(lc) if lc.constants.size == 1 =>
+            (Some(-lc.constant), Some(-lc.constant))
+          case _ =>
+            val lc = LinearCombination(c, constraint.order)
+            (inEqs.findLowerBound(lc), inEqs.findLowerBound(-lc).map(-_))
+        }
+      new ImpliedBounds(bounds.map(_._1), bounds.map(_._2))
     }
   }
 }
