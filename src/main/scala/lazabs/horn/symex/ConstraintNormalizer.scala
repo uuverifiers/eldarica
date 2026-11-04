@@ -269,6 +269,30 @@ object ConstraintNormalizer {
                  id.instance)
   }
 
+  // see GoalClause.firstInterchangeableAtom
+  def firstInterchangeableAtoms(goal : GoalClause) : IndexedSeq[Int] = {
+    import goal.{atoms, constraint}
+    // a swap can change how equations reduce so compare after reduction
+    val reduce = ReduceWithConjunction(Conjunction.TRUE, constraint.order)
+    lazy val reducedConstraint = reduce(constraint)
+    def interchangeable(first : Int, second : Int) : Boolean = {
+      val (rs, firstOcc) = atoms(first)
+      val (secondRs, secondOcc) = atoms(second)
+      rs == secondRs && {
+        val swap = (rs.arguments(firstOcc) zip rs.arguments(secondOcc)) ++
+                   (rs.arguments(secondOcc) zip rs.arguments(firstOcc))
+        reduce(ConstantSubst(swap.toMap, constraint.order)(constraint)) ==
+          reducedConstraint
+      }
+    }
+    val firsts = new ArrayBuffer[Int]
+    for (index <- atoms.indices)
+      firsts += ((0 until index) find { other =>
+        firsts(other) == other && interchangeable(other, index)
+      } getOrElse index)
+    firsts
+  }
+
   // the indices of the atoms of the goal in their canonical order
   private def canonicalAtomOrder(goal : GoalClause) : Seq[Int] = {
     val atoms = goal.atoms.toIndexedSeq

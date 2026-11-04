@@ -29,11 +29,8 @@
 package lazabs.horn.symex
 
 import ap.terfor.ConstantTerm
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-import ap.terfor.substitutions.ConstantSubst
+import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.bottomup.{NormClause, RelationSymbol}
-
-import scala.collection.mutable.ArrayBuffer
 
 /**
  * A goal clause false :- A1, ..., An, C. The atom (rs, occ) has the
@@ -83,27 +80,8 @@ case class GoalClause(atoms      : Seq[(RelationSymbol, Int)],
    * the first atoms are 0, 0 and 2 (i.e., x0 and x1 can be swapped,
    * but not x2 with the others, so last one is itself at ind 2).
    */
-  lazy val firstInterchangeableAtom : IndexedSeq[Int] = {
-    // a swap can change how equations reduce so compare after reduction
-    val reduce = ReduceWithConjunction(Conjunction.TRUE, constraint.order)
-    lazy val reducedConstraint = reduce(constraint)
-    def interchangeable(first : Int, second : Int) : Boolean = {
-      val (rs, firstOcc) = atoms(first)
-      val (secondRs, secondOcc) = atoms(second)
-      rs == secondRs && {
-        val swap = (rs.arguments(firstOcc) zip rs.arguments(secondOcc)) ++
-                   (rs.arguments(secondOcc) zip rs.arguments(firstOcc))
-        reduce(ConstantSubst(swap.toMap, constraint.order)(constraint)) ==
-          reducedConstraint
-      }
-    }
-    val firsts = new ArrayBuffer[Int]
-    for (index <- atoms.indices)
-      firsts += ((0 until index) find { other =>
-        firsts(other) == other && interchangeable(other, index)
-      } getOrElse index)
-    firsts
-  }
+  lazy val firstInterchangeableAtom : IndexedSeq[Int] =
+    ConstraintNormalizer.firstInterchangeableAtoms(this)
 
   override def toString : String =
     "false :- " + ((for ((rs, occ) <- atoms) yield rs.toString(occ)) :+
