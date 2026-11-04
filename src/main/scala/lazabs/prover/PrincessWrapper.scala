@@ -555,6 +555,10 @@ class PrincessWrapper {
           ModuloArithmetic.ModSort(lower, upper)
         val argExpr = rvT(arg)
         argExpr.stype match {
+          case IntegerType() =>
+            UnaryExpression(BV2Int(bits),
+              UnaryExpression(Int2BV(bits),
+                              argExpr).stype(BVType(bits))).stype(IntT)
           case BVType(_) =>
             UnaryExpression(BV2Int(bits), argExpr).stype(IntT)
           case t =>
