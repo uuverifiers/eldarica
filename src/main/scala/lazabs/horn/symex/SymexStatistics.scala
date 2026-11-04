@@ -28,8 +28,6 @@
  */
 package lazabs.horn.symex
 
-import Symex.FeasibilityCheckResult
-
 /**
  * The search statistics: counters for the verdict and the -log output.
  */

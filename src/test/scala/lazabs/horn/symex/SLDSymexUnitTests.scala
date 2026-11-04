@@ -10,7 +10,7 @@ import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.CHCResultMatchers
 import IExpression._
 import HornClauses._
-import Symex.{FeasibilityCheckResult, InconclusiveException, SymexException}
+import Symex.{InconclusiveException, SymexException}
 import org.scalatest.freespec.AnyFreeSpec
 
 class SLDSymexUnitTests

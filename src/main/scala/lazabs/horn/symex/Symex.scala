@@ -54,21 +54,11 @@ object Symex {
   class InconclusiveException(
       val candidateSolution : Option[() => Solution])
       extends SymexException("search ended without a verdict")
-
-  sealed abstract class FeasibilityCheckResult
-  object FeasibilityCheckResult {
-    case object Feasible      extends FeasibilityCheckResult
-    case object Infeasible    extends FeasibilityCheckResult
-    case object BudgetExpired extends FeasibilityCheckResult
-    case class  Undecided(status : ProverStatus.Value)
-        extends FeasibilityCheckResult
-    case object Skipped       extends FeasibilityCheckResult
-  }
 }
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
     implicit clause2ConstraintClause: CC => ConstraintClause
-) extends ConstraintSimplifier {
+) extends ConstraintSimplifier with FeasibilityChecker {
 
   import Symex._
 
@@ -157,44 +147,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val statistics = new SymexStatistics
 
-  val initialBudgetMs  : Long = 2000
-  val budgetGrowthRate : Long = 2
-  val cheapBudgetMs    : Long = 5
-
-  private val collectCheckTimes = lazabs.GlobalParameters.get.log
-
-  /**
-   * Checks the constraint within budgetMs and counts the result. If the
-   * constraint does not end the search when feasible, -symStateChecks
-   * decides how it is checked.
-   */
-  protected def checkFeasibilityWithinBudget(
-      constraint           : Conjunction,
-      endsSearchIfFeasible : Boolean,
-      budgetMs             : Long) : FeasibilityCheckResult = {
-    import FeasibilityCheckResult._
-    import lazabs.GlobalParameters.SymexStateChecks
-    val checkBudgetMs =
-      if (endsSearchIfFeasible) Some(budgetMs)
-      else lazabs.GlobalParameters.get.symexStateChecks match {
-        case SymexStateChecks.Full  => Some(budgetMs)
-        case SymexStateChecks.Cheap =>
-          // use a cheap budget for the first feasibility check
-          if (budgetMs == initialBudgetMs) Some(cheapBudgetMs)
-          else Some(budgetMs)
-        case SymexStateChecks.None  => None
-      }
-    val checkStart = if (collectCheckTimes) System.nanoTime else 0L
-    val checkResult = checkBudgetMs match {
-      case Some(millis) => checkFeasibility(constraint, Some(millis))
-      case None => if (constraint.isFalse) Infeasible else Skipped
-    }
-    if (collectCheckTimes)
-      statistics.checkNanos += System.nanoTime - checkStart
-    statistics.countCheck(checkResult, endsSearchIfFeasible)
-    checkResult
-  }
-
   val quantifierEliminationTimeout = 5000
 
   /**
@@ -237,57 +189,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     ConstantSubstVisitor(formula, argSubst)
   }
 
-  private[symex] def checkFeasibility(constraint : Conjunction,
-                                      budgetMs   : Option[Long])
-    : FeasibilityCheckResult = {
-    import FeasibilityCheckResult._
-    if (constraint.isTrue) {
-      Feasible
-    } else if (constraint.isFalse) {
-      Infeasible
-    } else prover.scope {
-      prover.addAssertionPreproc(constraint)
-      prover.checkSat(block = false)
-      proverStatusWithin(budgetMs) match {
-        case ProverStatus.Running =>
-          toFeasibilityCheckResult(prover.stop) match {
-            case Undecided(_) => BudgetExpired
-            case decided      => decided
-          }
-        case status => toFeasibilityCheckResult(status)
-      }
-    }
-  }
-
-  private val proverPollIntervalMs = 100L
-
-  /**
-   * Waits for the result of `checkSat(block = false)`, Running if the
-   * budget runs out first. The timeout checker is called between polls, so
-   * that the run can time out or be stopped during a long check.
-   */
-  private def proverStatusWithin(budgetMs : Option[Long])
-    : ProverStatus.Value = {
-    val deadline = budgetMs map (System.currentTimeMillis + _)
-    def nextPollMs = deadline match {
-      case Some(time) => (time - System.currentTimeMillis) min
-                           proverPollIntervalMs
-      case None       => proverPollIntervalMs
-    }
-    var status = prover.getStatus(nextPollMs)
-    while (status == ProverStatus.Running && nextPollMs > 0) {
-      try {
-        lazabs.GlobalParameters.get.timeoutChecker()
-      } catch {
-        case e : Exception =>
-          prover.stop
-          throw e
-      }
-      status = prover.getStatus(nextPollMs)
-    }
-    status
-  }
-
   /**
    * The atoms with their arguments evaluated in a model of the asserted
    * constraints. Used to build counterexamples, where the constraints
@@ -311,16 +212,6 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
             "counterexample construction failed, the prover said " + status)
       }
     }
-
-  private def toFeasibilityCheckResult(status : ProverStatus.Value)
-    : FeasibilityCheckResult = {
-    import FeasibilityCheckResult._
-    status match {
-      case ProverStatus.Valid | ProverStatus.Sat     => Feasible
-      case ProverStatus.Invalid | ProverStatus.Unsat => Infeasible
-      case _                                         => Undecided(status)
-    }
-  }
 
   /**
    * If `checkResult` is Feasible, the constraint without the conjuncts that

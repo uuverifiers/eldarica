@@ -30,7 +30,6 @@ package lazabs.horn.symex
 
 import ap.terfor.conjunctions.Conjunction
 import lazabs.horn.bottomup.RelationSymbol
-import Symex.FeasibilityCheckResult
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 

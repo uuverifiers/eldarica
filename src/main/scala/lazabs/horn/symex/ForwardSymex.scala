@@ -38,7 +38,7 @@ import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
-import Symex.{FeasibilityCheckResult, SymexException}
+import Symex.SymexException
 
 import collection.mutable.{ArrayBuffer, ArrayStack, HashMap => MHashMap}
 

@@ -3,7 +3,6 @@ package lazabs.horn.symex
 import ap.api.SimpleAPI
 import ap.terfor.preds.Predicate
 import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
-import Symex.FeasibilityCheckResult
 import org.scalatest.freespec.AnyFreeSpec
 
 class GoalSubsumptionTests extends AnyFreeSpec {

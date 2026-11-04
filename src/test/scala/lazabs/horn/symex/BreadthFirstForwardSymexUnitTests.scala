@@ -10,8 +10,7 @@ import ap.parser._
 import ap.terfor.conjunctions.Conjunction
 import IExpression._
 import HornClauses._
-import Symex.{FeasibilityCheckResult, InconclusiveException,
-              SymexException}
+import Symex.{InconclusiveException, SymexException}
 import ap.theories.ExtArray
 import ap.theories.ModuloArithmetic.{UnsignedBVSort, extract}
 import org.scalatest.freespec.AnyFreeSpec
