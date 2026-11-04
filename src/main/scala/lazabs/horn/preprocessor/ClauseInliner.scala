@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011-2025 Philipp Ruemmer. All rights reserved.
+ * Copyright (c) 2011-2026 Philipp Ruemmer. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -145,7 +145,8 @@ class ClauseInliner extends HornPreprocessor {
               case _ => fallback
             }
           } catch {
-            case HornPredAbs.PredicateGenerationFailedException => fallback
+            case HornPredAbs.PredicateGenerationFailedException |
+                 HornPredAbs.ClauseWithQuantifiersException => fallback
             case lazabs.Main.TimeoutException | lazabs.Main.StoppedException => {
               Console.err.println("timeout during solution reconstruction")
               fallback
