@@ -38,6 +38,7 @@ class SymexStatistics {
   var checksFeasible      = 0L
   var checksInfeasible    = 0L
   var checksPostponed     = 0L
+  var checksSkipped       = 0L
   var undecidedStates     = 0L
   var undecidedEmptyGoals = 0L
   var depthPrunedChoices  = 0L
@@ -56,7 +57,7 @@ class SymexStatistics {
       case Undecided(_)    =>
         if (endsSearchIfFeasible) undecidedEmptyGoals += 1
         else undecidedStates += 1
-      case Skipped         =>
+      case Skipped         => checksSkipped    += 1
     }
 
   def printStatistics(statesStored       : Int,
@@ -70,7 +71,7 @@ class SymexStatistics {
     println(s"checks: " +
             s"${checksFeasible + checksInfeasible + checksPostponed} " +
             s"($checksFeasible feasible, $checksInfeasible infeasible, " +
-            s"$checksPostponed postponed)")
+            s"$checksPostponed postponed), $checksSkipped skipped")
     println(s"undecided checks: ${undecidedStates + undecidedEmptyGoals} " +
             s"($undecidedStates states, $undecidedEmptyGoals empty goals)")
     println(s"without the prover: $checksDecidedWithoutProver checks " +

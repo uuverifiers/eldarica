@@ -206,7 +206,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             val checkResult =
               if (isDuplicate) Skipped
               else checkFeasibilityWithinBudget(
-                newElectron.constraint, isGoal, budgetMs)
+                newElectron.constraint, isGoal, budgetMs, nucleus)
             statistics.statesDerived += 1
             val storedElectron =
               if (isGoal) newElectron

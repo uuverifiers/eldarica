@@ -198,7 +198,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
 
         val endsSearchIfFeasible = newGoal.atoms.isEmpty
         val checkResult = checkFeasibilityWithinBudget(
-          newGoal.constraint, endsSearchIfFeasible, budgetMs)
+          newGoal.constraint, endsSearchIfFeasible, budgetMs, clause)
         statistics.statesDerived += 1
         checkResult match {
           case BudgetExpired =>

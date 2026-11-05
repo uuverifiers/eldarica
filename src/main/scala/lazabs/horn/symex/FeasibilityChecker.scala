@@ -93,16 +93,19 @@ trait FeasibilityChecker {
   val cheapBudgetMs    : Long = 5
 
   private val collectCheckTimes = lazabs.GlobalParameters.get.log
+  private val stateCheckBackoff = new CheckBackoff[NormClause]
 
   /**
    * Checks the constraint within budgetMs and counts the result. If the
    * constraint does not end the search when feasible, -symStateChecks
-   * decides how it is checked.
+   * decides how it is checked, and the checks of states derived with
+   * resolvedClause back off while they find the states feasible.
    */
   protected def checkFeasibilityWithinBudget(
       constraint           : Conjunction,
       endsSearchIfFeasible : Boolean,
-      budgetMs             : Long) : FeasibilityCheckResult = {
+      budgetMs             : Long,
+      resolvedClause       : NormClause) : FeasibilityCheckResult = {
     import FeasibilityCheckResult._
     import lazabs.GlobalParameters.SymexStateChecks
     val checkBudgetMs =
@@ -117,8 +120,17 @@ trait FeasibilityChecker {
       }
     val checkStart = if (collectCheckTimes) System.nanoTime else 0L
     val checkResult = checkBudgetMs match {
+      case Some(_) if !endsSearchIfFeasible && !constraint.isFalse &&
+                      (stateCheckBackoff isSkipped resolvedClause) =>
+        Skipped
       case Some(millis) => checkFeasibility(constraint, Some(millis))
       case None => if (constraint.isFalse) Infeasible else Skipped
+    }
+    checkResult match {
+      case Feasible | Infeasible if !endsSearchIfFeasible =>
+        stateCheckBackoff.recordCheck(resolvedClause,
+                                      fruitless = checkResult == Feasible)
+      case _ =>
     }
     if (collectCheckTimes)
       statistics.checkNanos += System.nanoTime - checkStart
