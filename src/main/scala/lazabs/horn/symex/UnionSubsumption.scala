@@ -51,11 +51,7 @@ class UnionSubsumption[C](
   private val budgetMsOf      = new MHashMap[RelationSymbol, Long]
   private val initialBudgetMs = 5L // doubled on expiry
 
-  // after n fruitless tests in a row, the next 2^n - 1 clauses (at most
-  // 4095) are not tested.
-  private val fruitlessTestsOf = new MHashMap[RelationSymbol, Int]
-  private val untestedLeftOf   = new MHashMap[RelationSymbol, Int]
-  private val maxGapExponent   = 12
+  private val testBackoff = new CheckBackoff[RelationSymbol]
 
   private val collectStats = lazabs.GlobalParameters.get.log
   private var proverNanos  = 0L
@@ -94,12 +90,10 @@ class UnionSubsumption[C](
   }
 
   private def isTestSkipped(rs : RelationSymbol) : Boolean = {
-    val untestedLeft = untestedLeftOf.getOrElse(rs, 0)
-    if (untestedLeft > 0) {
-      untestedLeftOf(rs) = untestedLeft - 1
+    val isSkipped = testBackoff isSkipped rs
+    if (isSkipped)
       testsSkipped += 1
-    }
-    untestedLeft > 0
+    isSkipped
   }
 
   private def isImpliedByProver(rs          : RelationSymbol,
@@ -119,12 +113,10 @@ class UnionSubsumption[C](
     }
     if (checkResult == Infeasible) {
       statesSubsumed += 1
-      fruitlessTestsOf(rs) = 0
+      testBackoff.recordCheck(rs, fruitless = false)
       true
     } else {
-      val fruitlessTests = fruitlessTestsOf.getOrElse(rs, 0) + 1
-      fruitlessTestsOf(rs) = fruitlessTests
-      untestedLeftOf(rs) = (1 << (fruitlessTests min maxGapExponent)) - 1
+      testBackoff.recordCheck(rs, fruitless = true)
       false
     }
   }

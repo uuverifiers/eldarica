@@ -51,6 +51,33 @@ object FeasibilityCheckResult {
 }
 
 /**
+ * Exponential backoff for fruitless checks: after n fruitless checks in a
+ * row with a key, the next 2^n - 1 checks with it are skipped.
+ */
+class CheckBackoff[K] {
+  private val fruitlessChecksOf = new MHashMap[K, Int]
+  private val skipsLeftOf       = new MHashMap[K, Int]
+  private val maxGapExponent    = 12
+
+  def isSkipped(key : K) : Boolean = {
+    val skipsLeft = skipsLeftOf.getOrElse(key, 0)
+    if (skipsLeft > 0)
+      skipsLeftOf(key) = skipsLeft - 1
+    skipsLeft > 0
+  }
+
+  def recordCheck(key : K, fruitless : Boolean) : Unit =
+    if (fruitless) {
+      val fruitlessChecks = fruitlessChecksOf.getOrElse(key, 0) + 1
+      fruitlessChecksOf(key) = fruitlessChecks
+      skipsLeftOf(key) = (1 << (fruitlessChecks min maxGapExponent)) - 1
+    } else {
+      fruitlessChecksOf(key) = 0
+      skipsLeftOf(key) = 0
+    }
+}
+
+/**
  * Feasibility checks of constraints: decided without a prover call where
  * possible, otherwise by the prover within a budget.
  */
