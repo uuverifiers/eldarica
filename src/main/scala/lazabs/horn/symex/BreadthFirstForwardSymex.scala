@@ -202,8 +202,11 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             val isGoal =
               (newElectron.rs.pred == HornClauses.FALSE) ||
                 (!newElectron.isPositive)
-            val checkResult = checkFeasibilityWithinBudget(
-              newElectron.constraint, isGoal, budgetMs)
+            val isDuplicate = !isGoal && (unitClauseDB isDuplicate newElectron)
+            val checkResult =
+              if (isDuplicate) Skipped
+              else checkFeasibilityWithinBudget(
+                newElectron.constraint, isGoal, budgetMs)
             statistics.statesDerived += 1
             val storedElectron =
               if (isGoal) newElectron
@@ -226,7 +229,8 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             } else if (isGoal) {
               printInfo("\n  (Check said " + checkResult +
                         ", empty goal left undecided.)")
-            } else if (unitClauseDB isDuplicate storedElectron) {
+            } else if (isDuplicate ||
+                       (unitClauseDB isDuplicate storedElectron)) {
               printInfo("\n  (Derived clause already exists in the database.)")
               handleForwardSubsumption(nucleus, electrons)
             } else if (subsumptionChecker.isSubsumed(
@@ -306,20 +310,16 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       Left(buildSolution _)
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
-    val possibleChoices = clausesWithRelationInBody(electron.rs)
-
-    // for each possible choice, fix electron.rs, and resolve against
-    // all previous derivations of other body literals
-    for (nucleus <- possibleChoices) {
-      // first find out if there are multiple occurrences of electron.rs
-      val hasMultipleOccurrences = nucleus.body.count(_._1 == electron.rs) > 1
-
-      val els = for ((rs, _) <- nucleus.body) yield {
-        if (rs == electron.rs) {
-          if (hasMultipleOccurrences)
-            unitClauseDB.inferred(rs).getOrElse(Seq())
-          else Seq(electron)
-        } else unitClauseDB.inferred(rs).getOrElse(Seq())
+    val stored = unitClauseDB.inferred(electron.rs).get
+    val older  = stored.init // electron was added last
+    for (nucleus <- clausesWithRelationInBody(electron.rs);
+         electronIndex <- nucleus.body.indices
+         if nucleus.body(electronIndex)._1 == electron.rs) {
+      val els = for (((rs, _), bodyIndex) <- nucleus.body.zipWithIndex) yield {
+        if (bodyIndex == electronIndex) Seq(electron)
+        else if (rs != electron.rs) unitClauseDB.inferred(rs).getOrElse(Seq())
+        else if (bodyIndex < electronIndex) older
+        else stored
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList)
            if !isInfeasibleChoiceOnBody(
