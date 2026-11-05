@@ -310,6 +310,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       Left(buildSolution _)
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
+    val timeoutChecker = lazabs.GlobalParameters.get.timeoutChecker
     val stored = unitClauseDB.inferred(electron.rs).get
     val older  = stored.init // electron was added last
     for (nucleus <- clausesWithRelationInBody(electron.rs);
@@ -321,12 +322,14 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
         else if (bodyIndex < electronIndex) older
         else stored
       }
-      for (choice <- Combinatorics.cartesianProduct(els.toList)
-           if !isInfeasibleChoiceOnBody(
-                 nucleus,
-                 choice map (electron =>
-                   (electron.constraint, electron.rs.arguments(0)))))
-        enqueue(nucleus, choice, initialBudgetMs)
+      for (choice <- Combinatorics.cartesianProduct(els.toList)) {
+        timeoutChecker()
+        if (!isInfeasibleChoiceOnBody(
+              nucleus,
+              choice map (electron =>
+                (electron.constraint, electron.rs.arguments(0)))))
+          enqueue(nucleus, choice, initialBudgetMs)
+      }
     }
 
   }
