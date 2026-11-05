@@ -46,8 +46,7 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue,
 class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
                                  keepDerivations : Boolean = true)(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
-    extends ForwardSymex(clauses, keepDerivations)
-    with ConstraintSimplifierUsingConjunctEliminator {
+    extends ForwardSymex(clauses, keepDerivations) {
 
   import Symex._
   import FeasibilityCheckResult._

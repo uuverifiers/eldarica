@@ -62,8 +62,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                    choiceOrder     : SymexChoiceOrder.Value =
                      SymexChoiceOrder.Guided)(
     implicit clause2ConstraintClause : CC => ConstraintClause)
-    extends Symex(clauses)
-    with ConstraintSimplifierUsingConjunctEliminator {
+    extends Symex(clauses) {
 
   import Symex._
   import FeasibilityCheckResult._
@@ -185,12 +184,12 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         val ResolutionChoice(goal, goalUnfoldCounts, atomOrigins, atomIndex,
                              clause, budgetMs) = choice
         val resolutionStart = if (collectStats) System.nanoTime else 0L
-        val simplifyBefore  = if (collectStats) simplifierTimeNanos else 0L
+        val simplifyBefore  = if (collectStats) simplifier.timeNanos else 0L
         val newGoal = resolve(goal, atomIndex, clause)
         if (collectStats)
           statistics.resolutionNanos +=
             (System.nanoTime - resolutionStart) -
-            (simplifierTimeNanos - simplifyBefore)
+            (simplifier.timeNanos - simplifyBefore)
         val derivation =
           Resolution(goalClauseDB.derivation(goal), atomIndex, clause)
         printInfo(ind + ".\t" + goal + "\n  +\n\t" + clause +
@@ -260,7 +259,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                 s"$atomsDroppedByFactoring atoms dropped")
         statistics.printStatistics(
           goalClauseDB.size, goalClauseDB.rejectedDuplicateCount,
-          subsumptionChecker, simplifierStats, simplifierTimeNanos,
+          subsumptionChecker, simplifier,
           System.nanoTime - solveStart)
       }
     }
@@ -338,8 +337,8 @@ class SLDSymex[CC](clauses         : Iterable[CC],
   private def simplified(goal : GoalClause) : GoalClause = {
     val locals = goal.constraint.constants -- goal.args
     goal.copy(constraint =
-      simplifyConstraint(goal.constraint, locals.map(local => local : Term),
-                         reduceBeforeSimplification = true))
+      simplifier.simplify(goal.constraint, locals.map(local => local : Term),
+                          reduceBeforeSimplification = true))
   }
 
   private def normalizedGoal(goal : GoalClause) : (GoalClause, Seq[Int]) =

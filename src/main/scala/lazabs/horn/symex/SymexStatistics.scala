@@ -63,8 +63,7 @@ class SymexStatistics {
   def printStatistics(statesStored       : Int,
                       duplicatesRejected : Long,
                       subsumptionChecker : SubsumptionChecker[_],
-                      simplifierStats    : Option[String],
-                      simplifierNanos    : Long,
+                      simplifier         : ConstraintSimplifier,
                       solveNanos         : Long) : Unit = {
     println(s"states: $statesDerived derived by resolution, " +
             s"$statesStored added to the database")
@@ -81,10 +80,10 @@ class SymexStatistics {
     println(subsumptionChecker.stats)
     println(s"unconnected conjuncts: dropped from " +
             s"$statesWithUnconnectedConjunctsDropped states")
-    simplifierStats foreach println
+    simplifier.stats foreach println
     val solveMs = solveNanos / 1000000
     val checkMs = checkNanos / 1000000
-    val simpMs  = simplifierNanos / 1000000
+    val simpMs  = simplifier.timeNanos / 1000000
     val subsMs  = subsumptionChecker.timeNanos / 1000000
     val resMs   = resolutionNanos / 1000000
     val otherMs =

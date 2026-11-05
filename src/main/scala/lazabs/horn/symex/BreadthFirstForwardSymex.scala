@@ -55,8 +55,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
                                    choiceOrder     : SymexChoiceOrder.Value =
                                      SymexChoiceOrder.Guided)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
-    extends ForwardSymex(clauses, keepDerivations)
-    with ConstraintSimplifierUsingConjunctEliminator {
+    extends ForwardSymex(clauses, keepDerivations) {
 
   import Symex._
   import FeasibilityCheckResult._
@@ -191,12 +190,12 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
           case Some((nucleus, electrons, budgetMs)) => {
             touched += nucleus
             val resolutionStart = if (collectStats) System.nanoTime else 0L
-            val simplifyBefore  = if (collectStats) simplifierTimeNanos else 0L
+            val simplifyBefore  = if (collectStats) simplifier.timeNanos else 0L
             val newElectron = hyperResolve(nucleus, electrons)
             if (collectStats)
               statistics.resolutionNanos +=
                 (System.nanoTime - resolutionStart) -
-                (simplifierTimeNanos - simplifyBefore)
+                (simplifier.timeNanos - simplifyBefore)
             printInfo("\t" + nucleus + "\n  +\n\t" + electrons.mkString("\n\t"))
             printInfo("  =\n\t" + newElectron)
             val isGoal =
@@ -294,7 +293,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       if (collectStats)
         statistics.printStatistics(
           unitClauseDB.size, unitClauseDB.rejectedDuplicateCount,
-          subsumptionChecker, simplifierStats, simplifierTimeNanos,
+          subsumptionChecker, simplifier,
           System.nanoTime - solveStart)
     }
   }

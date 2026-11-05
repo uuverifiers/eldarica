@@ -58,7 +58,7 @@ object Symex {
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
     implicit clause2ConstraintClause: CC => ConstraintClause
-) extends ConstraintSimplifier with FeasibilityChecker {
+) extends FeasibilityChecker {
 
   import Symex._
 
@@ -96,6 +96,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
   // must be initialized after normClauses are generated.
   implicit val symex_sf: SymexSymbolFactory =
     new SymexSymbolFactory(theories, prover)
+
+  val simplifier = new ConstraintSimplifier
 
   val relationSymbols: Map[Predicate, RelationSymbol] =
     (for (p <- preds) yield (p -> RelationSymbol(p))).toMap

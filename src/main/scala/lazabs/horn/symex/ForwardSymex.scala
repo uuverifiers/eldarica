@@ -111,9 +111,9 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
         .map(_.asInstanceOf[Term])
 
     val simplifiedConstraint =
-      simplifyConstraint(unsimplifiedConstraint,
-                         localSymbols,
-                         reduceBeforeSimplification = true)
+      simplifier.simplify(unsimplifiedConstraint,
+                          localSymbols,
+                          reduceBeforeSimplification = true)
 
     newUnitClause(rs = nucleus.head._1,
                   constraint = simplifiedConstraint,
@@ -249,10 +249,10 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
     // simplification. simplify again so that the stored constraint
     // is fully simplified
     val storedConstraint =
-      simplifyConstraint(predLocalConstraint,
-                         (predLocalConstraint.constants --
-                            rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
-                         reduceBeforeSimplification = true)
+      simplifier.simplify(predLocalConstraint,
+                          (predLocalConstraint.constants --
+                             rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
+                          reduceBeforeSimplification = true)
     // a stored constraint carries at most one atom per function application
     Debug.assertPost(Symex.AC, {
       val lits = storedConstraint.predConj.positiveLits

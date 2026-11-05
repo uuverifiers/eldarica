@@ -43,23 +43,9 @@ import ap.types.{Sort, SortedPredicate}
 import scala.collection.immutable.BitSet
 
 /**
- * Takes a constraint and a set of local symbols that can safely be eliminated.
- * If reduceBeforeSimplification is true, the symbol factory's reducer will
- * be first applied to the constraint before attempting simplification.
+ * Simplification of constraints, based on ConjunctEliminator.
  */
-trait ConstraintSimplifier {
-  def simplifyConstraint(constraint                 : Conjunction,
-                         localSymbols               : Set[Term],
-                         reduceBeforeSimplification : Boolean)
-           (implicit symex_sf : SymexSymbolFactory) : Conjunction
-
-  def simplifierStats : Option[String] = None
-}
-
-/**
- * An implementation of ConstraintSimplifier based on ConjunctEliminator.
- */
-trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
+class ConstraintSimplifier(implicit symex_sf : SymexSymbolFactory) {
 
   // logging
   private val collectStats  = lazabs.GlobalParameters.get.log
@@ -68,9 +54,9 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   private var simplifyNanos = 0L
   private var inSimplify    = false
 
-  protected def simplifierTimeNanos : Long = simplifyNanos
+  def timeNanos : Long = simplifyNanos
 
-  override def simplifierStats : Option[String] =
+  def stats : Option[String] =
     if (!collectStats) None
     else Some(s"simplifier: $stageRounds rounds: " +
               (stageFires map { case (name, n) => s"$name $n" } mkString ", "))
@@ -672,8 +658,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
 
   private def runStages(constraint   : Conjunction,
                         localSymbols : Set[Term],
-                        order        : TermOrder)
-             (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
+                        order        : TermOrder) : Conjunction = {
     val stages : List[(String, Conjunction => Conjunction)] = List(
       ("recompose",  recomposeExtracts(_, order)), // before linearize
       ("linearize",  linearizeConstantSlices(_, order)),
@@ -697,10 +682,15 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
     run(constraint)
   }
 
-  override def simplifyConstraint(constraint                 : Conjunction,
-                                  localSymbols               : Set[Term],
-                                  reduceBeforeSimplification : Boolean)
-                    (implicit symex_sf : SymexSymbolFactory) : Conjunction =
+  /**
+   * Takes a constraint and a set of local symbols that can safely be
+   * eliminated. If reduceBeforeSimplification is true, the symbol factory's
+   * reducer will be first applied to the constraint before attempting
+   * simplification.
+   */
+  def simplify(constraint                 : Conjunction,
+               localSymbols               : Set[Term],
+               reduceBeforeSimplification : Boolean) : Conjunction =
     if (!collectStats || inSimplify)
       simplifyConstraintImpl(constraint, localSymbols,
                              reduceBeforeSimplification)
@@ -718,7 +708,7 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
   private def simplifyConstraintImpl(constraint                 : Conjunction,
                                      localSymbols               : Set[Term],
                                      reduceBeforeSimplification : Boolean)
-                    (implicit symex_sf : SymexSymbolFactory) : Conjunction = {
+      : Conjunction = {
     val reducedConstraint =
       if (reduceBeforeSimplification)
         symex_sf.reducer(Conjunction.TRUE)(constraint)
@@ -766,8 +756,8 @@ trait ConstraintSimplifierUsingConjunctEliminator extends ConstraintSimplifier {
         sortedLocalSymbols take numToInstantiate)(reducedQuanF.order)
 
       if (isQuantifierFreeConjunction(instantiated))
-        simplifyConstraint(instantiated, localSymbols,
-                           reduceBeforeSimplification = false)
+        simplify(instantiated, localSymbols,
+                 reduceBeforeSimplification = false)
       else
         runStage("dropImplied", dropImpliedInEqs(_, instantiated.order),
                  instantiated)
