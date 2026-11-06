@@ -3,7 +3,6 @@ package lazabs.horn.symex
 import ap.api.SimpleAPI
 import ap.parser.IExpression._
 import ap.theories.bitvectors.ModuloArithmetic._
-import lazabs.GlobalParameters
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.CHCResultMatchers
 import org.scalatest.freespec.AnyFreeSpec
@@ -50,17 +49,11 @@ class SubsumptionCheckerTests
     }
   }
 
-  // full checks, so that the order of the states does not depend on time
-  private def solveWithDepth(clauses : Seq[HornClauses.Clause], depth : Int) = {
-    val params = GlobalParameters.get.clone
-    params.symexStateChecks = GlobalParameters.SymexStateChecks.Full
-    GlobalParameters.withValue(params) {
-      new BreadthFirstForwardSymex(clauses, maxDepth = Some(depth)).solve()
-    }
-  }
+  private def solveWithDepth(clauses : Seq[HornClauses.Clause], depth : Int) =
+    new BreadthFirstForwardSymex(clauses, maxDepth = Some(depth)).solve()
 
-  // in each test, the depth bound ends the search inconclusive unless the
-  // last state of p that the bound allows is found subsumed or a duplicate
+  // in each test, the search is inconclusive at the depth bound unless the
+  // last state of p within the bound is found subsumed or a duplicate
 
   "Conjuncts unconnected to the arguments are dropped from feasible states" in {
     // the fact is stored with its unconnected conjunct, so only the second

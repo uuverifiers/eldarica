@@ -59,10 +59,6 @@ object GlobalParameters {
     val None, Template, General = Value
   }
 
-  object SymexStateChecks extends Enumeration {
-    val Full, Cheap, None = Value
-  }
-
   object SymexChoiceOrder extends Enumeration {
     val Guided, FirstInFirstOut = Value
   }
@@ -110,7 +106,6 @@ class GlobalParameters extends Cloneable {
   var horn = false
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
-  var symexStateChecks = GlobalParameters.SymexStateChecks.Full
   var symexChoiceOrder = GlobalParameters.SymexChoiceOrder.Guided
   var sldAtomSelection =
     GlobalParameters.SLDAtomSelection.FewestCoveringAncestors
@@ -218,7 +213,6 @@ class GlobalParameters extends Cloneable {
     that.global = this.global
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
-    that.symexStateChecks = this.symexStateChecks
     that.symexChoiceOrder = this.symexChoiceOrder
     that.sldAtomSelection = this.sldAtomSelection
     that.disjunctive = this.disjunctive
@@ -382,16 +376,6 @@ object Main {
       case "-sym" :: rest =>
         symexEngine = GlobalParameters.SymexEngine.BreadthFirstForward
         arguments(rest)
-      case opt :: rest if (opt startsWith "-symStateChecks:") =>
-          symexStateChecks = opt.drop("-symStateChecks:".length) match {
-            case "full"  => GlobalParameters.SymexStateChecks.Full
-            case "cheap" => GlobalParameters.SymexStateChecks.Cheap
-            case "none"  => GlobalParameters.SymexStateChecks.None
-            case _ =>
-              println("Unknown argument for -symStateChecks:, using full.")
-              GlobalParameters.SymexStateChecks.Full
-          }
-          arguments(rest)
       case opt :: rest if (opt startsWith "-symChoiceOrder:") =>
           symexChoiceOrder = opt.drop("-symChoiceOrder:".length) match {
             case "guided" => GlobalParameters.SymexChoiceOrder.Guided
@@ -628,10 +612,6 @@ object Main {
           "                      sld: backward by SLD resolution}\n" +
           " -symDepth:n       Set a max depth for symbolic execution; if the search\n" +
           "                     is cut at that depth, the answer is unknown\n" +
-          " -symStateChecks:x How newly derived non-goal states are checked in\n" + 
-          "                   symbolic execution (bfs and sld)\n" +
-          "                     {full: long t/o (default), cheap: short t/o,\n" +
-          "                      none: not checked}\n" +
           " -symChoiceOrder:x Order in which resolution choices are taken in\n" +
           "                   symbolic execution (bfs and sld)\n" +
           "                     {guided: cheapest first by estimated cost (default),\n" +
@@ -641,7 +621,7 @@ object Main {
           "                      predicate, then newest (default),\n" +
           "                      newest: added last as in Prolog,\n" +
           "                      oldest: added first; atoms added by one\n" +
-          "                      resolution step go in body order}\n" +
+          "                      resolution step are in body order}\n" +
 //          " -glb\t\tUse the global approach to solve Horn clauses (outdated)\n" +
 //	  "\n" +
 //          " -abstract\tUse interpolation abstraction for better interpolants (default)\n" +

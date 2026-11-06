@@ -88,44 +88,24 @@ class FeasibilityChecker(prover     : SimpleAPI,
 
   val initialBudgetMs  : Long = 2000
   val budgetGrowthRate : Long = 2
-  val cheapBudgetMs    : Long = 5
 
   private val collectCheckTimes = lazabs.GlobalParameters.get.log
   private val stateCheckBackoff = new CheckBackoff[NormClause]
 
-  /**
-   * Checks the constraint within budgetMs and counts the result. If the
-   * constraint does not end the search when feasible, -symStateChecks
-   * decides how it is checked, and the checks of states derived with
-   * resolvedClause back off while they find the states feasible.
-   */
   def checkResolvent(
       constraint           : Conjunction,
       endsSearchIfFeasible : Boolean,
       budgetMs             : Long,
       resolvedClause       : NormClause) : FeasibilityCheckResult = {
     import FeasibilityCheckResult._
-    import lazabs.GlobalParameters.SymexStateChecks
-    val checkBudgetMs =
-      if (endsSearchIfFeasible) Some(budgetMs)
-      else lazabs.GlobalParameters.get.symexStateChecks match {
-        case SymexStateChecks.Full  => Some(budgetMs)
-        case SymexStateChecks.Cheap =>
-          // use a cheap budget for the first feasibility check
-          if (budgetMs == initialBudgetMs) Some(cheapBudgetMs)
-          else Some(budgetMs)
-        case SymexStateChecks.None  => None
-      }
     val checkStart = if (collectCheckTimes) System.nanoTime else 0L
-    val checkResult = checkBudgetMs match {
-      case Some(_) if !endsSearchIfFeasible && !constraint.isFalse &&
-                      (stateCheckBackoff isSkipped resolvedClause) =>
-        Skipped
-      case Some(millis) => check(constraint, Some(millis))
-      case None => if (constraint.isFalse) Infeasible else Skipped
-    }
+    val checkResult =
+      if (!endsSearchIfFeasible && !constraint.isFalse &&
+          (stateCheckBackoff isSkipped resolvedClause)) Skipped
+      else check(constraint, Some(budgetMs))
     checkResult match {
       case Feasible | Infeasible if !endsSearchIfFeasible =>
+        // nothing is pruned when the state is found feasible
         stateCheckBackoff.recordCheck(resolvedClause,
                                       fruitless = checkResult == Feasible)
       case _ =>

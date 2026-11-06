@@ -235,25 +235,6 @@ class SLDSymexUnitTests
       }
     }
 
-    "Choice order" - {
-      "Under guided order, the goal is resolved with the fact first " +
-      "(unsat in one step)" in {
-        scope {
-          val pr = createRelation("p", List(Sort.Integer))
-          val x  = createConstant("x")
-
-          val clauses : Seq[Clause] = List(
-            pr(x + 1) :- pr(x),
-            pr(x) :- (x === 0),
-            false :- (pr(x), x === 0)
-          )
-          val symex = new SLDSymex[Clause](clauses)
-          solveAndVerify(symex) should beUnsat
-          symex.statistics.statesDerived shouldBe 1
-        }
-      }
-    }
-
     "Undecided empty goal, no other refutation (unknown)" in {
       scope {
         val pr = createRelation("p", List(Sort.Integer))

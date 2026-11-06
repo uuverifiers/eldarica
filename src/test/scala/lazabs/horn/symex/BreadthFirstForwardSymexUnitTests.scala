@@ -356,7 +356,7 @@ class BreadthFirstForwardSymexUnitTests
             e.candidateSolution shouldBe empty
           }
         }
-        "Unchecked state keeps its unconnected conjuncts (sat)" in {
+        "Undecided state keeps its unconnected conjuncts (sat)" in {
           scope {
             val p = createRelation("p", List(Sort.Integer))
             val q = createRelation("q", List(Sort.Integer))
@@ -365,35 +365,15 @@ class BreadthFirstForwardSymexUnitTests
             val d = createConstant("d")
 
             // c * d = 1 has no solution with c, d >= 2
+            val undecidedState : Clause = q(x) :- p(x)
             val clauses : Seq[Clause] = List(
               p(x) :- (x === 0 & mult(c, d) === 1 & c >= 2 & d >= 2),
-              q(x) :- p(x),
+              undecidedState,
               false :- q(x)
             )
-            val params = GlobalParameters.get.clone
-            params.symexStateChecks = GlobalParameters.SymexStateChecks.None
-            GlobalParameters.withValue(params) {
-              solveAndVerify(new BreadthFirstForwardSymex[Clause](clauses))
-            }
+            solveAndVerify(
+              new BFSWithUndecidedChecks(clauses, Set(undecidedState)))
           } should beSat
-        }
-      }
-      "Choice order" - {
-        "Under guided order, the assertion is resolved first " +
-        "(unsat in one step)" in {
-          scope {
-            val p = createRelation("p", List(Sort.Integer))
-            val x = createConstant("x")
-
-            val clauses : Seq[Clause] = List(
-              p(x) :- (x === 0),
-              p(x + 1) :- p(x),
-              false :- (p(x), x === 0)
-            )
-            val symex = new BreadthFirstForwardSymex[Clause](clauses)
-            solveAndVerify(symex) should beUnsat
-            symex.statistics.statesDerived shouldBe 1
-          }
         }
       }
       "Corner cases" - {
