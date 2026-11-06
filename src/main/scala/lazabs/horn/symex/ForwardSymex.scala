@@ -242,17 +242,9 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
                              numSymbols = otherConstantsToRewrite.size,
                              occ = 0)).toMap
 
-    val predLocalConstraint =
+    val storedConstraint =
       ConstantSubst(differentOccSubstMap ++ constantSubstMap, symex_sf.order)(
         constraint)
-    // resolving the disjunctions of a constraint can enable further
-    // simplification. simplify again so that the stored constraint
-    // is fully simplified
-    val storedConstraint =
-      simplifier.simplify(predLocalConstraint,
-                          (predLocalConstraint.constants --
-                             rs.arguments(0)).map(_.asInstanceOf[Term]).toSet,
-                          reduceBeforeSimplification = true)
     // a stored constraint carries at most one atom per function application
     Debug.assertPost(Symex.AC, {
       val lits = storedConstraint.predConj.positiveLits
@@ -280,6 +272,13 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
     else normalizedUnitClause(clause.rs, constraint, clause.isPositive)
   }
 
+  private def simplified(rs         : RelationSymbol,
+                         constraint : Conjunction) : Conjunction =
+    simplifier.simplify(constraint,
+                        (constraint.constants -- rs.arguments(0))
+                          .map(_.asInstanceOf[Term]).toSet,
+                        reduceBeforeSimplification = true)
+
   protected def toUnitClause(normClause: NormClause): UnitClause = {
     normClausesConvertedToUnitClauses get normClause match {
       case Some(unitClause) => unitClause
@@ -288,13 +287,13 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
           case NormClause(constraint, Nil, (rel, 0)) // a fact
               if rel.pred != HornClauses.FALSE =>
             newUnitClause(rel,
-                          constraint,
+                          simplified(rel, constraint),
                           isPositive = true,
                           headOccInConstraint = 0)
           case NormClause(constraint, Seq((rel, 0)), (headRel, 0))
               if headRel.pred == HornClauses.FALSE =>
             newUnitClause(rel,
-                          constraint,
+                          simplified(rel, constraint),
                           isPositive = false,
                           headOccInConstraint = 0)
           case _ =>
