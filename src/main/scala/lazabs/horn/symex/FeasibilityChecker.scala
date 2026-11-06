@@ -84,7 +84,7 @@ class CheckBackoff[K] {
 class FeasibilityChecker(prover     : SimpleAPI,
                          statistics : SymexStatistics)(
     implicit symex_sf : SymexSymbolFactory) {
-  import FeasibilityChecker.ImpliedBounds
+  import FeasibilityChecker.{ClauseIntervals, ImpliedBounds}
 
   val initialBudgetMs  : Long = 2000
   val budgetGrowthRate : Long = 2
@@ -147,13 +147,18 @@ class FeasibilityChecker(prover     : SimpleAPI,
     if (isTrueAtGuessedPoint(constraint)) Some(FeasibilityCheckResult.Feasible)
     else None
 
-  private val bodyBoundsOf = new MHashMap[NormClause, Seq[ImpliedBounds]]
-  private val headBoundsOf = new MHashMap[NormClause, ImpliedBounds]
+  private val bodyIntervalsOf = new MHashMap[NormClause, ClauseIntervals]
+  private val headIntervalsOf = new MHashMap[NormClause, ClauseIntervals]
+  private val argBoundsOf     =
+    new MHashMap[(Conjunction, Seq[ConstantTerm]), ImpliedBounds]
 
   /**
    * True if the constraint of the resolvent of a resolution choice is false,
-   * for instance due to disjoint bounds.
-   * E.g., goal atom p(x) with x >= 6 and clause p(y) :- y <= 5.
+   * for instance due to disjoint bounds or a clause equation that cannot
+   * hold within the bounds.
+   * E.g., goal atom p(x) with x >= 6 and clause p(y) :- y <= 5, or states
+   * q(x) with x <= 2 and r(y) with y >= 5 and clause s(z) :- q(x), r(y),
+   * y = x + 1.
    * A state atom is given as a constraint and the arguments of the atom in it. 
    * The state atoms are resolved with the body atoms of the clause, in order, 
    * or with its head.
@@ -162,27 +167,26 @@ class FeasibilityChecker(prover     : SimpleAPI,
       clause     : NormClause,
       stateAtoms : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean =
     isInfeasibleChoice(
-      bodyBoundsOf.getOrElseUpdate(
-        clause,
-        for (syms <- clause.bodySyms)
-          yield ImpliedBounds(clause.constraint, syms)),
+      bodyIntervalsOf.getOrElseUpdate(
+        clause, new ClauseIntervals(clause.constraint, clause.bodySyms)),
       stateAtoms)
 
   def isInfeasibleChoiceOnHead(
       clause    : NormClause,
       stateAtom : (Conjunction, Seq[ConstantTerm])) : Boolean =
     isInfeasibleChoice(
-      Seq(headBoundsOf.getOrElseUpdate(
-            clause, ImpliedBounds(clause.constraint, clause.headSyms))),
+      headIntervalsOf.getOrElseUpdate(
+        clause,
+        new ClauseIntervals(clause.constraint, Seq(clause.headSyms))),
       Seq(stateAtom))
 
   private def isInfeasibleChoice(
-      clauseAtomBounds : Seq[ImpliedBounds],
-      stateAtoms       : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean = {
-    val isInfeasible = (clauseAtomBounds zip stateAtoms) exists {
-      case (bounds, (constraint, args)) =>
-        bounds disjointFrom ImpliedBounds(constraint, args)
-    }
+      clauseIntervals : ClauseIntervals,
+      stateAtoms      : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean = {
+    val isInfeasible = clauseIntervals isFalseWithin (
+      for (stateAtom @ (constraint, args) <- stateAtoms)
+        yield argBoundsOf.getOrElseUpdate(stateAtom,
+                                          ImpliedBounds(constraint, args)))
     if (isInfeasible)
       statistics.choicesPrunedWithoutProver += 1
     isInfeasible
@@ -303,14 +307,7 @@ object FeasibilityChecker {
    */
   private class ImpliedBounds private (
       val lower : IndexedSeq[Option[IdealInt]],
-      val upper : IndexedSeq[Option[IdealInt]]) {
-    // no value lies within both at some position
-    def disjointFrom(that : ImpliedBounds) : Boolean =
-      lower.indices exists { i =>
-        lower(i).exists(l => that.upper(i).exists(l > _)) ||
-          that.lower(i).exists(l => upper(i).exists(l > _))
-      }
-  }
+      val upper : IndexedSeq[Option[IdealInt]])
 
   private object ImpliedBounds {
     def apply(constraint : Conjunction,
@@ -329,5 +326,99 @@ object FeasibilityChecker {
         }
       new ImpliedBounds(bounds.map(_._1), bounds.map(_._2))
     }
+  }
+
+  /**
+   * The bounds and linear conjuncts of a clause constraint
+   * for ruling out resolution choices without a prover call.
+   * E.g., for s(z) :- q(x), r(y), y = x + 1, resolved with states whose
+   * arguments are bounded by x <= 2 and y >= 5: y = x + 1 is at most 3,
+   * so the equation cannot hold.
+   */
+  private class ClauseIntervals(constraint : Conjunction,
+                                atomSyms   : Seq[Seq[ConstantTerm]]) {
+    private type Bound = Option[IdealInt]
+
+    private val positionOf : Map[ConstantTerm, (Int, Int)] =
+      (for ((syms, i) <- atomSyms.zipWithIndex; (c, j) <- syms.zipWithIndex)
+         yield c -> (i, j)).toMap
+
+    private val clauseBoundsOf : Map[ConstantTerm, (Bound, Bound)] = {
+      val symbols = constraint.constants.toIndexedSeq
+      val bounds  = ImpliedBounds(constraint, symbols)
+      (for (k <- symbols.indices)
+         yield symbols(k) -> (bounds.lower(k), bounds.upper(k))).toMap
+    }
+
+    private def isOverAtomSyms(lc : LinearCombination) : Boolean =
+      lc.variables.isEmpty && (lc.constants exists positionOf.contains)
+
+    private val arithConj    = constraint.arithConj
+    private val equations    = arithConj.positiveEqs.toIndexedSeq filter
+                                 isOverAtomSyms
+    private val inequalities = arithConj.inEqs.toIndexedSeq filter
+                                 isOverAtomSyms
+    private val disequations = arithConj.negativeEqs.toIndexedSeq filter
+                                 isOverAtomSyms
+
+    /**
+     * `atomArgBounds`: the bounds of the arguments that each atom is
+     * resolved with, in atom order.
+     */
+    def isFalseWithin(atomArgBounds : Seq[ImpliedBounds]) : Boolean = {
+      def boundsOf(c : ConstantTerm) : (Bound, Bound) = {
+        val (lower, upper) = clauseBoundsOf.getOrElse(c, (None, None))
+        positionOf get c match {
+          case Some((i, j)) =>
+            (tighter(lower, atomArgBounds(i).lower(j), _ max _),
+             tighter(upper, atomArgBounds(i).upper(j), _ min _))
+          case None =>
+            (lower, upper)
+        }
+      }
+
+      def rangeOf(lc : LinearCombination) : (Bound, Bound) = {
+        var lower : Bound = Some(IdealInt.ZERO)
+        var upper : Bound = Some(IdealInt.ZERO)
+        val pairs = lc.pairIterator
+        while (pairs.hasNext && (lower.isDefined || upper.isDefined))
+          pairs.next match {
+            case (coeff, OneTerm) =>
+              lower = lower map (_ + coeff)
+              upper = upper map (_ + coeff)
+            case (coeff, c : ConstantTerm) =>
+              val (l, u) = boundsOf(c)
+              val (scaledLower, scaledUpper) =
+                if (coeff.signum > 0) (l map (_ * coeff), u map (_ * coeff))
+                else (u map (_ * coeff), l map (_ * coeff))
+              lower = for (x <- lower; y <- scaledLower) yield x + y
+              upper = for (x <- upper; y <- scaledUpper) yield x + y
+            case _ =>
+              lower = None
+              upper = None
+          }
+        (lower, upper)
+      }
+
+      (positionOf.keysIterator exists { c =>
+         val (lower, upper) = boundsOf(c)
+         lower exists (l => upper exists (l > _))
+       }) ||
+      (equations exists { lc =>
+         val (lower, upper) = rangeOf(lc)
+         (lower exists (_.signum > 0)) || (upper exists (_.signum < 0))
+       }) ||
+      (inequalities exists (lc => rangeOf(lc)._2 exists (_.signum < 0))) ||
+      (disequations exists (lc =>
+         rangeOf(lc) == ((Some(IdealInt.ZERO), Some(IdealInt.ZERO)))))
+    }
+
+    private def tighter(a    : Bound,
+                        b    : Bound,
+                        pick : (IdealInt, IdealInt) => IdealInt) : Bound =
+      (a, b) match {
+        case (Some(x), Some(y)) => Some(pick(x, y))
+        case _                  => a orElse b
+      }
   }
 }
