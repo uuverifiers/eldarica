@@ -58,7 +58,7 @@ object Symex {
 
 abstract class Symex[CC](iClauses:    Iterable[CC])(
     implicit clause2ConstraintClause: CC => ConstraintClause
-) extends FeasibilityChecker {
+) {
 
   import Symex._
 
@@ -149,6 +149,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val statistics = new SymexStatistics
 
+  lazy val feasibilityChecker = new FeasibilityChecker(prover, statistics)
+
   val quantifierEliminationTimeout = 5000
 
   /**
@@ -203,7 +205,7 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
       for ((pred, _) <- atoms) yield IAtom(pred, Nil)
     } else {
       prover.checkSat(block = false)
-      proverStatusWithin(budgetMs = None) match {
+      feasibilityChecker.proverStatusWithin(budgetMs = None) match {
         case ProverStatus.Sat =>
           prover.withCompleteModel { model =>
             for ((pred, args) <- atoms) yield

@@ -119,7 +119,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
   private val subsumptionChecker = new SubsumptionChecker[GoalClause](
     GoalSubsumption.subsumptionTestFor(_),
     new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
-                         checkFeasibility))
+                         feasibilityChecker.check))
 
   private val collectStats = lazabs.GlobalParameters.get.log
   private var factoringTests          = 0L
@@ -196,12 +196,13 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                   "\n  =\n\t" + newGoal)
 
         val endsSearchIfFeasible = newGoal.atoms.isEmpty
-        val checkResult = checkFeasibilityWithinBudget(
+        val checkResult = feasibilityChecker.checkResolvent(
           newGoal.constraint, endsSearchIfFeasible, budgetMs, clause)
         statistics.statesDerived += 1
         checkResult match {
           case BudgetExpired =>
-            val longerBudgetMs = budgetMs * budgetGrowthRate
+            val longerBudgetMs =
+              budgetMs * feasibilityChecker.budgetGrowthRate
             printInfo("  (Check budget expired, postponed with " +
                       longerBudgetMs + " ms.)")
             enqueue(choice.copy(budgetMs = longerBudgetMs))
@@ -242,7 +243,8 @@ class SLDSymex[CC](clauses         : Iterable[CC],
              if result == null &&
                 inputGoal.head._1.pred == HornClauses.FALSE &&
                 inputGoal.body.isEmpty)
-          checkFeasibility(inputGoal.constraint, budgetMs = None) match {
+          feasibilityChecker.check(inputGoal.constraint,
+                                   budgetMs = None) match {
             case Feasible   =>
               result = Right(() =>
                 buildCounterExample(FromInputGoal(inputGoal)))
@@ -299,10 +301,11 @@ class SLDSymex[CC](clauses         : Iterable[CC],
         val (rs, occ) = factoredGoal.atoms(atomIndex)
         val selectedAtom = (factoredGoal.constraint, rs.arguments(occ))
         for (clause <- clauses
-             if !isInfeasibleChoiceOnHead(clause, selectedAtom))
+             if !feasibilityChecker.isInfeasibleChoiceOnHead(clause,
+                                                             selectedAtom))
           enqueue(ResolutionChoice(factoredGoal, unfoldCounts,
                                    factoredAtomOrigins, atomIndex, clause,
-                                   initialBudgetMs))
+                                   feasibilityChecker.initialBudgetMs))
       }
     }
   }

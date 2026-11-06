@@ -20,17 +20,20 @@ class SLDSymexUnitTests
 
   ap.util.Debug.enableAllAssertions(true)
 
-  class GivingUpSymex(clauses : Seq[Clause])
+  class SLDWithUndecidedChecks(clauses : Seq[Clause])
       extends SLDSymex[Clause](clauses) {
     private var checks = 0
 
-    override private[symex] def checkFeasibility(constraint : Conjunction,
-                                                 budgetMs   : Option[Long])
-        : FeasibilityCheckResult = {
-      checks += 1
-      assert(checks <= 100, "the search does not end")
-      FeasibilityCheckResult.Undecided(ProverStatus.OutOfMemory)
-    }
+    override lazy val feasibilityChecker =
+      new FeasibilityChecker(prover, statistics) {
+        override def check(constraint : Conjunction,
+                           budgetMs   : Option[Long])
+            : FeasibilityCheckResult = {
+          checks += 1
+          assert(checks <= 100, "the search does not end")
+          FeasibilityCheckResult.Undecided(ProverStatus.OutOfMemory)
+        }
+      }
   }
 
   SimpleAPI.withProver { p =>
@@ -261,7 +264,7 @@ class SLDSymexUnitTests
           false :- (pr(x), x >= 0)
         )
         val e = the [InconclusiveException] thrownBy
-          new GivingUpSymex(clauses).solve()
+          new SLDWithUndecidedChecks(clauses).solve()
         e.candidateSolution shouldBe empty
       }
     }

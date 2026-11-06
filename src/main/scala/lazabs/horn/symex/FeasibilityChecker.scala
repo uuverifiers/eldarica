@@ -81,12 +81,10 @@ class CheckBackoff[K] {
  * Feasibility checks of constraints: decided without a prover call where
  * possible, otherwise by the prover within a budget.
  */
-trait FeasibilityChecker {
+class FeasibilityChecker(prover     : SimpleAPI,
+                         statistics : SymexStatistics)(
+    implicit symex_sf : SymexSymbolFactory) {
   import FeasibilityChecker.ImpliedBounds
-
-  val prover     : SimpleAPI
-  val symex_sf   : SymexSymbolFactory
-  val statistics : SymexStatistics
 
   val initialBudgetMs  : Long = 2000
   val budgetGrowthRate : Long = 2
@@ -101,7 +99,7 @@ trait FeasibilityChecker {
    * decides how it is checked, and the checks of states derived with
    * resolvedClause back off while they find the states feasible.
    */
-  protected def checkFeasibilityWithinBudget(
+  def checkResolvent(
       constraint           : Conjunction,
       endsSearchIfFeasible : Boolean,
       budgetMs             : Long,
@@ -123,7 +121,7 @@ trait FeasibilityChecker {
       case Some(_) if !endsSearchIfFeasible && !constraint.isFalse &&
                       (stateCheckBackoff isSkipped resolvedClause) =>
         Skipped
-      case Some(millis) => checkFeasibility(constraint, Some(millis))
+      case Some(millis) => check(constraint, Some(millis))
       case None => if (constraint.isFalse) Infeasible else Skipped
     }
     checkResult match {
@@ -138,9 +136,8 @@ trait FeasibilityChecker {
     checkResult
   }
 
-  private[symex] def checkFeasibility(constraint : Conjunction,
-                                      budgetMs   : Option[Long])
-    : FeasibilityCheckResult = {
+  def check(constraint : Conjunction,
+            budgetMs   : Option[Long]) : FeasibilityCheckResult = {
     import FeasibilityCheckResult._
     if (constraint.isTrue) {
       Feasible
@@ -181,7 +178,7 @@ trait FeasibilityChecker {
    * The state atoms are resolved with the body atoms of the clause, in order, 
    * or with its head.
    */
-  protected def isInfeasibleChoiceOnBody(
+  def isInfeasibleChoiceOnBody(
       clause     : NormClause,
       stateAtoms : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean =
     isInfeasibleChoice(
@@ -191,7 +188,7 @@ trait FeasibilityChecker {
           yield ImpliedBounds(clause.constraint, syms)),
       stateAtoms)
 
-  protected def isInfeasibleChoiceOnHead(
+  def isInfeasibleChoiceOnHead(
       clause    : NormClause,
       stateAtom : (Conjunction, Seq[ConstantTerm])) : Boolean =
     isInfeasibleChoice(
@@ -218,7 +215,7 @@ trait FeasibilityChecker {
    * budget runs out first. The timeout checker is called between polls, so
    * that the run can time out or be stopped during a long check.
    */
-  protected def proverStatusWithin(budgetMs : Option[Long])
+  def proverStatusWithin(budgetMs : Option[Long])
     : ProverStatus.Value = {
     val deadline = budgetMs map (System.currentTimeMillis + _)
     def nextPollMs = deadline match {

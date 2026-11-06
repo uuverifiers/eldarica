@@ -78,7 +78,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   private val subsumptionChecker = new SubsumptionChecker[UnitClause](
     subsumptionTestFor,
-    new UnionSubsumption(singleAtomConstraint, checkFeasibility))
+    new UnionSubsumption(singleAtomConstraint, feasibilityChecker.check))
 
   private val unfoldCountsOf = new MHashMap[UnitClause, UnfoldCounts]
 
@@ -204,7 +204,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             val isDuplicate = !isGoal && (unitClauseDB isDuplicate newElectron)
             val checkResult =
               if (isDuplicate) Skipped
-              else checkFeasibilityWithinBudget(
+              else feasibilityChecker.checkResolvent(
                 newElectron.constraint, isGoal, budgetMs, nucleus)
             statistics.statesDerived += 1
             val storedElectron =
@@ -215,7 +215,8 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             if (checkResult == BudgetExpired) {
               // the check gets another turn later with more time, so the
               // rest of the search goes first
-              val longerBudgetMs = budgetMs * budgetGrowthRate
+              val longerBudgetMs =
+                budgetMs * feasibilityChecker.budgetGrowthRate
               printInfo("\n  (Check budget expired, postponed with " +
                         longerBudgetMs + " ms.)")
               enqueue(nucleus, electrons, longerBudgetMs)
@@ -270,7 +271,8 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
                                    false)
                   } else toUnitClause(clause)
                 unitClauseDB.add(cuc, (clause, Nil))
-                checkFeasibility(cuc.constraint, budgetMs = None) match {
+                feasibilityChecker.check(cuc.constraint,
+                                         budgetMs = None) match {
                   case Feasible   =>
                     result = Right(() => buildCounterExample(cuc))
                   case Infeasible =>
@@ -323,11 +325,11 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList)) {
         timeoutChecker()
-        if (!isInfeasibleChoiceOnBody(
+        if (!feasibilityChecker.isInfeasibleChoiceOnBody(
               nucleus,
               choice map (electron =>
                 (electron.constraint, electron.rs.arguments(0)))))
-          enqueue(nucleus, choice, initialBudgetMs)
+          enqueue(nucleus, choice, feasibilityChecker.initialBudgetMs)
       }
     }
 

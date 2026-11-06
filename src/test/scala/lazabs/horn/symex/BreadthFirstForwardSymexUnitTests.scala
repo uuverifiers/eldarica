@@ -21,32 +21,39 @@ class BreadthFirstForwardSymexUnitTests
     with CHCResultMatchers
     with SymexResultVerification {
 
-  class GivingUpSymex(clauses : Seq[Clause], givingUp : Set[Clause])
+  class BFSWithUndecidedChecks(
+      clauses                        : Seq[Clause],
+      clausesWithUndecidedResolvents : Set[Clause])
       extends BreadthFirstForwardSymex[Clause](clauses) {
-    private var resolvedClause : Option[Clause] = None
     private var checks = 0
 
-    override protected def hyperResolve(nucleus   : NormClause,
-                                        electrons : Seq[UnitClause])
-        : UnitClause = {
-      resolvedClause = Some(normClauseToCC(nucleus))
-      super.hyperResolve(nucleus, electrons)
-    }
+    override lazy val feasibilityChecker =
+      new FeasibilityChecker(prover, statistics) {
+        private var isUndecided = false
 
-    override private[symex] def checkFeasibility(constraint : Conjunction,
-                                                 budgetMs   : Option[Long])
-        : FeasibilityCheckResult = {
-      checks += 1
-      assert(checks <= 100, "the search does not end")
-      val clause = resolvedClause
-      resolvedClause = None
-      clause match {
-        case Some(c) if givingUp contains c =>
-          FeasibilityCheckResult.Undecided(ProverStatus.OutOfMemory)
-        case _ =>
-          super.checkFeasibility(constraint, budgetMs)
+        override def checkResolvent(
+            constraint           : Conjunction,
+            endsSearchIfFeasible : Boolean,
+            budgetMs             : Long,
+            resolvedClause       : NormClause) : FeasibilityCheckResult = {
+          isUndecided = clausesWithUndecidedResolvents contains
+                          normClauseToCC(resolvedClause)
+          try super.checkResolvent(
+                constraint, endsSearchIfFeasible, budgetMs, resolvedClause)
+          finally isUndecided = false
+        }
+
+        override def check(constraint : Conjunction,
+                           budgetMs   : Option[Long])
+            : FeasibilityCheckResult = {
+          checks += 1
+          assert(checks <= 100, "the search does not end")
+          if (isUndecided)
+            FeasibilityCheckResult.Undecided(ProverStatus.OutOfMemory)
+          else
+            super.check(constraint, budgetMs)
+        }
       }
-    }
   }
 
   SimpleAPI.withProver { p =>
@@ -306,7 +313,7 @@ class BreadthFirstForwardSymexUnitTests
             val params = GlobalParameters.get.clone
             params.timeoutChecker = () => throw lazabs.Main.TimeoutException
             GlobalParameters.withValue(params) {
-              the [Exception] thrownBy symex.checkFeasibility(
+              the [Exception] thrownBy symex.feasibilityChecker.check(
                 symex.normClauses.head._1.constraint, budgetMs = None
               ) shouldBe lazabs.Main.TimeoutException
             }
@@ -322,13 +329,14 @@ class BreadthFirstForwardSymexUnitTests
             val q = createRelation("q", List(Sort.Integer))
             val x = createConstant("x")
 
-            val givenUpState : Clause = q(x) :- p(x)
+            val undecidedState : Clause = q(x) :- p(x)
             val clauses : Seq[Clause] = List(
               p(x) :- (x === 0),
-              givenUpState,
+              undecidedState,
               false :- q(x)
             )
-            val symex = new GivingUpSymex(clauses, Set(givenUpState))
+            val symex =
+              new BFSWithUndecidedChecks(clauses, Set(undecidedState))
             solveAndVerify(symex)
           } should beUnsat
         }
@@ -337,12 +345,13 @@ class BreadthFirstForwardSymexUnitTests
             val p = createRelation("p", List(Sort.Integer))
             val x = createConstant("x")
 
-            val givenUpGoal : Clause = false :- (p(x), x >= 0)
+            val undecidedGoal : Clause = false :- (p(x), x >= 0)
             val clauses : Seq[Clause] = List(
               p(x) :- (x === 0),
-              givenUpGoal
+              undecidedGoal
             )
-            val symex = new GivingUpSymex(clauses, Set(givenUpGoal))
+            val symex =
+              new BFSWithUndecidedChecks(clauses, Set(undecidedGoal))
             val e = the [InconclusiveException] thrownBy symex.solve()
             e.candidateSolution shouldBe empty
           }
