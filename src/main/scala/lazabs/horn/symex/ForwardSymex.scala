@@ -64,7 +64,7 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
           val cuc = toUnitClause(normClause)
           (cuc, (cuc, normClause))
         }).unzip
-    (facts.distinct, factToNormClause.toMap)
+    (facts.distinct filterNot (_.constraint.isFalse), factToNormClause.toMap)
   }
 
   val (goals: Seq[UnitClause], goalToNormClause: Map[UnitClause, NormClause]) = {
