@@ -40,7 +40,8 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.Util.Dag
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
+import collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                           LinkedHashMap}
 
 object Symex {
   private[symex] object AC extends ap.util.Debug.ASSERTION_CATEGORY
@@ -103,12 +104,14 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
     (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
 
   // translate clauses to internal form
-  val normClauses: Seq[(NormClause, CC)] = (
-    for (c <- iClauses) yield {
+  val normClauses: Seq[(NormClause, CC)] = {
+    val uniqueNormClauses = new LinkedHashMap[NormClause, CC]
+    for (c <- iClauses) {
       lazabs.GlobalParameters.get.timeoutChecker()
-      (NormClause(c, p => relationSymbols(p)), c)
+      uniqueNormClauses.put(NormClause(c, p => relationSymbols(p)), c)
     }
-  ).toSeq
+    uniqueNormClauses.toSeq
+  }
 
   val normClauseToCC: Map[NormClause, CC] = normClauses.toMap
 
