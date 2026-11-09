@@ -99,9 +99,8 @@ case class DefinitionId(key : DefinitionKey, instance : Int)
  * - The other locals are ranked by the structure of the constraint and get
  *   symbols by rank, e.g., p_c_0_0, p_c_0_1 etc.
  */
-object ConstraintNormalizer {
-
-  private object AC extends Debug.ASSERTION_CATEGORY
+class ConstraintNormalizer {
+  import ConstraintNormalizer._
 
   /**
    * Normalizes a constraint with theory literals using its structure.
@@ -268,6 +267,11 @@ object ConstraintNormalizer {
     DefinitionId(id.key.copy(args = id.key.args map reorderedTerm),
                  id.instance)
   }
+}
+
+object ConstraintNormalizer {
+
+  private object AC extends Debug.ASSERTION_CATEGORY
 
   // see GoalClause.firstInterchangeableAtom
   def firstInterchangeableAtoms(goal : GoalClause) : IndexedSeq[Int] = {

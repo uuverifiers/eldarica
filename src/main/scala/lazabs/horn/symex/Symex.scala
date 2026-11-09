@@ -100,6 +100,8 @@ abstract class Symex[CC](iClauses:    Iterable[CC])(
 
   val simplifier = new ConstraintSimplifier
 
+  val normalizer = new ConstraintNormalizer
+
   val relationSymbols: Map[Predicate, RelationSymbol] =
     (for (p <- preds) yield (p -> RelationSymbol(p))).toMap
 

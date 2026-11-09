@@ -117,7 +117,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
     new ResolutionChoiceQueue[ResolutionChoice](choiceOrder)
   private val goalClauseDB       = new GoalClauseDB(keepDerivations)
   private val subsumptionChecker = new SubsumptionChecker[GoalClause](
-    GoalSubsumption.subsumptionTestFor(_),
+    GoalSubsumption.subsumptionTestFor(_, normalizer),
     new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
                          feasibilityChecker.check))
 
@@ -345,7 +345,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
   }
 
   private def normalizedGoal(goal : GoalClause) : (GoalClause, Seq[Int]) =
-    ConstraintNormalizer.normalizeGoal(
+    normalizer.normalizeGoal(
       goal,
       n => (symex_sf.localSymbolsForPred(HornClauses.FALSE, n, 0),
             symex_sf.order),

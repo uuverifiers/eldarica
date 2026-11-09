@@ -17,12 +17,13 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
 
   import ap.terfor.TerForConvenience._
 
+  private val normalizer = new ConstraintNormalizer
+
   private def normalize(args       : Seq[ConstantTerm],
                         constraint : Conjunction,
                         pool       : Seq[ConstantTerm])
                        (implicit sf : SymexSymbolFactory) : Conjunction =
-    ConstraintNormalizer.normalize(args, constraint,
-                                   n => (pool take n, sf.order))
+    normalizer.normalize(args, constraint, n => (pool take n, sf.order))
 
   // a definition gets its symbol when first used, as in the symbol factory
   private def definedSyms(implicit sf : SymexSymbolFactory)
@@ -37,9 +38,9 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
       pool       : Seq[ConstantTerm],
       definedSym : DefinitionId => ConstantTerm)
      (implicit sf : SymexSymbolFactory) : Conjunction =
-    ConstraintNormalizer.normalize(args, constraint,
-                                   n => (pool take n, sf.order),
-                                   Some(definedSym))
+    normalizer.normalize(args, constraint,
+                         n => (pool take n, sf.order),
+                         Some(definedSym))
 
   // whether the normal form of smaller is part of that of larger
   private def keepsSyms(args    : Seq[ConstantTerm],
@@ -57,7 +58,7 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
   private def normalizeGoal(goal : GoalClause,
                             pool : Seq[ConstantTerm])
                            (implicit sf : SymexSymbolFactory) : GoalClause =
-    ConstraintNormalizer.normalizeGoal(goal, n => (pool take n, sf.order))._1
+    normalizer.normalizeGoal(goal, n => (pool take n, sf.order))._1
 
   "Locals with swapped coefficients get the same normal form" in {
     SimpleAPI.withProver { p =>
@@ -123,7 +124,7 @@ class ConstraintNormalizerTests extends AnyFreeSpec {
           // term order
           val renaming = (for (sym <- permutation)
             yield sym -> sf.genConstant(sym.name + "'")).toMap
-          ConstraintNormalizer.normalize(
+          normalizer.normalize(
             Seq(h), ConstantSubst(renaming, sf.order)(constraint),
             n => (pool take n, sf.order), definedSym)
         }

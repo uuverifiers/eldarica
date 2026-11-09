@@ -53,11 +53,12 @@ object GoalSubsumption {
    * E.g. false :- P(x0),        x0 > 0 subsumes
    *      false :- P(x0), Q(y0), x0 > 1 & y0 = x0.
    */
-  def subsumptionTestFor(goal : GoalClause)
+  def subsumptionTestFor(goal       : GoalClause,
+                         normalizer : ConstraintNormalizer)
                         (implicit symex_sf : SymexSymbolFactory)
   : GoalClause => Boolean = {
     lazy val reduce = symex_sf.reducer(goal.constraint)
-    stored => subsumes(stored, goal, reduce)
+    stored => subsumes(stored, goal, reduce, normalizer)
   }
 
   // for union subsumption
@@ -66,9 +67,10 @@ object GoalSubsumption {
     if (goal.atoms.size == 1) Some((goal.atoms.head._1, goal.constraint))
     else None
 
-  private def subsumes(stored : GoalClause,
-                       goal   : GoalClause,
-                       reduce : ReduceWithConjunction)
+  private def subsumes(stored     : GoalClause,
+                       goal       : GoalClause,
+                       reduce     : ReduceWithConjunction,
+                       normalizer : ConstraintNormalizer)
                       (implicit symex_sf : SymexSymbolFactory) : Boolean = {
     def impliedByGoal(conjunct : Conjunction,
                       renaming : Map[ConstantTerm, ConstantTerm]) : Boolean =
@@ -87,7 +89,8 @@ object GoalSubsumption {
     : Boolean =
       if (storedIndex == stored.atoms.size) {
         stored.conjunctsByLastAtom.get(storedIndex) forall { localConjuncts =>
-          val withLocals = renaming ++ localRenaming(stored, goal, atomMap)
+          val withLocals =
+            renaming ++ localRenaming(stored, goal, atomMap, normalizer)
           localConjuncts forall (impliedByGoal(_, withLocals))
         }
       } else {
@@ -122,9 +125,10 @@ object GoalSubsumption {
    * E.g. c in false :- Q(y0),        2c = y0 is defined over argument 0.
    * In        false :- P(x0), Q(y0), 2d = y0 the y0 is argument 1 so c becomes d.
    */
-  private def localRenaming(stored  : GoalClause,
-                            goal    : GoalClause,
-                            atomMap : Seq[Int])
+  private def localRenaming(stored     : GoalClause,
+                            goal       : GoalClause,
+                            atomMap    : Seq[Int],
+                            normalizer : ConstraintNormalizer)
                            (implicit symex_sf : SymexSymbolFactory)
   : Map[ConstantTerm, ConstantTerm] = {
     val goalOffsets = goal.atoms.scanLeft(0)(_ + _._1.arity)
@@ -139,7 +143,7 @@ object GoalSubsumption {
             id <- symex_sf.definitionIdOf(local);
             symbol <- symex_sf.existingDefinedSymbolForPred(
                         HornClauses.FALSE,
-                        ConstraintNormalizer.withArgsReordered(id, newIndex)))
+                        normalizer.withArgsReordered(id, newIndex)))
          yield (local, symbol)).toMap
   }
 }

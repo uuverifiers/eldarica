@@ -257,7 +257,7 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
                                    constraint : Conjunction,
                                    isPositive : Boolean) : UnitClause = {
     val normalized =
-      ConstraintNormalizer.normalize(rs.arguments(0), constraint,
+      normalizer.normalize(rs.arguments(0), constraint,
         n => (symex_sf.localSymbolsForPred(rs.pred, n, 0), symex_sf.order),
         Some(symex_sf.definedSymbolForPred(rs.pred, _)))
     new UnitClause(rs, normalized, isPositive)

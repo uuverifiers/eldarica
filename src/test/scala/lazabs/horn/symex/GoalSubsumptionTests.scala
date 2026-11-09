@@ -11,6 +11,8 @@ class GoalSubsumptionTests extends AnyFreeSpec {
 
   import ap.terfor.TerForConvenience._
 
+  private val normalizer = new ConstraintNormalizer
+
   // P with two occurrences and Q with one and both of arity 1
   private def goalSymbols(p : SimpleAPI)
   : (SymexSymbolFactory, RelationSymbol, RelationSymbol) = {
@@ -24,11 +26,12 @@ class GoalSubsumptionTests extends AnyFreeSpec {
   // the goals in normal form, with the local symbols of SLDSymex
   private def subsumes(stored : GoalClause, goal : GoalClause)
                       (implicit sf : SymexSymbolFactory) : Boolean = {
-    def normalized(g : GoalClause) = ConstraintNormalizer.normalizeGoal(
+    def normalized(g : GoalClause) = normalizer.normalizeGoal(
       g,
       n => (sf.localSymbolsForPred(HornClauses.FALSE, n, 0), sf.order),
       Some(sf.definedSymbolForPred(HornClauses.FALSE, _)))._1
-    val subsumesGoal = GoalSubsumption.subsumptionTestFor(normalized(goal))
+    val subsumesGoal =
+      GoalSubsumption.subsumptionTestFor(normalized(goal), normalizer)
     subsumesGoal(normalized(stored))
   }
 
