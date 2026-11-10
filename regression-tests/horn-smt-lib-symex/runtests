@@ -24,3 +24,15 @@ for name in $NO_OUTPUT_TESTS; do
     echo $name
     $LAZABS -pngNo -sym:bfs "$@" $name 2>&1 | grep -v "^Elapsed Time"
 done
+
+SLD_TESTS="substring.error.nts.smt2 \
+           quantifier.smt2 \
+           clause-shortener-bug.smt2 \
+           extract.smt2 \
+           nonlinear2.smt2"
+
+for name in $SLD_TESTS; do
+    echo
+    echo $name
+    $LAZABS -pngNo -ssol -sym:sld "$@" $name 2>&1 | grep -v "^Elapsed Time"
+done

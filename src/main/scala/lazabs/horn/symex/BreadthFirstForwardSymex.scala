@@ -63,15 +63,9 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   printInfo("Starting breadth-first forward symbolic execution (BFS)...\n")
 
-  // Explore the state graph (the derived unit clauses) breadth-first, or
-  // cheapest choice first under guided choice order. At
-  // each depth there can be multiple choices for execution from a state
-  // (the clauses to resolve with). Hence, we have a queue of states to resolve
-  // with, and for each state a queue of branches to explore.
-  //
-  // Nonlinear clauses: there might be some paths that are accessible using more
-  // than a single state, if other states we use are in the queue, we remove
-  // from those states' queue the path that we are about to take.
+  // Explore the derived cucs breadth-first, or cheapest choice first under
+  // guided choice order. A choice is a clause with one stored cuc per body
+  // atom; it is enqueued once, when the newest of its cucs is stored.
 
   private val choicesQueue =
     new ResolutionChoiceQueue[(NormClause, Seq[UnitClause], Long)](
@@ -135,7 +129,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
     new MHashMap[(NormClause, Int), ArrayBuffer[UnitClause]]
 
   /*
-   * Initialize the search by adding the facts (the initial states).
+   * Initialize the search by adding the facts.
    * Each fact corresponds to a source in the search DAG.
    */
   for (fact <- facts) {

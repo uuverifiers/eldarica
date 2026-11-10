@@ -278,7 +278,7 @@ class BreadthFirstForwardSymexUnitTests
         }
       }
       "Solutions" - {
-        "State over bit-vector extracts (sat), " +
+        "Cuc over bit-vector extracts (sat), " +
         "with a quantifier-free solution" in {
           scope {
             val p0 = createRelation(
@@ -323,20 +323,20 @@ class BreadthFirstForwardSymexUnitTests
       }
 
       "Undecided checks" - {
-        "Undecided state above a counterexample (unsat)" in {
+        "Undecided cuc above a counterexample (unsat)" in {
           scope {
             val p = createRelation("p", List(Sort.Integer))
             val q = createRelation("q", List(Sort.Integer))
             val x = createConstant("x")
 
-            val undecidedState : Clause = q(x) :- p(x)
+            val undecidedCUC : Clause = q(x) :- p(x)
             val clauses : Seq[Clause] = List(
               p(x) :- (x === 0),
-              undecidedState,
+              undecidedCUC,
               false :- q(x)
             )
             val symex =
-              new BFSWithUndecidedChecks(clauses, Set(undecidedState))
+              new BFSWithUndecidedChecks(clauses, Set(undecidedCUC))
             solveAndVerify(symex)
           } should beUnsat
         }
@@ -356,7 +356,7 @@ class BreadthFirstForwardSymexUnitTests
             e.candidateSolution shouldBe empty
           }
         }
-        "Undecided state keeps its unconnected conjuncts (sat)" in {
+        "Undecided cuc keeps its unconnected conjuncts (sat)" in {
           scope {
             val p = createRelation("p", List(Sort.Integer))
             val q = createRelation("q", List(Sort.Integer))
@@ -365,14 +365,14 @@ class BreadthFirstForwardSymexUnitTests
             val d = createConstant("d")
 
             // c * d = 1 has no solution with c, d >= 2
-            val undecidedState : Clause = q(x) :- p(x)
+            val undecidedCUC : Clause = q(x) :- p(x)
             val clauses : Seq[Clause] = List(
               p(x) :- (x === 0 & mult(c, d) === 1 & c >= 2 & d >= 2),
-              undecidedState,
+              undecidedCUC,
               false :- q(x)
             )
             solveAndVerify(
-              new BFSWithUndecidedChecks(clauses, Set(undecidedState)))
+              new BFSWithUndecidedChecks(clauses, Set(undecidedCUC)))
           } should beSat
         }
       }

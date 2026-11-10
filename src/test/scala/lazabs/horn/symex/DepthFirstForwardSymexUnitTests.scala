@@ -8,6 +8,7 @@ import ap.parser._
 import IExpression._
 import HornClauses._
 import ap.theories.ExtArray
+import Symex.SymexException
 import org.scalatest.freespec.AnyFreeSpec
 
 class DepthFirstForwardSymexUnitTests
@@ -335,6 +336,20 @@ class DepthFirstForwardSymexUnitTests
               symex.solve()
             } should beUnsat
           }
+        }
+      }
+      "Non-linear clauses are rejected" in {
+        scope {
+          val p0 = createRelation("p0", List(Sort.Integer))
+          val x  = createConstant("x")
+          val y  = createConstant("y")
+
+          val clauses : Seq[Clause] = List(
+            p0(0) :- true,
+            p0(x + y) :- (p0(x), p0(y))
+          )
+          the [SymexException] thrownBy
+            new DepthFirstForwardSymex[Clause](clauses)
         }
       }
     }

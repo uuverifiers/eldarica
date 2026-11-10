@@ -27,9 +27,9 @@ class SubsumptionCheckerTests
     finally params.timeoutChecker = old
   }
 
-  "Entailed states are dropped and the search terminates" in {
+  "Entailed cucs are dropped and the search terminates" in {
     // p(x) holds for x >= 0, 1, 2, ...
-    // each new state entails the previous one, so with subsumption the
+    // each new cuc entails the previous one, so with subsumption the
     // this should terminate (with sat)
     SimpleAPI.withProver { p =>
       import p._
@@ -53,11 +53,11 @@ class SubsumptionCheckerTests
     new BreadthFirstForwardSymex(clauses, maxDepth = Some(depth)).solve()
 
   // in each test, the search is inconclusive at the depth bound unless the
-  // last state of p within the bound is found subsumed or a duplicate
+  // last cuc of p within the bound is found subsumed or a duplicate
 
-  "Conjuncts unconnected to the arguments are dropped from feasible states" in {
+  "Conjuncts unconnected to the arguments are dropped from feasible cucs" in {
     // the fact is stored with its unconnected conjunct, so only the second
-    // derived state is a duplicate
+    // derived cuc is a duplicate
     SimpleAPI.withProver { p =>
       import p._
       scope {
@@ -73,7 +73,7 @@ class SubsumptionCheckerTests
     }
   }
 
-  "States subsumed by the union of two stored states are dropped" in {
+  "Cucs subsumed by the union of two stored cucs are dropped" in {
     SimpleAPI.withProver { p =>
       import p._
       scope {
@@ -90,8 +90,8 @@ class SubsumptionCheckerTests
     }
   }
 
-  "Locals defined by literals keep their symbols in larger states" in {
-    // the local of y[7:4] in the second state is ordered after that of x[7:4]
+  "Locals defined by literals keep their symbols in larger cucs" in {
+    // the local of y[7:4] in the second cuc is ordered after that of x[7:4]
     SimpleAPI.withProver { p =>
       import p._
       scope {
@@ -109,7 +109,7 @@ class SubsumptionCheckerTests
   }
 
   "A local with a second definition keeps the symbol of the first" in {
-    // in the second state, y[3:0] defines the local of x[7:4] too, and the
+    // in the second cuc, y[3:0] defines the local of x[7:4] too, and the
     // local of z[7:4] is ordered after it
     SimpleAPI.withProver { p =>
       import p._

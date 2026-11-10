@@ -53,6 +53,12 @@ class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   printInfo("Starting depth-first forward symbolic execution (DFS)...\n")
 
+  // todo: support non-linear clauses
+  for ((normClause, _) <- normClauses find (_._1.body.size > 1))
+    throw new SymexException(
+      "non-linear clauses are not supported in depth-first symbolic " +
+      "execution: " + normClause)
+
   // Keeps track of the remaining branches.
   private val choicesStack = new MStack[MQueue[NormClause]]
   /*
@@ -189,11 +195,6 @@ class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   override def handleNewUnitClause(clause: UnitClause): Unit = {
     val possibleChoices = clausesWithRelationInBody(clause.rs)
-    // "possible", because clauses might be nonlinear and we might not have all needed electrons in the DB.
-
-    if (possibleChoices.exists(clause => clause.body.length > 1))
-      ??? // todo: support nonlinear clauses, assuming they do not exist for now :-)
-
     possibleChoices.length match {
       case 0 =>
         println(

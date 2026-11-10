@@ -359,7 +359,7 @@ object FeasibilityChecker {
   /**
    * The bounds and linear conjuncts of a clause constraint
    * for ruling out resolution choices without a prover call.
-   * E.g., for s(z) :- q(x), r(y), y = x + 1, resolved with states whose
+   * E.g., for s(z) :- q(x), r(y), y = x + 1, resolved with cucs whose
    * arguments are bounded by x <= 2 and y >= 5: y = x + 1 is at most 3,
    * so the equation cannot hold.
    */
