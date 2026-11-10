@@ -41,9 +41,9 @@ import scala.collection.mutable.{BitSet => MBitSet}
  * map to different atoms of goal with the same relation symbols such that
  * the constraint of goal implies the constraint of stored, with the
  * arguments renamed by the atom map and the locals renamed to the locals
- * of goal with the same definition. Atoms are mapped injectively 
+ * of goal with the same definition. Atoms are mapped injectively
  * for completeness.
- * The test is sound but incomplete and currently only pairwise. 
+ * The test is sound but incomplete and currently only pairwise.
  * (The implication is checked by the reducer rather than a solver call.)
  */
 object GoalSubsumption {

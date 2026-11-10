@@ -125,7 +125,7 @@ class ConstraintSimplifierTests extends AnyFreeSpec {
       val c = sf.genConstant("c")
       implicit val order = sf.order
 
-      // e.g., x >= 1 & 0 <= c <= 3 & c != x 
+      // e.g., x >= 1 & 0 <= c <= 3 & c != x
       // the range is 4, one disequality forbids at most 1, c can be dropped
       val constraint = conj(l(x) >= 1,
                             l(c) >= 0, l(c) <= 3,

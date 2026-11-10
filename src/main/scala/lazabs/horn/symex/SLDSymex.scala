@@ -72,7 +72,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
   /**
    * The atom first appears in the goal after `depth`
    * resolution steps, copied from `bodyIndex` of a body.
-   * Its ancestors are the selected atoms whose clause bodies introduced it 
+   * Its ancestors are the selected atoms whose clause bodies introduced it
    * or one of its ancestors, counted per predicate
    */
   private case class AtomOrigin(depth                 : Int,
@@ -81,11 +81,11 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                                 coveringAncestorCount : Int)
 
   /**
-   * E.g., resolving P in 
-   * false :- P(x), Q(x) with 
+   * E.g., resolving P in
+   * false :- P(x), Q(x) with
    *  P(x) :- R(x), S(x) gives
    * -------------------------
-   * false :- Q(x), R(x), S(x) 
+   * false :- Q(x), R(x), S(x)
    * with origins Q: (0, 1), R: (1, 0) and S: (1, 1);
    * R, S added by the first resolution step (depth = 1), positions 0 and 1 of
    * the body (R(x), S(x)), Q comes from the goal (depth = 0), position 1.
@@ -120,6 +120,13 @@ class SLDSymex[CC](clauses         : Iterable[CC],
     GoalSubsumption.subsumptionTestFor(_, normalizer),
     new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
                          feasibilityChecker.check))
+
+  // The goal false :- false, whose resolvents with the input goals are the
+  // input goals. An input goal without atoms is enqueued as the choice of
+  // resolving this goal with it, so that it is checked like the other empty
+  // goals.
+  private lazy val startGoal = GoalClause(
+    List((relationSymbols(HornClauses.FALSE), 0)), Conjunction.TRUE)
 
   private val collectStats = lazabs.GlobalParameters.get.log
   private var factoringTests          = 0L
@@ -167,6 +174,14 @@ class SLDSymex[CC](clauses         : Iterable[CC],
     try {
       for ((inputGoal, _) <- normClauses
            if inputGoal.head._1.pred == HornClauses.FALSE &&
+              inputGoal.body.isEmpty)
+        enqueue(ResolutionChoice(
+          startGoal, UnfoldCounts.none,
+          List(AtomOrigin(0, 0, UnfoldCounts.none, 0)), 0, inputGoal,
+          feasibilityChecker.initialBudgetMs))
+
+      for ((inputGoal, _) <- normClauses
+           if inputGoal.head._1.pred == HornClauses.FALSE &&
               inputGoal.body.nonEmpty) {
         val (goal, atomOrder) = normalizedGoal(
           simplified(GoalClause(inputGoal.body, inputGoal.constraint)))
@@ -191,7 +206,8 @@ class SLDSymex[CC](clauses         : Iterable[CC],
             (System.nanoTime - resolutionStart) -
             (simplifier.timeNanos - simplifyBefore)
         val derivation =
-          Resolution(goalClauseDB.derivation(goal), atomIndex, clause)
+          if (goal eq startGoal) FromInputGoal(clause)
+          else Resolution(goalClauseDB.derivation(goal), atomIndex, clause)
         printInfo(ind + ".\t" + goal + "\n  +\n\t" + clause +
                   "\n  =\n\t" + newGoal)
 
@@ -239,20 +255,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
 
       if (result == null) {
         printInfo("\t(Search space exhausted.)\n")
-        for ((inputGoal, _) <- normClauses
-             if result == null &&
-                inputGoal.head._1.pred == HornClauses.FALSE &&
-                inputGoal.body.isEmpty)
-          feasibilityChecker.check(inputGoal.constraint,
-                                   budgetMs = None) match {
-            case Feasible   =>
-              result = Right(() =>
-                buildCounterExample(FromInputGoal(inputGoal)))
-            case Infeasible =>
-            case _          => statistics.undecidedEmptyGoals += 1
-          }
-        if (result == null)
-          result = resultOfExhaustedSearch
+        result = resultOfExhaustedSearch
       }
       result
     } finally {

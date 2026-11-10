@@ -249,5 +249,28 @@ class SLDSymexUnitTests
         e.candidateSolution shouldBe empty
       }
     }
+
+    "Input goal without atoms next to a search that does not end (unsat)" in {
+      scope {
+        val pr = createRelation("p", List(Sort.Integer))
+        val x  = createConstant("x")
+
+        val clauses : Seq[Clause] = List(
+          pr(x) :- (x === 0),
+          pr(x + 1) :- pr(x),
+          false :- (pr(x), x === -1),
+          false :- (x > 3)
+        )
+        val params = GlobalParameters.get.clone
+        var steps  = 0
+        params.timeoutChecker = () => {
+          steps += 1
+          assert(steps <= 100, "the search does not end")
+        }
+        GlobalParameters.withValue(params) {
+          solveAndVerify(new SLDSymex[Clause](clauses))
+        }
+      } should beUnsat
+    }
   }
 }

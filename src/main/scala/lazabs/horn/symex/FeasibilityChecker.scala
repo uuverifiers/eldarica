@@ -260,8 +260,8 @@ class FeasibilityChecker(prover     : SimpleAPI,
   }
 
   /**
-   * True if the constraint is already true at a guessed point. 
-   * The guess is done by setting each constant to an implied bound, 
+   * True if the constraint is already true at a guessed point.
+   * The guess is done by setting each constant to an implied bound,
    * then the leading constant of each equation is solved for by back-substitution.
    * E.g., for x = y + 1 & y >= 3 & z <= x with x leading: y = 3, z = 0 and x = 4.
    */

@@ -515,6 +515,32 @@ class BreadthFirstForwardSymexUnitTests
             } should beUnsat
           }
         }
+        "Goal without body atoms next to a search that does not end" - {
+          "Unsafe" in {
+            scope {
+              val p0 = createRelation("p0", List(Sort.Integer))
+              val x  = createConstant("x")
+
+              val clauses : Seq[Clause] = List(
+                p0(x) :- (x === 0),
+                p0(x + 1) :- p0(x),
+                false :- (p0(x), x === -1),
+                false :- (x > 3)
+              )
+              val symex =
+                new BreadthFirstForwardSymex[HornClauses.Clause](clauses)
+              val params = GlobalParameters.get.clone
+              var steps  = 0
+              params.timeoutChecker = () => {
+                steps += 1
+                assert(steps <= 100, "the search does not end")
+              }
+              GlobalParameters.withValue(params) {
+                solveAndVerify(symex)
+              }
+            } should beUnsat
+          }
+        }
         "Two body literals with same predicate" - {
           "Unsafe" in {
             scope {

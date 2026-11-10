@@ -67,17 +67,6 @@ abstract class ForwardSymex[CC](iClauses        : Iterable[CC],
     (facts.distinct filterNot (_.constraint.isFalse), factToNormClause.toMap)
   }
 
-  val (goals: Seq[UnitClause], goalToNormClause: Map[UnitClause, NormClause]) = {
-    val (goals, goalToNormClause) =
-      (for ((normClause, _) <- normClauses
-            if normClause.head._1.pred == HornClauses.FALSE && normClause.body.length == 1)
-        yield {
-          val cuc = toUnitClause(normClause)
-          (cuc, (cuc, normClause))
-        }).unzip
-    (goals, goalToNormClause.toMap)
-  }
-
   /**
    * Applies hyper-resolution using nucleus and electrons and returns the
    * resulting unit clause.

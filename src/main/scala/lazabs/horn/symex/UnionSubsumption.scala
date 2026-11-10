@@ -34,7 +34,7 @@ import lazabs.horn.bottomup.RelationSymbol
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 /**
- * Subsumption of a clause with a single atom by the union of the stored clauses. 
+ * Subsumption of a clause with a single atom by the union of the stored clauses.
  * E.g., false :- P(x), x >= 2 is subsumed by the following two together:
  *       false :- P(x), x >= 3
  *       false :- P(x), x <= 2

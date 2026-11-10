@@ -181,9 +181,6 @@ class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
           } else {
             result = Left(buildSolution _)
           }
-        case other =>
-          throw new SymexException(
-            "Cannot hyper-resolve clauses: " + other.toString)
       }
     }
     if (lazabs.GlobalParameters.get.log) {

@@ -33,13 +33,12 @@ import ap.parser.IAtom
 import ap.terfor.preds.Predicate
 import lazabs.GlobalParameters.SymexChoiceOrder
 import lazabs.horn.Util.Dag
-import lazabs.horn.bottomup.{HornClauses, RelationSymbol}
+import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.NormClause
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -86,15 +85,16 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
   private def guidedCost(nucleus   : NormClause,
                          electrons : Seq[UnitClause]) : Long = {
     val headPred = nucleus.head._1.pred
+    // none for a goal without body atoms
+    val unfoldCounts = UnfoldCounts.none +: electrons.map(unfoldCountsOf)
     // earlier unfoldings of the head predicate on the derivation
-    val coveringAncestorCount =
-      electrons.map(unfoldCountsOf(_) countOf headPred).max
+    val coveringAncestorCount = unfoldCounts.map(_ countOf headPred).max
     ResolutionChoiceQueue.guidedCost(
       endsSearchIfFeasible = headPred == HornClauses.FALSE,
       constraintSize =
         nucleus.constraint.opCount + electrons.map(_.constraint.opCount).sum,
       largestUnfoldCount =
-        electrons.map(unfoldCountsOf(_).largestAfterUnfolding(headPred)).max,
+        unfoldCounts.map(_.largestAfterUnfolding(headPred)).max,
       distanceFromStart = heightFromFacts(headPred)) +
       10000L * coveringAncestorCount
   }
@@ -128,6 +128,11 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
   private val resolvableCUCsOf =
     new MHashMap[(NormClause, Int), ArrayBuffer[UnitClause]]
 
+  // a goal without body atoms is a choice without cucs
+  for ((clause, _) <- normClauses
+       if clause.head._1.pred == HornClauses.FALSE && clause.body.isEmpty)
+    enqueue(clause, Nil, feasibilityChecker.initialBudgetMs)
+
   /*
    * Initialize the search by adding the facts.
    * Each fact corresponds to a source in the search DAG.
@@ -140,7 +145,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   private def getClausesForResolution
     : Option[(NormClause, Seq[UnitClause], Long)] = {
-    if (unitClauseDB.isEmpty || choicesQueue.isEmpty)
+    if (choicesQueue.isEmpty)
       None
     else {
       maxDepth match {
@@ -152,7 +157,9 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
             val candidate = choicesQueue.dequeue()
             val rs        = candidate._1.head._1
             unitClauseDB.inferred(rs) match {
-              case Some(cucs) if cucs.length >= depth =>
+              // a goal without body atoms is within every depth bound
+              case Some(cucs)
+                  if cucs.length >= depth && candidate._2.nonEmpty =>
                 // this is not a good candidate, continue
                 statistics.depthPrunedChoices += 1
               case _ => // this is a good candidate, return
@@ -171,14 +178,6 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
     val solveStart = System.nanoTime
     var result: Either[() => Solution, () => Dag[(IAtom, CC)]] = null
 
-    val touched = new MHashSet[NormClause]
-    // do not use facts below, use normClauses
-    // two facts can simplify to be the same
-    for ((normClause, _) <- normClauses)
-      if (normClause.body.isEmpty &&
-          normClause.head._1.pred != HornClauses.FALSE)
-        touched += normClause
-
     // start traversal
     var ind = 0
     try {
@@ -188,7 +187,6 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
         printInfo(ind + ".", false)
         getClausesForResolution match {
           case Some((nucleus, electrons, budgetMs)) => {
-            touched += nucleus
             val resolutionStart = if (collectStats) System.nanoTime else 0L
             val simplifyBefore  = if (collectStats) simplifier.timeNanos else 0L
             val newElectron = hyperResolve(nucleus, electrons)
@@ -249,45 +247,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
           }
           case None => // nothing left to explore
             printInfo("\t(Search space exhausted.)\n")
-
-            // Untouched clauses can be either those which were unreachable,
-            // or corner cases such as a single assertion which did not need
-            // symbolic execution.
-            // The only case we need to handle is assertions without body literals,
-            // because assertions with uninterpreted body literals are always
-            // solveable by interpreting the body literals as false.
-
-            val untouchedClauses =
-              (normClauses.map(_._1).toSet -- touched).filter(_.body.isEmpty)
-            assert(untouchedClauses.forall(clause =>
-              clause.head._1.pred == HornClauses.FALSE))
-            if (untouchedClauses nonEmpty) {
-              printInfo("\t(Dangling assertions detected, checking those too.)")
-              for (clause <- untouchedClauses if result == null) {
-                val cuc = // for the purpose of checking feasibility
-                  if (clause.body.isEmpty) {
-                    new UnitClause(RelationSymbol(HornClauses.FALSE),
-                                   clause.constraint,
-                                   false)
-                  } else toUnitClause(clause)
-                unitClauseDB.add(cuc, (clause, Nil))
-                feasibilityChecker.check(cuc.constraint,
-                                         budgetMs = None) match {
-                  case Feasible   =>
-                    result = Right(() => buildCounterExample(cuc))
-                  case Infeasible =>
-                  case _          => statistics.undecidedEmptyGoals += 1
-                }
-              }
-              if (result == null) { // none of the assertions failed
-                result = resultOfExhaustedSearch
-              }
-            } else {
-              result = resultOfExhaustedSearch
-            }
-          case other =>
-            throw new SymexException(
-              "Cannot hyper-resolve clauses: " + other.toString)
+            result = resultOfExhaustedSearch
         }
       }
       result
