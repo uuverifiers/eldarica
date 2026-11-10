@@ -298,11 +298,9 @@ class SLDSymex[CC](clauses         : Iterable[CC],
       if (maxDepth exists (factoredDerivation.depth >= _)) {
         statistics.depthPrunedChoices += clauses.size
       } else {
-        val (rs, occ) = factoredGoal.atoms(atomIndex)
-        val selectedAtom = (factoredGoal.constraint, rs.arguments(occ))
         for (clause <- clauses
-             if !feasibilityChecker.isInfeasibleChoiceOnHead(clause,
-                                                             selectedAtom))
+             if !feasibilityChecker.isInfeasibleChoiceOnHead(
+                  clause, factoredGoal, atomIndex))
           enqueue(ResolutionChoice(factoredGoal, unfoldCounts,
                                    factoredAtomOrigins, atomIndex, clause,
                                    feasibilityChecker.initialBudgetMs))

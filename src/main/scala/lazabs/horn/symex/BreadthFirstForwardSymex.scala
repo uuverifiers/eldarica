@@ -38,7 +38,8 @@ import lazabs.horn.bottomup.HornClauses.ConstraintClause
 import lazabs.horn.bottomup.NormClause
 import lazabs.horn.preprocessor.HornPreprocessor.Solution
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet}
 
 /**
  * Implements a breadth-first forward symbolic execution using Symex.
@@ -127,6 +128,11 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
     }
     height
   }
+
+  // per clause and body atom, the stored cucs that the body atom can be
+  // resolved with, oldest first
+  private val resolvableCUCsOf =
+    new MHashMap[(NormClause, Int), ArrayBuffer[UnitClause]]
 
   /*
    * Initialize the search by adding the facts (the initial states).
@@ -312,23 +318,30 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
 
   override def handleNewUnitClause(electron: UnitClause): Unit = {
     val timeoutChecker = lazabs.GlobalParameters.get.timeoutChecker
-    val stored = unitClauseDB.inferred(electron.rs).get
-    val older  = stored.init // electron was added last
-    for (nucleus <- clausesWithRelationInBody(electron.rs);
-         electronIndex <- nucleus.body.indices
-         if nucleus.body(electronIndex)._1 == electron.rs) {
-      val els = for (((rs, _), bodyIndex) <- nucleus.body.zipWithIndex) yield {
+    val electronBodyAtoms =
+      for (nucleus <- clausesWithRelationInBody(electron.rs);
+           electronIndex <- nucleus.body.indices
+           if nucleus.body(electronIndex)._1 == electron.rs &&
+              !feasibilityChecker.isInfeasibleCUCOnBodyAtom(
+                nucleus, electronIndex, electron))
+      yield (nucleus, electronIndex)
+    for (bodyAtom <- electronBodyAtoms)
+      resolvableCUCsOf.getOrElseUpdate(bodyAtom, new ArrayBuffer) += electron
+    for ((nucleus, electronIndex) <- electronBodyAtoms) {
+      val els = for (bodyIndex <- nucleus.body.indices) yield {
+        val cucs : Seq[UnitClause] =
+          resolvableCUCsOf.getOrElse((nucleus, bodyIndex), Seq())
         if (bodyIndex == electronIndex) Seq(electron)
-        else if (rs != electron.rs) unitClauseDB.inferred(rs).getOrElse(Seq())
-        else if (bodyIndex < electronIndex) older
-        else stored
+        // only older cucs before the electron, so that no choice is
+        // enumerated twice
+        else if (bodyIndex < electronIndex &&
+                 (cucs.lastOption exists (_ eq electron))) cucs.init
+        else cucs
       }
       for (choice <- Combinatorics.cartesianProduct(els.toList)) {
         timeoutChecker()
-        if (!feasibilityChecker.isInfeasibleChoiceOnBody(
-              nucleus,
-              choice map (electron =>
-                (electron.constraint, electron.rs.arguments(0)))))
+        if (!feasibilityChecker.isInfeasibleChoiceAcrossBodyAtoms(nucleus,
+                                                                  choice))
           enqueue(nucleus, choice, feasibilityChecker.initialBudgetMs)
       }
     }

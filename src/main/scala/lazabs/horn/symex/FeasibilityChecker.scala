@@ -156,37 +156,65 @@ class FeasibilityChecker(prover     : SimpleAPI,
    * True if the constraint of the resolvent of a resolution choice is false,
    * for instance due to disjoint bounds or a clause equation that cannot
    * hold within the bounds.
-   * E.g., goal atom p(x) with x >= 6 and clause p(y) :- y <= 5, or states
-   * q(x) with x <= 2 and r(y) with y >= 5 and clause s(z) :- q(x), r(y),
-   * y = x + 1.
-   * A state atom is given as a constraint and the arguments of the atom in it. 
-   * The state atoms are resolved with the body atoms of the clause, in order, 
-   * or with its head.
+   * E.g., goal atom p(x) with x >= 6 and clause p(y) :- y <= 5.
+   * `atomIndex`: the atom of the goal that is resolved with the head of
+   * the clause.
    */
-  def isInfeasibleChoiceOnBody(
-      clause     : NormClause,
-      stateAtoms : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean =
-    isInfeasibleChoice(
-      bodyIntervalsOf.getOrElseUpdate(
-        clause, new ClauseIntervals(clause.constraint, clause.bodySyms)),
-      stateAtoms)
-
   def isInfeasibleChoiceOnHead(
       clause    : NormClause,
-      stateAtom : (Conjunction, Seq[ConstantTerm])) : Boolean =
-    isInfeasibleChoice(
-      headIntervalsOf.getOrElseUpdate(
-        clause,
-        new ClauseIntervals(clause.constraint, Seq(clause.headSyms))),
-      Seq(stateAtom))
+      goal      : GoalClause,
+      atomIndex : Int) : Boolean = {
+    val (rs, occ) = goal.atoms(atomIndex)
+    counted(headIntervals(clause).isFalseForAtom(
+              0, argBounds(goal.constraint, rs.arguments(occ))))
+  }
 
-  private def isInfeasibleChoice(
-      clauseIntervals : ClauseIntervals,
-      stateAtoms      : Seq[(Conjunction, Seq[ConstantTerm])]) : Boolean = {
-    val isInfeasible = clauseIntervals isFalseWithin (
-      for (stateAtom @ (constraint, args) <- stateAtoms)
-        yield argBoundsOf.getOrElseUpdate(stateAtom,
-                                          ImpliedBounds(constraint, args)))
+  /**
+   * True if every choice that resolves the body atom `bodyIndex` of the
+   * clause with the cuc is infeasible, whatever the cucs of the other
+   * body atoms are.
+   * E.g., cuc q(x) with x >= 6 and clause s(z) :- q(x), r(y), x <= 5.
+   */
+  def isInfeasibleCUCOnBodyAtom(
+      clause    : NormClause,
+      bodyIndex : Int,
+      cuc       : UnitClause) : Boolean =
+    counted(bodyIntervals(clause).isFalseForAtom(bodyIndex, argBounds(cuc)))
+
+  /**
+   * True if the choice is infeasible by a conjunct of the clause that
+   * relates several body atoms.
+   * E.g., cucs q(x) with x <= 2 and r(y) with y >= 5 and clause
+   * s(z) :- q(x), r(y), y = x + 1.
+   * `cucs`: resolved with the body atoms of the clause, in order. Each is
+   * expected to have passed `isInfeasibleCUCOnBodyAtom`, which is not
+   * tested again.
+   */
+  def isInfeasibleChoiceAcrossBodyAtoms(
+      clause : NormClause,
+      cucs   : Seq[UnitClause]) : Boolean = {
+    val intervals = bodyIntervals(clause)
+    intervals.relatesAtoms &&
+    counted(intervals isFalseAcrossAtoms (cucs map (argBounds(_))))
+  }
+
+  private def headIntervals(clause : NormClause) : ClauseIntervals =
+    headIntervalsOf.getOrElseUpdate(
+      clause, new ClauseIntervals(clause.constraint, Seq(clause.headSyms)))
+
+  private def bodyIntervals(clause : NormClause) : ClauseIntervals =
+    bodyIntervalsOf.getOrElseUpdate(
+      clause, new ClauseIntervals(clause.constraint, clause.bodySyms))
+
+  private def argBounds(cuc : UnitClause) : ImpliedBounds =
+    argBounds(cuc.constraint, cuc.rs.arguments(0))
+
+  private def argBounds(constraint : Conjunction,
+                        args       : Seq[ConstantTerm]) : ImpliedBounds =
+    argBoundsOf.getOrElseUpdate((constraint, args),
+                                ImpliedBounds(constraint, args))
+
+  private def counted(isInfeasible : Boolean) : Boolean = {
     if (isInfeasible)
       statistics.choicesPrunedWithoutProver += 1
     isInfeasible
@@ -350,22 +378,48 @@ object FeasibilityChecker {
          yield symbols(k) -> (bounds.lower(k), bounds.upper(k))).toMap
     }
 
-    private def isOverAtomSyms(lc : LinearCombination) : Boolean =
-      lc.variables.isEmpty && (lc.constants exists positionOf.contains)
+    private def atomsOf(lc : LinearCombination) : Set[Int] =
+      (for (c <- lc.constants.iterator; (i, _) <- positionOf get c)
+         yield i).toSet
 
-    private val arithConj    = constraint.arithConj
-    private val equations    = arithConj.positiveEqs.toIndexedSeq filter
-                                 isOverAtomSyms
-    private val inequalities = arithConj.inEqs.toIndexedSeq filter
-                                 isOverAtomSyms
-    private val disequations = arithConj.negativeEqs.toIndexedSeq filter
-                                 isOverAtomSyms
+    private class LinearConjuncts(isOverSelectedAtoms : Set[Int] => Boolean) {
+      private def selected(lcs : Seq[LinearCombination]) =
+        lcs.toIndexedSeq filter (lc =>
+          lc.variables.isEmpty && isOverSelectedAtoms(atomsOf(lc)))
+      val equations    = selected(constraint.arithConj.positiveEqs)
+      val inequalities = selected(constraint.arithConj.inEqs)
+      val disequations = selected(constraint.arithConj.negativeEqs)
+      val isEmpty      =
+        equations.isEmpty && inequalities.isEmpty && disequations.isEmpty
+    }
+
+    private val conjunctsOverAtom =
+      for (i <- atomSyms.indices) yield new LinearConjuncts(_ == Set(i))
+    private val conjunctsAcrossAtoms = new LinearConjuncts(_.size > 1)
+
+    val relatesAtoms : Boolean = !conjunctsAcrossAtoms.isEmpty
 
     /**
+     * True if an argument of atom `i` has no value within its bounds, or a
+     * conjunct over no other atom cannot hold within them.
+     * `argBounds`: the bounds of the arguments that the atom is resolved
+     * with.
+     */
+    def isFalseForAtom(i : Int, argBounds : ImpliedBounds) : Boolean =
+      // only symbols of atom i have their bounds looked up
+      isFalse(atomSyms(i), conjunctsOverAtom(i), _ => argBounds)
+
+    /**
+     * True if a conjunct over several atoms cannot hold.
      * `atomArgBounds`: the bounds of the arguments that each atom is
      * resolved with, in atom order.
      */
-    def isFalseWithin(atomArgBounds : Seq[ImpliedBounds]) : Boolean = {
+    def isFalseAcrossAtoms(atomArgBounds : Seq[ImpliedBounds]) : Boolean =
+      isFalse(Nil, conjunctsAcrossAtoms, atomArgBounds)
+
+    private def isFalse(symsToTest     : Seq[ConstantTerm],
+                        conjuncts      : LinearConjuncts,
+                        atomArgBounds  : Int => ImpliedBounds) : Boolean = {
       def boundsOf(c : ConstantTerm) : (Bound, Bound) = {
         val (lower, upper) = clauseBoundsOf.getOrElse(c, (None, None))
         positionOf get c match {
@@ -400,16 +454,17 @@ object FeasibilityChecker {
         (lower, upper)
       }
 
-      (positionOf.keysIterator exists { c =>
+      (symsToTest exists { c =>
          val (lower, upper) = boundsOf(c)
          lower exists (l => upper exists (l > _))
        }) ||
-      (equations exists { lc =>
+      (conjuncts.equations exists { lc =>
          val (lower, upper) = rangeOf(lc)
          (lower exists (_.signum > 0)) || (upper exists (_.signum < 0))
        }) ||
-      (inequalities exists (lc => rangeOf(lc)._2 exists (_.signum < 0))) ||
-      (disequations exists (lc =>
+      (conjuncts.inequalities exists (lc =>
+         rangeOf(lc)._2 exists (_.signum < 0))) ||
+      (conjuncts.disequations exists (lc =>
          rangeOf(lc) == ((Some(IdealInt.ZERO), Some(IdealInt.ZERO)))))
     }
 
