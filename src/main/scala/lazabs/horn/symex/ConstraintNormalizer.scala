@@ -82,7 +82,22 @@ case class DefinitionKey(kind : DefinitionKind.Value,
  * E.g., c and d in bv_extract(31, 0, c, x) & bv_extract(31, 0, d, x) get
  * the instances 0 and 1 of one key.
  */
-case class DefinitionId(key : DefinitionKey, instance : Int)
+final class DefinitionId private (val key      : DefinitionKey,
+                                  val instance : Int,
+                                  val serial   : Int) {
+  override def hashCode : Int = serial
+  override def toString : String = s"DefinitionId($key,$instance)"
+}
+
+object DefinitionId {
+  class Table {
+    private val ids = new MHashMap[(DefinitionKey, Int), DefinitionId]
+
+    def apply(key : DefinitionKey, instance : Int) : DefinitionId =
+      ids.getOrElseUpdate((key, instance),
+                          new DefinitionId(key, instance, ids.size))
+  }
+}
 
 /**
  * Normalizes constraints so that they can be checked for structural
@@ -101,6 +116,8 @@ case class DefinitionId(key : DefinitionKey, instance : Int)
  */
 class ConstraintNormalizer {
   import ConstraintNormalizer._
+
+  private val definitionIds = new DefinitionId.Table
 
   /**
    * Normalizes a constraint with theory literals using its structure.
@@ -121,7 +138,7 @@ class ConstraintNormalizer {
     if (constraint.constants subsetOf args.toSet) {
       ConstantSubst(Map(), newSyms(0)._2)(constraint)
     } else {
-      val placement = new LocalPlacement(args, constraint)
+      val placement = new LocalPlacement(args, constraint, definitionIds)
       definedSym match {
         case None =>
           renameByPositions(constraint, placement, newSyms)
@@ -254,18 +271,22 @@ class ConstraintNormalizer {
    */
   def withArgsReordered(id       : DefinitionId,
                         newIndex : Int => Int) : DefinitionId = {
-    def reordered(token : SymToken) : SymToken = token match {
-      case ArgToken(index)     => ArgToken(newIndex(index))
-      case DefinedToken(other) =>
-        DefinedToken(withArgsReordered(other, newIndex))
-      case _                   => token
-    }
-    def reorderedTerm(term : TokenTerm) = TokenTerm(
-      (for ((token, coeff) <- term.terms) yield (reordered(token), coeff))
-        .sorted(tokenCoeffOrdering),
-      term.constant)
-    DefinitionId(id.key.copy(args = id.key.args map reorderedTerm),
-                 id.instance)
+    val reorderedIds = new MHashMap[DefinitionId, DefinitionId]
+    def reorderedId(id : DefinitionId) : DefinitionId =
+      reorderedIds.getOrElseUpdate(id, {
+        def reordered(token : SymToken) : SymToken = token match {
+          case ArgToken(index)     => ArgToken(newIndex(index))
+          case DefinedToken(other) => DefinedToken(reorderedId(other))
+          case _                   => token
+        }
+        def reorderedTerm(term : TokenTerm) = TokenTerm(
+          (for ((token, coeff) <- term.terms) yield (reordered(token), coeff))
+            .sorted(tokenCoeffOrdering),
+          term.constant)
+        definitionIds(id.key.copy(args = id.key.args map reorderedTerm),
+                      id.instance)
+      })
+    reorderedId(id)
   }
 }
 
@@ -379,8 +400,9 @@ object ConstraintNormalizer {
    * E.g., d in 2d + x + 3 = 0 is renamed to s - 1 for its symbol s, giving
    * 2s + x + 1 = 0, the same as for 2d + x + 1 = 0.
    */
-  private class LocalPlacement(args       : Seq[ConstantTerm],
-                               constraint : Conjunction) {
+  private class LocalPlacement(args          : Seq[ConstantTerm],
+                               constraint    : Conjunction,
+                               definitionIds : DefinitionId.Table) {
     import DefinitionKind._
     import ConstraintGraph.DifferenceEquation
 
@@ -423,7 +445,7 @@ object ConstraintNormalizer {
     private def nextId(key : DefinitionKey) : DefinitionId = {
       val instance = instanceCounts.getOrElse(key, 0)
       instanceCounts(key) = instance + 1
-      DefinitionId(key, instance)
+      definitionIds(key, instance)
     }
 
     private def canDefineLocal(conjunct : DefiningConjunct) : Boolean =
@@ -657,8 +679,7 @@ object ConstraintNormalizer {
     }
 
   private lazy val definitionIdOrdering : Ordering[DefinitionId] =
-    Ordering.by((id : DefinitionId) => (id.key, id.instance))(
-      Ordering.Tuple2(definitionKeyOrdering, Ordering.Int))
+    Ordering.by((id : DefinitionId) => id.serial)
 
 }
 
