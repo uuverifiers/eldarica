@@ -41,9 +41,11 @@ import scala.collection.mutable.{HashSet => MHashSet, Queue => MQueue,
 
 /**
  * Implements a depth-first forward symbolic execution using Symex.
+ * @param maxDepth : Not supported yet, must be None.
  * @param keepDerivations : See [[ForwardSymex]].
  */
 class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
+                                 maxDepth        : Option[Int] = None,
                                  keepDerivations : Boolean = true)(
     implicit clause2ConstraintClause:     CC => ConstraintClause)
     extends ForwardSymex(clauses, keepDerivations) {
@@ -52,6 +54,11 @@ class DepthFirstForwardSymex[CC](clauses         : Iterable[CC],
   import FeasibilityCheckResult._
 
   printInfo("Starting depth-first forward symbolic execution (DFS)...\n")
+
+  // todo: support a depth bound
+  if (maxDepth.isDefined)
+    throw new SymexException(
+      "depth bounds are not supported in depth-first symbolic execution")
 
   // todo: support non-linear clauses
   for ((normClause, _) <- normClauses find (_._1.body.size > 1))

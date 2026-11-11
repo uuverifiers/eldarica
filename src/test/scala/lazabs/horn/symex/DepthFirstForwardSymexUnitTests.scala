@@ -352,6 +352,15 @@ class DepthFirstForwardSymexUnitTests
             new DepthFirstForwardSymex[Clause](clauses)
         }
       }
+      "Depth bounds are rejected" in {
+        scope {
+          val p0 = createRelation("p0", List(Sort.Integer))
+
+          val clauses : Seq[Clause] = List(p0(0) :- true)
+          the [SymexException] thrownBy
+            new DepthFirstForwardSymex[Clause](clauses, maxDepth = Some(1))
+        }
+      }
     }
   }
 }

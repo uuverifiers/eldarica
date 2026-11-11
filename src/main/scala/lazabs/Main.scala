@@ -572,7 +572,8 @@ object Main {
           " -log:n            Display progress based on verbosity level n (0 <= n <= 3)\n" +
           "                     1: Statistics only\n" +
           "                     2: Invariants included\n" +
-          "                     3: Includes counterexamples\n" +
+          "                     3: Includes counterexamples and symbolic\n" +
+          "                        execution steps\n" +
           " -statistics       Equivalent to -log:1; displays statistics only\n" +
           " -log              Equivalent to -log:2; displays progress and invariants\n" +
           " -t:time           Set timeout (in seconds)\n" +

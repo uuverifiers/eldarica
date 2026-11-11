@@ -53,8 +53,12 @@ class HornAPITests extends AnyFreeSpec {
   val SymExOpt = new HornAPI.SymexOptions {
     override val enableAssertions = true
   }
+  val SLDOpt = new HornAPI.SymexOptions {
+    override val enableAssertions = true
+    override val strategy         = HornAPI.SymexStrategy.SLD
+  }
 
-  val allOptions = List(CEGAROpt, SymExOpt)
+  val allOptions = List(CEGAROpt, SymExOpt, SLDOpt)
 
   "Bounded tests" - {
 

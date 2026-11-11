@@ -714,7 +714,7 @@ class ConstraintSimplifier(implicit symex_sf : SymexSymbolFactory) {
         symex_sf.reducer(Conjunction.TRUE)(constraint)
       else constraint
 
-    if (isQuantifierFreeConjunction(constraint)) {
+    if (isQuantifierFreeConjunction(reducedConstraint)) {
       /**
        * If the constraint is a quantifier-free conjunction, we can use the
        * [[ConjunctEliminator]] class for simplification.

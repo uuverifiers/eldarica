@@ -102,13 +102,17 @@ object HornAPI {
   object SymexStrategy {
     case object BreadthFirstForward extends SymexStrategy
     case object DepthFirstForward   extends SymexStrategy
+    case object SLD                 extends SymexStrategy
   }
 
   /**
    * Options for the symbolic execution engine.
    * If `maxDepth` is not `None`, execution will stop after the number of unit
-   * clauses for any predicate exceeds `depth`.
-   * Currently only `BreadthFirstForward` allows specifying `maxDepth`.
+   * clauses for any predicate exceeds `depth` (`BreadthFirstForward`), or
+   * after `depth` resolution steps of a goal (`SLD`). A search cut by the
+   * bound ends with a [[Symex.InconclusiveException]], whose candidate
+   * solution need not satisfy the clauses.
+   * `DepthFirstForward` does not support `maxDepth`.
    */
   class SymexOptions extends Options {
     val strategy : SymexStrategy = SymexStrategy.BreadthFirstForward
@@ -224,15 +228,29 @@ class HornAPI(options : HornAPI.Options = new HornAPI.CEGAROptions) {
         case SymexStrategy.BreadthFirstForward =>
           new BreadthFirstForwardSymex[HornClauses.Clause](newClauses, options.maxDepth)
         case SymexStrategy.DepthFirstForward   =>
-          new DepthFirstForwardSymex[HornClauses.Clause](newClauses)
+          new DepthFirstForwardSymex[HornClauses.Clause](newClauses,
+                                                         options.maxDepth)
+        case SymexStrategy.SLD                 =>
+          new SLDSymex[HornClauses.Clause](newClauses, options.maxDepth)
       }
       symex.printInfo = options.debuggingOutput
 
-      val result = symex.solve() match {
-        case Left(buildSolution) => Left(buildSolution())
-        case Right(buildCex)     => Right(buildCex())
+      val result = try {
+        symex.solve() match {
+          case Left(buildSolution) => Left(buildSolution())
+          case Right(buildCex)     => Right(buildCex())
+        }
+      } catch {
+        case e : Symex.InconclusiveException =>
+          // the candidate is built before the prover is shut down
+          val candidate =
+            for (buildCandidate <- e.candidateSolution)
+            yield backTranslator translate buildCandidate()
+          throw new Symex.InconclusiveException(
+            for (sol <- candidate) yield () => sol)
+      } finally {
+        symex.shutdown
       }
-      symex.shutdown
 
       result match {
         case Left(x) => Left(() => backTranslator translate x)

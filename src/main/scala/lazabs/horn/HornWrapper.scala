@@ -386,7 +386,7 @@ class HornWrapper(constraints  : Seq[HornClause],
     GlobalParameters.get.symexEngine match {
       case GlobalParameters.SymexEngine.DepthFirstForward   =>
         Some(new DepthFirstForwardSymex[Clause](
-               clauses, keepDerivations)) // todo: add depth
+               clauses, symexDepth, keepDerivations))
       case GlobalParameters.SymexEngine.BreadthFirstForward =>
         Some(new BreadthFirstForwardSymex[Clause](
                clauses, symexDepth, keepDerivations, choiceOrder))
