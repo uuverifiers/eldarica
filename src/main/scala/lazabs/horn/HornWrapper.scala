@@ -383,17 +383,20 @@ class HornWrapper(constraints  : Seq[HornClause],
     val keepDerivations =
       GlobalParameters.get.needFullCEX || GlobalParameters.get.simplifiedCEX
     val choiceOrder = GlobalParameters.get.symexChoiceOrder
+    val subsumption = GlobalParameters.get.symexSubsumption
     GlobalParameters.get.symexEngine match {
       case GlobalParameters.SymexEngine.DepthFirstForward   =>
         Some(new DepthFirstForwardSymex[Clause](
                clauses, symexDepth, keepDerivations))
       case GlobalParameters.SymexEngine.BreadthFirstForward =>
         Some(new BreadthFirstForwardSymex[Clause](
-               clauses, symexDepth, keepDerivations, choiceOrder))
+               clauses, symexDepth, keepDerivations, choiceOrder,
+               subsumption))
       case GlobalParameters.SymexEngine.SLD                 =>
         Some(new SLDSymex[Clause](clauses, symexDepth,
                                   GlobalParameters.get.sldAtomSelection,
-                                  keepDerivations, choiceOrder))
+                                  keepDerivations, choiceOrder,
+                                  subsumption))
       case GlobalParameters.SymexEngine.None                => None
     }
   }

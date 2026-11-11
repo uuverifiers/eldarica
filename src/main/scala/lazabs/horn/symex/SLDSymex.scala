@@ -34,7 +34,8 @@ import ap.terfor.{ConstantTerm, Term}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.terfor.substitutions.ConstantSubst
-import lazabs.GlobalParameters.{SLDAtomSelection, SymexChoiceOrder}
+import lazabs.GlobalParameters.{SLDAtomSelection, SymexChoiceOrder,
+                                 SymexSubsumption}
 import lazabs.horn.Util.{Dag, DagEmpty, DagNode}
 import lazabs.horn.bottomup.{HornClauses, NormClause, RelationSymbol}
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -53,6 +54,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
  * @param keepDerivations : Keep the derivations of the stored goals, which
  *                          are needed to build counterexamples.
  * @param choiceOrder   : See [[ResolutionChoiceQueue]].
+ * @param subsumption   : See [[SubsumptionChecker]].
  */
 class SLDSymex[CC](clauses         : Iterable[CC],
                    maxDepth        : Option[Int] = None,
@@ -60,7 +62,9 @@ class SLDSymex[CC](clauses         : Iterable[CC],
                      SLDAtomSelection.FewestCoveringAncestors,
                    keepDerivations : Boolean = true,
                    choiceOrder     : SymexChoiceOrder.Value =
-                     SymexChoiceOrder.Guided)(
+                     SymexChoiceOrder.Guided,
+                   subsumption     : SymexSubsumption.Value =
+                     SymexSubsumption.Union)(
     implicit clause2ConstraintClause : CC => ConstraintClause)
     extends Symex(clauses) {
 
@@ -117,6 +121,7 @@ class SLDSymex[CC](clauses         : Iterable[CC],
     new ResolutionChoiceQueue[ResolutionChoice](choiceOrder)
   private val goalClauseDB       = new GoalClauseDB(keepDerivations)
   private val subsumptionChecker = new SubsumptionChecker[GoalClause](
+    subsumption,
     GoalSubsumption.subsumptionTestFor(_, normalizer),
     new UnionSubsumption(GoalSubsumption.singleAtomConstraint,
                          feasibilityChecker.check))

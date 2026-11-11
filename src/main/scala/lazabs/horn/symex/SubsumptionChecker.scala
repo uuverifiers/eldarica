@@ -28,15 +28,19 @@
  */
 package lazabs.horn.symex
 
+import lazabs.GlobalParameters.SymexSubsumption
+
 /**
  * Forward subsumption of a new clause by the stored clauses with its key
  * (passed oldest first), scanning only a window of them: the newest and
  * the oldest ones. `subsumptionTestFor(clause)` tests whether a stored
  * clause subsumes clause; for a clause with a single atom,
  * `unionSubsumption` tests this instead and also whether several stored
- * clauses do together.
+ * clauses do together. Under `subsumption` None no clause is subsumed,
+ * under Pairwise `unionSubsumption` is not used.
  */
-class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean,
+class SubsumptionChecker[C](subsumption        : SymexSubsumption.Value,
+                            subsumptionTestFor : C => C => Boolean,
                             unionSubsumption   : UnionSubsumption[C]) {
 
   private val newestToCheck = 32 // use this many clauses that were last derived
@@ -65,7 +69,9 @@ class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean,
     "\n" + unionSubsumption.stats
 
   def isSubsumed(clause : C, stored : IndexedSeq[C]) : Boolean =
-    if (!collectStats)
+    if (subsumption == SymexSubsumption.None)
+      false
+    else if (!collectStats)
       isSubsumedImpl(clause, stored)
     else {
       val start = System.nanoTime
@@ -89,7 +95,8 @@ class SubsumptionChecker[C](subsumptionTestFor : C => C => Boolean,
       storedClause
     }
     val subsumed =
-      if (unionSubsumption appliesTo clause)
+      if (subsumption == SymexSubsumption.Union &&
+          (unionSubsumption appliesTo clause))
         unionSubsumption.isSubsumed(clause, countedCandidates)
       else
         countedCandidates exists subsumptionTestFor(clause)

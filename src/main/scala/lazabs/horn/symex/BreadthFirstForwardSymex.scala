@@ -31,7 +31,7 @@ package lazabs.horn.symex
 import ap.util.Combinatorics
 import ap.parser.IAtom
 import ap.terfor.preds.Predicate
-import lazabs.GlobalParameters.SymexChoiceOrder
+import lazabs.GlobalParameters.{SymexChoiceOrder, SymexSubsumption}
 import lazabs.horn.Util.Dag
 import lazabs.horn.bottomup.HornClauses
 import lazabs.horn.bottomup.HornClauses.ConstraintClause
@@ -48,12 +48,15 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
  *                   BMC), and a search cut by the bound ends inconclusive.
  * @param keepDerivations : See [[ForwardSymex]].
  * @param choiceOrder : See [[ResolutionChoiceQueue]].
+ * @param subsumption : See [[SubsumptionChecker]].
  */
 class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
                                    maxDepth        : Option[Int] = None,
                                    keepDerivations : Boolean = true,
                                    choiceOrder     : SymexChoiceOrder.Value =
-                                     SymexChoiceOrder.Guided)(
+                                     SymexChoiceOrder.Guided,
+                                   subsumption     : SymexSubsumption.Value =
+                                     SymexSubsumption.Union)(
     implicit clause2ConstraintClause:       CC => ConstraintClause)
     extends ForwardSymex(clauses, keepDerivations) {
 
@@ -71,6 +74,7 @@ class BreadthFirstForwardSymex[CC](clauses         : Iterable[CC],
       choiceOrder)
 
   private val subsumptionChecker = new SubsumptionChecker[UnitClause](
+    subsumption,
     subsumptionTestFor,
     new UnionSubsumption(singleAtomConstraint, feasibilityChecker.check))
 

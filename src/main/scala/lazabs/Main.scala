@@ -63,6 +63,10 @@ object GlobalParameters {
     val Guided, FirstInFirstOut = Value
   }
 
+  object SymexSubsumption extends Enumeration {
+    val None, Pairwise, Union = Value
+  }
+
   object SymexEngine extends Enumeration {
     val BreadthFirstForward, DepthFirstForward, SLD, None = Value
   }
@@ -107,6 +111,7 @@ class GlobalParameters extends Cloneable {
   var symexEngine = GlobalParameters.SymexEngine.None
   var symexMaxDepth : Option[Int] = None
   var symexChoiceOrder = GlobalParameters.SymexChoiceOrder.Guided
+  var symexSubsumption = GlobalParameters.SymexSubsumption.Union
   var sldAtomSelection =
     GlobalParameters.SLDAtomSelection.FewestCoveringAncestors
   var global = false
@@ -214,6 +219,7 @@ class GlobalParameters extends Cloneable {
     that.symexEngine = this.symexEngine
     that.symexMaxDepth = this.symexMaxDepth
     that.symexChoiceOrder = this.symexChoiceOrder
+    that.symexSubsumption = this.symexSubsumption
     that.sldAtomSelection = this.sldAtomSelection
     that.disjunctive = this.disjunctive
     that.splitClauses = this.splitClauses
@@ -383,6 +389,16 @@ object Main {
             case _ =>
               println("Unknown argument for -symChoiceOrder:, using guided.")
               GlobalParameters.SymexChoiceOrder.Guided
+          }
+          arguments(rest)
+      case opt :: rest if (opt startsWith "-symSubsumption:") =>
+          symexSubsumption = opt.drop("-symSubsumption:".length) match {
+            case "none"     => GlobalParameters.SymexSubsumption.None
+            case "pairwise" => GlobalParameters.SymexSubsumption.Pairwise
+            case "union"    => GlobalParameters.SymexSubsumption.Union
+            case _ =>
+              println("Unknown argument for -symSubsumption:, using union.")
+              GlobalParameters.SymexSubsumption.Union
           }
           arguments(rest)
       case opt :: rest if (opt startsWith "-sldAtomSelect:") =>
@@ -617,6 +633,12 @@ object Main {
           "                   symbolic execution (bfs and sld)\n" +
           "                     {guided: cheapest first by estimated cost (default),\n" +
           "                      fifo: first in, first out}\n" +
+          " -symSubsumption:x Clauses dropped as subsumed by stored ones in\n" +
+          "                   symbolic execution (bfs and sld)\n" +
+          "                     {none: only those equal to a stored one,\n" +
+          "                      pairwise: also those subsumed by one,\n" +
+          "                      union: also single-atom ones subsumed by\n" +
+          "                      several together (default)}\n" +
           " -sldAtomSelect:x  Atom resolved next in a goal by -sym:sld\n" +
           "                     {ancestors: fewest ancestors with the same\n" +
           "                      predicate, then newest (default),\n" +
