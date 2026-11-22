@@ -57,27 +57,6 @@ object BooleanClauseSplitter {
 
 }
 
-object PresburgerTools2 {
-  import PresburgerTools._
-
-  /**
-   * Turn a formula into DNF, assuming that the constants
-   * <code>eliminatedConsts</code> are implicitly existentially quantified and
-   * can be eliminated or renamed arbitrarily.
-   */
-  def toDNFQE(formula          : Conjunction,
-              eliminatedConsts : Seq[ConstantTerm]) : Conjunction = {
-    val order = formula.order
-    if (isQFPresburger(formula)) {
-      val f = Conjunction.quantify(Quantifier.EX, eliminatedConsts, formula, order)
-      ap.proof.ConstraintSimplifier.LEMMA_SIMPLIFIER(f, order)
-    } else {
-      formula
-    }
-  }
-
-}
-
 /**
  * Elimination of remaining Boolean structure in clauses.
  */
@@ -107,8 +86,6 @@ class BooleanClauseSplitter extends HornPreprocessor {
               frozenPredicates : Set[Predicate])
              : (Clauses, VerificationHints, BackTranslator) = {
 
-    ap.util.Timer.reset
-
     val newClauses = SimpleAPI.withProver { p =>
       for (clause <- clauses;
            newClause <- cleverSplit(clause)(p)
@@ -118,8 +95,6 @@ class BooleanClauseSplitter extends HornPreprocessor {
         newClause
       }
     }
-
-    println(ap.util.Timer)
 
     val translator =
       ClauseShortener.BTranslator.withIndexes(tempPredicates.toSet,
@@ -133,6 +108,11 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Split constraint by applying a quantifier-elimination procedure: try
+   * eliminate all constants that occur only in the constraint and not in 
+   * head or body atoms.
+   */
   private def qeSplit(clause : Clause)
                      (implicit p : SimpleAPI) : Seq[Clause] =
     if (needsSplittingPos(clause.constraint)) {
@@ -145,28 +125,29 @@ class BooleanClauseSplitter extends HornPreprocessor {
         val atomConsts = SymbolCollector.constants(headAtom & and(body))
         val elimConsts = allConsts.filterNot(atomConsts)
 
-        println(s"Constants only in constraint: $elimConsts")
-
-/*
+        /*
+        The model-based DNF converter is currently too slow to be used here
+        
         println("mbDNF:")
-        val mbDisjuncts =
-          ap.util.Timer.measure("mbQEDNF") {DNFConverter2.mbQEDNF(constraint, elimConsts)}
+        val mbDisjuncts = DNFConverter.mbDNF(constraint, elimConsts)
         println(s"disjuncts: ${mbDisjuncts.size}")
         for (d <- mbDisjuncts)
           println(d)
-*/
+        */
 
         addConstantsRaw(allConsts)
         val constraintConj = asConjunction(constraint)
 
-        val dnf = ap.util.Timer.measure("toDNFQE") { PresburgerTools2.toDNFQE(constraintConj, elimConsts) }
+        val dnf = PresburgerTools.toDNF(constraintConj, elimConsts)
 //        println(s"DNF: $dnf")
 
-        val res = (for (d <- PresburgerTools.enumDisjuncts(dnf)) yield {
-//           println(d)
-           Clause(headAtom, body, asIFormula(d))
-         }).toIndexedSeq
-        println("Disjuncts: " + res.size)
+        val res = 
+          (for (d <- PresburgerTools.enumDisjuncts(dnf)) yield {
+            Clause(headAtom, body, asIFormula(d))
+           }).toIndexedSeq
+        
+        // println("Disjuncts: " + res.size)
+
         res
       }
 
@@ -260,12 +241,13 @@ class BooleanClauseSplitter extends HornPreprocessor {
       }
   }
 
+  /**
+   * Transform the clause constraint to DNF, and create a separate
+   * clause for each disjunct.
+   */
   private def fullDNF(clause : Clause, addBackMapping : Boolean = true)
                      (implicit p : SimpleAPI) : Seq[Clause] = {
     val Clause(headAtom, body, constraint) = clause
-
-    // transform the clause constraint to DNF, and create a separate
-    // clause for each disjunct
 
     val newClauses =
         if (ContainsSymbol isPresburger constraint) p.scope {
@@ -312,6 +294,10 @@ class BooleanClauseSplitter extends HornPreprocessor {
 
   private val globalStartTime = System.currentTimeMillis
 
+  /**
+   * Split constraint by first applying <code>qeSplit</code>; if the method
+   * times out, use the <code>splitWithIntPred</code> method instead.
+   */
   private def cleverSplit(clause : Clause)
                          (implicit p : SimpleAPI) : Seq[Clause] =
     if (needsSplittingPos(clause.constraint)) {
@@ -325,9 +311,8 @@ class BooleanClauseSplitter extends HornPreprocessor {
           Timeout.raise
       }
 
-      println(s"${clause.head} :- ${clause.body}")
-      println(SizeVisitor(clause.constraint))
-  //    println(clause.constraint)
+  //    println(s"${clause.head} :- ${clause.body}")
+  //    println(SizeVisitor(clause.constraint))
 
       if (SizeVisitor(clause.constraint) < 1000)
         return List(clause)

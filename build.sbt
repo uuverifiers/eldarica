@@ -187,10 +187,10 @@ lazy val root = (project in file(".")).
     libraryDependencies +=
       "org.scalatest" %% "scalatest" % "3.2.14" % "test",
 //
-    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2026-05-20",
+//    libraryDependencies += "io.github.uuverifiers" %% "princess" % "2026-05-20",
 //
-//    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
-//    libraryDependencies += "uuverifiers" %% "princess" % "2026-04-22",
+    resolvers += "uuverifiers" at "https://eldarica.org/maven/",
+    libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
 //
     nativeImageInstalled := true,
     // point to your GraalVM (recommended via env var)
