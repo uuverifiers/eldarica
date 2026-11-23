@@ -204,6 +204,18 @@ object PartialConstraintEvaluator {
               stdClausify(p ==> newF)
             p
           }
+          case IFormulaITE(cond, f1, f2) => {
+            val newCond = recClausify(cond, true)
+            val newF1   = recClausify(f1, dual)
+            val newF2   = recClausify(f2, dual)
+            val newF    = IFormulaITE(newCond, newF1, newF2)
+            val p       = freshBooleanVar()
+            if (dual)
+              stdClausify(p <=> newF)
+            else
+              stdClausify(p ==> newF)
+            p
+          }
           case f =>
             f
         }
@@ -226,7 +238,6 @@ object PartialConstraintEvaluator {
     def stdClausify(f : IFormula) : Unit = {
       def cl(f : IFormula) : Seq[ConstrClause] =
         f match {
-          // add ITE
           case IBinFormula(IBinJunctor.And, f1, f2) =>
             cl(f1) ++ cl(f2)
           case IBinFormula(IBinJunctor.Or, f1, f2) => {
@@ -236,6 +247,8 @@ object PartialConstraintEvaluator {
           }
           case IBinFormula(IBinJunctor.Eqv, f1, f2) =>
             cl(Transform2NNF(~f1) | f2) ++ cl(f1 | Transform2NNF(~f2))
+          case IFormulaITE(cond, f1, f2) =>
+            cl((cond ==> f1) & (Transform2NNF(~cond) ==> f2))
           case f =>
             List(ConstrClause(List(f)))
         }

@@ -232,6 +232,29 @@ object HornReader {
         t update subres
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  object ContainsEpsilonVisitor
+         extends CollectingVisitor[Unit, Unit] {
+    private object FoundEpsilon extends Exception
+
+    def apply(f : IExpression) : Boolean =
+      try {
+        visitWithoutResult(f, ())
+        false
+      } catch {
+        case FoundEpsilon => true
+      }
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      t match {
+        case _ : IEpsilon => throw FoundEpsilon
+        case _ => KeepArg
+      }
+   
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -243,7 +266,8 @@ class SMTHornReader protected[parser] (
          p : SimpleAPI) {
 
   import IExpression._
-  import HornReader.{cnf_if_needed, QuantifiedBodyPredsVisitor, DivZeroEliminator}
+  import HornReader.{cnf_if_needed, QuantifiedBodyPredsVisitor,
+                     DivZeroEliminator, ContainsEpsilonVisitor}
 
   private val outStream =
      if (lazabs.GlobalParameters.get.logStat)
@@ -454,7 +478,14 @@ class SMTHornReader protected[parser] (
                           Param.TriggerStrategyOptions.AllMaximal))
         processedClause_aux
       } else {
-        PartialEvaluator(clause)
+        val c = PartialEvaluator(clause)
+        if (ContainsEpsilonVisitor(c))
+          // We cannot handle epsilons natively at this point, so we have to
+          // eliminate them first. As a side effect, this also gets rid of all
+          // equivalences in the formulas.
+          EquivExpander(c)
+        else
+          c
       }
 
     // transformation to prenex normal form
